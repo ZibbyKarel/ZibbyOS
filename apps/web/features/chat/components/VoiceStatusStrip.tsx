@@ -35,7 +35,7 @@ export function VoiceStatusStrip({
         pulse={listening || transcribing}
         tone={listening || transcribing ? "accent" : "wait"}
       />
-      <Typography mono size="xs" tone="accent" tracking="widest" type="note">
+      <Typography mono size="xs" tone="accent" type="note">
         {transcribing
           ? t("voice.transcribing")
           : listening

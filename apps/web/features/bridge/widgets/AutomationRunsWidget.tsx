@@ -4,6 +4,7 @@ import type { AutomationView } from "@zibby/contracts";
 import {
   BoardSection,
   Icon,
+  Stack,
   type StateTone,
   StatusRailItem,
   TimelineAxis,
@@ -38,15 +39,18 @@ function AutomationTitle({ rowKey, automation }: { rowKey: string; automation: A
   const label = t(automation.system ? "system" : "user");
   return (
     <>
-      <span
+      {/* Inline: `Icon` is a block, so a plain span would wrap the title onto a second line. */}
+      <Stack
+        inline
         aria-label={label}
+        as="span"
         data-kind={automation.system ? "system" : "user"}
         data-testid={`${AutomationRunsWidgetTestId.Kind}-${rowKey}`}
         role="img"
         title={label}
       >
         <Icon name={automation.system ? "shield" : "user"} size="xs" tone="faint" />
-      </span>{" "}
+      </Stack>{" "}
       {automation.name ?? automation.id}
     </>
   );

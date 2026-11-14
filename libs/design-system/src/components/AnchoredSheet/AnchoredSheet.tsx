@@ -73,6 +73,11 @@ export interface AnchoredSheetProps {
    * its buttons here so they sit in the same place whatever the body shows. Wraps as one group.
    */
   actions?: ReactNode;
+  /**
+   * Secondary actions (a ⋯ menu, …) that sit right after `actions` in the header. On a `page` they
+   * stay in the header while `actions` alone move to the bottom bar.
+   */
+  moreActions?: ReactNode;
   /** Free-form meta in the state row (e.g. `head → base` with copy buttons and a diffstat). */
   meta?: ReactNode;
   /** Meta chips under the state row. */
@@ -122,7 +127,7 @@ export interface AnchoredSheetProps {
   ref?: Ref<HTMLDivElement>;
   /**
    * `page`: a full-screen page (phone) — geometry props are ignored, no dimming overlay, a back
-   * button replaces ✕, `actions` move to a pinned bottom bar, stepping and expand are dropped, body
+   * button replaces ✕, `actions` move to a pinned bottom bar (`moreActions` stay in the header), stepping and expand are dropped, body
    * scroll is locked and focus is trapped. Defaults to the nearest `SheetPresentationContext`.
    */
   presentation?: SheetPresentation;
@@ -220,6 +225,7 @@ export function AnchoredSheet({
   onTitleClick,
   titleHref,
   actions,
+  moreActions,
   meta,
   chips = [],
   trail,
@@ -478,12 +484,13 @@ export function AnchoredSheet({
                 title
               )}
             </div>
-            {actions && !page ? (
+            {(page ? moreActions : actions || moreActions) ? (
               <div
                 className="flex flex-none flex-wrap items-center gap-[6px] font-sans text-[12px]"
                 data-testid={AnchoredSheetTestId.Actions}
               >
-                {actions}
+                {page ? null : actions}
+                {moreActions}
               </div>
             ) : null}
           </div>

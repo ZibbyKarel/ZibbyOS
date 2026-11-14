@@ -7,6 +7,7 @@ import {
   MarkdownTestId,
   MenuButtonTestId,
   MetricStripTestId,
+  SheetPresentationContext,
   StackCrumbsTestId,
   StatCellTestId,
   TabsTestId,
@@ -428,6 +429,24 @@ describe("PrSheet content", () => {
     expect(screen.getByTestId(AnchoredSheetTestId.FooterNote)).toHaveTextContent(
       "Zavření PR selhalo: nope",
     );
+  });
+
+  it("on a phone the ⋯ menu stays in the header, out of the bottom bar", () => {
+    const mine = pr(55, {});
+    hooks.prs = [mine];
+    renderWithProviders(
+      <SheetPresentationContext value="page">
+        <PrSheet anchor={anchor} id={mine.url} onClose={() => {}} />
+      </SheetPresentationContext>,
+    );
+    expect(
+      within(screen.getByTestId(AnchoredSheetTestId.Actions)).getByTestId(MenuButtonTestId.Trigger),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId(AnchoredSheetTestId.ActionBar)).queryByTestId(
+        MenuButtonTestId.Trigger,
+      ),
+    ).toBeNull();
   });
 
   it("has no ⋯ menu on someone else's PR", () => {

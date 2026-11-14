@@ -38,6 +38,8 @@ export interface RunDetailActionsProps {
   /** Opens the "hand over task" dialog — offered in the ··· menu once the run is not live. */
   onHandover?: () => void;
   pending: boolean;
+  /** `primary`: only the mode buttons; `more`: only the ⋯ menu. Default both. */
+  part?: "all" | "primary" | "more";
 }
 
 type ActionId =
@@ -74,6 +76,7 @@ export function RunDetailActions({
   onOpenFolder,
   onHandover,
   pending,
+  part = "all",
 }: RunDetailActionsProps) {
   const t = useTranslations("runs");
   const tk = useTranslations();
@@ -202,7 +205,7 @@ export function RunDetailActions({
 
   return (
     <Stack align="center" data-testid={RunDetailActionsTestId.Root} direction="row" gap="75">
-      {actions.map((a) => (
+      {(part === "more" ? [] : actions).map((a) => (
         <Button
           data-testid={`${RunDetailActionsTestId.Action}-${a.id}`}
           disabled={a.disabled || pending}
@@ -213,9 +216,11 @@ export function RunDetailActions({
           {t(`detail.action.${a.id}`)}
         </Button>
       ))}
-      <Container as="span" data-testid={RunDetailActionsTestId.More}>
-        <MenuButton ariaLabel={t("actionsMenuLabel")} items={moreItems} variant="bordered" />
-      </Container>
+      {part === "primary" ? null : (
+        <Container as="span" data-testid={RunDetailActionsTestId.More}>
+          <MenuButton ariaLabel={t("actionsMenuLabel")} items={moreItems} variant="bordered" />
+        </Container>
+      )}
 
       {confirm === "stop" && (
         <ConfirmDeleteDialog

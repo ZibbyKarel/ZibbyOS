@@ -216,9 +216,7 @@ export function IssueRow({
             </Row>
 
             <Row wrap gap="100">
-              <Tag uppercase tone="neutral">
-                {sourceName}
-              </Tag>
+              <Tag tone="neutral">{sourceName}</Tag>
               {item.sourceStatus && (
                 <Row gap="50">
                   <Typography type="label">{t("row.source")}</Typography>
@@ -235,7 +233,6 @@ export function IssueRow({
               )}
               {differsFromSource(item) && (
                 <Tag
-                  uppercase
                   data-testid={IssueRowTestId.Differs}
                   title={t("row.differsHint")}
                   tone="blocked"
@@ -243,16 +240,10 @@ export function IssueRow({
                   {t("row.differs")}
                 </Tag>
               )}
-              <Tag uppercase tone="neutral">
-                {item.project.name}
-              </Tag>
-              {teamName && (
-                <Tag uppercase tone="neutral">
-                  {teamName}
-                </Tag>
-              )}
+              <Tag tone="neutral">{item.project.name}</Tag>
+              {teamName && <Tag tone="neutral">{teamName}</Tag>}
               {item.hidden && (
-                <Tag uppercase data-testid={IssueRowTestId.Hidden} tone="neutral">
+                <Tag data-testid={IssueRowTestId.Hidden} tone="neutral">
                   {t("row.hidden")}
                 </Tag>
               )}
@@ -270,7 +261,7 @@ export function IssueRow({
                   href={prRef.url}
                   linkComponent={ExternalAnchor}
                 >
-                  <Tag uppercase tone={pr ? PR_BLOCKER_TONE[pr.blocker] : "neutral"}>
+                  <Tag tone={pr ? PR_BLOCKER_TONE[pr.blocker] : "neutral"}>
                     {pr && <StatusDot tone={PR_BLOCKER_TONE[pr.blocker]} />}
                     {[
                       `#${prRef.number}`,

@@ -74,14 +74,10 @@ export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
         </Stack>
 
         <Stack direction="row" gap="100">
-          <Tag uppercase tone="neutral">{`Maker · ${goal.maker.id}`}</Tag>
-          <Tag uppercase tone="neutral">{`Verifier · ${goal.verifier.kind}`}</Tag>
+          <Tag tone="neutral">{`Maker · ${goal.maker.id}`}</Tag>
+          <Tag tone="neutral">{`Verifier · ${goal.verifier.kind}`}</Tag>
           {project && (
-            <Tag
-              uppercase
-              onClick={() => router.push(`/projects/${project.id}` as Route)}
-              tone="neutral"
-            >
+            <Tag onClick={() => router.push(`/projects/${project.id}` as Route)} tone="neutral">
               {project.name}
             </Tag>
           )}

@@ -687,7 +687,7 @@
     "autonomyReply": "Odpověď (Comms)",
     "deleteTitle": "Smazat integraci?",
     "deleteBody": "Opravdu smazat integraci {name}? Uložené přihlašovací údaje se smažou také. Tuto akci nelze vrátit.",
-    "tokenNoExpiry": "NO EXPIRATION DATE",
+    "tokenNoExpiry": "Bez data expirace",
     "tokenExpiresIn": "vyprší za {days, plural, one {# den} few {# dny} other {# dní}}",
     "tokenExpired": "token vypršel"
   },
@@ -3965,7 +3965,7 @@
     "overridesHint": "Tým dědí nastavení od své firmy. Přepínač nastavený stejně jako firma se řídí firmou.",
     "approvalNotificationTitle": "ZIBBY čeká na tvé schválení",
     "modeApprove": "Schvalovat",
-    "modeAutopilot": "AUTOPILOT",
+    "modeAutopilot": "Autopilot",
     "modeLabel": "Režim autopilota",
     "save": "Uložit",
     "helpLabel": "Co přepínače dělají",

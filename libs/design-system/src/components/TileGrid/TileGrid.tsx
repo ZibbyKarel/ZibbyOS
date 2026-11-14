@@ -13,11 +13,11 @@ export interface TileGridProps {
   children?: ReactNode;
 }
 
-/** Tile grid species: as many ~160px columns as fit. */
+/** Tile grid species: as many ~140px columns as fit. */
 export function TileGrid({ children }: TileGridProps) {
   return (
     <div
-      className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-[8px] py-[4px]"
+      className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-[8px] px-[6px] pb-[10px] pt-[4px]"
       data-testid={TileGridTestId.Root}
     >
       {children}

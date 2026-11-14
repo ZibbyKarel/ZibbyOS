@@ -13,9 +13,9 @@ export interface MemoryGraphProps {
 
 /** Tone per tier (data-viz colours; the app's only non-DS surface is this canvas). */
 const TIER_FILL: Record<Graph["nodes"][number]["tier"], string> = {
-  memory: "var(--color-accent, #6ea8fe)",
-  daily: "var(--color-ok, #4ade80)",
-  knowledge: "var(--color-warn, #fbbf24)",
+  memory: "var(--color-accent)",
+  daily: "var(--color-ok)",
+  knowledge: "var(--color-warn)",
 };
 
 const WIDTH = 560;
@@ -72,7 +72,7 @@ export function MemoryGraph({
         return (
           <line
             key={`${e.from}-${e.to}-${i}`}
-            stroke="var(--color-border, #ffffff22)"
+            stroke="var(--color-border)"
             strokeWidth={1}
             x1={a.x}
             x2={b.x}
@@ -102,11 +102,11 @@ export function MemoryGraph({
               cy={p.y}
               fill={TIER_FILL[n.tier]}
               r={selected ? 10 : 6}
-              stroke={selected ? "var(--color-text, #fff)" : "transparent"}
+              stroke={selected ? "var(--color-text)" : "transparent"}
               strokeWidth={2}
             />
             <text
-              fill="var(--color-text-secondary, #cbd5e1)"
+              fill="var(--color-text-secondary)"
               fontSize={11}
               textAnchor="middle"
               x={p.x}

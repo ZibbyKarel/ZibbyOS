@@ -414,20 +414,6 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
           <ChatAboutButton about={about} />
           <PrReviewButton pr={pr} />
           <PrActionButtons hideFixCi baseLabel={base} pr={pr} />
-          {mine ? (
-            <MenuButton
-              ariaLabel={t("bridge.sheet.pr.moreActions")}
-              items={[
-                {
-                  id: "close",
-                  label: t("bridge.sheet.pr.closePr"),
-                  icon: "x",
-                  danger: true,
-                  onSelect: () => setConfirmClose(true),
-                },
-              ]}
-            />
-          ) : null}
         </>
       }
       banner={
@@ -484,6 +470,22 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
             </Row>
           ) : null}
         </>
+      }
+      moreActions={
+        mine ? (
+          <MenuButton
+            ariaLabel={t("bridge.sheet.pr.moreActions")}
+            items={[
+              {
+                id: "close",
+                label: t("bridge.sheet.pr.closePr"),
+                icon: "x",
+                danger: true,
+                onSelect: () => setConfirmClose(true),
+              },
+            ]}
+          />
+        ) : undefined
       }
       onClose={onClose}
       onToggleExpand={() => setExpanded(!expanded)}

@@ -49,6 +49,7 @@ export enum FileDiffViewTestId {
   FileListDir = "file-diff-view-file-list-dir",
   /** Suffixed `-${index}` (index into the diff's file order). */
   FileListItem = "file-diff-view-file-list-item",
+  FileBack = "file-diff-view-file-back",
   FileListToggle = "file-diff-view-file-list-toggle",
   FileListStrip = "file-diff-view-file-list-strip",
   FileListResizer = "file-diff-view-file-list-resizer",
@@ -65,6 +66,13 @@ export interface FileDiffViewProps {
   noHunksLabel?: string;
   /** Show a collapsible changed-files rail left of the diff; click scrolls to the file. */
   fileList?: boolean;
+  /**
+   * Phone layout: a full-width list of the changed files; picking one shows only that file (unified)
+   * under a back button. Replaces the side rail. One file → straight to it.
+   */
+  oneAtATime?: boolean;
+  /** Back button text in `oneAtATime` mode. */
+  backLabel?: string;
   filesLabel?: string;
   collapseLabel?: string;
   expandLabel?: string;
@@ -232,6 +240,8 @@ export function FileDiffView({
   emptyLabel = "No changes.",
   noHunksLabel = "No textual changes (binary file or rename).",
   fileList = false,
+  oneAtATime = false,
+  backLabel = "Files",
   filesLabel = "Files changed",
   collapseLabel = "Collapse file list",
   expandLabel = "Expand file list",
@@ -264,6 +274,7 @@ export function FileDiffView({
   const [width, setWidth] = useState(25);
   const [filter, setFilter] = useState("");
   const [viewType, setViewType] = useState<FileDiffViewType>("unified");
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [shownGenerated, setShownGenerated] = useState<Record<string, boolean>>({});
   const grid = useRef<HTMLDivElement | null>(null);
@@ -368,6 +379,7 @@ export function FileDiffView({
         </div>
       )}
       {files.map((file, i) => {
+        if (oneAtATime && (files.length > 1 ? openIdx : 0) !== i) return null;
         const path = filePath(file);
         const isViewed = Boolean(viewed?.[path]);
         const isClosed = closed[path] ?? isViewed;
@@ -439,7 +451,8 @@ export function FileDiffView({
       })}
     </Stack>
   );
-  if (!fileList) return sectionsView;
+  if (!fileList && !oneAtATime) return sectionsView;
+  if (oneAtATime && files.length === 1) return sectionsView;
 
   const toggle = (
     <button
@@ -482,7 +495,9 @@ export function FileDiffView({
           )}
           data-testid={`${FileDiffViewTestId.FileListItem}-${i}`}
           onClick={() =>
-            sections.current[i]?.scrollIntoView({ block: "start", behavior: "smooth" })
+            oneAtATime
+              ? setOpenIdx(i)
+              : sections.current[i]?.scrollIntoView({ block: "start", behavior: "smooth" })
           }
           title={fileLabel(file.oldPath, file.newPath)}
           type="button"
@@ -503,6 +518,40 @@ export function FileDiffView({
       </Fragment>
     );
   });
+
+  if (oneAtATime)
+    return openIdx === null ? (
+      <nav
+        aria-label={filesLabel}
+        className="flex flex-col gap-[2px] font-sans text-[13px]"
+        data-testid={FileDiffViewTestId.FileList}
+      >
+        {notice && (
+          <div
+            className="mb-[6px] rounded border border-dashed border-line-2 px-[12px] py-[9px] text-[12.5px] text-ink-2"
+            data-testid={FileDiffViewTestId.Notice}
+          >
+            {notice}
+          </div>
+        )}
+        {railItems}
+      </nav>
+    ) : (
+      <Stack gap="150">
+        <button
+          className={cn(
+            "inline-flex w-fit cursor-pointer items-center gap-[6px] bg-transparent py-[4px] font-sans text-[13px] text-ink-2 hover:text-ink",
+            focusRingInset,
+          )}
+          data-testid={FileDiffViewTestId.FileBack}
+          onClick={() => setOpenIdx(null)}
+          type="button"
+        >
+          ‹ {backLabel}
+        </button>
+        {sectionsView}
+      </Stack>
+    );
 
   return (
     <div

@@ -37,7 +37,7 @@ export function EmptyState({
             </Button>
           )}
           {hint && (
-            <Typography mono size="sm" tracking="wider" type="note" variant="tertiary">
+            <Typography mono size="sm" type="note" variant="tertiary">
               {hint}
             </Typography>
           )}

@@ -149,7 +149,7 @@ export function NewTaskDialog({
     <Stack align="center" direction="row" gap="150">
       <IconTile glyph="plus" size="md" />
       <Container grow minW0>
-        <Typography mono size="md" tracking="wide" type="note" weight="bold">
+        <Typography mono size="md" type="note" weight="bold">
           {t("dialogTitle")}
         </Typography>
         <Typography size="sm" type="note" variant="secondary">

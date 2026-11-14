@@ -171,7 +171,7 @@ function SkillsSection() {
       render: (r) => (
         <Stack align="center" direction="row" gap="75">
           <span>{r.name}</span>
-          {r.zibbyManaged && <Tag tone="accent">ZIBBY</Tag>}
+          {r.zibbyManaged && <Tag tone="neutral">ZIBBY</Tag>}
         </Stack>
       ),
     },

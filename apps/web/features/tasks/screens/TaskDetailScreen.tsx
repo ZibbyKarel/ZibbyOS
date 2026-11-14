@@ -158,7 +158,7 @@ export function TaskDetailScreen({ taskId }: TaskDetailScreenProps) {
                         )}
                       </Stack>
 
-                      <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+                      <Typography mono size="2xs" type="note" variant="tertiary">
                         {t("detail.roster")}
                       </Typography>
                       {rosterQuery.data && rosterQuery.data.agents.length > 0 ? (
@@ -204,7 +204,7 @@ export function TaskDetailScreen({ taskId }: TaskDetailScreenProps) {
             </Stack>
           )}
 
-          <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+          <Typography mono size="2xs" type="note" variant="tertiary">
             {t("detail.created", { time: compactAgo(task.createdAt, now) })}
           </Typography>
 

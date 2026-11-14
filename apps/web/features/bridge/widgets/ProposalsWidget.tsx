@@ -121,9 +121,7 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
     return (
       <BoardRow shape="list" tone="neutral">
         <span data-testid={ProposalsWidgetTestId.Empty}>
-          <BoardText kind="meta" tone="ink3">
-            {t("empty")}
-          </BoardText>
+          <BoardText kind="rowMeta">{t("empty")}</BoardText>
         </span>
       </BoardRow>
     );

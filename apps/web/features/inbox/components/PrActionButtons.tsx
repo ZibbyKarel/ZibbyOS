@@ -314,9 +314,7 @@ export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionBu
               href={taskHref(failed.taskId)}
               linkComponent={NavLink}
             >
-              <Tag uppercase tone="bad">
-                {runLabel(failed)} →
-              </Tag>
+              <Tag tone="bad">{runLabel(failed)} →</Tag>
               {failed.auto && autoMarker}
             </TextLink>
           )}

@@ -184,13 +184,11 @@ export function PrDetail({ pr, all, projectName, now, item, onSelect }: PrDetail
                 <PrReviewButton pr={pr} />
               </Row>
               <Row wrap gap="75">
-                <Tag uppercase data-testid={PrDetailTestId.StateChip}>
-                  {stateLabel(pr)}
-                </Tag>
-                <Tag uppercase data-testid={PrDetailTestId.CiChip} tone="neutral">
+                <Tag data-testid={PrDetailTestId.StateChip}>{stateLabel(pr)}</Tag>
+                <Tag data-testid={PrDetailTestId.CiChip} tone="neutral">
                   {t("ci", { symbol: CI_SYMBOL[pr.ci], state: tPage(`ci.${pr.ci}`) })}
                 </Tag>
-                <Tag uppercase data-testid={PrDetailTestId.ReviewChip} tone="neutral">
+                <Tag data-testid={PrDetailTestId.ReviewChip} tone="neutral">
                   {t("reviewChip", { review: tPage(`review.${pr.review}`) })}
                 </Tag>
                 {item && (

@@ -84,7 +84,7 @@ export function ActivityInboxScreen() {
       render: (row) => (
         <Stack wrap direction="row" gap="75">
           <Tag tone={STATE_TONE[row.state]}>{t(`inbox.state.${row.state}`)}</Tag>
-          {row.taskId && <Tag tone="accent">{t("inbox.dispatched")}</Tag>}
+          {row.taskId && <Tag tone="neutral">{t("inbox.dispatched")}</Tag>}
           {row.reply && <Tag tone="ok">{t("inbox.replied")}</Tag>}
         </Stack>
       ),

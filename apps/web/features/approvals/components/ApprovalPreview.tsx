@@ -63,8 +63,8 @@ export function splitMcpCmd(cmd: string): { label: string; args: string } {
 }
 
 const DIFF_KIND = {
-  add: { tone: "ok", bg: "rgba(127,217,138,0.09)", sign: "+" },
-  del: { tone: "bad", bg: "rgba(255,107,107,0.09)", sign: "−" },
+  add: { tone: "ok", bg: "color-mix(in srgb, var(--color-ok) 9%, transparent)", sign: "+" },
+  del: { tone: "bad", bg: "color-mix(in srgb, var(--color-bad) 9%, transparent)", sign: "−" },
   ctx: { tone: undefined, bg: "transparent", sign: " " },
 } as const;
 
@@ -101,7 +101,7 @@ export function ApprovalPreview({ preview, labels }: ApprovalPreviewProps) {
           ))}
         </div>
         {/* eslint-disable-next-line react/forbid-dom-props */}
-        <div style={{ background: "rgba(240,180,41,0.06)" }}>
+        <div style={{ background: "color-mix(in srgb, var(--color-warn) 6%, transparent)" }}>
           <Container padding={["150", "150"]}>
             <Stack align="baseline" direction="row" justify="between">
               <Typography uppercase size="xs" type="note" variant="secondary">

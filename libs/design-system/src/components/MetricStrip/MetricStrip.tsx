@@ -62,12 +62,16 @@ export function MetricStrip({ items, columns, ref, ...rest }: MetricStripProps) 
             {item.label}
           </Typography>
           <div
-            className="flex flex-wrap items-center gap-2"
+            className="flex min-w-0 flex-wrap items-center gap-[6px]"
             data-testid={MetricStripTestId.ValueRow}
           >
-            <Typography as="div" data-testid={MetricStripTestId.Value} type="metric">
+            {/* Bridge `.strip .v`: 13 px, one line, ellipsis (the 20 px `.big` look is opt-in). */}
+            <div
+              className="flex min-w-0 items-center gap-[6px] truncate whitespace-nowrap text-body text-ink"
+              data-testid={MetricStripTestId.Value}
+            >
               {item.value}
-            </Typography>
+            </div>
             {item.action ? (
               <div className="flex flex-wrap gap-1" data-testid={MetricStripTestId.Action}>
                 {item.action}

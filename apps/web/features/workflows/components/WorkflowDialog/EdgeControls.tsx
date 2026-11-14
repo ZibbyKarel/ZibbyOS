@@ -36,7 +36,7 @@ function FloatingControl({
         border: `1px solid ${borderColor}`,
         borderRadius: 6,
         padding: "3px 5px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+        boxShadow: "var(--shadow-card)",
         whiteSpace: "nowrap",
       }}
       top={`${top}px`}

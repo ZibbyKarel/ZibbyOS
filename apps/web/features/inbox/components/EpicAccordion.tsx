@@ -64,9 +64,7 @@ function EpicHeader({ epic, items }: { epic: InboxEpic | null; items: InboxRoadm
       <Typography type="body" weight="medium">
         {epic.title}
       </Typography>
-      <Tag uppercase tone="neutral">
-        {t("epic.tag", { source: t(`source.${epic.source}`) })}
-      </Tag>
+      <Tag tone="neutral">{t("epic.tag", { source: t(`source.${epic.source}`) })}</Tag>
       <Container width="8rem">
         <Progress
           height="25"

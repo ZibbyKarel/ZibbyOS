@@ -71,7 +71,7 @@ export interface RoadmapCardProps {
  * everything else there, and the operator's call was that blocking is carried by
  * the badge alone. Position in the column (blocked items sort last) is the second
  * signal; a third would only compete with `failed` for the same 2px of edge. */
-function edgeToneFor(column: BoardColumn, item: RoadmapItem): LegacyStateTone {
+function edgeToneFor(column: BoardColumn, item: RoadmapItem): LegacyStateTone | "neutral" {
   if (item.lifecycle === "failed") return "bad";
   switch (column) {
     case "in-progress":
@@ -79,7 +79,7 @@ function edgeToneFor(column: BoardColumn, item: RoadmapItem): LegacyStateTone {
     case "done":
       return "ok";
     case "ready":
-      return "accent";
+      return "neutral";
   }
 }
 

@@ -23,6 +23,8 @@ export interface RailSplitProps {
   /** A fixed 70vh height and a 220px rail column at every width — for a host such as a detail
    * sheet, where the viewport breakpoint says nothing about the room. */
   stacked?: boolean;
+  /** With `stacked`: the rail sits in its own row under the toolbar instead of beside the body (phone). */
+  railAbove?: boolean;
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -39,6 +41,7 @@ export function RailSplit({
   footer,
   bodyRef,
   stacked,
+  railAbove,
   ref,
 }: RailSplitProps) {
   const toolbarNode = toolbar ? (
@@ -56,8 +59,13 @@ export function RailSplit({
       className={
         stacked
           ? cn(
-              "grid h-[70vh] min-h-[480px] grid-rows-[auto_minmax(0,1fr)] border-b border-border",
-              rail ? "grid-cols-[220px_minmax(0,1fr)]" : "grid-cols-1",
+              "grid h-[70vh] min-h-[480px] border-b border-border",
+              rail && railAbove
+                ? "grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)]"
+                : cn(
+                    "grid-rows-[auto_minmax(0,1fr)]",
+                    rail ? "grid-cols-[220px_minmax(0,1fr)]" : "grid-cols-1",
+                  ),
             )
           : "grid min-h-[560px] grid-cols-1 border-b border-border lg:h-[calc(100vh-408px)] lg:min-h-[320px] lg:grid-cols-[260px_minmax(0,1fr)]"
       }
@@ -69,7 +77,10 @@ export function RailSplit({
         <div
           className={
             stacked
-              ? "flex min-h-0 flex-col overflow-auto border-r border-border"
+              ? cn(
+                  "flex min-h-0 flex-col overflow-auto border-border",
+                  railAbove ? "border-b" : "border-r",
+                )
               : "flex max-h-[240px] min-h-0 flex-col overflow-auto border-b border-border lg:max-h-none lg:border-r lg:border-b-0"
           }
           data-testid={RailSplitTestId.Rail}

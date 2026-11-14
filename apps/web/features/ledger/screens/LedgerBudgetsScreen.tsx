@@ -244,7 +244,7 @@ export function LedgerBudgetsScreen() {
             </Grid>
 
             <Stack gap="100">
-              <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+              <Typography mono size="2xs" type="note" variant="tertiary">
                 {t("sectionCompanies")}
               </Typography>
               {companyRows.length === 0 ? (
@@ -265,7 +265,7 @@ export function LedgerBudgetsScreen() {
             </Stack>
 
             <Stack gap="100">
-              <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+              <Typography mono size="2xs" type="note" variant="tertiary">
                 {t("sectionProjects")}
               </Typography>
               {projectRows.length === 0 ? (
@@ -286,7 +286,7 @@ export function LedgerBudgetsScreen() {
             </Stack>
 
             <Stack data-testid={LedgerBudgetsScreenTestId.DepartmentTable} gap="100">
-              <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+              <Typography mono size="2xs" type="note" variant="tertiary">
                 {t("sectionDepartments")}
               </Typography>
               <DataTable

@@ -687,7 +687,7 @@
     "autonomyReply": "Reply (Comms)",
     "deleteTitle": "Delete integration?",
     "deleteBody": "Really delete integration {name}? Stored credentials are deleted too. This cannot be undone.",
-    "tokenNoExpiry": "NO EXPIRATION DATE",
+    "tokenNoExpiry": "No expiration date",
     "tokenExpiresIn": "expires in {days, plural, one {# day} other {# days}}",
     "tokenExpired": "token expired"
   },
@@ -3965,7 +3965,7 @@
     "overridesHint": "A team inherits from its company. A switch set the same as its company follows the company.",
     "approvalNotificationTitle": "ZIBBY needs your approval",
     "modeApprove": "Approve",
-    "modeAutopilot": "AUTOPILOT",
+    "modeAutopilot": "Autopilot",
     "modeLabel": "Autopilot mode",
     "save": "Save",
     "helpLabel": "What the switches do",

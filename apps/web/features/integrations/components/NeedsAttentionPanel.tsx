@@ -52,7 +52,7 @@ function NeedsAttentionCard({ item, now }: { item: ChannelItem; now: number }) {
                   {t(`inbox.category.${item.triage.category}`)}
                 </Tag>
               )}
-              {item.projectId && <Tag tone="accent">{item.projectId}</Tag>}
+              {item.projectId && <Tag tone="neutral">{item.projectId}</Tag>}
               <Typography mono size="xs" type="note" variant="tertiary">
                 {compactAgo(item.receivedAt, now)}
               </Typography>

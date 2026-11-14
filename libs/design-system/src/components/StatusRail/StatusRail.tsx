@@ -63,7 +63,7 @@ export interface StatusRailProps {
 export function StatusRail({ children }: StatusRailProps) {
   return (
     <div
-      className="flex flex-col [&>*:not(:last-child)_[data-rail-line]]:block"
+      className="flex flex-col px-[16px] py-[2px] [&>*:not(:last-child)_[data-rail-line]]:block"
       data-testid={StatusRailTestId.Root}
     >
       {children}
@@ -165,7 +165,7 @@ export interface StatusRailNowProps {
 export function StatusRailNow({ label, tone = "idle", aside, children }: StatusRailNowProps) {
   return (
     <div
-      className="my-[2px] mb-[4px] flex flex-col rounded-[8px] bg-ink/[0.025] px-[6px] py-[2px]"
+      className="mx-[16px] mb-[4px] mt-[2px] flex flex-col rounded-[8px] bg-ink/[0.025] px-[6px] py-[2px]"
       data-testid={StatusRailTestId.Now}
     >
       {label ? (
@@ -219,7 +219,7 @@ export function StatusRailPark({
   return (
     <div
       className={cn(
-        "my-[4px] rounded-[9px] border border-solid border-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_6%,transparent)]",
+        "mx-[16px] my-[4px] rounded-[9px] border border-solid border-[color-mix(in_srgb,var(--color-accent)_16%,transparent)] bg-[color-mix(in_srgb,var(--color-accent)_6%,transparent)]",
         selected && "ring-2 ring-accent",
       )}
       data-testid={StatusRailTestId.Park}

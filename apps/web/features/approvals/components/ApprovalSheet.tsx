@@ -277,7 +277,7 @@ export function ApprovalSheet({
         <Row gap="100">
           <Tag tone="neutral">{approval.kind}</Tag>
           {approval.riskType && HIGH_RISK_TYPES.has(approval.riskType) && (
-            <Tag uppercase icon="warn" tone="blocked">
+            <Tag icon="warn" tone="blocked">
               {t("highRisk")}
             </Tag>
           )}
@@ -291,7 +291,7 @@ export function ApprovalSheet({
 
       {origin && (
         <Stack gap="50">
-          <Typography tracking="wider" type="labelSm" variant="tertiary">
+          <Typography type="labelSm" variant="tertiary">
             {t("sourceTitle")}
           </Typography>
           <Row wrap gap="150">
@@ -314,7 +314,7 @@ export function ApprovalSheet({
 
       {artifacts.length > 0 && (
         <Stack gap="50">
-          <Typography tracking="wider" type="labelSm" variant="tertiary">
+          <Typography type="labelSm" variant="tertiary">
             {tArtifacts("title")}
           </Typography>
           <Row wrap gap="100">
@@ -453,7 +453,7 @@ export function ApprovalSheet({
 
       {steps.length > 0 && (
         <Stack gap="100">
-          <Typography tracking="wider" type="labelSm" variant="tertiary">
+          <Typography type="labelSm" variant="tertiary">
             {t("chainTitle")}
           </Typography>
           <ChainRouteStrip size="compact" steps={steps} />
@@ -470,7 +470,7 @@ export function ApprovalSheet({
           but this approve posts APPROVE / REQUEST_CHANGES. */}
         {reviewEvent && (
           <Stack gap="50">
-            <Typography id="review-event-label" tracking="wider" type="labelSm" variant="tertiary">
+            <Typography id="review-event-label" type="labelSm" variant="tertiary">
               {t("reviewEvent.label")}
             </Typography>
             <SegmentedControl

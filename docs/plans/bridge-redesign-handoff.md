@@ -104,6 +104,23 @@ collapse-to-narrow-list not built; PR checks x/y counts and split merge button h
 IssueSheet uses "bug" glyph; sheet banner only for failing CI; `BoardRow.sheetSide` deprecated;
 RunSheet `pending` shows as idle; sheet copy label English outside `DetailSheet`; Task copies `TSK-…`.
 
+## State at ~03:00 — committed 4d365dd1f
+
+Everything above is committed on `feat/bridge-redesign` (4d365dd1f): phases 1b–9, DS restyle
+10A/B/C, brand (bow-tie `BrandMark`, `Wordmark` "zibby.", `Splash`, icons), GAPS.md rows, O7
+(`ui.bridge.designRev` one-time drop of the saved DEFAULT). DS 1088/1088 and web 2528/2528 tests
+were green, tsc clean. NOT yet merged into main.
+
+Running (uncommitted when they finish): visual QA of `/dashboard` in a browser on isolated data
+(opus; nobody had seen the rendered result before), consistency sweep of the rest of `apps/web`
+(sonnet), phone details of PR / Run sheets (bottom bar primary actions, unified diff, horizontal
+rail; sonnet).
+
+Then: verify tsc + tests, commit, pre-push tier checks (`pnpm check:types`, tests, `pnpm web:build`),
+ff-merge into main — first move main's untracked `design/bridge-redesign/` aside (it would block
+the merge; `design/bridge-redesign 2/`, the zip, the brand html/svg in main's `design/` are the
+operator's untracked files, leave them). No push (O10).
+
 Open items from 10A (operator decisions, defaults taken):
 - `Tag` prop `uppercase` is now a no-op (~10 usages in `apps/web/features/inbox`) — remove in the sweep.
 - `Progress` default tone is grey (`ink2`), `Card` default radius 10px.

@@ -32,7 +32,7 @@ export function BoardSection({
     <Tag
       aria-expanded={onToggle ? !closed : undefined}
       className={cn(
-        "flex w-full items-center gap-[8px] pb-[4px] pt-[12px] text-left text-overline uppercase",
+        "flex w-full items-center gap-[8px] px-[16px] pb-[4px] pt-[12px] text-left text-overline uppercase",
         tone === "accent" ? "text-accent-fg" : "text-ink-3",
         onToggle && cn("cursor-pointer appearance-none", focusRingInset),
       )}

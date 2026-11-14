@@ -25,7 +25,6 @@ export function LoadingState({ label }: LoadingStateProps) {
           <Typography
             mono
             data-testid={LoadingStateTestId.Label}
-            tracking="wider"
             type="labelSm"
             variant="secondary"
           >

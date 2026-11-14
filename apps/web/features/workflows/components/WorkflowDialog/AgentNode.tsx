@@ -204,10 +204,10 @@ export function AgentNode({
         border: `1px solid ${borderColor}`,
         borderRadius: 6,
         boxShadow: dragging
-          ? `0 10px 28px rgba(0,0,0,0.5), 0 0 0 1px ${mix(ACCENT, 40)}`
+          ? `var(--shadow-elevated), 0 0 0 1px ${mix(ACCENT, 40)}`
           : nodeLit
             ? `0 0 0 1px ${mix(BAD, 40)}, 0 0 18px ${mix(BAD, 20)}`
-            : "0 2px 10px rgba(0,0,0,0.3)",
+            : "var(--shadow-card)",
       }}
       tabIndex={clickable ? 0 : undefined}
       top={`${node.y}px`}

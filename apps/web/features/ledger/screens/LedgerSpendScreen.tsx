@@ -148,7 +148,7 @@ export function LedgerSpendScreen() {
 
             <Grid cols={1} gap="200" lg={2}>
               <Stack data-testid={LedgerSpendScreenTestId.DepartmentTable} gap="100">
-                <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+                <Typography mono size="2xs" type="note" variant="tertiary">
                   {t("sectionDepartments")}
                 </Typography>
                 <DataTable
@@ -159,7 +159,7 @@ export function LedgerSpendScreen() {
               </Stack>
 
               <Stack data-testid={LedgerSpendScreenTestId.ThresholdSliders} gap="200">
-                <Typography mono size="2xs" tracking="wider" type="note" variant="tertiary">
+                <Typography mono size="2xs" type="note" variant="tertiary">
                   {t("sectionThresholds")}
                 </Typography>
                 <Slider

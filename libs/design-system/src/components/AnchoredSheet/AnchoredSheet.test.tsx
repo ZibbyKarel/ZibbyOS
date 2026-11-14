@@ -249,6 +249,24 @@ describe("AnchoredSheet", () => {
   });
 });
 
+describe("AnchoredSheet anchored moreActions", () => {
+  it("renders actions then moreActions in the one header group", () => {
+    render(
+      <AnchoredSheet
+        actions={<button type="button">GO</button>}
+        closeLabel="Close"
+        kind="PR"
+        moreActions={<button type="button">MORE</button>}
+        onClose={() => {}}
+        presentation="anchored"
+        title="Fix it"
+        {...geo}
+      />,
+    );
+    expect(screen.getByTestId(AnchoredSheetTestId.Actions)).toHaveTextContent("GOMORE");
+  });
+});
+
 describe("AnchoredSheet page presentation", () => {
   const page = (extra = {}) =>
     render(
@@ -281,6 +299,14 @@ describe("AnchoredSheet page presentation", () => {
     expect(screen.getByTestId(AnchoredSheetTestId.ActionBar)).toHaveTextContent("GO");
     expect(screen.queryByTestId(AnchoredSheetTestId.Actions)).toBeNull();
     expect(screen.getByTestId(AnchoredSheetTestId.Footer)).toHaveTextContent("NOTE");
+  });
+
+  it("keeps moreActions in the header while only actions fill the bottom bar", () => {
+    page({ moreActions: <button type="button">MORE</button> });
+    expect(screen.getByTestId(AnchoredSheetTestId.ActionBar)).not.toHaveTextContent("MORE");
+    const header = screen.getByTestId(AnchoredSheetTestId.Actions);
+    expect(header).toHaveTextContent("MORE");
+    expect(header).not.toHaveTextContent("GO");
   });
 
   it("has one close button (back to the board) and closes", async () => {

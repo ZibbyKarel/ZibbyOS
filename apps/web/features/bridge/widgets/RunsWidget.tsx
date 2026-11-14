@@ -243,14 +243,14 @@ export function RunsWidget({
                     )}
                   </span>
                   <span data-testid={`${RunsWidgetTestId.Meta}-${r.key}`}>
-                    <BoardText tabular kind="meta">
+                    <BoardText tabular kind="rowMeta">
                       {r.pct !== null && `${t("pct", { pct: r.pct })} · `}
                       <RunElapsed startedAt={r.startedAt} />
                     </BoardText>
                   </span>
                 </BoardLine>
               ) : (
-                <BoardText tabular kind="meta">
+                <BoardText tabular kind="rowMeta">
                   {r.pct !== null ? t("pct", { pct: r.pct }) : "—"}
                 </BoardText>
               )}

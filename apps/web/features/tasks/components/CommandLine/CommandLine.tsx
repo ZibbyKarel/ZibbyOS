@@ -1558,7 +1558,7 @@ export function CommandLine({
           header={
             <>
               <Icon name="spark" size="sm" tone="accent" />
-              <Typography mono size="xs" tracking="wide" type="note" variant="secondary">
+              <Typography mono size="xs" type="note" variant="secondary">
                 {t("commandLine.chrome.label")}
               </Typography>
             </>

@@ -99,9 +99,9 @@ describe("IntegrationCard token expiry", () => {
   const github = (tokenExpiresAt: string | null | undefined) =>
     integration({ kind: "github", config: CONFIG_BY_KIND.github, tokenExpiresAt });
 
-  it("shows NO EXPIRATION DATE for a token without expiry", () => {
+  it("shows Bez data expirace for a token without expiry", () => {
     render(<IntegrationCard integration={github(null)} />);
-    expect(screen.getByTestId(TokenExpiryLabelTestId.Root)).toHaveTextContent("NO EXPIRATION DATE");
+    expect(screen.getByTestId(TokenExpiryLabelTestId.Root)).toHaveTextContent("Bez data expirace");
   });
 
   it("shows the days left until expiry", () => {

@@ -7,7 +7,7 @@ export default function DashboardLoading() {
     <Container height="100%">
       <Stack align="center" justify="center" style={{ height: "100%" }}>
         <Stack align="center" gap="150" role="status">
-          <Typography mono tracking="wider" type="labelSm" variant="secondary">
+          <Typography mono type="labelSm" variant="secondary">
             {t("loading")}
           </Typography>
           <Container maxWidth="220px" width="100%">

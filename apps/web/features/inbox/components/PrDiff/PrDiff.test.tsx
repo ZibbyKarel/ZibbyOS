@@ -6,7 +6,8 @@ import messages from "../../../../i18n/messages/cs.json";
 import { ReviewThreadTestId } from "../ReviewThread/ReviewThread";
 import { PrDiff } from "./PrDiff";
 
-const hooks = vi.hoisted(() => ({ threads: [] as InboxPrThread[] }));
+const hooks = vi.hoisted(() => ({ threads: [] as InboxPrThread[], phone: false }));
+vi.mock("../../../../hooks/useIsPhone", () => ({ useIsPhone: () => hooks.phone }));
 vi.mock("../../queries", async (orig) => ({
   ...(await orig<typeof import("../../queries")>()),
   useInboxPrThreadsQuery: () => ({ data: hooks.threads }),
@@ -42,10 +43,31 @@ const thread = (over: Partial<InboxPrThread> = {}): InboxPrThread => ({
 
 beforeEach(() => {
   hooks.threads = [];
+  hooks.phone = false;
   window.localStorage.clear();
 });
 
+const TWO = `${TEXT}diff --git a/b.ts b/b.ts
+--- a/b.ts
++++ b/b.ts
+@@ -1 +1 @@
+-x
++y
+`;
+
 describe("PrDiff", () => {
+  it("on a phone lists the files, shows one at a time and has no split toggle", () => {
+    hooks.phone = true;
+    renderWithProviders(<PrDiff diff={TWO} />);
+    expect(screen.queryByTestId(FileDiffViewTestId.ViewToggle)).toBeNull();
+    expect(screen.queryByTestId(FileDiffViewTestId.File)).toBeNull();
+    fireEvent.click(screen.getByTestId(`${FileDiffViewTestId.FileListItem}-1`));
+    expect(screen.getAllByTestId(FileDiffViewTestId.File)).toHaveLength(1);
+    expect(screen.queryByTestId(FileDiffViewTestId.ViewToggle)).toBeNull();
+    fireEvent.click(screen.getByTestId(FileDiffViewTestId.FileBack));
+    expect(screen.queryByTestId(FileDiffViewTestId.File)).toBeNull();
+  });
+
   it("passes the cs labels to FileDiffView", () => {
     renderWithProviders(<PrDiff diff="" />);
     expect(screen.getByTestId(FileDiffViewTestId.Empty)).toHaveTextContent(

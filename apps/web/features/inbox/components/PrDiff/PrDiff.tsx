@@ -117,13 +117,14 @@ export function PrDiff({ diff, truncated = false, pr, now }: PrDiffProps) {
 
   return (
     <FileDiffView
-      fileList
+      backLabel={t("diff.files")}
       collapseFileLabel={t("diff.collapseFile")}
       collapseLabel={t("diff.collapseFiles")}
       diff={diff}
       emptyLabel={t("diff.empty")}
       expandFileLabel={t("diff.expandFile")}
       expandLabel={t("diff.expandFiles")}
+      fileList={!isPhone}
       filesLabel={t("diff.files")}
       filterLabel={t("diff.filter")}
       generatedLabel={t("diff.generated")}
@@ -131,6 +132,7 @@ export function PrDiff({ diff, truncated = false, pr, now }: PrDiffProps) {
       noHunksLabel={t("diff.noHunks")}
       notice={truncated ? t("diff.truncated") : undefined}
       onViewedChange={set}
+      oneAtATime={isPhone}
       resizeLabel={t("diff.resizeFiles")}
       showGeneratedLabel={t("diff.showGenerated")}
       splitLabel={t("diff.split")}

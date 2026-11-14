@@ -60,7 +60,7 @@ export function RunSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   return (
     <AnchoredSheet
       {...geometry(anchor, frame)}
-      actions={<RunHeaderActions run={run} />}
+      actions={<RunHeaderActions part="primary" run={run} />}
       closeLabel={t("bridge.sheet.close")}
       copyId={run.runId}
       expandable={Boolean(frame)}
@@ -71,6 +71,7 @@ export function RunSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
           ? t("runs.detail.workflow", { name: run.owner })
           : `${t("bridge.sheet.kind.run")} · ${run.kind}`
       }
+      moreActions={<RunHeaderActions part="more" run={run} />}
       onClose={onClose}
       onTitleClick={() => router.push(`/activity/runs/${run.runId}` as Route)}
       onToggleExpand={() => frame?.onExpandedChange(!frame.expanded)}

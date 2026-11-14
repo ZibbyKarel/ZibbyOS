@@ -441,11 +441,11 @@ function InboxItemView({ item: it }: { item: InboxRoadmapItem }) {
                   </Typography>
                   {pr && (
                     <Row wrap gap="75">
-                      <Tag uppercase tone={PR_BLOCKER_TONE[pr.blocker]}>
+                      <Tag tone={PR_BLOCKER_TONE[pr.blocker]}>
                         <StatusDot tone={PR_BLOCKER_TONE[pr.blocker]} />
                         {t(`blocker.${pr.blocker}`)}
                       </Tag>
-                      <Tag uppercase tone="neutral">
+                      <Tag tone="neutral">
                         {t("prs.ci", { symbol: "", state: t(`ci.${pr.ci}`) }).trim()} ·{" "}
                         {t(`review.${pr.review}`)}
                       </Tag>
@@ -453,9 +453,7 @@ function InboxItemView({ item: it }: { item: InboxRoadmapItem }) {
                   )}
                   <Row wrap gap="75">
                     <TextLink href={prRef.url} linkComponent={ExternalAnchor}>
-                      <Tag uppercase tone="neutral">
-                        {t("prs.openGithub")} ↗
-                      </Tag>
+                      <Tag tone="neutral">{t("prs.openGithub")} ↗</Tag>
                     </TextLink>
                     {pr && (
                       <TextLink href={prListHref(prRef.url)} linkComponent={NavLink}>
@@ -491,7 +489,7 @@ function InboxItemView({ item: it }: { item: InboxRoadmapItem }) {
                   <Typography type="label">{t("detail.why")}</Typography>
                   <Row wrap gap="75">
                     {(it.scopeReasons ?? []).map((reason) => (
-                      <Tag uppercase key={reason} tone="neutral">
+                      <Tag key={reason} tone="neutral">
                         {t(`scope.${reason}`)}
                       </Tag>
                     ))}

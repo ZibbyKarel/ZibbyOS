@@ -203,7 +203,7 @@ export function AddressCommentsReview({
       ))}
       {resolved.length > 0 && (
         <Stack data-testid={AddressCommentsReviewTestId.AlreadyResolved} gap="150">
-          <Typography tracking="wider" type="labelSm" variant="tertiary">
+          <Typography type="labelSm" variant="tertiary">
             {t("addressAlreadyResolved")}
           </Typography>
           {resolved.map(({ thread, outcome }) => (

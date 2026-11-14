@@ -109,10 +109,12 @@ export function TodoWidget({ widget, onEmptyChange, onCountChange }: BridgeWidge
         />
       ))}
       <PaperAdd>
+        {/* autoFocus off: a board widget must not grab focus (and scroll the board) on load. */}
         <CommandLine
           allowSkillMentions
           hideLabel
           multipleTargets
+          autoFocus={false}
           chrome={false}
           key={composerKey}
           label={t("input")}

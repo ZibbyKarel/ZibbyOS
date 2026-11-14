@@ -41,4 +41,24 @@ describe("RailSplit", () => {
     );
     expect(ref.current).toBe(screen.getByTestId(RailSplitTestId.Root));
   });
+
+  it("stacked + railAbove puts the rail in its own row, not a side column", () => {
+    render(
+      <RailSplit railAbove stacked rail="r" toolbar="t">
+        b
+      </RailSplit>,
+    );
+    expect(screen.getByTestId(RailSplitTestId.Root).className).toContain("grid-cols-1");
+    expect(screen.getByTestId(RailSplitTestId.Root).className).not.toContain("220px");
+    expect(screen.getByTestId(RailSplitTestId.Rail).className).toContain("border-b");
+  });
+
+  it("stacked without railAbove keeps the 220px side rail", () => {
+    render(
+      <RailSplit stacked rail="r">
+        b
+      </RailSplit>,
+    );
+    expect(screen.getByTestId(RailSplitTestId.Root).className).toContain("220px");
+  });
 });

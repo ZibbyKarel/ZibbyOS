@@ -72,7 +72,14 @@ type View = "live" | "input" | "output";
  * The run's mode-dependent action buttons + ··· menu, self-wired (mode, mutations, current
  * stage). `RunDetail` renders them in its header; a detail sheet passes them to its `actions`.
  */
-export function RunHeaderActions({ run }: { run: RunView }) {
+export function RunHeaderActions({
+  run,
+  part = "all",
+}: {
+  run: RunView;
+  /** `primary`: Chat + mode buttons (sheet bottom bar on a phone); `more`: only the ⋯ menu. */
+  part?: "all" | "primary" | "more";
+}) {
   const router = useRouter();
   const { data: queue = [] } = useApprovalsQuery();
   const mode = deriveRunMode(run, approvalForRun(queue, run));
@@ -94,7 +101,7 @@ export function RunHeaderActions({ run }: { run: RunView }) {
 
   return (
     <Row wrap gap="75">
-      <ChatAboutButton about={runChatAbout(run)} />
+      {part === "more" ? null : <ChatAboutButton about={runChatAbout(run)} />}
       <RunDetailActions
         agentId={run.kind === "agent" ? run.owner : undefined}
         currentStageName={current?.name}
@@ -110,6 +117,7 @@ export function RunHeaderActions({ run }: { run: RunView }) {
         onPause={() => actions.pause(run)}
         onResume={(opts) => actions.resume(run, opts)}
         onStop={() => actions.stop(run)}
+        part={part}
         pending={actions.stopping || actions.pausing || actions.resuming || actions.deleting}
         run={run}
       />
@@ -329,6 +337,7 @@ export function RunDetail({
             />
           )
         }
+        railAbove={isPhone}
         stacked={embedded || isPhone}
         toolbar={
           <Stack align="center" direction="row" gap="150" justify="between">

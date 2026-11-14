@@ -44,7 +44,7 @@ function InboxRow({ item }: { item: ChannelItem }) {
           <Tag tone={TIER_TONE[item.triage.tier]}>{t("inbox.tier", { n: item.triage.tier })}</Tag>
         )}
         {item.triage && <Tag tone="neutral">{t(`inbox.category.${item.triage.category}`)}</Tag>}
-        {item.projectId && <Tag tone="accent">{item.projectId}</Tag>}
+        {item.projectId && <Tag tone="neutral">{item.projectId}</Tag>}
         <Container minW0 maxWidth="320px">
           <Typography truncate size="sm" type="note" variant="secondary">
             {item.from ? `${item.from}: ` : ""}
@@ -55,7 +55,7 @@ function InboxRow({ item }: { item: ChannelItem }) {
       <Stack align="center" direction="row" gap="75">
         {/* What ZIBBY did with it — the tiered autonomy action, so the inbox is
             accountable, not just a feed. */}
-        {item.taskId && <Tag tone="accent">{t("inbox.dispatched")}</Tag>}
+        {item.taskId && <Tag tone="neutral">{t("inbox.dispatched")}</Tag>}
         {item.reply && <Tag tone="ok">{t("inbox.replied")}</Tag>}
         {item.approvalId && item.state === "triaged" && (
           <Tag tone="warn">{t("inbox.needsApproval")}</Tag>

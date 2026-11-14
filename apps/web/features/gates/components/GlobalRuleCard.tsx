@@ -92,7 +92,12 @@ export function GlobalRuleCard({
           <Stack gap="100">
             <Stack align="center" direction="row" gap="100">
               {rule.system ? (
-                <Icon data-testid={GlobalRuleCardTestId.SystemIcon} name="shield" size="sm" tone="warn" />
+                <Icon
+                  data-testid={GlobalRuleCardTestId.SystemIcon}
+                  name="shield"
+                  size="sm"
+                  tone="warn"
+                />
               ) : (
                 <Icon name={matcherIcon} size="sm" tone="faint" />
               )}
@@ -144,7 +149,7 @@ export function GlobalRuleCard({
                 </Tag>
               )}
               {total > 0 ? (
-                <Tag tone="accent">
+                <Tag tone="neutral">
                   <Stack inline align="center" as="span" direction="row" gap="50">
                     <Icon name="bot" size="xs" />
                     {total}

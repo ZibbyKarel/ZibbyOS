@@ -238,3 +238,22 @@ describe("highlightCode", () => {
     expect(Array.from(spans).map((n) => n.textContent)).toEqual(["const", '"x"', "// c"]);
   });
 });
+
+describe("FileDiffView oneAtATime", () => {
+  it("lists the files, opens one (unified) under a back button, and goes back", () => {
+    render(<FileDiffView oneAtATime backLabel="Files" diff={TWO_FILES} />);
+    expect(screen.queryByTestId(FileDiffViewTestId.File)).toBeNull();
+    fireEvent.click(screen.getByTestId(`${FileDiffViewTestId.FileListItem}-0`));
+    expect(screen.getAllByTestId(FileDiffViewTestId.File)).toHaveLength(1);
+    expect(screen.getByTestId(FileDiffViewTestId.FileName)).toHaveTextContent("src/a.ts");
+    fireEvent.click(screen.getByTestId(FileDiffViewTestId.FileBack));
+    expect(screen.queryByTestId(FileDiffViewTestId.File)).toBeNull();
+    expect(screen.getByTestId(`${FileDiffViewTestId.FileListItem}-1`)).toBeInTheDocument();
+  });
+
+  it("goes straight to the file when there is only one", () => {
+    render(<FileDiffView oneAtATime diff={RENAME} />);
+    expect(screen.getAllByTestId(FileDiffViewTestId.File)).toHaveLength(1);
+    expect(screen.queryByTestId(FileDiffViewTestId.FileBack)).toBeNull();
+  });
+});
