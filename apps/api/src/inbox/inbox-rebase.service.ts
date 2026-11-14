@@ -20,6 +20,8 @@ import { InboxService, isDeadTask } from "./inbox.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
 const GITHUB_API = "https://api.github.com";
+/** PRs with more own commits than this are squashed before the rebase. */
+const SQUASH_OVER = 10;
 const REBASE_TARGET: TaskTarget = {
   kind: "workflow",
   id: "pr-rebase",
@@ -106,10 +108,11 @@ export function rebaseTaskText(p: RebaseBrief): string {
     "",
     "Your working directory is this run's own git worktree of the project.",
     `1. \`git fetch origin ${p.base} ${p.head}\`, then \`git checkout --detach ${p.headSha}\` — the PR head the operator clicked on. If \`git rev-parse origin/${p.head}\` is not \`${p.headSha}\`, stop: report that the branch moved and do nothing else.`,
-    `2. \`git rebase origin/${p.base}\`. For each conflict read both sides and the PR (\`gh pr view ${p.number} --repo ${p.repo}\`, \`gh pr diff ${p.number} --repo ${p.repo}\`), resolve it so the base change AND the PR change both keep their intent, \`git add\` the file, \`git rebase --continue\`.`,
+    `2. Count the PR's own commits: \`git rev-list --count --no-merges origin/${p.base}..HEAD\`. When it is more than ${SQUASH_OVER}, squash them first — \`git reset --soft $(git merge-base HEAD origin/${p.base}) && git commit -m <the PR title>\` — so conflicts are resolved once, not once per commit; the PR's per-commit history is not worth keeping. A squashed run never reports \`Conflicts: none\` (the commits were rewritten): report \`Conflicts: 0 files\` when the rebase of the squash was conflict-free.`,
+    `3. \`git -c rerere.enabled=true -c rerere.autoupdate=true rebase origin/${p.base}\` (rerere replays a conflict resolution you already made on an earlier commit). For each conflict read both sides and the PR (\`gh pr view ${p.number} --repo ${p.repo}\`, \`gh pr diff ${p.number} --repo ${p.repo}\`), resolve it so the base change AND the PR change both keep their intent, \`git add\` the file, \`git rebase --continue\`.`,
     "   Never drop the PR's side silently: no wholesale `--ours`/`--theirs`, no `git rebase --skip`, no deleting the PR's changes — unless that PR change is already in the base, and then say so for that file.",
-    "3. If a conflict can't be resolved with confidence, `git rebase --abort` and report why. Leave nothing half-done.",
-    `4. Only when you resolved conflicts: run quick checks — the typecheck of each package a conflicted file belongs to and the linter on the conflicted files (package.json scripts, README, CLAUDE.md). Do NOT run test suites; GitHub CI runs them after the push. If a quick check shows the rebase broke something, fix it in a new commit \`fix: adapt <file> after rebase onto ${p.base}\`. A conflict-free rebase runs no checks — write the report and finish.`,
+    "4. If a conflict can't be resolved with confidence, `git rebase --abort` and report why. Leave nothing half-done.",
+    `5. Only when you resolved conflicts: run quick checks — the typecheck of each package a conflicted file belongs to and the linter on the conflicted files (package.json scripts, README, CLAUDE.md). Do NOT run test suites; GitHub CI runs them after the push. If a quick check shows the rebase broke something, fix it in a new commit \`fix: adapt <file> after rebase onto ${p.base}\`. A conflict-free rebase runs no checks — write the report and finish.`,
     "",
     `Write your report to \`${PR_REBASE_ARTIFACT}\`. Its FIRST line is exactly one of: \`Conflicts: aborted\` followed by the reason when the rebase did not complete (you ran \`git rebase --abort\`, or the branch moved); \`Conflicts: <n> files, checks failed\` when you resolved conflicts but a quick check still fails; \`Conflicts: <n> files\` when you resolved conflicts and the quick checks passed; \`Conflicts: none\` ONLY for a complete, conflict-free rebase. Then, per conflicted file: the path, what each side changed, and how you resolved it. Then every command you ran with pass/fail, then \`git log --oneline origin/${p.base}..HEAD\`.`,
     "",

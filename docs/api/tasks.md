@@ -127,7 +127,9 @@ run with `prRebase.state === "running"` gets an error outcome, like a review. Th
 pushes only while `prRebase.state === "awaiting-approval"`; a clean approval
 (`isCleanPrRebase`: `conflictAtStart === false` + `Conflicts: none`) pushes with
 `allowRewrittenCommits: false`, any other — resolved conflicts approved on the spot
-(todo-17) or operator-approved — with `true`.
+(todo-17) or operator-approved — with `true`. A PR squashed before the rebase (more than
+10 own commits) reports `Conflicts: 0 files`, which `isAutoPushPrRebase` accepts and which is not
+"clean", so its rewritten commit passes the guard.
 
 **`prAddressComments`** (PR inbox redesign) is the "Address review comments" counterpart:
 stamped by `InboxAddressCommentsService.start` via `setPrAddressComments` (`repo, number, url,

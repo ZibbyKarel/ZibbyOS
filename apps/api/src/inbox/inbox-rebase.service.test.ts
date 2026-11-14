@@ -93,7 +93,9 @@ describe("InboxRebaseService", () => {
     expect(background).toBe(false);
     expect(input.title).toBe("Rebase: acme/app#7 Fix it");
     expect(input.text).toContain("git checkout --detach sha1");
-    expect(input.text).toContain("git rebase origin/main");
+    expect(input.text).toContain("rerere.enabled=true");
+    expect(input.text).toContain("rebase origin/main");
+    expect(input.text).toContain("squash them first");
     expect(input.text).toContain("Conflicts: none");
     expect(input.text).toMatch(/Do NOT push/);
     expect(input.text).toContain('PR title: "Fix it"');

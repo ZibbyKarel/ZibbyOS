@@ -550,7 +550,8 @@ unreadable worktree is noted there instead), and that HEAD is stored as
 `prRebase.rebasedSha` — the push refuses if the worktree HEAD moved since and pushes
 exactly that sha. The agent runs no checks on a conflict-free rebase and only quick checks
 (typecheck of the affected package, lint of conflicted files — no test suites, CI runs them) after
-resolving conflicts, on `sonnet`/`medium`. First line: `Conflicts: none`, `Conflicts: <n> files`,
+resolving conflicts, on `sonnet`/`medium`. Rebases run with `git rerere` on; a PR with more than 10 own commits is squashed into one first (reported as
+`Conflicts: 0 files` when conflict-free, since the commits were rewritten). First line: `Conflicts: none`, `Conflicts: <n> files`,
 `Conflicts: <n> files, checks failed`, or `Conflicts: aborted` + reason. The approval runner pushes only while the rebase is
 `awaiting-approval`, via `WorkspaceService.pushRebased` (`--force-with-lease`, see
 `./workspace.md`) → `pushed` or `failed` with git's reason. Reject → `discarded`; an
