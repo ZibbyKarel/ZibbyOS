@@ -170,7 +170,7 @@ describe("add/remove/view", () => {
     const l = viewLayout(DEFAULT_LAYOUT, new Set(["briefing"]));
     expect(get(l, "briefing").h).toBe(1);
     expect(get(l, "runs").y).toBe(1);
-    expect(get(DEFAULT_LAYOUT, "briefing").h).toBe(4);
+    expect(get(DEFAULT_LAYOUT, "briefing").h).toBe(3);
   });
 });
 

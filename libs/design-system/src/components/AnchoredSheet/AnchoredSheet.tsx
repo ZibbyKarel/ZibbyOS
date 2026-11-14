@@ -412,7 +412,10 @@ export function AnchoredSheet({
                   </span>
                 </button>
                 {pos ? (
-                  <span data-testid={AnchoredSheetTestId.StepPosition}>
+                  <span
+                    className="whitespace-nowrap"
+                    data-testid={AnchoredSheetTestId.StepPosition}
+                  >
                     {`${pos.index + 1} / ${pos.total}`}
                   </span>
                 ) : null}
@@ -454,10 +457,11 @@ export function AnchoredSheet({
               </button>
             ) : null}
           </div>
-          <div className="flex items-start gap-[16px]">
+          {/* Wraps: the title keeps >= 360px, so wide action groups drop below it instead of squeezing it. */}
+          <div className="flex flex-wrap items-start gap-x-[16px] gap-y-[10px]">
             <div
               className={cn(
-                "min-w-0 flex-1 font-semibold leading-[1.3] tracking-[-.02em] [text-wrap:pretty]",
+                "min-w-[min(100%,360px)] flex-1 basis-0 font-semibold leading-[1.3] tracking-[-.02em] [text-wrap:pretty]",
                 page ? "text-[20px]" : "text-[19px]",
               )}
               data-testid={AnchoredSheetTestId.Title}
@@ -512,7 +516,8 @@ export function AnchoredSheet({
                   key={`${p.tone}-${p.label}`}
                 >
                   <StateDot px={7} state={p.tone} />
-                  {p.label}
+                  {/* Sentence case: app state words are lowercase (they also sit mid-sentence elsewhere). */}
+                  <span className="first-letter:uppercase">{p.label}</span>
                 </span>
               ))}
               {meta ? (

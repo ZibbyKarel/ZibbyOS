@@ -1,6 +1,10 @@
 "use client";
 
-import { SheetPresentationContext, WidgetBoardTestId } from "@zibby/design-system";
+import {
+  SheetPresentationContext,
+  WidgetBoardTestId,
+  WidgetFrameTestId,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useIsPhone } from "../../../hooks/useIsPhone";
@@ -94,7 +98,13 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       const grid = host
         .querySelector(`[data-testid="${WidgetBoardTestId.Inner}"]`)
         ?.getBoundingClientRect();
-      const next = measureSheet(rect, row.getBoundingClientRect(), rect, {
+      // Horizontally the sheet meets the row's widget edge (rows can be inset, e.g. the runs rail),
+      // vertically it keeps the row's band for the eraser.
+      const r = row.getBoundingClientRect();
+      const w =
+        row.closest(`[data-testid="${WidgetFrameTestId.Root}"]`)?.getBoundingClientRect() ?? r;
+      const band = { left: w.left, right: w.right, top: r.top, bottom: r.bottom, height: r.height };
+      const next = measureSheet(rect, band, rect, {
         width: kind ? SHEET_WIDTH[kind] : undefined,
         expanded,
         ...(grid && { grid }),

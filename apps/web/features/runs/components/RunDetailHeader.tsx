@@ -242,7 +242,8 @@ export function RunDetailHeader({
   return (
     <Stack data-testid={RunDetailHeaderTestId.Root} gap="0">
       <Container padding={["250", "300", "150", "300"]}>
-        <Stack align="start" direction="row" gap="300">
+        {/* Wraps: on a narrow screen the actions drop below the title instead of squeezing it. */}
+        <Stack wrap align="start" direction="row" gap="300">
           <Stack grow gap="150">
             {!compact && (
               <Stack wrap align="center" direction="row" gap="100">

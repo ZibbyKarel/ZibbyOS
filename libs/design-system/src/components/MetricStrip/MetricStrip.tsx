@@ -33,58 +33,63 @@ export interface MetricStripProps extends Omit<HTMLAttributes<HTMLDivElement>, "
   ref?: Ref<HTMLDivElement>;
 }
 
+/** In a narrow container (phone sheet) wider strips re-flow to 2 / 3 columns so values stay readable. */
 const gridColsClass: Record<MetricStripColumns, string> = {
   2: "grid-cols-2",
   3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-  6: "grid-cols-6",
+  4: "grid-cols-4 @max-[520px]:grid-cols-2",
+  5: "grid-cols-5 @max-[520px]:grid-cols-3",
+  6: "grid-cols-6 @max-[520px]:grid-cols-3",
 };
 
 /** DS.md §8 Inspector metric strip — N equal columns of label/value pairs,
  * bounded top and bottom by a hairline. Recurs across department headers,
  * profiles, approvals, runs, and the PR / issue detail summaries. */
 export function MetricStrip({ items, columns, ref, ...rest }: MetricStripProps) {
+  // Every cell draws its own left + top hairline; the grid is pulled 1px up/left under the clipped
+  // frame, so only the inner dividers show — whatever the (re-flowed) column count.
   return (
-    <div
-      className={`grid ${gridColsClass[columns]} overflow-hidden rounded-[10px] border border-line bg-ink/[0.015] [&>div+div]:border-l [&>div+div]:border-line`}
-      data-testid={MetricStripTestId.Root}
-      ref={ref}
-      {...rest}
-    >
-      {items.map((item, i) => (
-        <div
-          className="flex min-w-0 flex-col gap-[3px] px-[12px] py-[9px]"
-          data-testid={`${MetricStripTestId.Item}-${item.id ?? i}`}
-          key={item.id ?? i}
-        >
-          <Typography data-testid={MetricStripTestId.Label} type="labelSm">
-            {item.label}
-          </Typography>
+    <div className="@container overflow-hidden rounded-[10px] border border-line bg-ink/[0.015]">
+      <div
+        className={`-ml-px -mt-px grid ${gridColsClass[columns]} [&>div]:border-l [&>div]:border-t [&>div]:border-line`}
+        data-testid={MetricStripTestId.Root}
+        ref={ref}
+        {...rest}
+      >
+        {items.map((item, i) => (
           <div
-            className="flex min-w-0 flex-wrap items-center gap-[6px]"
-            data-testid={MetricStripTestId.ValueRow}
+            className="flex min-w-0 flex-col gap-[3px] px-[12px] py-[9px]"
+            data-testid={`${MetricStripTestId.Item}-${item.id ?? i}`}
+            key={item.id ?? i}
           >
-            {/* Bridge `.strip .v`: 13 px, one line, ellipsis (the 20 px `.big` look is opt-in). */}
-            <div
-              className="flex min-w-0 items-center gap-[6px] truncate whitespace-nowrap text-body text-ink"
-              data-testid={MetricStripTestId.Value}
-            >
-              {item.value}
-            </div>
-            {item.action ? (
-              <div className="flex flex-wrap gap-1" data-testid={MetricStripTestId.Action}>
-                {item.action}
-              </div>
-            ) : null}
-          </div>
-          {item.hint && (
-            <Typography data-testid={MetricStripTestId.Hint} type="caption" variant="secondary">
-              {item.hint}
+            <Typography data-testid={MetricStripTestId.Label} type="labelSm">
+              {item.label}
             </Typography>
-          )}
-        </div>
-      ))}
+            <div
+              className="flex min-w-0 flex-wrap items-center gap-[6px]"
+              data-testid={MetricStripTestId.ValueRow}
+            >
+              {/* Bridge `.strip .v`: 13 px, one line, ellipsis (the 20 px `.big` look is opt-in). */}
+              <div
+                className="flex min-w-0 items-center gap-[6px] truncate whitespace-nowrap text-body text-ink"
+                data-testid={MetricStripTestId.Value}
+              >
+                {item.value}
+              </div>
+              {item.action ? (
+                <div className="flex flex-wrap gap-1" data-testid={MetricStripTestId.Action}>
+                  {item.action}
+                </div>
+              ) : null}
+            </div>
+            {item.hint && (
+              <Typography data-testid={MetricStripTestId.Hint} type="caption" variant="secondary">
+                {item.hint}
+              </Typography>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

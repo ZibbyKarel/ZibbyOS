@@ -413,7 +413,7 @@
   :root,
   [data-density] {
     --density: 0.6;
-    --bridge-bp: 8px;
+    --bridge-bp: 10px; /* design phone `.zone` gutter */
   }
 }
 

@@ -334,6 +334,7 @@ function useHeaderTrailing() {
 
 function AppShellChrome({ children }: { children: ReactNode }) {
   const t = useTranslations("common");
+  const tShell = useTranslations("shell");
   const pathname = usePathname();
   const phone = useIsPhone();
   const searchParams = useSearchParams();
@@ -414,6 +415,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 nav={<SectionNav active={active} />}
                 notifications={<NotificationBell />}
                 onSearchClick={() => setPaletteOpen(true)}
+                searchLabel={tShell("search")}
                 themeToggle={<ThemeToggle />}
                 version={trailing.version}
               />

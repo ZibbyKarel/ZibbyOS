@@ -233,7 +233,7 @@ export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionBu
         >
           <Row gap="75">
             <StatusDot pulse size="75" tone="working" />
-            <Typography uppercase type="label" variant="secondary">
+            <Typography type="label" variant="secondary">
               {runLabel(running)}
             </Typography>
             {running.auto && autoMarker}

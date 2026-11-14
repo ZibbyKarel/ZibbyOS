@@ -246,7 +246,14 @@ export function ProjectSheet({ id, anchor, onClose, frame }: SheetProps) {
       {ci?.workflows.map((w) => (
         <SheetSection key={w.id}>
           <Stack data-state={w.state} data-testid={ProjectSheetTestId.Workflow} gap="100">
-            <SheetBlock label={`${w.name} · ${stateLabel(w.state)}`}>
+            {/* A workflow named "CI" would read "CI · CI selhává" — the state label alone says it. */}
+            <SheetBlock
+              label={
+                stateLabel(w.state).startsWith(`${w.name} `)
+                  ? stateLabel(w.state)
+                  : `${w.name} · ${stateLabel(w.state)}`
+              }
+            >
               <Stack gap="150">
                 {w.jobs.map((j) => (
                   <JobBlock job={j} key={j.id} stateLabel={stateLabel} />

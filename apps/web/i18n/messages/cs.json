@@ -2594,6 +2594,7 @@
   "shell": {
     "menu": "Menu",
     "menuClose": "Zavřít menu",
+    "search": "Hledat…",
     "newNote": "Nová poznámka",
     "newTask": "Nový úkol",
     "operatorFallback": "CEO",
@@ -3424,7 +3425,7 @@
         "colIssue": "Issue",
         "group": {
           "active": "Aktivní",
-          "finished": "Ukončené",
+          "finished": "Dokončené",
           "parked": "Zaparkováno",
           "queued": "Ve frontě"
         },

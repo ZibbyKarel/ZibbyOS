@@ -702,7 +702,7 @@ describe("RunsWidget", () => {
     const props = setup({ widget: widget("w-runs", "runs") });
     renderWithProviders(<RunsWidget {...props} />);
     const headers = screen.getAllByTestId(BoardSectionTestId.Label);
-    expect(headers.map((h) => h.textContent)).toEqual(["Ve frontě", "Ukončené"]);
+    expect(headers.map((h) => h.textContent)).toEqual(["Ve frontě", "Dokončené"]);
     const rows = screen.getAllByTestId(StatusRailTestId.Item);
     expect(rows.map((r) => r.getAttribute("data-rk"))).toEqual([
       "w-runs:a",
@@ -733,7 +733,7 @@ describe("RunsWidget", () => {
     d.archived = [run("d", "done")];
     renderWithProviders(<RunsWidget {...props} />);
     expect(screen.getAllByTestId(BoardSectionTestId.Label).map((h) => h.textContent)).toEqual([
-      "Ukončené",
+      "Dokončené",
     ]);
   });
 

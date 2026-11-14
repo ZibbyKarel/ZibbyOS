@@ -208,10 +208,13 @@ export function PrsWidget({
               title={r.author}
             />
             <BoardText kind="rowMeta">{r.author}</BoardText>
+            {/* Dots are their own items so the line gap spaces them evenly on both sides. */}
+            <BoardText kind="rowMeta">·</BoardText>
             <BoardText truncate kind="rowMeta">
-              · {r.project}
+              {r.project}
             </BoardText>
-            <BoardText kind="rowId">· {r.age}</BoardText>
+            <BoardText kind="rowMeta">·</BoardText>
+            <BoardText kind="rowId">{r.age}</BoardText>
             {stack > 0 ? (
               <>
                 <Icon name="stack" size="xs" tone="faint" />

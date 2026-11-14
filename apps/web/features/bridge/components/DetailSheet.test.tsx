@@ -83,6 +83,16 @@ function stubRects() {
   screen.getByTestId("row-a").getBoundingClientRect = () => rect(10, 150, 300, 30);
   // 1190 - 1000 = 190 free on the right -> opens left
   screen.getByTestId("row-b").getBoundingClientRect = () => rect(700, 200, 490, 30);
+  // The sheet meets the widget's edge, not the row's: the frame spans the row being opened.
+  const [frame] = screen.getAllByTestId(WidgetFrameTestId.Root);
+  if (frame) frame.getBoundingClientRect = () => frameRect;
+}
+
+let frameRect = rect(10, 140, 300, 300);
+/** Click a row with the widget frame spanning `[left, left + width)` horizontally. */
+function open(row: string, left: number, width: number) {
+  frameRect = rect(left, 140, width, 300);
+  fireEvent.click(screen.getByTestId(`row-${row}`));
 }
 
 describe("DetailSheet", () => {
@@ -90,16 +100,16 @@ describe("DetailSheet", () => {
     const onSideChange = vi.fn();
     render(<Harness onSideChange={onSideChange} />);
     stubRects();
-    fireEvent.click(screen.getByTestId("row-a"));
+    open("a", 10, 300);
     expect(onSideChange).toHaveBeenLastCalledWith("right");
-    fireEvent.click(screen.getByTestId("row-b"));
+    open("b", 700, 490);
     expect(onSideChange).toHaveBeenLastCalledWith("left");
   });
 
   it("anchors right of a row with room, flush with its edge", async () => {
     render(<Harness />);
     stubRects();
-    fireEvent.click(screen.getByTestId("row-a"));
+    open("a", 10, 300);
     const anchor = JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}");
     expect(anchor).toMatchObject({
       side: "r",
@@ -115,9 +125,18 @@ describe("DetailSheet", () => {
   it("anchors left when the row leaves less room on the right", () => {
     render(<Harness />);
     stubRects();
-    fireEvent.click(screen.getByTestId("row-b"));
+    open("b", 700, 490);
     const anchor = JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}");
     expect(anchor).toMatchObject({ side: "l", left: 700 + 1 - 480, width: 480, eL: 478 });
+  });
+
+  it("meets the widget edge when the row is inset inside it", () => {
+    render(<Harness />);
+    stubRects();
+    // row-b spans 700–1190, its widget 680–1200: the sheet's right edge is the widget's left.
+    open("b", 680, 520);
+    const anchor = JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}");
+    expect(anchor).toMatchObject({ side: "l", left: 680 + 1 - 480, eH: 30 });
   });
 
   it("ArrowDown / ArrowUp open the next / previous row, within the widget only", () => {

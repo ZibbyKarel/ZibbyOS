@@ -248,7 +248,13 @@ export function Markdown({
         rehypePlugins={rehypePlugins}
         remarkPlugins={escapeHtml ? ESCAPE_HTML_PLUGINS : undefined}
         source={source}
-        style={{ ...themeVars, background: "transparent" }}
+        // The renderer defaults to 16 px; the Bridge reading voice is 13.5 / 1.55.
+        style={{
+          ...themeVars,
+          background: "transparent",
+          fontSize: "var(--text-reading)",
+          lineHeight: 1.55,
+        }}
       />
     </div>
   );

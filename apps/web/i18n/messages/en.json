@@ -2594,6 +2594,7 @@
   "shell": {
     "menu": "Menu",
     "menuClose": "Close menu",
+    "search": "Search…",
     "newNote": "New note",
     "newTask": "New task",
     "operatorFallback": "CEO",

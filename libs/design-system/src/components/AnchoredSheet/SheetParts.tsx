@@ -38,12 +38,12 @@ export function SheetColumns({ children }: { children: ReactNode }) {
   );
 }
 
-/** A labelled block: caps 10 / .1em section label over its content (8px apart). */
+/** A labelled block: sentence-case 12 / 500 label (Bridge `.sxs h4`) over its content (8px apart). */
 export function SheetBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-[8px]" data-testid={SheetPartsTestId.Block}>
       <span
-        className="font-sans font-semibold uppercase tracking-wider text-[10px] text-ink-3"
+        className="font-sans text-[12px] font-medium text-ink-2"
         data-testid={SheetPartsTestId.BlockLabel}
       >
         {label}

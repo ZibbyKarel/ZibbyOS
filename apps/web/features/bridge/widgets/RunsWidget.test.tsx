@@ -186,7 +186,7 @@ describe("RunsWidget", () => {
     renderWithProviders(<RunsWidget {...props} />);
     const finished = screen
       .getAllByTestId(BoardSectionTestId.Root)
-      .find((h) => h.textContent?.startsWith("Ukončené"));
+      .find((h) => h.textContent?.startsWith("Dokončené"));
     await userEvent.click(finished as HTMLElement);
     expect(
       screen.queryAllByTestId(StatusRailTestId.Item).map((r) => r.getAttribute("data-rk")),

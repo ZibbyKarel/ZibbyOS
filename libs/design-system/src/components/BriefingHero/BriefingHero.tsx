@@ -97,7 +97,10 @@ export function BriefingHero({
     >
       <div className={cn("min-w-0", !phone && "min-w-[260px] flex-1")}>
         {eyebrow && variant !== "slim" ? (
-          <div className="mb-[8px] text-[12px] text-ink-3" data-testid={BriefingHeroTestId.Eyebrow}>
+          <div
+            className="mb-[8px] text-[12px] text-ink-3 first-letter:uppercase"
+            data-testid={BriefingHeroTestId.Eyebrow}
+          >
             {eyebrow}
           </div>
         ) : null}

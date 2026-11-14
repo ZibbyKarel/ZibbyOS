@@ -411,7 +411,6 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
       expandable
       actions={
         <>
-          <ChatAboutButton about={about} />
           <PrReviewButton pr={pr} />
           <PrActionButtons hideFixCi baseLabel={base} pr={pr} />
         </>
@@ -471,21 +470,25 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
           ) : null}
         </>
       }
+      // Chat is secondary: on a phone page it stays in the header, the bottom bar keeps the decisions.
       moreActions={
-        mine ? (
-          <MenuButton
-            ariaLabel={t("bridge.sheet.pr.moreActions")}
-            items={[
-              {
-                id: "close",
-                label: t("bridge.sheet.pr.closePr"),
-                icon: "x",
-                danger: true,
-                onSelect: () => setConfirmClose(true),
-              },
-            ]}
-          />
-        ) : undefined
+        <>
+          <ChatAboutButton about={about} />
+          {mine ? (
+            <MenuButton
+              ariaLabel={t("bridge.sheet.pr.moreActions")}
+              items={[
+                {
+                  id: "close",
+                  label: t("bridge.sheet.pr.closePr"),
+                  icon: "x",
+                  danger: true,
+                  onSelect: () => setConfirmClose(true),
+                },
+              ]}
+            />
+          ) : null}
+        </>
       }
       onClose={onClose}
       onToggleExpand={() => setExpanded(!expanded)}
@@ -518,7 +521,8 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
     >
       <Container data-testid={PrSheetTestId.Summary} padding={["150", "300", "0", "300"]}>
         <Row wrap align="start" gap="300">
-          <Container grow minW0>
+          {/* At least 340px: on a phone the strip takes the full width and Reviewers wrap below. */}
+          <Container grow minWidth="min(100%, 340px)">
             <MetricStrip columns={summary.length === 5 ? 5 : 4} items={summary} />
           </Container>
           {hasReviewers ? <PrReviewers number={pr.number} projectId={pr.projectId} /> : null}

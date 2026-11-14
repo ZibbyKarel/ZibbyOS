@@ -53,7 +53,7 @@ export function ReadingItem({
   return (
     <div
       className={cn(
-        "flex items-start gap-[14px] border-b border-line px-[2px] last:border-b-0",
+        "flex items-start gap-[14px] border-b border-line px-[var(--bridge-row-px)] last:border-b-0",
         selected && "ring-2 ring-inset ring-accent",
       )}
       data-rk={rowKey}

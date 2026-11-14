@@ -121,6 +121,32 @@ ff-merge into main — first move main's untracked `design/bridge-redesign/` asi
 the merge; `design/bridge-redesign 2/`, the zip, the brand html/svg in main's `design/` are the
 operator's untracked files, leave them). No push (O10).
 
+## Final state (2026-11-15 morning)
+
+All phases done and committed; visual QA (two rounds, Playwright on isolated data with mocked API
+fixtures, dark + light, 1440 and 390) fixed what it found, including a real bug (phone render loop
+in `ProjectStatusWidget`). Final checks green: tsc (web, DS, contracts, api), DS 1094 tests, web +
+contracts 3367 tests, `pnpm web:build`. Branch ff-merged into local `main`; NOT pushed (O10).
+Not run: `pnpm e2e` (Playwright specs likely need updates for the new markup), api tests,
+desktop build. Screenshots: session scratchpad `qa-shots/` (not in the repo).
+
+Operator decisions still open:
+- Page title row "Můstek" above the board — design has the title only in the sub-nav. Kept.
+- "ZAPARKOVÁNO"-style divider labels inside widgets and the sheet kind eyebrow stay uppercase
+  (spec allows the overline there).
+- Markdown body is 13.5px app-wide (was 16px); run log in the sheet is sans 13.5px per mockup.
+- `MetricStrip` values are 13px one-line everywhere (was 20px).
+- Wordmark dot uses `accent-fg` (darker in light theme than the brand doc); idle knot colour.
+- Splash now lasts ≥ ~2.9 s.
+- ~25 `Typography uppercase` usages left outside Bridge (render as the quiet overline).
+
+Known leftovers (next round):
+- Page titles differ in size across screens; Vault group labels are caps; note-sheet Markdown h1
+  is large; run "Result" card `+142 −31` hugs the right edge; run sheet body repeats the status.
+- Phone: Run approve/deny are in the body banner, not the bottom bar; no bottom tab bar.
+- Not rendered in QA: Automation sheet, expanded sheet state, phone one-file diff view.
+- Data-less design items: see GAPS.md (B rows).
+
 Open items from 10A (operator decisions, defaults taken):
 - `Tag` prop `uppercase` is now a no-op (~10 usages in `apps/web/features/inbox`) — remove in the sweep.
 - `Progress` default tone is grey (`ink2`), `Card` default radius 10px.

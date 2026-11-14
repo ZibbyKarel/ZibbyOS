@@ -1,6 +1,6 @@
 "use client";
 
-import type { CiState, Project } from "@zibby/contracts";
+import type { CiState, Project, ProjectCi } from "@zibby/contracts";
 import {
   Dropdown,
   Icon,
@@ -14,8 +14,9 @@ import {
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
-import { useProjectCiQuery, useProjectsQuery } from "../../projects/queries";
+import { useQueries } from "@tanstack/react-query";
+import { getProjectCiQueryKey, useProjectCiQuery, useProjectsQuery } from "../../projects/queries";
+import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
 import type { BridgeWidgetProps, WidgetSettingsProps } from "./registry";
 import { PRIORITY_WEIGHT } from "../grid/priority";
 import { useWidgetReport } from "./useWidgetReport";
@@ -89,19 +90,15 @@ function ProjectRow({
   widgetId,
   selection,
   onOpen,
-  onRed,
 }: {
   project: Project;
   widgetId: string;
-  /** Reports whether this project's base-branch CI is failing (feeds the widget's urgency). */
-  onRed: (projectId: string, red: boolean) => void;
 } & Pick<BridgeWidgetProps, "selection" | "onOpen">) {
   const t = useTranslations("bridge.widgets.projectStatus");
   const { data: ci } = useProjectCiQuery(project.id);
   const state = ci?.state ?? "none";
   const key = `${widgetId}:${project.id}`;
   const red = state === "failing";
-  useEffect(() => onRed(project.id, red), [onRed, project.id, red]);
   return (
     <Tile
       alert={red}
@@ -129,12 +126,16 @@ export function ProjectStatusWidget({
 }: BridgeWidgetProps) {
   const projectsQuery = useProjectsQuery();
   const projects = pickedProjects(projectsQuery.data ?? [], widget.scope?.projectIds);
-  const [red, setRed] = useState<Record<string, boolean>>({});
-  const onRed = useCallback(
-    (id: string, r: boolean) => setRed((p) => (!!p[id] === r ? p : { ...p, [id]: r })),
-    [],
-  );
-  const failing = projects.filter((p) => red[p.id]).length;
+  // Read the rows' CI straight from the cache (the rows fetch it): local state reported up from
+  // the rows reset on every phone re-tier remount and looped urgency -> tier -> remount.
+  const ci = useQueries({
+    queries: projects.map((p) => ({
+      queryKey: getProjectCiQueryKey(p.id),
+      enabled: false,
+      select: selectApiResponseBody<ProjectCi>,
+    })),
+  });
+  const failing = ci.filter((q) => q.data?.state === "failing").length;
   useWidgetReport(
     {
       loading: projectsQuery.isPending,
@@ -150,7 +151,6 @@ export function ProjectStatusWidget({
         <ProjectRow
           key={p.id}
           onOpen={onOpen}
-          onRed={onRed}
           project={p}
           selection={selection}
           widgetId={widget.id}

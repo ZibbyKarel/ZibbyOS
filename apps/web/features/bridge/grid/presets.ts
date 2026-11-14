@@ -8,19 +8,19 @@ export const REVIEW_PRESET = "REVIEW";
  *  knowledge) + a span-3 column (Budgets / TODO / Quick actions / Pinned). Heights sit inside the
  *  species min–max (spec §4, `SIZE_LIMITS`). */
 const DEFAULT_TUPLES: readonly WidgetTuple[] = [
-  ["briefing", 0, 0, 12, 4],
-  ["prs", 0, 4, 5, 14],
-  ["runs", 5, 4, 4, 14],
-  ["proposals", 9, 4, 3, 5],
+  ["briefing", 0, 0, 12, 3],
+  ["prs", 0, 3, 5, 14],
+  ["runs", 5, 3, 4, 14],
+  ["proposals", 9, 3, 3, 6],
   ["projectStatus", 9, 9, 3, 5],
-  ["automationRuns", 9, 14, 3, 4],
-  ["issues", 0, 18, 5, 13],
-  ["mentions", 5, 18, 4, 6],
-  ["teamKb", 5, 24, 4, 7],
-  ["budgets", 9, 18, 3, 4],
-  ["todo", 9, 22, 3, 4],
-  ["quickActions", 9, 26, 3, 2],
-  ["pins", 9, 28, 3, 3],
+  ["automationRuns", 9, 14, 3, 3],
+  ["issues", 0, 17, 5, 13],
+  ["mentions", 5, 17, 4, 6],
+  ["teamKb", 5, 23, 4, 7],
+  ["budgets", 9, 17, 3, 8],
+  ["todo", 9, 25, 3, 4],
+  ["quickActions", 9, 29, 3, 2],
+  ["pins", 9, 31, 3, 3],
 ];
 
 /** Design `aReview`: slim hero (2 rows), PRs 6 wide, two span-3 columns
