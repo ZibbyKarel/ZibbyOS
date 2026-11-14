@@ -53,6 +53,9 @@ export function selectionFromParams(
   return null;
 }
 
+/** Bump when the built-in DEFAULT changes so much that an older saved DEFAULT should be dropped. */
+const BRIDGE_DESIGN_REV = 2;
+
 /**
  * Bridge screen state. Persisted bits (layout / preset / saved / arranged / removed / collapsed /
  * epicClosed) live in `ui.bridge` (server, debounced by `useUiSettings.setBridge`); a local overlay
@@ -62,7 +65,7 @@ export function selectionFromParams(
  * are local. Esc closes the selection.
  */
 export function useBridgeState() {
-  const { ui, setBridge } = useUiSettings();
+  const { ui, loaded, setBridge } = useUiSettings();
   const [local, setLocal] = useState<Partial<BridgeUi>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   /** The open detail-sheet row; null until the sheet task wires rows to `setSelection`. */
@@ -71,7 +74,23 @@ export function useBridgeState() {
     selectionFromParams(searchParams),
   );
 
-  const bridge = { ...ui.bridge, ...local };
+  // One-time: a DEFAULT saved before the redesign gives way to the new built-in (O7). Other
+  // saved layouts stay; an active non-DEFAULT layout is not touched.
+  const migration = useMemo(() => {
+    if (!loaded || ui.bridge.designRev >= BRIDGE_DESIGN_REV) return null;
+    const rest = { ...ui.bridge.saved };
+    delete rest[DEFAULT_PRESET];
+    return {
+      designRev: BRIDGE_DESIGN_REV,
+      saved: rest,
+      ...(ui.bridge.preset === DEFAULT_PRESET ? { layout: null } : {}),
+    };
+  }, [loaded, ui.bridge.designRev, ui.bridge.saved, ui.bridge.preset]);
+  useEffect(() => {
+    if (migration) setBridge(migration);
+  }, [migration, setBridge]);
+
+  const bridge = { ...ui.bridge, ...migration, ...local };
   const { preset, saved, removed, collapsed, epicClosed } = bridge;
   const { arranged, favorites } = bridge;
   const layouts = useMemo(
@@ -160,12 +179,36 @@ export function useBridgeState() {
     [update, saved, layouts, favorites, removed, preset],
   );
 
+  /** Drop the saved override of a built-in layout (DEFAULT / REVIEW) so the built-in shows again
+   *  (operator decision O7). Other saved layouts are untouched. */
+  const resetLayout = useCallback(
+    (name: string) => {
+      if ((name !== DEFAULT_PRESET && name !== REVIEW_PRESET) || !(name in saved)) return;
+      const rest = { ...saved };
+      delete rest[name];
+      const active = preset === name ? presetLayout(name, rest) : null;
+      if (active) {
+        layoutRef.current = active;
+        setDragLayout(null);
+      }
+      update({
+        saved: rest,
+        removed: removed.filter((n) => n !== name),
+        ...(active ? { layout: active } : {}),
+      });
+    },
+    [update, saved, removed, preset],
+  );
+
   /** Persist a new header/dropdown split from the layout manager. */
   const arrange = useCallback((next: Arrangement) => update({ arranged: next }), [update]);
   const nextName = nextSavedName(saved);
 
+  /** Flips the widget relative to `current` — its EFFECTIVE state (auto-collapse included), so
+   *  an auto-collapsed widget opens on click (stores `false`). Defaults to the stored flag. */
   const toggleCollapsed = useCallback(
-    (id: string) => update({ collapsed: { ...collapsed, [id]: !collapsed[id] } }),
+    (id: string, current: boolean = !!collapsed[id]) =>
+      update({ collapsed: { ...collapsed, [id]: !current } }),
     [update, collapsed],
   );
   const setEpicClosed = useCallback(
@@ -259,6 +302,7 @@ export function useBridgeState() {
     applyPreset,
     addLayout,
     deleteLayout,
+    resetLayout,
     arrange,
     toggleCollapsed,
     setEpicClosed,

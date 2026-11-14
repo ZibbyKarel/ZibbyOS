@@ -15,8 +15,7 @@ export enum MarkdownEditorTestId {
   Hint = "markdown-editor-hint",
 }
 
-const labelClass =
-  "font-sans font-semibold uppercase tracking-wider text-[11px] text-foreground-faint";
+const labelClass = "text-meta font-medium text-ink-3";
 
 /**
  * Map the third-party editor's GitHub-primer colour variables onto the live
@@ -30,7 +29,7 @@ const labelClass =
  */
 const themeVars = {
   "--color-canvas-default": "transparent",
-  "--color-canvas-subtle": "var(--color-panel-2)",
+  "--color-canvas-subtle": "var(--color-code-bg)",
   "--color-border-default": "var(--color-line-2)",
   "--color-border-muted": "var(--color-line)",
   "--color-fg-default": "var(--color-foreground)",
@@ -53,7 +52,7 @@ export interface MarkdownEditorProps {
   /** Markdown body. Frontmatter is owned elsewhere and never edited here. */
   value: string;
   onChange: (value: string) => void;
-  /** Uppercase field label rendered above the editor. */
+  /** Field label rendered above the editor. */
   label?: string;
   /** Helper text rendered under the editor. */
   hint?: string;

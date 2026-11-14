@@ -1,16 +1,35 @@
 "use client";
 
-import { BRIDGE_DENSITY, WidgetBoard, WidgetFrame } from "@zibby/design-system";
+import {
+  BRIDGE_DENSITY,
+  Container,
+  Panel,
+  Stack,
+  SummaryRow,
+  Typography,
+  WidgetBoard,
+  WidgetFrame,
+  type WidgetTier,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
-import { type PointerEvent, useCallback, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  type PointerEvent,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   type BridgeWidget,
   type DragOrigin,
-  stackLayout,
+  phoneOrder,
   toCells,
   viewLayout,
 } from "../grid/layout";
+import { BridgePresetContext } from "../widgets/BriefingWidget";
 import type { BridgeState } from "../state/useBridgeState";
+import { useWidgetPriority } from "../state/useWidgetPriority";
 import { type BridgeSelection, type BridgeWidgetInfo, WIDGETS } from "../widgets/registry";
 import { boardHeight, colWidth, widgetRect } from "../grid/positions";
 import { WidgetSettingsDialog } from "./WidgetSettingsDialog";
@@ -28,8 +47,11 @@ interface HostProps {
   onOpen: (selection: BridgeSelection) => void;
   empty: boolean;
   adding: boolean;
+  tier: WidgetTier;
+  /** The open detail sheet is anchored to one of this widget's rows: stays undimmed. */
+  anchored: boolean;
   info: BridgeWidgetInfo | undefined;
-  style: { left: number; top: number; width: number; height: number };
+  style: CSSProperties;
   onEmpty: (id: string, empty: boolean) => void;
   onInfo: (id: string, info: BridgeWidgetInfo) => void;
   onToggleAdd: (id: string) => void;
@@ -46,6 +68,8 @@ function BridgeWidgetHost({
   onOpen,
   empty,
   adding,
+  tier,
+  anchored,
   info,
   style,
   onEmpty,
@@ -61,15 +85,24 @@ function BridgeWidgetHost({
   const onCountChange = useCallback((i: BridgeWidgetInfo) => onInfo(id, i), [onInfo, id]);
   // Per-widget, in-memory only: closed on every load.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const collapsed = tier === "collapsed";
 
   return (
     <WidgetFrame
       addLabel={t("bridge.add")}
       adding={adding}
+      anchored={anchored}
       aside={empty && !adding ? t("bridge.allClear") : info?.aside}
       collapseLabel={t("bridge.collapse")}
-      collapsed={!!state.collapsed[id]}
-      count={info?.count === undefined ? undefined : pad2(info.count)}
+      compactControls={widget.w < 4}
+      controlsLabel={t("bridge.controls")}
+      count={
+        info?.count === undefined
+          ? undefined
+          : tier === "ambient"
+            ? String(info.count)
+            : pad2(info.count)
+      }
       dragging={state.draggingId === id}
       empty={empty}
       emptyIcon={def.icon}
@@ -84,7 +117,8 @@ function BridgeWidgetHost({
       onRefresh={info?.onRefresh}
       onResizePointerDown={onDragStart && ((e, corner) => onDragStart(id, corner, e))}
       onSettings={() => onSettings(id)}
-      onToggleCollapse={() => state.toggleCollapsed(id)}
+      // The hero never collapses, so it gets no caret.
+      onToggleCollapse={tier === "hero" ? undefined : () => state.toggleCollapsed(id, collapsed)}
       onToggleFilters={def.Filters ? () => setFiltersOpen((o) => !o) : undefined}
       refreshLabel={t("bridge.refresh")}
       refreshing={info?.refreshing}
@@ -97,8 +131,10 @@ function BridgeWidgetHost({
       resizeLabel={t("bridge.resize")}
       settingsLabel={t("bridge.settings.open")}
       sizeLabel={`${widget.w} × ${widget.h}`}
+      species={def.species}
       style={style}
-      you={info?.you ? t("bridge.you", { n: pad2(info.you) }) : undefined}
+      tier={tier}
+      you={info?.you ? t("bridge.you", { n: info.you }) : undefined}
     >
       <def.Component
         adding={adding}
@@ -120,7 +156,8 @@ export interface BridgeBoardProps {
   state: BridgeState;
   density: Density;
   sheetSide?: "left" | "right";
-  /** Phone view: widgets one under another, full width, no drag/resize. */
+  /** Phone view (spec §6): one column — hero, primary, standard — then ambient + collapsed
+   *  widgets as summary rows under "Other" that open in place; no drag/resize. */
   stacked?: boolean;
   /** What a row click does — defaults to opening the detail sheet. */
   onOpen?: (selection: BridgeSelection) => void;
@@ -128,8 +165,8 @@ export interface BridgeBoardProps {
 
 /**
  * The widget board: measures its width, derives the column width from the density table
- * and positions each widget at the fixed width × height from the layout. Collapsed widgets shrink
- * to one row (and the board compacts); while a drag is in progress it shows the raw layout. Header drag moves, corners resize — always on.
+ * and positions each widget at the fixed width × height from the layout. Each widget's tier comes
+ * from its reported score (`useWidgetPriority`); collapsed-tier widgets shrink to one row (and the board compacts); while a drag is in progress it shows the raw layout. Header drag moves, corners resize — always on.
  */
 export function BridgeBoard({
   state,
@@ -138,6 +175,7 @@ export function BridgeBoard({
   stacked = false,
   onOpen,
 }: BridgeBoardProps) {
+  const t = useTranslations();
   const { gap, rowHeight } = BRIDGE_DENSITY[density];
   const { layout, collapsed, draggingId } = state;
   const dragging = draggingId !== null;
@@ -165,6 +203,7 @@ export function BridgeBoard({
         return prev &&
           prev.count === i.count &&
           prev.you === i.you &&
+          prev.urgency === i.urgency &&
           prev.aside === i.aside &&
           prev.onRefresh === i.onRefresh &&
           prev.refreshing === i.refreshing &&
@@ -176,12 +215,17 @@ export function BridgeBoard({
     [],
   );
 
+  const tiers = useWidgetPriority(layout, info, empty, collapsed);
   const shown = useMemo(() => {
     if (dragging) return layout;
-    const shrink = new Set(layout.filter((w) => !adding[w.id] && collapsed[w.id]).map((w) => w.id));
-    const view = viewLayout(layout, shrink);
-    return stacked ? stackLayout(view) : view;
-  }, [dragging, layout, collapsed, adding, stacked]);
+    const shrink = new Set(
+      layout.filter((w) => !adding[w.id] && tiers[w.id] === "collapsed").map((w) => w.id),
+    );
+    return viewLayout(layout, shrink);
+  }, [dragging, layout, tiers, adding]);
+  const phone = useMemo(() => phoneOrder(layout, tiers), [layout, tiers]);
+  /** Phone summary rows opened in place — local, not persisted. */
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const settingsWidget = layout.find((w) => w.id === settingsId);
 
   const colW = colWidth(width, gap);
@@ -219,43 +263,89 @@ export function BridgeBoard({
     window.addEventListener("pointercancel", onUp);
   };
 
+  const host = (w: BridgeWidget, tier: WidgetTier, style: CSSProperties) => (
+    <BridgeWidgetHost
+      adding={!!adding[w.id]}
+      anchored={state.selection?.widgetId === w.id}
+      empty={!!empty[w.id]}
+      info={info[w.id]}
+      key={w.id}
+      onDragStart={stacked ? undefined : onDragStart}
+      onEmpty={onEmpty}
+      onInfo={onInfo}
+      onOpen={onOpen ?? state.setSelection}
+      onSettings={setSettingsId}
+      onToggleAdd={onToggleAdd}
+      sheetSide={sheetSide}
+      state={state}
+      style={style}
+      tier={tier}
+      widget={w}
+    />
+  );
+  // Phone: in-flow frames, full width, each keeping its own height (the hero sizes to content).
+  const flow = (w: BridgeWidget): CSSProperties => ({
+    position: "relative",
+    height: w.type === "briefing" ? undefined : Math.round(widgetRect(w, 0, gap, rowHeight).height),
+  });
+  const summary = (w: BridgeWidget) => {
+    const i = info[w.id];
+    const aside = empty[w.id] ? t("bridge.allClear") : i?.aside;
+    return [i?.count, aside].filter((v) => v !== undefined && v !== "").join(" · ");
+  };
+
   return (
-    <>
-      <WidgetBoard
-        colWidth={colW}
-        gap={gap}
-        height={Math.round(boardHeight(shown, rowHeight, gap, dragging ? 2 : 0))}
-        onMeasure={setWidth}
-      >
-        {width > 0
-          ? shown.map((w) => {
-              const r = widgetRect(w, colW, gap, rowHeight);
-              return (
-                <BridgeWidgetHost
-                  adding={!!adding[w.id]}
-                  empty={!!empty[w.id]}
-                  info={info[w.id]}
-                  key={w.id}
-                  onDragStart={stacked ? undefined : onDragStart}
-                  onEmpty={onEmpty}
-                  onInfo={onInfo}
-                  onOpen={onOpen ?? state.setSelection}
-                  onSettings={setSettingsId}
-                  onToggleAdd={onToggleAdd}
-                  sheetSide={sheetSide}
-                  state={state}
-                  style={{
-                    left: Math.round(r.left),
-                    top: Math.round(r.top),
-                    width: Math.round(r.width),
-                    height: Math.round(r.height),
-                  }}
-                  widget={w}
-                />
-              );
-            })
-          : null}
-      </WidgetBoard>
+    <BridgePresetContext value={state.preset}>
+      {stacked ? (
+        <WidgetBoard colWidth={0} gap={gap}>
+          <Stack direction="col" gap="150">
+            {phone.lead.map((w) => host(w, tiers[w.id] ?? "standard", flow(w)))}
+            {phone.rest.length ? (
+              <Stack direction="col" gap="75">
+                <Typography type="caption">{t("bridge.other")}</Typography>
+                <Panel>
+                  <Container padding={["0", "100"]}>
+                    {phone.rest.map((w) => (
+                      <Fragment key={w.id}>
+                        <SummaryRow
+                          expanded={!!openRows[w.id]}
+                          icon={WIDGETS[w.type].icon}
+                          label={w.title ?? t(WIDGETS[w.type].labelKey)}
+                          onClick={() => setOpenRows((p) => ({ ...p, [w.id]: !p[w.id] }))}
+                          value={summary(w)}
+                        />
+                        {/* Always mounted: the body keeps reporting its count / tier. */}
+                        <Container hidden={!openRows[w.id]} padding={["100", "0"]}>
+                          {host(w, "standard", flow(w))}
+                        </Container>
+                      </Fragment>
+                    ))}
+                  </Container>
+                </Panel>
+              </Stack>
+            ) : null}
+          </Stack>
+        </WidgetBoard>
+      ) : (
+        <WidgetBoard
+          colWidth={colW}
+          gap={gap}
+          height={Math.round(boardHeight(shown, rowHeight, gap, dragging ? 2 : 0))}
+          onMeasure={setWidth}
+        >
+          {width > 0
+            ? shown.map((w) => {
+                const r = widgetRect(w, colW, gap, rowHeight);
+                return host(w, tiers[w.id] ?? "standard", {
+                  left: Math.round(r.left),
+                  top: Math.round(r.top),
+                  width: Math.round(r.width),
+                  height: Math.round(r.height),
+                });
+              })
+            : null}
+        </WidgetBoard>
+      )}
       {settingsWidget ? (
         <WidgetSettingsDialog
           key={settingsWidget.id}
@@ -265,6 +355,6 @@ export function BridgeBoard({
           widget={settingsWidget}
         />
       ) : null}
-    </>
+    </BridgePresetContext>
   );
 }

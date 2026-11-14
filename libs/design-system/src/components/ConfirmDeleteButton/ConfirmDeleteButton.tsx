@@ -69,7 +69,7 @@ export function ConfirmDeleteButton({
       aria-live="polite"
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border font-sans font-medium",
-        "cursor-pointer px-[10px] py-[5px] text-[12px] transition-colors duration-150",
+        "cursor-pointer px-[10px] py-[5px] text-[12px] transition-colors duration-150 motion-reduce:transition-none",
         focusRingOffset,
         disabledClasses,
         armed

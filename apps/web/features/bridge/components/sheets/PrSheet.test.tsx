@@ -224,7 +224,9 @@ describe("PrSheet content", () => {
       review: "changes-requested",
     });
     show(top, [base, top]);
-    expect(screen.getByTestId(AnchoredSheetTestId.State)).toHaveTextContent("CI FAILING");
+    // Two pills max, most severe first: CI failing (rose) before changes requested (amber).
+    const pills = screen.getAllByTestId(AnchoredSheetTestId.State);
+    expect(pills.map((p) => p.textContent)).toEqual(["CI selhává", "Požadovány změny"]);
     expect(screen.queryByTestId(StatCellTestId.Root)).toBeNull();
     expect(screen.getByTestId(`${StackCrumbsTestId.Crumb}-${top.url}`)).toHaveTextContent("#11");
     expect(screen.getByTestId(`${StackCrumbsTestId.Crumb}-${base.url}`)).toHaveTextContent("#10");
@@ -263,11 +265,9 @@ describe("PrSheet content", () => {
 
   it("makes the PR number in the header copyable", () => {
     show(pr(11, {}));
-    const kind = screen.getByTestId(AnchoredSheetTestId.Kind);
-    expect(within(kind).getByTestId(CopyableTestId.Root)).toHaveTextContent("#11");
-    expect(within(kind).getByTestId(CopyableTestId.Copy)).toHaveAccessibleName(
-      "Kopírovat číslo PR",
-    );
+    const copy = screen.getByTestId(AnchoredSheetTestId.CopyId);
+    expect(copy).toHaveTextContent("#11");
+    expect(copy).toHaveAccessibleName("Kopírovat číslo PR #11");
   });
 
   it("shows only head → base under the title, both copyable, then the coloured diffstat", () => {

@@ -1,29 +1,108 @@
-/* Sdílené styly Můstku (Bridge Redesign) */
+/* Sdílené styly Můstku — dark + light přes tokeny */
 html,
 body {
   margin: 0;
   background: #07080a;
 }
+/* === TOKENY (generováno, zdroj: tokens.json) === */
 .bz {
+  color-scheme: dark;
+  --canvas: #07080a;
   --bg: #0a0b0d;
   --p1: #0f1114;
   --p2: #151820;
   --p3: #1c2029;
+  --sheet: #12151b;
+  --sheet-2: #161a21;
+  --paper: #13151a;
+  --device: #1b1e25;
+  --t1-from: #171b23;
+  --t1-to: #12151a;
+  --t1-under: #14171e;
   --line: rgba(255, 255, 255, 0.06);
   --line2: rgba(255, 255, 255, 0.11);
   --ink: #eceef2;
   --ink2: #a6acb7;
   --ink3: #80868f;
+  --on-ink: #0a0b0d;
+  --on-amber: #1a1204;
+  --on-status: #0a0b0d;
+  --av-ink: #0a0b0d;
   --amber: #f5a524;
-  --amb-s: rgba(245, 165, 36, 0.12);
+  --amber-hover: #ffb43d;
+  --amber-fg: #f5a524;
   --violet: #a78bfa;
   --sky: #7dd3fc;
   --rose: #fb7185;
   --emerald: #34d399;
   --idle: #6b7280;
+  --bar: rgba(7, 8, 10, 0.86);
+  --bar-2: rgba(13, 15, 18, 0.94);
+  --sunk: rgba(0, 0, 0, 0.16);
+  --code-bg: rgba(0, 0, 0, 0.35);
+  --shadow-t1: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  --shadow-pop: 0 50px 120px -30px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 0, 0, 0.6);
+  --shadow-device: 0 40px 100px -30px rgba(0, 0, 0, 0.9);
+  --diff-no: #5b616b;
+  --diff-ink: #c9cdd4;
+  --diff-add-no: #6fae95;
+  --diff-del-no: #b77b86;
+  --syn-k: #9fb6d8;
+  --syn-s: #b3c79a;
+  --syn-c: #6b717b;
+  --syn-t: #d9c9a6;
+}
+.bz[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #e8e8e4;
+  --bg: #f5f5f2;
+  --p1: #ffffff;
+  --p2: #f0f0ec;
+  --p3: #e6e6e1;
+  --sheet: #ffffff;
+  --sheet-2: #f7f7f4;
+  --paper: #fffdf6;
+  --device: #d4d4cf;
+  --t1-from: #ffffff;
+  --t1-to: #fffaf0;
+  --t1-under: #fffcf5;
+  --line: rgba(20, 22, 26, 0.09);
+  --line2: rgba(20, 22, 26, 0.16);
+  --ink: #15171b;
+  --ink2: #4a4f58;
+  --ink3: #686d77;
+  --on-ink: #ffffff;
+  --on-status: #ffffff;
+  --av-ink: #15171b;
+  --amber-hover: #f7b23f;
+  --amber-fg: #9a5500;
+  --violet: #7c3aed;
+  --sky: #0369a1;
+  --rose: #e11d48;
+  --emerald: #047857;
+  --idle: #9ca3af;
+  --bar: rgba(245, 245, 242, 0.86);
+  --bar-2: rgba(255, 255, 255, 0.94);
+  --sunk: rgba(20, 22, 26, 0.025);
+  --code-bg: #f3f3ef;
+  --shadow-t1: inset 0 1px 0 #fff, 0 18px 40px -24px rgba(90, 60, 0, 0.22);
+  --shadow-pop: 0 30px 70px -24px rgba(20, 22, 26, 0.28), 0 0 0 1px rgba(20, 22, 26, 0.05);
+  --shadow-device: 0 30px 80px -30px rgba(20, 22, 26, 0.35);
+  --diff-no: #9aa0a8;
+  --diff-ink: #24292f;
+  --diff-add-no: #2f7a60;
+  --diff-del-no: #a8475a;
+  --syn-k: #2f5a94;
+  --syn-s: #4b7a26;
+  --syn-c: #8a9099;
+  --syn-t: #7a5d1f;
+}
+/* Tinty a stavové výplně se počítají z tokenů: color-mix(in srgb, var(--ink|--rose|…) N%, transparent) — fungují v obou tématech. */
+.bz {
+  --amb-s: color-mix(in srgb, var(--amber) 12%, transparent);
   --under: var(--bg);
   min-height: 100vh;
-  background: #07080a;
+  background: var(--canvas);
   color: var(--ink);
   font:
     13px/1.5 "Geist",
@@ -31,6 +110,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01";
+  transition: background-color 0.2s;
+}
+.bz[data-theme="light"] {
+  --amb-s: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .bz * {
   box-sizing: border-box;
@@ -73,7 +156,7 @@ body {
   gap: 4px;
   flex-wrap: wrap;
   padding: 10px 20px;
-  background: rgba(7, 8, 10, 0.86);
+  background: var(--bar);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -94,7 +177,7 @@ body {
 }
 .vtb[aria-pressed="true"] {
   background: var(--ink);
-  color: #0a0b0d;
+  color: var(--on-ink);
 }
 .vt .sp {
   flex: 1;
@@ -137,8 +220,8 @@ body {
   width: 410px;
   height: 864px;
   border-radius: 48px;
-  border: 10px solid #1b1e25;
-  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.9);
+  border: 10px solid var(--device);
+  box-shadow: var(--shadow-device);
 }
 /* top bar */
 .top {
@@ -161,7 +244,7 @@ body {
   height: 26px;
   border-radius: 7px;
   background: var(--ink);
-  color: #0a0b0d;
+  color: var(--on-ink);
   display: grid;
   place-items: center;
   font-style: normal;
@@ -251,7 +334,7 @@ body {
   padding: 0 4px;
   border-radius: 99px;
   background: var(--amber);
-  color: #1a1204;
+  color: var(--on-amber);
   font-size: 9.5px;
   display: grid;
   place-items: center;
@@ -329,10 +412,10 @@ body {
 .btn.pri {
   background: var(--amber);
   border-color: var(--amber);
-  color: #1a1204;
+  color: var(--on-amber);
 }
 .btn.pri:hover {
-  background: #ffb43d;
+  background: var(--amber-hover);
 }
 .btn.sm {
   height: 26px;
@@ -410,7 +493,7 @@ body {
   font-weight: 500;
 }
 .hero p .a {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .hero p .r {
   color: var(--rose);
@@ -441,7 +524,7 @@ body {
   white-space: nowrap;
 }
 .ctr.amber .n {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .ctr.rose .n {
   color: var(--rose);
@@ -469,12 +552,10 @@ body {
   border-radius: 10px;
 }
 .w.t1 {
-  --under: #14171e;
-  background: linear-gradient(180deg, #171b23 0%, #12151a 100%);
-  border: 1px solid rgba(245, 165, 36, 0.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  --under: var(--t1-under);
+  background: linear-gradient(180deg, var(--t1-from) 0%, var(--t1-to) 100%);
+  border: 1px solid color-mix(in srgb, var(--amber) 20%, transparent);
+  box-shadow: var(--shadow-t1);
 }
 .w.t1::before {
   content: "";
@@ -483,7 +564,12 @@ body {
   right: 18px;
   top: -1px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(245, 165, 36, 0.75), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--amber) 75%, transparent),
+    transparent
+  );
 }
 .w.t2 {
   --under: var(--p1);
@@ -546,7 +632,7 @@ body {
   padding: 0 8px;
   border-radius: 999px;
   background: var(--amb-s);
-  color: var(--amber);
+  color: var(--amber-fg);
   font-size: 11.5px;
   font-weight: 500;
   white-space: nowrap;
@@ -556,7 +642,7 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .wh .sp {
   flex: 1;
@@ -648,11 +734,11 @@ body {
   position: relative;
 }
 .row:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
 }
 .row.sel {
-  background: rgba(245, 165, 36, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(245, 165, 36, 0.3);
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 30%, transparent);
 }
 .l1 {
   display: flex;
@@ -698,7 +784,7 @@ body {
   place-items: center;
   font-size: 8px;
   font-weight: 700;
-  color: #0a0b0d;
+  color: var(--av-ink);
   flex: none;
 }
 .av.bot {
@@ -715,23 +801,23 @@ body {
   border-radius: 6px;
   font-size: 11.5px;
   color: var(--ink2);
-  background: rgba(255, 255, 255, 0.045);
+  background: color-mix(in srgb, var(--ink) 4.5%, transparent);
   white-space: nowrap;
 }
 .chip.ok {
   color: var(--emerald);
-  background: rgba(52, 211, 153, 0.09);
+  background: color-mix(in srgb, var(--emerald) 9%, transparent);
 }
 .chip.warn {
-  color: var(--amber);
+  color: var(--amber-fg);
   background: var(--amb-s);
 }
 .chip.err {
   color: var(--rose);
-  background: rgba(251, 113, 133, 0.1);
+  background: color-mix(in srgb, var(--rose) 10%, transparent);
 }
 .chip.you {
-  color: #1a1204;
+  color: var(--on-amber);
   background: var(--amber);
   font-weight: 500;
 }
@@ -745,19 +831,19 @@ body {
 }
 .ci.ok {
   color: var(--emerald);
-  background: rgba(52, 211, 153, 0.1);
+  background: color-mix(in srgb, var(--emerald) 10%, transparent);
 }
 .ci.fail {
   color: var(--rose);
-  background: rgba(251, 113, 133, 0.11);
+  background: color-mix(in srgb, var(--rose) 11%, transparent);
 }
 .ci.conflict {
-  color: var(--amber);
+  color: var(--amber-fg);
   background: var(--amb-s);
 }
 .ci.run {
   color: var(--sky);
-  background: rgba(125, 211, 252, 0.1);
+  background: color-mix(in srgb, var(--sky) 10%, transparent);
 }
 .ci.run svg {
   animation: spin 1.4s linear infinite;
@@ -784,7 +870,7 @@ body {
   background: var(--line);
 }
 .sec.amb {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 /* stacks */
 .kids {
@@ -824,7 +910,7 @@ body {
   margin: 2px 10px 4px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
   font-size: 12.5px;
   color: var(--ink2);
 }
@@ -897,7 +983,7 @@ body {
 }
 .dot.blocked {
   background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 18%, transparent);
 }
 .dot.error {
   background: var(--rose);
@@ -913,8 +999,8 @@ body {
   margin: 4px 10px;
   padding: 11px 12px;
   border-radius: 9px;
-  background: rgba(245, 165, 36, 0.06);
-  border: 1px solid rgba(245, 165, 36, 0.16);
+  background: color-mix(in srgb, var(--amber) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 16%, transparent);
 }
 .park .pt {
   display: flex;
@@ -974,7 +1060,7 @@ body {
 .bar {
   height: 4px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   overflow: hidden;
 }
 .bar i {
@@ -992,7 +1078,7 @@ body {
   font-family: "Geist Mono";
   font-size: 9px;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
   color: var(--ink2);
   margin-top: 1px;
 }
@@ -1034,7 +1120,7 @@ body {
 .tile {
   padding: 10px 12px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -1064,8 +1150,8 @@ body {
   padding-left: 15px;
 }
 .tile.err {
-  background: rgba(251, 113, 133, 0.07);
-  border-color: rgba(251, 113, 133, 0.32);
+  background: color-mix(in srgb, var(--rose) 7%, transparent);
+  border-color: color-mix(in srgb, var(--rose) 32%, transparent);
 }
 .tile.err .br {
   color: var(--rose);
@@ -1147,7 +1233,7 @@ body {
 }
 .mt.hot .note {
   grid-column: 1/-1;
-  color: var(--amber);
+  color: var(--amber-fg);
   font-size: 11.5px;
 }
 /* quick actions */
@@ -1235,7 +1321,7 @@ body {
   border-radius: 8px;
 }
 .fd:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
 .src {
   width: 26px;
@@ -1314,13 +1400,13 @@ body {
 }
 /* todo paper */
 .w.paper {
-  --under: #13151a;
-  background: #13151a;
+  --under: var(--paper);
+  background: var(--paper);
   border: 1px solid var(--line);
   background-image: repeating-linear-gradient(
     180deg,
     transparent 0 33px,
-    rgba(255, 255, 255, 0.035) 33px 34px
+    color-mix(in srgb, var(--ink) 3.5%, transparent) 33px 34px
   );
 }
 .td {
@@ -1339,7 +1425,7 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  color: #0a0b0d;
+  color: var(--on-status);
 }
 .cb.on {
   background: var(--emerald);
@@ -1378,12 +1464,10 @@ body {
   left: calc(100% + 14px);
   width: 470px;
   z-index: 12;
-  background: #161a22;
+  background: var(--sheet);
   border: 1px solid var(--line2);
   border-radius: 12px;
-  box-shadow:
-    0 40px 90px -20px rgba(0, 0, 0, 0.95),
-    0 0 0 1px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-pop);
   overflow: hidden;
 }
 .sheet .sh {
@@ -1441,8 +1525,8 @@ body {
   margin-top: 14px;
   padding: 12px;
   border-radius: 10px;
-  background: rgba(167, 139, 250, 0.07);
-  border: 1px solid rgba(167, 139, 250, 0.22);
+  background: color-mix(in srgb, var(--violet) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--violet) 22%, transparent);
   font-size: 12.5px;
   color: var(--ink2);
 }
@@ -1480,7 +1564,7 @@ body {
 }
 .fchips [aria-pressed="true"] {
   background: var(--ink);
-  color: #0a0b0d;
+  color: var(--on-ink);
   border-color: var(--ink);
 }
 .fchips .n {
@@ -1544,7 +1628,7 @@ body {
   line-height: 1.55;
 }
 .hero2 p .a {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .ctrs2 {
   display: flex;
@@ -1573,7 +1657,7 @@ body {
   color: var(--ink3);
 }
 .ctr2.amber .n {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .ctr2.rose .n {
   color: var(--rose);
@@ -1629,7 +1713,7 @@ body {
   padding: 8px 8px 26px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  background: rgba(13, 15, 18, 0.92);
+  background: var(--bar-2);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
 }
@@ -1657,7 +1741,7 @@ body {
   padding: 0 4px;
   border-radius: 99px;
   background: var(--amber);
-  color: #1a1204;
+  color: var(--on-amber);
   font-size: 9.5px;
   display: grid;
   place-items: center;
@@ -1670,7 +1754,7 @@ body {
   width: 130px;
   height: 5px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--ink) 50%, transparent);
 }
 /* B queue */
 .qh {
@@ -1719,12 +1803,16 @@ body {
   color: var(--ink2);
 }
 .q.hot {
-  background: linear-gradient(90deg, rgba(245, 165, 36, 0.07), var(--p1) 40%);
-  border-color: rgba(245, 165, 36, 0.22);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--amber) 7%, transparent),
+    var(--p1) 40%
+  );
+  border-color: color-mix(in srgb, var(--amber) 22%, transparent);
 }
 .q.hot .sg {
-  color: var(--amber);
-  border-color: rgba(245, 165, 36, 0.35);
+  color: var(--amber-fg);
+  border-color: color-mix(in srgb, var(--amber) 35%, transparent);
   background: var(--amb-s);
 }
 .q .src3 {
@@ -1804,12 +1892,12 @@ body {
   width: 100%;
 }
 .nd:hover .tt {
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .nd .no {
   font-family: "Geist Mono";
   font-size: 12px;
-  color: var(--amber);
+  color: var(--amber-fg);
 }
 .nd .tt {
   font-size: 17px;
@@ -2030,10 +2118,10 @@ body {
 @keyframes pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--violet) 55%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(167, 139, 250, 0);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--violet) 0%, transparent);
   }
 }
 @keyframes spin {

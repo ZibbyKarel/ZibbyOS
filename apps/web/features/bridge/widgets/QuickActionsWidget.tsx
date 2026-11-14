@@ -1,7 +1,7 @@
 "use client";
 
 import type { QuickAction, QuickActionTarget } from "@zibby/contracts";
-import { BoardLine, BoardRow, BoardText, Button } from "@zibby/design-system";
+import { ActionPalette, ActionPill, ActionPillAdd } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgentsQuery } from "../../agents/queries";
@@ -19,6 +19,8 @@ import { useWidgetReport } from "./useWidgetReport";
 export enum QuickActionsWidgetTestId {
   Run = "quick-actions-run",
   Remove = "quick-actions-remove",
+  /** The dashed "Add" pill at the end of the palette. */
+  Add = "quick-actions-add-pill",
 }
 
 const newId = () => `qa-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -34,7 +36,6 @@ export function QuickActionsWidget({
   onCountChange,
   selection,
   onOpen,
-  sheetSide,
 }: BridgeWidgetProps) {
   const query = useResolvedQuickActions();
   const agentsQuery = useAgentsQuery();
@@ -44,42 +45,62 @@ export function QuickActionsWidget({
   const agents = agentsQuery.data;
   const workflows = workflowsQuery.data;
   const { update, pending } = useUpdateQuickActions(actions);
+  // The dashed "Add" pill and the header `+` toggle both open the add form.
+  const [formOpen, setFormOpen] = useState(false);
+  const showForm = adding || formOpen;
 
+  // `failed`: the dashed Add pill is always there, so the widget must never collapse as empty.
   useWidgetReport(
-    { loading: query.isPending, count: actions.length, you: 0 },
+    { loading: query.isPending, count: actions.length, you: 0, failed: true },
     { onEmptyChange, onCountChange },
   );
 
   return (
     <>
-      {actions.map((a) => (
-        <QuickActionRow
-          action={a}
-          adding={adding}
-          agents={agents}
-          key={a.id}
-          onOpen={() =>
-            onOpen({
-              kind: "quickAction",
-              id: a.id,
-              widgetId: widget.id,
-              key: `${widget.id}:${a.id}`,
-            })
-          }
-          pending={pending}
-          rowKey={`${widget.id}:${a.id}`}
-          selected={selection?.key === `${widget.id}:${a.id}`}
-          sheetSide={sheetSide}
-          update={update}
-          workflows={workflows}
-        />
-      ))}
-      {adding ? (
+      <ActionPalette>
+        {actions.map((a) => (
+          <QuickActionRow
+            action={a}
+            adding={adding}
+            agents={agents}
+            key={a.id}
+            onOpen={() =>
+              onOpen({
+                kind: "quickAction",
+                id: a.id,
+                widgetId: widget.id,
+                key: `${widget.id}:${a.id}`,
+              })
+            }
+            pending={pending}
+            rowKey={`${widget.id}:${a.id}`}
+            selected={selection?.key === `${widget.id}:${a.id}`}
+            update={update}
+            workflows={workflows}
+          />
+        ))}
+        {adding ? null : (
+          <ActionPillAdd
+            data-testid={QuickActionsWidgetTestId.Add}
+            onClick={() => setFormOpen((o) => !o)}
+          >
+            {t("add")}
+          </ActionPillAdd>
+        )}
+      </ActionPalette>
+      {showForm ? (
         <QuickActionForm
           agents={agents ?? []}
           disabled={actions.length >= MAX_ACTIONS}
+          onCancel={adding ? undefined : () => setFormOpen(false)}
           onSubmit={(values, done) =>
-            update((latest) => [...latest, { id: newId(), ...values }], done)
+            update(
+              (latest) => [...latest, { id: newId(), ...values }],
+              () => {
+                done();
+                setFormOpen(false);
+              },
+            )
           }
           pending={pending}
           submitLabel={t("add")}
@@ -102,7 +123,6 @@ interface QuickActionRowProps {
   pending: boolean;
   rowKey: string;
   selected: boolean;
-  sheetSide: BridgeWidgetProps["sheetSide"];
   onOpen: () => void;
   update: UpdateQuickActions;
 }
@@ -115,7 +135,6 @@ function QuickActionRow({
   pending,
   rowKey,
   selected,
-  sheetSide,
   onOpen,
   update,
 }: QuickActionRowProps) {
@@ -156,46 +175,17 @@ function QuickActionRow({
   };
 
   return (
-    <BoardRow
-      action={
-        adding ? (
-          <Button
-            aria-label={t("removeLabel", { label: a.label })}
-            data-testid={QuickActionsWidgetTestId.Remove}
-            disabled={pending}
-            icon="trash"
-            intent="ghost"
-            onClick={() => update((latest) => latest.filter((x) => x.id !== a.id))}
-            size="sm"
-          >
-            {t("remove")}
-          </Button>
-        ) : (
-          <Button
-            aria-label={t("runLabel", { label: a.label })}
-            data-testid={QuickActionsWidgetTestId.Run}
-            disabled={create.isPending || missing}
-            icon="play"
-            intent="ghost"
-            onClick={run}
-            size="sm"
-          >
-            {t("run")}
-          </Button>
-        )
-      }
-      onClick={adding ? undefined : onOpen}
+    <ActionPill
+      label={a.label}
+      leadDisabled={adding ? pending : create.isPending || missing}
+      leadIcon={adding ? "trash" : "play"}
+      leadLabel={adding ? t("removeLabel", { label: a.label }) : t("runLabel", { label: a.label })}
+      leadTestId={adding ? QuickActionsWidgetTestId.Remove : QuickActionsWidgetTestId.Run}
+      onLead={adding ? () => update((latest) => latest.filter((x) => x.id !== a.id)) : run}
+      onOpen={adding ? undefined : onOpen}
       rowKey={rowKey}
       selected={selected}
-      sheetSide={sheetSide}
-      tone="idle"
-    >
-      <BoardText kind="title">{a.label}</BoardText>
-      <BoardLine gap="6" indent={false}>
-        <BoardText kind="meta" tone="ink3">
-          {queued ? t("queued") : missing ? t("targetMissing") : (target?.name ?? t("auto"))}
-        </BoardText>
-      </BoardLine>
-    </BoardRow>
+      sub={queued ? t("queued") : missing ? t("targetMissing") : (target?.name ?? t("auto"))}
+    />
   );
 }

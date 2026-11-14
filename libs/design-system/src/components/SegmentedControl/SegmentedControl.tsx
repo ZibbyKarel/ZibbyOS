@@ -37,8 +37,8 @@ export interface SegmentedControlProps {
 }
 
 const sizeClass: Record<SegmentedControlSize, string> = {
-  sm: "px-[8px] py-[4.5px] text-[10px]",
-  md: "px-[10px] py-[6px] text-[10px]",
+  sm: "px-[8px] py-[3px] text-[12px]",
+  md: "px-[10px] py-[4px] text-[12px]",
 };
 
 /** Every enabled item button inside the closest `role="radiogroup"` ancestor, in DOM order. */
@@ -87,7 +87,7 @@ export function SegmentedControl({
     <div
       aria-label={ariaLabelledby ? undefined : ariaLabel}
       aria-labelledby={ariaLabelledby}
-      className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md border border-line-2 bg-panel p-0.5"
+      className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-[9px] border border-line bg-panel p-[3px]"
       data-testid={SegmentedControlTestId.Root}
       ref={ref}
       role="radiogroup"
@@ -98,13 +98,11 @@ export function SegmentedControl({
           <button
             aria-checked={active}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-sm border-none font-sans transition-colors",
+              "inline-flex items-center gap-1.5 rounded-sm border-none font-sans transition-colors motion-reduce:transition-none",
               plain ? "font-normal" : "font-medium",
               focusRingInset,
               sizeClass[size],
-              active
-                ? "bg-raised text-ink shadow-card"
-                : "bg-transparent text-foreground-faint hover:text-foreground",
+              active ? "bg-raised text-ink" : "bg-transparent text-ink-3 hover:text-ink",
             )}
             data-testid={`${SegmentedControlTestId.Item}-${item.value}`}
             key={item.value}

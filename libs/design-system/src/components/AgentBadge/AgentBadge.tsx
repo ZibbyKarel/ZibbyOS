@@ -15,12 +15,12 @@ export enum AgentBadgeTestId {
 
 /** Frame colour per state — the same hues `StatusDot` paints. */
 const stateRing: Record<StateTone | "wait", string> = {
-  thinking: "ring-accent",
+  thinking: "ring-state-think",
   done: "ring-ok",
   blocked: "ring-warn",
   error: "ring-bad",
   working: "ring-run",
-  idle: "ring-foreground-faint",
+  idle: "ring-state-idle",
   wait: "ring-warn",
 };
 
@@ -74,6 +74,7 @@ export function AgentBadge({
               "pointer-events-none absolute inset-0 rounded-sm ring-2 ring-offset-1 ring-offset-panel",
               stateRing[tone],
               pulse && stateAnimation[tone],
+              pulse && "motion-reduce:animate-none",
             )}
             data-state={tone}
             data-testid={AgentBadgeTestId.State}

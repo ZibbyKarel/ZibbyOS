@@ -39,9 +39,9 @@ export interface MobileMenuProps {
 
 const rowClass = (active: boolean) =>
   cn(
-    "flex min-h-11 w-full items-center gap-2 border-l-2 px-3 text-left font-sans text-[14px] font-medium transition-colors",
+    "flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-left font-sans text-body font-medium transition-colors",
     focusRingInset,
-    active ? "border-ink text-ink" : "border-transparent text-ink-2 hover:bg-hover hover:text-ink",
+    active ? "bg-panel-2 text-ink" : "text-ink-2 hover:bg-panel-2 hover:text-ink",
   );
 
 const activeIds = (sections: MobileMenuSection[]) =>
@@ -96,7 +96,7 @@ export function MobileMenu({
         width="sm"
       >
         <ul
-          className="-mx-5 -my-5 flex list-none flex-col py-2"
+          className="-mx-5 -my-5 flex list-none flex-col px-2 py-2"
           data-testid={MobileMenuTestId.Tree}
         >
           {sections.map((section) => {
@@ -135,7 +135,7 @@ export function MobileMenu({
                               aria-current={item.active ? "page" : undefined}
                               className={cn(
                                 rowClass(Boolean(item.active)),
-                                "pl-8 text-[13px] font-normal",
+                                "pl-8 font-normal",
                                 item.active && "font-medium",
                               )}
                               data-testid={`${MobileMenuTestId.Item}-${item.href}`}

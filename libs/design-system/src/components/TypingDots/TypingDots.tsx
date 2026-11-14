@@ -16,7 +16,7 @@ const DOT_DELAYS = ["[animation-delay:0ms]", "[animation-delay:150ms]", "[animat
 
 /**
  * Three bouncing dots — the reply is being composed, before any text has
- * streamed in. Square and matte per DS.md §7 (no glow — that's `StatusDot`'s
+ * streamed in. Round and matte (no glow — that's `StatusDot`'s
  * living-tone behaviour, not a general-purpose loading mark).
  */
 export function TypingDots({ label }: TypingDotsProps) {
@@ -30,7 +30,7 @@ export function TypingDots({ label }: TypingDotsProps) {
       {DOT_DELAYS.map((delay) => (
         <span
           className={cn(
-            "h-[5px] w-[5px] animate-bounce bg-foreground-dim motion-reduce:animate-none",
+            "h-[5px] w-[5px] animate-bounce rounded-full bg-ink-3 motion-reduce:animate-none",
             delay,
           )}
           data-testid={TypingDotsTestId.Dot}

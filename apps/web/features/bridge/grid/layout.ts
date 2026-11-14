@@ -1,5 +1,5 @@
 import type { BridgeWidget } from "@zibby/contracts";
-import type { ResizeCorner } from "@zibby/design-system";
+import type { ResizeCorner, WidgetTier } from "@zibby/design-system";
 
 export type { BridgeWidget };
 export type WidgetType = BridgeWidget["type"];
@@ -14,6 +14,24 @@ export interface DragOrigin {
 }
 
 export const COLS = 12;
+
+/** Species size range per widget type (spec §4): `[minW, minH, maxW, maxH]` in columns × rows.
+ *  Applied only to NEW resizes / adds — a stored layout is never clamped at render. */
+export const SIZE_LIMITS: Record<WidgetType, readonly [number, number, number, number]> = {
+  briefing: [6, 2, 12, 4],
+  prs: [3, 6, 12, 24],
+  issues: [3, 6, 12, 24],
+  runs: [3, 6, 6, 24],
+  automationRuns: [3, 3, 12, 6],
+  projectStatus: [2, 3, 6, 8],
+  budgets: [2, 3, 6, 10],
+  proposals: [3, 4, 8, 16],
+  mentions: [3, 6, 8, 24],
+  teamKb: [3, 6, 8, 20],
+  todo: [2, 4, 6, 16],
+  quickActions: [2, 2, 12, 4],
+  pins: [2, 3, 6, 8],
+};
 
 export function fromArr(a: readonly WidgetTuple[]): BridgeWidget[] {
   return a.map(([type, x, y, w, h]) => ({ id: type, type, x, y, w, h }));
@@ -80,7 +98,8 @@ export function dragMove(
   });
 }
 
-/** Resize from `corner`; the opposite edge stays anchored. Min 2x2, inside the board. */
+/** Resize from `corner`; the opposite edge stays anchored. Size stays inside the type's
+ *  `SIZE_LIMITS` and the board (the board edge wins when both can't hold). */
 export function dragResize(
   layout: readonly BridgeWidget[],
   id: string,
@@ -90,19 +109,20 @@ export function dragResize(
   corner: ResizeCorner = "se",
 ): BridgeWidget[] {
   return withTarget(layout, id, (t) => {
+    const [minW, minH, maxW, maxH] = SIZE_LIMITS[t.type];
     if (corner.endsWith("w")) {
       const right = origin.x + origin.w;
-      t.x = Math.max(0, Math.min(right - 2, origin.x + dx));
+      t.x = Math.max(0, right - maxW, Math.min(right - minW, origin.x + dx));
       t.w = right - t.x;
     } else {
-      t.w = Math.max(2, Math.min(COLS - origin.x, origin.w + dx));
+      t.w = Math.min(maxW, COLS - origin.x, Math.max(minW, origin.w + dx));
     }
     if (corner.startsWith("n")) {
       const bottom = origin.y + origin.h;
-      t.y = Math.max(0, Math.min(bottom - 2, origin.y + dy));
+      t.y = Math.max(0, bottom - maxH, Math.min(bottom - minH, origin.y + dy));
       t.h = bottom - t.y;
     } else {
-      t.h = Math.max(2, origin.h + dy);
+      t.h = Math.min(maxH, Math.max(minH, origin.h + dy));
     }
   });
 }
@@ -116,8 +136,12 @@ export function nextWidgetId(layout: readonly BridgeWidget[], type: WidgetType):
   return `${type}-${n}`;
 }
 
+/** A new widget: 4×6 brought inside its type's `SIZE_LIMITS`, at the first free spot. */
 export function addWidget(layout: readonly BridgeWidget[], type: WidgetType): BridgeWidget[] {
-  return compact([...layout, { id: nextWidgetId(layout, type), type, x: 0, y: 999, w: 4, h: 6 }]);
+  const [minW, minH, maxW, maxH] = SIZE_LIMITS[type];
+  const w = Math.min(maxW, Math.max(minW, 4));
+  const h = Math.min(maxH, Math.max(minH, 6));
+  return compact([...layout, { id: nextWidgetId(layout, type), type, x: 0, y: 999, w, h }]);
 }
 
 export function removeWidget(layout: readonly BridgeWidget[], id: string): BridgeWidget[] {
@@ -133,15 +157,24 @@ export function viewLayout(
   return compact(layout.map((it) => ({ ...it, h: shrinkIds.has(it.id) ? 1 : it.h })));
 }
 
-/** Phone view: every widget full width, one under another in reading order (y, then x),
- *  each keeping its own height. */
-export function stackLayout(layout: readonly BridgeWidget[]): BridgeWidget[] {
-  let y = 0;
-  return [...layout]
-    .sort((a, b) => a.y - b.y || a.x - b.x)
-    .map((it) => {
-      const placed = { ...it, x: 0, w: COLS, y };
-      y += it.h;
-      return placed;
-    });
+const TIER_RANK: Record<WidgetTier, number> = {
+  hero: 0,
+  primary: 1,
+  standard: 2,
+  ambient: 3,
+  collapsed: 3,
+};
+
+/** Phone view (spec §6): one column, hero → primary → standard (`lead`), then ambient and
+ *  collapsed widgets (`rest`, shown as summary rows). Desktop reading order (y, then x) within a tier. */
+export function phoneOrder(
+  layout: readonly BridgeWidget[],
+  tiers: Readonly<Record<string, WidgetTier | undefined>>,
+): { lead: BridgeWidget[]; rest: BridgeWidget[] } {
+  const rank = (w: BridgeWidget) => TIER_RANK[tiers[w.id] ?? "standard"];
+  const sorted = [...layout].sort((a, b) => rank(a) - rank(b) || a.y - b.y || a.x - b.x);
+  return {
+    lead: sorted.filter((w) => rank(w) < 3),
+    rest: sorted.filter((w) => rank(w) === 3),
+  };
 }

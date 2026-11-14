@@ -31,7 +31,7 @@ describe("WorkflowStepStrip", () => {
 
   it("highlights the current phase", () => {
     render(<WorkflowStepStrip current={1} phases={PHASES} />);
-    expect(screen.getByTestId(`${WorkflowStepStripTestId.Step}-1`)).toHaveClass("border-ink");
-    expect(screen.getByTestId(`${WorkflowStepStripTestId.Step}-0`)).not.toHaveClass("border-ink");
+    expect(screen.getByTestId(`${WorkflowStepStripTestId.Step}-1`)).toHaveClass("bg-panel-2");
+    expect(screen.getByTestId(`${WorkflowStepStripTestId.Step}-0`)).not.toHaveClass("bg-panel-2");
   });
 });

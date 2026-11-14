@@ -20,6 +20,16 @@ function cssVar(block: string, name: string): string | undefined {
 }
 
 describe("density tokens", () => {
+  it("has exactly three levels with the design's --rowpad 4 / 8 / 12", () => {
+    expect(DENSITIES).toEqual(["compact", "comfort", "airy"]);
+    expect(DENSITIES.map((d) => cssVar(densityBlock(d), "--rowpad"))).toEqual([
+      "4px",
+      "8px",
+      "12px",
+    ]);
+    expect(css).not.toContain('[data-density="open"]');
+  });
+
   it.each(DENSITIES)("globals.css %s block matches DENSITY_SCALE + BRIDGE_DENSITY", (d) => {
     const block = densityBlock(d);
     expect(Number(cssVar(block, "--density"))).toBe(DENSITY_SCALE[d]);
@@ -45,10 +55,10 @@ describe("DesignSystemProvider density", () => {
   });
 
   it("without a density leaves <html> alone (pre-hydration value survives)", () => {
-    document.documentElement.setAttribute("data-density", "open");
+    document.documentElement.setAttribute("data-density", "compact");
     const { container } = render(<DesignSystemProvider>x</DesignSystemProvider>);
     expect(container.firstElementChild).not.toHaveAttribute("data-density");
-    expect(document.documentElement).toHaveAttribute("data-density", "open");
+    expect(document.documentElement).toHaveAttribute("data-density", "compact");
   });
 
   it("applies and caches an explicit density", () => {
@@ -66,10 +76,13 @@ describe("ThemeScript density pass", () => {
     expect(src).toContain('?d:"airy"');
   });
 
-  it("runs: cached value wins, garbage falls back", () => {
+  it("runs: cached value wins, legacy `open` maps to airy, garbage falls back", () => {
+    window.localStorage.setItem(DENSITY_STORAGE_KEY, "compact");
+    new Function(buildThemeScriptSource("light", "comfort"))();
+    expect(document.documentElement).toHaveAttribute("data-density", "compact");
     window.localStorage.setItem(DENSITY_STORAGE_KEY, "open");
-    new Function(buildThemeScriptSource("light", "airy"))();
-    expect(document.documentElement).toHaveAttribute("data-density", "open");
+    new Function(buildThemeScriptSource("light", "comfort"))();
+    expect(document.documentElement).toHaveAttribute("data-density", "airy");
     window.localStorage.setItem(DENSITY_STORAGE_KEY, "huge");
     new Function(buildThemeScriptSource("light", "airy"))();
     expect(document.documentElement).toHaveAttribute("data-density", "airy");

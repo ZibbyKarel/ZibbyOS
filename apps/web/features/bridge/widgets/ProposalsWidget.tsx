@@ -6,7 +6,7 @@ import {
   BoardRow,
   BoardText,
   Button,
-  Container,
+  DecisionCard,
   HoldButton,
   Stack,
   type SubNavLinkComponent,
@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { useNow } from "../../../hooks/useNow";
+import { compactAgo } from "../../../utils/time";
 import {
   AutomationFormDialog,
   type AutomationFormDialogProps,
@@ -29,6 +30,7 @@ import { useProposalsQuery } from "../../proposals/queries";
 import { toClientTarget } from "../../tasks/task";
 import { useTaskQuery } from "../../tasks/queries";
 import type { BridgeWidgetProps } from "./registry";
+import { PRIORITY_WEIGHT } from "../grid/priority";
 import { useWidgetReport } from "./useWidgetReport";
 
 export enum ProposalsWidgetTestId {
@@ -103,14 +105,21 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
   const failed = query.isError;
 
   useWidgetReport(
-    { loading, count: loading ? undefined : proposals.length, you: 0, failed },
+    {
+      loading,
+      count: loading ? undefined : proposals.length,
+      you: 0,
+      // Every listed proposal is still open — waiting on the operator's decision.
+      urgency: PRIORITY_WEIGHT.proposal * proposals.length,
+      failed,
+    },
     { onEmptyChange, onCountChange },
   );
 
   if (failed) return <QueryError onRetry={() => void query.refetch()} />;
   if (!loading && proposals.length === 0) {
     return (
-      <BoardRow tone="neutral">
+      <BoardRow shape="list" tone="neutral">
         <span data-testid={ProposalsWidgetTestId.Empty}>
           <BoardText kind="meta" tone="ink3">
             {t("empty")}
@@ -164,105 +173,117 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
     setEditing(true);
   };
 
+  const actions = (
+    <>
+      {approvable ? (
+        <Button
+          aria-label={t("approveLabel", { text: shown })}
+          data-testid={ProposalsWidgetTestId.Approve}
+          disabled={decide.isPending}
+          intent="primary"
+          onClick={() => setApproving(true)}
+          size="sm"
+        >
+          {t("approve")}
+        </Button>
+      ) : null}
+      {dismissable ? (
+        <Button
+          aria-label={t("dismissLabel", { text: shown })}
+          data-testid={ProposalsWidgetTestId.Dismiss}
+          disabled={decide.isPending}
+          intent="secondary"
+          onClick={dismiss}
+          size="sm"
+        >
+          {t("dismiss")}
+        </Button>
+      ) : (
+        <HoldButton
+          aria-label={t("dismissLabel", { text: shown })}
+          armedLabel={t("dismissArmed")}
+          data-testid={ProposalsWidgetTestId.Dismiss}
+          disabled={decide.isPending}
+          doneLabel={t("dismissDone")}
+          label={t("dismiss")}
+          onConfirm={dismiss}
+          size="sm"
+        />
+      )}
+      {editable ? (
+        <Button
+          aria-label={t("editLabel", { text: shown })}
+          data-testid={ProposalsWidgetTestId.Edit}
+          intent="ghost"
+          onClick={startEdit}
+          size="sm"
+        >
+          {t("edit")}
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
     <div data-testid={ProposalsWidgetTestId.Row}>
-      <BoardRow
-        action={
-          editing ? undefined : (
-            <Stack align="center" direction="row" gap="50">
-              {approvable ? (
-                <Button
-                  aria-label={t("approveLabel", { text: shown })}
-                  data-testid={ProposalsWidgetTestId.Approve}
-                  disabled={decide.isPending}
-                  intent="ghost"
-                  onClick={() => setApproving(true)}
-                  size="sm"
-                >
-                  {t("approve")}
-                </Button>
-              ) : null}
-              {editable ? (
-                <Button
-                  aria-label={t("editLabel", { text: shown })}
-                  data-testid={ProposalsWidgetTestId.Edit}
-                  intent="ghost"
-                  onClick={startEdit}
-                  size="sm"
-                >
-                  {t("edit")}
-                </Button>
-              ) : null}
-              {dismissable ? (
-                <Button
-                  aria-label={t("dismissLabel", { text: shown })}
-                  data-testid={ProposalsWidgetTestId.Dismiss}
-                  disabled={decide.isPending}
-                  intent="ghost"
-                  onClick={dismiss}
-                  size="sm"
-                >
-                  {t("dismiss")}
-                </Button>
-              ) : (
-                <HoldButton
-                  aria-label={t("dismissLabel", { text: shown })}
-                  armedLabel={t("dismissArmed")}
-                  data-testid={ProposalsWidgetTestId.Dismiss}
-                  disabled={decide.isPending}
-                  doneLabel={t("dismissDone")}
-                  label={t("dismiss")}
-                  onConfirm={dismiss}
-                  size="sm"
+      <DecisionCard
+        actions={editing ? undefined : actions}
+        context={
+          <>
+            <BoardText data-testid={ProposalsWidgetTestId.Source} kind="rowMeta" tone="ink2">
+              {t(`source.${proposal.source}`)}
+            </BoardText>
+            <BoardText kind="rowId">· {compactAgo(proposal.lastSeenAt, now)}</BoardText>
+          </>
+        }
+        title={
+          editing ? (
+            <Stack gap="100">
+              <Stack data-testid={ProposalsWidgetTestId.Editor}>
+                <TextAreaField
+                  label={t("editor")}
+                  maxLength={PROPOSAL_TEXT_MAX}
+                  onChange={(e) => setDraft(e.target.value)}
+                  value={draft}
                 />
-              )}
+              </Stack>
+              <Stack align="center" direction="row" gap="100">
+                <Button
+                  data-testid={ProposalsWidgetTestId.Save}
+                  disabled={trimmed === "" || trimmed === shown}
+                  intent="secondary"
+                  loading={decide.isPending}
+                  onClick={save}
+                  size="sm"
+                >
+                  {t("save")}
+                </Button>
+                <Button
+                  data-testid={ProposalsWidgetTestId.Cancel}
+                  intent="ghost"
+                  onClick={cancelEdit}
+                  size="sm"
+                >
+                  {t("cancel")}
+                </Button>
+              </Stack>
             </Stack>
+          ) : (
+            <BoardText kind="cardTitle">{shown}</BoardText>
           )
         }
-        tone="neutral"
       >
-        {editing ? (
-          <Stack gap="100">
-            <Stack data-testid={ProposalsWidgetTestId.Editor}>
-              <TextAreaField
-                label={t("editor")}
-                maxLength={PROPOSAL_TEXT_MAX}
-                onChange={(e) => setDraft(e.target.value)}
-                value={draft}
-              />
-            </Stack>
-            <Stack align="center" direction="row" gap="100">
-              <Button
-                data-testid={ProposalsWidgetTestId.Save}
-                disabled={trimmed === "" || trimmed === shown}
-                intent="secondary"
-                loading={decide.isPending}
-                onClick={save}
-                size="sm"
-              >
-                {t("save")}
-              </Button>
-              <Button
-                data-testid={ProposalsWidgetTestId.Cancel}
-                intent="ghost"
-                onClick={cancelEdit}
-                size="sm"
-              >
-                {t("cancel")}
-              </Button>
-            </Stack>
-          </Stack>
-        ) : (
-          <BoardText kind="title">{shown}</BoardText>
-        )}
-        <BoardLine gap="6" indent={false}>
-          <BoardText data-testid={ProposalsWidgetTestId.Source} kind="meta" tone="ink">
-            {t(`source.${proposal.source}`)}
-          </BoardText>
-          <BoardText data-testid={ProposalsWidgetTestId.Confidence} kind="meta" tone="ink3">
+        {/* The rationale: how often the pattern recurred and how sure the extractor is. */}
+        <BoardLine wrap gap="6">
+          {proposal.occurrences > 0 ? (
+            <BoardText kind="reading">{t("seen", { count: proposal.occurrences })} ·</BoardText>
+          ) : null}
+          <BoardText data-testid={ProposalsWidgetTestId.Confidence} kind="reading">
             {t(`confidence.${proposal.confidence}`)}
           </BoardText>
-          <BoardText data-testid={ProposalsWidgetTestId.Expiry} kind="meta" tone="ink3">
+        </BoardLine>
+        <BoardLine wrap gap="6">
+          <BoardText data-testid={ProposalsWidgetTestId.Expiry} kind="rowMeta">
             {t("expires", { days: proposalExpiryDays(proposal.expiresAt, now) })}
           </BoardText>
           {provenance ? (
@@ -271,24 +292,22 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
               href={provenance.href}
               linkComponent={Link as SubNavLinkComponent}
             >
-              <BoardText underline kind="meta" tone="ink">
+              <BoardText underline kind="rowMeta" tone="ink2">
                 {t(`provenance.${provenance.kind}`)}
               </BoardText>
             </TextLink>
           ) : null}
         </BoardLine>
         {decide.isError || createAutomation.isError ? (
-          <Container padding={["50", "0"]}>
-            <span data-testid={ProposalsWidgetTestId.RowError} role="alert">
-              <BoardText kind="meta" tone="ink">
-                {!createAutomation.isError && decide.variables?.body.action === "edit"
-                  ? t("error")
-                  : t("actionError")}
-              </BoardText>
-            </span>
-          </Container>
+          <span data-testid={ProposalsWidgetTestId.RowError} role="alert">
+            <BoardText kind="rowMeta" tone="ink">
+              {!createAutomation.isError && decide.variables?.body.action === "edit"
+                ? t("error")
+                : t("actionError")}
+            </BoardText>
+          </span>
         ) : null}
-      </BoardRow>
+      </DecisionCard>
       {approving ? (
         <ApproveProposalDialog
           fallbackText={proposalPrompt(proposal)}

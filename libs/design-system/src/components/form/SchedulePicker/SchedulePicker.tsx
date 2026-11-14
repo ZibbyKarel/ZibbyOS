@@ -94,10 +94,9 @@ const timeInputClass = cn(fieldControlClass, "w-auto cursor-pointer dark:[color-
 
 const dayToggleClass =
   "inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-2 " +
-  "font-mono text-sm font-semibold transition-colors";
-const dayToggleActive = "border-ink bg-ink text-panel";
-const dayToggleIdle =
-  "border-border-strong bg-background text-foreground-dim hover:text-foreground";
+  "font-sans text-[12px] font-medium transition-colors motion-reduce:transition-none";
+const dayToggleActive = "border-ink bg-ink text-on-ink";
+const dayToggleIdle = "border-line-2 bg-panel text-ink-2 hover:text-ink";
 
 /**
  * Human-friendly recurring-schedule chooser: a weekly/monthly repeat control,

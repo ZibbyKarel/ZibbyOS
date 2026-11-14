@@ -1,8 +1,7 @@
 import type { DashboardApproval } from "../../../approvals/approval";
-import { NeedsYouCardTestId } from "@zibby/design-system";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, renderWithProviders, screen } from "../../../../test/render";
-import { ApprovalNeed } from "./ApprovalNeed";
+import { ApprovalNeed, ApprovalNeedTestId } from "./ApprovalNeed";
 
 const { approve, reject } = vi.hoisted(() => ({ approve: vi.fn(), reject: vi.fn() }));
 vi.mock("../../../approvals", () => ({
@@ -33,17 +32,17 @@ afterEach(() => {
 describe("ApprovalNeed", () => {
   it("APPROVE and DENY call the approval mutations with the approval id", () => {
     renderWithProviders(<ApprovalNeed approval={approval()} />);
-    expect(screen.getByTestId(NeedsYouCardTestId.Text)).toHaveTextContent("Push the branch?");
-    fireEvent.click(screen.getByTestId(NeedsYouCardTestId.Approve));
+    expect(screen.getByTestId(ApprovalNeedTestId.Text)).toHaveTextContent("Push the branch?");
+    fireEvent.click(screen.getByTestId(ApprovalNeedTestId.Approve));
     expect(approve).toHaveBeenCalledWith({ params: { id: "ap-1" }, body: {} });
-    fireEvent.click(screen.getByTestId(NeedsYouCardTestId.Deny));
+    fireEvent.click(screen.getByTestId(ApprovalNeedTestId.Deny));
     expect(reject).toHaveBeenCalledWith({ params: { id: "ap-1" }, body: {} });
   });
 
   it("offers DENY only for a high-risk approval (hold-to-confirm lives on the task page)", () => {
     renderWithProviders(<ApprovalNeed approval={approval({ riskType: "platba" })} />);
-    expect(screen.queryByTestId(NeedsYouCardTestId.Approve)).toBeNull();
-    expect(screen.getByTestId(NeedsYouCardTestId.Deny)).toBeInTheDocument();
+    expect(screen.queryByTestId(ApprovalNeedTestId.Approve)).toBeNull();
+    expect(screen.getByTestId(ApprovalNeedTestId.Deny)).toBeInTheDocument();
   });
 
   it("renders a diff preview as mono lines", () => {
@@ -66,6 +65,6 @@ describe("ApprovalNeed", () => {
         })}
       />,
     );
-    expect(screen.getByTestId(NeedsYouCardTestId.Diff)).toHaveTextContent("@@ -1 +1 @@-a+b");
+    expect(screen.getByTestId(ApprovalNeedTestId.Diff)).toHaveTextContent("@@ -1 +1 @@-a+b");
   });
 });

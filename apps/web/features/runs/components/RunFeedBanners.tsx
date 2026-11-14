@@ -14,13 +14,19 @@ import {
   Stack,
   StatusDot,
   TextAreaField,
+  TextInputField,
   Typography,
 } from "@zibby/design-system";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
 import { resumeEta } from "../../../utils/time";
-import { useApproveMutation, useRejectMutation, useReviseMutation } from "../../approvals";
+import {
+  useAnswerApprovalMutation,
+  useApproveMutation,
+  useRejectMutation,
+  useReviseMutation,
+} from "../../approvals";
 import { type DashboardApproval, RISK_META } from "../../approvals/approval";
 import type { RunView } from "../run";
 import type { StageRailRow } from "../runDetailModel";
@@ -39,7 +45,13 @@ export enum RunFeedBannersTestId {
   Diff = "run-banner-diff",
   Title = "run-banner-title",
   Output = "run-banner-output",
+  Answer = "run-banner-answer",
+  AnswerSend = "run-banner-answer-send",
+  Rerun = "run-banner-rerun",
 }
+
+/** Spec §5: the approval hold takes 1.2 s (G-270, per use — the DS default stays 0.9 s). */
+const APPROVAL_HOLD_MS = 1200;
 
 /** What the approval asks for, as one line of plain text (agent content is data, never markup). */
 function approvalTitle(approval: DashboardApproval): string {
@@ -90,9 +102,9 @@ export function RunApprovalBanner({
 
   return (
     <Card
-      corners
-      borderTone="ink"
       data-testid={RunFeedBannersTestId.Approval}
+      edge="blocked"
+      edgeSize="lg"
       interactive={Boolean(onOpenDetail)}
       onClick={onOpenDetail}
     >
@@ -149,6 +161,7 @@ export function RunApprovalBanner({
                 data-testid={RunFeedBannersTestId.Hold}
                 disabled={approve.isPending}
                 doneLabel={tApprovals("holdDone")}
+                durationMs={APPROVAL_HOLD_MS}
                 label={t("banner.hold")}
                 onConfirm={() =>
                   approve.mutate(
@@ -282,15 +295,28 @@ export function RunApprovalBanner({
 export interface RunQuestionBannerProps {
   question: string;
   agentName: string;
+  /** The question's approval — given, the banner answers it inline. */
+  approvalId?: string;
 }
 
-/** NEEDS YOU · QUESTION — the agent's question rendered as plain text; the answer goes through the composer. */
-export function RunQuestionBanner({ question, agentName }: RunQuestionBannerProps) {
+/** NEEDS YOU · QUESTION — the agent's question as plain text, answered right in the banner (or the composer). */
+export function RunQuestionBanner({ question, agentName, approvalId }: RunQuestionBannerProps) {
   const t = useTranslations("runs.detail.banner");
+  const tComposer = useTranslations("runs.detail.composer");
+  const answer = useAnswerApprovalMutation();
+  const [text, setText] = useState("");
+  const trimmed = text.trim();
+  const submit = () => {
+    if (!approvalId || !trimmed || answer.isPending) return;
+    answer.mutate(
+      { params: { id: approvalId }, body: { answer: trimmed } },
+      { onSuccess: () => setText("") },
+    );
+  };
   return (
-    <Card borderTone="ink" data-testid={RunFeedBannersTestId.Question}>
+    <Card data-testid={RunFeedBannersTestId.Question} edge="blocked" edgeSize="lg">
       <Container padding={["150", "200"]}>
-        <Stack gap="75">
+        <Stack gap="100">
           <Stack align="center" direction="row" gap="100">
             <StatusDot tone="blocked" />
             <Typography as="span" type="labelSm" variant="primary">
@@ -298,6 +324,34 @@ export function RunQuestionBanner({ question, agentName }: RunQuestionBannerProp
             </Typography>
           </Stack>
           <Typography type="bodyLg">{question}</Typography>
+          {approvalId && (
+            <Stack align="end" direction="row" gap="75">
+              <Container grow minW0>
+                <TextInputField
+                  hideLabel
+                  data-testid={RunFeedBannersTestId.Answer}
+                  label={tComposer("inputLabel")}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder={tComposer("ph.question", { agent: agentName })}
+                  value={text}
+                />
+              </Container>
+              <Button
+                data-testid={RunFeedBannersTestId.AnswerSend}
+                disabled={!trimmed || answer.isPending}
+                intent="primary"
+                onClick={submit}
+              >
+                {tComposer("send.answer")}
+              </Button>
+            </Stack>
+          )}
           <Typography as="span" type="labelSm">
             {t("questionHint")}
           </Typography>
@@ -307,20 +361,42 @@ export function RunQuestionBanner({ question, agentName }: RunQuestionBannerProp
   );
 }
 
-/** ERROR — why the run failed, from the task outcome (a run that died before any phase has no log to show it). */
-export function RunErrorBanner({ reason }: { reason: string }) {
+export interface RunErrorBannerProps {
+  /** Why it failed, from the task outcome; absent when the run recorded none. */
+  reason?: string;
+  /** Re-run fresh — the same action as the header's. */
+  onRerun?: () => void;
+  rerunning?: boolean;
+}
+
+/** ERROR — why the run failed (a run that died before any phase has no log to show it) + Re-run. */
+export function RunErrorBanner({ reason, onRerun, rerunning }: RunErrorBannerProps) {
   const t = useTranslations("runs.detail.banner");
+  const tActions = useTranslations("runs.detail.action");
   return (
-    <Card borderTone="ink" data-testid={RunFeedBannersTestId.Error}>
+    <Card data-testid={RunFeedBannersTestId.Error} edge="error" edgeSize="lg">
       <Container padding={["150", "200"]}>
-        <Stack gap="75">
+        <Stack gap="100">
           <Stack align="center" direction="row" gap="100">
             <StatusDot size="75" tone="error" />
             <Typography as="span" type="labelSm" variant="primary">
               {t("errorHead")}
             </Typography>
           </Stack>
-          <Typography type="bodyLg">{reason}</Typography>
+          {reason && <Typography type="bodyLg">{reason}</Typography>}
+          {onRerun && (
+            <Stack direction="row">
+              <Button
+                data-testid={RunFeedBannersTestId.Rerun}
+                intent="primary"
+                loading={rerunning}
+                onClick={onRerun}
+                size="sm"
+              >
+                {tActions("rerun")}
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Container>
     </Card>
@@ -337,11 +413,11 @@ export function RunParkedBanner({ run, stage }: RunParkedBannerProps) {
   const t = useTranslations("runs.detail.banner");
   const attempts = String(run.parked?.attempts ?? stage?.retries ?? 0).padStart(2, "0");
   return (
-    <Card borderTone="ink" data-testid={RunFeedBannersTestId.Parked}>
+    <Card data-testid={RunFeedBannersTestId.Parked} edge="blocked" edgeSize="lg">
       <Container padding={["150", "200"]}>
         <Stack gap="75">
           <Stack align="center" direction="row" gap="100">
-            <StatusDot size="75" tone="error" />
+            <StatusDot size="75" tone="blocked" />
             <Typography as="span" type="labelSm" variant="primary">
               {t("parkedHead", {
                 n: stage?.n ?? "—",

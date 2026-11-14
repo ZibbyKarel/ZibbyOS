@@ -63,12 +63,10 @@ export function Toggle({
       aria-invalid={invalid}
       aria-label={label}
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full border transition-colors duration-150",
+        "inline-flex shrink-0 items-center rounded-full border transition-colors duration-150 motion-reduce:transition-none",
         focusRing,
         track[size],
-        checked
-          ? "justify-end border-accent bg-accent-dim"
-          : "justify-start border-border bg-background",
+        checked ? "justify-end border-ink bg-ink" : "justify-start border-line-2 bg-panel",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
       )}
       data-testid={testId}
@@ -81,9 +79,9 @@ export function Toggle({
     >
       <span
         className={cn(
-          "rounded-full transition-all duration-150",
+          "rounded-full transition-all duration-150 motion-reduce:transition-none",
           thumb[size],
-          checked ? "bg-accent" : "bg-foreground-faint",
+          checked ? "bg-on-ink" : "bg-ink-3",
         )}
         data-testid={ToggleTestId.Thumb}
       />

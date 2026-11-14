@@ -4,10 +4,10 @@ import { render } from "../../utils/testRender";
 import { ChatBubble, ChatBubbleTestId } from "./ChatBubble";
 
 describe("ChatBubble", () => {
-  it("renders a right-aligned accent-tinted bubble for you", () => {
+  it("renders a right-aligned neutral bubble for you", () => {
     render(<ChatBubble author="you">Hi</ChatBubble>);
     const root = screen.getByTestId(ChatBubbleTestId.Root);
-    expect(root).toHaveClass("self-end", "bg-accent-dim");
+    expect(root).toHaveClass("self-end", "bg-panel-2");
     expect(root).not.toHaveClass("bg-ink");
     expect(screen.getByTestId(ChatBubbleTestId.Body)).toHaveTextContent("Hi");
     expect(screen.queryByTestId(ChatBubbleTestId.Actions)).toBeNull();
@@ -19,7 +19,7 @@ describe("ChatBubble", () => {
         Hello
       </ChatBubble>,
     );
-    expect(screen.getByTestId(ChatBubbleTestId.Root)).toHaveClass("self-start", "border-line-2");
+    expect(screen.getByTestId(ChatBubbleTestId.Root)).toHaveClass("self-start", "border-line");
     expect(screen.getByTestId(ChatBubbleTestId.Actions)).toHaveTextContent("Go");
   });
 

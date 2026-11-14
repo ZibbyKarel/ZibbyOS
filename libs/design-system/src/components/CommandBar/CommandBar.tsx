@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { cn } from "../../utils/cn";
+import { focusRingOffset } from "../../utils/focus";
 import { BrandMark } from "../BrandMark/BrandMark";
 
 export enum CommandBarTestId {
@@ -35,7 +36,7 @@ export function CommandBar({ title, subtitle, logo = true, children, ref }: Comm
     >
       <div className="flex items-center gap-[10px]">
         {logo ? <BrandMark size={24} /> : null}
-        <span className="text-[14px] font-semibold" data-testid={CommandBarTestId.Title}>
+        <span className="text-widget-t1" data-testid={CommandBarTestId.Title}>
           {title}
         </span>
         {subtitle ? (
@@ -81,9 +82,9 @@ export interface CommandBarButtonProps {
 }
 
 const BUTTON_LOOK = {
-  tool: "border-line-2 bg-panel px-[10px] py-[5px] text-ink-2 hover:bg-hover hover:text-ink",
-  edit: "border-line-2 bg-panel px-[12px] py-[5px] text-ink hover:bg-hover",
-  done: "border-accent bg-accent px-[12px] py-[5px] text-accent-contrast hover:bg-accent/90",
+  tool: "border-line bg-transparent px-[10px] py-[5px] text-ink-2 hover:bg-panel-2 hover:text-ink",
+  edit: "border-line bg-transparent px-[12px] py-[5px] text-ink hover:bg-panel-2",
+  done: "border-accent bg-accent px-[12px] py-[5px] text-accent-contrast hover:bg-accent-hover",
 } as const;
 
 /** A command-bar button: 1px border, 8px radius, sans 12px medium. */
@@ -93,7 +94,7 @@ export function CommandBarButton({ look = "tool", onClick, children }: CommandBa
       className={cn(
         "cursor-pointer rounded-md border border-solid font-medium transition-colors",
         BUTTON_LOOK[look],
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        focusRingOffset,
       )}
       data-testid={CommandBarTestId.Button}
       onClick={onClick}

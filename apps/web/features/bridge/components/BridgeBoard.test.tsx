@@ -1,4 +1,8 @@
-import { ConfirmDeleteButtonTestId, WidgetFrameTestId } from "@zibby/design-system";
+import {
+  ConfirmDeleteButtonTestId,
+  SummaryRowTestId,
+  WidgetFrameTestId,
+} from "@zibby/design-system";
 import { act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
@@ -19,10 +23,10 @@ vi.mock("@zibby/design-system", async (orig) => {
       onMeasure,
       children,
     }: {
-      onMeasure: (w: number) => void;
+      onMeasure?: (w: number) => void;
       children: unknown;
     }) => {
-      useEffect(() => onMeasure(1200), [onMeasure]);
+      useEffect(() => onMeasure?.(1200), [onMeasure]);
       return <div>{children as never}</div>;
     },
   };
@@ -46,6 +50,14 @@ vi.mock("../widgets/registry", () => ({
             {filtersOpen ? "-filters" : ""}
           </span>
         );
+      },
+    },
+    mentions: {
+      labelKey: "bridge.widget.mentions.label",
+      species: "feed",
+      Component: ({ onEmptyChange }: BridgeWidgetProps) => {
+        useEffect(() => onEmptyChange(true), [onEmptyChange]);
+        return null;
       },
     },
     issues: {
@@ -201,5 +213,52 @@ describe("BridgeBoard", () => {
     expect(beginDrag).not.toHaveBeenCalled();
     expect(move).not.toHaveBeenCalled();
     expect(endDrag).not.toHaveBeenCalled();
+  });
+
+  it("auto-collapses an empty widget with nothing for you and toggles relative to that", async () => {
+    const toggleCollapsed = vi.fn();
+    const two = {
+      ...state,
+      layout: [
+        { id: "prs", type: "prs", x: 0, y: 0, w: 6, h: 4 },
+        { id: "m", type: "mentions", x: 6, y: 0, w: 3, h: 4 },
+      ],
+      toggleCollapsed,
+    } as unknown as BridgeState;
+    renderWithProviders(<BridgeBoard density="comfort" state={two} />);
+    const [prs, mentions] = screen.getAllByTestId(WidgetFrameTestId.Root);
+    // prs: content but score 0 → ambient, plain (unpadded) count.
+    expect(prs).toHaveAttribute("data-tier", "ambient");
+    expect(screen.getAllByTestId(WidgetFrameTestId.Count)[0]).toHaveTextContent(/^1$/);
+    expect(mentions).toHaveAttribute("data-tier", "collapsed");
+    expect(mentions).toHaveAttribute("data-species", "feed");
+    // w < 4 → controls folded into the "⋯" menu.
+    expect(screen.getAllByTestId(WidgetFrameTestId.Collapse)).toHaveLength(1);
+    await userEvent.click(screen.getByTestId(WidgetFrameTestId.Collapse));
+    expect(toggleCollapsed).toHaveBeenLastCalledWith("prs", false);
+  });
+
+  it("phone: ambient + collapsed widgets become summary rows under Other that open in place", async () => {
+    const two = {
+      ...state,
+      layout: [
+        { id: "m", type: "mentions", x: 6, y: 0, w: 3, h: 4 },
+        { id: "prs", type: "prs", x: 0, y: 0, w: 6, h: 4 },
+      ],
+    } as unknown as BridgeState;
+    renderWithProviders(<BridgeBoard stacked density="comfort" state={two} />);
+    expect(screen.getByText("Ostatní")).toBeInTheDocument();
+    const rows = screen.getAllByTestId(SummaryRowTestId.Root);
+    // Reading order (y, then x) within the tier: prs (x 0) before mentions (x 6).
+    expect(screen.getAllByTestId(SummaryRowTestId.Value).map((v) => v.textContent)).toEqual([
+      "1",
+      "Vše v pořádku",
+    ]);
+    const [prsFrame] = screen.getAllByTestId(WidgetFrameTestId.Root);
+    expect(prsFrame).not.toBeVisible();
+    expect(screen.queryByTestId(WidgetFrameTestId.Resize + "-se")).toBeNull();
+    await userEvent.click(rows[0]!);
+    expect(rows[0]).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByTestId(WidgetFrameTestId.Root)[0]).toBeVisible();
   });
 });

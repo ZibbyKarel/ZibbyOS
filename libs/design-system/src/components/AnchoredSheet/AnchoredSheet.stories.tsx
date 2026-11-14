@@ -4,7 +4,7 @@ import { NeedsYouCard } from "../NeedsYouCard/NeedsYouCard";
 import { StackCrumbs } from "../StackCrumbs/StackCrumbs";
 import { StatCell, StatCellGrid } from "../StatCell/StatCell";
 import { AnchoredSheet } from "./AnchoredSheet";
-import { SheetAction, SheetBlock, SheetSection, SheetText } from "./SheetParts";
+import { SheetAction, SheetBanner, SheetBlock, SheetSection, SheetText } from "./SheetParts";
 
 const meta: Meta<typeof AnchoredSheet> = {
   title: "DesignSystem/AnchoredSheet",
@@ -93,6 +93,64 @@ export const WithActionsAndLink: Story = {
       actions={<SheetAction intent="primary">MERGE</SheetAction>}
       meta={<span>feat/pr-detail → main · +12 −3</span>}
       titleHref="https://github.com"
+    >
+      {body}
+    </AnchoredSheet>
+  ),
+};
+
+/** Phone: `presentation="page"` — full screen, back button, actions pinned in a bottom bar. */
+export const Page: Story = {
+  parameters: { layout: "fullscreen" },
+  render: (args) => (
+    <AnchoredSheet
+      {...args}
+      actions={
+        <>
+          <SheetAction>Chat</SheetAction>
+          <SheetAction intent="primary">Hand to agent</SheetAction>
+        </>
+      }
+      footerNote="Approved, but the base moved."
+      presentation="page"
+    >
+      {body}
+    </AnchoredSheet>
+  ),
+};
+
+/** The redesigned frame: glyph, copyable id, back, step counter, expand, state pills, one banner. */
+export const Frame: Story = {
+  render: (args) => (
+    <AnchoredSheet
+      {...args}
+      expandable
+      actions={<SheetAction intent="primary">Review</SheetAction>}
+      backLabel="CZ3TDR1-896"
+      banner={
+        <SheetBanner
+          actions={<SheetAction>Fix CI</SheetAction>}
+          icon="warn"
+          text="e2e · PartnerPortal: timeout 30 s."
+          title="1 of 4 checks failing"
+          tone="error"
+        />
+      }
+      chips={[]}
+      copyId="#48051"
+      footerNote="Can't merge until e2e passes and you approve the review."
+      glyph="branch"
+      hint={undefined}
+      kind="Pull request"
+      meta={<span>tb/addon-ratings → master · +388 −12</span>}
+      onBack={() => {}}
+      onStep={() => {}}
+      onToggleExpand={() => {}}
+      stepPosition={{ index: 2, total: 8 }}
+      tones={[
+        { tone: "error", label: "CI failing" },
+        { tone: "blocked", label: "Awaiting your review", loud: true },
+      ]}
     >
       {body}
     </AnchoredSheet>

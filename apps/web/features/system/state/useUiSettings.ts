@@ -79,5 +79,5 @@ export function useUiSettings() {
     [flush],
   );
 
-  return { ui: data?.ui ?? DEFAULT_UI, setDensity, setBridge };
+  return { ui: data?.ui ?? DEFAULT_UI, loaded: !!data, setDensity, setBridge };
 }

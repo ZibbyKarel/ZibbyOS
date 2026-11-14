@@ -3,11 +3,11 @@
 import {
   BoardLead,
   BoardLine,
+  BoardPill,
   BoardRow,
-  BoardTag,
   BoardText,
-  IconTile,
   RowGroupHeader,
+  StateGlyph,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { Fragment, useCallback, useMemo } from "react";
@@ -134,11 +134,13 @@ export function IssuesWidget({
             <RowGroupHeader
               closed={closed}
               count={g.count}
-              groupKey={g.epic?.key ?? "—"}
+              groupKey={g.epic?.key ?? ""}
               label={t("epicToggle", { title })}
               onToggle={() => onEpicToggle(g.key, !closed)}
-              progress={g.progress}
+              // Only an epic with a known total has a progress bar (the count is then done/total).
+              progress={g.epic?.total ? g.progress : undefined}
               title={title}
+              variant="epic"
             />
             {closed
               ? null
@@ -157,58 +159,47 @@ export function IssuesWidget({
                     }
                     rowKey={r.key}
                     selected={selection?.key === r.key}
+                    shape="list"
                     sheetSide={sheetSide}
                     tone={r.tone}
+                    trailing={
+                      r.needsYou ? (
+                        <BoardPill tone="you">{t("you", { wait: r.needsYou })}</BoardPill>
+                      ) : undefined
+                    }
                   >
                     <BoardLead
                       lead={
-                        <IconTile
-                          {...sourceIcon(r.sourceKind)}
-                          alt={r.source}
-                          aria-label={r.source}
+                        <StateGlyph
                           data-testid={IssuesWidgetTestId.Source}
-                          filled={false}
-                          radius="sm"
-                          role="img"
-                          size="md"
-                          title={r.source}
+                          icon={sourceIcon(r.sourceKind).glyph}
+                          label={r.source}
                           tone="neutral"
                         />
                       }
                     >
-                      <BoardLine
-                        end={
-                          r.needsYou ? (
-                            <BoardTag variant="you">{t("you", { wait: r.needsYou })}</BoardTag>
-                          ) : undefined
-                        }
-                        gap="6"
-                      >
-                        <BoardText kind="id">{r.code}</BoardText>
-                        <BoardText kind="title">{r.title}</BoardText>
+                      <BoardLine baseline gap="8">
+                        <BoardText kind="rowId">{r.code}</BoardText>
+                        <BoardText truncate kind="rowTitle" title={r.title}>
+                          {r.title}
+                        </BoardText>
                       </BoardLine>
-                      <BoardLine
-                        end={
-                          <BoardText kind="meta" tone="ink3">
-                            {r.age}
-                          </BoardText>
-                        }
-                        gap="6"
-                      >
+                      <BoardLine gap="6">
                         {stateText(r) ? (
-                          <BoardText kind="meta" tone="ink">
+                          <BoardText kind="rowMeta" tone="ink2">
                             {stateText(r)}
                           </BoardText>
                         ) : null}
-                        <BoardText kind="meta" tone="ink3">
+                        <BoardText truncate kind="rowMeta">
                           {stateText(r) ? "· " : ""}
                           {r.project}
                         </BoardText>
                         {r.pr ? (
-                          <BoardText underline kind="meta">
+                          <BoardText underline kind="rowId">
                             · {r.pr}
                           </BoardText>
                         ) : null}
+                        <BoardText kind="rowId">· {r.age}</BoardText>
                       </BoardLine>
                     </BoardLead>
                   </BoardRow>

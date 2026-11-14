@@ -142,12 +142,13 @@ describe("RunDetailHeader", () => {
       );
     });
 
-    it("carries a GitHub icon, no arrow, and underlines on hover", () => {
+    it("is a GitHub-marked card in the About block, no arrow", () => {
       renderHeader({ sourcePr });
       const link = screen.getByTestId(RunDetailHeaderTestId.SourcePrLink);
       expect(within(link).getByTestId(IconTestId.Root)).toHaveAttribute("data-icon", "github");
       expect(link).not.toHaveTextContent("→");
-      expect(link.className).toContain("hover:underline");
+      expect(link).toHaveRole("button");
+      expect(screen.getByTestId(RunDetailHeaderTestId.About)).toContainElement(link);
     });
 
     it("carries a GitLab icon for a GitLab merge request", () => {

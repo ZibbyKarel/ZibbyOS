@@ -12,7 +12,7 @@ import {
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { type DragEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
-import { type Arrangement, DEFAULT_PRESET, layoutNameError } from "../grid/presets";
+import { type Arrangement, DEFAULT_PRESET, REVIEW_PRESET, layoutNameError } from "../grid/presets";
 
 /** Drag-data MIME carrying the dragged layout's name. */
 const LAYOUT_DND_TYPE = "application/x-zibby-bridge-layout";
@@ -28,6 +28,8 @@ export enum ManageLayoutsDialogTestId {
   /** Thin zone after the last hidden row: appends to the end of the dropdown. */
   DropEnd = "manage-layouts-drop-end",
   Delete = "manage-layouts-delete",
+  /** "Reset to built-in" on an edited DEFAULT / REVIEW — suffixed with its name. */
+  Reset = "manage-layouts-reset",
   Input = "manage-layouts-input",
   Add = "manage-layouts-add",
 }
@@ -68,6 +70,8 @@ export interface ManageLayoutsDialogProps {
   /** Returns false when the name is rejected. */
   onAdd: (name: string) => boolean;
   onDelete: (name: string) => void;
+  /** Drop the saved edits of a built-in layout (DEFAULT / REVIEW); offered only when it has some. */
+  onReset: (name: string) => void;
   onClose: () => void;
 }
 
@@ -85,6 +89,7 @@ function ManageLayouts({
   onSelect,
   onAdd,
   onDelete,
+  onReset,
   onClose,
 }: Omit<ManageLayoutsDialogProps, "open">) {
   const t = useTranslations("bridge");
@@ -103,7 +108,7 @@ function ManageLayouts({
   }
 
   const flat = [...layouts.shown, ...layouts.hidden];
-  const label = (n: string) => (n === DEFAULT_PRESET || n === "REVIEW" ? t(`preset.${n}`) : n);
+  const label = (n: string) => (n === DEFAULT_PRESET || n === REVIEW_PRESET ? t(`preset.${n}`) : n);
 
   const drop = (e: DragEvent, target: string | null) => {
     e.preventDefault();
@@ -169,6 +174,20 @@ function ManageLayouts({
               </Typography>
             ) : null}
           </Stack>
+          {(n === DEFAULT_PRESET || n === REVIEW_PRESET) && n in saved ? (
+            <div onClick={(e) => e.stopPropagation()}>
+              <Button
+                aria-label={t("manage.resetNamed", { name: label(n) })}
+                data-testid={`${ManageLayoutsDialogTestId.Reset}-${n}`}
+                intent="ghost"
+                onClick={() => onReset(n)}
+                size="sm"
+                title={t("manage.resetHint")}
+              >
+                {t("manage.reset")}
+              </Button>
+            </div>
+          ) : null}
           {n === DEFAULT_PRESET ? null : (
             <div
               data-testid={`${ManageLayoutsDialogTestId.Delete}-${n}`}

@@ -1,6 +1,12 @@
 "use client";
 
-import { AnchoredSheet, Markdown, SheetBlock, SheetSection } from "@zibby/design-system";
+import {
+  AnchoredSheet,
+  Markdown,
+  SheetBlock,
+  SheetSection,
+  Typography,
+} from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -12,7 +18,7 @@ import { parseNoteSelectionId, teamNoteHref } from "../../widgets/TeamKbWidget";
 import { type SheetProps, geometry } from "./sheetTypes";
 
 /** Team KB note (`GET /api/teams/:id/kb/note`): the rendered body; the title opens it in the vault. */
-export function NoteSheet({ id, anchor, onClose }: SheetProps) {
+export function NoteSheet({ id, anchor, onClose, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const { teamId, noteId } = parseNoteSelectionId(id);
@@ -24,11 +30,17 @@ export function NoteSheet({ id, anchor, onClose }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={<ChatAboutButton about={noteChatAbout(note, team, teamNoteHref(teamId, noteId))} />}
-      chips={[team, note.id]}
       closeLabel={t("bridge.sheet.close")}
+      copyId={id}
+      glyph="pen"
       kind={t("bridge.sheet.kind.note")}
+      meta={
+        <Typography as="span" type="labelSm" variant="secondary">
+          {`${team} · ${note.id}`}
+        </Typography>
+      }
       onClose={onClose}
       onTitleClick={() => router.push(teamNoteHref(teamId, noteId) as Route)}
       title={note.title}

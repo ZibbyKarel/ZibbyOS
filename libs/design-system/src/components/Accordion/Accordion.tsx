@@ -41,7 +41,7 @@ export function Accordion({ children, single = false }: AccordionProps) {
   return (
     <AccordionContext.Provider value={{ single, openId, toggle, claimDefault }}>
       <div
-        className="border border-border rounded overflow-hidden"
+        className="overflow-hidden rounded-[10px] border border-line"
         data-testid={AccordionTestId.Root}
       >
         {children}
@@ -68,9 +68,9 @@ export function AccordionSummary({
       aria-expanded={expanded}
       className={cn(
         "flex w-full items-center justify-between px-3.5 py-2.5",
-        "bg-transparent border-none cursor-pointer font-sans font-medium text-base text-foreground text-left",
+        "bg-transparent border-none cursor-pointer text-widget-t2 text-ink text-left",
         focusRingInset,
-        expanded && "border-b border-border",
+        expanded && "border-b border-line",
       )}
       data-testid={AccordionTestId.Summary}
       onClick={onToggle}
@@ -78,7 +78,7 @@ export function AccordionSummary({
     >
       <span>{children}</span>
       <span
-        className="text-sm transition-transform duration-200"
+        className="text-meta text-ink-3 transition-transform duration-200 motion-reduce:transition-none"
         data-testid={AccordionTestId.Chevron}
         style={{ transform: expanded ? "rotate(180deg)" : "none" }}
       >

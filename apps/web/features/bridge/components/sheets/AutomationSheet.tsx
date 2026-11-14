@@ -8,14 +8,16 @@ import {
   SheetSection,
   SheetText,
   Stack,
+  Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
+import { useState } from "react";
 import { useTriggerAutomationMutation } from "../../../automations/mutations";
 import { useAutomationsQuery } from "../../../automations/queries";
 import { useCronLabel } from "../../../automations/useCronLabel";
-import { SCHEDULE_TIME_ZONE } from "../../../automations/schedule";
+import { SCHEDULE_TIME_ZONE, nextCronRun } from "../../../automations/schedule";
 import { AutomationFireLog } from "../../../automations/components/AutomationFireLog";
 import { AutomationFireStatus } from "../../../automations/components/AutomationFires";
 import { formatDuration } from "../../../../utils/time";
@@ -27,6 +29,20 @@ export enum AutomationSheetTestId {
   RunNow = "automation-sheet-run-now",
   /** The latest fire's summary line (status · start · duration) — todo-5. */
   LastFire = "automation-sheet-last-fire",
+  /** The next seven fires of a cron schedule. */
+  NextRuns = "automation-sheet-next-runs",
+}
+
+/** The next `count` fires of a cron expression after `from` (a month ahead at most). */
+function nextRuns(expr: string, from: Date, count: number): Date[] {
+  const runs: Date[] = [];
+  for (let at = from; runs.length < count; ) {
+    const next = nextCronRun(expr, at, 31 * 24 * 60);
+    if (!next) break;
+    runs.push(next);
+    at = next;
+  }
+  return runs;
 }
 
 /** What the automation fires, as one short label. */
@@ -41,7 +57,7 @@ function targetLabel(target: Automation["target"]): string {
  * Automation detail (Bridge "Automation runs" widget): schedule, target, prompt and last run,
  * with "Run now" top-right — the same `POST /automations/:id/trigger` as the automations page.
  */
-export function AutomationSheet({ id, anchor, onClose }: SheetProps) {
+export function AutomationSheet({ id, anchor, onClose, frame }: SheetProps) {
   const t = useTranslations();
   const a = useTranslations("bridge.widgets.automationRuns");
   const router = useRouter();
@@ -49,6 +65,7 @@ export function AutomationSheet({ id, anchor, onClose }: SheetProps) {
   const cronLabel = useCronLabel();
   const { data: automations } = useAutomationsQuery();
   const trigger = useTriggerAutomationMutation();
+  const [now] = useState(() => new Date());
 
   const automation = automations?.find((x) => x.id === id);
   if (!automation) return null;
@@ -61,9 +78,14 @@ export function AutomationSheet({ id, anchor, onClose }: SheetProps) {
       timeZone: SCHEDULE_TIME_ZONE,
     });
 
+  const upcoming = when.type === "cron" && automation.enabled ? nextRuns(when.expr, now, 7) : [];
+  const day = (d: Date) =>
+    format.dateTime(d, { weekday: "short", day: "numeric", timeZone: SCHEDULE_TIME_ZONE });
+  const first = upcoming[0];
+
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={
         <SheetAction
           data-testid={AutomationSheetTestId.RunNow}
@@ -74,19 +96,51 @@ export function AutomationSheet({ id, anchor, onClose }: SheetProps) {
           {a("runNow")}
         </SheetAction>
       }
-      chips={[targetLabel(automation.target), ...(automation.enabled ? [] : [a("disabled")])]}
       closeLabel={t("bridge.sheet.close")}
+      copyId={id}
+      footerNote={
+        first
+          ? a("note.next", {
+              when: stamp(first.toISOString()),
+              target: targetLabel(automation.target),
+            })
+          : automation.enabled
+            ? a("note.manual", { target: targetLabel(automation.target) })
+            : a("note.disabled")
+      }
+      glyph="clock"
       kind={t("bridge.sheet.kind.automation")}
+      meta={
+        <Typography as="span" type="labelSm" variant="secondary">
+          {targetLabel(automation.target)}
+        </Typography>
+      }
       onClose={onClose}
       onTitleClick={() => router.push(`/work/automations/${encodeURIComponent(id)}` as Route)}
       title={automation.name ?? automation.id}
+      tones={[
+        { tone: "idle", label: automation.enabled ? a("active") : a("disabled") },
+        ...(lastFire?.status === "error"
+          ? [{ tone: "error" as const, label: a("lastFailed") }]
+          : []),
+      ]}
     >
       <SheetSection>
         {when.type === "cron" ? (
           <SheetBlock label={a("schedule")}>
             <div data-testid={AutomationSheetTestId.Schedule}>
               <SheetText lines={[cronLabel(when.expr)]} />
+              <Typography as="span" type="code" variant="secondary">
+                {when.expr}
+              </Typography>
             </div>
+            {upcoming.length > 0 ? (
+              <div aria-label={a("nextRuns")} data-testid={AutomationSheetTestId.NextRuns}>
+                <Typography as="span" type="code" variant="secondary">
+                  {upcoming.map(day).join(" · ")}
+                </Typography>
+              </div>
+            ) : null}
           </SheetBlock>
         ) : null}
         {prompt ? (

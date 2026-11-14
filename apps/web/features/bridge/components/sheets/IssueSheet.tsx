@@ -3,19 +3,18 @@
 import {
   AnchoredSheet,
   Container,
-  CopyableText,
   DetailTable,
   type DetailTableRow,
   Markdown,
   MetricStrip,
   type MetricStripItem,
-  NeedsYouCard,
   Pressable,
   SheetAction,
+  SheetBanner,
   SheetBlock,
   SheetSection,
   SheetText,
-  type SheetTone,
+  type StateTone,
   Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
@@ -42,7 +41,7 @@ import { EntityRunList, issueRunTone } from "../../../runs/components/EntityRunL
 import { ExternalAnchor } from "../../../inbox/components/links";
 import { type SheetProps, geometry, selectionFor } from "./sheetTypes";
 
-const STATUS_TONE: Record<ReturnType<typeof zibbyStatus>, SheetTone> = {
+const STATUS_TONE: Record<ReturnType<typeof zibbyStatus>, StateTone> = {
   new: "idle",
   waiting: "blocked",
   running: "working",
@@ -58,7 +57,7 @@ export enum IssueSheetTestId {
  * differs | project | last change), runs and details, then the description; the Issues screen's
  * primary action sits top-right.
  */
-export function IssueSheet({ id, anchor, onClose, onOpen }: SheetProps) {
+export function IssueSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const { data } = useInboxItemsQuery();
@@ -153,46 +152,47 @@ export function IssueSheet({ id, anchor, onClose, onOpen }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={
         <>
           <ChatAboutButton about={issueChatAbout(item, itemKey(item))} />
           {primary}
         </>
       }
-      chips={[
-        epic
-          ? t("bridge.sheet.issue.epicChip", { key: epic.key ?? epic.title })
-          : t("bridge.sheet.issue.noEpic"),
-      ]}
-      closeLabel={t("bridge.sheet.close")}
-      kind={
-        <>
-          {`${t("bridge.sheet.kind.issue")} · ${source} · `}
-          <CopyableText
-            copiedLabel={t("common.copied")}
-            copyFailedLabel={t("common.copyFailed")}
-            copyLabel={t("common.copyId")}
-            text={itemKey(item)}
+      banner={
+        status === "waiting" && item.lastFailureReason ? (
+          <SheetBanner
+            icon="warn"
+            text={item.lastFailureReason}
+            title={`${t("bridge.sheet.needsYou", { kind: item.lifecycle })} · ${t("bridge.sheet.waiting", { wait: updated })}`}
+            tone="blocked"
           />
-        </>
+        ) : undefined
+      }
+      closeLabel={t("bridge.sheet.close")}
+      copyId={itemKey(item)}
+      footerNote={t(`bridge.sheet.issue.note.${status}`)}
+      glyph="bug"
+      kind={`${t("bridge.sheet.kind.issue")} · ${source}`}
+      meta={
+        <Typography as="span" type="labelSm" variant="secondary">
+          {epic
+            ? t("bridge.sheet.issue.epicChip", { key: epic.key ?? epic.title })
+            : t("bridge.sheet.issue.noEpic")}
+        </Typography>
       }
       onClose={onClose}
-      stateLabel={stateLabel}
       title={item.name}
       titleHref={item.source.url ?? undefined}
-      tone={STATUS_TONE[status]}
+      tones={
+        stateLabel
+          ? [{ tone: STATUS_TONE[status], label: stateLabel, loud: status === "waiting" }]
+          : []
+      }
     >
       <Container data-testid={IssueSheetTestId.Summary} padding={["150", "300", "0", "300"]}>
         <MetricStrip columns={summary.length === 4 ? 4 : 3} items={summary} />
       </Container>
-      {status === "waiting" && item.lastFailureReason ? (
-        <NeedsYouCard
-          heading={t("bridge.sheet.needsYou", { kind: item.lifecycle })}
-          text={item.lastFailureReason}
-          wait={t("bridge.sheet.waiting", { wait: updated })}
-        />
-      ) : null}
       <SheetSection>
         {runRows.length > 0 ? (
           <SheetBlock label={t("runs.entity.title")}>

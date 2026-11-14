@@ -16,8 +16,8 @@ describe("positions", () => {
     });
   });
   it("boardHeight", () => {
-    expect(boardHeight(DEFAULT_LAYOUT, 20, 10)).toBe(21 * 30 - 10);
-    expect(boardHeight(DEFAULT_LAYOUT, 20, 10, 2)).toBe(21 * 30 - 10 + 60);
+    expect(boardHeight(DEFAULT_LAYOUT, 20, 10)).toBe(31 * 30 - 10);
+    expect(boardHeight(DEFAULT_LAYOUT, 20, 10, 2)).toBe(31 * 30 - 10 + 60);
     expect(boardHeight([], 20, 10)).toBe(0);
   });
 });

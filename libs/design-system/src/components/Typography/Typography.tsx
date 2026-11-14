@@ -82,18 +82,31 @@ interface TypePreset {
 }
 
 /**
- * The 8-step scale: display 30 · title 21 · body 14 · bodySm 13 ·
- * num 26 · data 12 · label 11 · micro 11 — mono = data, sans = prose.
+ * Presets mapped onto the Bridge type scale (spec §5): title-xl 30 · title-l 22 ·
+ * widget-t1 15 · body 13/20 · meta 12/16 · mono 11.5. Sentence case throughout —
+ * the only caps is the `overline` look an explicit `uppercase` prop opts into.
+ * Mono = ids, numbers, times, code; sans = everything else.
  */
 const typePreset: Record<TypographyType, TypePreset> = {
-  pageTitle: { tag: "h1", size: "5xl", weight: "semibold", leading: 1.2, tracking: "tighter" },
-  // DS.md §3.1 `title` (16 / 1.35, weight 500, tracking 0) — size/weight/leading/
-  // tracking updated in place; `tag` is left as `h2` (unchanged) since the new §3.1
-  // heading trio (`h1`/`h2`/`h3` below) now owns the heading semantics and this stays
-  // a scoped, size-only update — see the ZA-01 report.
-  title: { tag: "h2", fontSizePx: 16, weight: "medium", leading: 1.35, letterSpacingEm: 0 },
-  subtitle: { tag: "h3", size: "2xl", weight: "medium", leading: 1.3 },
-  text: { tag: "div", size: "lg", weight: "normal", leading: 1.6 },
+  // title-l (22 / 28 / 600, −0.025em) — the page title ("Můstek").
+  pageTitle: {
+    tag: "h1",
+    fontSizePx: 22,
+    weight: "semibold",
+    leading: 28 / 22,
+    letterSpacingEm: -0.025,
+  },
+  // widget-t1 (15 / 20 / 600) — card / section titles.
+  title: { tag: "h2", fontSizePx: 15, weight: "semibold", leading: 20 / 15, letterSpacingEm: 0 },
+  // Sheet heading (17 / 600, −0.015em).
+  subtitle: {
+    tag: "h3",
+    fontSizePx: 17,
+    weight: "semibold",
+    leading: 1.35,
+    letterSpacingEm: -0.015,
+  },
+  text: { tag: "div", size: "base", weight: "normal", leading: 20 / 13 },
   note: { tag: "div", size: "caption", weight: "normal", leading: 1.5 },
   num: { tag: "span", size: "4xl", weight: "semibold", leading: 1, mono: true },
   data: {
@@ -104,14 +117,12 @@ const typePreset: Record<TypographyType, TypePreset> = {
     mono: true,
     variant: "secondary",
   },
-  // Zibby 2.0 caps label (11 / 600 / .1em, sans) — see the caps rule in `Typography`.
+  // Field / group label — meta size, 500, ink-3, sentence case.
   label: {
     tag: "span",
-    size: "xs",
-    weight: "semibold",
-    leading: 1.2,
-    uppercase: true,
-    tracking: "wider",
+    fontSizePx: 12,
+    weight: "medium",
+    leading: 16 / 12,
     variant: "tertiary",
   },
   micro: {
@@ -123,27 +134,29 @@ const typePreset: Record<TypographyType, TypePreset> = {
     variant: "tertiary",
   },
 
-  // --- DS.md §3.1 sans scale (added additively) ---
+  // title-xl (30 / 35 / 500, −0.03em).
   display: {
     tag: "h1",
-    fontSizePx: 32,
+    fontSizePx: 30,
     weight: "medium",
-    leading: 1.1,
-    letterSpacingEm: -0.02,
+    leading: 35 / 30,
+    letterSpacingEm: -0.03,
   },
-  h1: { tag: "h1", fontSizePx: 30, weight: "medium", leading: 1.1, letterSpacingEm: -0.02 },
-  h2: { tag: "h2", fontSizePx: 24, weight: "medium", leading: 1.2, letterSpacingEm: -0.01 },
-  h3: { tag: "h3", fontSizePx: 18, weight: "medium", leading: 1.3, letterSpacingEm: 0 },
-  bodyLg: { tag: "div", fontSizePx: 15, weight: "normal", leading: 1.35, letterSpacingEm: 0 },
-  body: { tag: "div", fontSizePx: 14, weight: "normal", leading: 1.45, letterSpacingEm: 0 },
-  bodySm: { tag: "div", fontSizePx: 13, weight: "normal", leading: 1.35, letterSpacingEm: 0 },
+  h1: { tag: "h1", fontSizePx: 30, weight: "medium", leading: 35 / 30, letterSpacingEm: -0.03 },
+  h2: { tag: "h2", fontSizePx: 22, weight: "semibold", leading: 28 / 22, letterSpacingEm: -0.025 },
+  h3: { tag: "h3", fontSizePx: 15, weight: "semibold", leading: 20 / 15, letterSpacingEm: 0 },
+  bodyLg: { tag: "div", fontSizePx: 15, weight: "normal", leading: 1.6, letterSpacingEm: 0 },
+  // body (13 / 20).
+  body: { tag: "div", fontSizePx: 13, weight: "normal", leading: 20 / 13, letterSpacingEm: 0 },
+  bodySm: { tag: "div", fontSizePx: 12.5, weight: "normal", leading: 1.5, letterSpacingEm: 0 },
+  // meta (12 / 16, ink-3).
   caption: {
     tag: "div",
     fontSizePx: 12,
     weight: "normal",
-    leading: 1.4,
+    leading: 16 / 12,
     letterSpacingEm: 0,
-    variant: "secondary",
+    variant: "tertiary",
   },
   metric: {
     tag: "span",
@@ -154,33 +167,29 @@ const typePreset: Record<TypographyType, TypePreset> = {
     tabularNums: true,
   },
 
-  // --- DS.md §3.2 system voice (caps presets render sans — see the caps rule) ---
+  // The logo wordmark (Bridge `.logo`: 600, −0.01em, sans).
   wordmark: {
     tag: "span",
     fontSizePx: 13,
     weight: "semibold",
     leading: 1.2,
-    mono: true,
-    uppercase: true,
-    letterSpacingEm: 0.18,
+    letterSpacingEm: -0.01,
   },
   labelSm: {
     tag: "span",
-    fontSizePx: 10,
-    weight: "semibold",
-    leading: 1.2,
-    uppercase: true,
-    tracking: "wider",
+    fontSizePx: 11,
+    weight: "medium",
+    leading: 14 / 11,
     variant: "tertiary",
   },
-  // Agent names, IDs, log lines — deliberately NOT uppercased (DS.md §3.2).
+  // mono (11.5 / 16) — agent names, IDs, log lines.
   code: {
     tag: "span",
-    fontSizePx: 11,
+    fontSizePx: 11.5,
     weight: "normal",
-    leading: 1.3,
+    leading: 16 / 11.5,
     mono: true,
-    letterSpacingEm: 0.1,
+    letterSpacingEm: 0,
     variant: "secondary",
   },
 };
@@ -194,9 +203,9 @@ const variantClass: Record<TypographyVariant, string> = {
 const toneClass: Record<TypographyTone, string> = {
   ok: "text-ok",
   bad: "text-bad",
-  warn: "text-warn",
+  warn: "text-accent-fg",
   run: "text-run",
-  accent: "text-accent",
+  accent: "text-accent-fg",
 };
 
 const weightClass: Record<TypographyWeight, string> = {
@@ -259,9 +268,9 @@ export function Typography({
 }: TypographyProps) {
   const preset = typePreset[type];
   const Element = as ?? preset.tag;
-  // The caps rule (Zibby 2.0): uppercase text is always a sans label at 600 / .1em —
-  // never mono, and a caller's `tracking` is ignored (only a preset's own exact
-  // spacing, e.g. the wordmark's, survives). Mono stays for machine data (IDs, numbers, logs).
+  // The caps rule (Bridge `overline`): uppercase text is always a sans 500 / .06em
+  // divider label — never mono, and a caller's `tracking` is ignored. Mono stays for
+  // machine data (IDs, numbers, logs).
   const caps = uppercase ?? preset.uppercase ?? false;
 
   // A caller-supplied `size`/`tracking` always wins (named-token overrides); otherwise
@@ -278,7 +287,7 @@ export function Typography({
   const resolvedLetterSpacing = caps
     ? preset.letterSpacingEm !== undefined
       ? `${preset.letterSpacingEm}em`
-      : "var(--tracking-wider)"
+      : "0.06em"
     : tracking
       ? `var(--tracking-${tracking})`
       : preset.letterSpacingEm !== undefined
@@ -299,7 +308,7 @@ export function Typography({
   return (
     <Element
       className={cn(
-        weightClass[weight ?? (caps ? "semibold" : preset.weight)],
+        weightClass[weight ?? (caps ? "medium" : preset.weight)],
         tone ? toneClass[tone] : variantClass[variant ?? preset.variant ?? "primary"],
         caps ? "font-sans uppercase" : (mono ?? preset.mono) && "font-mono",
         truncate && "truncate",

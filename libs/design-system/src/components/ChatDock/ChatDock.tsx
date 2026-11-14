@@ -145,8 +145,8 @@ export function ChatDock({
           aria-label={launcherLabel}
           className={cn(
             "inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full",
-            "border border-accent bg-accent text-accent-contrast shadow-modal transition-colors",
-            "hover:bg-accent/90",
+            "border border-accent bg-accent text-accent-contrast shadow-pop transition-colors",
+            "hover:bg-accent-hover",
             focusRingOffset,
           )}
           data-testid={ChatDockTestId.Launcher}
@@ -163,8 +163,8 @@ export function ChatDock({
     <div
       className={cn(
         compact
-          ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-panel"
-          : "flex max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-modal",
+          ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-sheet"
+          : "flex max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-xl border border-line bg-sheet shadow-pop",
         // 33% of the AppFrame dock area (never under 420px), three quarters of its height
         // (pane basis 440px grows into the 75%), capped to the area.
         !compact &&
@@ -219,7 +219,7 @@ export function ChatDock({
             {onNewChat && (
               <Button
                 data-testid={ChatDockTestId.NewChatButton}
-                intent="primary"
+                intent="secondary"
                 onClick={onNewChat}
                 size="sm"
               >
@@ -230,7 +230,7 @@ export function ChatDock({
               aria-label={closeLabel}
               data-testid={ChatDockTestId.CloseButton}
               icon="x"
-              intent="secondary"
+              intent="ghost"
               onClick={() => setOpen(false)}
               size="sm"
               title={closeLabel}

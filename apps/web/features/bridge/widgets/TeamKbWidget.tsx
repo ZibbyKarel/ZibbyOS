@@ -2,14 +2,13 @@
 
 import type { TeamKbDigestItem } from "@zibby/contracts";
 import {
-  BoardLine,
-  BoardRow,
-  BoardText,
   Button,
   Container,
+  ReadingItem,
   SectionLabel,
   SelectField,
   Stack,
+  Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -53,7 +52,6 @@ export function TeamKbWidget({
   onCountChange,
   selection,
   onOpen,
-  sheetSide,
 }: BridgeWidgetProps) {
   const t = useTranslations("bridge.widgets.teamKb");
   const teamId = widget.scope?.teamId;
@@ -92,7 +90,6 @@ export function TeamKbWidget({
             onOpen={onOpen}
             onResolve={setResolving}
             selection={selection}
-            sheetSide={sheetSide}
             teamId={teamId}
             testId={TeamKbWidgetTestId.Questions}
             title={t("questions")}
@@ -104,7 +101,6 @@ export function TeamKbWidget({
             onOpen={onOpen}
             onResolve={setResolving}
             selection={selection}
-            sheetSide={sheetSide}
             teamId={teamId}
             testId={TeamKbWidgetTestId.Decisions}
             title={t("decisions")}
@@ -142,13 +138,13 @@ export function TeamKbWidgetSettings({ draft, onChange }: WidgetSettingsProps) {
 
 function Note({ testId, children }: { testId: string; children: string }) {
   return (
-    <BoardRow tone="neutral">
+    <Container padding={["100", "150"]}>
       <span data-testid={testId}>
-        <BoardText kind="meta" tone="ink3">
+        <Typography size="sm" type="note" variant="tertiary">
           {children}
-        </BoardText>
+        </Typography>
       </span>
-    </BoardRow>
+    </Container>
   );
 }
 
@@ -162,7 +158,6 @@ interface GroupProps {
   selection: BridgeSelection | null;
   onOpen: (selection: BridgeSelection) => void;
   onResolve: (item: TeamKbDigestItem) => void;
-  sheetSide: BridgeWidgetProps["sheetSide"];
 }
 
 function Group({
@@ -175,7 +170,6 @@ function Group({
   selection,
   onOpen,
   onResolve,
-  sheetSide,
 }: GroupProps) {
   const t = useTranslations("bridge.widgets.teamKb");
   if (items.length === 0) return null;
@@ -188,7 +182,7 @@ function Group({
         // One note can source several items: the key is per item, the sheet per note.
         const key = `${widgetId}:${group}:${i}`;
         return (
-          <BoardRow
+          <ReadingItem
             action={
               group === "questions" ? (
                 <Button
@@ -203,6 +197,7 @@ function Group({
               ) : undefined
             }
             key={key}
+            muted={group === "decisions"}
             onClick={() =>
               onOpen({
                 kind: "note",
@@ -214,23 +209,9 @@ function Group({
             }
             rowKey={key}
             selected={selection?.key === key}
-            sheetSide={sheetSide}
-            tone="neutral"
-          >
-            <span data-testid={TeamKbWidgetTestId.Row}>
-              <BoardText kind="title">{item.text}</BoardText>
-              <BoardLine gap="6" indent={false}>
-                <BoardText kind="meta" tone="ink">
-                  {item.noteTitle}
-                </BoardText>
-                {item.date ? (
-                  <BoardText kind="meta" tone="ink3">
-                    · {item.date}
-                  </BoardText>
-                ) : null}
-              </BoardLine>
-            </span>
-          </BoardRow>
+            sub={item.date ? `${item.noteTitle} · ${item.date}` : item.noteTitle}
+            text={<span data-testid={TeamKbWidgetTestId.Row}>{item.text}</span>}
+          />
         );
       })}
     </div>

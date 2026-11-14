@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
-import { AiUsageSection, AiUsageSectionTestId } from "./AiUsageSection";
+import { AiUsageSection, AiUsageSectionTestId, runsOutInMs } from "./AiUsageSection";
 
 const d = vi.hoisted(() => ({
   limits: undefined as unknown,
@@ -50,8 +50,8 @@ describe("AiUsageSection", () => {
   it("shows Claude limits and opencode usage per model, free at zero cost, plus totals", () => {
     renderWithProviders(<AiUsageSection />);
     const claude = screen.getByTestId(AiUsageSectionTestId.Claude);
-    expect(claude).toHaveTextContent("42%");
-    expect(claude).toHaveTextContent("7%");
+    expect(claude).toHaveTextContent("42 %");
+    expect(claude).toHaveTextContent("7 %");
     expect(screen.getByTestId(AiUsageSectionTestId.ActiveModel)).toHaveTextContent(
       "opencode/big-pickle",
     );
@@ -143,8 +143,8 @@ describe("AiUsageSection", () => {
     renderWithProviders(<AiUsageSection claudeLimits={false} />);
     const claude = screen.getByTestId(AiUsageSectionTestId.Claude);
     expect(claude).toHaveTextContent("Claude");
-    expect(claude).not.toHaveTextContent("42%");
-    expect(claude).not.toHaveTextContent("7%");
+    expect(claude).not.toHaveTextContent("42 %");
+    expect(claude).not.toHaveTextContent("7 %");
   });
 
   it("claudeLimits={false} shows no limits-unknown line while limits are missing", () => {
@@ -153,5 +153,24 @@ describe("AiUsageSection", () => {
     expect(screen.getByTestId(AiUsageSectionTestId.Claude)).not.toHaveTextContent(
       "Limity zatím nejsou k dispozici.",
     );
+  });
+});
+
+describe("runsOutInMs", () => {
+  const H = 3_600_000;
+  const now = 1_000_000_000;
+  // 5 h window, 4 h elapsed, 90 % used → 0.4 h of budget left at 22.5 %/h.
+  const hot = { usedPct: 90, resetsAt: now + H };
+
+  it("extrapolates the burn rate linearly when it runs out before the reset", () => {
+    expect(runsOutInMs(hot, 5 * H, now)).toBeCloseTo((10 * 4 * H) / 90, 0);
+  });
+
+  it("gives no prediction below the hot threshold, at 100 %, without a reset, or if the reset comes first", () => {
+    expect(runsOutInMs({ usedPct: 60, resetsAt: now + H }, 5 * H, now)).toBeUndefined();
+    expect(runsOutInMs({ usedPct: 100, resetsAt: now + H }, 5 * H, now)).toBeUndefined();
+    expect(runsOutInMs({ usedPct: 90, resetsAt: null }, 5 * H, now)).toBeUndefined();
+    // 86 % used but the window resets in 1 min, long before the forecast.
+    expect(runsOutInMs({ usedPct: 86, resetsAt: now + 60_000 }, 5 * H, now)).toBeUndefined();
   });
 });

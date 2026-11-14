@@ -62,6 +62,7 @@ import { terminal } from "./terminal";
 import { pen } from "./pen";
 import { book } from "./book";
 import { layout } from "./layout";
+import { stack } from "./stack";
 import { sparkles } from "./sparkles";
 import { menu } from "./menu";
 import { filter } from "./filter";
@@ -137,6 +138,7 @@ export const iconNames = [
   "pen",
   "book",
   "layout",
+  "stack",
   "sparkles",
   "menu",
   "filter",
@@ -215,6 +217,7 @@ export const paths: Record<IconName, ReactNode> = {
   pen,
   book,
   layout,
+  stack,
   sparkles,
   menu,
   filter,

@@ -8,8 +8,8 @@ import { StatusDot } from "../StatusDot/StatusDot";
 /**
  * The single button system (Zibby 2.0 design) — 8px radius, 1px border, sans
  * sentence-case label, weight 500:
- *   primary   — brand accent fill, accent-contrast text ("Run all")
- *   secondary — `--line2` hairline, `--ink2` text → hover `--ink` on hover bg ("Add task")
+ *   primary   — amber fill, on-amber text ("Run all")
+ *   secondary — `--line2` hairline, `--ink` text, `--p2` hover (Bridge `.btn`)
  *   outline   — `--ink` hairline, `--ink` text (the Bridge EDIT LAYOUT toggle; DONE is `primary`)
  *   ghost     — secondary without the hairline (quietest action)
  *   danger    — secondary + a leading `--s-err` dot, never a red fill
@@ -27,15 +27,16 @@ const button = cva(
   {
     variants: {
       intent: {
-        primary: "border-accent bg-accent text-accent-contrast hover:bg-accent/90",
-        secondary: "border-line-2 bg-panel text-ink-2 hover:bg-hover hover:text-ink",
-        outline: "border-ink bg-transparent text-ink hover:bg-hover",
-        ghost: "border-transparent bg-transparent text-ink-2 hover:bg-hover hover:text-ink",
-        danger: "border-line-2 bg-panel text-ink-2 hover:bg-hover hover:text-ink",
+        primary: "border-accent bg-accent text-accent-contrast hover:bg-accent-hover",
+        secondary: "border-line-2 bg-transparent text-ink hover:bg-panel-2",
+        outline: "border-ink bg-transparent text-ink hover:bg-panel-2",
+        ghost: "border-transparent bg-transparent text-ink-2 hover:bg-panel-2 hover:text-ink",
+        danger: "border-line-2 bg-transparent text-ink hover:bg-panel-2",
       },
+      // Bridge `.btn` (30px, 12.5px) / `.btn.sm` (26px, 12px).
       size: {
-        sm: "px-[10px] py-[5px] text-[12px]",
-        md: "px-[12px] py-[7px] text-[13px]",
+        sm: "h-[26px] px-[9px] text-[12px]",
+        md: "h-[30px] px-[12px] text-[12.5px]",
       },
       iconOnly: { true: "px-[9px]", false: "" },
       block: { true: "w-full", false: "" },
@@ -57,10 +58,10 @@ export const buttonClasses = button;
 /** Spinner border color per intent — primary spins in the panel-contrast color. */
 const spinnerClass: Record<ButtonIntent, string> = {
   primary: "border-accent-contrast/30 border-t-accent-contrast",
-  secondary: "border-ink-2/30 border-t-ink-2",
+  secondary: "border-ink/30 border-t-ink",
   outline: "border-ink/30 border-t-ink",
   ghost: "border-ink-2/30 border-t-ink-2",
-  danger: "border-ink-2/30 border-t-ink-2",
+  danger: "border-ink/30 border-t-ink",
 };
 
 export type ButtonIntent = "primary" | "secondary" | "outline" | "ghost" | "danger";

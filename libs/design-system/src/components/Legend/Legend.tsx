@@ -40,12 +40,7 @@ export function Legend({ items, ref, ...rest }: LegendProps) {
           key={item.state}
         >
           <StateDot data-testid={LegendTestId.Dot} px={7} state={item.state} />
-          <Typography
-            data-testid={LegendTestId.Label}
-            style={{ flex: 1 }}
-            tracking="wider"
-            type="labelSm"
-          >
+          <Typography data-testid={LegendTestId.Label} style={{ flex: 1 }} type="labelSm">
             {item.label}
           </Typography>
           <Typography

@@ -1,64 +1,65 @@
 /**
  * Zibby 2.0 light theme — the light half of the "Zibby-2.0 Dashboard" design.
  *
- * See `darkTheme.ts` for the rationale and the design → token mapping. The design
- * reuses its dark-mode status hues on white; here they step down one shade
- * (Tailwind 600) so status text keeps WCAG AA contrast on the light panels.
- * No glow in light — `--gw` is `0px`.
+ * See `darkTheme.ts` for the rationale and the design → token mapping. Values are
+ * the `light` half of `design/bridge-redesign/tokens.json` (spec §7/§7b): status
+ * hues one step darker (rose 600, emerald 700, sky 700, violet 600) so they work as
+ * text and dot on white; amber stays the same fill as in dark — amber TEXT uses
+ * `--color-accent-fg` (#9a5500, CSS-only token). No glow in light — `--gw` is `0px`.
  */
 import type { Theme } from "../tokens";
 
 export const lightTheme: Theme = {
   // ---- Neutrals ---------------------------------------------------------------
-  colorBg: "#f6f6f4",
+  colorBg: "#f5f5f2",
   colorPanel: "#ffffff",
-  colorPanel2: "#fafaf8",
-  colorLine: "#e6e6e2",
-  colorLine2: "#d4d4d0",
-  colorInk: "#0e0f12",
-  colorInk2: "#3a3e48",
-  colorInk3: "#6b7280",
+  colorPanel2: "#f0f0ec",
+  colorLine: "rgba(20, 22, 26, 0.09)",
+  colorLine2: "rgba(20, 22, 26, 0.16)",
+  colorInk: "#15171b",
+  colorInk2: "#4a4f58",
+  colorInk3: "#686d77",
   // The design has no background grid — kept as a token, painted transparent.
   colorGrid: "transparent",
 
   // ---- State vocabulary -------------------------------------------------------
   colorStateWork: "#7c3aed",
-  colorStateThink: "#0284c7",
-  colorStateBlock: "#d97706",
+  colorStateThink: "#0369a1",
+  colorStateBlock: "#f5a524",
   colorStateErr: "#e11d48",
-  colorStateDone: "#059669",
-  colorStateIdle: "#9aa0ac",
+  colorStateDone: "#047857",
+  colorStateIdle: "#9ca3af",
 
   // ---- Effects — nothing glows in light ---------------------------------------
   glowWidth: "0px",
   dotRadius: "9999px",
 
   // ---- Legacy backgrounds -----------------------------------------------------
-  colorBackgroundDeep: "#f6f6f4", // --bg
-  colorBackground: "#f6f6f4", // --bg
+  colorBackgroundDeep: "#f5f5f2", // --bg
+  colorBackground: "#f5f5f2", // --bg
   colorSurface: "#ffffff", // --panel
-  colorElevated: "#fafaf8", // --panel2
-  colorRaised: "#f0f0ec", // design --bg-3
-  colorHover: "#ececea", // design --bg-hover
+  colorElevated: "#f0f0ec", // --panel2
+  colorRaised: "#e6e6e1", // design --p3
+  colorHover: "#e6e6e1", // Bridge spec §7: p3 doubles as hover
 
   // ---- Legacy foreground — mapped onto ink/ink2/ink3 --------------------------
-  colorForeground: "#0e0f12", // --ink
-  colorForegroundDim: "#3a3e48", // --ink2
-  colorForegroundFaint: "#6b7280", // --ink3
+  colorForeground: "#15171b", // --ink
+  colorForegroundDim: "#4a4f58", // --ink2
+  colorForegroundFaint: "#686d77", // --ink3
 
   // ---- Legacy borders — mapped onto line/line2 --------------------------------
-  colorBorder: "#e6e6e2", // --line
-  colorBorderStrong: "#d4d4d0", // --line2
+  colorBorder: "rgba(20, 22, 26, 0.09)", // --line
+  colorBorderStrong: "rgba(20, 22, 26, 0.16)", // --line2
 
   // ---- Brand accent -----------------------------------------------------------
-  colorAccent: "#d97706",
-  colorAccentDim: "rgba(217, 119, 6, 0.12)",
-  colorAccentContrast: "#ffffff",
-  colorAccentGlow: "rgba(217, 119, 6, 0.35)",
+  colorAccent: "#f5a524",
+  colorAccentDim: "color-mix(in srgb, var(--color-accent) 12%, transparent)",
+  colorAccentContrast: "#1a1204",
+  colorAccentGlow: "color-mix(in srgb, var(--color-accent) 35%, transparent)",
 
   // ---- Legacy status — LEGACY_TONE_MAP: ok→done, warn→blocked, bad→error, run→working
-  colorOk: "#059669",
-  colorWarn: "#d97706",
+  colorOk: "#047857",
+  colorWarn: "#f5a524",
   colorDanger: "#e11d48",
   colorRun: "#7c3aed",
 

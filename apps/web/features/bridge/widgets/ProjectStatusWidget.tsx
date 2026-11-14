@@ -2,20 +2,22 @@
 
 import type { CiState, Project } from "@zibby/contracts";
 import {
-  BoardLine,
-  BoardRow,
-  type BoardRowTone,
-  BoardText,
   Dropdown,
   Icon,
   type IconName,
   type IconTone,
   Stack,
+  StateDot,
+  type StateTone,
+  Tile,
+  TileGrid,
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useState } from "react";
 import { useProjectCiQuery, useProjectsQuery } from "../../projects/queries";
 import type { BridgeWidgetProps, WidgetSettingsProps } from "./registry";
+import { PRIORITY_WEIGHT } from "../grid/priority";
 import { useWidgetReport } from "./useWidgetReport";
 
 export enum ProjectStatusWidgetTestId {
@@ -35,7 +37,7 @@ export const CI_STATE_ICON: Record<CiState, { name: IconName; tone: IconTone }> 
   error: { name: "warn", tone: "warn" },
 };
 
-const ROW_TONE: Record<CiState, BoardRowTone> = {
+const DOT_TONE: Record<CiState, StateTone> = {
   passing: "done",
   failing: "error",
   running: "working",
@@ -62,6 +64,21 @@ export function CiStateIcon({ state, label }: { state: CiState; label: string })
   );
 }
 
+/** The tile's state dot with the CI state as accessible name + tooltip. */
+function CiStateDot({ state, label }: { state: CiState; label: string }) {
+  return (
+    <span
+      aria-label={label}
+      data-state={state}
+      data-testid={ProjectStatusWidgetTestId.Ci}
+      role="img"
+      title={label}
+    >
+      <StateDot size="sm" tone={DOT_TONE[state]} />
+    </span>
+  );
+}
+
 /** The projects a widget shows: its `scope.projectIds` pick, or every project when none. */
 export function pickedProjects(projects: readonly Project[], ids?: readonly string[]): Project[] {
   return ids?.length ? projects.filter((p) => ids.includes(p.id)) : [...projects];
@@ -72,44 +89,35 @@ function ProjectRow({
   widgetId,
   selection,
   onOpen,
-  sheetSide,
-}: { project: Project; widgetId: string } & Pick<
-  BridgeWidgetProps,
-  "selection" | "onOpen" | "sheetSide"
->) {
+  onRed,
+}: {
+  project: Project;
+  widgetId: string;
+  /** Reports whether this project's base-branch CI is failing (feeds the widget's urgency). */
+  onRed: (projectId: string, red: boolean) => void;
+} & Pick<BridgeWidgetProps, "selection" | "onOpen">) {
   const t = useTranslations("bridge.widgets.projectStatus");
   const { data: ci } = useProjectCiQuery(project.id);
   const state = ci?.state ?? "none";
   const key = `${widgetId}:${project.id}`;
   const red = state === "failing";
+  useEffect(() => onRed(project.id, red), [onRed, project.id, red]);
   return (
-    <BoardRow
+    <Tile
       alert={red}
-      bar={!red}
+      lead={<CiStateDot label={t(`state.${state}`)} state={state} />}
       onClick={() => onOpen({ kind: "project", id: project.id, widgetId, key })}
       rowKey={key}
       selected={selection?.key === key}
-      sheetSide={sheetSide}
-      tone={ROW_TONE[state]}
-      trailing={<CiStateIcon label={t(`state.${state}`)} state={state} />}
-    >
-      <BoardLine baseline gap="8">
-        <BoardText truncate kind="title" title={project.name}>
-          {project.name}
-        </BoardText>
-        {ci?.branch ? (
-          <BoardText kind="meta" tone="ink3">
-            {ci.branch}
-          </BoardText>
-        ) : null}
-      </BoardLine>
-    </BoardRow>
+      sub={ci?.branch}
+      title={project.name}
+    />
   );
 }
 
 /**
- * Project status: one row per picked project (`scope.projectIds`, absent = all) with the CI state
- * of its base branch. Red CI = the error background (no bar); other states = a status icon.
+ * Project status — tile grid species: one tile per picked project (`scope.projectIds`, absent =
+ * all) with a state dot for its base-branch CI and the branch; red CI tints the whole tile rose.
  * A click opens the project sheet (CI by workflow → job → step).
  */
 export function ProjectStatusWidget({
@@ -118,31 +126,37 @@ export function ProjectStatusWidget({
   onCountChange,
   selection,
   onOpen,
-  sheetSide,
 }: BridgeWidgetProps) {
   const projectsQuery = useProjectsQuery();
   const projects = pickedProjects(projectsQuery.data ?? [], widget.scope?.projectIds);
+  const [red, setRed] = useState<Record<string, boolean>>({});
+  const onRed = useCallback(
+    (id: string, r: boolean) => setRed((p) => (!!p[id] === r ? p : { ...p, [id]: r })),
+    [],
+  );
+  const failing = projects.filter((p) => red[p.id]).length;
   useWidgetReport(
     {
       loading: projectsQuery.isPending,
       count: projectsQuery.isPending ? undefined : projects.length,
       you: 0,
+      urgency: PRIORITY_WEIGHT.error * failing,
     },
     { onEmptyChange, onCountChange },
   );
   return (
-    <>
+    <TileGrid>
       {projects.map((p) => (
         <ProjectRow
           key={p.id}
           onOpen={onOpen}
+          onRed={onRed}
           project={p}
           selection={selection}
-          sheetSide={sheetSide}
           widgetId={widget.id}
         />
       ))}
-    </>
+    </TileGrid>
   );
 }
 

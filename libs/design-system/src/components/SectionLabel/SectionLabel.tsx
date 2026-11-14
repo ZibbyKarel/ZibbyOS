@@ -19,8 +19,8 @@ export interface SectionLabelProps extends Omit<HTMLAttributes<HTMLDivElement>, 
   ref?: Ref<HTMLDivElement>;
 }
 
-/** DS.md §8 section header — mono 11 / 0.14em / faint, optionally ordinal-prefixed,
- *  with an optional right-aligned action slot. The recurring page/panel eyebrow. */
+/** Section header — sentence-case 12 / 500 / ink-3 (Bridge `.zl`), optionally
+ *  ordinal-prefixed, with an optional right-aligned action slot. */
 export function SectionLabel({ index, children, action, ref, ...rest }: SectionLabelProps) {
   return (
     <Row data-testid={SectionLabelTestId.Root} gap="150" justify="between" ref={ref} {...rest}>

@@ -72,8 +72,8 @@ export interface MenuButtonProps {
    * unchanged for existing consumers (`RoadmapCard`, `RunDetail`).
    *
    * `"bordered"` — the ZibbyOS header overflow trigger: a square
-   * outline button (vertical `⋮`) that solidifies to an ink border + panel-2
-   * fill while open, opening a 220px mono-uppercase panel with label-left /
+   * outline button (vertical `⋮`) that fills panel-2 while open, opening a
+   * 220px sentence-case panel with label-left /
    * trailing-mark-right rows (`AppHeader`'s `menu` slot).
    */
   variant?: "kebab" | "bordered";
@@ -239,9 +239,9 @@ export function MenuButton({
           aria-label={ariaLabel}
           className={cn(
             // Secondary icon button at the md footprint, so it sits flush beside
-            // md header actions (run-detail ··· in the design); ink border while open.
+            // md header actions (run-detail ··· in the design); filled while open.
             buttonClasses({ intent: "secondary", size: "md", iconOnly: true }),
-            open && "border-ink bg-panel-2 text-ink",
+            open && "bg-panel-2 text-ink",
           )}
           data-testid={MenuButtonTestId.Trigger}
           disabled={disabled}
@@ -300,25 +300,17 @@ export function MenuButton({
                 const item = entry;
                 const active = i === activeRow;
                 const danger = item.danger && !item.disabled;
-                const toneClass = danger ? "text-bad" : bordered ? "text-ink" : "text-foreground";
+                const toneClass = danger ? "text-bad" : "text-ink";
                 const rowClass = cn(
                   "w-full flex items-center gap-2.5 rounded-sm cursor-pointer border-none text-left",
+                  "px-[10px] py-[7px] font-sans text-body",
                   focusRingInset,
-                  "transition-colors duration-100",
-                  bordered ? "px-3 py-[9px] font-sans text-[13px]" : "px-[11px] py-[9px]",
+                  "transition-colors duration-100 motion-reduce:transition-none",
                   item.disabled
                     ? "cursor-not-allowed opacity-50"
-                    : cn(
-                        active
-                          ? bordered
-                            ? "bg-panel-2"
-                            : "bg-surface"
-                          : cn(
-                              "bg-transparent",
-                              bordered ? "hover:bg-panel-2" : "hover:bg-surface",
-                            ),
-                      ),
-                  active && !item.disabled && "ring-1 ring-inset ring-border-strong",
+                    : active
+                      ? "bg-raised"
+                      : "bg-transparent hover:bg-raised",
                 );
                 const content = (
                   <>
@@ -327,20 +319,16 @@ export function MenuButton({
                     )}
                     {item.description ? (
                       <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
-                        <span className={cn(!bordered && "text-md", "font-medium", toneClass)}>
-                          {item.label}
-                        </span>
+                        <span className={cn("font-medium", toneClass)}>{item.label}</span>
                         <span
-                          className="text-[12px] text-ink-2"
+                          className="text-meta text-ink-3"
                           data-testid={`${MenuButtonTestId.Description}-${item.id}`}
                         >
                           {item.description}
                         </span>
                       </span>
                     ) : (
-                      <span className={cn("flex-1", !bordered && "text-md", toneClass)}>
-                        {item.label}
-                      </span>
+                      <span className={cn("flex-1", toneClass)}>{item.label}</span>
                     )}
                     {item.trailing && <span className="text-ink-3">{item.trailing}</span>}
                   </>

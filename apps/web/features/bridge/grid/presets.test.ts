@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compact } from "./layout";
+import { COLS, SIZE_LIMITS, compact } from "./layout";
 import {
   DEFAULT_LAYOUT,
   REVIEW_LAYOUT,
@@ -11,6 +11,21 @@ import {
 } from "./presets";
 
 describe("presets", () => {
+  it.each([
+    ["DEFAULT", DEFAULT_LAYOUT],
+    ["REVIEW", REVIEW_LAYOUT],
+  ] as const)("built-in %s: hero on top, compact, inside the species limits", (_, layout) => {
+    expect(compact(layout)).toEqual(layout);
+    expect(layout[0]).toMatchObject({ type: "briefing", x: 0, y: 0, w: COLS });
+    for (const w of layout) {
+      const [minW, minH, maxW, maxH] = SIZE_LIMITS[w.type];
+      expect(w.w, w.id).toBeGreaterThanOrEqual(minW);
+      expect(w.w, w.id).toBeLessThanOrEqual(maxW);
+      expect(w.h, w.id).toBeGreaterThanOrEqual(minH);
+      expect(w.h, w.id).toBeLessThanOrEqual(maxH);
+      expect(w.x + w.w, w.id).toBeLessThanOrEqual(COLS);
+    }
+  });
   it("REVIEW is already compact", () => {
     expect(presetLayout("REVIEW", {})).toEqual(REVIEW_LAYOUT);
   });

@@ -1,7 +1,7 @@
-import { WidgetFrameTestId } from "@zibby/design-system";
+import { AnchoredSheet, AnchoredSheetTestId, WidgetFrameTestId } from "@zibby/design-system";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, renderWithProviders as render, screen } from "../../../test/render";
 import type { BridgeSelection } from "../widgets/registry";
 import { DetailSheet } from "./DetailSheet";
 
@@ -10,10 +10,27 @@ vi.mock("./sheets/IssueSheet", () => ({
   IssueSheet: (p: {
     id: string;
     anchor: { side: string; left: number; width: number; eT: number; eH: number };
-  }) => <div data-anchor={JSON.stringify(p.anchor)} data-id={p.id} data-testid="issue-sheet" />,
+  }) => (
+    <AnchoredSheet
+      closeLabel="Close"
+      kind="Issue"
+      onClose={() => {}}
+      title="t"
+      {...p.anchor}
+      height={10}
+      top={0}
+    >
+      <div data-anchor={JSON.stringify(p.anchor)} data-id={p.id} data-testid="issue-sheet" />
+    </AnchoredSheet>
+  ),
 }));
 vi.mock("./sheets/TaskSheet", () => ({ TaskSheet: () => null }));
 vi.mock("./sheets/PrSheet", () => ({ PrSheet: () => null }));
+vi.mock("./sheets/RunSheet", () => ({ RunSheet: () => null }));
+vi.mock("./sheets/NoteSheet", () => ({ NoteSheet: () => null }));
+vi.mock("./sheets/ProjectSheet", () => ({ ProjectSheet: () => null }));
+vi.mock("./sheets/AutomationSheet", () => ({ AutomationSheet: () => null }));
+vi.mock("./sheets/QuickActionSheet", () => ({ QuickActionSheet: () => null }));
 
 const rect = (left: number, top: number, width: number, height: number) =>
   ({
@@ -87,7 +104,7 @@ describe("DetailSheet", () => {
     expect(anchor).toMatchObject({
       side: "r",
       left: 309,
-      width: 891,
+      width: 480, // issue's preferred width, below the 891px of room
       top: 0,
       height: 700,
       eL: -2,
@@ -95,12 +112,12 @@ describe("DetailSheet", () => {
     });
   });
 
-  it("anchors left when the row leaves less than 460px on the right", () => {
+  it("anchors left when the row leaves less room on the right", () => {
     render(<Harness />);
     stubRects();
     fireEvent.click(screen.getByTestId("row-b"));
     const anchor = JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}");
-    expect(anchor).toMatchObject({ side: "l", left: 0, width: 701, eL: 699 });
+    expect(anchor).toMatchObject({ side: "l", left: 700 + 1 - 480, width: 480, eL: 478 });
   });
 
   it("ArrowDown / ArrowUp open the next / previous row, within the widget only", () => {
@@ -145,5 +162,34 @@ describe("DetailSheet", () => {
     });
     const anchor = JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}");
     expect(anchor.eT).toBe(160 - 100 - 4);
+  });
+
+  it("on a phone every sheet is a full page, even when its row is not on the board", () => {
+    const mm = vi.spyOn(window, "matchMedia").mockImplementation(
+      (q) =>
+        ({
+          matches: true,
+          media: q,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList,
+    );
+    render(<Harness initial="missing" />);
+    expect(screen.getByTestId(AnchoredSheetTestId.Root)).toHaveAttribute(
+      "data-presentation",
+      "page",
+    );
+    expect(screen.getByTestId(AnchoredSheetTestId.Root)).toHaveAttribute("aria-modal", "true");
+    mm.mockRestore();
+  });
+
+  it("on desktop the sheet stays anchored", () => {
+    render(<Harness />);
+    stubRects();
+    fireEvent.click(screen.getByTestId("row-a"));
+    expect(screen.getByTestId(AnchoredSheetTestId.Root)).toHaveAttribute(
+      "data-presentation",
+      "anchored",
+    );
   });
 });

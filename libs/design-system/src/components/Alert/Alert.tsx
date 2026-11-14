@@ -18,11 +18,20 @@ export interface AlertProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"
   children: ReactNode;
 }
 
+// Bridge banner (`.park`/`.sug`): an opaque state-tinted surface with a soft state
+// border; body text stays ink-2, only the title carries the state colour.
 const severityClasses: Record<AlertSeverity, string> = {
-  info: "text-run bg-run-solid border-run/40",
-  ok: "text-ok bg-ok-solid border-ok/40",
-  warn: "text-warn bg-warn-solid border-warn/40",
-  error: "text-bad bg-bad-solid border-bad/40",
+  info: "bg-run-solid border-run/25",
+  ok: "bg-ok-solid border-ok/25",
+  warn: "bg-warn-solid border-warn/25",
+  error: "bg-bad-solid border-bad/25",
+};
+
+const titleClasses: Record<AlertSeverity, string> = {
+  info: "text-run",
+  ok: "text-ok",
+  warn: "text-accent-fg",
+  error: "text-bad",
 };
 
 /** Severities that interrupt/warn get the assertive `alert` role; informational
@@ -40,13 +49,16 @@ export function Alert({ severity = "info", title, onClose, children, ...rest }: 
     <div
       data-testid={AlertTestId.Root}
       {...rest}
-      className={cn("px-[14px] py-[10px] rounded border", severityClasses[severity])}
+      className={cn("px-[14px] py-[10px] rounded border text-ink-2", severityClasses[severity])}
       role={roleBySeverity[severity]}
     >
       <Stack direction="row" gap="150">
-        <div className="flex-1 text-base leading-relaxed">
+        <div className="flex-1 text-[12.5px] leading-relaxed">
           {title && (
-            <div className="font-semibold mb-0.5" data-testid={AlertTestId.Title}>
+            <div
+              className={cn("font-medium mb-0.5", titleClasses[severity])}
+              data-testid={AlertTestId.Title}
+            >
               {title}
             </div>
           )}

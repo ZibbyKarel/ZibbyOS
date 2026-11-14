@@ -10,6 +10,8 @@ interface Report {
   count: number | undefined;
   /** Items needing the operator. */
   you: number;
+  /** Weighted non-"you" score terms (`PRIORITY_WEIGHT`), excluding anything already in `you`. */
+  urgency?: number;
   /** Right-aligned header note. */
   aside?: string;
   /** Header sync button — `onRefresh` must be stable. */
@@ -21,15 +23,25 @@ interface Report {
   filtersActive?: boolean;
 }
 
-/** Feeds the frame: emptiness (never while loading) and the count / YOU / aside header info. */
+/** Feeds the frame: emptiness (never while loading) and the count / you / urgency / aside header info. */
 export function useWidgetReport(
-  { loading, count, you, aside, onRefresh, refreshing, failed, filtersActive }: Report,
+  { loading, count, you, urgency, aside, onRefresh, refreshing, failed, filtersActive }: Report,
   { onEmptyChange, onCountChange }: Pick<BridgeWidgetProps, "onEmptyChange" | "onCountChange">,
 ) {
   const empty = !loading && !count && !failed;
   useEffect(() => onEmptyChange(empty), [empty, onEmptyChange]);
   useEffect(
-    () => onCountChange?.({ count, you, loading, aside, onRefresh, refreshing, filtersActive }),
-    [count, you, loading, aside, onRefresh, refreshing, filtersActive, onCountChange],
+    () =>
+      onCountChange?.({
+        count,
+        you,
+        urgency,
+        loading,
+        aside,
+        onRefresh,
+        refreshing,
+        filtersActive,
+      }),
+    [count, you, urgency, loading, aside, onRefresh, refreshing, filtersActive, onCountChange],
   );
 }

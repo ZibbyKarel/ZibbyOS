@@ -37,6 +37,7 @@ const baseProps: ManageLayoutsDialogProps = {
   onSelect: vi.fn(),
   onAdd: vi.fn(() => true),
   onDelete: vi.fn(),
+  onReset: vi.fn(),
   onClose: vi.fn(),
 };
 const setup = (over: Partial<ManageLayoutsDialogProps> = {}) => {
@@ -50,6 +51,7 @@ const setup = (over: Partial<ManageLayoutsDialogProps> = {}) => {
     onSelect: vi.fn(),
     onAdd: vi.fn(() => true),
     onDelete: vi.fn(),
+    onReset: vi.fn(),
     onClose: vi.fn(),
     ...over,
   };
@@ -194,6 +196,7 @@ describe("ManageLayoutsDialog", () => {
       onSelect: vi.fn(),
       onAdd: vi.fn(() => true),
       onDelete: vi.fn(),
+      onReset: vi.fn(),
       onClose: vi.fn(),
     };
     const { rerender } = renderWithProviders(<ManageLayoutsDialog {...props} />);
@@ -205,6 +208,21 @@ describe("ManageLayoutsDialog", () => {
     rerender(<ManageLayoutsDialog {...props} saved={{ A: [], FOO: [] }} />);
     expect(screen.queryByTestId(FieldTestId.Error)).toBeNull();
     expect((screen.getByTestId(Id.Input) as HTMLInputElement).value).toBe("MY LAYOUT 01");
+  });
+
+  it("O7: offers Reset to built-in only on an edited DEFAULT / REVIEW", async () => {
+    const p = setup({
+      layouts: { shown: ["DEFAULT", "REVIEW", "primary"], hidden: [] },
+      preset: "DEFAULT",
+      saved: { DEFAULT: [], primary: [] },
+    });
+    expect(screen.queryByTestId(`${Id.Reset}-REVIEW`)).toBeNull();
+    expect(screen.queryByTestId(`${Id.Reset}-primary`)).toBeNull();
+    const reset = screen.getByTestId(`${Id.Reset}-DEFAULT`);
+    expect(reset).toHaveAccessibleName("Obnovit Výchozí na vestavěné rozložení");
+    await userEvent.click(reset);
+    expect(p.onReset).toHaveBeenCalledWith("DEFAULT");
+    expect(p.onSelect).not.toHaveBeenCalled();
   });
 
   it("adds a valid name (prefilled, Enter submits) and errors on a taken one", async () => {

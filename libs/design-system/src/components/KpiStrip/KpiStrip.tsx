@@ -70,12 +70,12 @@ export function KpiStrip({ kpis, lead, linkComponent, ref }: KpiStripProps) {
         {kpis.map((k) => {
           const body = (
             <>
-              <span className="flex items-center gap-[6px] font-sans font-semibold uppercase tracking-wider text-[10px] whitespace-nowrap text-ink-3">
-                <span className={cn("h-[7px] w-[7px]", DOT[k.tone])} />
+              <span className="flex items-center gap-[6px] text-meta whitespace-nowrap text-ink-3">
+                <span className={cn("size-[6px] rounded-full", DOT[k.tone])} />
                 {k.label}
               </span>
               <span
-                className="text-[length:var(--bridge-kpi-fs)] font-medium leading-[1.1] tabular-nums text-ink"
+                className="text-[length:var(--bridge-kpi-fs)] font-light leading-[1.1] tracking-[-0.03em] tabular-nums text-ink"
                 data-testid={`${KpiStripTestId.Value}-${k.id}`}
               >
                 {k.value}

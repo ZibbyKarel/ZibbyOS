@@ -34,14 +34,14 @@ export function BudgetMeter({ label, value, max, warnAt, stopAt, caption, ref }:
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const tone = getUsageTone(pct);
   return (
-    <Card background="panel" data-testid={BudgetMeterTestId.Root} radius="none" ref={ref}>
+    <Card background="panel" data-testid={BudgetMeterTestId.Root} ref={ref}>
       <CardContent padding="200">
         <Stack gap="100">
           <Row justify="between">
-            <Typography data-testid={BudgetMeterTestId.Label} tracking="wider" type="labelSm">
+            <Typography data-testid={BudgetMeterTestId.Label} type="labelSm">
               {label}
             </Typography>
-            <Typography tracking="wider" type="labelSm" variant="secondary">
+            <Typography type="labelSm" variant="secondary">
               {Math.round(pct)}%
             </Typography>
           </Row>
@@ -53,24 +53,24 @@ export function BudgetMeter({ label, value, max, warnAt, stopAt, caption, ref }:
             aria-valuemax={max}
             aria-valuemin={0}
             aria-valuenow={value}
-            className="relative h-[6px] bg-border"
+            className="relative h-[5px] rounded-full bg-ink/10"
             data-testid={BudgetMeterTestId.Track}
             role="meter"
           >
             <div
               className={
                 tone === "bad"
-                  ? "absolute inset-y-0 left-0 bg-bad"
+                  ? "absolute inset-y-0 left-0 rounded-full bg-bad"
                   : tone === "warn"
-                    ? "absolute inset-y-0 left-0 bg-warn"
-                    : "absolute inset-y-0 left-0 bg-ink"
+                    ? "absolute inset-y-0 left-0 rounded-full bg-warn"
+                    : "absolute inset-y-0 left-0 rounded-full bg-ink-2"
               }
               data-testid={BudgetMeterTestId.Fill}
               style={{ width: `${pct}%` }}
             />
             {warnAt !== undefined && max > 0 && (
               <div
-                className="absolute -top-[3px] -bottom-[3px] w-px bg-foreground-dim"
+                className="absolute -top-[3px] -bottom-[3px] w-px bg-ink-3"
                 data-testid={BudgetMeterTestId.WarnTick}
                 style={{ left: `${Math.max(0, Math.min(100, (warnAt / max) * 100))}%` }}
               />

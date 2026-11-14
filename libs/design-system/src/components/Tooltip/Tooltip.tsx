@@ -72,7 +72,7 @@ export function Tooltip({ content, children, side = "top", size = "sm" }: Toolti
       {open && (
         <span
           className={cn(
-            "pointer-events-none absolute z-50 w-max rounded-sm border border-border-strong bg-elevated px-2 py-1 font-sans text-xs leading-snug text-foreground-dim shadow-[var(--shadow-modal)]",
+            "pointer-events-none absolute z-50 w-max rounded-md border border-line-2 bg-sheet px-2 py-1 font-sans text-[12px] leading-snug text-ink-2 shadow-[var(--shadow-pop)]",
             sizeClass[size],
             sideClass[side],
           )}

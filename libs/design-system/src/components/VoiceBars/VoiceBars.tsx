@@ -20,7 +20,7 @@ export function VoiceBars() {
     >
       {DELAYS.map((delay) => (
         <span
-          className={`h-3 w-0.5 origin-center bg-run animate-zb-bar ${delay}`}
+          className={`h-3 w-0.5 origin-center rounded-full bg-run animate-zb-bar ${delay}`}
           data-testid={VoiceBarsTestId.Bar}
           key={delay}
         />

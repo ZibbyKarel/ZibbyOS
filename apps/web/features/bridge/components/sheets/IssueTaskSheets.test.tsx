@@ -1,9 +1,7 @@
 import {
   AnchoredSheetTestId,
-  CopyableTextTestId,
   MarkdownTestId,
   MetricStripTestId,
-  NeedsYouCardTestId,
   SheetPartsTestId,
   StatCellTestId,
 } from "@zibby/design-system";
@@ -11,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, renderWithProviders, screen, within } from "../../../../test/render";
 import { EntityRunListTestId } from "../../../runs/components/EntityRunList";
 import { IssueSheet, IssueSheetTestId } from "./IssueSheet";
+import { ApprovalNeedTestId } from "./ApprovalNeed";
 import { TaskSheet } from "./TaskSheet";
 
 const { hooks, approve, push } = vi.hoisted(() => ({
@@ -84,8 +83,10 @@ describe("IssueSheet", () => {
   it("shows the issue key in the eyebrow with a copy button", () => {
     hooks.items = [item("todo")];
     renderWithProviders(<IssueSheet anchor={anchor} id="p/i1" onClose={() => {}} />);
-    expect(screen.getByTestId(CopyableTextTestId.Text)).toHaveTextContent("ZB-1");
-    expect(screen.getByTestId(CopyableTextTestId.Copy)).toBeInTheDocument();
+    expect(screen.getByTestId(AnchoredSheetTestId.CopyId)).toHaveTextContent("ZB-1");
+    expect(screen.getByTestId(AnchoredSheetTestId.CopyId)).toHaveAccessibleName(
+      "Copy ZB-1", // DS default; DetailSheet passes the i18n label through `frame`
+    );
   });
 
   it("shows the source status instead of the ZIBBY state for new/running", () => {
@@ -270,7 +271,7 @@ describe("TaskSheet", () => {
     ];
     renderWithProviders(<TaskSheet anchor={anchor} id="task-abcd" onClose={() => {}} />);
     expect(screen.getAllByTestId(StatCellTestId.Root)).toHaveLength(2);
-    fireEvent.click(screen.getByTestId(NeedsYouCardTestId.Approve));
+    fireEvent.click(screen.getByTestId(ApprovalNeedTestId.Approve));
     expect(approve).toHaveBeenCalledWith({ params: { id: "ap-9" }, body: {} });
   });
 });

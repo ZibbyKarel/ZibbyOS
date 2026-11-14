@@ -7,12 +7,14 @@ import type { RunView } from "../run";
 import type { RunArtifact } from "../useRunArtifacts";
 import {
   RunApprovalBanner,
+  RunErrorBanner,
   RunFeedBannersTestId,
   RunParkedBanner,
   RunQuestionBanner,
 } from "./RunFeedBanners";
 
-const { approveMutate, rejectMutate, reviseMutate } = vi.hoisted(() => ({
+const { approveMutate, rejectMutate, reviseMutate, answerMutate } = vi.hoisted(() => ({
+  answerMutate: vi.fn(),
   reviseMutate: vi.fn(),
   approveMutate: vi.fn(),
   rejectMutate: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("../../approvals", () => ({
   useApproveMutation: () => ({ mutate: approveMutate, isPending: false }),
   useRejectMutation: () => ({ mutate: rejectMutate, isPending: false }),
   useReviseMutation: () => ({ mutate: reviseMutate, isPending: false }),
+  useAnswerApprovalMutation: () => ({ mutate: answerMutate, isPending: false }),
 }));
 
 const approval: DashboardApproval = {
@@ -214,6 +217,31 @@ describe("RunQuestionBanner", () => {
     const banner = screen.getByTestId(RunFeedBannersTestId.Question);
     expect(banner).toHaveTextContent("Use <b>bold</b> here?");
     expect(banner.querySelector("b")).toBeNull();
+  });
+
+  it("answers inline when it knows the approval", async () => {
+    render(<RunQuestionBanner agentName="coder" approvalId="ap-9" question="Which DB?" />);
+    expect(screen.getByTestId(RunFeedBannersTestId.AnswerSend)).toBeDisabled();
+    await userEvent.type(screen.getByTestId(RunFeedBannersTestId.Answer), "Postgres{Enter}");
+    expect(answerMutate).toHaveBeenCalledWith(
+      { params: { id: "ap-9" }, body: { answer: "Postgres" } },
+      expect.anything(),
+    );
+  });
+
+  it("without an approval id there is no inline answer", () => {
+    render(<RunQuestionBanner agentName="coder" question="Which DB?" />);
+    expect(screen.queryByTestId(RunFeedBannersTestId.Answer)).not.toBeInTheDocument();
+  });
+});
+
+describe("RunErrorBanner", () => {
+  it("shows the reason and re-runs", async () => {
+    const onRerun = vi.fn();
+    render(<RunErrorBanner onRerun={onRerun} reason="fal 500" />);
+    expect(screen.getByTestId(RunFeedBannersTestId.Error)).toHaveTextContent("fal 500");
+    await userEvent.click(screen.getByTestId(RunFeedBannersTestId.Rerun));
+    expect(onRerun).toHaveBeenCalledOnce();
   });
 });
 

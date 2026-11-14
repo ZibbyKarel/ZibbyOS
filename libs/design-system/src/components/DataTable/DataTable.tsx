@@ -85,7 +85,7 @@ function defaultCell<T>(row: T, key: string): ReactNode {
 /**
  * The generic hairline data table (DS.md §8's Table / list) — a real
  * `<table>` (a `<colgroup>` drives the sealed per-column widths, not a
- * CSS-grid stand-in) with a mono-uppercase header row over `--line`-divided
+ * CSS-grid stand-in) with a sentence-case meta header row over `--line`-divided
  * rows. A row is keyboard-activatable (`Enter`/`Space`) when `onRowClick` is
  * given, or a real stretched `<a>` (natively focusable/activatable) when
  * `rowHref` is given.
@@ -109,7 +109,7 @@ export function DataTable<T>({
   return (
     <div className="max-md:overflow-x-auto">
       <table
-        className="w-full table-fixed border-collapse border border-border bg-surface-panel max-md:min-w-[640px]"
+        className="w-full table-fixed border-collapse bg-transparent max-md:min-w-[640px]"
         data-testid={DataTableTestId.Root}
         ref={ref}
       >
@@ -122,7 +122,7 @@ export function DataTable<T>({
           ))}
         </colgroup>
         <thead
-          className={cn(stickyHeader && "sticky top-0 z-10 bg-surface-panel")}
+          className={cn(stickyHeader && "sticky top-0 z-10 bg-panel")}
           data-testid={DataTableTestId.Header}
         >
           <tr className="border-b border-border">
@@ -141,7 +141,7 @@ export function DataTable<T>({
                       : undefined
                   }
                   className={cn(
-                    "px-[14px] py-[9px] font-sans font-semibold uppercase tracking-wider text-[10px] text-foreground-faint",
+                    "px-[14px] py-[8px] text-meta font-medium text-ink-3",
                     alignClass[col.align ?? "left"],
                   )}
                   data-testid={`${DataTableTestId.HeaderCell}-${col.key}`}
@@ -151,8 +151,8 @@ export function DataTable<T>({
                   {sortable ? (
                     <button
                       className={cn(
-                        "inline-flex cursor-pointer items-center gap-[4px] uppercase tracking-wider hover:text-foreground",
-                        active && "text-foreground",
+                        "inline-flex cursor-pointer items-center gap-[4px] hover:text-ink",
+                        active && "text-ink",
                       )}
                       data-testid={`${DataTableTestId.SortButton}-${col.key}`}
                       onClick={() => onSortChange(col.key)}
@@ -207,7 +207,7 @@ export function DataTable<T>({
                   className={cn(
                     "border-b border-border last:border-b-0",
                     (clickable || href) &&
-                      cn("relative cursor-pointer hover:bg-elevated", focusRingInset),
+                      cn("relative cursor-pointer hover:bg-ink/[0.03]", focusRingInset),
                   )}
                   data-testid={`${DataTableTestId.Row}-${rowKey}`}
                   key={rowKey}
@@ -228,7 +228,7 @@ export function DataTable<T>({
                   {columns.map((col, i) => (
                     <td
                       className={cn(
-                        "relative min-w-0 px-[14px] py-[10px] text-sm text-foreground",
+                        "relative min-w-0 px-[14px] py-[10px] text-body text-ink",
                         alignClass[col.align ?? "left"],
                         i === 0 && depth > 0 && depthPad[depth],
                       )}

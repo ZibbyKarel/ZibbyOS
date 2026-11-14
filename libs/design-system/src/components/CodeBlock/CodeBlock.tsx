@@ -61,7 +61,7 @@ export function CodeBlock({
 
   return (
     <div
-      className={cn("overflow-auto p-3", maxHeightClass[maxHeight])}
+      className={cn("overflow-auto rounded-md bg-code-bg p-3", maxHeightClass[maxHeight])}
       data-testid={CodeBlockTestId.Root}
       ref={mergeRefs(scrollRef, ref)}
     >
@@ -69,12 +69,12 @@ export function CodeBlock({
         <span data-testid={CodeBlockTestId.Placeholder}>{placeholder}</span>
       ) : (
         <pre
-          className="m-0 font-mono text-s leading-relaxed break-words whitespace-pre-wrap text-foreground"
+          className="m-0 font-mono text-mono leading-relaxed break-words whitespace-pre-wrap text-ink"
           data-testid={CodeBlockTestId.Pre}
         >
           {text}
           {caret && (
-            <span className="text-accent" data-testid={CodeBlockTestId.Caret}>
+            <span className="text-accent-fg" data-testid={CodeBlockTestId.Caret}>
               ▍
             </span>
           )}

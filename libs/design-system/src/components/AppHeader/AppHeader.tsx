@@ -2,7 +2,7 @@ import type { ReactNode, Ref } from "react";
 import { LAYOUT } from "../../tokens";
 import { cn } from "../../utils/cn";
 import { focusRing, focusRingInset } from "../../utils/focus";
-import { BrandMark } from "../BrandMark/BrandMark";
+import { BrandMark, type BrandMarkState } from "../BrandMark/BrandMark";
 import { Row } from "../Stack/Stack";
 import type { SubNavLinkComponent } from "../SubNav/SubNav";
 import { Wordmark } from "../Wordmark/Wordmark";
@@ -26,6 +26,10 @@ export enum AppHeaderTestId {
 export interface AppHeaderProps {
   /** Brand mark, leading the header. Defaults to the `BrandMark` + `<Wordmark />` lockup. */
   wordmark?: ReactNode;
+  /** System state shown live in the default mark's knot (idle / agents working /
+   *  something waits on the operator). Omit for the static amber brand mark.
+   *  Ignored when a custom `wordmark` is passed. */
+  markState?: BrandMarkState;
   /** Running release shown small under the default wordmark, e.g. `v0.2.1`.
    *  Ignored when a custom `wordmark` is passed. */
   version?: string;
@@ -78,6 +82,7 @@ export interface AppHeaderProps {
  */
 export function AppHeader({
   wordmark,
+  markState,
   version,
   homeHref,
   homeLabel = "ZibbyOS",
@@ -97,7 +102,7 @@ export function AppHeader({
   const HomeLink = linkComponent ?? "a";
   const mark = wordmark ?? (
     <Row align="center" style={{ gap: 10 }}>
-      <BrandMark />
+      <BrandMark live={markState !== undefined} state={markState} />
       <span className="hidden md:inline-flex">
         <Wordmark version={version} />
       </span>
@@ -140,9 +145,9 @@ export function AppHeader({
             aria-label={searchLabel}
             className={cn(
               "inline-flex h-8 w-[340px] max-w-full items-center justify-between gap-3.5",
-              "rounded-md border border-line-2 bg-background px-3",
-              "font-sans text-[12px] text-ink-3 transition-colors",
-              "hover:border-ink",
+              "rounded-md border border-line bg-panel px-3",
+              "font-sans text-body text-ink-3 transition-colors",
+              "hover:border-line-2",
               focusRing,
             )}
             data-testid={AppHeaderTestId.Search}
@@ -150,7 +155,10 @@ export function AppHeader({
             type="button"
           >
             <span>{searchLabel}</span>
-            <span className="text-ink-3" data-testid={AppHeaderTestId.SearchShortcut}>
+            <span
+              className="rounded-[4px] border border-line-2 px-[5px] py-px font-mono text-[10.5px] text-ink-3"
+              data-testid={AppHeaderTestId.SearchShortcut}
+            >
               ⌘K
             </span>
           </button>

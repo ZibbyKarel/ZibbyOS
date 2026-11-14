@@ -12,6 +12,7 @@ import {
   StatCell,
   StatCellGrid,
   TextLink,
+  Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
@@ -32,7 +33,7 @@ import { type SheetProps, geometry } from "./sheetTypes";
  * data, so it is not shown. A pending approval of the task (or of one of its subtask runs)
  * becomes the "needs you" card.
  */
-export function TaskSheet({ id, anchor, onClose }: SheetProps) {
+export function TaskSheet({ id, anchor, onClose, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const departments = useDepartmentLookup();
@@ -83,7 +84,7 @@ export function TaskSheet({ id, anchor, onClose }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={
         approval && isHighRisk(approval) ? (
           <SheetAction
@@ -94,21 +95,29 @@ export function TaskSheet({ id, anchor, onClose }: SheetProps) {
           </SheetAction>
         ) : null
       }
-      chips={[
-        task.department ? dept(task.department) : t("bridge.sheet.task.noDepartment"),
-        task.projectId ?? t("bridge.sheet.task.noProject"),
-        ...(task.source ? [t("bridge.sheet.task.from", { source: task.source })] : []),
-        t("bridge.sheet.created", { when: compactAgo(task.createdAt, now) }),
-      ]}
+      banner={approval ? <ApprovalNeed approval={approval} /> : undefined}
       closeLabel={t("bridge.sheet.close")}
-      kind={`${t("bridge.sheet.kind.task")} · TSK-${task.id.slice(-4).toUpperCase()}`}
+      copyId={`TSK-${task.id.slice(-4).toUpperCase()}`}
+      footerNote={t(`bridge.sheet.task.note.${state}`)}
+      glyph="check"
+      kind={t("bridge.sheet.kind.task")}
+      meta={
+        <Typography as="span" type="labelSm" variant="secondary">
+          {[
+            task.source ? t("bridge.sheet.task.from", { source: task.source }) : null,
+            task.department ? dept(task.department) : t("bridge.sheet.task.noDepartment"),
+            task.projectId ?? t("bridge.sheet.task.noProject"),
+            t("bridge.sheet.created", { when: compactAgo(task.createdAt, now) }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </Typography>
+      }
       onClose={onClose}
       onTitleClick={() => router.push(`/work/tasks/${task.id}` as Route)}
-      stateLabel={stateLabel}
       title={title}
-      tone={state}
+      tones={[{ tone: state, label: stateLabel, loud: state === "blocked" }]}
     >
-      {approval ? <ApprovalNeed approval={approval} /> : null}
       <SheetSection>
         <SheetBlock label={t("bridge.sheet.description")}>
           <SheetText lines={lines.flatMap((l) => l.split("\n"))} />

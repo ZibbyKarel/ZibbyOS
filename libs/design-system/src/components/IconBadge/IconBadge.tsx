@@ -28,7 +28,7 @@ export function IconBadge({ icon, count, label }: IconBadgeProps) {
       <Icon name={icon} size="md" />
       <span
         aria-hidden="true"
-        className="absolute -top-1 -right-1.5 min-w-4 bg-accent px-1 text-center font-mono text-[10px] leading-4 text-background"
+        className="absolute -top-1 -right-1.5 grid h-[15px] min-w-[15px] place-items-center rounded-full bg-accent px-1 font-mono text-[9.5px] leading-none text-accent-contrast"
         data-testid={IconBadgeTestId.Count}
       >
         {count > 99 ? "99+" : count}

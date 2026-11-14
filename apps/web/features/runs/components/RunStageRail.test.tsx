@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderWithProviders as render, screen, within } from "../../../test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { RunView } from "../run";
@@ -92,6 +92,63 @@ describe("RunStageRail", () => {
     expect(stage("phase3")).not.toHaveAttribute("data-running");
   });
 
+  it("marks past, present and future stages on the timeline", () => {
+    renderRail();
+    expect(stage("phase1")).toHaveAttribute("data-tense", "past");
+    expect(stage("phase2")).toHaveAttribute("data-tense", "present");
+    expect(stage("phase3")).toHaveAttribute("data-tense", "future");
+    expect(within(stage("phase1")).getByTestId(RailItemTestId.Aside)).toHaveTextContent("01:42");
+    expect(within(stage("phase3")).queryByTestId(RailItemTestId.Aside)).not.toBeInTheDocument();
+  });
+
+  it("nests a looped phase's rounds under its row", () => {
+    workflowsMock.mockReturnValue({
+      data: [{ id: "delivery", phases: [{ id: "phase2", loop: { maxRetries: 3 } }] }],
+    });
+    render(
+      <RunStageRail
+        onSelect={vi.fn()}
+        rows={[
+          row("phase2", {
+            state: "working",
+            stateKey: "running",
+            current: true,
+            rounds: [
+              { n: 1, stageRunId: "s1", live: false, state: "error" },
+              { n: 2, stageRunId: "", live: true, state: "working" },
+            ],
+          }),
+        ]}
+        run={run}
+        selectedPhaseId={null}
+      />,
+    );
+    const loop = screen.getByTestId(`${RunStageRailTestId.Loop}-phase2`);
+    expect(loop).toHaveTextContent("3");
+    expect(loop).toHaveTextContent("Kolo 1");
+    expect(loop).toHaveTextContent("Kolo 2");
+  });
+
+  it("offers the task folder link only with an opener", async () => {
+    const onOpenFolder = vi.fn();
+    const { unmount } = render(
+      <RunStageRail onSelect={vi.fn()} rows={rows} run={run} selectedPhaseId={null} />,
+    );
+    expect(screen.queryByTestId(RunStageRailTestId.Folder)).not.toBeInTheDocument();
+    unmount();
+    render(
+      <RunStageRail
+        onOpenFolder={onOpenFolder}
+        onSelect={vi.fn()}
+        rows={rows}
+        run={run}
+        selectedPhaseId={null}
+      />,
+    );
+    await userEvent.click(screen.getByTestId(RunStageRailTestId.Folder));
+    expect(onOpenFolder).toHaveBeenCalledOnce();
+  });
+
   it("clicking a row selects its phase", async () => {
     const { onSelect } = renderRail();
     await userEvent.click(stage("phase2"));
@@ -153,10 +210,11 @@ describe("RunStageRail", () => {
       expect(model("phase1")).toHaveTextContent("openai · gpt-6-luna");
     });
 
-    it("is the first child of the row's meta", () => {
+    it("sits in the row's who line, after the agent", () => {
       renderRail();
-      const meta = stage("phase1").querySelector(`[data-testid="${RailItemTestId.Meta}"]`);
-      expect(meta?.firstElementChild).toBe(model("phase1"));
+      const meta = within(stage("phase1")).getByTestId(RailItemTestId.Meta);
+      expect(meta).toContainElement(model("phase1"));
+      expect(meta.lastElementChild).toBe(model("phase1"));
     });
 
     it("uses the agent's model for a single agent run", () => {

@@ -98,6 +98,23 @@ describe("RunComposer", () => {
     );
   });
 
+  it("a running workflow names the stage the message lands in: current for ALL, else the chip", async () => {
+    render(
+      <RunComposer
+        crew={crew}
+        currentStageName="planner"
+        mode="running"
+        onSent={onSent}
+        resume={resume}
+        resuming={false}
+        run={workflowRun}
+      />,
+    );
+    expect(screen.getByTestId(RunComposerTestId.Hint)).toHaveTextContent("planner");
+    await userEvent.click(screen.getByTestId(`${RunComposerTestId.Recipient}-p2`));
+    expect(screen.getByTestId(RunComposerTestId.Hint)).toHaveTextContent("coder");
+  });
+
   it("paused shows the paused hint", () => {
     renderComposer("paused");
     expect(screen.getByTestId(RunComposerTestId.Hint)).toHaveTextContent(

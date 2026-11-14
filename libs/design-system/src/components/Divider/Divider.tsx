@@ -17,7 +17,7 @@ export function Divider({ orientation = "horizontal" }: DividerProps) {
     // once the element is hidden from it).
     <span
       aria-hidden
-      className={cn("bg-border", orientation === "vertical" ? "w-px self-stretch" : "h-px w-full")}
+      className={cn("bg-line", orientation === "vertical" ? "w-px self-stretch" : "h-px w-full")}
       data-testid={DividerTestId.Root}
     />
   );

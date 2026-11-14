@@ -12,12 +12,12 @@ const variantClass: Record<GraphIconButtonVariant, string> = {
   // A borderless disconnect/remove glyph button (an edge's "x").
   plain: cn(
     "grid size-4 place-items-center rounded-sm border-none bg-transparent",
-    "text-foreground-faint hover:text-foreground",
+    "text-ink-3 hover:text-ink",
   ),
   // A bordered mono +/- stepper cell (the rework arc's max-retries control).
   step: cn(
-    "grid size-[15px] place-items-center rounded-sm border border-border bg-transparent",
-    "font-mono text-[11px] leading-none text-foreground-dim hover:text-foreground",
+    "grid size-[15px] place-items-center rounded-sm border border-line-2 bg-transparent",
+    "font-mono text-mono leading-none text-ink-2 hover:text-ink",
   ),
 };
 

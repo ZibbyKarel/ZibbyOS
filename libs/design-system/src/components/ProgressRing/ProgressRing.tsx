@@ -79,7 +79,7 @@ export function ProgressRing({
           cy={box / 2}
           fill="none"
           r={r}
-          stroke="var(--color-border)"
+          stroke="color-mix(in srgb, var(--color-ink) 7%, transparent)"
           strokeWidth={stroke}
         />
         <circle
@@ -101,9 +101,13 @@ export function ProgressRing({
       </svg>
       {showValue && (
         <span
-          className="absolute inset-0 flex items-center justify-center font-mono font-bold"
+          className="absolute inset-0 flex items-center justify-center font-mono font-medium tabular-nums"
           data-testid={ProgressRingTestId.Value}
-          style={{ fontSize: font, color }}
+          // Amber text reads through `accent-fg` (the fill token fails contrast in light).
+          style={{
+            fontSize: font,
+            color: tone === "accent" || tone === "warn" ? "var(--color-accent-fg)" : color,
+          }}
         >
           {Math.round(pct)}
         </span>

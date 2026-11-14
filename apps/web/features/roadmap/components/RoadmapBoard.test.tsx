@@ -137,14 +137,14 @@ describe("RoadmapBoard", () => {
     const cardA = cardFor("Task A")!;
     const cardC = cardFor("Task C")!;
 
-    expect(cardA).not.toHaveClass("border-accent");
+    expect(cardA).not.toHaveClass("bg-accent/[0.08]");
     await userEvent.hover(cardB);
     // Hovering B (which depends on A) highlights A (its blocker); C is unrelated.
-    expect(cardA).toHaveClass("border-accent");
-    expect(cardC).not.toHaveClass("border-accent");
+    expect(cardA).toHaveClass("bg-accent/[0.08]");
+    expect(cardC).not.toHaveClass("bg-accent/[0.08]");
 
     await userEvent.unhover(cardB);
-    expect(cardA).not.toHaveClass("border-accent");
+    expect(cardA).not.toHaveClass("bg-accent/[0.08]");
   });
 
   describe("all-tasks mode (126c, `epic` undefined)", () => {

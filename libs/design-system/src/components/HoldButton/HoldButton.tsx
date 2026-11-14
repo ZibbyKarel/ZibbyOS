@@ -40,6 +40,8 @@ export interface HoldButtonProps extends Omit<
   armedLabel?: string;
   size?: HoldButtonSize;
   block?: boolean;
+  /** How long the hold takes, in ms. Defaults to {@link HOLD_DURATION_MS}. */
+  durationMs?: number;
   ref?: Ref<HTMLButtonElement>;
 }
 
@@ -60,6 +62,7 @@ export function HoldButton({
   armedLabel = "Press again to confirm",
   size = "md",
   block,
+  durationMs = HOLD_DURATION_MS,
   disabled,
   ref,
   ...props
@@ -81,7 +84,7 @@ export function HoldButton({
 
   const tick = (now: number) => {
     if (!holding.current) return;
-    const pct = Math.min(1, (now - start.current) / HOLD_DURATION_MS);
+    const pct = Math.min(1, (now - start.current) / durationMs);
     setProgress(pct);
     if (pct >= 1) {
       holding.current = false;

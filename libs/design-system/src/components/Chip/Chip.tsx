@@ -10,14 +10,15 @@ export type ChipTone = DotTone;
 
 // Keyed by the canonical `StateTone` (+ `wait`) — legacy classes reused where the
 // color is identical (LEGACY_TONE_MAP). See `Chip()` for the resolve step.
+// Bridge `.chip` + state variants: tinted fill, no border. Amber text uses `accent-fg`.
 const toneClass: Record<StateTone | "wait", string> = {
-  done: "text-ok border-ok/20 bg-ok/[0.06]",
-  working: "text-run border-run/20 bg-run/[0.06]",
-  blocked: "text-warn border-warn/20 bg-warn/[0.06]",
-  wait: "text-warn border-warn/20 bg-warn/[0.06]",
-  error: "text-bad border-bad/20 bg-bad/[0.06]",
-  idle: "text-foreground-faint border-border bg-foreground/[0.03]",
-  thinking: "text-accent border-accent/20 bg-accent/[0.06]",
+  done: "text-ok bg-ok/[0.09]",
+  working: "text-run bg-run/10",
+  blocked: "text-accent-fg bg-warn/[0.12]",
+  wait: "text-accent-fg bg-warn/[0.12]",
+  error: "text-bad bg-bad/10",
+  idle: "text-ink-2 bg-ink/[0.045]",
+  thinking: "text-state-think bg-state-think/10",
 };
 
 export enum ChipTestId {
@@ -42,8 +43,8 @@ export interface ChipProps extends Omit<HTMLAttributes<HTMLSpanElement>, "classN
 }
 
 /**
- * Square status label (DS.md §8 Chip/tag) — a tone-coloured, hairline-bordered
- * label, optionally led by a status dot. The "color = state" half of the badge
+ * Status chip (Bridge `.chip`) — a 20px, state-tinted label, optionally led by
+ * a status dot. The "color = state" half of the badge
  * family (the angular {@link Tag} is the "shape = category" half).
  */
 export function Chip({
@@ -61,10 +62,10 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border py-[3px]",
-        dot ? "pl-2" : "pl-2.5",
-        closable ? "pr-1.5" : "pr-2.5",
-        "font-mono text-xs whitespace-nowrap",
+        "inline-flex h-[20px] items-center gap-[5px] rounded-sm",
+        dot ? "pl-[6px]" : "pl-[7px]",
+        closable ? "pr-1" : "pr-[7px]",
+        "font-sans text-[11.5px] whitespace-nowrap",
         toneClass[resolvedTone],
       )}
       data-testid={ChipTestId.Root}

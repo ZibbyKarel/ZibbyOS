@@ -60,8 +60,8 @@ const layerClass = "min-h-20 resize-none whitespace-pre-wrap break-words";
 // no padding, no focus ring (the host's own surface carries the focus affordance),
 // and a one-line minimum instead of the boxed 5rem.
 const framelessControlClass =
-  "w-full border-0 bg-transparent p-0 font-sans text-md text-foreground " +
-  "placeholder:text-foreground-faint focus:outline-none focus-visible:outline-none";
+  "w-full border-0 bg-transparent p-0 font-sans text-base text-ink " +
+  "placeholder:text-ink-3 focus:outline-none focus-visible:outline-none";
 const framelessLayerClass = "min-h-[22px] resize-none whitespace-pre-wrap break-words";
 
 /**

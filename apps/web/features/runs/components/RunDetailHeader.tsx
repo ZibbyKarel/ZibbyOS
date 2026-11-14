@@ -2,12 +2,15 @@
 
 import {
   AgentBadge,
+  Card,
   Container,
   CopyableText,
   Dropdown,
+  Grid,
   Icon,
   type IconName,
   MetricStrip,
+  type MetricStripColumns,
   Pressable,
   Progress,
   Stack,
@@ -19,6 +22,7 @@ import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useIsPhone } from "../../../hooks/useIsPhone";
 import { useAgentSymbol } from "../../agents";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { prListHref } from "../../inbox/inbox";
@@ -43,6 +47,8 @@ export enum RunDetailHeaderTestId {
   AssignProject = "run-detail-assign-project",
   Progress = "run-detail-progress",
   Metrics = "run-detail-metrics",
+  About = "run-detail-about",
+  Summary = "run-detail-summary",
 }
 
 export interface RunDetailHeaderProps {
@@ -55,8 +61,8 @@ export interface RunDetailHeaderProps {
   actions: ReactNode;
   /** Inside a detail sheet: the sheet header already carries breadcrumb and title, metrics fold to 3 columns, no progress hairline. */
   compact?: boolean;
-  /** Rendered under the metrics strip (the sheet's approval banner). */
-  afterMetrics?: ReactNode;
+  /** The run's one banner (`pickRunBanner`), right under the title / state line. */
+  banner?: ReactNode;
   /** Open a PR in place (bridge sheet) instead of navigating to the PR list. */
   onOpenPr?: (url: string) => void;
   /** Open the source issue in place (bridge sheet) instead of navigating to its page. */
@@ -93,6 +99,46 @@ function LinkLabel({ icon, text }: { icon?: IconName; text: string }) {
   );
 }
 
+/** "What this is about": a card per linked entity (source issue / PR, resulting PR) — opens it. */
+function AboutCard({
+  label,
+  icon,
+  text,
+  aside,
+  ...rest
+}: {
+  label: string;
+  icon: IconName;
+  text: string;
+  aside?: string;
+  "aria-label": string;
+  "data-testid": string;
+  onClick: () => void;
+}) {
+  return (
+    <Card interactive as="button" {...rest}>
+      <Container as="span" padding={["100", "150"]}>
+        <Stack align="center" as="span" direction="row" gap="100">
+          <Icon name={icon} size="sm" />
+          <Stack grow as="span" gap="25">
+            <Typography as="span" type="labelSm">
+              {label}
+            </Typography>
+            <Typography as="span" type="code">
+              {text}
+            </Typography>
+          </Stack>
+          {aside && (
+            <Typography mono as="span" size="xs" type="note" variant="secondary">
+              {aside}
+            </Typography>
+          )}
+        </Stack>
+      </Container>
+    </Card>
+  );
+}
+
 /** Pick a project for a project-less run; renders nothing on an empty registry. */
 function AssignProject({ runId }: { runId: string }) {
   const t = useTranslations("runs.detail");
@@ -126,7 +172,7 @@ export function RunDetailHeader({
   agent,
   actions,
   compact,
-  afterMetrics,
+  banner,
   onOpenPr,
   onOpenIssue,
 }: RunDetailHeaderProps) {
@@ -145,6 +191,53 @@ export function RunDetailHeader({
     ? `#${outputPr.url.match(/\/(?:pull|merge_requests)\/(\d+)/)?.[1] ?? "PR"}`
     : "";
   const issueLabel = run.roadmapItemLabel ?? run.roadmapItemId ?? "";
+  const isPhone = useIsPhone();
+  const columns = Math.max(
+    2,
+    Math.min(metrics.length, isPhone ? 2 : compact ? 5 : 6),
+  ) as MetricStripColumns;
+  // A finished run's outcome is the one sentence of what it did; while it works there is none (G: summary).
+  const summary = mode === "done" ? run.taskOutcomeSummary : undefined;
+  const about = [
+    projectId && run.roadmapItemId ? (
+      <AboutCard
+        aria-label={t("detail.sourceIssue", { ref: issueLabel })}
+        data-testid={RunDetailHeaderTestId.SourceIssueLink}
+        icon={issueIcon(issueLabel)}
+        key="issue"
+        label={t("detail.about.source")}
+        onClick={() =>
+          onOpenIssue
+            ? onOpenIssue(projectId, run.roadmapItemId as string)
+            : router.push(`/dashboard/inbox/issues/${projectId}/${run.roadmapItemId}` as Route)
+        }
+        text={issueLabel}
+      />
+    ) : null,
+    sourcePr ? (
+      <AboutCard
+        aria-label={t("detail.sourcePr", { ref: sourcePrRef })}
+        data-testid={RunDetailHeaderTestId.SourcePrLink}
+        icon={prIcon(sourcePr.url)}
+        key="source-pr"
+        label={t("detail.about.source")}
+        onClick={() => openPr(sourcePr.url)}
+        text={sourcePrRef}
+      />
+    ) : null,
+    outputPr ? (
+      <AboutCard
+        aria-label={t("detail.outputPr", { ref: outputPrRef })}
+        aside={`+${outputPr.additions} −${outputPr.deletions}`}
+        data-testid={RunDetailHeaderTestId.OutputPrLink}
+        icon={prIcon(outputPr.url)}
+        key="output-pr"
+        label={t("detail.about.result")}
+        onClick={() => openPr(outputPr.url)}
+        text={outputPrRef}
+      />
+    ) : null,
+  ].filter(Boolean);
 
   return (
     <Stack data-testid={RunDetailHeaderTestId.Root} gap="0">
@@ -240,53 +333,6 @@ export function RunDetailHeader({
               ) : (
                 <AssignProject runId={run.runId} />
               )}
-              {sourcePr && (
-                <>
-                  <Sep />
-                  <Pressable
-                    aria-label={t("detail.sourcePr", { ref: sourcePrRef })}
-                    data-testid={RunDetailHeaderTestId.SourcePrLink}
-                    onClick={() => openPr(sourcePr.url)}
-                    underline="hover"
-                  >
-                    <LinkLabel icon={prIcon(sourcePr.url)} text={sourcePrRef} />
-                  </Pressable>
-                </>
-              )}
-              {outputPr && (
-                <>
-                  <Sep />
-                  <Pressable
-                    aria-label={t("detail.outputPr", { ref: outputPrRef })}
-                    data-testid={RunDetailHeaderTestId.OutputPrLink}
-                    onClick={() => openPr(outputPr.url)}
-                    underline="hover"
-                  >
-                    <LinkLabel icon={prIcon(outputPr.url)} text={outputPrRef} />
-                  </Pressable>
-                </>
-              )}
-              {projectId && run.roadmapItemId && (
-                <>
-                  <Sep />
-                  <Pressable
-                    aria-label={t("detail.sourceIssue", {
-                      ref: issueLabel,
-                    })}
-                    data-testid={RunDetailHeaderTestId.SourceIssueLink}
-                    onClick={() =>
-                      onOpenIssue
-                        ? onOpenIssue(projectId, run.roadmapItemId as string)
-                        : router.push(
-                            `/dashboard/inbox/issues/${projectId}/${run.roadmapItemId}` as Route,
-                          )
-                    }
-                    underline="hover"
-                  >
-                    <LinkLabel icon={issueIcon(issueLabel)} text={issueLabel} />
-                  </Pressable>
-                </>
-              )}
               {run.engine && (
                 <>
                   <Sep />
@@ -313,6 +359,27 @@ export function RunDetailHeader({
           {actions}
         </Stack>
       </Container>
+      {banner && <Container padding={["0", "300", "150", "300"]}>{banner}</Container>}
+      {(about.length > 0 || summary) && (
+        <Container data-testid={RunDetailHeaderTestId.About} padding={["0", "300", "150", "300"]}>
+          <Stack gap="100">
+            {about.length > 0 && (
+              <Grid cols={1} gap="100" md={about.length > 1 ? 2 : 1}>
+                {about}
+              </Grid>
+            )}
+            {summary && (
+              <Typography
+                data-testid={RunDetailHeaderTestId.Summary}
+                type="bodySm"
+                variant="secondary"
+              >
+                {summary}
+              </Typography>
+            )}
+          </Stack>
+        </Container>
+      )}
       {/* In the sheet the PROGRESS metric already says it. */}
       {!compact && (
         <Progress
@@ -325,11 +392,10 @@ export function RunDetailHeader({
       )}
       <Container data-testid={RunDetailHeaderTestId.Metrics} padding={["0", "300"]}>
         <MetricStrip
-          columns={compact ? 3 : 6}
+          columns={columns}
           items={metrics.map((m) => ({ label: t(`detail.metric.${m.key}`), value: m.value }))}
         />
       </Container>
-      {afterMetrics}
     </Stack>
   );
 }

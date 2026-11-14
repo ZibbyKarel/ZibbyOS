@@ -18,7 +18,7 @@ export const Overview: Story = {
       <div className="flex h-[240px] justify-end p-4">
         <DensityMenu
           label="Density"
-          labels={{ compact: "COMPACT", comfort: "COMFORT", airy: "AIRY", open: "OPEN" }}
+          labels={{ compact: "COMPACT", comfort: "COMFORT", airy: "AIRY" }}
           onChange={setValue}
           value={value}
         />

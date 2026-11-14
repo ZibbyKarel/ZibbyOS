@@ -15,10 +15,10 @@ describe("StackCrumbs", () => {
       />,
     );
     expect(screen.getByTestId(StackCrumbsTestId.Label)).toHaveTextContent("STACK");
-    expect(screen.getByTestId(`${StackCrumbsTestId.Crumb}-1`).className).toContain(
-      "border-l-state-done",
-    );
-    expect(screen.getByTestId(`${StackCrumbsTestId.Crumb}-2`).className).toContain("bg-ink");
+    expect(
+      screen.getByTestId(`${StackCrumbsTestId.Crumb}-1`).querySelector(".bg-state-done"),
+    ).not.toBeNull();
+    expect(screen.getByTestId(`${StackCrumbsTestId.Crumb}-2`).className).toContain("bg-panel-2");
     expect(screen.getByTestId(StackCrumbsTestId.Root)).toHaveTextContent("#1→#2");
   });
 

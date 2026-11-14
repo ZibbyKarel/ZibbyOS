@@ -26,7 +26,7 @@ export interface WorkflowStepStripProps {
   ref?: Ref<HTMLDivElement>;
 }
 
-/** DS.md §8 flow/handoff step grid, phase-level — a row of `ROLE` chips joined
+/** DS.md §8 flow/handoff step grid, phase-level — a row of role chips joined
  * by `→` (or `⇄` for a rework loop-back), inside one subtask's workflow. */
 export function WorkflowStepStrip({ phases, current, ref }: WorkflowStepStripProps) {
   return (
@@ -40,9 +40,10 @@ export function WorkflowStepStrip({ phases, current, ref }: WorkflowStepStripPro
         <Fragment key={i}>
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 border bg-background px-[9px] py-[6px]",
-              "font-sans font-semibold uppercase tracking-wider text-[10px]",
-              i === current ? "border-ink" : "border-border",
+              "inline-flex items-center gap-1.5 rounded-sm border px-[8px] py-[3px] text-meta",
+              i === current
+                ? "border-line-2 bg-panel-2 text-ink"
+                : "border-line bg-transparent text-ink-2",
             )}
             data-testid={`${WorkflowStepStripTestId.Step}-${i}`}
             role="listitem"
@@ -53,7 +54,7 @@ export function WorkflowStepStrip({ phases, current, ref }: WorkflowStepStripPro
           {i < phases.length - 1 && (
             <span
               aria-hidden="true"
-              className="text-foreground-faint text-xs"
+              className="text-meta text-ink-3"
               data-testid={WorkflowStepStripTestId.Connector}
             >
               {phase.loopBack ? "⇄" : "→"}

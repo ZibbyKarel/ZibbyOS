@@ -41,7 +41,7 @@ export interface FieldProps {
   /** When present, replaces the hint and marks the control invalid. */
   error?: string;
   layout?: FieldLayout;
-  /** Label typography: `caps` (default, uppercase eyebrow) or `normal` (sentence case). */
+  /** Label typography: `caps` (default, quiet 12px meta label) or `normal` (13px ink). */
   labelCase?: FieldLabelCase;
   /**
    * Visually hide the label (`sr-only`) while keeping the real, associated
@@ -57,28 +57,29 @@ export interface FieldProps {
   ref?: Ref<HTMLElement>;
 }
 
-/** `caps` — small uppercase eyebrow (default); `normal` — sentence-case readable label. */
+/** `caps` — small quiet meta label (default; name kept for API compatibility, rendered
+ *  in sentence case per the Bridge language); `normal` — readable body-size label. */
 export type FieldLabelCase = "caps" | "normal";
 
 const labelClass: Record<FieldLabelCase, string> = {
-  caps: "font-sans font-semibold uppercase tracking-wider text-[11px] text-foreground-faint",
-  normal: "font-sans font-medium text-sm text-foreground",
+  caps: "font-sans font-medium text-[12px] text-ink-3",
+  normal: "font-sans font-medium text-[13px] text-ink",
 };
-const hintClass = "font-sans text-xs text-foreground-faint";
-const errorClass = "font-sans text-xs text-bad";
+const hintClass = "font-sans text-[12px] text-ink-3";
+const errorClass = "font-sans text-[12px] text-bad";
 
 /**
  * Shared control chrome for the text-like inputs (`TextInput`, `TextArea`,
- * `Select`) — DS.md §8 Inputs: hairline `--line2` border, `--bg` fill, focus
- * border in `--ink`. Keeps the DS's one accessible focus-visible ring
+ * `Select`) — Bridge inputs: `--line2` hairline, `--p1` fill, 8px radius, focus
+ * border in `--ink3`. Keeps the DS's one accessible focus-visible ring
  * ({@link focusRing}) on top of that border-color change — SKILL.md's a11y
  * checklist requires a visible focus ring; DS.md's "no ring" is a cosmetic
  * preference that doesn't override it.
  */
 export const fieldControlClass =
-  "w-full rounded-md border border-border-strong bg-background px-3.5 py-2.5 font-sans text-md " +
-  "text-foreground transition-colors placeholder:text-foreground-faint " +
-  `${focusRing} focus-visible:border-ink ` +
+  "w-full rounded-md border border-line-2 bg-panel px-3.5 py-2.5 font-sans text-base " +
+  "text-ink transition-colors motion-reduce:transition-none placeholder:text-ink-3 " +
+  `${focusRing} focus-visible:border-ink-3 ` +
   'aria-[invalid="true"]:border-bad aria-[invalid="true"]:focus-visible:ring-bad';
 
 /**

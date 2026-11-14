@@ -11,7 +11,7 @@ describe("ToggleChip", () => {
     expect(root).toHaveClass("border-foreground");
     rerender(<ToggleChip pressed={false}>ALL</ToggleChip>);
     expect(root).toHaveAttribute("aria-pressed", "false");
-    expect(root).toHaveClass("border-border-strong");
+    expect(root).toHaveClass("border-line");
   });
 
   it("renders the leading slot only when given", () => {

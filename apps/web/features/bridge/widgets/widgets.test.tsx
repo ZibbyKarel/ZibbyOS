@@ -1,24 +1,27 @@
 import type { InboxPr, InboxRoadmapItem } from "@zibby/contracts";
 import {
+  BoardPillTestId,
   BoardRowTestId,
+  BoardSectionTestId,
+  BriefingHeroTestId,
   ButtonGroupTestId,
   DropdownTestId,
   IconBadgeTestId,
   IconTestId,
   IndentRailTestId,
-  KpiStripTestId,
   ProgressTestId,
   RowGroupHeaderTestId,
+  StatusRailTestId,
 } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
-import { BriefingWidget } from "./BriefingWidget";
+import { BridgePresetContext, BriefingWidget } from "./BriefingWidget";
 import { IssuesWidget, IssuesWidgetTestId } from "./IssuesWidget";
 import { PrsWidget, PrsWidgetTestId } from "./PrsWidget";
 import type { BridgeWidgetProps } from "./registry";
-import { RunsWidget, RunsWidgetTestId } from "./RunsWidget";
+import { RunsWidget } from "./RunsWidget";
 import { WidgetSortControlTestId } from "./widgetFilters";
 
 const refreshMutate = vi.hoisted(() => vi.fn());
@@ -164,11 +167,11 @@ beforeEach(() => {
 });
 
 describe("IssuesWidget", () => {
-  it("issue rows show the integration icon instead of the source chip", () => {
+  it("issue rows show the tracker glyph instead of the source chip", () => {
     d.items = [item("a")];
     renderWithProviders(<IssuesWidget {...setup({ widget: widget("w", "issues") })} />);
     expect(screen.getByTestId(IssuesWidgetTestId.Source)).toHaveAccessibleName("Jira");
-    expect(screen.getByTestId(IssuesWidgetTestId.Source)).toHaveStyle({ width: "34px" });
+    expect(screen.getByTestId(IssuesWidgetTestId.Source)).toHaveAttribute("title", "Jira");
     expect(screen.queryByText("Jira")).toBeNull();
   });
 
@@ -216,11 +219,19 @@ describe("IssuesWidget", () => {
     expect(rows).toHaveLength(2); // done hidden
     expect(rows[0]).toHaveAttribute("data-rk", "w-issues:p1/a"); // last changed first
     expect(rows[0]).toHaveTextContent("ZB-a");
-    expect(rows[0]).toHaveTextContent("Ty · 1h");
-    // "Waiting for you" keeps only the status border-left, no ring around the card (todo-21).
+    // "Waiting for you" is the amber pill — no stripe, no ring around the card.
+    expect(within(rows[0] as HTMLElement).getByTestId(BoardPillTestId.Root)).toHaveTextContent(
+      "Ty · 1h",
+    );
+    expect(within(rows[1] as HTMLElement).queryByTestId(BoardPillTestId.Root)).toBeNull();
     expect(rows[0]).not.toHaveClass("shadow-[inset_0_0_0_1px_var(--color-ink)]");
-    expect(rows[0]!.className).toContain("border-l-[color:var(--color-state-block)]");
+    expect(rows[0]!.className).not.toContain("border-l-");
     expect(screen.getByTestId(RowGroupHeaderTestId.Title)).toHaveTextContent("Checkout");
+    // The epic header: progress bar + done/total.
+    const header = screen.getByTestId(RowGroupHeaderTestId.Root);
+    expect(header).toHaveAttribute("data-variant", "epic");
+    expect(within(header).getByTestId(ProgressTestId.Root)).toBeInTheDocument();
+    expect(screen.getByTestId(RowGroupHeaderTestId.Count)).toHaveTextContent("01/04");
 
     await userEvent.click(rows[0] as HTMLElement);
     expect(props.onOpen).toHaveBeenCalledWith({
@@ -258,9 +269,8 @@ describe("IssuesWidget", () => {
       sheetSide: "left",
     });
     const leftView = renderWithProviders(<IssuesWidget {...left} />);
-    expect(screen.getByTestId(BoardRowTestId.Root).className).toContain(
-      "inset_-1px_0_0_var(--color-ink)",
-    );
+    // Species rows: the selected row gets the amber outline on either sheet side.
+    expect(screen.getByTestId(BoardRowTestId.Root).className).toContain("var(--color-accent)_30%");
     leftView.unmount();
 
     d.items = [];
@@ -314,7 +324,7 @@ describe("header sync button", () => {
 });
 
 describe("PrsWidget", () => {
-  it("renders one flat list, stacks nested behind the rail, icons named by their meaning; opens by url", async () => {
+  it("renders one flat list, stacks nested behind the connector, glyphs and pills named by their meaning; opens by url", async () => {
     d.prs = [
       pr(1, { headRef: "a", baseRef: "main" }),
       pr(2, { headRef: "b", baseRef: "a", ci: "failing", blocker: "ci-failing" }),
@@ -329,31 +339,41 @@ describe("PrsWidget", () => {
     const kid = screen.getByText("PR 2").closest("button") as HTMLElement;
     expect(screen.getByTestId(IndentRailTestId.Root)).toContainElement(kid);
     expect(within(kid).getByTestId(PrsWidgetTestId.Ci)).toHaveAccessibleName("CI selhává");
-    expect(within(kid).getByTestId(PrsWidgetTestId.Review)).toHaveAccessibleName(
+    expect(screen.getByTestId(IndentRailTestId.Root)).toHaveAttribute("data-variant", "stack");
+    expect(within(kid).getByTestId(PrsWidgetTestId.Review)).toHaveAttribute(
+      "title",
       "Čeká na review kolegů",
     );
+    expect(within(kid).getByTestId(PrsWidgetTestId.Review)).toHaveTextContent("Čeká na review");
+    // The stack root carries the "stack N" marker (itself + the PR stacked on it).
+    const root = screen.getByText("PR 1").closest("button") as HTMLElement;
+    expect(within(root).getByTestId(PrsWidgetTestId.Stack)).toHaveTextContent("stack 2");
+    expect(within(kid).queryByTestId(PrsWidgetTestId.Stack)).toBeNull();
     const theirs = screen.getByText("PR 3").closest("button") as HTMLElement;
     expect(theirs).toHaveAttribute("data-rk", "w-prs:https://github.com/o/r/pull/3");
     expect(theirs).toHaveTextContent("Jana Nová");
     expect(theirs).toHaveTextContent("orders");
     expect(within(theirs).getByTestId(PrsWidgetTestId.Avatar)).toHaveAccessibleName("Jana Nová");
-    expect(within(theirs).getByTestId(PrsWidgetTestId.Avatar)).toHaveStyle({ width: "34px" });
-    // Title owns the whole first line (one line, ellipsis); the age sits with the status icons.
+    expect(within(theirs).getByTestId(PrsWidgetTestId.Avatar)).toHaveClass("size-4"); // 16px
+    // Title owns the whole first line (one line, ellipsis); the age sits in the meta line.
     const lines = within(theirs).getAllByTestId(BoardRowTestId.Line);
-    const iconLine = lines.find((l) => within(l).queryByTestId(PrsWidgetTestId.Ci));
+    const metaLine = lines.find((l) => within(l).queryByTestId(PrsWidgetTestId.Avatar));
     const title = within(theirs).getByText("PR 3");
     expect(title.className).toContain("truncate");
     expect(title).toHaveAttribute("title", "PR 3");
-    const age = iconLine?.firstElementChild?.textContent ?? "";
-    expect(age).toMatch(/2/); // createdAt is 2 h ago
-    expect(lines.find((l) => l.contains(title))?.textContent).not.toContain(age);
+    expect(metaLine?.textContent).toMatch(/2/); // createdAt is 2 h ago
+    expect(lines.find((l) => l.contains(title))?.textContent).not.toMatch(/2/);
+    // Species rows: no status stripe, `--rowpad` padding, state lives in the glyph + pills.
     for (const row of rows) {
-      expect(row.className).toContain("border-l-[length:var(--bridge-bar)]");
+      expect(row.className).not.toContain("border-l-");
+      expect(row.className).toContain("py-[var(--rowpad)]");
       expect(row.className).not.toContain("inset_0_0_0_1px");
     }
-    expect(within(theirs).getByTestId(PrsWidgetTestId.Review)).toHaveAccessibleName(
+    expect(within(theirs).getByTestId(PrsWidgetTestId.Review)).toHaveAttribute(
+      "title",
       "Čeká na tvoje review",
     );
+    expect(within(theirs).getByTestId(PrsWidgetTestId.Review)).toHaveTextContent("Tvoje review");
     expect(within(theirs).queryAllByRole("button")).toHaveLength(0); // no action buttons
 
     await userEvent.click(kid);
@@ -377,6 +397,18 @@ describe("PrsWidget", () => {
     expect(screen.getByTestId(IconBadgeTestId.Count)).toHaveTextContent("2");
     expect(screen.getByText("PR 1").closest("button")).toContainElement(badge);
     expect(screen.getAllByTestId(IconBadgeTestId.Root)).toHaveLength(1);
+  });
+
+  it("a draft gets a second pill, after the more severe review pill", () => {
+    d.prs = [pr(1, { bucket: "to-review", draft: true })];
+    const props = setup({ widget: widget("w", "prs") });
+    renderWithProviders(<PrsWidget {...props} />);
+    const row = screen.getByText("PR 1").closest("button") as HTMLElement;
+    const review = within(row).getByTestId(PrsWidgetTestId.Review);
+    const draft = within(row).getByTestId(PrsWidgetTestId.Draft);
+    expect(review).toHaveTextContent("Tvoje review");
+    expect(draft).toHaveTextContent("Draft");
+    expect(review.compareDocumentPosition(draft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("the filter multi-selects; the picked PR keeps its stack as muted context; deselect unfilters", async () => {
@@ -554,19 +586,19 @@ describe("RunsWidget", () => {
     ];
     const props = setup({ widget: widget("w-runs", "runs") });
     renderWithProviders(<RunsWidget {...props} />);
-    const row = screen.getByTestId(BoardRowTestId.Root);
+    const row = screen.getByTestId(StatusRailTestId.Item);
     expect(row).toHaveAttribute("data-rk", "w-runs:r1");
     expect(row).toHaveTextContent("Fix checkout");
     expect(row).not.toHaveTextContent("40%");
     expect(row).toHaveTextContent("—");
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Fill),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Fill),
     ).not.toHaveAttribute("style");
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Root),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Root),
     ).toHaveAccessibleName("Průběh běhu");
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Root),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Root),
     ).not.toHaveAttribute("aria-valuenow");
     expect(row).toHaveTextContent("ZB-9 ↗");
     expect(screen.queryByTestId(BoardRowTestId.ColumnHeader)).toBeNull();
@@ -602,13 +634,13 @@ describe("RunsWidget", () => {
       },
     ];
     renderWithProviders(<RunsWidget {...setup({ widget: widget("w-runs", "runs") })} />);
-    expect(screen.getByTestId(BoardRowTestId.Root)).toHaveTextContent("25 % · —");
-    expect(screen.getByTestId(BoardRowTestId.Root)).not.toHaveTextContent("fází");
+    expect(screen.getByTestId(StatusRailTestId.Item)).toHaveTextContent("25 % · —");
+    expect(screen.getByTestId(StatusRailTestId.Item)).not.toHaveTextContent("fází");
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Root),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Root),
     ).toHaveAttribute("aria-valuenow", "25");
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Fill),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Fill),
     ).toHaveStyle({ width: "25%" });
   });
 
@@ -630,9 +662,9 @@ describe("RunsWidget", () => {
     ];
     renderWithProviders(<RunsWidget {...setup({ widget: widget("w-runs", "runs") })} />);
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(ProgressTestId.Root),
+      within(screen.getByTestId(StatusRailTestId.Item)).getByTestId(ProgressTestId.Root),
     ).not.toHaveAttribute("aria-valuenow");
-    expect(screen.getByTestId(BoardRowTestId.Root)).toHaveTextContent("—");
+    expect(screen.getByTestId(StatusRailTestId.Item)).toHaveTextContent("—");
   });
 
   it("a run without a task still opens its run sheet", async () => {
@@ -652,7 +684,7 @@ describe("RunsWidget", () => {
     ];
     const props = setup({ widget: widget("w-runs", "runs") });
     renderWithProviders(<RunsWidget {...props} />);
-    const row = screen.getByTestId(BoardRowTestId.Root);
+    const row = screen.getByTestId(StatusRailTestId.Item);
     expect(row).toHaveAttribute("data-rk", "w-runs:r9");
     await userEvent.click(row);
     expect(props.onOpen).toHaveBeenCalledWith({
@@ -664,46 +696,43 @@ describe("RunsWidget", () => {
     });
   });
 
-  it("splits active (started, then waiting) from the last finished, with state-coloured bars and headers", () => {
+  it("puts the started run in Now, then queued and the last finished under sections, dots by state", () => {
     d.runs = [run("a", "running", { pct: 10 }), run("q", "queued")];
     d.archived = [run("d", "done"), run("e", "error")];
     const props = setup({ widget: widget("w-runs", "runs") });
     renderWithProviders(<RunsWidget {...props} />);
-    const headers = screen.getAllByTestId(RowGroupHeaderTestId.Title);
-    expect(headers.map((h) => h.textContent)).toEqual(["Aktivní", "Ukončené"]);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const headers = screen.getAllByTestId(BoardSectionTestId.Label);
+    expect(headers.map((h) => h.textContent)).toEqual(["Ve frontě", "Ukončené"]);
+    const rows = screen.getAllByTestId(StatusRailTestId.Item);
     expect(rows.map((r) => r.getAttribute("data-rk"))).toEqual([
       "w-runs:a",
       "w-runs:q",
       "w-runs:d",
       "w-runs:e",
     ]);
-    const icon = (id: string) =>
-      within(screen.getByTestId(`${RunsWidgetTestId.StateIcon}-w-runs:${id}`)).getByTestId(
-        IconTestId.Root,
-      );
-    expect(icon("d")).toHaveClass("text-ok");
-    expect(icon("e")).toHaveClass("text-bad");
+    const dot = (i: number) => within(rows[i]!).getByTestId(StatusRailTestId.Dot);
+    expect(dot(2)).toHaveAttribute("data-state", "done");
+    expect(dot(3)).toHaveAttribute("data-state", "error");
     expect(props.onCountChange).toHaveBeenLastCalledWith({
       count: 4,
       you: 0,
+      // One failed run among the finished: error weight 2.
+      urgency: 2,
       aside: undefined,
       loading: false,
     });
   });
 
-  it("omits the header of an empty group", () => {
+  it("omits the section of an empty group", () => {
     d.runs = [run("a", "running")];
     const props = setup({ widget: widget("w-runs", "runs") });
     const { unmount } = renderWithProviders(<RunsWidget {...props} />);
-    expect(screen.getAllByTestId(RowGroupHeaderTestId.Title).map((h) => h.textContent)).toEqual([
-      "Aktivní",
-    ]);
+    expect(screen.queryAllByTestId(BoardSectionTestId.Label)).toHaveLength(0);
     unmount();
     d.runs = [];
     d.archived = [run("d", "done")];
     renderWithProviders(<RunsWidget {...props} />);
-    expect(screen.getAllByTestId(RowGroupHeaderTestId.Title).map((h) => h.textContent)).toEqual([
+    expect(screen.getAllByTestId(BoardSectionTestId.Label).map((h) => h.textContent)).toEqual([
       "Ukončené",
     ]);
   });
@@ -712,7 +741,7 @@ describe("RunsWidget", () => {
     d.runs = [run("a", "running"), run("p", "pending"), run("q", "queued"), run("s", "scheduled")];
     renderWithProviders(<RunsWidget {...setup({ widget: widget("w", "runs") })} />);
     const keys = screen
-      .getAllByTestId(BoardRowTestId.Root)
+      .getAllByTestId(StatusRailTestId.Item)
       .map((r) => r.getAttribute("data-rk")?.split(":")[1]);
     expect(keys).toEqual(["a", "p", "q", "s"]);
   });
@@ -732,12 +761,15 @@ describe("BriefingWidget", () => {
     d.prs = [pr(1), pr(2)];
     const props = setup({ widget: widget("w-brief", "briefing") });
     renderWithProviders(<BriefingWidget {...props} />);
-    expect(screen.getByTestId(KpiStripTestId.Lead)).toHaveTextContent("Two PRs wait on you.");
-    expect(screen.getByTestId(`${KpiStripTestId.Value}-needs`)).toHaveTextContent("03");
-    expect(screen.getByTestId(`${KpiStripTestId.Value}-running`)).toHaveTextContent("01");
-    expect(screen.getByTestId(`${KpiStripTestId.Value}-prs`)).toHaveTextContent("02");
+    // Bridge redesign phase 4: the briefing is a hero — greeting + headline + big numerals.
+    expect(screen.getByTestId(BriefingHeroTestId.Lead)).toHaveTextContent("Two PRs wait on you.");
+    expect(screen.getByTestId(BriefingHeroTestId.Title)).toHaveTextContent(/^Dobr/);
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-needs`)).toHaveTextContent("03");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-running`)).toHaveTextContent("01");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-prs`)).toHaveTextContent("02");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-onYou`)).toHaveTextContent("00");
     // todo-18: month-to-date spend (the projects' monthly cost windows), not today's.
-    expect(screen.getByTestId(`${KpiStripTestId.Value}-spend`)).toHaveTextContent("$42.50");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-spend`)).toHaveTextContent("$42.50");
     expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -748,10 +780,31 @@ describe("BriefingWidget", () => {
     const props = setup({ widget: widget("w-brief", "briefing") });
     renderWithProviders(<BriefingWidget {...props} />);
     const href = (id: string) =>
-      screen.getByTestId(`${KpiStripTestId.Link}-${id}`).getAttribute("href");
+      screen.getByTestId(`${BriefingHeroTestId.Link}-${id}`).getAttribute("href");
     expect(href("needs")).toBe("/activity/approvals");
     expect(href("running")).toBe("/activity/runs?state=running");
     expect(href("prs")).toBe("/activity/pull-requests");
     expect(href("spend")).toBe("/governance/budgets");
+    expect(href("onYou")).toBe("/activity/pull-requests");
+  });
+
+  it("REVIEW layout: slim hero with review counters", () => {
+    d.prs = [
+      pr(1, { bucket: "to-review", author: "jana" }),
+      pr(2, { ci: "failing" }),
+      pr(3, { mergeable: false }),
+    ];
+    const props = setup({ widget: widget("w-brief", "briefing") });
+    renderWithProviders(
+      <BridgePresetContext value="REVIEW">
+        <BriefingWidget {...props} />
+      </BridgePresetContext>,
+    );
+    expect(screen.getByTestId(BriefingHeroTestId.Root)).toHaveAttribute("data-variant", "slim");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-onYou`)).toHaveTextContent("01");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-prs`)).toHaveTextContent("03");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-failing`)).toHaveTextContent("01");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-conflict`)).toHaveTextContent("01");
+    expect(screen.queryByTestId(`${BriefingHeroTestId.Value}-needs`)).toBeNull();
   });
 });

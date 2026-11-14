@@ -74,10 +74,10 @@ export function DropZone({
       aria-labelledby={ariaLabelledBy}
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center gap-3",
-        "rounded border-2 border-dashed border-border bg-background p-8",
+        "rounded-[10px] border border-dashed border-line-2 bg-transparent p-8",
         "transition-colors",
         focusRingOffset,
-        isDragActive && isDragAccept && "border-accent bg-accent/5",
+        isDragActive && isDragAccept && "border-accent bg-accent/[0.06]",
         isDragActive && isDragReject && "border-bad bg-bad/10",
         invalid && !isDragActive && "border-bad",
         disabled && "cursor-not-allowed opacity-50",
@@ -87,7 +87,7 @@ export function DropZone({
     >
       <input {...getInputProps()} data-testid={DropZoneTestId.Input} />
       <Icon aria-hidden name="file" size="lg" stroke="thin" tone={iconTone} />
-      <span className="font-sans text-sm text-foreground-faint" data-testid={DropZoneTestId.Hint}>
+      <span className="text-meta text-ink-3" data-testid={DropZoneTestId.Hint}>
         {isDragActive ? (isDragReject ? rejectedLabel : activeLabel) : idleLabel}
       </span>
     </div>

@@ -7,9 +7,11 @@ export enum AvatarTestId {
   Fallback = "avatar-fallback",
 }
 
-export type AvatarSize = "sm" | "md";
+export type AvatarSize = "xs" | "sm" | "md";
 
 const sizeClass: Record<AvatarSize, string> = {
+  /** 16px — the redesign's neutral row avatar (PR meta line). */
+  xs: "size-4 text-[8px] font-bold",
   sm: "size-5 text-[10px]",
   md: "size-8 text-sm",
 };
@@ -31,7 +33,8 @@ export function Avatar({ name, src, size = "sm", ref, ...props }: AvatarProps) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-line-2 font-sans uppercase text-foreground-dim",
+        // `uppercase` only capitalizes the single fallback initial (Bridge `.av`).
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-raised font-sans font-semibold uppercase text-ink-2",
         sizeClass[size],
       )}
       data-testid={AvatarTestId.Root}

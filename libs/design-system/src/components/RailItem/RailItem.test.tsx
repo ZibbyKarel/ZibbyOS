@@ -48,4 +48,39 @@ describe("RailItem", () => {
     expect(onClick).toHaveBeenCalledOnce();
     expect(ref.current).toBe(screen.getByTestId(RailItemTestId.Root));
   });
+  it("timeline: past shows a check marker and mutes the title", () => {
+    render(<RailItem leading="L" tense="past" title="Plan" />);
+    const marker = screen.getByTestId(RailItemTestId.Marker);
+    expect(marker).toHaveAttribute("data-tense", "past");
+    expect(screen.getByTestId(RailItemTestId.Leading)).not.toHaveTextContent("L");
+    expect(screen.getByTestId(RailItemTestId.Title).className).toContain("text-foreground-dim");
+  });
+
+  it("timeline: present marker takes the state tone and pulses unless motion is reduced", () => {
+    render(<RailItem markerTone="blocked" tense="present" title="Publish" />);
+    const marker = screen.getByTestId(RailItemTestId.Marker);
+    expect(marker).toHaveAttribute("data-tone", "blocked");
+    expect(marker.className).toContain("animate-zb-pulse");
+    expect(marker.className).toContain("motion-reduce:animate-none");
+    expect(screen.getByTestId(RailItemTestId.Root).className).toContain("bg-elevated");
+  });
+
+  it("timeline: future marker and connector are dashed", () => {
+    render(<RailItem tense="future" title="QA" />);
+    expect(screen.getByTestId(RailItemTestId.Marker).className).toContain("border-dashed");
+    expect(screen.getByTestId(RailItemTestId.Leading).className).toContain("before:border-dashed");
+  });
+
+  it("renders aside and detail slots only when given", () => {
+    const { rerender } = render(<RailItem title="x" />);
+    expect(screen.queryByTestId(RailItemTestId.Aside)).toBeNull();
+    expect(screen.queryByTestId(RailItemTestId.Detail)).toBeNull();
+    rerender(
+      <RailItem aside="03:12" title="x">
+        <span>checkpoint · abc1234</span>
+      </RailItem>,
+    );
+    expect(screen.getByTestId(RailItemTestId.Aside)).toHaveTextContent("03:12");
+    expect(screen.getByTestId(RailItemTestId.Detail)).toHaveTextContent("checkpoint · abc1234");
+  });
 });

@@ -1,5 +1,5 @@
 import type { QuickAction } from "@zibby/contracts";
-import { BoardRowTestId, DropdownTestId } from "@zibby/design-system";
+import { ActionPillTestId, DropdownTestId } from "@zibby/design-system";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,7 +87,7 @@ beforeEach(() => {
 describe("QuickActionsWidget", () => {
   it("lists actions with target name or Auto", () => {
     renderWithProviders(<QuickActionsWidget {...setup()} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(ActionPillTestId.Root);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("Deploy");
     expect(rows[0]).toHaveTextContent("Kodér");
@@ -120,7 +120,7 @@ describe("QuickActionsWidget", () => {
     d.create.mockImplementation((_v, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
     renderWithProviders(<QuickActionsWidget {...setup()} />);
     await userEvent.click(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[0] as HTMLElement);
-    expect(screen.getAllByTestId(BoardRowTestId.Root)[0]).toHaveTextContent("Zařazeno do fronty");
+    expect(screen.getAllByTestId(ActionPillTestId.Root)[0]).toHaveTextContent("Zařazeno do fronty");
   });
 
   it("not adding: no add form and no remove", () => {
@@ -236,7 +236,7 @@ describe("QuickActionsWidget", () => {
     d.agents = [];
     renderWithProviders(<QuickActionsWidget {...setup()} />);
     expect(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[0]).toBeDisabled();
-    expect(screen.getAllByTestId(BoardRowTestId.Root)[0]).toHaveTextContent("Cíl už neexistuje");
+    expect(screen.getAllByTestId(ActionPillTestId.Root)[0]).toHaveTextContent("Cíl už neexistuje");
     expect(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[1]).toBeEnabled();
   });
 
@@ -244,13 +244,13 @@ describe("QuickActionsWidget", () => {
     d.agents = undefined;
     renderWithProviders(<QuickActionsWidget {...setup()} />);
     expect(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[0]).toBeEnabled();
-    expect(screen.getAllByTestId(BoardRowTestId.Root)[0]).toHaveTextContent("Kodér");
+    expect(screen.getAllByTestId(ActionPillTestId.Root)[0]).toHaveTextContent("Kodér");
   });
 
   it("a renamed target shows and sends the live name", async () => {
     d.agents = [{ id: "coder", name: "Kodér 2" }];
     renderWithProviders(<QuickActionsWidget {...setup()} />);
-    expect(screen.getAllByTestId(BoardRowTestId.Root)[0]).toHaveTextContent("Kodér 2");
+    expect(screen.getAllByTestId(ActionPillTestId.Root)[0]).toHaveTextContent("Kodér 2");
     await userEvent.click(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[0] as HTMLElement);
     expect(d.create.mock.calls[0]?.[0]).toEqual({
       body: {
@@ -267,7 +267,7 @@ describe("QuickActionsWidget", () => {
       d.create.mockImplementation((_v, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
       renderWithProviders(<QuickActionsWidget {...setup()} />);
       fireEvent.click(screen.getAllByTestId(QuickActionsWidgetTestId.Run)[0] as HTMLElement);
-      const row = screen.getAllByTestId(BoardRowTestId.Root)[0];
+      const row = screen.getAllByTestId(ActionPillTestId.Root)[0];
       expect(row).toHaveTextContent("Zařazeno do fronty");
       act(() => {
         vi.advanceTimersByTime(5000);
@@ -278,15 +278,25 @@ describe("QuickActionsWidget", () => {
     }
   });
 
-  it("reports empty without actions (the header + toggle adds them)", () => {
+  it("never collapses (the dashed Add pill stays) and the pill toggles the add form", async () => {
     d.actions = [];
     const empty = setup();
-    const { unmount } = renderWithProviders(<QuickActionsWidget {...empty} />);
-    expect(empty.onEmptyChange).toHaveBeenLastCalledWith(true);
-    unmount();
-    d.actions = [lint];
-    const one = setup();
-    renderWithProviders(<QuickActionsWidget {...one} />);
-    expect(one.onEmptyChange).toHaveBeenLastCalledWith(false);
+    renderWithProviders(<QuickActionsWidget {...empty} />);
+    expect(empty.onEmptyChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByTestId(QuickActionFormTestId.Form)).toBeNull();
+    await userEvent.click(screen.getByTestId(QuickActionsWidgetTestId.Add));
+    expect(screen.getByTestId(QuickActionFormTestId.Form)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(QuickActionFormTestId.Cancel));
+    expect(screen.queryByTestId(QuickActionFormTestId.Form)).toBeNull();
+  });
+
+  it("the label opens the sheet while the play glyph only runs", async () => {
+    const p = setup();
+    renderWithProviders(<QuickActionsWidget {...p} />);
+    await userEvent.click(screen.getAllByTestId(ActionPillTestId.Open)[0] as HTMLElement);
+    expect(p.onOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "quickAction", id: deploy.id }),
+    );
+    expect(d.create).not.toHaveBeenCalled();
   });
 });

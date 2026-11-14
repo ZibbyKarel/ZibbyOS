@@ -44,7 +44,7 @@ describe("UsagePanel", () => {
     const fills = screen.getAllByTestId(UsagePanelTestId.Fill);
     expect(fills[0]).toHaveClass("stroke-bad");
     expect(fills[1]).toHaveClass("stroke-warn");
-    expect(fills[2]).toHaveClass("stroke-ok");
+    expect(fills[2]).toHaveClass("stroke-ink-2");
     expect(screen.getAllByTestId(UsagePanelTestId.Value)[0]).toHaveTextContent("100%");
   });
 

@@ -17,7 +17,7 @@ const sizeClass: Record<OptionToggleSize, string> = {
   lg: "px-5 py-2 text-[13px]",
 };
 const activeClass: Record<OptionToggleIntent, string> = {
-  default: "bg-raised text-ink shadow-card",
+  default: "bg-raised text-ink",
   primary: "border border-accent bg-accent text-accent-contrast",
 };
 
@@ -60,7 +60,7 @@ export function OptionToggle<T extends string = string>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex w-fit gap-0.5 rounded-md border border-line-2 bg-panel p-0.5"
+      className="inline-flex w-fit gap-0.5 rounded-[9px] border border-line bg-panel p-[3px]"
       data-testid={OptionToggleTestId.Root}
       ref={ref}
       role="group"
@@ -72,12 +72,12 @@ export function OptionToggle<T extends string = string>({
             aria-disabled={readOnly || undefined}
             aria-pressed={readOnly ? undefined : active}
             className={cn(
-              "rounded-sm font-sans font-medium transition-colors",
+              "rounded-sm font-sans font-medium transition-colors motion-reduce:transition-none",
               sizeClass[size],
               !(active && intent === "primary") && "border-none",
               !readOnly && focusRing,
-              active ? activeClass[intent] : "bg-transparent text-foreground-faint",
-              !readOnly && !active && "cursor-pointer hover:text-foreground",
+              active ? activeClass[intent] : "bg-transparent text-ink-3",
+              !readOnly && !active && "cursor-pointer hover:text-ink",
               readOnly && "cursor-default",
             )}
             data-testid={`${OptionToggleTestId.Option}-${o.id}`}

@@ -83,7 +83,7 @@ export function ActivityDock({
               aria-label={count ? `${item.label}, ${count}` : item.label}
               aria-pressed={isActive}
               className={cn(
-                "relative flex h-10 w-10 items-center justify-center text-ink-2 hover:text-ink",
+                "relative flex h-10 w-10 items-center justify-center rounded-md text-ink-2 hover:bg-panel-2 hover:text-ink",
                 isActive && "bg-panel-2 text-ink",
                 focusRingInset,
               )}
@@ -100,7 +100,7 @@ export function ActivityDock({
               {count > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute top-0.5 right-0.5 min-w-4 bg-accent px-1 text-center font-mono text-[10px] leading-4 text-background"
+                  className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center font-mono text-[10px] leading-4 text-accent-contrast"
                   data-testid={ActivityDockTestId.Badge}
                 >
                   {count > 99 ? "99+" : count}

@@ -34,4 +34,36 @@ describe("RowGroupHeader", () => {
     );
     expect(screen.getByTestId(RowGroupHeaderTestId.Caret)).toHaveTextContent("▸");
   });
+
+  it("epic variant: chevron, optional key, 72px bar and fraction", () => {
+    const { rerender } = render(
+      <RowGroupHeader
+        closed={false}
+        count="18/47"
+        groupKey="EP-1"
+        onToggle={() => {}}
+        progress={38}
+        title="Addons"
+        variant="epic"
+      />,
+    );
+    expect(screen.getByTestId(RowGroupHeaderTestId.Root)).toHaveAttribute("data-variant", "epic");
+    expect(screen.getByTestId(RowGroupHeaderTestId.Root)).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId(RowGroupHeaderTestId.Key)).toHaveTextContent("EP-1");
+    expect(screen.getByTestId(RowGroupHeaderTestId.Count)).toHaveTextContent("18/47");
+    expect(screen.getByTestId(ProgressTestId.Root)).toBeInTheDocument();
+    rerender(
+      <RowGroupHeader
+        closed
+        count="03"
+        groupKey=""
+        onToggle={() => {}}
+        title="No epic"
+        variant="epic"
+      />,
+    );
+    expect(screen.queryByTestId(RowGroupHeaderTestId.Key)).toBeNull();
+    expect(screen.queryByTestId(ProgressTestId.Root)).toBeNull();
+    expect(screen.getByTestId(RowGroupHeaderTestId.Root)).toHaveAttribute("aria-expanded", "false");
+  });
 });

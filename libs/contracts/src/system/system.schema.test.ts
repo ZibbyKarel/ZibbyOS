@@ -109,3 +109,12 @@ describe("removed widget types in saved layouts (todo-16)", () => {
     expect(BridgeWidgetSchema.safeParse(tasks).success).toBe(false);
   });
 });
+
+describe("UiSettingsSchema density", () => {
+  it("defaults to airy and coerces the retired `open` level to airy", () => {
+    expect(UiSettingsSchema.parse({}).density).toBe("airy");
+    expect(UiSettingsSchema.parse({ density: "open" }).density).toBe("airy");
+    expect(UiSettingsSchema.parse({ density: "compact" }).density).toBe("compact");
+    expect(UiSettingsSchema.safeParse({ density: "huge" }).success).toBe(false);
+  });
+});

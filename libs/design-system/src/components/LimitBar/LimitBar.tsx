@@ -19,7 +19,7 @@ export interface LimitBarProps {
 }
 
 /** A compact header variant of {@link BudgetMeter} — the top bar's `5H`/`WEEK`
- * rolling-usage readout: one row, label / 2px track / percentage — a `LimitBar`
+ * rolling-usage readout: one row, label / thin track / percentage — a `LimitBar`
  * pair stacks (`AppShell`'s `useHeaderTrailing`) into the two-row usage
  * readout next to search. */
 export function LimitBar({ label, value, max, ref }: LimitBarProps) {
@@ -31,12 +31,7 @@ export function LimitBar({ label, value, max, ref }: LimitBarProps) {
       data-testid={LimitBarTestId.Root}
       ref={ref}
     >
-      <Typography
-        data-testid={LimitBarTestId.Label}
-        tracking="wider"
-        type="labelSm"
-        variant="primary"
-      >
+      <Typography data-testid={LimitBarTestId.Label} type="labelSm" variant="primary">
         {label}
       </Typography>
       <div
@@ -44,29 +39,23 @@ export function LimitBar({ label, value, max, ref }: LimitBarProps) {
         aria-valuemax={max}
         aria-valuemin={0}
         aria-valuenow={value}
-        className="relative h-[4px] w-full bg-border"
+        className="relative h-[4px] w-full rounded-full bg-ink/10"
         data-testid={LimitBarTestId.Track}
         role="meter"
       >
         <div
           className={
             tone === "bad"
-              ? "absolute inset-y-0 left-0 bg-bad"
+              ? "absolute inset-y-0 left-0 rounded-full bg-bad"
               : tone === "warn"
-                ? "absolute inset-y-0 left-0 bg-warn"
-                : "absolute inset-y-0 left-0 bg-ink"
+                ? "absolute inset-y-0 left-0 rounded-full bg-warn"
+                : "absolute inset-y-0 left-0 rounded-full bg-ink-2"
           }
           data-testid={LimitBarTestId.Fill}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <Typography
-        align="right"
-        data-testid={LimitBarTestId.Value}
-        tracking="wider"
-        type="labelSm"
-        variant="primary"
-      >
+      <Typography align="right" data-testid={LimitBarTestId.Value} type="labelSm" variant="primary">
         {Math.round(pct)}%
       </Typography>
     </div>

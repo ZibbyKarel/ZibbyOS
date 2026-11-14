@@ -15,8 +15,8 @@ export interface WidgetBoardProps {
   colWidth: number;
   /** Gap between columns in px. */
   gap: number;
-  /** Height of the placement surface in px. */
-  height: number;
+  /** Height of the placement surface in px; omitted = content height (a flow column, e.g. phone). */
+  height?: number;
   /** Reports the placement (pass a stable callback) surface's inner width (px) on mount and on every resize. */
   onMeasure?: (innerWidth: number) => void;
   /** Absolutely positioned widgets (see `WidgetFrame`). */

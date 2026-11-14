@@ -10,14 +10,11 @@ export type GraphInlineInputVariant = "ghost" | "field";
 
 const variantClass: Record<GraphInlineInputVariant, string> = {
   // A value floating directly on the canvas: no chrome of its own (an edge's
-  // hand-off filename, a node's output-file field) — accent, monospace text.
-  ghost: "border-none bg-transparent font-mono text-[10px] text-accent",
+  // hand-off filename, a node's output-file field) — amber text, monospace.
+  ghost: "border-none bg-transparent font-mono text-mono text-accent-fg",
   // A bordered, background-filled text box — the workflow dialog's name/
   // description fields sitting in its non-canvas top bar.
-  field: cn(
-    "rounded-sm border border-border bg-[var(--color-background-deep)] px-2.5 py-1.5",
-    "text-[13px] text-foreground focus:border-ink",
-  ),
+  field: cn("rounded-md border border-line-2 bg-transparent px-2.5 py-1.5", "text-body text-ink"),
 };
 
 export interface GraphInlineInputProps extends Omit<
@@ -54,7 +51,7 @@ export function GraphInlineInput({
       className={cn(
         "min-w-0 outline-none",
         variantClass[variant],
-        variant === "field" && weight === "bold" && "font-mono text-sm font-bold",
+        variant === "field" && weight === "bold" && "font-semibold",
         focusRing,
       )}
       data-testid={GraphInlineInputTestId.Root}

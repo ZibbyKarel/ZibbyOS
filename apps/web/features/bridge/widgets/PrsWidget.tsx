@@ -1,16 +1,18 @@
 "use client";
 
 import {
+  Avatar,
   BoardLead,
   BoardLine,
+  BoardPill,
+  type BoardPillTone,
   BoardRow,
   BoardText,
   Icon,
   IconBadge,
-  type IconName,
-  IconTile,
-  type IconTone,
   IndentRail,
+  StateGlyph,
+  type StateGlyphTone,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode, useCallback, useMemo } from "react";
@@ -18,9 +20,10 @@ import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
 import { useRefreshInboxMutation } from "../../inbox/mutations";
 import { useInboxPrsQuery } from "../../inbox/queries";
+import type { PrCiState } from "../state/prStatus";
 import { type PrNodeVm, type PrRowVm, prTree } from "../state/rows";
 import { useBridgeInboxFilters } from "../state/useBridgeInboxFilters";
-import { CI_ICON, PrFilterControls, REVIEW_ICON } from "./PrFilterControls";
+import { CI_ICON, PrFilterControls } from "./PrFilterControls";
 import type { BridgeWidgetProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
 import {
@@ -34,27 +37,43 @@ export enum PrsWidgetTestId {
   Avatar = "prs-widget-avatar",
   Ci = "prs-widget-ci",
   Review = "prs-widget-review",
+  Draft = "prs-widget-draft",
+  Stack = "prs-widget-stack",
 }
 
 /** Stack levels drawn as indentation; deeper PRs line up with the last one. */
 const MAX_INDENT = 3;
 
-/** A status glyph with its meaning as the accessible name and the hover tooltip. */
-function StateIcon({
-  icon,
-  label,
-  testId,
-}: {
-  icon: { name: IconName; tone: IconTone };
-  label: string;
-  testId: string;
-}) {
-  return (
-    <span aria-label={label} data-testid={testId} role="img" title={label}>
-      <Icon name={icon.name} size="sm" tone={icon.tone} />
-    </span>
-  );
+/** CI state -> the colour of its glyph (colour = state only). */
+const CI_TONE: Record<PrCiState, StateGlyphTone> = {
+  passing: "done",
+  failing: "error",
+  conflict: "blocked",
+  running: "thinking",
+  none: "idle",
+};
+
+/** Pill order: what needs me first, then errors, blocks, neutral info, done. */
+const SEVERITY: Record<BoardPillTone, number> = {
+  you: 0,
+  error: 1,
+  blocked: 2,
+  neutral: 3,
+  done: 4,
+};
+/** A row shows at most this many state pills. */
+const MAX_PILLS = 2;
+
+/** The review pill's colour: amber fill when the review waits for me. */
+function reviewTone(r: PrRowVm): BoardPillTone {
+  if (r.needsYou) return "you";
+  if (r.review === "changes") return "blocked";
+  if (r.review === "approved") return "done";
+  return "neutral";
 }
+
+/** The PRs stacked on top of this one, at any depth. */
+const stackSize = (n: PrNodeVm): number => n.kids.reduce((sum, k) => sum + 1 + stackSize(k), 0);
 
 /**
  * Pull requests: the set the `/dashboard/inbox/pull-requests` screen lists (stored filters) as
@@ -111,78 +130,112 @@ export function PrsWidget({
     { onEmptyChange, onCountChange },
   );
 
-  const card = (r: PrRowVm) => (
-    <BoardRow
-      key={r.key}
-      muted={r.muted}
-      onClick={() => onOpen({ kind: "pr", id: r.id, widgetId: widget.id, key: r.key })}
-      padding="pr"
-      rowKey={r.key}
-      selected={selection?.key === r.key}
-      sheetSide={sheetSide}
-      tone={r.tone}
-      trailing={
-        <BoardLine gap="8">
-          <BoardText kind="meta" tone="ink3">
-            {r.age}
-          </BoardText>
-          {r.conversations > 0 ? (
-            <IconBadge
-              count={r.conversations}
-              icon="chat"
-              label={t("conversations", { count: r.conversations })}
-            />
-          ) : null}
-          <StateIcon icon={CI_ICON[r.ci]} label={t(`ci.${r.ci}`)} testId={PrsWidgetTestId.Ci} />
-          <StateIcon
-            icon={REVIEW_ICON[r.review]}
-            label={t(`reviewHint.${r.reviewHint}`)}
-            testId={PrsWidgetTestId.Review}
-          />
-        </BoardLine>
-      }
-    >
-      <BoardLead
-        lead={
-          <IconTile
-            alt={r.author}
-            aria-label={r.author}
-            data-testid={PrsWidgetTestId.Avatar}
-            filled={false}
-            role="img"
-            shape="circle"
-            size="md"
-            src={r.avatarUrl}
-            title={r.author}
-            tone="neutral"
+  const card = (r: PrRowVm, stack: number) => {
+    const pills: { tone: BoardPillTone; node: ReactNode }[] = [
+      {
+        tone: reviewTone(r),
+        node: (
+          <BoardPill
+            data-testid={PrsWidgetTestId.Review}
+            key="review"
+            title={t(`reviewHint.${r.reviewHint}`)}
+            tone={reviewTone(r)}
           >
-            {r.author.charAt(0).toUpperCase()}
-          </IconTile>
+            {r.needsYou ? t("pill.you") : t(`pill.${r.review}`)}
+          </BoardPill>
+        ),
+      },
+    ];
+    if (r.draft)
+      pills.push({
+        tone: "neutral",
+        node: (
+          <BoardPill data-testid={PrsWidgetTestId.Draft} key="draft" tone="neutral">
+            {t("pill.draft")}
+          </BoardPill>
+        ),
+      });
+    pills.sort((a, b) => SEVERITY[a.tone] - SEVERITY[b.tone]);
+    return (
+      <BoardRow
+        key={r.key}
+        muted={r.muted}
+        onClick={() => onOpen({ kind: "pr", id: r.id, widgetId: widget.id, key: r.key })}
+        rowKey={r.key}
+        selected={selection?.key === r.key}
+        shape="list"
+        sheetSide={sheetSide}
+        tone={r.tone}
+        trailing={
+          <BoardLine gap="6">
+            {r.conversations > 0 ? (
+              <IconBadge
+                count={r.conversations}
+                icon="chat"
+                label={t("conversations", { count: r.conversations })}
+              />
+            ) : null}
+            {pills.slice(0, MAX_PILLS).map((p) => p.node)}
+          </BoardLine>
         }
       >
-        <BoardLine baseline gap="8">
-          <BoardText kind="prNum">{r.number}</BoardText>
-          <BoardText truncate kind="prTitle" title={r.title}>
-            {r.title}
-          </BoardText>
-        </BoardLine>
-        {/* Not wrapped: when the line runs out of room the project clips first, then the name. */}
-        <BoardLine gap="6">
-          <BoardText kind="prMeta">{r.author}</BoardText>
-          <BoardText kind="prMeta" tone="ink3">
-            · {r.project}
-          </BoardText>
-        </BoardLine>
-      </BoardLead>
-    </BoardRow>
-  );
+        <BoardLead
+          lead={
+            <StateGlyph
+              data-testid={PrsWidgetTestId.Ci}
+              icon={CI_ICON[r.ci].name}
+              label={t(`ci.${r.ci}`)}
+              spin={r.ci === "running"}
+              tone={CI_TONE[r.ci]}
+            />
+          }
+        >
+          <BoardLine baseline gap="8">
+            <BoardText kind="rowId">{r.number}</BoardText>
+            <BoardText truncate kind="rowTitle" title={r.title}>
+              {r.title}
+            </BoardText>
+          </BoardLine>
+          {/* Not wrapped: when the line runs out of room the repo clips first, then the name. */}
+          <BoardLine gap="6">
+            <Avatar
+              aria-label={r.author}
+              data-testid={PrsWidgetTestId.Avatar}
+              name={r.author}
+              role="img"
+              size="xs"
+              src={r.avatarUrl}
+              title={r.author}
+            />
+            <BoardText kind="rowMeta">{r.author}</BoardText>
+            <BoardText truncate kind="rowMeta">
+              · {r.project}
+            </BoardText>
+            <BoardText kind="rowId">· {r.age}</BoardText>
+            {stack > 0 ? (
+              <>
+                <Icon name="stack" size="xs" tone="faint" />
+                <BoardText data-testid={PrsWidgetTestId.Stack} kind="rowMeta">
+                  {t("stack", { count: stack + 1 })}
+                </BoardText>
+              </>
+            ) : null}
+          </BoardLine>
+        </BoardLead>
+      </BoardRow>
+    );
+  };
 
   const tree = (n: PrNodeVm, depth: number): ReactNode => {
     const kids = n.kids.map((k) => tree(k, depth + 1));
     return (
       <Fragment key={n.row.key}>
-        {card(n.row)}
-        {kids.length === 0 ? null : depth < MAX_INDENT ? <IndentRail>{kids}</IndentRail> : kids}
+        {card(n.row, depth === 0 ? stackSize(n) : 0)}
+        {kids.length === 0 ? null : depth < MAX_INDENT ? (
+          <IndentRail variant="stack">{kids}</IndentRail>
+        ) : (
+          kids
+        )}
       </Fragment>
     );
   };

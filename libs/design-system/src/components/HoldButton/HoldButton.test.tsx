@@ -47,20 +47,28 @@ describe("HoldButton", () => {
     expect(screen.getByTestId(HoldButtonTestId.Icon)).toBeInTheDocument();
   });
 
+  it("honours a longer durationMs: a 1s frame does not finish a 1.2s hold", () => {
+    mockFrames(1000);
+    const onConfirm = vi.fn();
+    render(<HoldButton durationMs={1200} label="Podržet" onConfirm={onConfirm} />);
+    fireEvent.pointerDown(screen.getByTestId(HoldButtonTestId.Root));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it("defaults to the md footprint and applies the sm scale when asked", () => {
     const { rerender } = render(<HoldButton label="Podržet" />);
     // md (default) — the standalone approval footprint.
     expect(screen.getByTestId(HoldButtonTestId.Root)).toHaveClass(
+      "h-[30px]",
       "px-[12px]",
-      "py-[7px]",
-      "text-[13px]",
+      "text-[12.5px]",
     );
     // sm — the same recipe as Button size="sm" so it sits flush beside its peers
     // in dense chrome like the top bar or a PR row.
     rerender(<HoldButton label="Podržet" size="sm" />);
     expect(screen.getByTestId(HoldButtonTestId.Root)).toHaveClass(
-      "px-[10px]",
-      "py-[5px]",
+      "h-[26px]",
+      "px-[9px]",
       "text-[12px]",
     );
   });

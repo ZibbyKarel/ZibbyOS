@@ -31,10 +31,10 @@ export function ChatBubble({
   return (
     <div
       className={cn(
-        "rounded-lg px-[11px] py-[9px] text-[13px] leading-[1.4]",
+        "rounded px-[11px] py-[9px] text-body",
         author === "you"
-          ? "max-w-[80%] self-end border border-accent/25 bg-accent-dim whitespace-pre-line text-ink"
-          : "flex max-w-[86%] flex-col gap-2 self-start border border-line-2 bg-background",
+          ? "max-w-[80%] self-end bg-panel-2 whitespace-pre-line text-ink"
+          : "flex max-w-[86%] flex-col gap-2 self-start border border-line text-ink",
       )}
       data-author={author}
       data-testid={testId}
@@ -42,7 +42,7 @@ export function ChatBubble({
       {...props}
     >
       <div
-        className="[&_.md-prose]:text-[13px]! [&_.md-prose]:leading-[1.4]! [&_.wmde-markdown]:text-[13px]! [&_.wmde-markdown]:leading-[1.4]!"
+        className="[&_.md-prose]:text-[13px]! [&_.md-prose]:leading-5! [&_.wmde-markdown]:text-[13px]! [&_.wmde-markdown]:leading-5!"
         data-testid={ChatBubbleTestId.Body}
       >
         {children}

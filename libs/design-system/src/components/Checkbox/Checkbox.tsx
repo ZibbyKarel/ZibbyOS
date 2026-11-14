@@ -48,14 +48,15 @@ export interface CheckboxProps {
   ref?: Ref<HTMLButtonElement>;
 }
 
-/** The shared visual box — accent-filled with a check glyph when on, hollow when off. */
+/** The shared visual box (Bridge `.cb`) — ink-filled with a check glyph when on, hollow when off. */
 function CheckboxBox({ checked, size }: { checked: boolean; size: CheckboxSize }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-sm border transition-colors duration-150",
+        "inline-flex shrink-0 items-center justify-center rounded-[4px] border-[1.5px]",
+        "transition-colors duration-150 motion-reduce:transition-none",
         box[size],
-        checked ? "border-accent bg-accent text-accent-contrast" : "border-border-strong bg-transparent",
+        checked ? "border-ink bg-ink text-on-ink" : "border-ink-3 bg-transparent",
       )}
       data-testid={CheckboxTestId.Box}
     >

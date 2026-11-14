@@ -93,17 +93,18 @@ export function spacingToVar(token: Spacing): string {
 // Density
 // ---------------------------------------------------------------------------
 
-/** System-wide layout density. `comfort` is the historical (scale 1) spacing. */
-export type Density = "compact" | "comfort" | "airy" | "open";
+/** System-wide layout density — `--rowpad` 4 / 8 / 12px (design: Kompaktní / Normální /
+ *  Vzdušná). `comfort` is the historical (scale 1) spacing. A stored legacy `open` is
+ *  coerced to `airy` by the contract schema. */
+export type Density = "compact" | "comfort" | "airy";
 
-export const DENSITIES: readonly Density[] = ["compact", "comfort", "airy", "open"];
+export const DENSITIES: readonly Density[] = ["compact", "comfort", "airy"];
 
 /** `--density` multiplier per level — must match the `[data-density]` blocks in globals.css. */
 export const DENSITY_SCALE: Record<Density, number> = {
   compact: 0.75,
   comfort: 1,
   airy: 1.25,
-  open: 1.25,
 };
 
 /**
@@ -116,7 +117,6 @@ export const BRIDGE_DENSITY: Record<Density, { gap: number; rowHeight: number; b
     compact: { gap: 8, rowHeight: 30, boardPad: 12 },
     comfort: { gap: 12, rowHeight: 32, boardPad: 20 },
     airy: { gap: 14, rowHeight: 34, boardPad: 32 },
-    open: { gap: 16, rowHeight: 34, boardPad: 36 },
   };
 
 export function resolvePadding(p: Padding): [Spacing, Spacing, Spacing, Spacing] {

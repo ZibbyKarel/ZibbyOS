@@ -1,4 +1,4 @@
-import { BoardRowTestId } from "@zibby/design-system";
+import { LauncherTileTestId } from "@zibby/design-system";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
@@ -37,20 +37,25 @@ const props: BridgeWidgetProps = {
 };
 
 describe("PinsWidget", () => {
-  it("lists page, workflow and agent pins in pin order with a kind tag", () => {
+  it("lists page, workflow and agent pins in pin order as launcher tiles, the kind in the tooltip", () => {
     renderWithProviders(<PinsWidget {...props} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(LauncherTileTestId.Root);
     expect(rows.map((r) => r.textContent)).toEqual([
-      "Pull RequestsStránka",
-      "Coloring bookWorkflow",
-      "gone-agentAgent",
+      "Pull Requests",
+      "Coloring book",
+      "gone-agent",
+    ]);
+    expect(rows.map((r) => r.getAttribute("title"))).toEqual([
+      "Pull Requests · Stránka",
+      "Coloring book · Workflow",
+      "gone-agent · Agent",
     ]);
     expect(onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 3 }));
   });
 
   it("navigates to the page, the workflow detail and the agent detail", () => {
     renderWithProviders(<PinsWidget {...props} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(LauncherTileTestId.Root);
     rows.forEach((r) => fireEvent.click(r));
     expect(push.mock.calls.map((c) => c[0])).toEqual([
       "/dashboard/inbox/pull-requests",

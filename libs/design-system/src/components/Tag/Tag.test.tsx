@@ -64,14 +64,14 @@ describe("Tag", () => {
     expect(screen.queryByTestId(TagTestId.Icon)).not.toBeInTheDocument();
   });
 
-  it("renders uppercase (CSS only — textContent stays untouched) when requested", () => {
+  it("keeps sentence case even when uppercase is requested (deprecated no-op)", () => {
     render(
       <Tag uppercase tone="run">
         běží
       </Tag>,
     );
     const root = screen.getByTestId(TagTestId.Root);
-    expect(root).toHaveClass("uppercase");
+    expect(root).not.toHaveClass("uppercase");
     expect(root).toHaveTextContent("běží");
   });
 

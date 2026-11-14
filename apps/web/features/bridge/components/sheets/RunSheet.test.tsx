@@ -1,4 +1,4 @@
-import { AnchoredSheetTestId, CopyableTextTestId, NeedsYouCardTestId } from "@zibby/design-system";
+import { AnchoredSheetTestId, NeedsYouCardTestId } from "@zibby/design-system";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, renderWithProviders, screen } from "../../../../test/render";
@@ -98,11 +98,8 @@ describe("RunSheet", () => {
 
   it("shows the run id with a copy button in the eyebrow", () => {
     renderWithProviders(<RunSheet anchor={anchor} id="wf_1" onClose={() => {}} />);
-    expect(screen.getByTestId(AnchoredSheetTestId.Kind)).toContainElement(
-      screen.getByTestId(CopyableTextTestId.Text),
-    );
-    expect(screen.getByTestId(CopyableTextTestId.Text)).toHaveTextContent("wf_1");
-    expect(screen.getByTestId(CopyableTextTestId.Copy)).toBeInTheDocument();
+    expect(screen.getByTestId(AnchoredSheetTestId.CopyId)).toHaveTextContent("wf_1");
+    expect(screen.getByTestId(AnchoredSheetTestId.CopyId)).toHaveAccessibleName("Copy wf_1");
   });
 
   it("puts the run actions in the sheet header", () => {

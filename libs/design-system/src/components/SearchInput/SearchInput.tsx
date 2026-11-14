@@ -46,13 +46,13 @@ export function SearchInput({
   return (
     <div
       className={cn(
-        "flex h-[36px] w-full items-center gap-2.5 rounded-md px-3.5 transition-colors",
+        "flex h-[32px] w-full items-center gap-2 rounded-md px-[10px] transition-colors motion-reduce:transition-none",
         surface === "transparent"
           ? // No border/ring of its own — the surrounding surface already
             // draws the one visible boundary; a focus border on top would
             // double it up.
             "border border-transparent"
-          : "border border-border-strong bg-background focus-within:border-ink",
+          : "border border-line bg-panel focus-within:border-ink-3",
       )}
       data-testid={SearchInputTestId.Root}
     >
@@ -60,8 +60,8 @@ export function SearchInput({
       <input
         aria-label={ariaLabel}
         className={cn(
-          "min-w-0 flex-1 border-none bg-transparent font-sans text-base text-foreground",
-          "placeholder:text-foreground-faint",
+          "min-w-0 flex-1 border-none bg-transparent font-sans text-base text-ink",
+          "placeholder:text-ink-3",
           // "solid" is already ringed by the wrapper's own focus-within style above;
           // "transparent" has no border/ring of its own, so the input must carry an
           // explicit fallback — never silently unfocusable-looking regardless of
@@ -75,7 +75,7 @@ export function SearchInput({
       />
       {count != null && (
         <span
-          className="shrink-0 font-mono text-xs text-foreground-faint"
+          className="shrink-0 font-mono text-[11.5px] text-ink-3"
           data-testid={SearchInputTestId.Count}
         >
           {count}

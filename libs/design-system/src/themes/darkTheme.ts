@@ -65,9 +65,9 @@ export const darkTheme: Theme = {
 
   // ---- Brand accent -----------------------------------------------------------
   colorAccent: "#f5a524",
-  colorAccentDim: "rgba(245, 165, 36, 0.12)",
+  colorAccentDim: "color-mix(in srgb, var(--color-accent) 12%, transparent)",
   colorAccentContrast: "#1a1204",
-  colorAccentGlow: "rgba(245, 165, 36, 0.35)",
+  colorAccentGlow: "color-mix(in srgb, var(--color-accent) 35%, transparent)",
 
   // ---- Legacy status — LEGACY_TONE_MAP: ok→done, warn→blocked, bad→error, run→working
   colorOk: "#34d399",
@@ -91,7 +91,7 @@ export const darkTheme: Theme = {
   // ---- Shadows — design `--shadow-1` (cards) / `--shadow-2` (overlays) --------
   shadowCard: "0 1px 2px rgba(0, 0, 0, 0.35)",
   shadowModal: "0 8px 24px rgba(0, 0, 0, 0.45)",
-  shadowGlowAccent: "0 0 8px rgba(245, 165, 36, 0.45)",
+  shadowGlowAccent: "0 0 var(--gw) var(--color-accent-glow)",
 
   // ---- Fonts — Geist / Geist Mono --------------------------------------------
   fontSans: "var(--font-sans, Geist, -apple-system, BlinkMacSystemFont, system-ui, sans-serif)",

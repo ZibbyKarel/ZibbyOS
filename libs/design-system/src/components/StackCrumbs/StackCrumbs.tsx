@@ -1,5 +1,16 @@
 import { cn } from "../../utils/cn";
-import { type SheetTone, toneBorderLeft } from "../AnchoredSheet/sheetTone";
+import type { SheetTone } from "../AnchoredSheet/sheetTone";
+
+const toneDot: Record<SheetTone, string> = {
+  working: "bg-state-work",
+  thinking: "bg-state-think",
+  blocked: "bg-state-block",
+  error: "bg-state-err",
+  done: "bg-state-done",
+  idle: "bg-state-idle",
+  neutral: "bg-line-2",
+  faint: "bg-line-2",
+};
 
 export enum StackCrumbsTestId {
   Root = "stack-crumbs-root",
@@ -11,50 +22,58 @@ export enum StackCrumbsTestId {
 export interface StackCrumb {
   id: string;
   label: string;
-  /** Colour of the crumb's 4px left border. */
+  /** State dot of the crumb. */
   tone?: SheetTone;
-  /** The open item: inverted (ink fill). */
+  /** The open item: raised fill + stronger border. */
   current?: boolean;
   /** Makes the crumb a button (e.g. open that item). */
   onSelect?: () => void;
 }
 
 export interface StackCrumbsProps {
-  /** Mono caption before the trail, e.g. `STACK`. */
+  /** Caption before the trail, e.g. `Stack`. */
   label: string;
   crumbs: readonly StackCrumb[];
 }
 
 const crumbClass = (c: StackCrumb) =>
   cn(
-    "border border-l-4 px-[8px] py-[3px]",
-    c.current ? "border-ink bg-ink text-panel" : "border-line-2 bg-panel text-ink",
-    toneBorderLeft[c.tone ?? "idle"],
+    "inline-flex h-[22px] items-center gap-[5px] rounded-sm border px-[7px] font-mono text-mono",
+    c.current ? "border-line-2 bg-panel-2 text-ink" : "border-transparent text-ink-2",
   );
 
-/** `STACK  #1 → #2 → #3` breadcrumb with state-coloured left borders; the current crumb is inverted. */
+const dot = (c: StackCrumb) => (
+  <span
+    aria-hidden="true"
+    className={cn("size-[6px] shrink-0 rounded-full", toneDot[c.tone ?? "idle"])}
+  />
+);
+
+/** `Stack  #1 → #2 → #3` breadcrumb with a state dot per crumb; the current crumb is raised. */
 export function StackCrumbs({ label, crumbs }: StackCrumbsProps) {
   return (
     <div
-      className="flex flex-wrap items-center gap-[6px] font-sans uppercase tracking-wider text-[10px]"
+      className="flex flex-wrap items-center gap-[4px] text-meta"
       data-testid={StackCrumbsTestId.Root}
     >
-      <span className="mr-[4px] text-ink-3" data-testid={StackCrumbsTestId.Label}>
+      <span className="mr-[4px] text-meta text-ink-3" data-testid={StackCrumbsTestId.Label}>
         {label}
       </span>
       {crumbs.map((c, i) => (
         <span className="contents" key={c.id}>
           {c.onSelect ? (
             <button
-              className={cn(crumbClass(c), "cursor-pointer hover:underline")}
+              className={cn(crumbClass(c), "cursor-pointer hover:bg-panel-2 hover:text-ink")}
               data-testid={`${StackCrumbsTestId.Crumb}-${c.id}`}
               onClick={c.onSelect}
               type="button"
             >
+              {dot(c)}
               {c.label}
             </button>
           ) : (
             <span className={crumbClass(c)} data-testid={`${StackCrumbsTestId.Crumb}-${c.id}`}>
+              {dot(c)}
               {c.label}
             </span>
           )}

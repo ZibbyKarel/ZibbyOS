@@ -23,7 +23,7 @@ describe("GoalCard", () => {
     expect(screen.getByTestId(GoalCardTestId.Title)).toHaveTextContent("Ship feature Y green");
     expect(screen.getByTestId(GoalCardTestId.Maker)).toHaveTextContent("delivery");
     expect(screen.getByTestId(GoalCardTestId.Verifier)).toHaveTextContent("checks");
-    expect(screen.getByTestId(GoalCardTestId.BudgetCaption)).toHaveTextContent("3 / 10 RUNS");
+    expect(screen.getByTestId(GoalCardTestId.BudgetCaption)).toHaveTextContent("3 / 10 runs");
   });
 
   it("renders the iteration summary only when provided", () => {

@@ -16,11 +16,11 @@ export interface InputFrameProps {
   ref?: Ref<HTMLDivElement>;
 }
 
-/** The framed one-line composer box: `start | input | end`, hairline border, square corners. */
+/** The framed one-line composer box: `start | input | end`, hairline border, 8px corners. */
 export function InputFrame({ start, end, children, ref }: InputFrameProps) {
   return (
     <div
-      className="flex min-h-[34px] min-w-0 flex-1 items-center rounded-md border border-line-2 bg-background transition-colors focus-within:border-accent"
+      className="flex min-h-[34px] min-w-0 flex-1 items-center rounded-md border border-line-2 bg-panel transition-colors focus-within:border-accent motion-reduce:transition-none"
       data-testid={InputFrameTestId.Root}
       ref={ref}
     >

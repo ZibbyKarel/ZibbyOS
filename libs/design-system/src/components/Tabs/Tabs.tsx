@@ -36,7 +36,7 @@ export interface TabsProps {
   value?: string;
   onValueChange?: (value: string) => void;
   direction?: "horizontal" | "vertical";
-  /** `"mono"` is DS.md §8's top-nav / sub-nav look: mono uppercase labels with a
+  /** `"mono"` is DS.md §8's top-nav / sub-nav look: sentence-case 13px labels with a
    *  1px `--ink` underline indicator, full header height. Defaults to the
    *  ink-underline look (hue is reserved for the six agent states). */
   variant?: TabsVariant;
@@ -80,7 +80,7 @@ export function TabList({ children }: { children: ReactNode }) {
   const { direction, variant } = useTabsContext();
   if (direction === "vertical") {
     return (
-      <div className="border-r border-border shrink-0 w-52">
+      <div className="border-r border-line shrink-0 w-52">
         <Stack data-testid={TabsTestId.List} role="tablist">
           {children}
         </Stack>
@@ -91,7 +91,7 @@ export function TabList({ children }: { children: ReactNode }) {
     <div
       className={cn(
         "shrink-0",
-        variant === "mono" ? "h-full" : "max-w-full overflow-x-auto border-b border-border",
+        variant === "mono" ? "h-full" : "max-w-full overflow-x-auto border-b border-line",
       )}
     >
       <Row
@@ -165,12 +165,12 @@ export function Tab({ value, children, ref, ...rest }: TabProps) {
         {...rest}
         aria-selected={isActive}
         className={cn(
-          "bg-transparent border-none cursor-pointer font-sans text-sm text-left w-full px-4 py-[9px]",
-          "transition-[color,border-color]",
+          "bg-transparent border-none cursor-pointer font-sans text-[13px] text-left w-full px-4 py-[9px]",
+          "transition-[color,border-color] motion-reduce:transition-none",
           focusRingInset,
           isActive
-            ? "border-l-2 border-ink text-ink font-semibold"
-            : "border-l-2 border-transparent text-foreground-dim hover:text-foreground",
+            ? "border-l-2 border-ink text-ink font-medium"
+            : "border-l-2 border-transparent text-ink-3 hover:text-ink",
         )}
         onClick={() => setActive(value)}
         onKeyDown={handleKeyDown}
@@ -192,20 +192,20 @@ export function Tab({ value, children, ref, ...rest }: TabProps) {
       aria-selected={isActive}
       className={cn(
         "bg-transparent border-0 cursor-pointer -mb-px",
-        "transition-[color,border-color]",
+        "transition-[color,border-color] motion-reduce:transition-none",
         focusRingInset,
         variant === "mono"
           ? cn(
               "font-sans font-medium text-[13px] h-full px-[14px] flex items-center",
               isActive
                 ? "border-b border-ink text-ink"
-                : "border-b border-transparent text-ink-3 hover:text-ink-2",
+                : "border-b border-transparent text-ink-3 hover:text-ink",
             )
           : cn(
               "font-sans text-base px-[14px] pt-2 pb-[7px]",
               isActive
-                ? "border-b-2 border-ink text-ink font-semibold"
-                : "border-b-2 border-transparent text-foreground-dim hover:text-foreground",
+                ? "border-b-2 border-ink text-ink font-medium"
+                : "border-b-2 border-transparent text-ink-3 hover:text-ink",
             ),
       )}
       onClick={() => setActive(value)}

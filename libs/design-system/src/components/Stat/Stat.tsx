@@ -19,9 +19,9 @@ export enum StatTestId {
 // Keyed by the canonical `StateTone` (+ `neutral`) — legacy classes reused where the
 // color is identical (LEGACY_TONE_MAP). See `Stat()` for the resolve step.
 const toneText: Record<StateTone | "neutral", string> = {
-  thinking: "text-accent",
+  thinking: "text-accent-fg",
   done: "text-ok",
-  blocked: "text-warn",
+  blocked: "text-accent-fg",
   error: "text-bad",
   working: "text-run",
   idle: "text-state-idle",
@@ -48,7 +48,7 @@ export function Stat({ value, label, icon, tone = "neutral", ref, ...props }: St
       )}
       <Stack gap="50">
         <div
-          className="whitespace-nowrap font-mono text-4xl font-bold leading-none text-foreground"
+          className="whitespace-nowrap font-mono text-4xl font-medium leading-none text-ink"
           data-testid={StatTestId.Value}
         >
           {value}

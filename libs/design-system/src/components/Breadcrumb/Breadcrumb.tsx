@@ -51,7 +51,7 @@ export function Breadcrumb({ items, linkComponent, leadingSeparator }: Breadcrum
               <Typography
                 aria-hidden="true"
                 data-testid={`${BreadcrumbTestId.Separator}-${index}`}
-                type="labelSm"
+                type="caption"
               >
                 /
               </Typography>
@@ -62,14 +62,14 @@ export function Breadcrumb({ items, linkComponent, leadingSeparator }: Breadcrum
                 data-testid={
                   isLast ? BreadcrumbTestId.Current : `${BreadcrumbTestId.Item}-${index}`
                 }
-                type="labelSm"
+                type="caption"
                 variant={isLast ? "primary" : "tertiary"}
               >
                 {item.label}
               </Typography>
             ) : (
               <Link
-                className="font-sans text-[12px] text-foreground-faint transition-colors hover:text-foreground-dim"
+                className="font-sans text-meta text-ink-3 transition-colors hover:text-ink-2"
                 data-testid={`${BreadcrumbTestId.Item}-${index}`}
                 href={item.href}
               >

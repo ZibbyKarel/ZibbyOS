@@ -14,7 +14,7 @@ describe("StatCell", () => {
     expect(screen.getByTestId(StatCellTestId.Label)).toHaveTextContent("CHECKS");
     expect(screen.getByTestId(StatCellTestId.Value)).toHaveTextContent("3 / 4");
     expect(screen.queryByTestId(StatCellTestId.Title)).toBeNull();
-    expect(screen.getByTestId(StatCellTestId.Root).className).toContain("border-b-state-work");
+    expect(screen.getByTestId(StatCellTestId.Root)).toHaveAttribute("data-tone", "working");
   });
 
   it("renders chain lines and the fit grid", () => {
@@ -27,7 +27,7 @@ describe("StatCell", () => {
     expect(screen.getByTestId(StatCellTestId.Title)).toHaveTextContent("Engineering");
     expect(screen.getByTestId(StatCellTestId.Meta)).toHaveTextContent("STEP 1");
     expect(screen.getByTestId(StatCellTestId.Status)).toHaveTextContent("WORKING");
-    expect(screen.getByTestId(StatCellTestId.Root).className).toContain("bg-bg");
+    expect(screen.getByTestId(StatCellTestId.Root).className).toContain("bg-sunk");
   });
 
   it("renders an icon before a node value", () => {
@@ -39,7 +39,7 @@ describe("StatCell", () => {
     expect(icon.compareDocumentPosition(screen.getByTestId(StatCellTestId.Value))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(screen.getByTestId(StatCellTestId.Root).className).toContain("border-b-state-done");
+    expect(screen.getByTestId(StatCellTestId.Root)).toHaveAttribute("data-tone", "done");
   });
 
   it("omits the icon when not provided", () => {

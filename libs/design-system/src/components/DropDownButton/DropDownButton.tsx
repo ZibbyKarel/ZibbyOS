@@ -233,15 +233,14 @@ export function DropDownButton({
                     aria-checked={item.checked}
                     aria-disabled={item.disabled || undefined}
                     className={cn(
-                      "w-full flex gap-2.5 px-[11px] py-[9px]",
+                      "w-full flex gap-2.5 px-[10px] py-[7px]",
                       item.description ? "items-start" : "items-center",
                       "rounded-sm cursor-pointer border-none text-left",
                       focusRingInset,
                       "transition-colors duration-100",
                       item.disabled
                         ? "cursor-not-allowed opacity-50"
-                        : cn(active ? "bg-surface" : "bg-transparent hover:bg-surface"),
-                      active && !item.disabled && "ring-1 ring-inset ring-border-strong",
+                        : cn(active ? "bg-raised" : "bg-transparent hover:bg-raised"),
                     )}
                     data-testid={`${DropDownButtonTestId.Item}-${item.id}`}
                     id={itemId(i)}
@@ -254,7 +253,7 @@ export function DropDownButton({
                     {item.checked !== undefined && (
                       <span
                         aria-hidden
-                        className="w-3 shrink-0 font-mono text-sm"
+                        className="w-3 shrink-0 text-[12px] text-ink-2"
                         data-testid={DropDownButtonTestId.ItemCheck}
                       >
                         {item.checked ? "✓" : ""}
@@ -262,10 +261,10 @@ export function DropDownButton({
                     )}
                     {item.icon && <Icon name={item.icon} size="sm" />}
                     <span className="flex flex-1 flex-col gap-0.5">
-                      <span className="text-md text-foreground">{item.label}</span>
+                      <span className="text-body text-ink">{item.label}</span>
                       {item.description && (
                         <span
-                          className="text-sm text-foreground-dim"
+                          className="text-meta text-ink-3"
                           data-testid={DropDownButtonTestId.ItemDescription}
                         >
                           {item.description}

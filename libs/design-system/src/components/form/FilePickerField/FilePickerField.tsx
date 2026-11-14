@@ -80,8 +80,8 @@ export function FilePickerField({
       {({ id, describedBy, invalid }) => (
         <div
           className={cn(
-            "flex w-full items-center overflow-hidden rounded-md border border-border-strong bg-background transition-colors",
-            "focus-within:border-ink focus-within:ring-2 focus-within:ring-foreground",
+            "flex w-full items-center overflow-hidden rounded-md border border-line-2 bg-panel transition-colors motion-reduce:transition-none",
+            "focus-within:border-ink-3 focus-within:ring-2 focus-within:ring-accent",
             invalid && "border-bad focus-within:ring-bad",
           )}
           data-testid={FilePickerFieldTestId.Control}
@@ -100,20 +100,20 @@ export function FilePickerField({
             type="file"
           />
           <span
-            className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2.5 font-sans text-md"
+            className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2.5 font-sans text-base"
             data-testid={FilePickerFieldTestId.Display}
           >
             <Icon aria-hidden name="file" size="sm" stroke="default" tone="faint" />
-            <span className={cn("truncate", display ? "text-foreground" : "text-foreground-faint")}>
+            <span className={cn("truncate", display ? "text-ink" : "text-ink-3")}>
               {display ?? placeholder}
             </span>
           </span>
           <button
             aria-label="Procházet soubory"
             className={cn(
-              "shrink-0 cursor-pointer self-stretch border-l border-border px-3.5",
-              "bg-transparent font-mono text-sm font-semibold text-accent transition-colors",
-              "hover:bg-accent/10",
+              "shrink-0 cursor-pointer self-stretch border-l border-line px-3.5",
+              "bg-transparent font-sans text-[12.5px] font-medium text-ink transition-colors",
+              "hover:bg-panel-2 motion-reduce:transition-none",
               focusRingInset,
             )}
             data-testid={FilePickerFieldTestId.Trigger}

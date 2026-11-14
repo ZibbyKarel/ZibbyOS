@@ -11,9 +11,12 @@ describe("DetailTable", () => {
     expect(screen.getAllByTestId(DetailTableTestId.Row)[0]?.className).toContain("110px");
   });
 
-  it("puts a tone rail on check rows", () => {
+  it("puts a state dot on check rows", () => {
     render(<DetailTable rows={[{ cells: ["lint", "PASSED"], tone: "working" }]} variant="check" />);
-    expect(screen.getByTestId(DetailTableTestId.Row).className).toContain("border-l-state-work");
+    expect(screen.getByTestId(DetailTableTestId.Row)).toHaveAttribute("data-tone", "working");
+    expect(
+      screen.getByTestId(DetailTableTestId.Row).querySelector(".bg-state-work"),
+    ).not.toBeNull();
   });
 
   it("shows the empty note when there are no rows", () => {

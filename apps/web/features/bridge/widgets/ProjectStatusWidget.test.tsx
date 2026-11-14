@@ -1,4 +1,4 @@
-import { BoardRowTestId, DropdownTestId } from "@zibby/design-system";
+import { DropdownTestId, TileGridTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import type { CiState } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,13 +55,13 @@ beforeEach(() => {
 });
 
 describe("ProjectStatusWidget", () => {
-  it("a red project gets the error background without a bar; others a status icon", () => {
+  it("a red project's tile is tinted rose; every tile has a state dot", () => {
     renderWithProviders(<ProjectStatusWidget {...setup()} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(TileGridTestId.Tile);
     expect(rows).toHaveLength(3);
     const [red, green, busy] = rows as [HTMLElement, HTMLElement, HTMLElement];
     expect(red).toHaveAttribute("data-alert", "true");
-    expect(red.className).not.toMatch(/border-l-\[length/);
+    expect(within(red).getByTestId(TileGridTestId.Sub)).toHaveTextContent("main");
     expect(green).not.toHaveAttribute("data-alert");
     const icon = (row: HTMLElement) => within(row).getByTestId(ProjectStatusWidgetTestId.Ci);
     expect(icon(green)).toHaveAttribute("data-state", "passing");
@@ -69,7 +69,7 @@ describe("ProjectStatusWidget", () => {
     expect(icon(busy)).toHaveAttribute("data-state", "running");
   });
 
-  it("an unreachable repo shows the warn icon + CI unavailable; cancelled has its own icon", () => {
+  it("an unreachable repo shows CI unavailable; cancelled has its own state", () => {
     d.projects = [
       { id: "down", name: "Down" },
       { id: "stop", name: "Stop" },
@@ -84,13 +84,13 @@ describe("ProjectStatusWidget", () => {
     expect(down).toHaveAccessibleName("CI nedostupné");
     expect(stop).toHaveAttribute("data-state", "cancelled");
     expect(stop).toHaveAccessibleName("Zrušeno");
-    expect(screen.getAllByTestId(BoardRowTestId.Root)[0]).not.toHaveAttribute("data-alert");
+    expect(screen.getAllByTestId(TileGridTestId.Tile)[0]).not.toHaveAttribute("data-alert");
   });
 
   it("shows only the picked projects and opens the project sheet", async () => {
     const props = setup({ widget: widget({ projectIds: ["green"] }) });
     renderWithProviders(<ProjectStatusWidget {...props} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(TileGridTestId.Tile);
     expect(rows).toHaveLength(1);
     await userEvent.click(rows[0]!);
     expect(props.onOpen).toHaveBeenCalledWith({

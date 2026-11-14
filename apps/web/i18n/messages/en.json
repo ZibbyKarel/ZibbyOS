@@ -446,6 +446,12 @@
   },
   "loading": {
     "tagline": "Intelligent Automation Platform",
+    "stepAgents": "Waking agents",
+    "stepMemory": "Loading memory",
+    "stepRuns": "Checking runs",
+    "stepBridge": "Preparing the bridge",
+    "stepReady": "Ready",
+    "footer": "zibby os · Bridge",
     "orchestrator": "Mounting workflow orchestrator…",
     "knowledge": "Syncing knowledge base…",
     "gates": "Calibrating gate rules…",
@@ -1430,7 +1436,15 @@
         "switchboard": "Switchboard",
         "defaultModel": "default",
         "checkpoints": "Checkpoints",
-        "openFolder": "Open task folder →"
+        "openFolder": "Open task folder →",
+        "who": {
+          "past": "ran:",
+          "present": "now:",
+          "future": "will run:"
+        },
+        "checkpoint": "checkpoint · {sha}",
+        "loop": "Loop",
+        "loopMax": "Loop · max {n} rounds"
       },
       "view": {
         "live": "Live",
@@ -1459,7 +1473,8 @@
         "youTo": "You → {to} · {t}",
         "queued": "Queued",
         "delivered": "Delivered → {stage}",
-        "notDelivered": "Not delivered"
+        "notDelivered": "Not delivered",
+        "streaming": "Streaming…"
       },
       "output": {
         "prTitle": "Pull request #{n}",
@@ -1506,7 +1521,8 @@
           "question": "Run resumes on reply",
           "parked": "Note is added to context",
           "stopped": "Run is stopped",
-          "done": "Run finished"
+          "done": "Run finished",
+          "deliverTo": "Delivers to stage {stage}"
         }
       },
       "confirm": {
@@ -1537,6 +1553,10 @@
           "workflow": "Workflow",
           "department": "Department"
         }
+      },
+      "about": {
+        "source": "Source",
+        "result": "Result"
       }
     },
     "artifacts": {
@@ -3112,7 +3132,18 @@
         "files": "Files changed",
         "collapseFiles": "Collapse file list",
         "expandFiles": "Expand file list",
-        "resizeFiles": "Resize file list"
+        "resizeFiles": "Resize file list",
+        "filter": "Filter files…",
+        "collapseFile": "Collapse file",
+        "expandFile": "Expand file",
+        "view": "Diff view",
+        "unified": "Unified",
+        "split": "Split",
+        "generated": "Generated file · diff hidden.",
+        "showGenerated": "Show",
+        "threads": "{count, plural, one {# unresolved thread} other {# unresolved threads}}",
+        "viewed": "Viewed",
+        "viewedCount": "Viewed {viewed} / {total}"
       },
       "ci": "CI {symbol} {state}",
       "reason": {
@@ -3286,6 +3317,8 @@
     }
   },
   "bridge": {
+    "title": "Bridge",
+    "other": "Other",
     "layout": "Layout",
     "preset": {
       "DEFAULT": "Default",
@@ -3295,9 +3328,8 @@
     "density": {
       "label": "Density",
       "compact": "Compact",
-      "comfort": "Comfort",
-      "airy": "Airy",
-      "open": "Open"
+      "comfort": "Normal",
+      "airy": "Airy"
     },
     "addWidget": "Add widget",
     "add": "Add",
@@ -3373,7 +3405,16 @@
           "running": "CI running",
           "passing": "CI passing",
           "none": "No CI"
-        }
+        },
+        "pill": {
+          "you": "Your review",
+          "review": "Awaiting review",
+          "changes": "Changes requested",
+          "approved": "Approved",
+          "waiting": "Waiting",
+          "draft": "Draft"
+        },
+        "stack": "stack {count}"
       },
       "runs": {
         "colTask": "Task · step",
@@ -3383,8 +3424,13 @@
         "colIssue": "Issue",
         "group": {
           "active": "Active",
-          "finished": "Finished"
+          "finished": "Finished",
+          "parked": "Parked",
+          "queued": "Queued"
         },
+        "nowIdle": "Nothing running now",
+        "next": "next {in}",
+        "detail": "Detail",
         "state": {
           "working": "Working",
           "thinking": "Thinking",
@@ -3399,8 +3445,17 @@
         "running": "Running now",
         "prs": "Open PRs",
         "spend": "Spend this month",
-        "kicker": "{date} · briefing",
-        "fallback": "Nothing to report yet."
+        "kicker": "{date} · {time}",
+        "label": "Briefing",
+        "onYou": "Review on you",
+        "failing": "CI failing",
+        "conflict": "Conflict",
+        "calm": "A quiet day.",
+        "greeting": {
+          "morning": "Good morning.",
+          "afternoon": "Good afternoon.",
+          "evening": "Good evening."
+        }
       },
       "todo": {
         "placeholder": "What to implement… (@ agent, # project)",
@@ -3408,6 +3463,7 @@
         "add": "Add",
         "implementLabel": "Implement “{name}”",
         "openInSlack": "Open in Slack",
+        "doneLabel": "Done: “{name}”",
         "deleteLabel": "Delete “{name}”"
       },
       "quickActions": {
@@ -3428,7 +3484,8 @@
         "target": "Target",
         "add": "Add",
         "cancel": "Cancel",
-        "targetMissing": "Target no longer exists"
+        "targetMissing": "Target no longer exists",
+        "note": "One click queues the task for its agent."
       },
       "teamKb": {
         "team": "Team",
@@ -3482,6 +3539,7 @@
           "medium": "medium confidence",
           "high": "high confidence"
         },
+        "seen": "Seen {count}×",
         "expires": "expires in {days} d",
         "provenance": {
           "note": "Note",
@@ -3514,6 +3572,8 @@
           "running": "Running",
           "upcoming": "Next 24 h"
         },
+        "next": "next {in}",
+        "axis": "Timeline of the next 24 hours: {count, plural, one {# start} other {# starts}}",
         "runNow": "Run now",
         "schedule": "Schedule",
         "prompt": "Prompt",
@@ -3524,6 +3584,14 @@
         "kind": {
           "system": "System automation",
           "user": "User automation"
+        },
+        "active": "Active",
+        "lastFailed": "Last run failed",
+        "nextRuns": "Next seven runs",
+        "note": {
+          "next": "Next run {when}, fires {target}.",
+          "manual": "Runs only when you start it, fires {target}.",
+          "disabled": "Disabled; Run now still works."
         }
       },
       "projectStatus": {
@@ -3544,6 +3612,8 @@
         "claude": "Claude",
         "opencode": "opencode",
         "global": "global",
+        "runsOut": "Runs out in {time}",
+        "resetsIn": "Resets in {time}",
         "limitsUnknown": "Limits not reported yet.",
         "unavailable": "opencode is not installed.",
         "noModel": "No model chosen",
@@ -3556,7 +3626,8 @@
         "claudeStillApplies": "The Claude limits still apply to chat, helper one-shots and any claude-agent/* model."
       }
     },
-    "you": "{n} you",
+    "you": "{n} for you",
+    "controls": "Widget actions",
     "widget": {
       "briefing": {
         "label": "Briefing",
@@ -3647,7 +3718,13 @@
         "state": "State",
         "zibby": "ZIBBY",
         "project": "Project",
-        "updatedLabel": "Updated"
+        "updatedLabel": "Updated",
+        "note": {
+          "new": "Nothing has started yet; process it into a task when you want ZIBBY on it.",
+          "waiting": "Waiting on you: ZIBBY stopped and needs an answer or a merge.",
+          "running": "ZIBBY is working on this; nothing is needed from you.",
+          "done": "Finished; nothing is needed from you."
+        }
       },
       "task": {
         "chain": "Chain · {n}",
@@ -3657,7 +3734,14 @@
         "from": "From {source}",
         "noDepartment": "No department",
         "noProject": "No project",
-        "openApproval": "Open approval ↗"
+        "openApproval": "Open approval ↗",
+        "note": {
+          "error": "A step failed; open the run to see why.",
+          "blocked": "A step waits for your approval before the chain continues.",
+          "working": "The chain is running; nothing is needed from you.",
+          "thinking": "Queued; the chain starts when an agent is free.",
+          "done": "All steps are done."
+        }
       },
       "pr": {
         "checks": "Checks",
@@ -3707,7 +3791,20 @@
         "noDescription": "No description provided.",
         "draftFailedNoReason": "Changing the draft state failed.",
         "closeFailedNoReason": "Closing the PR failed.",
-        "descriptionTruncated": "Description truncated, view on GitHub ↗"
+        "descriptionTruncated": "Description truncated, view on GitHub ↗",
+        "tone": {
+          "ciFailing": "CI failing",
+          "conflict": "Conflict with base",
+          "reviewRequested": "Awaiting your review",
+          "changesRequested": "Changes requested",
+          "checksRunning": "Checks running",
+          "draft": "Draft",
+          "approved": "Approved",
+          "awaitingReview": "Awaiting review"
+        },
+        "banner": {
+          "ciFailing": "{count, plural, =0 {Checks are failing} one {# check failing} other {# checks failing}}"
+        }
       },
       "run": {
         "open": "Open run ↗",
@@ -3723,8 +3820,19 @@
         "noRuns": "No CI has run on the base branch yet.",
         "gitlabDeferred": "GitLab CI is not read yet.",
         "fixRunning": "Fix in progress",
-        "unavailable": "CI could not be read: {reason}"
-      }
+        "unavailable": "CI could not be read: {reason}",
+        "note": {
+          "passing": "CI on the base branch is green.",
+          "failing": "CI on the base branch is red; Fix CI opens a PR with the repair.",
+          "running": "CI is running on the base branch.",
+          "idle": "No CI result to show for the base branch."
+        }
+      },
+      "back": "Back to {label}",
+      "stepPrev": "Previous row (↑)",
+      "stepNext": "Next row (↓)",
+      "expand": "Expand",
+      "shrink": "Shrink"
     },
     "moreLayouts": "More layouts",
     "deleteLayout": "Delete",
@@ -3745,7 +3853,10 @@
       "add": "Add",
       "deleteNamed": "Delete {name}",
       "moveHint": "Alt+↑/↓ to move",
-      "dropEnd": "Drop here to put last in the dropdown"
+      "dropEnd": "Drop here to put last in the dropdown",
+      "reset": "Reset to built-in",
+      "resetNamed": "Reset {name} to the built-in layout",
+      "resetHint": "Drops your edits and brings back the built-in layout"
     }
   },
   "inventory": {

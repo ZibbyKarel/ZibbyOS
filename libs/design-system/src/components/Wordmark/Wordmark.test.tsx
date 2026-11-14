@@ -4,23 +4,29 @@ import { render } from "../../utils/testRender";
 import { Wordmark, WordmarkTestId } from "./Wordmark";
 
 describe("Wordmark", () => {
-  it("renders the default brand text, not CSS-uppercased", () => {
+  it("renders the lowercase lettering with the amber sentence dot", () => {
     render(<Wordmark />);
-    const name = screen.getByTestId(WordmarkTestId.Name);
-    expect(name).toHaveTextContent("ZibbyOS");
-    expect(name.className).not.toContain("uppercase");
+    expect(screen.getByTestId(WordmarkTestId.Name)).toHaveTextContent("zibby.");
+    expect(screen.getByTestId(WordmarkTestId.Dot).className).toContain("text-accent-fg");
   });
 
-  it("renders an overridden text", () => {
-    render(<Wordmark>ACME CORP</Wordmark>);
-    expect(screen.getByTestId(WordmarkTestId.Root)).toHaveTextContent("ACME CORP");
-  });
-
-  it("renders as a span with an accessible name", () => {
+  it("keeps the product name as its accessible name", () => {
     render(<Wordmark />);
     const el = screen.getByTestId(WordmarkTestId.Root);
     expect(el.tagName).toBe("SPAN");
     expect(el).toHaveAccessibleName("ZibbyOS");
+  });
+
+  it("renders an overridden text without the dot", () => {
+    render(<Wordmark>ACME CORP</Wordmark>);
+    expect(screen.getByTestId(WordmarkTestId.Name)).toHaveTextContent("ACME CORP");
+    expect(screen.queryByTestId(WordmarkTestId.Dot)).toBeNull();
+    expect(screen.getByTestId(WordmarkTestId.Root)).toHaveAccessibleName("ACME CORP");
+  });
+
+  it("renders the splash size", () => {
+    render(<Wordmark size="lg" />);
+    expect(screen.getByTestId(WordmarkTestId.Name).className).toContain("text-[34px]");
   });
 
   it("renders no version line by default", () => {

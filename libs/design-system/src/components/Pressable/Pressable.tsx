@@ -8,20 +8,20 @@ export enum PressableTestId {
 
 export type PressableChipTone = "run" | "warn" | "bad";
 
-/** Pill shape + tone-tinted hover/`aria-expanded`/focus-ring — the chat
+/** Pill shape + tone-tinted hover/`aria-expanded` fill (shared focus ring) — the chat
  *  top-bar status pill's working/waiting/error flyout triggers. */
 const chipToneClass: Record<PressableChipTone, string> = {
   run: cn(
-    "rounded-full px-2 py-0.5 transition-colors hover:bg-run/15 aria-expanded:bg-run/15",
-    "outline-none focus-visible:ring-1 focus-visible:ring-run",
+    "rounded-full px-2 py-0.5 transition-colors motion-reduce:transition-none hover:bg-run/15 aria-expanded:bg-run/15",
+    focusRing,
   ),
   warn: cn(
-    "rounded-full px-2 py-0.5 transition-colors hover:bg-warn/15 aria-expanded:bg-warn/15",
-    "outline-none focus-visible:ring-1 focus-visible:ring-warn",
+    "rounded-full px-2 py-0.5 transition-colors motion-reduce:transition-none hover:bg-warn/15 aria-expanded:bg-warn/15",
+    focusRing,
   ),
   bad: cn(
-    "rounded-full px-2 py-0.5 transition-colors hover:bg-bad/15 aria-expanded:bg-bad/15",
-    "outline-none focus-visible:ring-1 focus-visible:ring-bad",
+    "rounded-full px-2 py-0.5 transition-colors motion-reduce:transition-none hover:bg-bad/15 aria-expanded:bg-bad/15",
+    focusRing,
   ),
 };
 

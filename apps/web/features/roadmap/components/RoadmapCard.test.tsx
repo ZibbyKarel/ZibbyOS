@@ -158,7 +158,7 @@ describe("RoadmapCard", () => {
       />,
     );
     const chip = within(screen.getByTestId(RoadmapCardTestId.Blocker)).getByTestId(ChipTestId.Root);
-    expect(chip.className).toContain("text-warn");
+    expect(chip.className).toContain("bg-warn/[0.12]");
   });
 
   it("the tooltip lists every blocker's title, marking the archived one", async () => {

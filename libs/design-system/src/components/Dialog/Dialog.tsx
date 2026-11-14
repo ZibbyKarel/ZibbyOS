@@ -143,7 +143,7 @@ export function Dialog({
         aria-label={ariaLabel}
         aria-labelledby={title && !ariaLabel ? titleId : undefined}
         className={cn(
-          "relative flex max-h-[calc(100vh-64px)] flex-col bg-surface border border-border rounded-lg shadow-modal animate-scale-in",
+          "relative flex max-h-[calc(100vh-64px)] flex-col bg-sheet border border-line-2 rounded-lg shadow-[var(--shadow-pop)] animate-scale-in motion-reduce:animate-none",
           focusRing,
         )}
         data-testid={DialogTestId.Root}
@@ -193,12 +193,12 @@ function DialogHeader({
 }) {
   return (
     <div
-      className="px-5 pt-4 pb-[14px] border-b border-border shrink-0"
+      className="px-5 pt-4 pb-[14px] border-b border-line shrink-0"
       data-testid={DialogTestId.Header}
     >
       <Row gap="150" justify="between">
         <div
-          className="font-sans font-semibold text-md text-foreground"
+          className="font-sans font-semibold text-[15px] leading-5 text-ink"
           data-testid={DialogTestId.Title}
           id={titleId}
         >
@@ -210,7 +210,7 @@ function DialogHeader({
             <button
               aria-label={closeLabel}
               className={cn(
-                "bg-transparent border-none cursor-pointer text-foreground-faint p-0.5 leading-none text-base hover:text-foreground",
+                "bg-transparent border-none cursor-pointer text-ink-3 p-0.5 leading-none text-base rounded-sm hover:text-ink",
                 focusRing,
               )}
               data-testid={DialogTestId.CloseButton}
@@ -223,7 +223,7 @@ function DialogHeader({
       </Row>
       {description && (
         <p
-          className="mt-1.5 text-base text-foreground-dim leading-relaxed"
+          className="mt-1.5 text-[12.5px] text-ink-2 leading-relaxed"
           data-testid={DialogTestId.Description}
           id={descriptionId}
         >
@@ -244,10 +244,7 @@ export function DialogBody({ children }: { children: ReactNode }) {
 
 function DialogFooter({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="px-5 pt-3 pb-4 border-t border-border shrink-0"
-      data-testid={DialogTestId.Footer}
-    >
+    <div className="px-5 pt-3 pb-4 border-t border-line shrink-0" data-testid={DialogTestId.Footer}>
       <Row gap="100" justify="end">
         {children}
       </Row>

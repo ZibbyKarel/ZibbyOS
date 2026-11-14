@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Container,
   RailSplit,
   Row,
   Stack,
@@ -13,7 +12,8 @@ import {
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useIsPhone } from "../../../hooks/useIsPhone";
 import { useApprovalsQuery } from "../../approvals";
 import { runChatAbout } from "../../chat/chatAbout";
 import { ChatAboutButton } from "../../chat/components/ChatAboutButton";
@@ -22,6 +22,7 @@ import { useWorkflowsQuery } from "../../workflows";
 import { useOpenTaskRunFolderMutation } from "../mutations";
 import { useStageRunLogQuery } from "../queries/useStageRunLogQuery";
 import { type RunView, approvalForRun } from "../run";
+import { pickRunBanner } from "../runBanner";
 import {
   MODE_TONE,
   buildLiveFeed,
@@ -36,7 +37,13 @@ import { HandoverRunDialog } from "./HandoverRunDialog";
 import { RunComposer } from "./RunComposer";
 import { RunDetailActions } from "./RunDetailActions";
 import { RunDetailHeader } from "./RunDetailHeader";
-import { RunApprovalBanner } from "./RunFeedBanners";
+import {
+  LimitPausedPanel,
+  RunApprovalBanner,
+  RunErrorBanner,
+  RunParkedBanner,
+  RunQuestionBanner,
+} from "./RunFeedBanners";
 import { RunInputView } from "./RunInputView";
 import { RunLiveFeed } from "./RunLiveFeed";
 import { RunOutputView, useContinueTaskContext } from "./RunOutputView";
@@ -124,9 +131,9 @@ export function RunHeaderActions({ run }: { run: RunView }) {
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Run detail: status row + metrics, then the stage rail beside the LIVE / INPUT / OUTPUT body and
- * the composer. Embedded (sheet): status row, metrics, approval card (with the gated phase's output inside), then the tabs panel
- * with the rail as the LIVE tab's sidebar.
+ * Run detail (spec §5): status row, the one banner, About cards, metrics, then the stage rail beside
+ * the LIVE / INPUT / OUTPUT body and the composer. Embedded (sheet): the rail is the LIVE tab's
+ * sidebar only; on a phone it scrolls sideways above the log.
  */
 export function RunDetail({
   run,
@@ -140,6 +147,7 @@ export function RunDetail({
   const [view, setView] = useState<View>("live");
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [reviseOpen, setReviseOpen] = useState(false);
+  const isPhone = useIsPhone();
 
   const { data: queue = [] } = useApprovalsQuery();
   const approval = approvalForRun(queue, run);
@@ -164,9 +172,10 @@ export function RunDetail({
     run.kind === "workflow" ? workflows?.find((w) => w.id === run.owner) : undefined;
   const definedPhaseIds = workflowDef?.phases.map((p) => p.id).filter((id): id is string => !!id);
 
-  // A ticking clock is presentation, not state polling — it only runs while the run is live.
+  // A ticking clock is presentation, not state polling — it only runs while the run works or waits on me.
   const [now, setNow] = useState(Date.now);
-  const ticking = mode === "running" || mode === "pausing";
+  const ticking =
+    mode === "running" || mode === "pausing" || mode === "approval" || mode === "question";
   useEffect(() => {
     if (!ticking) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -177,8 +186,10 @@ export function RunDetail({
   const current = rail.find((r) => r.current);
   const selected = rail.find((r) => r.phaseId === selectedPhaseId) ?? current;
   const maxRetries = workflowDef?.phases.find((p) => p.id === current?.phaseId)?.loop?.maxRetries;
-  const metrics = buildRunMetrics(run, rail, maxRetries, now);
-  const progressPct = Number.parseInt(metrics[0]?.value ?? "0", 10) || 0;
+  const allMetrics = buildRunMetrics(run, rail, maxRetries, now);
+  // Spec §5: a metric shows only when the run has the data for it.
+  const metrics = allMetrics.filter((m) => m.value !== "—");
+  const progressPct = Number.parseInt(allMetrics[0]?.value ?? "0", 10) || 0;
 
   const workflow = run.kind === "workflow";
   const selectedLive = workflow && selected?.stateKey === "running";
@@ -239,28 +250,48 @@ export function RunDetail({
           })
         : null;
 
-  const banner =
-    mode === "approval" && approval ? (
-      <Container padding={embedded ? ["200", "300", "0", "300"] : ["250", "300", "0", "300"]}>
-        <RunApprovalBanner
-          approval={approval}
-          diffstat={run.diffstat}
-          onOpenDetail={onOpenApproval && (() => onOpenApproval(approval.id))}
-          onToggleRevise={() => setReviseOpen((o) => !o)}
-          output={output}
-          reviseOpen={reviseOpen}
-        />
-      </Container>
-    ) : null;
+  // Spec §5: at most one banner, picked by severity.
+  const bannerKind = pickRunBanner(mode, !!approval);
+  const parkedStage =
+    rail.find((r) => r.phaseId === run.parked?.phaseId) ?? rail.find((r) => r.current);
+  let banner: ReactNode = null;
+  if (bannerKind === "approval" && approval)
+    banner = (
+      <RunApprovalBanner
+        approval={approval}
+        diffstat={run.diffstat}
+        onOpenDetail={onOpenApproval && (() => onOpenApproval(approval.id))}
+        onToggleRevise={() => setReviseOpen((o) => !o)}
+        output={output}
+        reviseOpen={reviseOpen}
+      />
+    );
+  else if (bannerKind === "question" && approval)
+    banner = (
+      <RunQuestionBanner
+        agentName={approval.skill}
+        approvalId={approval.id}
+        question={approval.summary ?? approval.text ?? approval.detail}
+      />
+    );
+  else if (bannerKind === "error")
+    banner = (
+      <RunErrorBanner
+        onRerun={() => actions.resume(run, { mode: "fresh" })}
+        reason={run.taskOutcomeSummary}
+        rerunning={actions.resuming}
+      />
+    );
+  else if (bannerKind === "parked") banner = <RunParkedBanner run={run} stage={parkedStage} />;
+  else if (bannerKind === "limit") banner = <LimitPausedPanel now={now} run={run} />;
 
   return (
     <Stack data-testid={RunDetailTestId.Root} gap="0">
-      {!embedded && banner}
       <RunDetailHeader
         // In a sheet the actions sit in the sheet header (`RunHeaderActions`), like every sheet.
         actions={embedded ? null : <RunHeaderActions run={run} />}
-        afterMetrics={embedded ? banner : undefined}
         agent={agent}
+        banner={banner}
         compact={embedded}
         metrics={metrics}
         mode={mode}
@@ -277,6 +308,7 @@ export function RunDetail({
             crew={
               workflow ? rail.map((r) => ({ key: r.phaseId, name: r.name, state: r.state })) : []
             }
+            currentStageName={workflow ? current?.name : undefined}
             mode={mode}
             onSent={() => setView("live")}
             resume={actions.resume}
@@ -288,6 +320,8 @@ export function RunDetail({
           // In the sheet the phases are a sidebar of the LIVE tab only; the tabs stay put above it.
           embedded && view !== "live" ? undefined : (
             <RunStageRail
+              horizontal={isPhone}
+              onOpenFolder={openFolder}
               onSelect={setSelectedPhaseId}
               rows={rail}
               run={run}
@@ -295,7 +329,7 @@ export function RunDetail({
             />
           )
         }
-        stacked={embedded}
+        stacked={embedded || isPhone}
         toolbar={
           <Stack align="center" direction="row" gap="150" justify="between">
             <Stack data-testid={RunDetailTestId.ViewSwitch}>
@@ -328,9 +362,7 @@ export function RunDetail({
           </Stack>
         }
       >
-        {view === "live" && (
-          <RunLiveFeed approval={approval} items={items} mode={mode} rail={rail} run={run} />
-        )}
+        {view === "live" && <RunLiveFeed items={items} run={run} />}
         {view === "input" && <RunInputView run={run} />}
         {view === "output" && (
           <RunOutputView

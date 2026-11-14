@@ -46,13 +46,13 @@ export function SearchBar({
     <button
       aria-label={ariaLabel}
       className={cn(
-        "flex items-center gap-[14px] w-full px-[10px] py-[6px] cursor-pointer",
+        "flex h-[32px] items-center gap-2 w-full px-[10px] cursor-pointer",
         surface === "transparent"
           ? "bg-transparent border border-transparent"
-          : "bg-background border border-border-strong",
-        "rounded-sm text-foreground-faint",
-        "transition-colors",
-        "hover:border-ink hover:text-foreground-dim",
+          : "bg-panel border border-line",
+        "rounded-md text-ink-3",
+        "transition-colors motion-reduce:transition-none",
+        "hover:border-line-2 hover:text-ink-2",
         focusRing,
       )}
       data-testid={SearchBarTestId.Root}
@@ -63,7 +63,7 @@ export function SearchBar({
     >
       <Icon data-testid={SearchBarTestId.Icon} name="search" size="sm" />
       <span
-        className="flex-1 min-w-0 text-left font-sans text-sm truncate"
+        className="flex-1 min-w-0 text-left font-sans text-[13px] truncate"
         data-testid={SearchBarTestId.Placeholder}
       >
         {placeholder}

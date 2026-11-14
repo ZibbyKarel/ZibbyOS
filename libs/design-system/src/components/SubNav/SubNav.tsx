@@ -46,17 +46,17 @@ export interface SubNavProps {
 const itemClass = (active: boolean, responsive: boolean) =>
   cn(
     "flex items-center whitespace-nowrap font-sans text-[13px] font-medium",
-    "border-b transition-colors",
+    "border-b transition-colors motion-reduce:transition-none",
     focusRingInset,
     responsive
       ? "h-9 px-3 lg:h-auto lg:w-full lg:border-b-0 lg:border-l lg:px-3 lg:py-2"
       : "h-full px-3",
-    active ? "border-ink text-ink" : "border-transparent text-ink-3 hover:text-ink-2",
+    active ? "border-ink text-ink" : "border-transparent text-ink-3 hover:text-ink",
   );
 
 /**
  * DS.md §8 "Tabs (top nav)" applied to a section's sub-navigation row (DS App
- * mock's subnav strip) — mono uppercase links with a 1px `--ink` underline on
+ * mock's subnav strip) — sentence-case links with a 1px `--ink` underline on
  * the active item, plus a right-aligned `actions` slot. Unlike {@link Tabs}
  * (an internal active/value state machine), `SubNav` is route-driven: `active`
  * comes from the caller's own route match, and each item is a real link.
@@ -78,7 +78,7 @@ export function SubNav({
       className={cn(
         "flex items-stretch gap-0",
         responsive &&
-          "overflow-x-auto border-b border-border lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r",
+          "overflow-x-auto border-b border-line lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r",
       )}
       data-testid={SubNavTestId.List}
     >
@@ -106,7 +106,7 @@ export function SubNav({
         "flex",
         responsive
           ? "flex-col lg:h-full lg:items-stretch lg:justify-start"
-          : "items-stretch justify-between border-b border-border",
+          : "items-stretch justify-between border-b border-line",
       )}
       data-testid={SubNavTestId.Root}
       // Fills the fixed-height row `AppFrame` reserves for it (`LAYOUT.subNavHeight`)

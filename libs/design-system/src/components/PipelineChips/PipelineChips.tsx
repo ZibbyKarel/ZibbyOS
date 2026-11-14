@@ -15,13 +15,13 @@ export interface PipelineChip {
   title?: string;
 }
 
-const UNDERLINE: Record<StateTone, string> = {
-  working: "border-b-[color:var(--color-state-work)]",
-  thinking: "border-b-[color:var(--color-state-think)]",
-  blocked: "border-b-[color:var(--color-state-block)]",
-  error: "border-b-[color:var(--color-state-err)]",
-  done: "border-b-[color:var(--color-state-done)]",
-  idle: "border-b-[color:var(--color-state-idle)]",
+const TINT: Record<StateTone, string> = {
+  working: "bg-state-work/10",
+  thinking: "bg-state-think/10",
+  blocked: "bg-state-block/12",
+  error: "bg-state-err/10",
+  done: "bg-state-done/10",
+  idle: "bg-state-idle/10",
 };
 
 export interface PipelineChipsProps {
@@ -29,16 +29,16 @@ export interface PipelineChipsProps {
   ref?: Ref<HTMLSpanElement>;
 }
 
-/** Department pipeline chips: mono 9 code over a 2px bottom rule in the stage's state colour. */
+/** Department pipeline chips: code chip tinted by the stage's state. */
 export function PipelineChips({ chips, ref }: PipelineChipsProps) {
   return (
-    <span className="flex gap-[2px]" data-testid={PipelineChipsTestId.Root} ref={ref}>
+    <span className="flex gap-[4px]" data-testid={PipelineChipsTestId.Root} ref={ref}>
       {chips.map((c, i) => (
         <span
           className={cn(
-            "border-b-2 bg-bg px-[4px] pb-px pt-[2px] font-sans font-semibold uppercase tracking-wider text-[9px]",
+            "inline-flex h-[20px] items-center rounded-sm px-[7px] text-[11.5px] font-medium",
             c.state === "idle" ? "text-ink-3" : "text-ink",
-            UNDERLINE[c.state],
+            TINT[c.state],
           )}
           data-testid={`${PipelineChipsTestId.Chip}-${i}`}
           key={`${c.code}-${i}`}

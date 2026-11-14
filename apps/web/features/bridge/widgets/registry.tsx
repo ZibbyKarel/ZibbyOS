@@ -1,5 +1,5 @@
 import type { WidgetFilters } from "@zibby/contracts";
-import type { IconName } from "@zibby/design-system";
+import type { IconName, WidgetSpecies } from "@zibby/design-system";
 import type { ReactNode } from "react";
 import type { BridgeWidget, WidgetType } from "../grid/layout";
 import { AutomationRunsWidget } from "./AutomationRunsWidget";
@@ -22,7 +22,7 @@ import { WidgetSortSettings } from "./widgetFilters";
 export interface BridgeSelection {
   kind: "issue" | "task" | "pr" | "run" | "quickAction" | "note" | "automation" | "project";
   id: string;
-  /** Id of the widget the row lives in (J/K navigates within it). */
+  /** Id of the widget the row lives in (arrow keys navigate within it). */
   widgetId: string;
   /** Unique row key within the board — equals the row element's `data-rk`. */
   key: string;
@@ -37,9 +37,11 @@ export interface BridgeWidgetInfo {
   loading?: boolean;
   /** Item count, shown zero-padded next to the label. */
   count?: number;
-  /** Items needing the operator — shown as the `N YOU` badge when > 0. */
+  /** Items needing the operator — shown as the "N for you" pill when > 0. */
   you?: number;
-  /** Right-aligned header note. The frame shows `ALL CLEAR` itself when empty. */
+  /** Weighted non-"you" score terms (`PRIORITY_WEIGHT`) — raises the widget's tier, never shown. */
+  urgency?: number;
+  /** Right-aligned header note. The frame shows "All clear" itself when empty. */
   aside?: string;
   /** Sync button in the frame header (must be referentially stable). */
   onRefresh?: () => void;
@@ -96,6 +98,8 @@ export interface WidgetDefinition {
   descKey: `bridge.widget.${WidgetType}.desc`;
   /** Glyph of the widget type — shown in its empty state. */
   icon: IconName;
+  /** Body shape (spec §4) — the frame's `data-species`. */
+  species: WidgetSpecies;
   Component: (props: BridgeWidgetProps) => ReactNode;
   /** Has a header `+` toggle that drives `BridgeWidgetProps.adding`. */
   addable?: true;
@@ -114,12 +118,14 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.briefing.label",
     descKey: "bridge.widget.briefing.desc",
     icon: "coffee",
+    species: "hero",
     Component: BriefingWidget,
   },
   issues: {
     labelKey: "bridge.widget.issues.label",
     descKey: "bridge.widget.issues.desc",
     icon: "bug",
+    species: "groupedList",
     Component: IssuesWidget,
     Filters: IssuesFilterControls,
     Settings: WidgetSortSettings,
@@ -128,6 +134,7 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.prs.label",
     descKey: "bridge.widget.prs.desc",
     icon: "branch",
+    species: "stackList",
     Component: PrsWidget,
     Filters: PrFilterControls,
     Settings: WidgetSortSettings,
@@ -136,24 +143,28 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.runs.label",
     descKey: "bridge.widget.runs.desc",
     icon: "play",
+    species: "statusRail",
     Component: RunsWidget,
   },
   automationRuns: {
     labelKey: "bridge.widget.automationRuns.label",
     descKey: "bridge.widget.automationRuns.desc",
     icon: "clock",
+    species: "timeline",
     Component: AutomationRunsWidget,
   },
   pins: {
     labelKey: "bridge.widget.pins.label",
     descKey: "bridge.widget.pins.desc",
     icon: "pin",
+    species: "launcher",
     Component: PinsWidget,
   },
   todo: {
     labelKey: "bridge.widget.todo.label",
     descKey: "bridge.widget.todo.desc",
     icon: "pen",
+    species: "paper",
     Component: TodoWidget,
     addable: true,
   },
@@ -161,6 +172,7 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.quickActions.label",
     descKey: "bridge.widget.quickActions.desc",
     icon: "bolt",
+    species: "chipPalette",
     Component: QuickActionsWidget,
     addable: true,
   },
@@ -168,6 +180,7 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.teamKb.label",
     descKey: "bridge.widget.teamKb.desc",
     icon: "book",
+    species: "readingList",
     Component: TeamKbWidget,
     Settings: TeamKbWidgetSettings,
   },
@@ -175,24 +188,28 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     labelKey: "bridge.widget.proposals.label",
     descKey: "bridge.widget.proposals.desc",
     icon: "spark",
+    species: "decisionCards",
     Component: ProposalsWidget,
   },
   budgets: {
     labelKey: "bridge.widget.budgets.label",
     descKey: "bridge.widget.budgets.desc",
     icon: "dollar",
+    species: "meters",
     Component: BudgetsWidget,
   },
   mentions: {
     labelKey: "bridge.widget.mentions.label",
     descKey: "bridge.widget.mentions.desc",
     icon: "chat",
+    species: "feed",
     Component: MentionsWidget,
   },
   projectStatus: {
     labelKey: "bridge.widget.projectStatus.label",
     descKey: "bridge.widget.projectStatus.desc",
     icon: "branch",
+    species: "tileGrid",
     Component: ProjectStatusWidget,
     Settings: ProjectStatusWidgetSettings,
   },

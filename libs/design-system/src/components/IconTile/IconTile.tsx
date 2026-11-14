@@ -37,14 +37,14 @@ const innerIcon: Record<IconTileSize, Size> = {
 };
 
 const toneClass: Record<IconTileTone, string> = {
-  accent: "border-accent/30 bg-accent-dim text-accent",
-  neutral: "border-border text-foreground-faint",
+  accent: "border-accent/35 bg-accent/[0.12] text-accent-fg",
+  neutral: "border-line bg-panel-2 text-ink-2",
 };
 
 /** Outline (unfilled) variant: a stronger border, no background. */
 const outlineToneClass: Record<IconTileTone, string> = {
-  accent: "border-accent text-accent",
-  neutral: "border-border text-foreground-faint",
+  accent: "border-accent/35 text-accent-fg",
+  neutral: "border-line text-ink-3",
 };
 
 const radiusClass: Record<IconTileRadius, string> = {
@@ -135,7 +135,7 @@ export function IconTile({
         glow && "ring-1 ring-accent/50",
         interactive &&
           cn(
-            "cursor-pointer transition-colors hover:border-accent/35 hover:text-foreground",
+            "cursor-pointer transition-colors hover:border-line-2 hover:text-ink motion-reduce:transition-none",
             focusRing,
           ),
       )}

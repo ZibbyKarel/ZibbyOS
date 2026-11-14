@@ -1,26 +1,19 @@
 "use client";
 
 import {
-  BoardLine,
-  BoardRow,
-  BoardTag,
-  BoardText,
-  Progress,
-  type ProgressBarTone,
+  Container,
+  Meter,
+  type MeterTone,
   type SubNavLinkComponent,
   TextLink,
+  Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo } from "react";
 import { QueryError } from "../../../components/LoadError/QueryError";
-import {
-  type BudgetAxis,
-  type BudgetHealthRow,
-  type BudgetStatus,
-  buildBudgetRows,
-} from "../../budget/budgetHealth";
+import { type BudgetAxis, type BudgetHealthRow, buildBudgetRows } from "../../budget/budgetHealth";
 import { useAiProvidersQuery, useAiProvidersSpendQuery } from "../../ai-providers";
 import { useCompaniesQuery } from "../../companies/queries";
 import { useBudgetQuery, useProjectsQuery } from "../../projects/queries";
@@ -40,11 +33,8 @@ export enum BudgetsWidgetTestId {
   ProviderSpend = "budgets-widget-provider-spend",
 }
 
-const TONE: Record<BudgetStatus, ProgressBarTone> = {
-  exhausted: "bad",
-  near: "warn",
-  ok: "ok",
-};
+/** Above this share of its cap a meter turns amber (the design's "hot" threshold). */
+export const HOT_PCT = 85;
 
 const COST_AXES: ReadonlySet<BudgetAxis> = new Set(["dailyCost", "weeklyCost", "monthlyCost"]);
 
@@ -115,6 +105,7 @@ export function BudgetsWidget({
       loading,
       // +1: the always-present AI usage block (keeps the widget from collapsing to ALL CLEAR).
       count: loading || !built ? undefined : rows.length + (openaiSpent === undefined ? 0 : 1) + 1,
+      // No `urgency`: every budget above 85 % is already "near" (≥ 80 %) or exhausted, i.e. in `you`.
       you: exhausted + near,
       aside,
       failed,
@@ -145,13 +136,13 @@ export function BudgetsWidget({
   if (rows.length === 0 && openaiSpent === undefined) {
     return (
       <>
-        <BoardRow tone="neutral">
+        <Container padding={["100", "150"]}>
           <span data-testid={BudgetsWidgetTestId.Empty}>
-            <BoardText kind="meta" tone="ink3">
+            <Typography size="sm" type="note" variant="tertiary">
               {t("empty")}
-            </BoardText>
+            </Typography>
           </span>
-        </BoardRow>
+        </Container>
         <AiUsageSection />
       </>
     );
@@ -178,22 +169,22 @@ function ProviderSpendRow({ name, usd }: { name: string; usd: number }) {
   const locale = useLocale();
   const money = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(usd);
   return (
-    <BoardRow tone="neutral">
+    <Container padding={["0", "150"]}>
       <TextLink
         data-testid={BudgetsWidgetTestId.ProviderRow}
         href={"/system/settings/ai-models" as Route}
         linkComponent={Link as SubNavLinkComponent}
       >
-        <BoardLine between gap="6" indent={false}>
-          <BoardText kind="title">{name}</BoardText>
-          <span data-testid={BudgetsWidgetTestId.ProviderSpend}>
-            <BoardText kind="meta" tone="ink2">
+        <Meter
+          label={name}
+          value={
+            <span data-testid={BudgetsWidgetTestId.ProviderSpend}>
               {t("providerSpent", { amount: money })}
-            </BoardText>
-          </span>
-        </BoardLine>
+            </span>
+          }
+        />
       </TextLink>
-    </BoardRow>
+    </Container>
   );
 }
 
@@ -223,52 +214,47 @@ function BudgetRow({ row }: BudgetRowProps) {
         : `${amount(row.used)} ${axisLabel}`;
   // Floor, so the shown percent never crosses a threshold the badge hasn't (79.6 % ≠ "80 %").
   const pct = Math.floor(row.ratio * 100);
+  const tone: MeterTone = row.status === "exhausted" ? "bad" : pct >= HOT_PCT ? "hot" : "ok";
+  // No period start/end on budget rows, so there is no "runs out in …" prediction here (see AiUsageSection for the limit windows).
 
   return (
-    <BoardRow
-      tone={row.status === "exhausted" ? "error" : row.status === "near" ? "blocked" : "neutral"}
-    >
+    <Container padding={["0", "150"]}>
       <TextLink
         data-testid={BudgetsWidgetTestId.Row}
         href={rowHref(row)}
         linkComponent={Link as SubNavLinkComponent}
       >
-        <BoardLine between gap="6" indent={false}>
-          <span data-testid={BudgetsWidgetTestId.Name}>
-            <BoardText kind="title">{name}</BoardText>
-          </span>
-          {row.status !== "ok" ? (
-            <BoardTag
-              data-testid={BudgetsWidgetTestId.Badge}
-              variant={row.status === "exhausted" ? "you" : "source"}
-            >
-              {t(row.status)}
-            </BoardTag>
-          ) : null}
-        </BoardLine>
-        {row.cap > 0 ? <Progress label={name} tone={TONE[row.status]} value={pct} /> : null}
-        <BoardLine between gap="6" indent={false}>
-          <span data-testid={BudgetsWidgetTestId.Usage}>
-            <BoardText kind="meta" tone="ink2">
-              {usage}
-            </BoardText>
-          </span>
-          {row.cap > 0 ? (
-            <span data-testid={BudgetsWidgetTestId.Percent}>
-              <BoardText kind="meta" tone="ink2">
-                {`${pct} %`}
-              </BoardText>
-            </span>
-          ) : null}
-        </BoardLine>
-        {row.held > 0 ? (
-          <span data-testid={BudgetsWidgetTestId.Held}>
-            <BoardText kind="meta" tone="ink3">
-              {t("held", { n: row.held })}
-            </BoardText>
-          </span>
-        ) : null}
+        <Meter
+          barLabel={name}
+          label={<span data-testid={BudgetsWidgetTestId.Name}>{name}</span>}
+          note={
+            <>
+              <span data-testid={BudgetsWidgetTestId.Usage}>{usage}</span>
+              {row.status !== "ok" ? (
+                <>
+                  {" · "}
+                  <span data-testid={BudgetsWidgetTestId.Badge}>{t(row.status)}</span>
+                </>
+              ) : null}
+              {row.held > 0 ? (
+                <>
+                  {" · "}
+                  <span data-testid={BudgetsWidgetTestId.Held}>{t("held", { n: row.held })}</span>
+                </>
+              ) : null}
+            </>
+          }
+          pct={row.cap > 0 ? pct : undefined}
+          tone={tone}
+          value={
+            row.cap > 0 ? (
+              <span data-testid={BudgetsWidgetTestId.Percent}>{`${pct} %`}</span>
+            ) : (
+              usage
+            )
+          }
+        />
       </TextLink>
-    </BoardRow>
+    </Container>
   );
 }

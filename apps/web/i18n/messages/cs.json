@@ -446,6 +446,12 @@
   },
   "loading": {
     "tagline": "Inteligentní automatizační platforma",
+    "stepAgents": "Probouzím agenty",
+    "stepMemory": "Načítám paměť",
+    "stepRuns": "Kontroluji běhy",
+    "stepBridge": "Připravuji Můstek",
+    "stepReady": "Připraveno",
+    "footer": "zibby os · Můstek",
     "orchestrator": "Připojuji orchestrátor workflow…",
     "knowledge": "Synchronizuji znalostní bázi…",
     "gates": "Kalibruji schvalovací pravidla…",
@@ -1430,7 +1436,15 @@
         "switchboard": "Switchboard",
         "defaultModel": "výchozí",
         "checkpoints": "Checkpointy",
-        "openFolder": "Otevřít složku →"
+        "openFolder": "Otevřít složku →",
+        "who": {
+          "past": "dělal:",
+          "present": "právě:",
+          "future": "poběží:"
+        },
+        "checkpoint": "checkpoint · {sha}",
+        "loop": "Smyčka",
+        "loopMax": "Smyčka · max {n} kol"
       },
       "view": {
         "live": "Živě",
@@ -1459,7 +1473,8 @@
         "youTo": "Ty → {to} · {t}",
         "queued": "Ve frontě",
         "delivered": "Doručeno → {stage}",
-        "notDelivered": "Nedoručeno"
+        "notDelivered": "Nedoručeno",
+        "streaming": "Streamuje…"
       },
       "output": {
         "prTitle": "Pull request #{n}",
@@ -1506,7 +1521,8 @@
           "question": "Běh pokračuje po odpovědi",
           "parked": "Poznámka půjde do kontextu",
           "stopped": "Běh je zastaven",
-          "done": "Běh skončil"
+          "done": "Běh skončil",
+          "deliverTo": "Doručí se do fáze {stage}"
         }
       },
       "confirm": {
@@ -1537,6 +1553,10 @@
           "workflow": "Workflow",
           "department": "Oddělení"
         }
+      },
+      "about": {
+        "source": "Zdroj",
+        "result": "Výsledek"
       }
     },
     "artifacts": {
@@ -3112,7 +3132,18 @@
         "files": "Změněné soubory",
         "collapseFiles": "Sbalit seznam souborů",
         "expandFiles": "Rozbalit seznam souborů",
-        "resizeFiles": "Změnit šířku seznamu souborů"
+        "resizeFiles": "Změnit šířku seznamu souborů",
+        "filter": "Filtrovat soubory…",
+        "collapseFile": "Sbalit soubor",
+        "expandFile": "Rozbalit soubor",
+        "view": "Zobrazení diffu",
+        "unified": "Unified",
+        "split": "Split",
+        "generated": "Generovaný soubor · diff skrytý.",
+        "showGenerated": "Zobrazit",
+        "threads": "{count, plural, one {# nevyřešené vlákno} few {# nevyřešená vlákna} other {# nevyřešených vláken}}",
+        "viewed": "Viewed",
+        "viewedCount": "Viewed {viewed} / {total}"
       },
       "ci": "CI {symbol} {state}",
       "reason": {
@@ -3286,6 +3317,8 @@
     }
   },
   "bridge": {
+    "title": "Můstek",
+    "other": "Ostatní",
     "layout": "Rozložení",
     "preset": {
       "DEFAULT": "Výchozí",
@@ -3295,9 +3328,8 @@
     "density": {
       "label": "Hustota",
       "compact": "Kompaktní",
-      "comfort": "Pohodlná",
-      "airy": "Vzdušná",
-      "open": "Otevřená"
+      "comfort": "Normální",
+      "airy": "Vzdušná"
     },
     "addWidget": "Přidat widget",
     "add": "Přidat",
@@ -3373,7 +3405,16 @@
           "running": "CI běží",
           "passing": "CI v pořádku",
           "none": "Bez CI"
-        }
+        },
+        "pill": {
+          "you": "Tvoje review",
+          "review": "Čeká na review",
+          "changes": "Požadované změny",
+          "approved": "Schváleno",
+          "waiting": "Čeká",
+          "draft": "Draft"
+        },
+        "stack": "stack {count}"
       },
       "runs": {
         "colTask": "Úkol · krok",
@@ -3383,8 +3424,13 @@
         "colIssue": "Issue",
         "group": {
           "active": "Aktivní",
-          "finished": "Ukončené"
+          "finished": "Ukončené",
+          "parked": "Zaparkováno",
+          "queued": "Ve frontě"
         },
+        "nowIdle": "Teď nic neběží",
+        "next": "další {in}",
+        "detail": "Detail",
         "state": {
           "working": "Pracuje",
           "thinking": "Přemýšlí",
@@ -3399,8 +3445,17 @@
         "running": "Běží teď",
         "prs": "Otevřené PR",
         "spend": "Výdaje za měsíc",
-        "kicker": "{date} · přehled",
-        "fallback": "Zatím není co hlásit."
+        "kicker": "{date} · {time}",
+        "label": "Briefing",
+        "onYou": "Review na tebe",
+        "failing": "CI selhává",
+        "conflict": "Konflikt",
+        "calm": "Klidný den.",
+        "greeting": {
+          "morning": "Dobré ráno.",
+          "afternoon": "Dobré odpoledne.",
+          "evening": "Dobrý večer."
+        }
       },
       "todo": {
         "placeholder": "Co implementovat… (@ agent, # projekt)",
@@ -3408,6 +3463,7 @@
         "add": "Přidat",
         "implementLabel": "Implementovat „{name}“",
         "openInSlack": "Otevřít ve Slacku",
+        "doneLabel": "Hotovo: „{name}“",
         "deleteLabel": "Smazat „{name}“"
       },
       "quickActions": {
@@ -3428,7 +3484,8 @@
         "target": "Cíl",
         "add": "Přidat",
         "cancel": "Zrušit",
-        "targetMissing": "Cíl už neexistuje"
+        "targetMissing": "Cíl už neexistuje",
+        "note": "Jedno kliknutí zařadí úlohu do fronty agenta."
       },
       "teamKb": {
         "team": "Tým",
@@ -3482,6 +3539,7 @@
           "medium": "střední jistota",
           "high": "vysoká jistota"
         },
+        "seen": "Opakovalo se {count}×",
         "expires": "vyprší za {days} d",
         "provenance": {
           "note": "Poznámka",
@@ -3514,6 +3572,8 @@
           "running": "Běží",
           "upcoming": "Příštích 24 h"
         },
+        "next": "další {in}",
+        "axis": "Časová osa příštích 24 hodin: {count, plural, one {# start} few {# starty} other {# startů}}",
         "runNow": "Spustit hned",
         "schedule": "Plán",
         "prompt": "Zadání",
@@ -3524,6 +3584,14 @@
         "kind": {
           "system": "Systémová automatizace",
           "user": "Uživatelská automatizace"
+        },
+        "active": "Aktivní",
+        "lastFailed": "Poslední běh selhal",
+        "nextRuns": "Příštích sedm spuštění",
+        "note": {
+          "next": "Příští spuštění {when}, spouští {target}.",
+          "manual": "Běží jen když ho spustíš, spouští {target}.",
+          "disabled": "Vypnuto; Spustit teď stále funguje."
         }
       },
       "projectStatus": {
@@ -3544,6 +3612,8 @@
         "claude": "Claude",
         "opencode": "opencode",
         "global": "globální",
+        "runsOut": "Dojde za {time}",
+        "resetsIn": "Reset za {time}",
         "limitsUnknown": "Limity zatím nejsou k dispozici.",
         "unavailable": "opencode není nainstalovaný.",
         "noModel": "Není vybrán model",
@@ -3556,7 +3626,8 @@
         "claudeStillApplies": "Limity Claude dál platí pro chat, pomocné jednorázové dotazy a každý model claude-agent/*."
       }
     },
-    "you": "{n} ty",
+    "you": "{n} na tebe",
+    "controls": "Akce widgetu",
     "widget": {
       "briefing": {
         "label": "Přehled",
@@ -3647,7 +3718,13 @@
         "state": "Stav",
         "zibby": "ZIBBY",
         "project": "Projekt",
-        "updatedLabel": "Aktualizováno"
+        "updatedLabel": "Aktualizováno",
+        "note": {
+          "new": "Zatím nic nezačalo; zpracuj to do úkolu, až na to chceš ZIBBY.",
+          "waiting": "Čeká na tebe: ZIBBY se zastavil a potřebuje odpověď nebo merge.",
+          "running": "ZIBBY na tom pracuje; nic se po tobě nechce.",
+          "done": "Hotovo; nic se po tobě nechce."
+        }
       },
       "task": {
         "chain": "Řetězec · {n}",
@@ -3657,7 +3734,14 @@
         "from": "Z {source}",
         "noDepartment": "Bez oddělení",
         "noProject": "Bez projektu",
-        "openApproval": "Otevřít schválení ↗"
+        "openApproval": "Otevřít schválení ↗",
+        "note": {
+          "error": "Krok selhal; v běhu je vidět proč.",
+          "blocked": "Krok čeká na tvoje schválení, než řetěz pokračuje.",
+          "working": "Řetěz běží; nic se po tobě nechce.",
+          "thinking": "Ve frontě; řetěz začne, až bude volný agent.",
+          "done": "Všechny kroky jsou hotové."
+        }
       },
       "pr": {
         "checks": "Kontroly",
@@ -3707,7 +3791,20 @@
         "noDescription": "PR nemá žádný popis.",
         "draftFailedNoReason": "Změna stavu draftu selhala.",
         "closeFailedNoReason": "Zavření PR selhalo.",
-        "descriptionTruncated": "Popis je zkrácený, zobrazit na GitHubu ↗"
+        "descriptionTruncated": "Popis je zkrácený, zobrazit na GitHubu ↗",
+        "tone": {
+          "ciFailing": "CI selhává",
+          "conflict": "Konflikt s base",
+          "reviewRequested": "Čeká na tvoje review",
+          "changesRequested": "Požadovány změny",
+          "checksRunning": "Checks běží",
+          "draft": "Draft",
+          "approved": "Schváleno",
+          "awaitingReview": "Čeká na review"
+        },
+        "banner": {
+          "ciFailing": "{count, plural, =0 {Checky selhávají} one {# check selhává} few {# checky selhávají} other {# checků selhává}}"
+        }
       },
       "run": {
         "open": "Otevřít běh ↗",
@@ -3723,8 +3820,19 @@
         "noRuns": "Na základní větvi zatím neběželo žádné CI.",
         "gitlabDeferred": "GitLab CI se zatím nenačítá.",
         "fixRunning": "Oprava běží",
-        "unavailable": "CI nelze načíst: {reason}"
-      }
+        "unavailable": "CI nelze načíst: {reason}",
+        "note": {
+          "passing": "CI na základní větvi je zelené.",
+          "failing": "CI na základní větvi je červené; Opravit CI otevře PR s opravou.",
+          "running": "CI na základní větvi právě běží.",
+          "idle": "Pro základní větev není žádný výsledek CI."
+        }
+      },
+      "back": "Zpět na {label}",
+      "stepPrev": "Předchozí řádek (↑)",
+      "stepNext": "Další řádek (↓)",
+      "expand": "Rozšířit",
+      "shrink": "Zúžit"
     },
     "moreLayouts": "Další layouty",
     "deleteLayout": "Smazat",
@@ -3745,7 +3853,10 @@
       "add": "Přidat",
       "deleteNamed": "Smazat {name}",
       "moveHint": "Alt+↑/↓ pro přesun",
-      "dropEnd": "Pusť sem pro přesun na konec nabídky"
+      "dropEnd": "Pusť sem pro přesun na konec nabídky",
+      "reset": "Obnovit výchozí",
+      "resetNamed": "Obnovit {name} na vestavěné rozložení",
+      "resetHint": "Zahodí tvoje úpravy a vrátí vestavěné rozložení"
     }
   },
   "inventory": {

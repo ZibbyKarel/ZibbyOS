@@ -64,7 +64,7 @@ export function ListItemBadge({ children, ...rest }: ListItemBadgeProps) {
     <span
       data-testid={testKey ? `${ListTestId.Badge}-${testKey}` : ListTestId.Badge}
       {...rest}
-      className="rounded-sm bg-accent px-2 py-px font-mono text-sm font-bold text-accent-contrast"
+      className="rounded-sm bg-accent px-[6px] font-mono text-mono font-medium text-accent-contrast"
     >
       {children}
     </span>
@@ -80,11 +80,9 @@ export type ListItemProps = Omit<React.HTMLAttributes<HTMLElement>, "className" 
 
 export function ListItem({ active = false, onSelect, children, id, ...rest }: ListItemProps) {
   const className = cn(
-    "relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-lg transition-colors",
+    "relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-body transition-colors motion-reduce:transition-none",
     focusRing,
-    active
-      ? "bg-hover font-semibold text-foreground"
-      : "font-medium text-foreground-dim hover:text-foreground",
+    active ? "bg-hover font-semibold text-ink" : "font-medium text-ink-2 hover:text-ink",
   );
   // Repeated rows (nav lists, option lists) share the enum's static value unless
   // the consumer gives the row a stable `id` — the same convention SchedulePicker
@@ -93,12 +91,7 @@ export function ListItem({ active = false, onSelect, children, id, ...rest }: Li
   const testId = id ? `${ListTestId.Item}-${id}` : ListTestId.Item;
 
   const inner = (
-    <ListItemCtx.Provider value={{ active, testKey: id }}>
-      {active && (
-        <span className="absolute -left-3.5 bottom-2 top-2 w-[3px] rounded-full bg-accent" />
-      )}
-      {children}
-    </ListItemCtx.Provider>
+    <ListItemCtx.Provider value={{ active, testKey: id }}>{children}</ListItemCtx.Provider>
   );
 
   if (onSelect) {

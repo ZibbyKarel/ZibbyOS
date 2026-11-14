@@ -127,6 +127,13 @@ describe("ProposalsWidget", () => {
     );
     expect(screen.getByTestId(ProposalsWidgetTestId.Confidence).textContent).toBe("vysoká jistota");
     expect(screen.getByTestId(ProposalsWidgetTestId.Expiry).textContent).toBe("vyprší za 10 d");
+    // Decision card: rationale from the occurrences, actions Approve / Reject in that order.
+    expect(screen.getByText("Opakovalo se 3× ·")).toBeTruthy();
+    const approve = screen.getByTestId(ProposalsWidgetTestId.Approve);
+    const dismiss = screen.getByTestId(ProposalsWidgetTestId.Dismiss);
+    expect(
+      approve.compareDocumentPosition(dismiss) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it.each([

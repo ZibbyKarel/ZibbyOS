@@ -6,7 +6,6 @@ import {
   Button,
   Container,
   Copyable,
-  CopyableText,
   Icon,
   type IconName,
   IconTile,
@@ -17,8 +16,10 @@ import {
   type MetricStripItem,
   Pressable,
   Row,
+  SheetBanner,
   SheetBlock,
   SheetSection,
+  type SheetStateTone,
   SheetText,
   type SheetTone,
   Stack,
@@ -147,6 +148,41 @@ const NOTE_KEY: Record<
   reviewedCommented: "needsApproval",
 };
 
+type ToneKey =
+  | "ciFailing"
+  | "conflict"
+  | "reviewRequested"
+  | "changesRequested"
+  | "checksRunning"
+  | "draft"
+  | "approved"
+  | "awaitingReview";
+
+/**
+ * Header state pills, binding table (spec §3): amber = awaiting my review / changes requested /
+ * conflict, rose = CI failing, sky = checks running, emerald = approved, idle = draft / awaiting
+ * others. The frame keeps the 2 most severe.
+ */
+function prTones(pr: InboxPr): { key: ToneKey; tone: SheetStateTone["tone"]; loud?: boolean }[] {
+  const out: { key: ToneKey; tone: SheetStateTone["tone"]; loud?: boolean }[] = [];
+  if (pr.ci === "failing") out.push({ key: "ciFailing", tone: "error" });
+  if (pr.blocker === "merge-conflict" || pr.mergeable === false)
+    out.push({ key: "conflict", tone: "blocked" });
+  if (prStatusKey(pr) === "reviewRequested")
+    out.push({ key: "reviewRequested", tone: "blocked", loud: true });
+  if (pr.review === "changes-requested")
+    out.push({ key: "changesRequested", tone: "blocked", loud: true });
+  if (pr.ci === "pending") out.push({ key: "checksRunning", tone: "thinking" });
+  if (pr.draft) out.push({ key: "draft", tone: "idle" });
+  if (!out.length)
+    out.push(
+      pr.review === "approved"
+        ? { key: "approved", tone: "done" }
+        : { key: "awaitingReview", tone: "idle" },
+    );
+  return out;
+}
+
 type StatIcon = { name: IconName; tone: IconTone };
 
 const CI_ICON: Record<InboxPr["ci"], StatIcon> = {
@@ -216,14 +252,18 @@ function errorReason(err: unknown): string {
  * | Issue (source icon + key, only when linked) | Author | Project, with the Reviewers tree beside
  * it. Then runs, the conversation, and Overview (description) / Changes (diff) tabs.
  */
-export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
+export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const { data } = useInboxPrsQuery();
   const { data: itemsData } = useInboxItemsQuery();
   const { data: projects } = useProjectsQuery();
   const [now] = useState(() => Date.now());
-  const [tab, setTab] = useState<"overview" | "changes">("overview");
+  // The Changes tab is the expanded sheet (frame state from DetailSheet; local outside the bridge).
+  const [ownExpanded, setOwnExpanded] = useState(false);
+  const expanded = frame?.expanded ?? ownExpanded;
+  const setExpanded = frame?.onExpandedChange ?? setOwnExpanded;
+  const tab = expanded ? "changes" : "overview";
   const [confirmClose, setConfirmClose] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setDraft = useSetProjectPrDraftMutation();
@@ -244,8 +284,6 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
 
   if (!pr || !about) return null;
 
-  const status = prStatus(pr);
-  const tone = TONE[status.tone];
   const key = prStatusKey(pr);
   const review = reviewKey(pr);
   const mine = isMine(pr);
@@ -369,7 +407,8 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
+      expandable
       actions={
         <>
           <ChatAboutButton about={about} />
@@ -391,19 +430,26 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
           ) : null}
         </>
       }
-      closeLabel={t("bridge.sheet.close")}
-      footerNote={error ?? t(`bridge.sheet.pr.note.${NOTE_KEY[key]}`)}
-      kind={
-        <>
-          {`${t("bridge.sheet.kind.pr")} · `}
-          <CopyableText
-            copiedLabel={t("common.copied")}
-            copyFailedLabel={t("common.copyFailed")}
-            copyLabel={t("bridge.sheet.pr.copyNumber")}
-            text={`#${pr.number}`}
+      banner={
+        pr.ci === "failing" && isFixCi(pr) ? (
+          <SheetBanner
+            actions={<PrFixCiButton pr={pr} />}
+            icon="warn"
+            text={pr.ciFailingChecks?.join(" · ")}
+            title={t("bridge.sheet.pr.banner.ciFailing", {
+              count: pr.ciFailingChecks?.length ?? 0,
+            })}
+            tone="error"
           />
-        </>
+        ) : undefined
       }
+      closeLabel={t("bridge.sheet.close")}
+      copyId={`#${pr.number}`}
+      copyLabel={t("bridge.sheet.pr.copyNumber")}
+      expanded={expanded}
+      footerNote={error ?? t(`bridge.sheet.pr.note.${NOTE_KEY[key]}`)}
+      glyph="branch"
+      kind={t("bridge.sheet.kind.pr")}
       meta={
         <>
           <Branch
@@ -440,10 +486,14 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
         </>
       }
       onClose={onClose}
-      stateLabel={status.label}
+      onToggleExpand={() => setExpanded(!expanded)}
       title={pr.title}
       titleHref={pr.url}
-      tone={tone}
+      tones={prTones(pr).map(({ key: k, tone, loud }) => ({
+        tone,
+        label: t(`bridge.sheet.pr.tone.${k}`),
+        ...(loud && { loud }),
+      }))}
       trail={
         path.length > 1 ? (
           <StackCrumbs
@@ -493,7 +543,7 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
       ) : null}
       <SheetSection>
         <Stack gap="150">
-          <Tabs onValueChange={(v) => setTab(v === "changes" ? "changes" : "overview")} value={tab}>
+          <Tabs onValueChange={(v) => setExpanded(v === "changes")} value={tab}>
             <TabList>
               <Tab value="overview">{t("bridge.sheet.pr.tabOverview")}</Tab>
               <Tab value="changes">{t("bridge.sheet.pr.changes")}</Tab>
@@ -525,15 +575,19 @@ export function PrSheet({ id, anchor, onClose, onOpen }: SheetProps) {
             <Container data-testid={PrSheetTestId.Changes}>
               <SheetBlock label={t("bridge.sheet.pr.diff", { base })}>
                 {diff?.diff ? (
-                  <PrDiff diff={diff.diff} />
+                  <PrDiff
+                    diff={diff.diff}
+                    now={now}
+                    pr={{
+                      projectId: pr.projectId,
+                      number: pr.number,
+                      ...(pr.headSha && { headSha: pr.headSha }),
+                    }}
+                    truncated={diff.truncated}
+                  />
                 ) : (
                   <SheetText lines={[t("bridge.sheet.none")]} />
                 )}
-                {diff?.truncated ? (
-                  <Typography type="note" variant="secondary">
-                    {t("inboxPage.prs.diff.truncated")}
-                  </Typography>
-                ) : null}
               </SheetBlock>
             </Container>
           )}

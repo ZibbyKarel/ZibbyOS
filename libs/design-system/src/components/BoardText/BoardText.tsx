@@ -28,7 +28,17 @@ export type BoardTextKind =
   /** Caps 10 / .1em / 600 column header. */
   | "colHead"
   /** Mono 10, one line, ellipsis (issue link). */
-  | "link";
+  | "link"
+  /** Redesign (sentence case): row id — mono 11.5, ink3. */
+  | "rowId"
+  /** Redesign: row title — body 13 / 450, one line, ellipsis. */
+  | "rowTitle"
+  /** Redesign: row meta — 12, ink3 (author, repo, age). */
+  | "rowMeta"
+  /** Redesign: reading text — 13.5 / 20, ink2, wraps (rationale, knowledge). */
+  | "reading"
+  /** Redesign: decision card title — 14 / 600, wraps. */
+  | "cardTitle";
 
 export type BoardTextTone = "ink" | "ink2" | "ink3";
 
@@ -45,6 +55,12 @@ const KIND: Record<BoardTextKind, string> = {
   colHead:
     "font-sans font-semibold uppercase tracking-wider text-[10px] whitespace-nowrap text-ink-3",
   link: "block truncate font-mono text-[10px] whitespace-nowrap text-ink",
+  rowId: "flex-none font-mono text-mono whitespace-nowrap text-ink-3",
+  rowTitle: "block min-w-0 truncate text-body text-ink",
+  rowMeta: "text-meta whitespace-nowrap text-ink-3",
+  reading: "block text-reading [text-wrap:pretty] text-ink-2",
+  cardTitle:
+    "block text-[14px] font-semibold leading-[1.35] tracking-[-0.01em] [text-wrap:pretty] text-ink",
 };
 
 const TONE: Record<BoardTextTone, string> = {

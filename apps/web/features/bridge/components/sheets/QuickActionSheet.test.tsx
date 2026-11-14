@@ -2,11 +2,11 @@ import type { QuickAction } from "@zibby/contracts";
 import { AnchoredSheetTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders, screen, within } from "../../../../test/render";
+import { renderWithProviders, screen } from "../../../../test/render";
 import { QuickActionFormTestId } from "../../widgets/QuickActionForm";
-import { QuickActionSheet } from "./QuickActionSheet";
+import { QuickActionSheet, QuickActionSheetTestId } from "./QuickActionSheet";
 
-const d = vi.hoisted(() => ({ update: vi.fn() }));
+const d = vi.hoisted(() => ({ update: vi.fn(), create: vi.fn() }));
 const action: QuickAction = { id: "a1", label: "Deploy", text: "Run deploy" };
 const immediateAction: QuickAction = { id: "a2", label: "Now", text: "go", immediate: true };
 
@@ -16,6 +16,9 @@ vi.mock("../../../quick-actions/queries", () => ({
 }));
 vi.mock("../../../quick-actions/useUpdateQuickActions", () => ({
   useUpdateQuickActions: () => ({ update: d.update, pending: false }),
+}));
+vi.mock("../../../tasks/mutations", () => ({
+  useCreateTaskMutation: () => ({ mutate: d.create, isPending: false, isSuccess: false }),
 }));
 vi.mock("../../../agents/queries", () => ({ useAgentsQuery: () => ({ data: [] }) }));
 vi.mock("../../../workflows/queries", () => ({ useWorkflowsQuery: () => ({ data: [] }) }));
@@ -37,23 +40,27 @@ const anchor = {
 } as never;
 
 describe("QuickActionSheet", () => {
+  it("Run enqueues the stored task like the widget row", async () => {
+    renderWithProviders(<QuickActionSheet anchor={anchor} id="a2" onClose={vi.fn()} />);
+    await userEvent.click(screen.getByTestId(QuickActionSheetTestId.Run));
+    expect(d.create).toHaveBeenCalledWith({
+      body: { title: "Now", text: "go", immediate: true },
+    });
+  });
+
   it("shows the action and swaps to a prefilled form on Edit", async () => {
     renderWithProviders(<QuickActionSheet anchor={anchor} id="a1" onClose={vi.fn()} />);
     expect(screen.getByTestId(AnchoredSheetTestId.Title)).toHaveTextContent("Deploy");
     expect(screen.queryByTestId(QuickActionFormTestId.Form)).toBeNull();
 
-    await userEvent.click(
-      within(screen.getByTestId(AnchoredSheetTestId.Actions)).getByRole("button"),
-    );
+    await userEvent.click(screen.getByTestId(QuickActionSheetTestId.Edit));
     expect(screen.getByTestId(QuickActionFormTestId.Label)).toHaveValue("Deploy");
     expect(screen.getByTestId("cl-input")).toHaveValue("Run deploy");
   });
 
   it("edit pre-checks Run immediately and unchecking drops it from the save", async () => {
     renderWithProviders(<QuickActionSheet anchor={anchor} id="a2" onClose={vi.fn()} />);
-    await userEvent.click(
-      within(screen.getByTestId(AnchoredSheetTestId.Actions)).getByRole("button"),
-    );
+    await userEvent.click(screen.getByTestId(QuickActionSheetTestId.Edit));
     const box = screen.getByTestId(QuickActionFormTestId.Immediate);
     expect(box).toHaveAttribute("aria-checked", "true");
     await userEvent.click(box);

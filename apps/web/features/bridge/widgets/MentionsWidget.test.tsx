@@ -1,10 +1,10 @@
-import { BoardRowTestId } from "@zibby/design-system";
+import { FeedRowTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { type MockInstance, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoadErrorTestId } from "../../../components/LoadError/LoadError";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
-import { MentionsWidget, MentionsWidgetTestId } from "./MentionsWidget";
+import { MentionsWidget } from "./MentionsWidget";
 import type { BridgeWidgetProps } from "./registry";
 
 const d = vi.hoisted(() => ({ items: [] as unknown[], pending: false, error: false }));
@@ -65,8 +65,8 @@ describe("MentionsWidget", () => {
     ];
     const props = setup();
     renderWithProviders(<MentionsWidget {...props} />);
-    expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(4);
-    expect(screen.getAllByTestId(MentionsWidgetTestId.Snippet).map((e) => e.textContent)).toEqual([
+    expect(screen.getAllByTestId(FeedRowTestId.Root)).toHaveLength(4);
+    expect(screen.getAllByTestId(FeedRowTestId.Text).map((e) => e.textContent)).toEqual([
       "text slack",
       "text github",
       "text jira",
@@ -80,20 +80,20 @@ describe("MentionsWidget", () => {
   it("drops dismissed items", () => {
     d.items = [item("a", { state: "ignored" }), item("b", { state: "new" })];
     renderWithProviders(<MentionsWidget {...setup()} />);
-    expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(1);
+    expect(screen.getAllByTestId(FeedRowTestId.Root)).toHaveLength(1);
   });
 
   it("opens the source in a new tab", async () => {
     d.items = [item("a")];
     renderWithProviders(<MentionsWidget {...setup()} />);
-    await userEvent.setup().click(screen.getByTestId(BoardRowTestId.Root));
+    await userEvent.setup().click(screen.getByTestId(FeedRowTestId.Root));
     expect(openSpy).toHaveBeenCalledWith("https://x/a", "_blank", "noopener,noreferrer");
   });
 
   it("a row without url is not clickable", async () => {
     d.items = [item("a", { url: undefined })];
     renderWithProviders(<MentionsWidget {...setup()} />);
-    const row = screen.getByTestId(BoardRowTestId.Root);
+    const row = screen.getByTestId(FeedRowTestId.Root);
     expect(row).not.toHaveRole("button");
     await userEvent.setup().click(row);
     expect(openSpy).not.toHaveBeenCalled();
@@ -102,16 +102,16 @@ describe("MentionsWidget", () => {
   it("a row without author shows only the snippet", () => {
     d.items = [item("a", { from: undefined })];
     renderWithProviders(<MentionsWidget {...setup()} />);
-    expect(screen.queryByTestId(MentionsWidgetTestId.Author)).toBeNull();
+    expect(screen.queryByTestId(FeedRowTestId.Who)).toBeNull();
     expect(
-      within(screen.getByTestId(BoardRowTestId.Root)).getByTestId(MentionsWidgetTestId.Snippet),
+      within(screen.getByTestId(FeedRowTestId.Root)).getByTestId(FeedRowTestId.Text),
     ).toHaveTextContent("text a");
   });
 
   it("caps at 50 rows", () => {
     d.items = Array.from({ length: 60 }, (_, n) => item(`i${n}`, { receivedAt: ago(n + 1) }));
     renderWithProviders(<MentionsWidget {...setup()} />);
-    expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(50);
+    expect(screen.getAllByTestId(FeedRowTestId.Root)).toHaveLength(50);
     expect(screen.getByText("text i0")).toBeInTheDocument();
   });
 

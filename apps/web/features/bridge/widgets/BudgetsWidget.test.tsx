@@ -1,5 +1,5 @@
 import { LoadErrorTestId } from "../../../components/LoadError/LoadError";
-import { ProgressTestId } from "@zibby/design-system";
+import { MeterTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
@@ -109,7 +109,7 @@ describe("BudgetsWidget", () => {
     );
   });
 
-  it("exhausted badge copy, none for ok, held copy and Progress tone", () => {
+  it("exhausted badge copy, none for ok, held copy and meter", () => {
     d.budget = {
       global: global({ stale: true }),
       projects: [
@@ -125,7 +125,7 @@ describe("BudgetsWidget", () => {
     );
     expect(within(fine).queryByTestId(BudgetsWidgetTestId.Badge)).not.toBeInTheDocument();
     expect(within(fine).queryByTestId(BudgetsWidgetTestId.Held)).not.toBeInTheDocument();
-    expect(within(full).getByTestId(ProgressTestId.Root)).toBeInTheDocument();
+    expect(within(full).getByTestId(MeterTestId.Root)).toBeInTheDocument();
   });
 
   it("formats dollars and links a company rollup to /companies/<id>", () => {

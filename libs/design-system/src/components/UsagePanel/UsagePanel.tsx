@@ -15,7 +15,7 @@ export enum UsagePanelTestId {
 }
 
 export interface UsagePanelItem {
-  /** Short window label, e.g. `"5H"` or `"WEEK"` (rendered uppercase). */
+  /** Short window label, e.g. `"5H"` or `"WEEK"` . */
   label: string;
   /** Used share of the window, 0–100. */
   value?: number;
@@ -33,16 +33,16 @@ export interface UsagePanelProps {
 const RING_SIZE = 34;
 const RING_STROKE = 3;
 
-/** Ring colour per usage band — the design's thresholds (≥90 rose, ≥75 amber, else emerald). */
+/** Ring colour per usage band — the design's thresholds (≥90 rose, ≥75 amber, else neutral). */
 function ringTone(pct: number): string {
   if (pct >= 90) return "stroke-bad";
   if (pct >= 75) return "stroke-warn";
-  return "stroke-ok";
+  return "stroke-ink-2";
 }
 
 /**
  * The top bar's usage readout (Zibby 2.0 design `UsagePanel`): a rounded panel of
- * ring gauges — percentage inside the ring, the window label and its reset
+ * ring gauges (neutral, amber/rose past the thresholds) — percentage inside the ring, the window label and its reset
  * countdown beside it — split by a hairline. Purely presentational: the caller
  * formats `resetsIn` (the DS is i18n-agnostic).
  */
@@ -52,7 +52,7 @@ export function UsagePanel({ items, ref }: UsagePanelProps) {
 
   return (
     <div
-      className="flex items-center gap-[14px] rounded-lg border border-line bg-panel px-[12px] py-[6px]"
+      className="flex items-center gap-[14px] rounded-[10px] border border-line bg-panel px-[12px] py-[6px]"
       data-testid={UsagePanelTestId.Root}
       ref={ref}
     >
@@ -73,14 +73,11 @@ export function UsagePanel({ items, ref }: UsagePanelProps) {
             >
               {item.stat !== undefined ? (
                 <span className="flex h-[34px] flex-col justify-center gap-px">
-                  <span
-                    className="font-sans text-[9px] font-semibold uppercase tracking-[.14em] text-ink-3"
-                    data-testid={UsagePanelTestId.Label}
-                  >
+                  <span className="text-meta text-ink-3" data-testid={UsagePanelTestId.Label}>
                     {item.label}
                   </span>
                   <span
-                    className="font-mono text-[13px] font-semibold tabular-nums leading-none text-ink"
+                    className="font-mono text-[13px] font-medium tabular-nums leading-none text-ink"
                     data-testid={UsagePanelTestId.Stat}
                   >
                     {item.stat}
@@ -128,22 +125,19 @@ export function UsagePanel({ items, ref }: UsagePanelProps) {
                       />
                     </svg>
                     <span
-                      className="relative font-mono text-[10px] font-semibold tabular-nums text-ink"
+                      className="relative font-mono text-[10px] font-medium tabular-nums text-ink"
                       data-testid={UsagePanelTestId.Value}
                     >
                       {Math.round(pct)}%
                     </span>
                   </span>
                   <span className="flex flex-col gap-px">
-                    <span
-                      className="font-sans text-[9px] font-semibold uppercase tracking-[.14em] text-ink-3"
-                      data-testid={UsagePanelTestId.Label}
-                    >
+                    <span className="text-meta text-ink-3" data-testid={UsagePanelTestId.Label}>
                       {item.label}
                     </span>
                     {item.resetsIn ? (
                       <span
-                        className="font-mono text-[10px] tabular-nums text-ink-2"
+                        className="font-mono text-[10px] tabular-nums text-ink-3"
                         data-testid={UsagePanelTestId.Reset}
                       >
                         −{item.resetsIn}

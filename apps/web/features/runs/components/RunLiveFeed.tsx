@@ -9,21 +9,15 @@ import {
   Markdown,
   Panel,
   Stack,
+  TypingDots,
   Typography,
 } from "@zibby/design-system";
 import { useLocale, useTranslations } from "next-intl";
-import type { DashboardApproval } from "../../approvals/approval";
 import type { RunView } from "../run";
 import { agentBody } from "../runDetailModel";
-import type { AgentBlock, FeedItem, RunMode, StageRailRow } from "../runDetailModel";
+import type { AgentBlock, FeedItem } from "../runDetailModel";
 import { useStageRunLogQuery } from "../queries/useStageRunLogQuery";
 import { GoalDetailPanel } from "./GoalDetailPanel";
-import {
-  LimitPausedPanel,
-  RunErrorBanner,
-  RunParkedBanner,
-  RunQuestionBanner,
-} from "./RunFeedBanners";
 
 export enum RunLiveFeedTestId {
   Root = "run-live-feed",
@@ -32,21 +26,19 @@ export enum RunLiveFeedTestId {
   Delivery = "run-feed-delivery",
   Round = "run-feed-round",
   Tools = "run-agent-tools",
+  Streaming = "run-agent-streaming",
 }
 
 export interface RunLiveFeedProps {
   run: RunView;
-  mode: RunMode;
-  approval?: DashboardApproval;
   items: FeedItem[];
-  /** The stage rail rows — the parked banner names its stage from them. */
-  rail?: StageRailRow[];
 }
 
 type Item<K extends FeedItem["kind"]> = Extract<FeedItem, { kind: K }>;
 
-/** Agent text as markdown; each run of tool calls inline, in its own framed mono panel. */
+/** Agent text as markdown; each run of tool calls inline, in its own framed mono panel. A live round ends in a streaming cursor. */
 function AgentBody({ blocks, live }: { blocks: AgentBlock[]; live: boolean }) {
+  const t = useTranslations("runs.detail.feed");
   return (
     <Stack gap="75">
       {blocks.map((b, i) =>
@@ -57,6 +49,11 @@ function AgentBody({ blocks, live }: { blocks: AgentBlock[]; live: boolean }) {
             <LogStream lines={b.lines} paused={!live} />
           </Panel>
         ),
+      )}
+      {live && (
+        <Container data-testid={RunLiveFeedTestId.Streaming}>
+          <TypingDots label={t("streaming")} />
+        </Container>
       )}
     </Stack>
   );
@@ -148,29 +145,16 @@ function FeedYou({ item, stageLabel }: { item: Item<"you">; stageLabel?: string 
   );
 }
 
-/** The LIVE view: the mode's banner (question / parked / limit), then the stage feed in order. The approval banner sits above the whole detail. */
-export function RunLiveFeed({ run, mode, approval, items, rail = [] }: RunLiveFeedProps) {
+/** The LIVE view: the selected stage's log, then my messages with their delivery state. The run's one banner sits above, in `RunDetail`. */
+export function RunLiveFeed({ run, items }: RunLiveFeedProps) {
   if (run.kind === "goal") return <GoalDetailPanel run={run} />;
 
   const dividerLabel = new Map(
     items.flatMap((i) => (i.kind === "divider" ? [[i.phaseId, i.label] as const] : [])),
   );
-  const parkedStage =
-    rail.find((r) => r.phaseId === run.parked?.phaseId) ?? rail.find((r) => r.current);
 
   return (
     <Stack data-testid={RunLiveFeedTestId.Root} gap="150">
-      {mode === "question" && approval && (
-        <RunQuestionBanner
-          agentName={approval.skill}
-          question={approval.summary ?? approval.text ?? approval.detail}
-        />
-      )}
-      {mode === "error" && run.taskOutcomeSummary && (
-        <RunErrorBanner reason={run.taskOutcomeSummary} />
-      )}
-      {mode === "parked" && <RunParkedBanner run={run} stage={parkedStage} />}
-      {mode === "limit" && <LimitPausedPanel run={run} />}
       {items.map((item) => {
         switch (item.kind) {
           case "divider":

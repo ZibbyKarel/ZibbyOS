@@ -79,8 +79,8 @@ export function AppFrame({
       <a
         className={cn(
           "sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100]",
-          "focus:border focus:border-ink focus:bg-panel focus:px-4 focus:py-2",
-          "focus:font-sans focus:text-[12px] focus:font-medium focus:text-ink",
+          "focus:rounded-md focus:border focus:border-line-2 focus:bg-sheet focus:px-4 focus:py-2 focus:shadow-pop",
+          "focus:font-sans focus:text-meta focus:font-medium focus:text-ink",
         )}
         data-testid={AppFrameTestId.SkipLink}
         href={`#${APP_FRAME_MAIN_CONTENT_ID}`}

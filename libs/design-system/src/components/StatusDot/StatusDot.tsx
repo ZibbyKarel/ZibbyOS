@@ -16,19 +16,20 @@ export type DotTone = AnyStateTone | "wait";
 
 // Keyed by the canonical `StateTone` (+ `wait`) — legacy classes reused where the
 // color is identical (LEGACY_TONE_MAP). See `StatusDot()` for the resolve step.
+// Bridge `.dot`: round; `blocked` carries a soft amber halo, `idle` is a hollow ring.
 const toneClass: Record<StateTone | "wait", string> = {
-  thinking: "bg-accent",
+  thinking: "bg-state-think",
   done: "bg-ok",
-  blocked: "bg-warn",
+  blocked: "bg-warn ring-[3px] ring-warn/20",
   error: "bg-bad",
   working: "bg-run",
-  idle: "bg-foreground-faint",
-  wait: "bg-warn",
+  idle: "border-[1.5px] border-state-idle bg-transparent",
+  wait: "bg-warn ring-[3px] ring-warn/20",
 };
 
 /** Live glow — only rendered when `pulse` is set. */
 const glowClass: Record<StateTone | "wait", string> = {
-  thinking: "shadow-[0_0_8px_color-mix(in_srgb,var(--color-accent)_67%,transparent)]",
+  thinking: "shadow-[0_0_8px_color-mix(in_srgb,var(--color-state-think)_67%,transparent)]",
   done: "shadow-[0_0_8px_color-mix(in_srgb,var(--color-ok)_67%,transparent)]",
   blocked: "shadow-[0_0_8px_color-mix(in_srgb,var(--color-warn)_67%,transparent)]",
   error: "shadow-[0_0_8px_color-mix(in_srgb,var(--color-bad)_67%,transparent)]",
@@ -64,7 +65,7 @@ export interface StatusDotProps extends Omit<HTMLAttributes<HTMLSpanElement>, "c
 }
 
 /**
- * A status dot (DS.md §7) — a square pixel of the status colour, matte by
+ * A status dot (Bridge `.dot`) — a round dot of the status colour, matte by
  * default. Living behaviour is tone-driven, not caller-chosen: `pulse` only
  * *permits* the dot to animate (an idle read-out of a past working/blocked
  * state should stay matte); `working` breathes, `blocked`/`wait` blink,
@@ -84,7 +85,7 @@ export function StatusDot({ tone, size = "100", pulse = false, ref, ...props }: 
     >
       <span
         className={cn(
-          "absolute inset-0",
+          "absolute inset-0 rounded-full",
           toneClass[resolvedTone],
           animationClass && glowClass[resolvedTone],
           animationClass && cn(animationClass, "motion-reduce:animate-none"),

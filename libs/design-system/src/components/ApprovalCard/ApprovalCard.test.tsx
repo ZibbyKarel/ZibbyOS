@@ -10,7 +10,8 @@ describe("ApprovalCard", () => {
     render(
       <ApprovalCard agentName="K" color="#5b8def" glyph="code" meta="m" request="r" waited="w" />,
     );
-    expect(screen.getByTestId(IconTileTestId.Root).style.color).toBe("rgb(91, 141, 239)");
+    // The department colour fills the tile; the glyph is cut out in the panel colour.
+    expect(screen.getByTestId(IconTileTestId.Root).style.backgroundColor).toBe("rgb(91, 141, 239)");
   });
 
   it("renders identity, meta, wait and request text (card density)", () => {

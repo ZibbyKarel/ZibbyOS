@@ -9,13 +9,12 @@ export interface BootSplashProps {
 }
 
 /**
- * Shows the DS `Splash` boot choreography once per page load, then fades it out
+ * Shows the DS `Splash` boot screen (bow-tie intro, wordmark, boot steps) once per page load, then fades it out
  * the moment the app is ready. The app renders underneath the whole time, so it
  * warms up while the sequence plays. Within the SPA the splash never replays —
  * it only re-runs on a full reload.
  *
- * `Splash` owns its own minimum-visible timing (the walk → reveal → settle
- * phases play out in full before it's even eligible to exit on `ready`), so
+ * `Splash` owns its own minimum-visible timing (the ~2.6s entrance plays out in full before it's even eligible to exit on `ready`), so
  * this wrapper only tracks readiness and unmounts once `Splash` reports its
  * exit fade is done (`onDone`) — it never re-intercepts clicks after that.
  *
@@ -39,11 +38,17 @@ export function BootSplash({ children }: BootSplashProps) {
       {children}
       {visible && (
         <Splash
+          footer={t("loading.footer")}
           onDone={() => setVisible(false)}
           ready={ready}
           status={t("common.loading")}
-          tagline={t("loading.tagline")}
-          wordmark="Z.I.B.B.Y"
+          steps={[
+            t("loading.stepAgents"),
+            t("loading.stepMemory"),
+            t("loading.stepRuns"),
+            t("loading.stepBridge"),
+            t("loading.stepReady"),
+          ]}
         />
       )}
     </>

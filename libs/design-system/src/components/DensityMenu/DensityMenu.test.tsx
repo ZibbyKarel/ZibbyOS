@@ -5,15 +5,15 @@ import { describe, expect, it, vi } from "vitest";
 import { render } from "../../utils/testRender";
 import { DensityMenu, DensityMenuTestId } from "./DensityMenu";
 
-const labels = { compact: "COMPACT", comfort: "COMFORT", airy: "AIRY", open: "OPEN" };
+const labels = { compact: "COMPACT", comfort: "COMFORT", airy: "AIRY" };
 
 describe("DensityMenu", () => {
-  it("is closed until the trigger is clicked, then lists all four densities", async () => {
+  it("is closed until the trigger is clicked, then lists all three densities", async () => {
     render(<DensityMenu label="Density" labels={labels} onChange={vi.fn()} value="airy" />);
     expect(screen.queryByTestId(DensityMenuTestId.Menu)).toBeNull();
     await userEvent.click(screen.getByTestId(DensityMenuTestId.Trigger));
     expect(screen.getByTestId(DensityMenuTestId.Menu)).toHaveRole("listbox");
-    expect(screen.getAllByRole("option")).toHaveLength(4);
+    expect(screen.getAllByRole("option")).toHaveLength(3);
     expect(screen.getByTestId(`${DensityMenuTestId.Option}-airy`)).toHaveAttribute(
       "aria-selected",
       "true",

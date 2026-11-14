@@ -27,8 +27,12 @@ export const metadata: Metadata = {
   description: "ZibbyOS — Zestful Intuitive Brainy Butler for You.",
 };
 
+// Browser chrome follows the OS scheme — the design's `--color-bg` per theme (tokens.json).
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0b0d" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f2" },
+  ],
 };
 
 export default async function RootLayout({ children }: PropsWithChildren) {

@@ -22,48 +22,51 @@ export type TagTone = AnyStateTone | "neutral" | RiskKind;
 // reused where the color is identical (LEGACY_TONE_MAP). See `Tag()` for the resolve
 // step; cva matches `tone` against these keys directly, so the resolve must happen
 // before `tag()` is called.
+// Bridge `.chip` look: a state-tinted fill, no visible border. `thinking` keeps the
+// legacy amber (`accent`) reading here; amber text uses `accent-fg`.
 const toneClass: Record<CanonicalTagTone, string> = {
-  neutral: "text-foreground-dim border-border bg-hover",
-  thinking: "text-accent border-accent/35 bg-accent-dim",
-  done: "text-ok border-ok/35 bg-ok/10",
-  blocked: "text-warn border-warn/35 bg-warn/10",
-  error: "text-bad border-bad/35 bg-bad/10",
-  working: "text-run border-run/35 bg-run/10",
-  idle: "text-state-idle border-state-idle/35 bg-state-idle/10",
-  payment: "text-risk-payment border-risk-payment/25 bg-risk-payment/[0.08]",
-  deletion: "text-risk-deletion border-risk-deletion/25 bg-risk-deletion/[0.08]",
-  push: "text-risk-push border-risk-push/25 bg-risk-push/[0.08]",
-  send: "text-risk-send border-risk-send/25 bg-risk-send/[0.08]",
+  neutral: "text-ink-2 bg-ink/[0.045]",
+  thinking: "text-accent-fg bg-accent/[0.12]",
+  done: "text-ok bg-ok/[0.09]",
+  blocked: "text-accent-fg bg-warn/[0.12]",
+  error: "text-bad bg-bad/10",
+  working: "text-run bg-run/10",
+  idle: "text-ink-3 bg-state-idle/10",
+  payment: "text-risk-payment bg-risk-payment/10",
+  deletion: "text-risk-deletion bg-risk-deletion/10",
+  push: "text-risk-push bg-risk-push/10",
+  send: "text-risk-send bg-risk-send/10",
 };
 
 const tag = cva(
-  "inline-flex items-center gap-1 font-mono text-xs font-semibold " +
-    "rounded-sm border whitespace-nowrap tracking-wide",
+  "inline-flex items-center gap-1 font-sans text-[11.5px] font-medium " +
+    "rounded-sm border border-transparent whitespace-nowrap",
   {
     variants: {
       tone: toneClass,
       size: {
-        sm: "px-2 py-0.5",
-        md: "px-2.5 py-1.5",
+        sm: "h-[20px] px-[7px]",
+        md: "h-[24px] px-2",
       },
       solid: { true: "", false: "" },
-      uppercase: { true: "font-sans uppercase tracking-wider", false: "" },
+      // Sentence case everywhere (Bridge): kept for API compatibility, renders as-is.
+      uppercase: { true: "", false: "" },
     },
     compoundVariants: [
-      {
-        tone: "neutral",
-        solid: true,
-        className: "bg-foreground-dim text-background border-transparent",
-      },
+      { tone: "neutral", solid: true, className: "bg-ink text-on-ink border-transparent" },
       {
         tone: "thinking",
         solid: true,
         className: "bg-accent text-accent-contrast border-transparent",
       },
-      { tone: "done", solid: true, className: "bg-ok text-background border-transparent" },
-      { tone: "blocked", solid: true, className: "bg-warn text-background border-transparent" },
-      { tone: "error", solid: true, className: "bg-bad text-background border-transparent" },
-      { tone: "working", solid: true, className: "bg-run text-background border-transparent" },
+      { tone: "done", solid: true, className: "bg-ok text-on-status border-transparent" },
+      {
+        tone: "blocked",
+        solid: true,
+        className: "bg-warn text-accent-contrast border-transparent",
+      },
+      { tone: "error", solid: true, className: "bg-bad text-on-status border-transparent" },
+      { tone: "working", solid: true, className: "bg-run text-on-status border-transparent" },
     ],
     defaultVariants: { tone: "neutral", solid: false, size: "sm" },
   },
@@ -98,9 +101,8 @@ export interface TagProps
 /**
  * Angular label badge — a glyph + text tinted by `tone`. The "shape = category"
  * half of the badge family (the rounded {@link Chip} is the "color = state"
- * half). Toned by default; `solid` fills it. `uppercase` renders the label in
- * caps (the run-state chip's "BĚŽÍ"/"HOTOVO" look) without transforming the
- * underlying text — only the CSS presentation changes.
+ * half). Toned by default; `solid` fills it. `uppercase` is a deprecated no-op —
+ * the Bridge language keeps labels in sentence case.
  */
 export function Tag({ tone, solid, size, uppercase, icon, children, ref, ...props }: TagProps) {
   const resolvedTone = tone ? normalizeToneLike(tone) : undefined;

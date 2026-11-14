@@ -76,16 +76,11 @@ export function GoalCard({
   const tone = getUsageTone(pct);
 
   return (
-    <Card background="panel" data-testid={GoalCardTestId.Root} radius="none" ref={ref} {...rest}>
+    <Card background="panel" data-testid={GoalCardTestId.Root} ref={ref} {...rest}>
       <CardContent padding="200">
         <Stack gap="150">
           <Row align="baseline" justify="between">
-            <Typography
-              data-testid={GoalCardTestId.Eyebrow}
-              tracking="wider"
-              type="labelSm"
-              variant="tertiary"
-            >
+            <Typography data-testid={GoalCardTestId.Eyebrow} type="labelSm" variant="tertiary">
               {eyebrow}
             </Typography>
             <span data-testid={GoalCardTestId.State}>
@@ -98,13 +93,13 @@ export function GoalCard({
           </Typography>
 
           <Row align="center" gap="100">
-            <Tag uppercase data-testid={GoalCardTestId.Maker} tone="neutral">
+            <Tag data-testid={GoalCardTestId.Maker} tone="neutral">
               {`Maker · ${makerLabel}`}
             </Tag>
             <Typography aria-hidden="true" type="labelSm" variant="tertiary">
               ⇄
             </Typography>
-            <Tag uppercase data-testid={GoalCardTestId.Verifier} tone="neutral">
+            <Tag data-testid={GoalCardTestId.Verifier} tone="neutral">
               {`Verifier · ${verifierLabel}`}
             </Tag>
           </Row>
@@ -115,33 +110,32 @@ export function GoalCard({
               aria-valuemax={max}
               aria-valuemin={0}
               aria-valuenow={used}
-              className="relative h-[2px] bg-border"
+              className="relative h-[4px] rounded-full bg-ink/10"
               data-testid={GoalCardTestId.BudgetTrack}
               role="meter"
             >
               <div
                 className={
                   tone === "bad"
-                    ? "absolute inset-y-0 left-0 bg-bad"
+                    ? "absolute inset-y-0 left-0 rounded-full bg-bad"
                     : tone === "warn"
-                      ? "absolute inset-y-0 left-0 bg-warn"
-                      : "absolute inset-y-0 left-0 bg-ink"
+                      ? "absolute inset-y-0 left-0 rounded-full bg-warn"
+                      : "absolute inset-y-0 left-0 rounded-full bg-ink-2"
                 }
                 data-testid={GoalCardTestId.BudgetFill}
                 style={{ width: `${pct}%` }}
               />
             </div>
             <Row justify="between">
-              <Typography tracking="wider" type="labelSm" variant="secondary">
-                RUN BUDGET
+              <Typography type="labelSm" variant="secondary">
+                Run budget
               </Typography>
               <Typography
                 data-testid={GoalCardTestId.BudgetCaption}
-                tracking="wider"
                 type="labelSm"
                 variant="secondary"
               >
-                {`${used} / ${max} RUNS`}
+                {`${used} / ${max} runs`}
               </Typography>
             </Row>
           </Stack>

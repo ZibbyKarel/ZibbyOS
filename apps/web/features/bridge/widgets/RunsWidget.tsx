@@ -1,28 +1,36 @@
 "use client";
 
+import { OPERATOR_QUESTION_ACTION } from "@zibby/contracts";
 import {
   BoardLine,
-  BoardRow,
+  BoardSection,
   BoardText,
-  Icon,
-  type IconName,
-  type IconTone,
+  Button,
+  HoldButton,
   Progress,
   type ProgressBarTone,
-  RowGroupHeader,
   type StateTone,
+  StatusRail,
+  StatusRailItem,
+  StatusRailNow,
+  StatusRailPark,
 } from "@zibby/design-system";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { ConfirmDeleteDialog } from "../../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
 import { useNow } from "../../../hooks/useNow";
 import { clockTime, compactAgo, formatDuration } from "../../../utils/time";
+import { useApprovalsQuery, useApproveMutation, useRejectMutation } from "../../approvals";
+import type { DashboardApproval } from "../../approvals/approval";
+import { relativeLabel } from "../../automations/schedule";
 import {
   useInvalidateOnTerminalRun,
   useLiveRunsSnapshot,
 } from "../../runs/components/TasksDockPanel";
 import { useRecentArchivedRunsQuery } from "../../runs/queries/useRecentArchivedRunsQuery";
-import { type RunView, WAITING_STATES } from "../../runs/run";
+import { type RunView, WAITING_STATES, approvalForRun } from "../../runs/run";
 import { useWorkflowsQuery } from "../../workflows";
+import { PRIORITY_WEIGHT } from "../grid/priority";
 import { runRows } from "../state/rows";
 import type { BridgeWidgetProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
@@ -36,21 +44,18 @@ const PROGRESS_TONE: Record<string, ProgressBarTone> = {
   idle: "idle",
 };
 
-const STATE_ICON: Record<StateTone, { name: IconName; tone: IconTone }> = {
-  done: { name: "check", tone: "ok" },
-  error: { name: "x", tone: "bad" },
-  blocked: { name: "pause", tone: "warn" },
-  thinking: { name: "wait", tone: "accent" },
-  working: { name: "run", tone: "run" },
-  idle: { name: "stop", tone: "dim" },
-};
+/** Same hold as the run sheet's approval banner (spec §5, G-270). */
+const APPROVAL_HOLD_MS = 1200;
 
 export enum RunsWidgetTestId {
-  StateIcon = "runs-widget-state-icon",
   Progress = "runs-widget-progress",
   Meta = "runs-widget-meta",
-  /** A still-waiting (queued / scheduled / held) row's state cell. */
+  /** A still-waiting (queued / scheduled / held) row's state label. */
   Queued = "runs-widget-queued",
+  /** Inline actions of a parked / waiting-for-you block — suffixed `-<row key>`. */
+  Detail = "runs-widget-detail",
+  Approve = "runs-widget-approve",
+  Reject = "runs-widget-reject",
 }
 
 const FINISHED_LIMIT = 10;
@@ -75,11 +80,12 @@ export function dedupeRuns(
 }
 
 /**
- * Runs (active & finished): the Active group lists the started live runs as TASK · STEP / PROGRESS / ISSUE rows (a bar only while running: fill = completed phases, indeterminate without a phase list, with the percent done and the elapsed time under it; a state icon otherwise), then the last 10 finished runs with a
- * state icon in their outcome colour and their age. Below the started runs the Active group lists
- * the runs still waiting to start (queued / scheduled / held - todo-16, formerly the task queue
- * widget) with their state and their fire time (scheduled) or age; those open the task sheet. A group header is omitted when empty. Every row
- * opens the run sheet (approval, phase output, artifacts).
+ * Runs — status rail species. "Now" box: the started live runs (pulsing dot, progress bar with
+ * `NN% · elapsed` while running), or one idle line with "next in …" (the soonest scheduled run).
+ * "Parked": runs waiting for the operator (approval, question, parked) as amber blocks with the
+ * gate's ask and its actions inline (hold to approve / reject for an approval, Detail always).
+ * "Queued": runs waiting to start (queued / scheduled / held — they open the task sheet).
+ * "Finished": the last 10. Every other row opens the run sheet. Sections collapse locally.
  */
 export function RunsWidget({
   widget,
@@ -87,7 +93,6 @@ export function RunsWidget({
   onCountChange,
   selection,
   onOpen,
-  sheetSide,
 }: BridgeWidgetProps) {
   const t = useTranslations("bridge.widgets.runs");
   const tRuns = useTranslations("runs");
@@ -96,6 +101,7 @@ export function RunsWidget({
   const liveSnapshot = useLiveRunsSnapshot();
   useInvalidateOnTerminalRun(FINISHED_LIMIT);
   const archivedQuery = useRecentArchivedRunsQuery(FINISHED_LIMIT);
+  const { data: approvals } = useApprovalsQuery();
   const { isPending } = archivedQuery;
   const { live, archived } = useMemo(
     () =>
@@ -120,15 +126,17 @@ export function RunsWidget({
       ),
     [workflows],
   );
-  const active = useMemo(
-    () =>
-      runRows(
-        widget.id,
-        live.filter((r) => !WAITING_STATES.has(r.status)),
-        phasesByWorkflow,
-      ),
-    [widget.id, live, phasesByWorkflow],
-  );
+  const { active, parked } = useMemo(() => {
+    const started = live.filter((r) => !WAITING_STATES.has(r.status));
+    const rows = runRows(widget.id, started, phasesByWorkflow).map((r, i) => ({
+      ...r,
+      approval: approvalForRun(approvals ?? [], started[i] as RunView),
+    }));
+    return {
+      active: rows.filter((r) => r.tone !== "blocked"),
+      parked: rows.filter((r) => r.tone === "blocked"),
+    };
+  }, [widget.id, live, phasesByWorkflow, approvals]);
   const queued = useMemo(() => {
     const waiting = live.filter((r) => WAITING_STATES.has(r.status));
     return runRows(widget.id, waiting).map((r, i) => {
@@ -154,19 +162,30 @@ export function RunsWidget({
       };
     });
   }, [widget.id, archived, now]);
+  // "Next in …" on the idle Now line: the soonest scheduled start still ahead.
+  const nextAt = Math.min(
+    ...queued
+      .filter((r) => r.status === "scheduled")
+      .map((r) => Date.parse(r.startedAt))
+      .filter((at) => at > now),
+  );
 
+  const total = active.length + parked.length + queued.length + finished.length;
   useWidgetReport(
     {
       loading: isPending,
-      count: isPending ? undefined : active.length + queued.length + finished.length,
-      you: 0,
+      count: isPending ? undefined : total,
+      // Parked / waiting-for-you runs are the operator's (amber pill), not urgency on top.
+      you: parked.length,
+      urgency:
+        PRIORITY_WEIGHT.error * [...active, ...finished].filter((r) => r.tone === "error").length,
     },
     { onEmptyChange, onCountChange },
   );
 
-  if (active.length + queued.length + finished.length === 0) return null;
+  if (total === 0) return null;
 
-  const open = (r: (typeof active)[number]) => () =>
+  const open = (r: { runId: string; key: string }) => () =>
     onOpen({
       kind: "run",
       id: r.runId,
@@ -174,125 +193,227 @@ export function RunsWidget({
       key: r.key,
       href: `/activity/runs/${r.runId}`,
     });
-  const header = (group: "active" | "finished", count: number) =>
-    count === 0 ? null : (
-      <RowGroupHeader
-        closed={!!closed[group]}
-        count={String(count)}
-        groupKey="—"
-        label={t(`group.${group}`)}
-        onToggle={() => setClosed((c) => ({ ...c, [group]: !c[group] }))}
-        progress={0}
-        title={t(`group.${group}`)}
-      />
-    );
+  const section = (group: string, label: string, count: number, accent = false) => (
+    <BoardSection
+      closed={!!closed[group]}
+      count={String(count).padStart(2, "0")}
+      label={label}
+      onToggle={() => setClosed((c) => ({ ...c, [group]: !c[group] }))}
+      tone={accent ? "accent" : "default"}
+    />
+  );
+  const stateLabel = (tone: StateTone) => t(`state.${tone}`);
 
   return (
     <>
-      {header("active", active.length + queued.length)}
-      {!closed["active"] &&
-        active.map((r) => (
-          <BoardRow
-            columns="run"
-            key={r.key}
-            onClick={open(r)}
-            rowKey={r.key}
-            selected={selection?.key === r.key}
-            sheetSide={sheetSide}
-            tone={r.tone}
-          >
-            <RunTitle step={r.step} title={r.title} />
-            {r.status === "running" ? (
-              <BoardLine direction="col" gap="5">
-                <span data-testid={`${RunsWidgetTestId.Progress}-${r.key}`}>
-                  {r.pct === null ? (
-                    <Progress indeterminate height="25" label={t("progressLabel")} />
-                  ) : (
-                    <Progress
-                      height="25"
-                      label={t("progressLabel")}
-                      pulse={r.tone === "working"}
-                      tone={PROGRESS_TONE[r.tone] ?? "idle"}
-                      value={r.pct}
-                    />
-                  )}
-                </span>
-                <span data-testid={`${RunsWidgetTestId.Meta}-${r.key}`}>
-                  <BoardText tabular kind="meta">
-                    {r.pct !== null && `${t("pct", { pct: r.pct })} · `}
-                    <RunElapsed startedAt={r.startedAt} />
-                  </BoardText>
-                </span>
-              </BoardLine>
-            ) : (
-              <BoardLine between gap="5">
-                <RunStateIcon runKey={r.key} tone={r.tone} />
+      {active.length === 0 ? (
+        <StatusRailNow
+          aside={
+            Number.isFinite(nextAt) ? t("next", { in: relativeLabel(nextAt, now, locale) }) : null
+          }
+          label={t("nowIdle")}
+        />
+      ) : (
+        <StatusRailNow>
+          {active.map((r) => (
+            <StatusRailItem
+              key={r.key}
+              onClick={open(r)}
+              rowKey={r.key}
+              selected={selection?.key === r.key}
+              sub={r.step}
+              time={r.issue ? `${r.issue} ↗` : r.project}
+              title={r.title}
+              tone={r.tone}
+              toneLabel={stateLabel(r.tone)}
+            >
+              {r.status === "running" ? (
+                <BoardLine direction="col" gap="5">
+                  <span data-testid={`${RunsWidgetTestId.Progress}-${r.key}`}>
+                    {r.pct === null ? (
+                      <Progress indeterminate height="25" label={t("progressLabel")} />
+                    ) : (
+                      <Progress
+                        height="25"
+                        label={t("progressLabel")}
+                        pulse={r.tone === "working"}
+                        tone={PROGRESS_TONE[r.tone] ?? "idle"}
+                        value={r.pct}
+                      />
+                    )}
+                  </span>
+                  <span data-testid={`${RunsWidgetTestId.Meta}-${r.key}`}>
+                    <BoardText tabular kind="meta">
+                      {r.pct !== null && `${t("pct", { pct: r.pct })} · `}
+                      <RunElapsed startedAt={r.startedAt} />
+                    </BoardText>
+                  </span>
+                </BoardLine>
+              ) : (
                 <BoardText tabular kind="meta">
                   {r.pct !== null ? t("pct", { pct: r.pct }) : "—"}
                 </BoardText>
-              </BoardLine>
-            )}
-            <RunIssue issue={r.issue} project={r.project} />
-          </BoardRow>
-        ))}
-      {!closed["active"] &&
-        queued.map((r) => (
-          <BoardRow
-            columns="run"
-            key={r.key}
-            onClick={
-              r.taskId === null
-                ? undefined
-                : () =>
-                    onOpen({
-                      kind: "task",
-                      id: r.taskId as string,
-                      widgetId: widget.id,
-                      key: r.key,
-                      href: `/work/tasks/${r.taskId}`,
-                    })
+              )}
+            </StatusRailItem>
+          ))}
+        </StatusRailNow>
+      )}
+      {parked.length > 0 && section("parked", t("group.parked"), parked.length, true)}
+      {!closed["parked"] &&
+        parked.map((r) => (
+          <StatusRailPark
+            actions={
+              <ParkActions
+                approval={r.approval}
+                onDetail={open(r)}
+                rowKey={r.key}
+                title={r.title}
+              />
             }
-            rowKey={r.taskId === null ? undefined : r.key}
-            selected={selection?.key === r.key}
-            sheetSide={sheetSide}
-            tone={r.tone}
-          >
-            <RunTitle step={r.step} title={r.title} />
-            <span data-testid={`${RunsWidgetTestId.Queued}-${r.key}`}>
-              <BoardLine between gap="5">
-                <BoardText tabular kind="meta">
-                  {tRuns(`state.${r.status}`)}
-                </BoardText>
-                <BoardText kind="meta" tone="ink3">
-                  {r.when}
-                </BoardText>
-              </BoardLine>
-            </span>
-            <RunIssue issue={r.issue} project={r.project} />
-          </BoardRow>
-        ))}
-      {header("finished", finished.length)}
-      {!closed["finished"] &&
-        finished.map((r) => (
-          <BoardRow
-            columns="run"
             key={r.key}
             onClick={open(r)}
             rowKey={r.key}
             selected={selection?.key === r.key}
-            sheetSide={sheetSide}
-            tone={r.tone}
-          >
-            <RunTitle step={r.step} title={r.title} />
-            <BoardLine between gap="5">
-              <RunStateIcon runKey={r.key} tone={r.tone} />
-              <BoardText tabular kind="meta">
-                {r.age}
-              </BoardText>
-            </BoardLine>
-            <RunIssue issue={r.issue} project={r.project} />
-          </BoardRow>
+            sub={r.step}
+            time={compactAgo(r.startedAt, now)}
+            title={r.title}
+            toneLabel={tRuns(`state.${r.status}`)}
+            why={
+              r.approval
+                ? (r.approval.summary ?? r.approval.consequence ?? r.approval.text)
+                : r.status === "parked"
+                  ? tRuns("detail.banner.parkedHint")
+                  : undefined
+            }
+          />
         ))}
+      {queued.length > 0 && section("queued", t("group.queued"), queued.length)}
+      {!closed["queued"] && queued.length > 0 && (
+        <StatusRail>
+          {queued.map((r) => (
+            <StatusRailItem
+              key={r.key}
+              onClick={
+                r.taskId === null
+                  ? undefined
+                  : () =>
+                      onOpen({
+                        kind: "task",
+                        id: r.taskId as string,
+                        widgetId: widget.id,
+                        key: r.key,
+                        href: `/work/tasks/${r.taskId}`,
+                      })
+              }
+              rowKey={r.taskId === null ? undefined : r.key}
+              selected={selection?.key === r.key}
+              sub={
+                <>
+                  <span data-testid={`${RunsWidgetTestId.Queued}-${r.key}`}>
+                    {tRuns(`state.${r.status}`)}
+                  </span>
+                  {` · ${r.step}`}
+                </>
+              }
+              time={r.when}
+              title={r.title}
+              tone={r.tone}
+              toneLabel={tRuns(`state.${r.status}`)}
+            />
+          ))}
+        </StatusRail>
+      )}
+      {finished.length > 0 && section("finished", t("group.finished"), finished.length)}
+      {!closed["finished"] && finished.length > 0 && (
+        <StatusRail>
+          {finished.map((r) => (
+            <StatusRailItem
+              dim
+              key={r.key}
+              onClick={open(r)}
+              rowKey={r.key}
+              selected={selection?.key === r.key}
+              sub={r.issue ? `${r.step} · ${r.issue}` : r.step}
+              time={r.age}
+              title={r.title}
+              tone={r.tone}
+              toneLabel={stateLabel(r.tone)}
+            />
+          ))}
+        </StatusRail>
+      )}
+    </>
+  );
+}
+
+/** A parked block's inline actions: hold to approve + reject for an approval gate, Detail always. */
+function ParkActions({
+  approval,
+  rowKey,
+  title,
+  onDetail,
+}: {
+  approval: DashboardApproval | undefined;
+  rowKey: string;
+  title: string;
+  onDetail: () => void;
+}) {
+  const t = useTranslations("runs.detail");
+  const tApprovals = useTranslations("approvals");
+  const tk = useTranslations();
+  const approve = useApproveMutation();
+  const reject = useRejectMutation();
+  const [confirmReject, setConfirmReject] = useState(false);
+  const gate = approval && approval.action !== OPERATOR_QUESTION_ACTION ? approval : undefined;
+  return (
+    <>
+      {gate && (
+        <HoldButton
+          armedLabel={tApprovals("holdArmed")}
+          data-testid={`${RunsWidgetTestId.Approve}-${rowKey}`}
+          disabled={approve.isPending}
+          doneLabel={tApprovals("holdDone")}
+          durationMs={APPROVAL_HOLD_MS}
+          label={t("banner.hold")}
+          onConfirm={() => approve.mutate({ params: { id: gate.id }, body: {} })}
+          size="sm"
+        />
+      )}
+      {gate && (
+        <Button
+          data-testid={`${RunsWidgetTestId.Reject}-${rowKey}`}
+          intent="secondary"
+          onClick={() => setConfirmReject(true)}
+          size="sm"
+        >
+          {t("banner.reject")}
+        </Button>
+      )}
+      <Button
+        data-testid={`${RunsWidgetTestId.Detail}-${rowKey}`}
+        intent="ghost"
+        onClick={onDetail}
+        size="sm"
+      >
+        {tk("bridge.widgets.runs.detail")}
+      </Button>
+      {gate && confirmReject && (
+        <ConfirmDeleteDialog
+          body={t("confirm.rejectBody", {
+            action: title.charAt(0).toLowerCase() + title.slice(1),
+          })}
+          cancelLabel={tk("common.cancel")}
+          confirmLabel={t("banner.reject")}
+          icon="x"
+          onCancel={() => setConfirmReject(false)}
+          onConfirm={() => {
+            setConfirmReject(false);
+            reject.mutate({ params: { id: gate.id }, body: {} });
+          }}
+          pending={reject.isPending}
+          title={t("confirm.rejectTitle")}
+        />
+      )}
     </>
   );
 }
@@ -302,33 +423,4 @@ export function RunElapsed({ startedAt }: { startedAt: string }) {
   const now = useNow(1_000);
   const start = Date.parse(startedAt);
   return Number.isNaN(start) ? "—" : formatDuration(now - start);
-}
-
-/** Non-running rows show their state as an icon in the state colour. */
-function RunStateIcon({ tone, runKey }: { tone: StateTone; runKey: string }) {
-  const { name, tone: iconTone } = STATE_ICON[tone] ?? STATE_ICON.idle;
-  return (
-    <span data-testid={`${RunsWidgetTestId.StateIcon}-${runKey}`}>
-      <Icon aria-hidden name={name} size="xl" tone={iconTone} />
-    </span>
-  );
-}
-
-export function RunTitle({ title, step }: { title: string; step: string }) {
-  return (
-    <BoardLine direction="col" gap="3">
-      <BoardText kind="body">{title}</BoardText>
-      <BoardText truncate kind="meta">
-        {step}
-      </BoardText>
-    </BoardLine>
-  );
-}
-
-function RunIssue({ issue, project }: { issue: string | null; project: string }) {
-  return (
-    <BoardText align="right" kind="link" tone={issue ? "ink" : "ink3"} underline={!!issue}>
-      {issue ? `${issue} ↗` : project}
-    </BoardText>
-  );
 }

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../utils/cn";
-import { focusRingInset } from "../../utils/focus";
+import { focusRing, focusRingInset } from "../../utils/focus";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
@@ -38,7 +38,7 @@ export enum DropdownTestId {
 }
 
 /** Visual presentation of the trigger.
- * - `inline` — compact mono pill, auto width, right-aligned panel (toolbars, the language switcher).
+ * - `inline` — compact pill, auto width, right-aligned panel (toolbars, the language switcher).
  * - `field` — full-width form-control chrome matching `TextInput`/`TextArea`; used by `Select`. */
 export type DropdownVariant = "inline" | "field";
 
@@ -58,10 +58,10 @@ const toneBorderBgClass: Record<DropdownTone, string> = {
 };
 
 const toneTextClass: Record<DropdownTone, string> = {
-  neutral: "text-foreground-dim",
-  accent: "text-accent",
+  neutral: "text-ink-2",
+  accent: "text-accent-fg",
   ok: "text-ok",
-  warn: "text-warn",
+  warn: "text-accent-fg",
   bad: "text-bad",
   run: "text-run",
 };
@@ -401,20 +401,20 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
   })();
 
   const triggerClasses = cn(
-    "items-center gap-2 cursor-pointer border outline-none",
-    "focus-visible:ring-2 transition-all duration-150",
+    "items-center gap-2 cursor-pointer border transition-colors duration-150 motion-reduce:transition-none",
+    focusRing,
     isField
-      ? cn("flex w-full rounded font-sans", size === "sm" ? "px-3 py-1.5" : "px-3.5 py-2.5")
+      ? cn("flex w-full rounded-md font-sans", size === "sm" ? "px-3 py-1.5" : "px-3.5 py-2.5")
       : cn(
-          "inline-flex rounded-sm font-mono font-semibold",
+          "inline-flex rounded-md font-sans font-medium",
           size === "sm" ? "px-2.5 py-1 text-sm" : "px-[11px] py-2 text-base",
         ),
     open
-      ? "border-ink bg-background"
+      ? "border-ink-3 bg-panel"
       : invalid
-        ? "border-bad bg-surface"
-        : (toneClasses ?? "border-border bg-surface"),
-    invalid ? "focus-visible:ring-bad" : "focus-visible:ring-foreground",
+        ? "border-bad bg-panel"
+        : (toneClasses ?? "border-line bg-panel"),
+    invalid && "focus-visible:ring-bad",
   );
 
   const sharedTriggerProps = {
@@ -431,7 +431,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
   const chevron = (
     <span
       className={cn(
-        "inline-flex text-foreground-faint transition-transform duration-150",
+        "inline-flex text-ink-3 transition-transform duration-150 motion-reduce:transition-none",
         open && "rotate-90",
       )}
     >
@@ -464,9 +464,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
           tabIndex={0}
         >
           {selected.length === 0 ? (
-            <span className="flex-1 text-left text-md text-foreground-faint">
-              {props.placeholder ?? ""}
-            </span>
+            <span className="flex-1 text-left text-body text-ink-3">{props.placeholder ?? ""}</span>
           ) : (
             <span
               className={cn(
@@ -540,7 +538,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
             return (
               <>
                 {current?.code !== undefined && (
-                  <span className={cn("text-accent", isField && "font-mono text-sm")}>
+                  <span className={cn("font-mono text-accent-fg", isField && "text-sm")}>
                     {current.code}
                   </span>
                 )}
@@ -548,16 +546,16 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
                   <span
                     className={cn(
                       isField
-                        ? "flex-1 text-left text-md text-foreground"
+                        ? "flex-1 text-left text-body text-ink"
                         : cn(
-                            tone && !invalid ? toneTextClass[tone] : "text-foreground-dim",
+                            tone && !invalid ? toneTextClass[tone] : "text-ink-2",
                             "font-normal text-caption",
                           ),
                     )}
                   >
                     {current?.label ??
                       (props.value === "" && props.placeholder ? (
-                        <span className="text-foreground-faint">{props.placeholder}</span>
+                        <span className="text-ink-3">{props.placeholder}</span>
                       ) : (
                         props.value
                       ))}
@@ -588,12 +586,11 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
               {rows.map((row, i) => {
                 const active = i === activeRow;
                 const rowClasses = cn(
-                  "w-full flex items-center gap-2.5 px-[11px] py-[9px]",
+                  "w-full flex items-center gap-2.5 px-[10px] py-[7px]",
                   "rounded-sm cursor-pointer border-none text-left",
                   focusRingInset,
-                  "transition-colors duration-100",
-                  active ? "bg-surface" : "bg-transparent hover:bg-surface",
-                  active && "ring-1 ring-inset ring-border-strong",
+                  "transition-colors duration-100 motion-reduce:transition-none",
+                  active ? "bg-raised" : "bg-transparent hover:bg-raised",
                 );
 
                 if (row.kind === "all") {
@@ -608,7 +605,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
                   return (
                     <button
                       aria-selected={allSelected}
-                      className={cn(rowClasses, "border-b border-border")}
+                      className={cn(rowClasses, "border-b border-line")}
                       data-testid={DropdownTestId.SelectAll}
                       id={optionId(i)}
                       key="__select_all__"
@@ -618,7 +615,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
                       type="button"
                     >
                       <Checkbox presentational checked={allSelected} size="sm" />
-                      <span className="text-md text-foreground flex-1 font-medium">{label}</span>
+                      <span className="text-body text-ink flex-1 font-medium">{label}</span>
                     </button>
                   );
                 }
@@ -644,23 +641,25 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
                     {opt.code !== undefined && (
                       <span
                         className={cn(
-                          "font-mono text-base font-semibold w-[22px]",
-                          selectedOpt ? "text-accent" : "text-foreground-dim",
+                          "font-mono text-mono w-[22px]",
+                          selectedOpt ? "text-accent-fg" : "text-ink-3",
                         )}
                       >
                         {opt.code}
                       </span>
                     )}
                     <span className="flex-1 min-w-0">
-                      <span className="block truncate text-md text-foreground">{opt.label}</span>
+                      <span className="block truncate text-body text-ink">{opt.label}</span>
                       {opt.description && (
-                        <span className="block truncate text-xs text-foreground-faint">
+                        <span className="block truncate text-meta text-ink-3">
                           {opt.description}
                         </span>
                       )}
                     </span>
                     {selectedOpt && !props.multi && (
-                      <Icon name="check" size="sm" stroke="medium" tone="accent" />
+                      <span className="inline-flex text-accent-fg">
+                        <Icon name="check" size="sm" stroke="medium" />
+                      </span>
                     )}
                   </button>
                 );

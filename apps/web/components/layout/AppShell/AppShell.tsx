@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import {
   AppFrame,
   AppHeader,
+  type BrandMarkState,
   Button,
   MobileMenu,
   MobileToolbar,
@@ -28,6 +29,8 @@ import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSh
 import { counterSuffix } from "../../../features/inbox/inbox";
 import { useInboxCounts } from "../../../features/inbox/useInboxCounts";
 import { useSelfStatusQuery } from "../../../features/self";
+import { useApprovalsQuery } from "../../../features/approvals/queries";
+import { useRunsQuery } from "../../../features/runs/queries";
 import { useIsPhone } from "../../../hooks/useIsPhone";
 import { NotificationBell } from "../../../features/notifications";
 import { ApprovalNotifier, AutopilotToggle, useAutopilotQuery } from "../../../features/autopilot";
@@ -305,8 +308,19 @@ function PhoneMenu({ pathname }: { pathname: string }) {
 function useHeaderTrailing() {
   const { data: status } = useSelfStatusQuery();
   const limitItems = useHeaderLimitItems();
+  const { data: approvals } = useApprovalsQuery();
+  const { runs } = useRunsQuery();
+  // The logo's knot shows the system state (brand doc "Motýlek"): amber when
+  // something waits on the operator, violet while agents work, grey at rest.
+  const markState: BrandMarkState =
+    approvals?.length || runs.some((r) => r.status === "awaiting-approval" || r.status === "parked")
+      ? "blocked"
+      : runs.some((r) => r.status === "running")
+        ? "working"
+        : "idle";
 
   return {
+    markState,
     version: status?.appVersion ? `v${status.appVersion}` : undefined,
     limits: (
       <Stack align="center" direction="row" gap="100">
@@ -396,6 +410,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 homeHref="/dashboard"
                 limits={trailing.limits}
                 linkComponent={NavLink}
+                markState={trailing.markState}
                 nav={<SectionNav active={active} />}
                 notifications={<NotificationBell />}
                 onSearchClick={() => setPaletteOpen(true)}

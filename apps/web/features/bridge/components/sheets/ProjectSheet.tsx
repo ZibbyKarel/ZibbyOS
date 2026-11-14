@@ -5,10 +5,12 @@ import {
   AnchoredSheet,
   Button,
   Container,
+  SheetAction,
+  SheetBanner,
   SheetBlock,
   SheetSection,
-  type SheetTone,
   Stack,
+  type StateTone,
   TextLink,
   Typography,
 } from "@zibby/design-system";
@@ -31,7 +33,7 @@ export enum ProjectSheetTestId {
   Message = "project-sheet-message",
 }
 
-const TONE: Record<ProjectCi["state"], SheetTone> = {
+const TONE: Record<ProjectCi["state"], StateTone> = {
   passing: "done",
   failing: "error",
   running: "working",
@@ -40,6 +42,18 @@ const TONE: Record<ProjectCi["state"], SheetTone> = {
   skipped: "idle",
   none: "idle",
   error: "blocked",
+};
+
+/** A state note for the footer when nothing more specific (unreadable CI, GitLab) applies. */
+const NOTE_KEY: Record<ProjectCi["state"], "passing" | "failing" | "running" | "idle"> = {
+  passing: "passing",
+  failing: "failing",
+  running: "running",
+  pending: "running",
+  cancelled: "idle",
+  skipped: "idle",
+  none: "idle",
+  error: "idle",
 };
 
 /** The chat context: the branch state plus every failing job / step (data, not instructions). */
@@ -113,7 +127,7 @@ function JobBlock({ job, stateLabel }: { job: CiJob; stateLabel: (s: CiJob["stat
  * GitHub's checks view. The title opens the project page; the repo link sits under it. Actions: "Discuss in chat", and on red
  * CI "Opravit CI" — a task whose output is a PR (ZIBBY opens it, the operator merges).
  */
-export function ProjectSheet({ id, anchor, onClose }: SheetProps) {
+export function ProjectSheet({ id, anchor, onClose, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const ts = useTranslations("bridge.sheet.project");
@@ -148,7 +162,7 @@ export function ProjectSheet({ id, anchor, onClose }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={
         <>
           {ci ? <ChatAboutButton about={ciAbout(project.name, ci)} /> : null}
@@ -167,46 +181,63 @@ export function ProjectSheet({ id, anchor, onClose }: SheetProps) {
           ) : null}
         </>
       }
-      chips={[...(ci?.branch ? [ci.branch] : []), ...(ci?.headSha ? [ci.headSha.slice(0, 7)] : [])]}
+      banner={
+        note ? (
+          <SheetBanner
+            actions={
+              note.taskId ? (
+                <SheetAction
+                  onClick={() =>
+                    router.push(`/work/tasks/${encodeURIComponent(note.taskId ?? "")}` as Route)
+                  }
+                >
+                  {ts("openTask")}
+                </SheetAction>
+              ) : undefined
+            }
+            icon="bolt"
+            title={<span data-testid={ProjectSheetTestId.Message}>{note.text}</span>}
+            tone="error"
+          />
+        ) : undefined
+      }
       closeLabel={t("bridge.sheet.close")}
+      copyId={id}
       footerNote={
         ci?.state === "error"
           ? ts("unavailable", { reason: ci.error ?? "" })
           : ci?.provider === "gitlab"
             ? ts("gitlabDeferred")
-            : undefined
+            : ci
+              ? ts(`note.${NOTE_KEY[state]}`)
+              : undefined
       }
+      glyph="grid"
       kind={t("bridge.sheet.kind.project")}
       meta={
-        ci?.repoUrl ? (
-          <TextLink
-            data-testid={ProjectSheetTestId.RepoLink}
-            href={ci.repoUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {ts("openRepo")}
-          </TextLink>
-        ) : undefined
+        <>
+          {ci?.branch ? (
+            <Typography as="span" type="code" variant="secondary">
+              {[ci.branch, ci.headSha?.slice(0, 7)].filter(Boolean).join(" @ ")}
+            </Typography>
+          ) : null}
+          {ci?.repoUrl ? (
+            <TextLink
+              data-testid={ProjectSheetTestId.RepoLink}
+              href={ci.repoUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {ts("openRepo")}
+            </TextLink>
+          ) : null}
+        </>
       }
       onClose={onClose}
       onTitleClick={() => router.push(`/projects/${encodeURIComponent(id)}` as Route)}
-      stateLabel={stateLabel(state)}
       title={project.name}
-      tone={TONE[state]}
+      tones={[{ tone: TONE[state], label: stateLabel(state) }]}
     >
-      {note ? (
-        <Stack data-testid={ProjectSheetTestId.Message} direction="row" gap="75">
-          <Typography as="span" size="sm" type="body">
-            {note.text}
-          </Typography>
-          {note.taskId ? (
-            <TextLink href={`/work/tasks/${encodeURIComponent(note.taskId)}`}>
-              {ts("openTask")}
-            </TextLink>
-          ) : null}
-        </Stack>
-      ) : null}
       {ci && ci.workflows.length === 0 ? (
         <Typography size="sm" type="note" variant="secondary">
           {ts("noRuns")}

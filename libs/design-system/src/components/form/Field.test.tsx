@@ -59,14 +59,15 @@ describe("Field", () => {
     expect(screen.getByTestId(FieldTestId.Label)).not.toHaveClass("sr-only");
   });
 
-  it("renders the caps label by default and sentence case with labelCase=normal", () => {
+  it("renders a quiet sentence-case label by default and an ink one with labelCase=normal", () => {
     const { rerender } = render(<Sample />);
-    expect(screen.getByTestId(FieldTestId.Label)).toHaveClass("uppercase");
+    expect(screen.getByTestId(FieldTestId.Label)).not.toHaveClass("uppercase");
+    expect(screen.getByTestId(FieldTestId.Label)).toHaveClass("text-ink-3");
     rerender(
       <Field label="Název" labelCase="normal">
         {({ id }) => <input id={id} />}
       </Field>,
     );
-    expect(screen.getByTestId(FieldTestId.Label)).not.toHaveClass("uppercase");
+    expect(screen.getByTestId(FieldTestId.Label)).toHaveClass("text-ink");
   });
 });

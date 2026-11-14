@@ -68,7 +68,7 @@ export function Copyable({
         className={
           reveal === "always" || state !== "idle"
             ? "-my-[7px] inline-flex"
-            : "-my-[7px] inline-flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+            : "-my-[7px] inline-flex opacity-0 transition-opacity motion-reduce:transition-none group-focus-within:opacity-100 group-hover:opacity-100"
         }
       >
         <Button

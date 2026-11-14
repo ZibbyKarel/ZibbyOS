@@ -139,7 +139,10 @@ export function Sheet({
         aria-modal
         aria-label={ariaLabel}
         aria-labelledby={title && !ariaLabel ? titleId : undefined}
-        className={cn("relative flex h-full flex-col bg-panel border-ink", focusRing)}
+        className={cn(
+          "relative flex h-full flex-col bg-sheet border-line-2 shadow-[var(--shadow-pop)]",
+          focusRing,
+        )}
         data-side={side}
         data-testid={SheetTestId.Root}
         ref={rootRef}

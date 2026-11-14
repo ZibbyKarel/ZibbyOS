@@ -1,12 +1,11 @@
 "use client";
 
-import { BoardGrid, BoardLine, BoardRow, BoardText, IconTile } from "@zibby/design-system";
+import { FeedRow } from "@zibby/design-system";
 import type { ChannelItem, IntegrationKind } from "@zibby/contracts";
 import { useMemo } from "react";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
-import { sourceIcon } from "../../integrations/kindIcon";
 import { useChannelItemsQuery } from "../../integrations/queries";
 import type { BridgeWidgetProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
@@ -19,12 +18,13 @@ export const MENTION_KINDS = [
 ] as const satisfies readonly IntegrationKind[];
 export const MENTIONS_LIMIT = 50;
 
-export enum MentionsWidgetTestId {
-  Source = "mentions-widget-source",
-  Author = "mentions-widget-author",
-  Snippet = "mentions-widget-snippet",
-  Age = "mentions-widget-age",
-}
+/** The feed's source glyphs (GH, JI, #, @); the data carries no unread flag, so no row is bold. */
+const GLYPH: Partial<Record<IntegrationKind, string>> = {
+  github: "GH",
+  jira: "JI",
+  slack: "#",
+  email: "@",
+};
 
 /** Conversational channel items, dismissed ones dropped, newest first, capped. */
 export function mentionItems(items: readonly ChannelItem[]): ChannelItem[] {
@@ -61,40 +61,16 @@ export function MentionsWidget({ widget, onEmptyChange, onCountChange }: BridgeW
   return (
     <>
       {rows.map((i) => (
-        <BoardRow
+        <FeedRow
+          age={compactAgo(i.receivedAt, now)}
+          glyph={GLYPH[i.kind] ?? "·"}
+          glyphLabel={i.kind}
           key={i.id}
           onClick={i.url ? () => window.open(i.url, "_blank", "noopener,noreferrer") : undefined}
           rowKey={`${widget.id}:${i.id}`}
-          tone="neutral"
-        >
-          <BoardGrid columns="issue">
-            <IconTile
-              {...sourceIcon(i.kind)}
-              alt={i.kind}
-              aria-label={i.kind}
-              data-testid={MentionsWidgetTestId.Source}
-              filled={false}
-              radius="sm"
-              role="img"
-              size="xs"
-              title={i.kind}
-              tone="neutral"
-            />
-            <BoardLine gap="6">
-              {i.from ? (
-                <BoardText data-testid={MentionsWidgetTestId.Author} kind="id">
-                  {i.from}
-                </BoardText>
-              ) : null}
-              <BoardText data-testid={MentionsWidgetTestId.Snippet} kind="body">
-                {i.text}
-              </BoardText>
-            </BoardLine>
-            <BoardText data-testid={MentionsWidgetTestId.Age} kind="meta" tone="ink3">
-              {compactAgo(i.receivedAt, now)}
-            </BoardText>
-          </BoardGrid>
-        </BoardRow>
+          text={i.text}
+          who={i.from}
+        />
       ))}
     </>
   );

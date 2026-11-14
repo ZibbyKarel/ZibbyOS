@@ -5,7 +5,7 @@ import { cn } from "../../utils/cn";
 export type ProgressTone = "accent" | "ok" | "warn" | "bad" | "run";
 
 /** The bar fill also takes the ink and idle (neutral) fills the Bridge board uses. */
-export type ProgressBarTone = ProgressTone | "ink" | "idle";
+export type ProgressBarTone = ProgressTone | "ink" | "ink2" | "idle";
 
 export enum ProgressTestId {
   Root = "progress-root",
@@ -19,6 +19,7 @@ const toneBar: Record<ProgressBarTone, string> = {
   bad: "bg-bad",
   run: "bg-run",
   ink: "bg-ink",
+  ink2: "bg-ink-2",
   idle: "bg-[var(--color-state-idle)]",
 };
 
@@ -44,7 +45,7 @@ export interface ProgressProps extends Omit<HTMLAttributes<HTMLDivElement>, "cla
  *  `indeterminate`) the ZibbyOS loading indicator for unknown-duration waits. */
 export function Progress({
   value = 0,
-  tone = "accent",
+  tone = "ink2",
   height = "75",
   label,
   indeterminate = false,
@@ -59,7 +60,7 @@ export function Progress({
       aria-valuemax={label && !indeterminate ? 100 : undefined}
       aria-valuemin={label && !indeterminate ? 0 : undefined}
       aria-valuenow={label && !indeterminate ? pct : undefined}
-      className="relative overflow-hidden rounded-full bg-border"
+      className="relative overflow-hidden rounded-full bg-ink/[0.07]"
       data-testid={ProgressTestId.Root}
       ref={ref}
       role={label ? "progressbar" : undefined}
@@ -77,9 +78,9 @@ export function Progress({
       ) : (
         <div
           className={cn(
-            "absolute inset-y-0 left-0 rounded-full transition-[width] duration-300",
+            "absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 motion-reduce:transition-none",
             toneBar[tone],
-            pulse && "animate-zb-live",
+            pulse && "animate-zb-live motion-reduce:animate-none",
           )}
           data-testid={ProgressTestId.Fill}
           style={{ width: `${pct}%` }}

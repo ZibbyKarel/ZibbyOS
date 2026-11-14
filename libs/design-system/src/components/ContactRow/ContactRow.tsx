@@ -51,13 +51,13 @@ export function ContactRow({
       <Row align="center" gap="100">
         <div
           aria-hidden="true"
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center border border-line-2 font-mono text-[11px] font-semibold"
+          className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-ink/[0.08] text-meta font-medium text-ink-2"
           data-testid={ContactRowTestId.Initial}
         >
           {initial}
         </div>
         <Stack grow gap="25">
-          <Typography truncate data-testid={ContactRowTestId.Name} type="labelSm" weight="semibold">
+          <Typography truncate data-testid={ContactRowTestId.Name} type="body" weight="medium">
             {name}
           </Typography>
           {sub && (
@@ -73,7 +73,6 @@ export function ContactRow({
         </Stack>
         {onToggleVip && (
           <Tag
-            uppercase
             data-testid={ContactRowTestId.Vip}
             onClick={onToggleVip}
             tone={vip ? "thinking" : "neutral"}

@@ -81,8 +81,8 @@ const items: FeedItem[] = [
   },
 ];
 
-function renderFeed(over: Partial<RunView> = {}, mode: "running" | "parked" = "running") {
-  render(<RunLiveFeed items={items} mode={mode} run={{ ...run, ...over }} />);
+function renderFeed(over: Partial<RunView> = {}) {
+  render(<RunLiveFeed items={items} run={{ ...run, ...over }} />);
 }
 
 describe("RunLiveFeed", () => {
@@ -114,12 +114,24 @@ describe("RunLiveFeed", () => {
     expect(captions[1]).toHaveTextContent("Nedoručeno");
   });
 
-  it("a parked run shows the parked banner", () => {
-    renderFeed(
-      { status: "parked", parked: { phaseId: "p2", attempts: 2, failureFile: "/x" } },
-      "parked",
-    );
-    expect(screen.getByTestId(RunFeedBannersTestId.Parked)).toBeInTheDocument();
+  it("never renders a banner itself — the run detail owns the one banner", () => {
+    renderFeed({ status: "parked", parked: { phaseId: "p2", attempts: 2, failureFile: "/x" } });
+    expect(screen.queryByTestId(RunFeedBannersTestId.Parked)).not.toBeInTheDocument();
+  });
+
+  it("a live round ends in a streaming cursor; a finished one does not", () => {
+    const agent = (live: boolean): FeedItem => ({
+      kind: "agent",
+      phaseId: "p2",
+      who: "coder",
+      blocks: [{ kind: "text", markdown: "Working." }],
+      live,
+      rounds: [],
+    });
+    const { rerender } = render(<RunLiveFeed items={[agent(true)]} run={run} />);
+    expect(screen.getByTestId(RunLiveFeedTestId.Streaming)).toBeInTheDocument();
+    rerender(<RunLiveFeed items={[agent(false)]} run={run} />);
+    expect(screen.queryByTestId(RunLiveFeedTestId.Streaming)).not.toBeInTheDocument();
   });
 
   it("a goal run renders the goal panel instead of items", () => {
@@ -140,12 +152,13 @@ describe("RunLiveFeed", () => {
         n: i + 1,
         stageRunId: `s${i + 1}`,
         live: false,
+        state: "done" as const,
       })),
     });
     beforeEach(() => vi.mocked(useStageRunLogQuery).mockClear());
 
     it("shows one section per round with only the latest expanded", () => {
-      render(<RunLiveFeed items={[roundsItem(2)]} mode="running" run={wfRun} />);
+      render(<RunLiveFeed items={[roundsItem(2)]} run={wfRun} />);
       const summaries = screen.getAllByTestId(AccordionTestId.Summary);
       expect(summaries[0]).toHaveTextContent("Kolo 1");
       expect(summaries[1]).toHaveTextContent("Kolo 2");
@@ -156,7 +169,7 @@ describe("RunLiveFeed", () => {
     });
 
     it("opening an earlier round collapses the latest and fetches that round", () => {
-      render(<RunLiveFeed items={[roundsItem(2)]} mode="running" run={wfRun} />);
+      render(<RunLiveFeed items={[roundsItem(2)]} run={wfRun} />);
       const summaries = screen.getAllByTestId(AccordionTestId.Summary);
       fireEvent.click(summaries[0]!);
       expect(summaries[0]).toHaveAttribute("aria-expanded", "true");
@@ -166,11 +179,9 @@ describe("RunLiveFeed", () => {
     });
 
     it("a new round re-expands the latest", () => {
-      const { rerender } = render(
-        <RunLiveFeed items={[roundsItem(2)]} mode="running" run={wfRun} />,
-      );
+      const { rerender } = render(<RunLiveFeed items={[roundsItem(2)]} run={wfRun} />);
       fireEvent.click(screen.getAllByTestId(AccordionTestId.Summary)[0]!);
-      rerender(<RunLiveFeed items={[roundsItem(3)]} mode="running" run={wfRun} />);
+      rerender(<RunLiveFeed items={[roundsItem(3)]} run={wfRun} />);
       const summaries = screen.getAllByTestId(AccordionTestId.Summary);
       expect(summaries).toHaveLength(3);
       expect(summaries[2]).toHaveAttribute("aria-expanded", "true");
@@ -185,27 +196,27 @@ describe("RunLiveFeed", () => {
           ...base,
           live,
           rounds: [
-            { n: 1, stageRunId: "s1", live: false },
-            { n: 2, stageRunId, live },
+            { n: 1, stageRunId: "s1", live: false, state: "done" },
+            { n: 2, stageRunId, live, state: live ? "working" : "done" },
           ],
         };
       };
       const { rerender } = render(
-        <RunLiveFeed items={[withLast(LIVE_STAGE_RUN_ID, true)]} mode="running" run={wfRun} />,
+        <RunLiveFeed items={[withLast(LIVE_STAGE_RUN_ID, true)]} run={wfRun} />,
       );
       expect(screen.getAllByTestId(AccordionTestId.Summary)[1]).toHaveAttribute(
         "aria-expanded",
         "true",
       );
       expect(useStageRunLogQuery).not.toHaveBeenCalled();
-      rerender(<RunLiveFeed items={[withLast("s2", false)]} mode="running" run={wfRun} />);
+      rerender(<RunLiveFeed items={[withLast("s2", false)]} run={wfRun} />);
       const summaries = screen.getAllByTestId(AccordionTestId.Summary);
       expect(summaries[1]).toHaveAttribute("aria-expanded", "true");
       expect(summaries[0]).toHaveAttribute("aria-expanded", "false");
     });
 
     it("a single round renders without an accordion", () => {
-      render(<RunLiveFeed items={[roundsItem(1)]} mode="running" run={wfRun} />);
+      render(<RunLiveFeed items={[roundsItem(1)]} run={wfRun} />);
       expect(screen.queryAllByTestId(AccordionTestId.Root)).toHaveLength(0);
       expect(screen.getByText("Latest text.")).toBeInTheDocument();
     });

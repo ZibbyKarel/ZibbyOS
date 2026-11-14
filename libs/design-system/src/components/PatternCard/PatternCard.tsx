@@ -58,7 +58,7 @@ export function PatternCard({
       <Row align="start" gap="200" justify="between">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Row gap="100">
-            <Tag uppercase data-testid={PatternCardTestId.Scope} tone="neutral">
+            <Tag data-testid={PatternCardTestId.Scope} tone="neutral">
               {scope}
             </Tag>
           </Row>

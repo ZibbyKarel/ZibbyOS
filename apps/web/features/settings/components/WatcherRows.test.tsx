@@ -25,7 +25,7 @@ describe("WatcherRows (NS2 F6c)", () => {
     expect(screen.getByTestId(`${WatcherRowsTestId.Row}-scheduler`)).toHaveTextContent("Vypnutý");
   });
 
-  it("a stale row shows the warning tone; disabled shows the faint dot", () => {
+  it("a stale row shows the warning tone; disabled shows the hollow idle dot", () => {
     render(<WatcherRows watchers={WATCHERS} />);
     const staleDot = within(screen.getByTestId(`${WatcherRowsTestId.Row}-monitor`)).getByTestId(
       StatusDotTestId.Dot,
@@ -34,7 +34,7 @@ describe("WatcherRows (NS2 F6c)", () => {
     const disabledDot = within(
       screen.getByTestId(`${WatcherRowsTestId.Row}-scheduler`),
     ).getByTestId(StatusDotTestId.Dot);
-    expect(disabledDot).toHaveClass("bg-foreground-faint");
+    expect(disabledDot).toHaveClass("border-state-idle", "bg-transparent");
   });
 
   it("absent or empty watchers render nothing (no crash on an old API payload)", () => {

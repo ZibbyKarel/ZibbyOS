@@ -47,6 +47,14 @@ const anchor = {
 } as never;
 
 describe("AutomationSheet", () => {
+  it("lists the next seven fires of a cron schedule", () => {
+    renderWithProviders(<AutomationSheet anchor={anchor} id="nightly" onClose={vi.fn()} />);
+    expect(
+      screen.getByTestId(AutomationSheetTestId.NextRuns).textContent?.split(" · "),
+    ).toHaveLength(7);
+    expect(screen.getByTestId(AnchoredSheetTestId.FooterNote)).toHaveTextContent("Příští spuštění");
+  });
+
   it("shows the automation detail and runs it now", async () => {
     renderWithProviders(<AutomationSheet anchor={anchor} id="nightly" onClose={vi.fn()} />);
     expect(screen.getByTestId(AnchoredSheetTestId.Title)).toHaveTextContent("Nightly review");

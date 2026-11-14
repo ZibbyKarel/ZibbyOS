@@ -36,7 +36,6 @@ export function StateDot({ state, px, className, style, ...rest }: StateDotProps
         animation,
         background: color,
         borderRadius: "var(--dot-r, 0px)",
-        boxShadow: `0 0 var(--gw) ${color}`,
         height: px,
         width: px,
         ...style,
@@ -45,6 +44,14 @@ export function StateDot({ state, px, className, style, ...rest }: StateDotProps
     />
   );
 }
+
+// Label text colour: amber text reads through `accent-fg`, idle through `ink-3` — the
+// fill tokens (`state-block`, `state-idle`) are for dots, not text (contrast).
+const labelColor: Record<StateTone, string> = {
+  ...stateToneVar,
+  blocked: "var(--color-accent-fg)",
+  idle: "var(--color-ink-3)",
+};
 
 export enum StatePillTestId {
   Root = "state-pill-root",
@@ -60,7 +67,7 @@ export interface StatePillProps extends Omit<HTMLAttributes<HTMLSpanElement>, "c
 }
 
 /**
- * A square status dot + mono-uppercase label (DS.md §7/§3.2) — the compact
+ * A round status dot + sentence-case label (Bridge `.dot` + meta text) — the compact
  * "state, named" chip the HUD/Chat-UI reach for wherever a `Tag`/`Chip` is too
  * heavy (a list row, a card's meta line). The label defaults to the canonical
  * English state name and is overridable (localized copy, a task-specific phrase).
@@ -77,8 +84,8 @@ export function StatePill({ state, label, ref, ...props }: StatePillProps) {
       <Typography
         as="span"
         data-testid={StatePillTestId.Label}
-        style={{ color: stateToneVar[state] as CSSProperties["color"] }}
-        type="label"
+        style={{ color: labelColor[state] as CSSProperties["color"] }}
+        type="caption"
       >
         {label ?? STATE_LABEL[state]}
       </Typography>

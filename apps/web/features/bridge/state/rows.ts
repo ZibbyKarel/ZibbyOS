@@ -200,6 +200,7 @@ export interface PrRowVm {
   /** Unresolved review threads on my PR; 0 for others' PRs or when unknown. */
   conversations: number;
   mine: boolean;
+  draft: boolean;
 }
 
 /** One card and the PRs stacked directly on it (base -> head). */
@@ -307,6 +308,7 @@ export function prRow(
     muted,
     conversations: mine ? (pr.unresolvedThreads ?? 0) : 0,
     mine,
+    draft: pr.draft,
   };
 }
 

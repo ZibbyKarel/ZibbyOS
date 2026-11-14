@@ -65,7 +65,8 @@ export const MODE_TONE: Record<RunMode, StateTone> = {
   paused: "idle",
   approval: "blocked",
   question: "blocked",
-  parked: "error",
+  // Parked needs the operator (spec "Stav → tón": Zaparkováno = amber), not an error.
+  parked: "blocked",
   limit: "idle",
   stopped: "idle",
   error: "error",
@@ -79,6 +80,8 @@ export interface StageRound {
   n: number;
   stageRunId: string;
   live: boolean;
+  /** How this execution ended (the live one: working). */
+  state: StateTone;
 }
 
 export interface StageRailRow {
@@ -226,6 +229,7 @@ export function buildStageRail(
             n: k + 1,
             stageRunId: s.runId,
             live: s.runId === LIVE_STAGE_RUN_ID,
+            state: STAGE_TONE[s.status],
           }))
         : [],
       current,

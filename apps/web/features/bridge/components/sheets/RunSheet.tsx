@@ -1,6 +1,6 @@
 "use client";
 
-import { AnchoredSheet, CopyableText, normalizeStateTone } from "@zibby/design-system";
+import { AnchoredSheet, type StateTone } from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -8,8 +8,16 @@ import { useEffect, useRef } from "react";
 import { useApprovalSheetParam } from "../../../approvals/useApprovalSheetParam";
 import { useTaskRunQuery } from "../../../runs/queries/useTaskRunQuery";
 import { RunDetail, RunHeaderActions } from "../../../runs/components/RunDetail";
-import { runStateTone } from "../../../runs/run";
+import { type FeedStatus, RUN_STATE } from "../../../runs/run";
 import { type SheetProps, geometry, selectionFor } from "./sheetTypes";
+
+/** Run state → sheet tone (spec §3): needs me = amber, failed = rose, running = violet, done = emerald, else idle. */
+const RUN_TONE: Partial<Record<(typeof RUN_STATE)[FeedStatus]["badge"], StateTone>> = {
+  warn: "blocked",
+  bad: "error",
+  run: "working",
+  ok: "done",
+};
 
 /**
  * Run detail from `GET /api/tasks/runs/:id`: the very same `RunDetail` the run page renders
@@ -18,12 +26,12 @@ import { type SheetProps, geometry, selectionFor } from "./sheetTypes";
  * approval card opens the approval detail (where the gated phase's output lives). The run / task
  * pages are one footer click away.
  */
-export function RunSheet({ id, anchor, onClose, onOpen }: SheetProps) {
+export function RunSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const approvalSheet = useApprovalSheetParam();
   const { data: run } = useTaskRunQuery(id);
-  // An approval detail opened from this sheet closes with it (and when J/K steps to another run).
+  // An approval detail opened from this sheet closes with it (and when the arrow keys step to another run).
   // `history.replaceState` like the bridge's `?run=` sync — Next mirrors it into `useSearchParams`.
   const openedApproval = useRef<string | null>(null);
   useEffect(
@@ -51,27 +59,29 @@ export function RunSheet({ id, anchor, onClose, onOpen }: SheetProps) {
 
   return (
     <AnchoredSheet
-      {...geometry(anchor)}
+      {...geometry(anchor, frame)}
       actions={<RunHeaderActions run={run} />}
       closeLabel={t("bridge.sheet.close")}
+      copyId={run.runId}
+      expandable={Boolean(frame)}
+      expanded={frame?.expanded}
+      glyph="run"
       kind={
-        <>
-          {run.kind === "workflow"
-            ? t("runs.detail.workflow", { name: run.owner })
-            : `${t("bridge.sheet.kind.run")} · ${run.kind}`}
-          {" · "}
-          <CopyableText
-            copiedLabel={t("common.copied")}
-            copyFailedLabel={t("common.copyFailed")}
-            copyLabel={t("common.copyId")}
-            text={run.runId}
-          />
-        </>
+        run.kind === "workflow"
+          ? t("runs.detail.workflow", { name: run.owner })
+          : `${t("bridge.sheet.kind.run")} · ${run.kind}`
       }
       onClose={onClose}
       onTitleClick={() => router.push(`/activity/runs/${run.runId}` as Route)}
+      onToggleExpand={() => frame?.onExpandedChange(!frame.expanded)}
       title={run.title || run.taskTitle || run.runId}
-      tone={normalizeStateTone(runStateTone(run.status) ?? "idle")}
+      tones={[
+        {
+          tone: RUN_TONE[RUN_STATE[run.status].badge] ?? "idle",
+          label: t(`runs.state.${run.status}`),
+          loud: RUN_STATE[run.status].badge === "warn",
+        },
+      ]}
     >
       <RunDetail
         embedded

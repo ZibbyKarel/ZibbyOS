@@ -21,4 +21,21 @@ describe("IndentRail", () => {
     );
     expect(el).toBe(screen.getByTestId(IndentRailTestId.Root));
   });
+
+  it("stack draws the spine and the per-row elbow; rail stays the default", () => {
+    const { rerender } = render(
+      <IndentRail>
+        <span>kid</span>
+      </IndentRail>,
+    );
+    expect(screen.getByTestId(IndentRailTestId.Root)).toHaveAttribute("data-variant", "rail");
+    rerender(
+      <IndentRail variant="stack">
+        <span>kid</span>
+      </IndentRail>,
+    );
+    const root = screen.getByTestId(IndentRailTestId.Root);
+    expect(root).toHaveAttribute("data-variant", "stack");
+    expect(root.className).toContain("[&>[data-rk]]:before:w-[9px]");
+  });
 });

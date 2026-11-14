@@ -19,4 +19,9 @@ describe("Avatar", () => {
     render(<Avatar name="a" size="md" />);
     expect(screen.getByTestId(AvatarTestId.Root).className).toContain("size-8");
   });
+
+  it("xs is the 16px row avatar", () => {
+    render(<Avatar name="a" size="xs" />);
+    expect(screen.getByTestId(AvatarTestId.Root).className).toContain("size-4");
+  });
 });

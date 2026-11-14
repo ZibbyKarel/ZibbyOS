@@ -9,8 +9,10 @@ Než začneš psát kód, přečti celý tento soubor.
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Bridge Redesign.dc.html` | Dashboard: směr A (výchozí layout, REVIEW, telefon), alternativy B a C, **spec v sekci `<article class="spec">`**                                      |
 | `Bridge Sheets.dc.html`   | Detaily: PR (Přehled, Změny), Běh (běží / schválení / zaparkováno), Issue, Task, Automatizace, Stav projektu, Rychlá akce, Poznámka, telefon, **spec** |
-| `bridge.css`              | Sdílené styly obou stránek = **zdroj pravdy pro tokeny** (barvy, rádiusy, typová škála, tiery widgetů)                                                 |
-| `screenshots/`            | Screenshoty všech pohledů z design canvasu (pojmenované podle pohledu) — vizuální reference                                                            |
+| `tokens.json`             | **Zdroj pravdy pro tokeny.** Každá barva má hodnotu `dark` a `light`, plus rádiusy, fonty, typová škála a density                                      |
+| `tokens.css`              | Stejné tokeny jako CSS proměnné: `.bz` = tmavé (výchozí), `.bz[data-theme=light]` = světlé                                                             |
+| `bridge.css`              | Sdílené styly obou stránek, už jen nad tokeny (žádná barva natvrdo) — reference, jak se tokeny používají                                               |
+| `screenshots/`            | Screenshoty všech pohledů z design canvasu v obou tématech (`a-default.dark.png`, `a-default.light.png`, …) — vizuální reference                       |
 
 ### Jak číst `.dc.html`
 
@@ -26,6 +28,16 @@ Jde o mockupy pro design canvas, **nejsou spustitelné mimo něj a nejsou to pro
 
 - Vizuální jazyk, hierarchie (tiery), druhy widgetů, anatomie sheetu → podle designu.
 - Data, API, chování, oprávnění, existující funkce → podle aplikace. Datovou vrstvu neměň, pokud to není nutné; když ano, napřed se zeptej.
+
+## Témata a tokeny (závazné)
+
+- Aplikace musí mít **tmavé i světlé téma**. Výchozí se řídí systémem (`prefers-color-scheme`), uživatel může volbu přepsat a ta se uloží.
+- **Žádná barva natvrdo v komponentách.** Všechno přes tokeny z `tokens.json`. Když token chybí, přidej ho do tokenů s hodnotou pro obě témata a zapiš do GAPS.md (typ B).
+- Tinty povrchů a stavové výplně se počítají z tokenů: `color-mix(in srgb, var(--ink) 4%, transparent)`, `color-mix(in srgb, var(--rose) 12%, transparent)`. Proto jedno CSS funguje v obou tématech. V Tailwindu: barvy v theme jako `var(--…)`, výplně přes arbitrary values nebo pluginem.
+- **Jantar má dvě role:** `--amber` = výplň (tlačítko, tečka, badge), `--amber-fg` = text a ikony v jantaru (ve světlém tématu ztmavený kvůli kontrastu). Na text nikdy nepoužívej `--amber`.
+- Stavové barvy jsou ve světlém tématu tmavší a slouží zároveň jako text i tečka.
+- Elevace: ve světlém tématu nesou hloubku hlavně stíny (`--shadow-t1`, `--shadow-pop`), v tmavém povrchy a linky.
+- Pravidla světlého tématu jsou i ve spec Bridge Redesign, sekce 7 a 7b.
 
 ## Protokol pro rozdíly design ⇄ aplikace
 
@@ -46,7 +58,7 @@ Mapování stavů → tónů (spec, sekce „Stav → tón“) je závazné. Kdy
 Každá fáze = vlastní branch a PR. **Po každé fázi se zastav** a ukaž: co se změnilo, screenshot před/po, nové řádky v GAPS.md, otázky.
 
 0. **Inventura (bez změn kódu).** Najdi v kódu všechny widgety Můstku, jejich rám a hlavičku, layouty (DEFAULT, REVIEW), AnchoredSheet a všechny druhy sheetů. Vytvoř `MAPPING.md`: design název → soubor a komponenta v kódu → poznámka. Rovnou založ GAPS.md s tím, co vidíš.
-1. **Tokeny.** Převeď `bridge.css` proměnné na tokeny v Tailwind theme / design system: barvy, `ink`/`ink2`/`ink3`, rádiusy, typová škála ze spec a `--rowpad` pro density. Bez vizuálních změn komponent.
+1. **Tokeny a témata.** Zaveď `tokens.json` jako zdroj pravdy (CSS proměnné pro obě témata, Tailwind theme mapovaný na `var(--…)`, rádiusy, typová škála, `--rowpad` pro density). Přidej přepínání témat (systém, nebo uložená volba uživatele) přes `data-theme` na kořeni. Najdi a nahraď všechny barvy natvrdo v Můstku a sheetech. Na konci fáze musí aplikace fungovat v obou tématech, i když komponenty ještě mají starý layout.
 2. **Rám widgetu.** `tier` (`hero | primary | standard | ambient | collapsed`) a `species` prop, nová hlavička (větný tvar, počet, YOU pilulka, aside, ovládání při hoveru / focusu), hook `useWidgetPriority` podle vzorce ve spec. Drag, resize, J/K a density musí dál fungovat.
 3. **Druhy widgetů, jeden po druhém:** Runs (kolejnice) → Project status (dlaždice) → Pull requests (stack list) → Issues → Proposals (rozhodovací karty) → Automation → Budgets → Mentions → Team knowledge → TODO → Quick actions → Pinned.
 4. **Briefing hero + layouty** DEFAULT a REVIEW + telefon (jeden sloupec seřazený podle tieru, ostatní jako souhrnné řádky).
@@ -60,7 +72,8 @@ Každá fáze = vlastní branch a PR. **Po každé fázi se zastav** a ukaž: co
 
 - typecheck, lint a testy projdou; existující testy neměň jen proto, aby prošly
 - žádná funkce nezmizela (projdi MAPPING.md)
-- screenshot vedle odpovídajícího screenshotu ze `screenshots/` (přes Playwright, pokud ho projekt má)
+- screenshot v **obou tématech** vedle odpovídajících screenshotů ze `screenshots/` (přes Playwright, pokud ho projekt má)
+- `grep` na `#[0-9a-f]{6}` a `rgba(` v dotčených komponentách nic nenajde (výjimka: avatary)
 - kontrast textu aspoň 4.5:1, ikonová tlačítka mají `aria-label`, ovládání skryté do hoveru je dosažitelné klávesnicí
 - GAPS.md aktualizovaný
 

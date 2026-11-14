@@ -1,4 +1,4 @@
-import { BoardRowTestId } from "@zibby/design-system";
+import { PaperSheetTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, renderWithProviders, screen, within } from "../../../test/render";
@@ -65,7 +65,7 @@ describe("TodoWidget", () => {
   it("renders the rows (oldest first) above the composer, with no project select", () => {
     d.items = [item("todo_1", "First"), item("todo_2", "Second")];
     renderWithProviders(<TodoWidget {...props({ adding: true })} />);
-    const rows = screen.getAllByTestId(BoardRowTestId.Root);
+    const rows = screen.getAllByTestId(PaperSheetTestId.Line);
     expect(rows[0]).toHaveTextContent("First");
     expect(rows[1]).toHaveTextContent("Second");
     const composer = screen.getByTestId(CommandLineTestId.Input);
@@ -133,10 +133,8 @@ describe("TodoWidget", () => {
     const user = userEvent.setup();
     const p = props();
     renderWithProviders(<TodoWidget {...p} />);
-    const second = screen.getAllByTestId(BoardRowTestId.Root)[1] as HTMLElement;
-    const frame = second.closest(`[data-testid="${BoardRowTestId.Frame}"]`);
-    expect(frame).not.toBeNull();
-    await user.click(within(frame as HTMLElement).getByTestId(TodoWidgetTestId.Delete));
+    const second = screen.getAllByTestId(PaperSheetTestId.Line)[1] as HTMLElement;
+    await user.click(within(second).getByTestId(TodoWidgetTestId.Delete));
     expect(d.remove).toHaveBeenCalledTimes(1);
     expect(d.remove).toHaveBeenCalledWith({ params: { id: "todo_2" } });
     expect(d.push).not.toHaveBeenCalled();
@@ -168,14 +166,24 @@ describe("TodoWidget", () => {
     expect(p.onEmptyChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("with no items reports empty; the composer shows only while adding", () => {
+  it("ticking the checkbox completes the note (same DELETE as the trash button)", async () => {
+    d.items = [item("todo_1", "First"), item("todo_2", "Second")];
+    const user = userEvent.setup();
     const p = props();
-    const { unmount } = renderWithProviders(<TodoWidget {...p} />);
+    renderWithProviders(<TodoWidget {...p} />);
+    await user.click(screen.getByRole("checkbox", { name: "Hotovo: „Second“" }));
+    expect(d.remove).toHaveBeenCalledTimes(1);
+    expect(d.remove).toHaveBeenCalledWith({ params: { id: "todo_2" } });
+    expect(p.onOpen).not.toHaveBeenCalled();
+  });
+
+  it("with no items only the add row shows and the widget never collapses", () => {
+    const p = props();
+    renderWithProviders(<TodoWidget {...p} />);
     expect(p.onCountChange).toHaveBeenLastCalledWith({ count: 0, you: 0, loading: false });
-    expect(p.onEmptyChange).toHaveBeenLastCalledWith(true);
-    expect(screen.queryByTestId(CommandLineTestId.Input)).toBeNull();
-    unmount();
-    renderWithProviders(<TodoWidget {...props({ adding: true })} />);
+    expect(p.onEmptyChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByTestId(PaperSheetTestId.Line)).toBeNull();
+    expect(screen.getByTestId(PaperSheetTestId.Add)).toBeInTheDocument();
     expect(screen.getByTestId(CommandLineTestId.Input)).toBeInTheDocument();
   });
 });

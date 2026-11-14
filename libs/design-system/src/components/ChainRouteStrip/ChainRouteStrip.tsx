@@ -142,10 +142,9 @@ function StepChip({
 }) {
   const clickable = Boolean(onStepClick);
   const className = cn(
-    "inline-flex items-center gap-1.5 rounded-sm border px-[6px] py-[3px]",
-    "font-sans uppercase tracking-wider text-[10px]",
-    step.selected ? "border-ink" : "border-border-strong",
-    clickable && cn("cursor-pointer hover:border-ink", focusRing),
+    "inline-flex items-center gap-1.5 rounded-sm border px-[7px] py-[3px] text-meta",
+    step.selected ? "border-line-2 bg-panel-2 text-ink" : "border-line text-ink-2",
+    clickable && cn("cursor-pointer hover:bg-panel-2 hover:text-ink", focusRing),
   );
   const inner = (
     <>
@@ -187,9 +186,9 @@ function CompactStep({
   return (
     <Tag
       className={cn(
-        "flex flex-col gap-1.5 rounded-md border bg-background px-3 py-2.5 text-left",
-        step.selected ? "border-ink" : "border-border",
-        clickable && cn("cursor-pointer hover:border-ink", focusRing),
+        "flex flex-col gap-1.5 rounded-md border px-3 py-2.5 text-left",
+        step.selected ? "border-line-2 bg-panel-2" : "border-line bg-transparent",
+        clickable && cn("cursor-pointer hover:bg-panel-2", focusRing),
       )}
       data-testid={`${ChainRouteStripTestId.Step}-${index}`}
       onClick={clickable ? () => onStepClick?.(index) : undefined}
@@ -197,11 +196,11 @@ function CompactStep({
       type={clickable ? "button" : undefined}
     >
       <div className="flex items-center justify-between">
-        <Typography data-testid={ChainRouteStripTestId.StepCode} tracking="wider" type="labelSm">
+        <Typography data-testid={ChainRouteStripTestId.StepCode} type="labelSm">
           Sub {index + 1} · {step.code}
         </Typography>
         {step.workflow && (
-          <Typography tracking="wider" type="labelSm" variant="secondary">
+          <Typography type="labelSm" variant="secondary">
             {step.workflow}
           </Typography>
         )}
@@ -227,9 +226,9 @@ function FullStep({
   return (
     <Tag
       className={cn(
-        "flex min-w-0 flex-1 flex-col gap-2 rounded-lg border p-3 text-left",
-        step.selected ? "border-ink bg-surface-panel" : "border-border bg-background",
-        clickable && cn("cursor-pointer hover:border-ink", focusRing),
+        "flex min-w-0 flex-1 flex-col gap-2 rounded-[10px] border p-3 text-left",
+        step.selected ? "border-line-2 bg-panel-2" : "border-line bg-transparent",
+        clickable && cn("cursor-pointer hover:bg-panel-2", focusRing),
       )}
       data-testid={`${ChainRouteStripTestId.Step}-${index}`}
       onClick={clickable ? () => onStepClick?.(index) : undefined}
@@ -237,7 +236,7 @@ function FullStep({
       type={clickable ? "button" : undefined}
     >
       <div className="flex items-center justify-between">
-        <Typography data-testid={ChainRouteStripTestId.StepCode} tracking="wider" type="labelSm">
+        <Typography data-testid={ChainRouteStripTestId.StepCode} type="labelSm">
           Sub {index + 1} · {step.code}
         </Typography>
         <StateDot px={7} state={step.state} />
@@ -267,9 +266,9 @@ function GateMarker({
   return (
     <Tag
       className={cn(
-        "flex shrink-0 items-center rounded-sm font-sans uppercase tracking-wider text-[10px] text-foreground-faint",
+        "flex shrink-0 items-center rounded-sm text-meta text-ink-3",
         vertical ? "flex-col gap-1 self-center py-1.5" : "w-[58px] flex-col gap-1 justify-center",
-        gate.onClick && cn("cursor-pointer hover:text-foreground", focusRing),
+        gate.onClick && cn("cursor-pointer hover:text-ink", focusRing),
       )}
       data-testid={`${ChainRouteStripTestId.Gate}-${index}`}
       onClick={gate.onClick}
@@ -277,7 +276,7 @@ function GateMarker({
     >
       <span aria-hidden="true">{vertical ? "↓" : "→"}</span>
       <span>Gate</span>
-      <span className="text-foreground">{gateModeLabel[gate.mode]}</span>
+      <span className="text-ink">{gateModeLabel[gate.mode]}</span>
     </Tag>
   );
 }

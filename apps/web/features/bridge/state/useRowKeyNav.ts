@@ -12,11 +12,38 @@ const typing = (el: EventTarget | null) =>
 export const findRow = (root: ParentNode, key: string) =>
   [...root.querySelectorAll<HTMLElement>("[data-rk]")].find((el) => el.dataset.rk === key) ?? null;
 
+/** The `[data-rk]` rows of the widget holding row `key` (DOM order), and that row. */
+function widgetRows(root: ParentNode, key: string) {
+  const cur = findRow(root, key);
+  const frame = cur?.closest(`[data-testid="${WidgetFrameTestId.Root}"]`);
+  return cur && frame ? { cur, rows: [...frame.querySelectorAll<HTMLElement>("[data-rk]")] } : null;
+}
+
+/** 0-based position of row `key` among its widget's rows — the sheet's `3 / 8` counter. */
+export function rowPosition(
+  root: ParentNode,
+  key: string,
+): { index: number; total: number } | null {
+  const w = widgetRows(root, key);
+  return w ? { index: w.rows.indexOf(w.cur), total: w.rows.length } : null;
+}
+
 /**
- * ArrowDown → next row, ArrowUp → previous row, within the selected row's widget.
- * Rows are the `[data-rk]` elements inside the widget frame (DOM order); the neighbour is
- * opened by clicking it — a row's click is what opens the sheet, so selection stays the
- * widgets' business. Ignored while typing and at the ends (no wrap).
+ * Opens the next (`1`) / previous (`-1`) row of row `key`'s widget by clicking it — a row's click
+ * is what opens the sheet, so selection stays the widgets' business. False at the ends (no wrap).
+ */
+export function stepRow(root: ParentNode, key: string, d: -1 | 1): boolean {
+  const w = widgetRows(root, key);
+  const next = w?.rows[w.rows.indexOf(w.cur) + d];
+  if (!next) return false;
+  next.scrollIntoView?.({ block: "nearest" });
+  next.click();
+  return true;
+}
+
+/**
+ * ArrowDown → next row, ArrowUp → previous row, within the selected row's widget (`stepRow`).
+ * Ignored while typing and at the ends (no wrap).
  * ponytail: DOM order = visual order; a widget that reorders rows with CSS only would break it.
  */
 export function useRowKeyNav(
@@ -28,16 +55,8 @@ export function useRowKeyNav(
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return;
       const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-      if (!d) return;
-      const cur = root.current ? findRow(root.current, selection.key) : null;
-      const frame = cur?.closest(`[data-testid="${WidgetFrameTestId.Root}"]`);
-      if (!cur || !frame) return;
-      const rows = [...frame.querySelectorAll<HTMLElement>("[data-rk]")];
-      const next = rows[rows.indexOf(cur) + d];
-      if (!next) return;
-      e.preventDefault();
-      next.scrollIntoView?.({ block: "nearest" });
-      next.click();
+      if (!d || !root.current) return;
+      if (stepRow(root.current, selection.key, d)) e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

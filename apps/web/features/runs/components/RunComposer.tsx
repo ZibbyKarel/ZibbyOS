@@ -44,6 +44,8 @@ export interface RunComposerProps {
   approval?: DashboardApproval;
   /** The workflow's phases — the TO chips after ALL. */
   crew: RunComposerCrewMember[];
+  /** The stage running now — where a message to ALL lands; the hint names it. */
+  currentStageName?: string;
   /** The parent switches the view to LIVE. */
   onSent: () => void;
   resume: RunActions["resume"];
@@ -104,6 +106,7 @@ export function RunComposer({
   mode,
   approval,
   crew,
+  currentStageName,
   onSent,
   resume,
   resuming,
@@ -165,6 +168,15 @@ export function RunComposer({
       : t(`ph.${row.ph}`)
     : undefined;
 
+  // A running workflow says where the message lands: the chosen stage, or (ALL) the current one.
+  const target =
+    row.hint === "running" && row.action === "message"
+      ? to === "all"
+        ? currentStageName
+        : crew.find((c) => c.key === to)?.name
+      : undefined;
+  const hint = target ? t("hint.deliverTo", { stage: target }) : row.hint && t(`hint.${row.hint}`);
+
   return (
     <Stack data-testid={RunComposerTestId.Root} gap="100">
       <Stack wrap align="center" direction="row" gap="75">
@@ -194,9 +206,9 @@ export function RunComposer({
           </>
         )}
         <Container grow />
-        {row.hint && (
+        {hint && (
           <Typography as="span" data-testid={RunComposerTestId.Hint} type="labelSm">
-            {t(`hint.${row.hint}`)}
+            {hint}
           </Typography>
         )}
       </Stack>

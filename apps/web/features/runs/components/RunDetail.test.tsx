@@ -137,6 +137,28 @@ describe("RunDetail", () => {
     expect(screen.getByTestId(RunComposerTestId.Send)).toHaveTextContent("Odpovědět ↵");
   });
 
+  it("a parked run shows exactly one banner, the parked one, above the log", () => {
+    render(
+      <RunDetail
+        run={{
+          ...workflowRun,
+          status: "parked",
+          parked: { phaseId: "build", attempts: 3, failureFile: "/x" },
+        }}
+      />,
+    );
+    expect(screen.getByTestId(RunFeedBannersTestId.Parked)).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^run-banner-(approval|question|parked|error)$/)).toHaveLength(1);
+    expect(screen.getByTestId(RunLiveFeedTestId.Root)).not.toContainElement(
+      screen.getByTestId(RunFeedBannersTestId.Parked),
+    );
+  });
+
+  it("a running run has no banner", () => {
+    render(<RunDetail run={workflowRun} />);
+    expect(screen.queryAllByTestId(/^run-banner-/)).toHaveLength(0);
+  });
+
   it("a paused run offers RESUME", () => {
     render(<RunDetail run={{ ...workflowRun, status: "paused" }} />);
     expect(screen.getByTestId(`${RunDetailActionsTestId.Action}-resume`)).toBeInTheDocument();

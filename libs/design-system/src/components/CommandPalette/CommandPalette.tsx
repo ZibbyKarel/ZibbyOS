@@ -150,7 +150,7 @@ export function CommandPalette({
       <div
         aria-modal
         aria-label={ariaLabel}
-        className="relative flex h-fit w-[600px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-modal"
+        className="relative flex h-fit w-[600px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl border border-line bg-sheet shadow-pop"
         data-testid={CommandPaletteTestId.Root}
         ref={rootRef}
         role="dialog"
@@ -228,7 +228,7 @@ export function CommandPalette({
                         aria-selected={active}
                         className={cn(
                           "grid w-full grid-cols-[90px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors",
-                          active ? "bg-hover" : "",
+                          active ? "bg-panel-2" : "",
                           focusRingInset,
                         )}
                         data-testid={`${CommandPaletteTestId.Item}-${item.id}`}

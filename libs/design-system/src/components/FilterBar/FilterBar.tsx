@@ -12,7 +12,7 @@ export interface FilterBarProps {
   /** Filter controls — a `SelectField`, `SegmentedControl`, `SearchInput`, etc.,
    * each already paired with its own label by the caller. */
   children: ReactNode;
-  /** Shown as a trailing "CLEAR FILTERS" button when given. */
+  /** Shown as a trailing "Clear filters" button when given. */
   onClear?: () => void;
   /** Right-aligned slot for non-filter controls (e.g. a "New task" button). */
   actions?: ReactNode;
@@ -22,7 +22,7 @@ export interface FilterBarProps {
 /**
  * DS.md §8 filter row — a wrap-flex line of filter groups (Work/Runs/Log/
  * People screens), flush to the baseline of their controls, ending in an
- * optional "CLEAR FILTERS" button and a right-aligned actions slot.
+ * optional "Clear filters" button and a right-aligned actions slot.
  */
 export function FilterBar({ children, onClear, actions, ref }: FilterBarProps) {
   return (
@@ -35,10 +35,10 @@ export function FilterBar({ children, onClear, actions, ref }: FilterBarProps) {
       {onClear && (
         <button
           className={cn(
-            "box-border flex h-8 items-center border border-border-strong px-[10px]",
+            "box-border flex h-[30px] items-center rounded-md border border-line-2 px-[10px]",
             // Secondary-button look (DS.md §8) at the 32px filter-control height.
-            "font-sans font-semibold uppercase tracking-wider text-[10px] text-ink-2",
-            "hover:bg-panel-2 hover:text-ink",
+            "text-body font-medium text-ink-2",
+            "hover:bg-ink/[0.05] hover:text-ink",
             focusRing,
           )}
           data-testid={FilterBarTestId.Clear}

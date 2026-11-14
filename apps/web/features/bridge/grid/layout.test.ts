@@ -6,8 +6,8 @@ import {
   dragMove,
   dragResize,
   fromArr,
+  phoneOrder,
   removeWidget,
-  stackLayout,
   toCells,
   viewLayout,
 } from "./layout";
@@ -64,38 +64,61 @@ describe("compact", () => {
 });
 
 describe("drag", () => {
-  const origin = { x: 4, y: 3, w: 4, h: 18 };
+  const board = fromArr([
+    ["issues", 0, 0, 4, 18],
+    ["prs", 4, 0, 4, 18],
+  ]);
+  const origin = { x: 4, y: 0, w: 4, h: 18 };
   it("move clamps x and y", () => {
-    const m = dragMove(DEFAULT_LAYOUT, "prs", origin, 99, -99);
+    const m = dragMove(board, "prs", origin, 99, -99);
     expect(get(m, "prs").x).toBe(8);
     expect(get(m, "prs").y).toBe(0);
-    expect(get(dragMove(DEFAULT_LAYOUT, "prs", origin, -99, 0), "prs").x).toBe(0);
+    expect(get(dragMove(board, "prs", origin, -99, 0), "prs").x).toBe(0);
   });
   it("move onto another widget pushes it down", () => {
-    const m = dragMove(DEFAULT_LAYOUT, "prs", origin, -4, 0);
-    expect(get(m, "prs")).toMatchObject({ x: 0, y: 3 });
-    expect(get(m, "issues").y).toBe(21);
+    const m = dragMove(board, "prs", origin, -4, 0);
+    expect(get(m, "prs")).toMatchObject({ x: 0, y: 0 });
+    expect(get(m, "issues").y).toBe(18);
   });
-  it("resize clamps min 2x2 and to board edge", () => {
-    const small = dragResize(DEFAULT_LAYOUT, "prs", origin, -99, -99);
-    expect(get(small, "prs")).toMatchObject({ w: 2, h: 2 });
-    const big = dragResize(DEFAULT_LAYOUT, "prs", origin, 99, 1);
+  it("resize clamps to the species minimum and the board edge", () => {
+    const small = dragResize(board, "prs", origin, -99, -99);
+    expect(get(small, "prs")).toMatchObject({ w: 3, h: 6 });
+    const big = dragResize(board, "prs", origin, 99, 1);
     expect(get(big, "prs")).toMatchObject({ w: 8, h: 19 });
+  });
+  it("resize clamps to the species maximum", () => {
+    const runs = fromArr([["runs", 0, 0, 4, 10]]);
+    const o = { x: 0, y: 0, w: 4, h: 10 };
+    expect(get(dragResize(runs, "runs", o, 99, 99), "runs")).toMatchObject({ w: 6, h: 24 });
+    const brief = fromArr([["briefing", 0, 0, 12, 3]]);
+    const b = { x: 0, y: 0, w: 12, h: 3 };
+    expect(get(dragResize(brief, "briefing", b, -99, 99), "briefing")).toMatchObject({
+      w: 6,
+      h: 4,
+    });
+  });
+  it("never clamps a stored widget that is not resized", () => {
+    const l = fromArr([
+      ["prs", 0, 0, 2, 2],
+      ["runs", 2, 0, 4, 10],
+    ]);
+    const m = dragResize(l, "runs", { x: 2, y: 0, w: 4, h: 10 }, 1, 0);
+    expect(get(m, "prs")).toMatchObject({ w: 2, h: 2 });
   });
 });
 
 describe("dragResize corners", () => {
-  const solo = fromArr([["prs", 4, 4, 4, 4]]);
+  const solo = fromArr([["todo", 4, 4, 4, 4]]);
   const o = { x: 4, y: 4, w: 4, h: 4 };
   const run = (dx: number, dy: number, c: "nw" | "ne" | "sw" | "se") =>
-    get(dragResize(solo, "prs", o, dx, dy, c), "prs");
+    get(dragResize(solo, "todo", o, dx, dy, c), "todo");
   it.each([
     ["se", 1, 1, { x: 4, y: 4, w: 5, h: 5 }],
     ["sw", -2, 1, { x: 2, y: 4, w: 6, h: 5 }],
     ["ne", 1, -2, { x: 4, y: 2, w: 5, h: 6 }],
     ["nw", -1, -1, { x: 3, y: 3, w: 5, h: 5 }],
-    ["nw", 5, 5, { x: 6, y: 6, w: 2, h: 2 }],
-    ["sw", -10, 0, { x: 0, w: 8 }],
+    ["nw", 5, 5, { x: 6, y: 4, w: 2, h: 4 }],
+    ["sw", -10, 0, { x: 2, w: 6 }],
     ["nw", 0, -10, { y: 0, h: 8 }],
   ] as const)("%s (%i,%i)", (c, dx, dy, want) => {
     expect(run(dx, dy, c)).toMatchObject(want);
@@ -113,6 +136,10 @@ describe("add/remove/view", () => {
   it("addWidget places 4x6 at first free spot", () => {
     const l = addWidget(fromArr([["issues", 0, 0, 4, 5]]), "runs");
     expect(get(l, "runs")).toMatchObject({ x: 0, y: 5, w: 4, h: 6 });
+  });
+  it("addWidget brings the new widget inside its species limits", () => {
+    expect(get(addWidget([], "briefing"), "briefing")).toMatchObject({ w: 6, h: 4 });
+    expect(get(addWidget([], "quickActions"), "quickActions")).toMatchObject({ w: 4, h: 4 });
   });
   it("addWidget gives a second instance of a type the smallest free -N id", () => {
     const one = addWidget([], "prs");
@@ -143,21 +170,29 @@ describe("add/remove/view", () => {
     const l = viewLayout(DEFAULT_LAYOUT, new Set(["briefing"]));
     expect(get(l, "briefing").h).toBe(1);
     expect(get(l, "runs").y).toBe(1);
-    expect(get(DEFAULT_LAYOUT, "briefing").h).toBe(3);
+    expect(get(DEFAULT_LAYOUT, "briefing").h).toBe(4);
   });
 });
 
-describe("stackLayout", () => {
-  it("stacks widgets full width in reading order, keeping each height", () => {
+describe("phoneOrder", () => {
+  it("orders hero → primary → standard, then ambient + collapsed; reading order within a tier", () => {
     const l = fromArr([
-      ["prs", 6, 0, 6, 4],
-      ["runs", 0, 0, 6, 3],
-      ["todo", 0, 3, 12, 2],
+      ["prs", 6, 4, 6, 4],
+      ["runs", 0, 4, 6, 3],
+      ["briefing", 0, 0, 12, 4],
+      ["todo", 0, 8, 12, 2],
+      ["pins", 0, 10, 4, 3],
+      ["issues", 4, 10, 4, 3],
     ]);
-    expect(stackLayout(l).map(({ id, x, y, w, h }) => [id, x, y, w, h])).toEqual([
-      ["runs", 0, 0, 12, 3],
-      ["prs", 0, 3, 12, 4],
-      ["todo", 0, 7, 12, 2],
-    ]);
+    const { lead, rest } = phoneOrder(l, {
+      briefing: "hero",
+      prs: "primary",
+      runs: "standard",
+      issues: "standard",
+      todo: "collapsed",
+      pins: "ambient",
+    });
+    expect(lead.map((w) => w.id)).toEqual(["briefing", "prs", "runs", "issues"]);
+    expect(rest.map((w) => w.id)).toEqual(["todo", "pins"]);
   });
 });

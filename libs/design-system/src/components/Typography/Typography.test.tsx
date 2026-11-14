@@ -78,7 +78,7 @@ describe("Typography", () => {
     expect(el.style.fontSize).toBe("var(--text-xs)");
   });
 
-  it("renders caps as a sans 600 / .1em label, overriding mono and tracking", () => {
+  it("renders caps as a sans 500 / .06em overline, overriding mono and tracking", () => {
     render(
       <Typography mono uppercase size="2xs" tracking="wide" type="note">
         A
@@ -88,8 +88,8 @@ describe("Typography", () => {
     expect(el.className).toContain("uppercase");
     expect(el.className).toContain("font-sans");
     expect(el.className).not.toContain("font-mono");
-    expect(el.className).toContain("font-semibold");
-    expect(el.style.letterSpacing).toBe("var(--tracking-wider)");
+    expect(el.className).toContain("font-medium");
+    expect(el.style.letterSpacing).toBe("0.06em");
   });
 
   it("forwards a ref", () => {
@@ -117,15 +117,15 @@ describe("Typography", () => {
     expect(el).toHaveAttribute("aria-label", "poznámka");
   });
 
-  it("renders the DS.md §3.1 sans scale at an exact px size", () => {
+  it("renders the Bridge sans scale at an exact px size", () => {
     const { rerender } = render(<Typography type="display">A</Typography>);
-    expect(screen.getByTestId(TypographyTestId.Root).style.fontSize).toBe("32px");
+    expect(screen.getByTestId(TypographyTestId.Root).style.fontSize).toBe("30px");
 
     rerender(<Typography type="h1">A</Typography>);
     let el = screen.getByTestId(TypographyTestId.Root);
     expect(el.tagName).toBe("H1");
     expect(el.style.fontSize).toBe("30px");
-    expect(el.style.letterSpacing).toBe("-0.02em");
+    expect(el.style.letterSpacing).toBe("-0.03em");
 
     rerender(<Typography type="metric">A</Typography>);
     el = screen.getByTestId(TypographyTestId.Root);
@@ -133,26 +133,26 @@ describe("Typography", () => {
     expect(el.style.fontVariantNumeric).toBe("tabular-nums");
   });
 
-  it("renders the system voice: a sans caps wordmark, a mono un-capped `code`", () => {
+  it("renders the system voice: a sans sentence-case wordmark, a mono `code`", () => {
     const { rerender } = render(<Typography type="wordmark">Zibbyos</Typography>);
     let el = screen.getByTestId(TypographyTestId.Root);
-    expect(el.className).toContain("font-sans");
-    expect(el.className).toContain("uppercase");
+    expect(el.className).not.toContain("font-mono");
+    expect(el.className).not.toContain("uppercase");
     expect(el.style.fontSize).toBe("13px");
-    expect(el.style.letterSpacing).toBe("0.18em");
+    expect(el.style.letterSpacing).toBe("-0.01em");
 
     rerender(<Typography type="code">agent-07</Typography>);
     el = screen.getByTestId(TypographyTestId.Root);
     expect(el.className).toContain("font-mono");
     expect(el.className).not.toContain("uppercase");
-    expect(el.style.fontSize).toBe("11px");
+    expect(el.style.fontSize).toBe("11.5px");
   });
 
-  it("keeps the pre-ZibbyOS `title` size updated in place (DS.md §3.1)", () => {
+  it("renders `title` as the widget-t1 heading (15px)", () => {
     render(<Typography type="title">A</Typography>);
     const el = screen.getByTestId(TypographyTestId.Root);
     expect(el.tagName).toBe("H2");
-    expect(el.style.fontSize).toBe("16px");
+    expect(el.style.fontSize).toBe("15px");
   });
 
   it("wrapAnywhere breaks long unbroken words", () => {

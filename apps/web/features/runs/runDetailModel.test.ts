@@ -119,9 +119,9 @@ describe("rounds", () => {
       (x) => x.phaseId === "illustrate",
     );
     expect(row?.rounds).toEqual([
-      { n: 1, stageRunId: "i1", live: false },
-      { n: 2, stageRunId: "i2", live: false },
-      { n: 3, stageRunId: "", live: true },
+      { n: 1, stageRunId: "i1", live: false, state: "done" },
+      { n: 2, stageRunId: "i2", live: false, state: "done" },
+      { n: 3, stageRunId: "", live: true, state: "working" },
     ]);
   });
 

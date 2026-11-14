@@ -196,7 +196,7 @@ export function Card({
   elevated = false,
   clip = false,
   interactive = false,
-  radius = "lg",
+  radius = "default",
   shadow = "none",
   animate = "none",
   corners = false,
@@ -239,15 +239,15 @@ export function Card({
             : borderTone === "ink"
               ? "border border-ink"
               : elevated
-                ? "border border-border-strong"
-                : "border border-border"),
+                ? "border border-line-2"
+                : "border border-line"),
         bordered && resolvedTone && "border",
         resolvedTone && !living && toneGlow[resolvedTone],
         borderStyle === "dashed" && "border-dashed",
         Tag === "button" && cn("w-full text-left cursor-pointer", focusRing),
         interactive &&
-          "transition-all duration-150 hover:border-accent/35 hover:bg-elevated hover:shadow-card",
-        selected && "border-accent bg-raised shadow-[0_0_0_1px_var(--color-accent-dim)]",
+          "transition-colors duration-150 motion-reduce:transition-none hover:border-line-2 hover:bg-elevated",
+        selected && "border-accent/30 bg-accent/[0.08]",
       )}
       ref={ref as Ref<HTMLDivElement & HTMLButtonElement>}
       type={Tag === "button" ? (type ?? "button") : undefined}
@@ -280,7 +280,7 @@ export function Card({
 export function CardHeader({ children }: { children: ReactNode }) {
   return (
     <div
-      className="px-[14px] py-3 border-b border-border font-sans font-semibold uppercase tracking-wider text-[11px] text-foreground-dim"
+      className="px-[14px] py-3 border-b border-line font-sans text-widget-t2 text-ink"
       data-testid={CardTestId.Header}
     >
       {children}
@@ -304,7 +304,7 @@ export function CardContent({
 
 export function CardFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="px-[14px] py-[10px] border-t border-border" data-testid={CardTestId.Footer}>
+    <div className="px-[14px] py-[10px] border-t border-line" data-testid={CardTestId.Footer}>
       <Row gap="100">{children}</Row>
     </div>
   );

@@ -47,18 +47,18 @@ const gridColsClass: Record<MetricStripColumns, string> = {
 export function MetricStrip({ items, columns, ref, ...rest }: MetricStripProps) {
   return (
     <div
-      className={`grid ${gridColsClass[columns]} border-t border-b border-border`}
+      className={`grid ${gridColsClass[columns]} overflow-hidden rounded-[10px] border border-line bg-ink/[0.015] [&>div+div]:border-l [&>div+div]:border-line`}
       data-testid={MetricStripTestId.Root}
       ref={ref}
       {...rest}
     >
       {items.map((item, i) => (
         <div
-          className="flex min-w-0 flex-col gap-1 py-3 pr-2"
+          className="flex min-w-0 flex-col gap-[3px] px-[12px] py-[9px]"
           data-testid={`${MetricStripTestId.Item}-${item.id ?? i}`}
           key={item.id ?? i}
         >
-          <Typography data-testid={MetricStripTestId.Label} tracking="wider" type="labelSm">
+          <Typography data-testid={MetricStripTestId.Label} type="labelSm">
             {item.label}
           </Typography>
           <div

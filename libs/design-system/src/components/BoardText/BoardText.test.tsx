@@ -15,4 +15,10 @@ describe("BoardText", () => {
     expect(el).toHaveClass("font-mono", "text-ink-3", "underline");
     expect(el).not.toHaveClass("text-ink-2");
   });
+
+  it("redesign voices are sentence case; ids stay mono", () => {
+    render(<BoardText kind="rowMeta">repo</BoardText>);
+    expect(screen.getByTestId(BoardTextTestId.Root)).toHaveClass("text-meta", "text-ink-3");
+    expect(screen.getByTestId(BoardTextTestId.Root)).not.toHaveClass("uppercase");
+  });
 });

@@ -32,6 +32,8 @@ function buildThemeScriptSource(
   return (
     `(function(){try{` +
     `var d=localStorage.getItem(${JSON.stringify(DENSITY_STORAGE_KEY)});` +
+    // Legacy 4th level `open` was folded into `airy` (Bridge redesign phase 1b).
+    `if(d==="open")d="airy";` +
     `document.documentElement.setAttribute("data-density",${JSON.stringify(DENSITIES)}.indexOf(d)>=0?d:${JSON.stringify(densityFallback)});` +
     `}catch(e){document.documentElement.setAttribute("data-density",${JSON.stringify(densityFallback)});}` +
     `try{` +

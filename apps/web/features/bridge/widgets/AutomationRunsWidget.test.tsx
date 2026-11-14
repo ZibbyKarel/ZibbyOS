@@ -1,6 +1,7 @@
 import type { AutomationFire, AutomationView } from "@zibby/contracts";
 import type { RunView } from "../../runs/run";
 import userEvent from "@testing-library/user-event";
+import { TimelineAxisTestId } from "@zibby/design-system";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
@@ -98,22 +99,22 @@ describe("AutomationRunsWidget", () => {
     // `nightly` is running (live run r1), so it is not also listed as upcoming (todo-5).
     expect(upcoming.map((n) => n.textContent)).toEqual(["18:30"]);
     // The running row is titled by its automation's name.
-    expect(screen.getAllByText("Auto nightly")).toHaveLength(1);
+    expect(screen.getAllByText(/Auto nightly/)).toHaveLength(1);
   });
 
-  it("marks system automations with a warn shield and user ones with an accent user icon (todo-7)", () => {
+  it("marks system automations with a shield and user ones with a user icon, both neutral (todo-7)", () => {
     d.automations = d.automations.map((a) => (a.id === "nightly" ? { ...a, system: true } : a));
     renderWithProviders(<AutomationRunsWidget {...props} />);
     const running = screen.getByTestId(`${AutomationRunsWidgetTestId.Kind}-${key("r1")}`);
     expect(running).toHaveAccessibleName("Systémová automatizace");
     expect(running.querySelector("[data-icon]")).toHaveAttribute("data-icon", "shield");
-    expect(running.querySelector("[data-icon]")).toHaveClass("text-warn");
+    expect(running.querySelector("[data-icon]")).toHaveClass("text-foreground-faint");
     const upcoming = screen.getByTestId(
       `${AutomationRunsWidgetTestId.Kind}-${key("next:evening")}`,
     );
     expect(upcoming).toHaveAccessibleName("Uživatelská automatizace");
     expect(upcoming.querySelector("[data-icon]")).toHaveAttribute("data-icon", "user");
-    expect(upcoming.querySelector("[data-icon]")).toHaveClass("text-accent");
+    expect(upcoming.querySelector("[data-icon]")).toHaveClass("text-foreground-faint");
   });
 
   it("opens the automation sheet from a running and an upcoming row", async () => {
@@ -155,7 +156,7 @@ describe("AutomationRunsWidget — running and failed fires (todo-5)", () => {
     expect(
       screen.queryByTestId(`${AutomationRunsWidgetTestId.Time}-${key("next:evening")}`),
     ).toBeNull();
-    expect(screen.getAllByText("Auto evening")).toHaveLength(1);
+    expect(screen.getAllByText(/Auto evening/)).toHaveLength(1);
   });
 
   it("marks an automation whose fire failed 1 h ago, still showing its next fire time", () => {
@@ -213,6 +214,28 @@ describe("AutomationRunsWidget — running and failed fires (todo-5)", () => {
     expect(
       screen.getByTestId(`${AutomationRunsWidgetTestId.Time}-${key("next:evening")}`),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AutomationRunsWidget — 24 h axis", () => {
+  it("draws a diamond per cron start within 24 h, clock ticks, and the next start as aside", () => {
+    d.live = [];
+    d.automations = [cron("evening", "30 18 * * *"), cron("six", "0 */6 * * *")];
+    renderWithProviders(<AutomationRunsWidget {...props} />);
+    // 18:30 once + every 6 h (18, 00, 06, 12) within the next 24 h from 12:00.
+    const markers = screen.getAllByTestId(TimelineAxisTestId.Marker);
+    expect(markers).toHaveLength(5);
+    expect(markers[0]).toHaveStyle({ left: `${(6.5 / 24) * 100}%` });
+    expect(screen.getAllByTestId(TimelineAxisTestId.Tick).map((n) => n.textContent)).toEqual([
+      "00",
+      "06",
+      "12",
+      "18",
+    ]);
+    expect(screen.getByTestId(TimelineAxisTestId.Root)).toHaveAccessibleName(/5 startů/);
+    expect(props.onCountChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ aside: "další za 6 h" }),
+    );
   });
 });
 

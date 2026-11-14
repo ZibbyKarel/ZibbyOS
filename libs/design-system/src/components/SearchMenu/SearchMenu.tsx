@@ -136,10 +136,10 @@ export function SearchMenu({
       <div
         className={cn(
           "flex items-center gap-2.5 w-full px-3.5 py-2",
-          "bg-background border rounded-sm",
+          "bg-panel border rounded-md",
           "transition-colors",
-          panelOpen ? "border-border-strong text-foreground" : "border-border text-foreground-dim",
-          "focus-within:border-border-strong",
+          panelOpen ? "border-line-2 text-ink" : "border-line text-ink-2",
+          "focus-within:border-line-2",
         )}
       >
         <Icon data-testid={SearchMenuTestId.Icon} name="search" size="sm" tone="faint" />
@@ -190,12 +190,9 @@ export function SearchMenu({
           id={listboxId}
           role="listbox"
         >
-          <div className="py-1.5">
+          <div className="p-1.5">
             {showEmpty ? (
-              <p
-                className="px-3.5 py-2 text-base text-foreground-faint"
-                data-testid={SearchMenuTestId.Empty}
-              >
+              <p className="px-2 py-2 text-base text-ink-3" data-testid={SearchMenuTestId.Empty}>
                 {emptyLabel}
               </p>
             ) : (
@@ -203,8 +200,8 @@ export function SearchMenu({
                 <div data-testid={`${SearchMenuTestId.Section}-${section.id}`} key={section.id}>
                   <p
                     className={cn(
-                      "px-3.5 pt-1.5 pb-1",
-                      "font-sans font-semibold uppercase tracking-wider text-[10px] text-foreground-faint",
+                      "px-2 pt-1.5 pb-1",
+                      "font-sans text-overline uppercase text-ink-3",
                     )}
                     data-testid={`${SearchMenuTestId.SectionLabel}-${section.id}`}
                   >
@@ -219,10 +216,10 @@ export function SearchMenu({
                       <button
                         aria-selected={active}
                         className={cn(
-                          "flex items-center gap-2.5 w-full px-3.5 py-1.5 text-left",
+                          "flex items-center gap-2.5 w-full rounded-md px-2 py-1.5 text-left",
                           "transition-colors",
-                          active ? "bg-raised text-foreground" : "text-foreground-dim",
-                          "hover:bg-raised hover:text-foreground",
+                          active ? "bg-panel-2 text-ink" : "text-ink-2",
+                          "hover:bg-panel-2 hover:text-ink",
                           focusRingInset,
                         )}
                         data-testid={`${SearchMenuTestId.Item}-${section.id}-${item.id}`}
@@ -239,7 +236,7 @@ export function SearchMenu({
                         <span className="flex-1 min-w-0">
                           <span className="block truncate text-base">{item.title}</span>
                           {item.subtitle ? (
-                            <span className="block truncate text-xs text-foreground-faint">
+                            <span className="block truncate text-meta text-ink-3">
                               {item.subtitle}
                             </span>
                           ) : null}

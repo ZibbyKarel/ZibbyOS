@@ -30,7 +30,7 @@ export function EmptyState({ title, body, action, ref, ...rest }: EmptyStateProp
       background="surface"
       borderStyle="dashed"
       data-testid={EmptyStateTestId.Root}
-      radius="none"
+      radius="default"
       ref={ref}
       {...rest}
     >

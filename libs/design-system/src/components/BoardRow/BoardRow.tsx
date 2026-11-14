@@ -45,13 +45,19 @@ export interface BoardRowProps {
   tone: BoardRowTone;
   /** Draw the left status bar. Default `true`; `false` leaves the row without it. */
   bar?: boolean;
-  /** `pr` = the taller PR-card padding. */
+  /** `pr` = the taller PR-card padding. Ignored by `shape="list"` (always `--rowpad`). */
   padding?: "row" | "pr";
+  /**
+   * `board` (default): the panel row with status bar and hairline. `list`: the redesign's species
+   * row — no bar, no hairline, transparent with a hover tint and 8px radius, `--rowpad` vertical
+   * padding; `selected` = amber tint + amber outline (state is a glyph inside the row, not a stripe).
+   */
+  shape?: "board" | "list";
   /** Grid template; omit for a stacked (flex column) row. */
   columns?: BoardColumns;
-  /** The row whose detail sheet is open: raised above the overlay, inked top/bottom. */
+  /** The row whose detail sheet is open: amber outline, raised above the overlay. */
   selected?: boolean;
-  /** Side the sheet opens to — the shared edge gets no ink rule. Default `right`. */
+  /** @deprecated No visual effect since the amber selected outline; kept so callers compile. */
   sheetSide?: "left" | "right";
   /** Needs the operator: 1px ink ring. */
   needsYou?: boolean;
@@ -82,15 +88,19 @@ export interface BoardRowProps {
 }
 
 const PADDING = {
-  row: "px-[var(--bridge-row-px)] py-[var(--bridge-row-py)]",
+  row: "px-[var(--bridge-row-px)] py-[var(--rowpad)]",
   pr: "px-[var(--bridge-pr-px)] py-[var(--bridge-pr-py)]",
 } as const;
 
 /** Action-slot padding: the row's top + right padding, so the control sits on the first line. */
 const ACTION_PADDING = {
-  row: "pt-[var(--bridge-row-py)] pr-[var(--bridge-row-px)]",
+  row: "pt-[var(--rowpad)] pr-[var(--bridge-row-px)]",
   pr: "pt-[var(--bridge-pr-py)] pr-[var(--bridge-pr-px)]",
 } as const;
+
+/** `shape="list"`: density only moves the vertical padding (spec §8). */
+const LIST_PADDING = "px-[10px] py-[var(--rowpad)]";
+const LIST_ACTION_PADDING = "pt-[var(--rowpad)] pr-[10px]";
 
 /**
  * One board row: left status bar, density-driven padding + hairline, hover `panel-2`,
@@ -102,9 +112,9 @@ export function BoardRow({
   tone,
   bar = true,
   padding = "row",
+  shape = "board",
   columns,
   selected = false,
-  sheetSide = "right",
   needsYou = false,
   muted = false,
   alert = false,
@@ -120,22 +130,34 @@ export function BoardRow({
   const framed = action !== undefined && action !== null;
   const hasTrailing = trailing !== undefined && trailing !== null;
 
+  const list = shape === "list";
   /** The visual row: bar, hairline, panel fill, hover and the selected / needsYou rings. */
-  const chrome = cn(
-    "relative box-border w-full border-solid text-left text-ink",
-    alert ? "bg-bad/15" : "bg-panel",
-    interactive && (alert ? "hover:bg-bad/20" : "hover:bg-panel-2"),
-    muted && "opacity-50",
-    "[border-bottom:var(--bridge-row-border)]",
-    bar && cn("border-l-[length:var(--bridge-bar)]", BAR[tone]),
-    selected
-      ? cn(
-          "z-[31] shadow-[inset_0_1px_0_var(--color-ink),inset_0_-1px_0_var(--color-ink)]",
-          sheetSide === "left" &&
-            "shadow-[inset_0_1px_0_var(--color-ink),inset_0_-1px_0_var(--color-ink),inset_-1px_0_0_var(--color-ink)]",
-        )
-      : needsYou && "shadow-[inset_0_0_0_1px_var(--color-ink)]",
-  );
+  const chrome = list
+    ? cn(
+        "relative box-border w-full rounded-[8px] text-left text-ink",
+        // Selected is raised above the sheet overlay, so its tint is mixed into the opaque panel.
+        selected
+          ? "z-[31] bg-[color-mix(in_srgb,var(--color-accent)_8%,var(--color-panel))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_30%,transparent)]"
+          : alert
+            ? "bg-[color-mix(in_srgb,var(--color-state-err)_8%,transparent)]"
+            : "bg-transparent",
+        interactive &&
+          !selected &&
+          "hover:bg-[color-mix(in_srgb,var(--color-ink)_3.5%,transparent)]",
+        muted && "opacity-50",
+      )
+    : cn(
+        "relative box-border w-full border-solid text-left text-ink",
+        alert ? "bg-bad/15" : "bg-panel",
+        interactive && (alert ? "hover:bg-bad/20" : "hover:bg-panel-2"),
+        muted && "opacity-50",
+        "[border-bottom:var(--bridge-row-border)]",
+        bar && cn("border-l-[length:var(--bridge-bar)]", BAR[tone]),
+        // Selected: the sheet's amber outline (as the list shape); its widget frame sits above the overlay.
+        selected
+          ? "z-[31] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_55%,transparent)]"
+          : needsYou && "shadow-[inset_0_0_0_1px_var(--color-ink)]",
+      );
   const layout = columns
     ? cn("grid items-center", TEMPLATE[columns])
     : "flex flex-col gap-[var(--bridge-inner-gap)]";
@@ -143,7 +165,7 @@ export function BoardRow({
   const body = cn(
     interactive && "cursor-pointer appearance-none",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-    PADDING[padding],
+    list ? LIST_PADDING : PADDING[padding],
     hasTrailing ? "flex items-center gap-[var(--bridge-inner-gap)]" : layout,
   );
 
@@ -182,7 +204,10 @@ export function BoardRow({
     <div className={cn(chrome, "flex items-stretch")} data-testid={BoardRowTestId.Frame}>
       {row}
       <span
-        className={cn("flex flex-none items-start", ACTION_PADDING[padding])}
+        className={cn(
+          "flex flex-none items-start",
+          list ? LIST_ACTION_PADDING : ACTION_PADDING[padding],
+        )}
         data-testid={BoardRowTestId.Action}
       >
         {action}

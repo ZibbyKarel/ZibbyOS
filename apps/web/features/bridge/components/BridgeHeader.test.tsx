@@ -2,6 +2,7 @@ import {
   DensityMenuTestId,
   IconTestId,
   MenuButtonTestId,
+  PageTitleTestId,
   SegmentedControlTestId,
 } from "@zibby/design-system";
 import { UiSettingsSchema } from "@zibby/contracts";
@@ -102,7 +103,13 @@ describe("BridgeHeader", () => {
     expect(manage).toHaveAccessibleName("Upravit rozložení");
     expect(manage).not.toHaveTextContent("Upravit rozložení");
     expect(screen.queryByText("Rozložení")).toBeNull();
-    expect(screen.queryByText("Můstek")).toBeNull();
+  });
+
+  it("shows the page title (title-l, sentence case) on desktop only", () => {
+    const { rerender } = renderWithProviders(<BridgeHeader {...props} />);
+    expect(screen.getByTestId(PageTitleTestId.Root)).toHaveTextContent("Můstek");
+    rerender(<BridgeHeader {...props} compact />);
+    expect(screen.queryByTestId(PageTitleTestId.Root)).toBeNull();
   });
 
   it("hidden layouts are not offered in the header", () => {

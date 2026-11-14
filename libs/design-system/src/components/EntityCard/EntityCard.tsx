@@ -53,8 +53,8 @@ export interface EntityCardProps {
 }
 
 /**
- * The catalog list-item card (ZibbyOS DS shape — square corners, hairline
- * border, mono labels): a leading glyph tile, mono title + clamped
+ * The catalog list-item card (Bridge shape — rounded container, quiet line
+ * border): a leading glyph tile, title + clamped
  * description, wrapping badge rows and a footer action slot. Dumb by design —
  * all labels and behaviour come in as props (see `AgentCard` in the app for a
  * live caller). Replaces the app-level `HudCard` (ZB-13).
@@ -90,7 +90,6 @@ export function EntityCard({
           <Container grow minW0>
             <Stack gap="25">
               <Typography
-                mono
                 truncate
                 data-testid={EntityCardTestId.Title}
                 size="md"
@@ -148,7 +147,7 @@ export function EntityCard({
   );
 
   return (
-    <Card interactive background="panel" data-testid={EntityCardTestId.Root} radius="none">
+    <Card interactive background="panel" data-testid={EntityCardTestId.Root}>
       <Container padding="150" position="relative">
         <Stack gap="150">
           {onClick ? (

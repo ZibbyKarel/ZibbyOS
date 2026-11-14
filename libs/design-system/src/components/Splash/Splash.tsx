@@ -1,32 +1,34 @@
 "use client";
 import type { Ref } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Typography } from "../Typography/Typography";
 import { BrandMark } from "../BrandMark/BrandMark";
+import { StatusDot } from "../StatusDot/StatusDot";
 import { Wordmark } from "../Wordmark/Wordmark";
 
 export enum SplashTestId {
   Root = "splash-root",
-  Panel = "splash-panel",
   Glyph = "splash-glyph",
   Wordmark = "splash-wordmark",
-  Tagline = "splash-tagline",
+  Progress = "splash-progress",
+  ProgressFill = "splash-progress-fill",
   Status = "splash-status",
+  Footer = "splash-footer",
 }
 
-/** The boot choreography's discrete stages — `"done"` means unmounted (the
+/** The boot sequence's discrete stages — `"done"` means unmounted (the
  *  component renders `null` from there on). */
-export type SplashPhase = "walk" | "reveal" | "settled" | "exit" | "done";
+export type SplashPhase = "intro" | "settled" | "exit" | "done";
 
 /** The state actually stored — `"exit"` is never set directly; it is derived
- *  each render from `"settled" && ready` (see `Splash`'s `displayPhase`), so
- *  the ready→exit transition never needs a `setState` inside an effect. */
+ *  each render from `"settled" && ready`, so the ready→exit transition never
+ *  needs a `setState` inside an effect. */
 type StoredPhase = Exclude<SplashPhase, "exit">;
 
-/** Glyph walks in, `working`. */
-export const SPLASH_WALK_MS = 900;
-/** Wordmark reveals, glyph settles to `thinking`. */
-export const SPLASH_REVEAL_MS = 500;
+/** The whole entrance (brand doc: "Celé trvá ~2,6 s") — wings unfold, the knot
+ *  pops in and starts its wave, the wordmark and progress rise, steps tick. */
+export const SPLASH_INTRO_MS = 2600;
+/** One boot step on the status line. */
+export const SPLASH_STEP_MS = 560;
 /** Exit fade once `ready` — pointer-events are already `none` throughout it. */
 export const SPLASH_EXIT_MS = 320;
 
@@ -44,45 +46,48 @@ function prefersReducedMotion(): boolean {
 
 export interface SplashProps {
   /** Flips true once the app has finished loading. It only gates the exit
-   *  fade — the boot choreography itself always plays in full (a minimum
-   *  splash time) unless the operator prefers reduced motion. */
+   *  fade — the entrance always plays in full (a minimum splash time) unless
+   *  the operator prefers reduced motion. */
   ready: boolean;
   /** Fires once the exit fade completes. From that point the component
    *  renders nothing — it never re-intercepts clicks, even if the caller is
    *  slow to remove it from the tree. */
   onDone?: () => void;
-  /** Brand text — passed through to `Wordmark`. */
+  /** Overrides the `zibby.` lettering — passed through to `Wordmark`. */
   wordmark?: string;
-  /** Sub-line under the wordmark. */
-  tagline?: string;
-  /** Status line while booting. */
+  /** Boot steps shown one by one on the status line (every `SPLASH_STEP_MS`),
+   *  driving the progress bar. The last one is the "ready" line. */
+  steps?: readonly string[];
+  /** Accessible label, and the status line when no `steps` are given. */
   status?: string;
+  /** Small mono line at the bottom, e.g. `zibby os v0.9 · Můstek`. */
+  footer?: string;
   ref?: Ref<HTMLDivElement>;
 }
 
 /**
- * The choreographed boot screen (`ZibbyCorp Splash.dc.html`): a glyph walk,
- * then the wordmark reveal, then a hold until `ready`, then an exit fade.
- * Ports `apps/web/components/LoadingScreen/*` onto the ZibbyOS visual
- * language (deleted in ZA-07 once the app is wired to this instead).
- *
- * The phase machine is driven entirely by `setTimeout`s against the exported
- * `SPLASH_*_MS` constants — deterministic and advance-able with fake timers,
- * no `requestAnimationFrame` physics loop. Reduced motion mounts straight
- * into `"settled"` and fades out instantly once `ready`.
+ * The boot screen (`design/brand/ZibbyCorp – Brand.html`, "Splash"): the bow
+ * tie unfolds, its knot lights up amber and sends out waves, the wordmark
+ * rises, then the real boot steps tick along a thin progress bar. A soft
+ * amber radial and a faded grid sit behind it. Exits with a fade once both
+ * the entrance has played (`SPLASH_INTRO_MS`) and `ready` is true. Reduced
+ * motion shows the final frame at once and fades out instantly once ready.
  */
 export function Splash({
   ready,
   onDone,
   wordmark,
-  tagline = "Agent operations console",
+  steps,
   status = "Booting",
+  footer,
   ref,
 }: SplashProps) {
   // Lazy initializer — computed once, on mount, never re-read during render.
   const [reducedMotion] = useState(prefersReducedMotion);
+  const lastStep = steps && steps.length > 0 ? steps.length - 1 : 0;
 
-  const [phase, setPhase] = useState<StoredPhase>(reducedMotion ? "settled" : "walk");
+  const [phase, setPhase] = useState<StoredPhase>(reducedMotion ? "settled" : "intro");
+  const [step, setStep] = useState(reducedMotion ? lastStep : 0);
 
   const onDoneRef = useRef(onDone);
   useEffect(() => {
@@ -90,52 +95,51 @@ export function Splash({
   });
 
   useEffect(() => {
-    if (reducedMotion || phase !== "walk") return;
-    const t = setTimeout(() => setPhase("reveal"), SPLASH_WALK_MS);
+    if (phase !== "intro") return;
+    const t = setTimeout(() => setPhase("settled"), SPLASH_INTRO_MS);
     return () => clearTimeout(t);
-  }, [reducedMotion, phase]);
+  }, [phase]);
 
   useEffect(() => {
-    if (reducedMotion || phase !== "reveal") return;
-    const t = setTimeout(() => setPhase("settled"), SPLASH_REVEAL_MS);
+    if (step >= lastStep) return;
+    const t = setTimeout(() => setStep((s) => s + 1), SPLASH_STEP_MS);
     return () => clearTimeout(t);
-  }, [reducedMotion, phase]);
+  }, [step, lastStep]);
 
-  // The choreography never cuts short: the exit only starts once settled
-  // (naturally, or immediately under reduced motion) AND `ready` — computed
-  // during render instead of a stored state set from an effect.
   const displayPhase: SplashPhase = phase === "settled" && ready ? "exit" : phase;
 
   useEffect(() => {
     if (displayPhase !== "exit") return;
-    const ms = reducedMotion ? 0 : SPLASH_EXIT_MS;
-    const t = setTimeout(() => {
-      setPhase("done");
-      onDoneRef.current?.();
-    }, ms);
+    const t = setTimeout(
+      () => {
+        setPhase("done");
+        onDoneRef.current?.();
+      },
+      reducedMotion ? 0 : SPLASH_EXIT_MS,
+    );
     return () => clearTimeout(t);
   }, [reducedMotion, displayPhase]);
 
   if (displayPhase === "done") return null;
 
   const exiting = displayPhase === "exit";
-  const showWordmark =
-    displayPhase === "reveal" || displayPhase === "settled" || displayPhase === "exit";
+  const hasSteps = Boolean(steps && steps.length > 1);
+  const finished = step >= lastStep;
+  const line = steps?.[step] ?? status;
+  const pct = hasSteps ? Math.round((step / lastStep) * 100) : 0;
 
   return (
     <div
       aria-busy={!exiting}
       aria-label={status}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background font-mono text-ink"
+      className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-background text-ink"
       data-phase={displayPhase}
       data-testid={SplashTestId.Root}
       ref={ref}
       role="status"
       style={{
         backgroundImage:
-          "linear-gradient(var(--color-grid) 1px, transparent 1px)," +
-          "linear-gradient(90deg, var(--color-grid) 1px, transparent 1px)",
-        backgroundSize: "24px 24px",
+          "radial-gradient(640px 420px at 50% 44%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 70%)",
         opacity: exiting ? 0 : 1,
         pointerEvents: exiting ? "none" : undefined,
         transitionDuration: reducedMotion ? "0ms" : `${SPLASH_EXIT_MS}ms`,
@@ -143,44 +147,66 @@ export function Splash({
       }}
     >
       <div
-        className="relative flex flex-col items-center gap-3 border border-ink bg-panel px-10 py-9"
-        data-testid={SplashTestId.Panel}
-      >
-        <div data-testid={SplashTestId.Glyph}>
-          <BrandMark size={64} />
-        </div>
+        aria-hidden="true"
+        className="absolute inset-0 opacity-50"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--color-line) 1px, transparent 1px)," +
+            "linear-gradient(90deg, var(--color-line) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage: "radial-gradient(520px 360px at 50% 46%, #000, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(520px 360px at 50% 46%, #000, transparent 75%)",
+        }}
+      />
 
+      <div className="relative flex flex-col items-center gap-[22px]">
         <div
-          className="flex flex-col items-center gap-2"
-          data-testid={SplashTestId.Wordmark}
-          style={{
-            opacity: showWordmark ? 1 : 0,
-            transitionDuration: reducedMotion ? "0ms" : `${SPLASH_REVEAL_MS}ms`,
-            transitionProperty: "opacity",
-          }}
+          className="text-ink [&>svg]:size-[92px] md:[&>svg]:size-[116px]"
+          data-testid={SplashTestId.Glyph}
         >
-          <Wordmark>{wordmark}</Wordmark>
-          {tagline && (
-            <Typography
-              data-testid={SplashTestId.Tagline}
-              tracking="wider"
-              type="labelSm"
-              variant="tertiary"
-            >
-              {tagline}
-            </Typography>
-          )}
+          <BrandMark intro size={116} state="blocked" />
         </div>
 
-        <Typography
-          data-testid={SplashTestId.Status}
-          tracking="wider"
-          type="labelSm"
-          variant="secondary"
-        >
-          {status}
-        </Typography>
+        <div className="zb-brand-rise [animation-delay:1.05s]" data-testid={SplashTestId.Wordmark}>
+          <Wordmark size="lg">{wordmark}</Wordmark>
+        </div>
+
+        <div className="zb-brand-rise flex flex-col items-center gap-3 [animation-delay:1.25s]">
+          {hasSteps && (
+            <div
+              aria-label={status}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={pct}
+              className="h-0.5 w-[220px] overflow-hidden rounded-sm bg-line-2"
+              data-testid={SplashTestId.Progress}
+              role="progressbar"
+            >
+              <span
+                className="block h-full bg-ink-2 transition-[width] duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                data-testid={SplashTestId.ProgressFill}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          )}
+          <span
+            className="flex h-[18px] items-center gap-2 font-mono text-[12px] text-ink-3"
+            data-testid={SplashTestId.Status}
+          >
+            <StatusDot pulse tone={finished && hasSteps ? "done" : "working"} />
+            {finished || !hasSteps ? line : `${line}…`}
+          </span>
+        </div>
       </div>
+
+      {footer && (
+        <span
+          className="absolute inset-x-0 bottom-7 text-center font-mono text-[11px] text-ink-3"
+          data-testid={SplashTestId.Footer}
+        >
+          {footer}
+        </span>
+      )}
     </div>
   );
 }

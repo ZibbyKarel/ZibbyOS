@@ -98,14 +98,14 @@ describe("BoardRow", () => {
     expect(row).not.toHaveClass("cursor-pointer");
   });
 
-  it("adds the ink right border on a selected row when the sheet opens left", () => {
+  it("outlines a selected row in amber whichever side the sheet opens to", () => {
     render(
       <BoardRow selected onClick={() => {}} sheetSide="left" tone="idle">
         x
       </BoardRow>,
     );
     expect(screen.getByTestId(BoardRowTestId.Root).className).toContain(
-      "inset_-1px_0_0_var(--color-ink)",
+      "inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_55%,transparent)",
     );
   });
 
@@ -236,5 +236,29 @@ describe("BoardRow", () => {
     );
     expect(screen.queryByTestId(BoardRowTestId.Trailing)).toBeNull();
     expect(screen.queryByTestId(BoardRowTestId.Content)).toBeNull();
+  });
+});
+
+describe("BoardRow shape=list", () => {
+  it("drops the bar and hairline, pads with --rowpad and outlines the selected row in amber", () => {
+    const { rerender } = render(
+      <BoardRow onClick={() => {}} padding="pr" rowKey="k" shape="list" tone="error">
+        row
+      </BoardRow>,
+    );
+    const root = screen.getByTestId(BoardRowTestId.Root);
+    expect(root.className).not.toContain("border-l-[length:var(--bridge-bar)]");
+    expect(root.className).not.toContain("--bridge-row-border");
+    expect(root.className).toContain("py-[var(--rowpad)]");
+    expect(root.className).not.toContain("--bridge-pr-py");
+    expect(root).toHaveAttribute("aria-pressed", "false");
+    rerender(
+      <BoardRow selected onClick={() => {}} rowKey="k" shape="list" tone="error">
+        row
+      </BoardRow>,
+    );
+    expect(root).toHaveAttribute("aria-pressed", "true");
+    expect(root.className).toContain("var(--color-accent)_30%");
+    expect(root).toHaveAttribute("data-rk", "k");
   });
 });

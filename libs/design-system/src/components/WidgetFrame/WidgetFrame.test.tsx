@@ -2,6 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "../../utils/testRender";
+import { MenuButtonTestId } from "../MenuButton/MenuButton";
 import { WidgetFrame, WidgetFrameTestId } from "./WidgetFrame";
 
 const CORNERS = ["nw", "ne", "sw", "se"] as const;
@@ -21,17 +22,28 @@ describe("WidgetFrame", () => {
     expect(screen.getByText("rows")).toBeVisible();
   });
 
+  it("rises above the sheet overlay while anchored", () => {
+    const { rerender } = render(<WidgetFrame label="PRS" />);
+    expect(screen.getByTestId(WidgetFrameTestId.Root)).not.toHaveAttribute("data-anchored");
+    rerender(<WidgetFrame anchored label="PRS" />);
+    expect(screen.getByTestId(WidgetFrameTestId.Root)).toHaveAttribute("data-anchored", "true");
+    expect(screen.getByTestId(WidgetFrameTestId.Root).className).toContain("z-[31]");
+  });
+
   it("shows the caret only when a toggle handler is given and toggles", async () => {
     const onToggle = vi.fn();
     const { rerender } = render(<WidgetFrame label="X" />);
     expect(screen.queryByTestId(WidgetFrameTestId.Collapse)).toBeNull();
     rerender(<WidgetFrame label="X" onToggleCollapse={onToggle} />);
     const caret = screen.getByTestId(WidgetFrameTestId.Collapse);
-    expect(caret).toHaveTextContent("▾");
+    expect(caret).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(caret);
     expect(onToggle).toHaveBeenCalledOnce();
     rerender(<WidgetFrame collapsed label="X" onToggleCollapse={onToggle} />);
-    expect(screen.getByTestId(WidgetFrameTestId.Collapse)).toHaveTextContent("▸");
+    expect(screen.getByTestId(WidgetFrameTestId.Collapse)).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("hides the body (but keeps it mounted) when collapsed", () => {
@@ -237,5 +249,111 @@ describe("WidgetFrame", () => {
     expect(screen.getByTestId(WidgetFrameTestId.Filters)).toHaveAttribute("data-active", "true");
     rerender(<WidgetFrame label="X" />);
     expect(screen.queryByTestId(WidgetFrameTestId.Filters)).not.toBeInTheDocument();
+  });
+
+  it("emits tier + species and defaults to the standard tier", () => {
+    const { rerender } = render(<WidgetFrame label="X" species="feed" />);
+    const root = screen.getByTestId(WidgetFrameTestId.Root);
+    expect(root).toHaveAttribute("data-tier", "standard");
+    expect(root).toHaveAttribute("data-species", "feed");
+    expect(root).toHaveClass("bg-panel", "border-line");
+    rerender(<WidgetFrame label="X" tier="primary" />);
+    expect(screen.getByTestId(WidgetFrameTestId.Root)).toHaveClass("border-accent/20");
+    expect(screen.getByTestId(WidgetFrameTestId.Label)).toHaveClass("text-widget-t1", "text-ink");
+    rerender(<WidgetFrame label="X" tier="ambient" />);
+    expect(screen.getByTestId(WidgetFrameTestId.Root)).toHaveClass(
+      "border-transparent",
+      "hover:border-line",
+    );
+    expect(screen.getByTestId(WidgetFrameTestId.Label)).toHaveClass("text-widget-t3", "text-ink-2");
+  });
+
+  it("tier collapsed implies a collapsed body and a dashed frame", () => {
+    render(
+      <WidgetFrame label="X" onToggleCollapse={() => {}} tier="collapsed">
+        <p>rows</p>
+      </WidgetFrame>,
+    );
+    expect(screen.getByTestId(WidgetFrameTestId.Root)).toHaveClass("border-dashed");
+    expect(screen.getByTestId(WidgetFrameTestId.Body)).not.toBeVisible();
+    expect(screen.getByTestId(WidgetFrameTestId.Collapse)).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("hides controls until hover/focus (still focusable) but keeps pressed ones visible", () => {
+    const { rerender } = render(
+      <WidgetFrame label="X" onAdd={() => {}} onSettings={() => {}} onToggleFilters={() => {}} />,
+    );
+    const settings = screen.getByTestId(WidgetFrameTestId.Settings);
+    expect(settings).toHaveClass(
+      "opacity-0",
+      "group-hover:opacity-100",
+      "group-focus-within:opacity-100",
+    );
+    settings.focus();
+    expect(settings).toHaveFocus();
+    rerender(
+      <WidgetFrame
+        adding
+        filtersOpen
+        label="X"
+        onAdd={() => {}}
+        onSettings={() => {}}
+        onToggleFilters={() => {}}
+      />,
+    );
+    expect(screen.getByTestId(WidgetFrameTestId.Add)).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId(WidgetFrameTestId.Filters)).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId(WidgetFrameTestId.Settings)).toHaveClass("opacity-0");
+  });
+
+  it("hero tier overlays its header and reveals it on hover/focus", () => {
+    render(<WidgetFrame label="Briefing" tier="hero" />);
+    expect(screen.getByTestId(WidgetFrameTestId.Header)).toHaveClass(
+      "absolute",
+      "opacity-0",
+      "group-focus-within:opacity-100",
+    );
+  });
+
+  it("compactControls folds the controls into one menu with the same actions", async () => {
+    const onSettings = vi.fn();
+    const onMove = vi.fn();
+    render(
+      <WidgetFrame
+        compactControls
+        controlsLabel="More"
+        label="X"
+        onMovePointerDown={onMove}
+        onRefresh={() => {}}
+        onSettings={onSettings}
+        onToggleCollapse={() => {}}
+        settingsLabel="Settings"
+      />,
+    );
+    expect(screen.queryByTestId(WidgetFrameTestId.Settings)).toBeNull();
+    const controls = screen.getByTestId(WidgetFrameTestId.Controls);
+    fireEvent.pointerDown(controls);
+    expect(onMove).not.toHaveBeenCalled();
+    const trigger = screen.getByTestId(MenuButtonTestId.Trigger);
+    expect(trigger).toHaveAccessibleName("More");
+    await userEvent.click(trigger);
+    const items = screen.getAllByRole("menuitem").map((i) => i.getAttribute("data-testid"));
+    expect(items).toEqual([
+      "menu-button-item-refresh",
+      "menu-button-item-settings",
+      "menu-button-item-collapse",
+    ]);
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-settings`));
+    expect(onSettings).toHaveBeenCalledOnce();
+  });
+
+  it("renders the you pill with its amber dot", () => {
+    render(<WidgetFrame label="X" you="2 for you" />);
+    const you = screen.getByTestId(WidgetFrameTestId.You);
+    expect(you).toHaveTextContent("2 for you");
+    expect(you).toHaveClass("text-accent-fg", "rounded-full");
   });
 });

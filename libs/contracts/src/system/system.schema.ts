@@ -9,8 +9,12 @@ import { ChatPersonaSchema } from "../chat/chat.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
 import { TeamIdSchema } from "../teams/team.schema";
 
-/** Bridge board density — scales the design-system spacing tokens system-wide. */
-export const DensitySchema = z.enum(["compact", "comfort", "airy", "open"]);
+/** Bridge board density — scales the design-system spacing tokens system-wide. A stored
+ *  legacy `open` (the retired 4th level) keeps loading: it is coerced to `airy`. */
+export const DensitySchema = z.preprocess(
+  (v) => (v === "open" ? "airy" : v),
+  z.enum(["compact", "comfort", "airy"]),
+);
 export type Density = z.infer<typeof DensitySchema>;
 
 /**
@@ -152,6 +156,9 @@ export const UiSettingsSchema = z.object({
       collapsed: z.record(z.string(), z.boolean()).default({}),
       /** Epic group key -> closed (Issues widget). */
       epicClosed: z.record(z.string(), z.boolean()).default({}),
+      /** Revision of the built-in layouts the saved DEFAULT was last reconciled with; the web
+       *  drops a saved DEFAULT from an older revision once (bridge redesign = 2). */
+      designRev: z.number().int().default(1),
     })
     .prefault({}),
 });

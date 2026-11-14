@@ -7,9 +7,10 @@ import { selectionFromParams, useBridgeState } from "./useBridgeState";
 
 const setBridge = vi.fn();
 let ui = UiSettingsSchema.parse({});
+let loaded = false;
 
 vi.mock("../../system", () => ({
-  useUiSettings: () => ({ ui, setDensity: vi.fn(), setBridge }),
+  useUiSettings: () => ({ ui, loaded, setDensity: vi.fn(), setBridge }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -20,9 +21,29 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/dashboard");
   setBridge.mockReset();
   ui = UiSettingsSchema.parse({});
+  loaded = false;
 });
 
 describe("useBridgeState", () => {
+  it("drops a pre-redesign saved DEFAULT once and keeps other saved layouts", () => {
+    const old = [{ id: "prs", type: "prs" as const, x: 0, y: 0, w: 12, h: 4 }];
+    ui = UiSettingsSchema.parse({ bridge: { layout: old, saved: { DEFAULT: old, primary: old } } });
+    loaded = true;
+    const { result } = renderHook(() => useBridgeState());
+    expect(setBridge).toHaveBeenCalledWith({ designRev: 2, saved: { primary: old }, layout: null });
+    expect(result.current.layout).toEqual(compact(DEFAULT_LAYOUT));
+  });
+
+  it("leaves an active non-DEFAULT layout alone when dropping the old DEFAULT", () => {
+    const old = [{ id: "prs", type: "prs" as const, x: 0, y: 0, w: 12, h: 4 }];
+    ui = UiSettingsSchema.parse({
+      bridge: { layout: old, preset: "primary", saved: { DEFAULT: old, primary: old } },
+    });
+    loaded = true;
+    renderHook(() => useBridgeState());
+    expect(setBridge).toHaveBeenCalledWith({ designRev: 2, saved: { primary: old } });
+  });
+
   it("starts on the DEFAULT preset layout", () => {
     const { result } = renderHook(() => useBridgeState());
     expect(result.current.preset).toBe("DEFAULT");
@@ -189,6 +210,9 @@ describe("useBridgeState", () => {
     act(() => result.current.toggleCollapsed("prs"));
     expect(result.current.collapsed).toEqual({ prs: true });
     expect(setBridge).toHaveBeenLastCalledWith({ collapsed: { prs: true } });
+    // Relative to the effective state: an auto-collapsed widget opens (stores `false`).
+    act(() => result.current.toggleCollapsed("issues", true));
+    expect(setBridge).toHaveBeenLastCalledWith({ collapsed: { prs: true, issues: false } });
     act(() => result.current.setEpicClosed("ZB-1", true));
     expect(setBridge).toHaveBeenLastCalledWith({ epicClosed: { "ZB-1": true } });
   });

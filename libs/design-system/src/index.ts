@@ -461,7 +461,7 @@ export { RailSplit, RailSplitTestId } from "./components/RailSplit/RailSplit";
 export type { RailSplitProps } from "./components/RailSplit/RailSplit";
 
 export { RailItem, RailItemTestId } from "./components/RailItem/RailItem";
-export type { RailItemProps } from "./components/RailItem/RailItem";
+export type { RailItemProps, RailItemTense } from "./components/RailItem/RailItem";
 
 export { ToggleChip, ToggleChipTestId } from "./components/ToggleChip/ToggleChip";
 export type { ToggleChipProps } from "./components/ToggleChip/ToggleChip";
@@ -574,15 +574,19 @@ export {
   Splash,
   SplashTestId,
   SPLASH_EXIT_MS,
-  SPLASH_REVEAL_MS,
-  SPLASH_WALK_MS,
+  SPLASH_INTRO_MS,
+  SPLASH_STEP_MS,
 } from "./components/Splash/Splash";
 export type { SplashPhase, SplashProps } from "./components/Splash/Splash";
 
 export { BrandMark, BrandMarkTestId } from "./components/BrandMark/BrandMark";
-export type { BrandMarkProps, BrandMarkSize } from "./components/BrandMark/BrandMark";
+export type {
+  BrandMarkProps,
+  BrandMarkSize,
+  BrandMarkState,
+} from "./components/BrandMark/BrandMark";
 export { Wordmark, WordmarkTestId } from "./components/Wordmark/Wordmark";
-export type { WordmarkProps } from "./components/Wordmark/Wordmark";
+export type { WordmarkProps, WordmarkSize } from "./components/Wordmark/Wordmark";
 
 export { SkipLink, SkipLinkTestId } from "./components/SkipLink/SkipLink";
 export type { SkipLinkProps } from "./components/SkipLink/SkipLink";
@@ -593,7 +597,12 @@ export type { FileDiffViewProps } from "./components/FileDiffView/FileDiffView";
 export { WidgetBoard, WidgetBoardTestId } from "./components/WidgetBoard/WidgetBoard";
 export type { WidgetBoardProps } from "./components/WidgetBoard/WidgetBoard";
 export { WidgetFrame, WidgetFrameTestId } from "./components/WidgetFrame/WidgetFrame";
-export type { ResizeCorner, WidgetFrameProps } from "./components/WidgetFrame/WidgetFrame";
+export type {
+  ResizeCorner,
+  WidgetFrameProps,
+  WidgetSpecies,
+  WidgetTier,
+} from "./components/WidgetFrame/WidgetFrame";
 export {
   CommandBar,
   CommandBarButton,
@@ -635,24 +644,43 @@ export { BoardTag, BoardTagTestId } from "./components/BoardTag/BoardTag";
 export type { BoardTagProps } from "./components/BoardTag/BoardTag";
 export { RowGroupHeader, RowGroupHeaderTestId } from "./components/RowGroupHeader/RowGroupHeader";
 export type { RowGroupHeaderProps } from "./components/RowGroupHeader/RowGroupHeader";
+export { StateGlyph, StateGlyphTestId } from "./components/StateGlyph/StateGlyph";
+export type { StateGlyphProps, StateGlyphTone } from "./components/StateGlyph/StateGlyph";
+export { BoardPill, BoardPillTestId } from "./components/BoardPill/BoardPill";
+export type { BoardPillProps, BoardPillTone } from "./components/BoardPill/BoardPill";
+export { DecisionCard, DecisionCardTestId } from "./components/DecisionCard/DecisionCard";
+export type { DecisionCardProps } from "./components/DecisionCard/DecisionCard";
 export { PipelineChips, PipelineChipsTestId } from "./components/PipelineChips/PipelineChips";
 export type { PipelineChip, PipelineChipsProps } from "./components/PipelineChips/PipelineChips";
 export { KpiStrip, KpiStripTestId } from "./components/KpiStrip/KpiStrip";
 export type { Kpi, KpiStripProps } from "./components/KpiStrip/KpiStrip";
+export { BriefingHero, BriefingHeroTestId } from "./components/BriefingHero/BriefingHero";
+export type {
+  BriefingHeroCounter,
+  BriefingHeroProps,
+  BriefingHeroTone,
+} from "./components/BriefingHero/BriefingHero";
+export { SummaryRow, SummaryRowTestId } from "./components/SummaryRow/SummaryRow";
+export type { SummaryRowProps } from "./components/SummaryRow/SummaryRow";
+export { PageTitle, PageTitleTestId } from "./components/PageTitle/PageTitle";
+export type { PageTitleProps } from "./components/PageTitle/PageTitle";
 
 // --- Detail sheet kit (Bridge dashboard; generic) ---
 export { AnchoredSheet, AnchoredSheetTestId } from "./components/AnchoredSheet/AnchoredSheet";
-export type { AnchoredSheetProps } from "./components/AnchoredSheet/AnchoredSheet";
+export type { AnchoredSheetProps, SheetStateTone } from "./components/AnchoredSheet/AnchoredSheet";
 export {
   SheetAction,
+  SheetBanner,
   SheetBlock,
   SheetColumns,
   SheetPartsTestId,
   SheetSection,
   SheetText,
 } from "./components/AnchoredSheet/SheetParts";
-export type { SheetActionProps } from "./components/AnchoredSheet/SheetParts";
+export type { SheetActionProps, SheetBannerProps } from "./components/AnchoredSheet/SheetParts";
 export type { SheetTone } from "./components/AnchoredSheet/sheetTone";
+export { SheetPresentationContext } from "./components/AnchoredSheet/sheetPresentation";
+export type { SheetPresentation } from "./components/AnchoredSheet/sheetPresentation";
 export { StatCell, StatCellGrid, StatCellTestId } from "./components/StatCell/StatCell";
 export type { StatCellGridProps, StatCellProps } from "./components/StatCell/StatCell";
 export { NeedsYouCard, NeedsYouCardTestId } from "./components/NeedsYouCard/NeedsYouCard";
@@ -669,3 +697,58 @@ export { Copyable, CopyableTestId } from "./components/Copyable/Copyable";
 export type { CopyableProps } from "./components/Copyable/Copyable";
 export { CopyableText, CopyableTextTestId } from "./components/CopyableText/CopyableText";
 export type { CopyableTextProps } from "./components/CopyableText/CopyableText";
+export { Meter, MeterTestId } from "./components/Meter/Meter";
+export type { MeterProps, MeterTone } from "./components/Meter/Meter";
+export { FeedRow, FeedRowTestId } from "./components/FeedRow/FeedRow";
+export type { FeedRowProps } from "./components/FeedRow/FeedRow";
+export { ReadingItem, ReadingItemTestId } from "./components/ReadingItem/ReadingItem";
+export type { ReadingItemProps } from "./components/ReadingItem/ReadingItem";
+export {
+  PaperAdd,
+  PaperLine,
+  PaperSheet,
+  PaperSheetTestId,
+} from "./components/PaperSheet/PaperSheet";
+export type {
+  PaperAddProps,
+  PaperLineProps,
+  PaperSheetProps,
+} from "./components/PaperSheet/PaperSheet";
+export {
+  ActionPalette,
+  ActionPill,
+  ActionPillAdd,
+  ActionPillTestId,
+} from "./components/ActionPill/ActionPill";
+export type {
+  ActionPaletteProps,
+  ActionPillAddProps,
+  ActionPillProps,
+} from "./components/ActionPill/ActionPill";
+export {
+  LauncherGrid,
+  LauncherTile,
+  LauncherTileTestId,
+} from "./components/LauncherTile/LauncherTile";
+export type { LauncherGridProps, LauncherTileProps } from "./components/LauncherTile/LauncherTile";
+export {
+  StateDot,
+  StatusRail,
+  StatusRailItem,
+  StatusRailNow,
+  StatusRailPark,
+  StatusRailTestId,
+} from "./components/StatusRail/StatusRail";
+export type {
+  StateDotProps,
+  StatusRailItemProps,
+  StatusRailNowProps,
+  StatusRailParkProps,
+  StatusRailProps,
+} from "./components/StatusRail/StatusRail";
+export { BoardSection, BoardSectionTestId } from "./components/BoardSection/BoardSection";
+export type { BoardSectionProps } from "./components/BoardSection/BoardSection";
+export { Tile, TileGrid, TileGridTestId } from "./components/TileGrid/TileGrid";
+export type { TileGridProps, TileProps } from "./components/TileGrid/TileGrid";
+export { TimelineAxis, TimelineAxisTestId } from "./components/TimelineAxis/TimelineAxis";
+export type { TimelineAxisProps, TimelinePoint } from "./components/TimelineAxis/TimelineAxis";
