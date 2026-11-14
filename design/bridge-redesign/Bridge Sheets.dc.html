@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Můstek — detaily</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<style>
+/* ---------- board ---------- */
+.stage.tall{height:1020px;display:flex;flex-direction:column}
+.board{position:relative;flex:1;min-height:0;overflow:hidden}
+.board .g{height:100%;align-content:start}
+.ghost{opacity:.32;pointer-events:none;filter:saturate(.6)}
+/* ---------- sheet frame ---------- */
+.sx{position:absolute;top:12px;bottom:12px;z-index:20;display:flex;flex-direction:column;background:#12151b;border:1px solid var(--line2);border-radius:14px;box-shadow:0 50px 120px -30px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.6);overflow:hidden;transition:left .2s,width .2s}
+.sx.static{position:relative;top:auto;bottom:auto;height:100%}
+.sxh{padding:12px 14px 12px 18px;border-bottom:1px solid var(--line);flex:none}
+.k1{display:flex;align-items:center;gap:8px;min-height:28px}
+.kg{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line2);color:var(--ink);flex:none}
+.kind{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);white-space:nowrap}
+.cid{display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono';font-size:12px;color:var(--ink2);padding:2px 6px;border-radius:6px;white-space:nowrap}
+.cid:hover{background:var(--p2);color:var(--ink)}
+.cid .cp{opacity:0}
+.cid:hover .cp,.cid:focus-visible .cp{opacity:.8}
+.k1 .sp{flex:1}
+.back{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px 0 4px;border-radius:7px;font-size:12px;color:var(--ink2);background:var(--p2);border:1px solid var(--line);margin-right:4px;max-width:220px}
+.back:hover{color:var(--ink);border-color:var(--line2)}
+.back span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step{display:inline-flex;align-items:center;gap:2px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink3)}
+.step .ib{width:24px;height:24px}
+.t2r{display:flex;align-items:flex-start;gap:16px;margin-top:8px}
+.ttl{flex:1;min-width:0;font-size:19px;font-weight:600;line-height:1.3;letter-spacing:-.02em;text-wrap:pretty;display:inline}
+.ttl:hover{text-decoration:underline;text-decoration-color:var(--ink3);text-underline-offset:4px}
+.acts2{display:flex;gap:6px;flex:none;align-items:center}
+.st2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--ink3)}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap;background:rgba(255,255,255,.05);color:var(--ink2)}
+.pill .dot{width:7px;height:7px;box-shadow:none}
+.pill.rose{background:rgba(251,113,133,.12);color:var(--rose)}
+.pill.amber{background:var(--amb-s);color:var(--amber)}
+.pill.emerald{background:rgba(52,211,153,.1);color:var(--emerald)}
+.pill.sky{background:rgba(125,211,252,.1);color:var(--sky)}
+.pill.violet{background:rgba(167,139,250,.12);color:var(--violet)}
+.pill.idle{background:rgba(255,255,255,.05);color:var(--ink2)}
+.pill.loud{box-shadow:0 0 0 1px rgba(245,165,36,.4),0 0 18px -4px rgba(245,165,36,.5)}
+.brc{display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink);background:var(--p2);border:1px solid var(--line);padding:1px 7px;border-radius:6px;max-width:250px}
+.brc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brc:hover{border-color:var(--line2)}
+.crumbs{display:inline-flex;align-items:center;gap:4px;font-family:'Geist Mono';font-size:11.5px}
+.crumbs button{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 7px;border-radius:6px;color:var(--ink2);border:1px solid transparent}
+.crumbs button:hover{background:var(--p2);color:var(--ink)}
+.crumbs .cur{border-color:var(--line2);color:var(--ink);background:var(--p2)}
+.crumbs .dot{width:6px;height:6px;box-shadow:none}
+.crumbs .ar{color:var(--ink3)}
+/* banners */
+.ban{padding:12px 18px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:start;flex:none;font-size:13px}
+.ban .bi{margin-top:2px}
+.ban b{font-weight:600}
+.ban p{color:var(--ink2);font-size:12.5px;margin-top:2px}
+.ban.rose{background:linear-gradient(90deg,rgba(251,113,133,.1),rgba(251,113,133,.03));color:var(--ink)}
+.ban.rose .bi{color:var(--rose)}
+.ban.amber{background:linear-gradient(90deg,rgba(245,165,36,.12),rgba(245,165,36,.04));box-shadow:inset 0 1px 0 rgba(245,165,36,.35)}
+.ban.amber .bi{color:var(--amber)}
+.ban.emerald{background:rgba(52,211,153,.07)}
+.ban.emerald .bi{color:var(--emerald)}
+.ban.big{grid-template-columns:18px minmax(0,1fr);padding:16px 18px}
+.code{font-family:'Geist Mono';font-size:11.5px;line-height:1.6;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink2);white-space:pre-wrap;margin-top:8px}
+.risk{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pub{margin-top:10px;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.pub>div{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;padding:6px 10px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink2);border-top:1px solid var(--line)}
+.pub>div:first-child{border-top:0;background:rgba(255,255,255,.02);font-family:'Geist';font-size:12px;color:var(--ink)}
+.hold{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none}
+.hold i{position:absolute;left:0;top:0;bottom:0;background:rgba(0,0,0,.22);pointer-events:none}
+.hold span{position:relative}
+/* body */
+.sxb{flex:1;min-height:0;overflow-y:auto}
+.sxs{padding:14px 18px;border-bottom:1px solid var(--line)}
+.sxs:last-child{border-bottom:0}
+.sxs h4{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--ink2);margin-bottom:10px}
+.sxs h4 .n{font-family:'Geist Mono';font-size:11.5px;color:var(--ink3)}
+.sxs h4 .sp{flex:1}
+.sxf{flex:none;display:flex;gap:9px;align-items:flex-start;padding:10px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3);background:rgba(0,0,0,.15)}
+.sxf b{color:var(--ink2);font-weight:500}
+/* metric strip */
+.strip{display:grid;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.015)}
+.strip>div{padding:9px 12px;border-left:1px solid var(--line);min-width:0}
+.strip>div:first-child{border-left:0}
+.strip .l{display:block;font-size:11px;color:var(--ink3);margin-bottom:3px}
+.strip .v{display:flex;align-items:center;gap:6px;font-size:13px;min-width:0;white-space:nowrap}
+.strip .v>span{overflow:hidden;text-overflow:ellipsis}
+.strip .big{font-size:20px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.2}
+.lnk{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
+.lnk:hover{text-decoration-color:var(--ink2)}
+.tgl{display:inline-flex;padding:2px;border-radius:7px;background:var(--p2);border:1px solid var(--line)}
+.tgl button{padding:1px 8px;border-radius:5px;font-size:11.5px;color:var(--ink3)}
+.tgl [aria-pressed=true]{background:var(--p3);color:var(--ink)}
+/* reviewers */
+.rvt{display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.rvt .tm{display:flex;align-items:center;gap:6px;color:var(--ink3);font-size:11.5px;margin-top:6px}
+.rvt .tm:first-child{margin-top:0}
+.rvp{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;align-items:center;padding:3px 0 3px 14px;position:relative}
+.rvp::before{content:'';position:absolute;left:4px;top:-4px;bottom:50%;width:7px;border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);border-bottom-left-radius:4px}
+/* tabs */
+.tbs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line);flex:none;position:sticky;top:0;background:#12151b;z-index:3}
+.tbs button{position:relative;padding:11px 10px 10px;font-size:13px;color:var(--ink3);display:inline-flex;gap:6px;align-items:center}
+.tbs button:hover{color:var(--ink)}
+.tbs [aria-selected=true]{color:var(--ink)}
+.tbs [aria-selected=true]::after{content:'';position:absolute;left:8px;right:8px;bottom:-1px;height:2px;border-radius:2px;background:var(--ink)}
+.tbs .n{font-family:'Geist Mono';font-size:11px;color:var(--ink3)}
+.tbs .sp{flex:1}
+/* markdown */
+.md{font-size:13.5px;line-height:1.6;color:var(--ink2)}
+.md h5{font-size:14px;font-weight:600;color:var(--ink);margin:14px 0 6px}
+.md h5:first-child{margin-top:0}
+.md ul{margin:0 0 10px;padding-left:18px}
+.md li{margin:2px 0}
+.md code{font-family:'Geist Mono';font-size:12px;background:var(--p2);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.md .img{margin:10px 0;height:120px;border-radius:9px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,rgba(255,255,255,.02) 0 10px,transparent 10px 20px),var(--p1);display:grid;place-items:center;color:var(--ink3);font-size:11.5px}
+/* threads */
+.thr{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:8px;background:rgba(255,255,255,.015)}
+.thr .th{display:flex;align-items:center;gap:8px;padding:8px 12px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink3);border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.thr .th .sp{flex:1}
+.cm{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;padding:10px 12px}
+.cm .av{width:20px;height:20px;font-size:9px}
+.cm b{font-weight:500;color:var(--ink)}
+.cm .tx{color:var(--ink2);margin-top:2px;font-size:13px}
+.thr .ta{display:flex;gap:6px;padding:0 12px 10px 42px}
+.thr.res .th{border-bottom:0}
+/* small lists */
+.lr{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:7px 4px;border-radius:8px;width:100%;font-size:13px}
+.lr:hover{background:rgba(255,255,255,.03)}
+.lr .k{display:block;font-size:11.5px;color:var(--ink3)}
+.lr .t{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.02);width:100%}
+.lcard:hover{border-color:var(--line2);background:rgba(255,255,255,.035)}
+.lcard .kg{width:30px;height:30px;border-radius:9px}
+.lcard .k{display:block;font-size:11px;color:var(--ink3);letter-spacing:.04em;text-transform:uppercase}
+.lcard .t{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* diff */
+.chg{display:grid;grid-template-columns:260px minmax(0,1fr);height:100%;min-height:0}
+.ftree{border-right:1px solid var(--line);overflow-y:auto;padding:10px 8px;min-height:0}
+.ftree .fl{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:7px;border:1px solid var(--line);margin:0 2px 8px;color:var(--ink3);font-size:12px}
+.fdir{display:flex;align-items:center;gap:6px;padding:8px 6px 3px;font-family:'Geist Mono';font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ff{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:7px;align-items:center;width:100%;padding:4px 6px 4px 14px;border-radius:6px;font-size:12.5px}
+.ff:hover{background:rgba(255,255,255,.04)}
+.ff.on{background:var(--p2)}
+.ff .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+.ff.on .nm{color:var(--ink)}
+.ff.vw .nm{color:var(--ink3)}
+.fs{font-family:'Geist Mono';font-size:10px;font-weight:600;width:14px;height:14px;border-radius:4px;display:grid;place-items:center}
+.fs.A{color:var(--emerald);background:rgba(52,211,153,.12)}
+.fs.D{color:var(--rose);background:rgba(251,113,133,.12)}
+.fs.M{color:var(--ink2);background:rgba(255,255,255,.07)}
+.fs.R{color:var(--ink2);background:rgba(255,255,255,.07)}
+.pm{display:inline-flex;gap:1.5px;vertical-align:middle}
+.pm i{width:6px;height:6px;border-radius:1.5px;background:rgba(255,255,255,.1)}
+.pm i.a{background:var(--emerald)}
+.pm i.d{background:var(--rose)}
+.dpane{overflow-y:auto;min-height:0;padding:0 16px 24px}
+.dbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:10px;padding:10px 0;background:#12151b;font-size:12.5px;color:var(--ink2)}
+.dbar .sp{flex:1}
+.trunc{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.03);border:1px dashed var(--line2);font-size:12.5px;color:var(--ink2);margin-bottom:12px}
+.dfile{border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden;background:var(--bg)}
+.dfh{position:sticky;top:46px;z-index:2;display:flex;align-items:center;gap:8px;padding:7px 10px;background:#161a21;border-bottom:1px solid var(--line);font-size:12.5px}
+.dfh .path{font-family:'Geist Mono';font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dfh .path .dim{color:var(--ink3)}
+.dfh .sp{flex:1}
+.dfh label{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);cursor:pointer;padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+.dfh label input{accent-color:var(--emerald);margin:0}
+.dfile.cl .dfh{border-bottom:0}
+.dl{display:grid;grid-template-columns:44px 44px 18px minmax(0,1fr);font-family:'Geist Mono';font-size:12px;line-height:20px;min-width:0}
+.dl .no{color:#5b616b;text-align:right;padding-right:8px;user-select:none;background:rgba(255,255,255,.012)}
+.dl .sg{color:var(--ink3);text-align:center;user-select:none}
+.dl .cd{white-space:pre;overflow:hidden;text-overflow:ellipsis;color:#c9cdd4;padding-right:10px}
+.dl.add{background:rgba(52,211,153,.07)}
+.dl.add .no{background:rgba(52,211,153,.12);color:#6fae95}
+.dl.add .sg{color:var(--emerald)}
+.dl.del{background:rgba(251,113,133,.07)}
+.dl.del .no{background:rgba(251,113,133,.12);color:#b77b86}
+.dl.del .sg{color:var(--rose)}
+.hk{font-family:'Geist Mono';font-size:11.5px;line-height:28px;padding:0 10px 0 106px;color:var(--ink3);background:rgba(255,255,255,.035);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp2{display:grid;grid-template-columns:40px minmax(0,1fr) 40px minmax(0,1fr);font-family:'Geist Mono';font-size:12px;line-height:20px}
+.sp2 .no{color:#5b616b;text-align:right;padding-right:8px;background:rgba(255,255,255,.012)}
+.sp2 .cd{white-space:pre;overflow:hidden;text-overflow:ellipsis;color:#c9cdd4;padding:0 8px}
+.sp2 .del{background:rgba(251,113,133,.08)}
+.sp2 .add{background:rgba(52,211,153,.08)}
+.sp2 .emp{background:repeating-linear-gradient(135deg,rgba(255,255,255,.015) 0 6px,transparent 6px 12px)}
+.sp2 .cd:nth-child(2){border-right:1px solid var(--line)}
+.ilt{margin:4px 12px 8px 106px;border:1px solid var(--line2);border-radius:10px;background:#141820;font-family:'Geist';overflow:hidden}
+.ilt .th{display:flex;gap:8px;align-items:center;padding:6px 12px;font-size:11.5px;color:var(--amber);border-bottom:1px solid var(--line)}
+.ilt .cm .tx{font-size:12.5px}
+.tmk{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-left:4px}
+.tok-k{color:#9fb6d8}.tok-s{color:#b3c79a}.tok-c{color:#6b717b}.tok-t{color:#d9c9a6}
+.dmore{display:block;width:100%;padding:6px 10px 6px 106px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink3);background:rgba(255,255,255,.02)}
+.bz .dmore{text-align:left}
+.dmore:hover{color:var(--ink)}
+.fnote{padding:12px 14px;font-size:12.5px;color:var(--ink3);display:flex;gap:10px;align-items:center}
+/* run */
+.about{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.impl{font-size:14px;line-height:1.55;color:var(--ink);margin-top:12px;text-wrap:pretty}
+.impl .dim{font-size:12px}
+.live{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:0;height:100%}
+.rl{border-right:1px solid var(--line);overflow-y:auto;padding:12px 12px 16px;min-height:0}
+.rlh{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:0 4px 8px}
+.rlh .sp{flex:1}
+.rli{position:relative;display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding:8px 8px 10px 4px;border-radius:9px;width:100%;margin-bottom:2px}
+.rli:hover{background:rgba(255,255,255,.03)}
+.rli.on{background:rgba(255,255,255,.045);box-shadow:inset 0 0 0 1px var(--line2)}
+.rli::before{content:'';position:absolute;left:14px;top:26px;bottom:-6px;width:1px;background:var(--line2)}
+.rli:last-of-type::before{display:none}
+.rli.fut::before{background:none;border-left:1px dashed var(--line2)}
+.mk2{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;position:relative;z-index:1;background:#12151b;margin-top:1px}
+.mk2.done{color:var(--emerald);background:rgba(52,211,153,.12)}
+.mk2.run{background:rgba(167,139,250,.14)}
+.mk2.run::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--violet);animation:pulse 1.6s ease-in-out infinite}
+.mk2.wait{color:var(--amber);background:var(--amb-s);box-shadow:0 0 0 3px rgba(245,165,36,.12)}
+.mk2.park{color:var(--amber);background:var(--amb-s)}
+.mk2.queue{border:1.5px dashed var(--idle)}
+.mk2.stop{border:1.5px solid var(--idle);color:var(--idle)}
+.rli .nm{display:flex;align-items:center;gap:6px;font-weight:500;font-size:13px}
+.rli .nm .sp{flex:1}
+.rli.past .nm{color:var(--ink2)}
+.rli.fut .nm{color:var(--ink3);font-weight:450}
+.rli .who{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:11.5px;color:var(--ink3)}
+.rli .who b{font-weight:500;color:var(--ink2)}
+.rli.fut .who b{color:var(--ink3);font-weight:400}
+.mdl{font-family:'Geist Mono';font-size:10.5px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--ink2);line-height:16px}
+.route{display:block;font-family:'Geist Mono';font-size:10.5px;color:var(--ink3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cpt{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:11.5px;color:var(--ink3)}
+.loop{margin:6px 0 0 -2px;padding:6px 0 2px 10px;border-left:1px dashed var(--line2)}
+.loop .lh{font-size:11px;color:var(--ink3);display:flex;gap:6px;align-items:center;margin-bottom:2px}
+.lp{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:7px;align-items:center;font-size:12px;padding:2px 0;color:var(--ink2)}
+.lp .dot{width:7px;height:7px;box-shadow:none}
+.lp.fut{color:var(--ink3)}
+.lp .r{font-family:'Geist Mono';font-size:10.5px;color:var(--ink3)}
+.folder{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;border:1px dashed var(--line2);font-family:'Geist Mono';font-size:11.5px;color:var(--ink2);width:100%}
+.folder:hover{border-color:var(--ink3);color:var(--ink)}
+.log{display:flex;flex-direction:column;min-height:0}
+.logh{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink2);flex:none}
+.logh .sp{flex:1}
+.logb{flex:1;overflow-y:auto;padding:8px 16px 16px;min-height:0}
+.ev{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;padding:5px 0;font-size:13px;align-items:start}
+.ev .tm{font-family:'Geist Mono';font-size:11px;color:var(--ink3);padding-top:2px}
+.ev .tool{display:flex;gap:8px;align-items:center;font-family:'Geist Mono';font-size:12px;color:var(--ink2);padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid var(--line);width:max-content;max-width:100%}
+.ev .tool b{color:var(--ink);font-weight:500}
+.ev .tx{color:var(--ink2);text-wrap:pretty}
+.ev .ag{color:var(--ink);line-height:1.55;text-wrap:pretty}
+.caret{display:inline-block;width:7px;height:15px;background:var(--violet);vertical-align:-2px;margin-left:2px;animation:blink 1s steps(2) infinite}
+.rd{display:flex;align-items:center;gap:10px;margin:10px 0 6px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.rd::before,.rd::after{content:'';flex:1;height:1px;background:var(--line)}
+.me{display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding:6px 0}
+.me .bb{max-width:78%;padding:8px 12px;border-radius:12px 12px 4px 12px;background:var(--p3);border:1px solid var(--line2);font-size:13px}
+.me .ms{font-size:11px;color:var(--ink3);display:inline-flex;gap:5px;align-items:center}
+.me.q .bb{border-style:dashed;color:var(--ink2);background:transparent}
+.err{color:var(--rose)}
+.cmp{flex:none;display:flex;gap:8px;align-items:flex-end;padding:10px 14px;border-top:1px solid var(--line);background:rgba(0,0,0,.18)}
+.cmp textarea{flex:1;min-height:38px;max-height:120px;resize:none;background:var(--p1);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;color:var(--ink);font:inherit;font-size:13px;outline:none}
+.cmp textarea:focus{border-color:var(--ink3)}
+.cmp .hint{display:block;font-size:11px;color:var(--ink3);margin-top:4px}
+.ofile{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;padding:5px 2px;font-family:'Geist Mono';font-size:12px;color:var(--ink2)}
+/* compact gallery */
+.gal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;padding:24px 28px 32px;align-items:start}
+.gal .sx{height:auto;max-height:none}
+.gcap{font-size:12px;color:var(--ink3);margin:0 0 8px 4px}
+.chain{position:relative;padding-left:4px}
+.chs{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;position:relative;font-size:13px}
+.chs::before{content:'';position:absolute;left:10px;top:26px;bottom:-8px;width:1px;background:var(--line2)}
+.chs:last-child::before{display:none}
+.chs .s{font-family:'Geist Mono';font-size:10.5px;color:var(--ink3);display:block}
+.zb{padding:12px 14px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--line2);display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;font-size:13px}
+.zb .zl2{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:2px}
+.cron{display:flex;gap:10px;align-items:baseline}
+.cron .h{font-size:17px;font-weight:500;letter-spacing:-.01em}
+.fires{display:flex;gap:4px;margin-top:10px}
+.fires span{flex:1;text-align:center;font-size:10.5px;color:var(--ink3);font-family:'Geist Mono'}
+.fires i{display:block;height:20px;border-radius:5px;background:rgba(255,255,255,.04);border:1px solid var(--line);margin-bottom:4px}
+.fires .on i{background:rgba(255,255,255,.08);border-color:var(--ink3)}
+.prompt{font-size:13px;line-height:1.55;color:var(--ink2);padding:10px 12px;border-radius:9px;background:var(--p1);border:1px solid var(--line);white-space:pre-wrap}
+.wf{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.wfh{display:flex;align-items:center;gap:8px;padding:8px 12px;font-family:'Geist Mono';font-size:12px;background:rgba(255,255,255,.02)}
+.wfh .sp{flex:1}
+.job{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 12px 6px 22px;border-top:1px solid var(--line);font-size:12.5px}
+.job.stepl{padding-left:44px;font-family:'Geist Mono';font-size:11.5px;color:var(--ink2)}
+.prog{height:4px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--violet);border-radius:99px}
+.unr{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;padding:10px 12px;border-radius:9px;border:1px dashed var(--line2);font-size:12.5px;color:var(--ink2)}
+.note2{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-wrap}
+/* phone page */
+.pp{height:100%;display:flex;flex-direction:column;background:#12151b}
+.pp .scr{flex:1;overflow-y:auto;min-height:0;padding-bottom:12px}
+.pph{padding:4px 16px 12px;border-bottom:1px solid var(--line)}
+.pph .nv{display:flex;align-items:center;gap:8px;margin:0 -6px 8px}
+.pph .nv .sp{flex:1}
+.pph h2{font-size:20px;line-height:1.3;font-weight:600;letter-spacing:-.02em;margin:6px 0 8px;text-wrap:pretty}
+.pp .strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pp .strip>div:nth-child(3){border-left:0}
+.pp .strip>div:nth-child(n+3){border-top:1px solid var(--line)}
+.pbar{flex:none;display:flex;gap:8px;padding:10px 14px 30px;border-top:1px solid var(--line);background:rgba(13,15,18,.95)}
+.pbar .btn{flex:1;justify-content:center;height:40px}
+.pp .ban{padding:12px 16px}
+.pp .sxs{padding:14px 16px}
+.mrail .rli::before{left:14px}
+.phs{display:flex;gap:40px;justify-content:center;flex-wrap:wrap}
+.phs>div{display:flex;flex-direction:column;align-items:center}
+@keyframes blink{50%{opacity:0}}
+</style>
+</helmet>
+<div class="bz" style="--rowpad:8px">
+  <nav class="vt" aria-label="Pohledy detailů">
+    <span class="lbl">Můstek · detaily</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="8">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+  </nav>
+
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    {{ dash }}
+  </sc-if>
+
+  <sc-if value="{{ isSpec }}" hint-placeholder-val="{{ false }}">
+    <article class="spec">
+      <h1>Detaily — specifikace</h1>
+      <p class="lede">Detail je <strong>jeden rám se sedmi specializacemi</strong>. Rám drží vše, co má uživatel najít vždy na stejném místě (druh, ID, název, stav, akce, poznámka v patičce). Specializace se liší <strong>rozvržením těla a glyfem druhu</strong>, nikdy barvou. PR a Běh mají vlastní bohaté layouty; Issue, Task, Automatizace a Stav projektu jsou kompaktní; Rychlá akce a Poznámka jsou nejlehčí.</p>
+
+      <h2>1. Anatomie společného rámu (AnchoredSheet)</h2>
+      <pre>┌ HLAVIČKA ───────────────────────────────────────────────────────┐
+│ [glyf] DRUH · #id ⧉        [← odkud jsem přišel]  ↑↓ 3/8  ⤢  ✕   │  řádek 1: identita + navigace
+│ Název (klik = plná stránka)                    [akce] [primární] ⋯ │  řádek 2: název + akce vpravo nahoře
+│ ● stav  · meta specifická pro druh (větve, diffstat, crumbs…)    │  řádek 3: stav v barvě tónu
+├ BANNER (max. 1, jen když potřebuje mě) ─────────────────────────┤
+├ TĚLO: SheetSection / SheetBlock / Tabs (scroll) ────────────────┤
+├ COMPOSER (jen Běh) ─────────────────────────────────────────────┤
+└ PATIČKA: footerNote — jedna věta, proč je to v tomhle stavu ────┘</pre>
+      <ul>
+        <li><strong>Glyf druhu</strong> (24 px, neutrální): PR = větvení, Běh = play v kolejnici, Issue = kroužek, Task = checklist, Automatizace = hodiny, Projekt = mřížka, Rychlá akce = blesk, Poznámka = list. Druh se pozná podle glyfu a rozvržení.</li>
+        <li><strong>ID je vždy kopírovatelné</strong> (ikona ⧉ při hoveru, po kliknutí na 1,2 s „Zkopírováno“). Větve u PR taky.</li>
+        <li><strong>Zpět:</strong> každý odkaz uvnitř sheetu (issue → PR → běh) přidá položku do zásobníku a ukáže tlačítko „← #48051“. Esc zavře celý sheet, Backspace / Alt+← se vrátí o krok.</li>
+        <li><strong>J/K</strong> posouvá výběr řádku ve widgetu, ze kterého sheet vznikl, a obsah sheetu se vymění bez animace. Počítadlo „3 / 8“ ukazuje pozici.</li>
+        <li><strong>Ukotvení:</strong> sheet se otevře vedle widgetu na straně, kde je víc místa, a zabere celou výšku boardu. Ostatní widgety se ztlumí na 32 %, vybraný řádek má jantarový obrys.</li>
+      </ul>
+
+      <h2>2. Šířky a „expand“</h2>
+      <table>
+        <thead><tr><th>Druh / stav</th><th>Výchozí šířka</th><th>Expand</th><th>Co se stane s ukotveným widgetem</th></tr></thead>
+        <tbody>
+          <tr><td>PR · Přehled</td><td>640 px</td><td>—</td><td>zůstane plný</td></tr>
+          <tr><td>PR · Změny</td><td>automaticky expand</td><td>vše kromě 3 sloupců</td><td>sbalí se na úzký seznam (CI glyf + #id), J/K dál funguje</td></tr>
+          <tr><td>Běh · LIVE</td><td>800 px</td><td>ručně ⤢ → vše kromě 3 sloupců</td><td>stejně jako u PR</td></tr>
+          <tr><td>Issue, Task, Automatizace, Projekt</td><td>480 px</td><td>—</td><td>—</td></tr>
+          <tr><td>Rychlá akce, Poznámka</td><td>400 px</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <h2>3. Stav → tón</h2>
+      <table>
+        <thead><tr><th>Tón</th><th>PR</th><th>Běh</th><th>Hlasitost</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw" style="background:var(--amber)"></span>amber · potřebuje mě</td><td>Čeká na tvoje review, Požadovány změny, Konflikt s base</td><td>Čeká na schválení, Potřebuje odpověď, Zaparkováno</td><td>pilulka s glow + banner nahoře + primární akce v jantaru</td></tr>
+          <tr><td><span class="sw" style="background:var(--rose)"></span>rose · chyba</td><td>CI selhává</td><td>Selhalo</td><td>pilulka + banner s chybou a „Fix CI“ / „Re-run“</td></tr>
+          <tr><td><span class="sw" style="background:var(--violet)"></span>violet · pracuje</td><td>—</td><td>Běží (pulz)</td><td>pilulka, žádný banner</td></tr>
+          <tr><td><span class="sw" style="background:var(--sky)"></span>sky · probíhá kontrola</td><td>Checks běží</td><td>Přemýšlí</td><td>pilulka, tiše</td></tr>
+          <tr><td><span class="sw" style="background:var(--emerald)"></span>emerald · hotovo</td><td>Schváleno, Mergnuto</td><td>Hotovo</td><td>tiše, banner jen krátce po akci</td></tr>
+          <tr><td><span class="sw" style="border:1.5px solid var(--idle)"></span>idle · klid</td><td>Draft, Čeká na review (ne mě), Zavřeno</td><td>Ve frontě, Pozastaveno · limit, Zastaveno</td><td>šedá pilulka, nic dalšího</td></tr>
+        </tbody>
+      </table>
+      <p>Když má PR víc stavů najednou (CI selhává + čeká na mě), v hlavičce jsou <strong>max. 2 pilulky</strong> seřazené podle závažnosti; banner ukazuje tu nejzávažnější, která má akci.</p>
+
+      <h2>4. Pull request</h2>
+      <ol>
+        <li><strong>Hlavička:</strong> head → base (mono, kopírovatelné), diffstat „+388 −12 · 10 souborů“, StackCrumbs s tečkou stavu každého PR; klik přepne sheet na ten PR.</li>
+        <li><strong>Akce:</strong> primární podle role — u cizího PR s žádostí o review „Review“, u mého zeleného PR „Squash &amp; merge“ (split button s typem merge), jinak merge disabled s tooltipem proč. Vedle „Chat about“ a ⋯ (Zavřít PR jen u mých, s potvrzením; kopírovat odkaz; otevřít na GitHubu).</li>
+        <li><strong>Pruh metrik:</strong> Stav (u mého PR přepínač Draft ↔ Ready), Checks (x/y + „Fix CI“ když je červeno), Issue (glyf zdroje + klíč, klik otevře Issue sheet), Autor, Projekt. Vpravo strom Reviewers: tým → lidé se stavem (✓ schválil, ● žádost, 💬 komentoval, ✕ změny).</li>
+        <li><strong>Záložky:</strong> Přehled (popis v markdownu, obrázky jen z GitHubu, pak Konverzace a Běhy) · Změny.</li>
+        <li><strong>Změny (PrDiff):</strong> strom souborů s filtrem, stav A/M/D/R, ± bar z 5 čtverečků, značka „viewed“ a počet vláken; vpravo sbalitelné diffy s hlavičkou souboru (sticky), unified ↔ split, čísla řádků, hunk hlavičky, decentní zvýraznění syntaxe (nesmí kolidovat se stavovými barvami — jen ocel, šalvěj, khaki), inline review vlákna, „Viewed“ checkbox, generované soubory skryté, upozornění na oříznutí. Lazy-load po souborech při scrollu.</li>
+      </ol>
+
+      <h2>5. Běh</h2>
+      <ol>
+        <li><strong>Hlavička:</strong> „WORKFLOW · Delivery · run_7Hq2kd“, název, stav. Akce podle stavu: Běží → Pause, Stop; Zaparkováno → Re-run fresh, Continue, Hand over; vždy Chat about a ⋯ (otevřít task, složku, kopírovat ID, smazat).</li>
+        <li><strong>Banner (max. 1):</strong> Schválení (závažnost, riziko, náhled „Zveřejní 6 souborů +120 −34“, Hold to approve 1,2 s, Upravit, Zamítnout) · Otázka od agenta (odpověď přímo v banneru) · Selhalo (chyba + Re-run) · Zaparkováno (pokusy 3/3 + poslední chyba).</li>
+        <li><strong>O čem to je:</strong> dvě karty (zdrojové Issue, výsledný PR) — otevřou se v sheetu se „Zpět“. Pod nimi jedna věta, co se implementuje.</li>
+        <li><strong>Metriky:</strong> Průběh %, Čas (tiká po sekundách, jen když běží nebo čeká), Fáze, Pokusy, Cena.</li>
+        <li><strong>Stage rail (RailItem):</strong> minulost = zelená fajfka a ztlumený text; přítomnost = pulzující fialová značka a zvýrazněné pozadí; budoucnost = čárkovaná značka a spojnice, text „poběží: agent · model“. Smyčka Coder ⇄ Reviewer je vnořená s koly. U každé fáze agent, model, routing „SWITCHBOARD → oddělení → jednotka · %“, checkpointy. Dole odkaz na složku úlohy. Klik na fázi přepne log.</li>
+        <li><strong>Záložky:</strong> LIVE (rail vlevo, log vpravo: události, tooly, transkript se streamovacím kurzorem, oddělovače kol, moje zprávy Ve frontě → Doručeno → fáze) · INPUT (zadání, přílohy) · OUTPUT (PR karta, složka, změny v běhu).</li>
+        <li><strong>Composer</strong> je přilepený dole a říká, kam zpráva dorazí („doručí se do fáze Implementace · K2“).</li>
+      </ol>
+
+      <h2>6. Kompaktní druhy</h2>
+      <table>
+        <thead><tr><th>Druh</th><th>Tělo</th><th>Akce</th></tr></thead>
+        <tbody>
+          <tr><td>Issue</td><td>Pruh: Stav, Projekt, Tým, Epic, Zdroj, Aktualizováno. Blok „Co s tím dělá Zibby“. Popis ze zdroje. Propojený PR (karta), Běhy.</td><td>Odpovědět (primární, když je na mně), Zpracovat do tasku, Zobrazit běh</td></tr>
+          <tr><td>Task</td><td>Odkud, oddělení, projekt, vytvořeno. Řetěz kroků (Step n se stavem). Podúkoly, Artefakty, propojený PR.</td><td>Otevřít schválení ↗</td></tr>
+          <tr><td>Automatizace</td><td>Rozvrh lidsky + cron mono + příštích 7 spuštění. Cíl (chipy). Prompt. Poslední spuštění: stav · start · délka · log / běh.</td><td>Spustit teď</td></tr>
+          <tr><td>Stav projektu</td><td>Workflow → joby → kroky se stavovými ikonami. Hlášky pro selhání, nečitelný log, GitLab zatím nepodporovaný.</td><td>Fix CI (s průběhem), Otevřít task, Repozitář ↗</td></tr>
+          <tr><td>Rychlá akce</td><td>Cíl (druh · jméno), text akce.</td><td>Spustit, Upravit</td></tr>
+          <tr><td>Poznámka</td><td>Jen text.</td><td>Upravit, Smazat</td></tr>
+        </tbody>
+      </table>
+
+      <h2>7. Telefon</h2>
+      <p>Sheet je samostatná stránka. Hlavička se zmenší (název 20 px), pruh metrik se zalomí do 2×N, banner zůstává hned pod hlavičkou, primární akce se přesunou do spodní lišty nad home indikátor. PR Změny jsou jen unified a soubor po souboru; Běh LIVE dává rail nad log jako vodorovně scrollovatelné fáze.</p>
+
+      <h2>8. Mapování na primitives</h2>
+      <pre>&lt;AnchoredSheet
+  anchor={rowRef} side="auto" width={640 | 800 | 480 | 400}
+  expandable expanded={tab === 'changes'}
+  onStep={(dir) =&gt; selectRow(dir)}   // J/K
+  history={sheetStack} onBack={pop}  // ← Zpět
+&gt;
+  &lt;SheetHeader kind="pr" glyph="branch" id="#48051" title=… href=…
+    tones={[{ tone: 'rose', label: 'CI selhává' }, { tone: 'amber', label: 'Čeká na tvoje review', loud: true }]}
+    meta={&lt;&gt;&lt;BranchPair head base /&gt;&lt;DiffStat /&gt;&lt;StackCrumbs /&gt;&lt;/&gt;}
+    actions={&lt;PrActions /&gt;} /&gt;
+  &lt;SheetBanner tone="rose" … /&gt;            // max 1, vybírá useSheetBanner()
+  &lt;SheetSection&gt;&lt;MetricStrip /&gt;&lt;ReviewersTree /&gt;&lt;/SheetSection&gt;
+  &lt;SheetTabs&gt; Overview | &lt;PrDiff lazy tree split /&gt; &lt;/SheetTabs&gt;
+  &lt;SheetFooter note={explainPrState(pr)} /&gt;
+&lt;/AnchoredSheet&gt;
+
+// Běh: &lt;RunRail&gt;&lt;RailItem phase state agent model route checkpoints loop /&gt;&lt;/RunRail&gt;
+type SheetTone = 'amber' | 'rose' | 'violet' | 'sky' | 'emerald' | 'idle';</pre>
+    </article>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"pr-ov","options":["pr-ov","pr-ch","run-run","run-appr","run-park","other","phone","spec"],"tsType":"string","section":"Pohled"}}'>
+class Component extends DCLogic {
+  state = { view: null, stack: null, sec: 0, hold: 0, approved: false, copied: null, split: false, viewed: { 'locales/cs.json': true, 'locales/en.json': true }, closed: { 'src/PartnerPortal/Addon/RatingSummary.tsx': true, 'src/PartnerPortal/Addon/RatingList.tsx': true, 'locales/cs.json': true, 'locales/en.json': true, 'api/partner/addons.graphql': true, 'src/PartnerPortal/Addon/legacy/AddonRatings.tpl': true }, phase: null, rtab: 'live', draft: false, msg: '' };
+
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  P = {
+    branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+    pr: 'M6 4v11M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 15V9a3 3 0 0 0-3-3h-4M13 3l-3 3 3 3',
+    run: 'M4 6h3M4 12h3M4 18h3M11 5.5v13l9-6.5z',
+    issue: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16v.5',
+    task: 'M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18h2',
+    clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+    note: 'M5 4h14v16H5zM8 9h8M8 13h8M8 17h5',
+    copy: 'M9 9h11v11H9zM5 15V4h11',
+    up: 'M6 15l6-6 6 6', down: 'M6 9l6 6 6-6', left: 'M15 6l-6 6 6 6', chevr: 'M9 6l6 6-6 6', chev: 'M6 9l6 6 6-6',
+    x: 'M6 6l12 12M18 6L6 18', check: 'M5 12.5l4.5 4.5L19 7', more: 'M5 12h.01M12 12h.01M19 12h.01',
+    expand: 'M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6', shrink: 'M10 4v6H4M14 20v-6h6M4 10l6-6M20 14l-6 6',
+    chat: 'M4 5h16v11H9l-5 4z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', warn: 'M12 4l9 16H3zM12 10v4M12 17v.5',
+    alert: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7.5v6M12 16.5v.5', pause: 'M9 5v14M15 5v14', stop: 'M6 6h12v12H6z',
+    play: 'M8 5.5v13l10-6.5z', refresh: 'M20 11a8 8 0 0 0-14.3-4.9M4 13a8 8 0 0 0 14.3 4.9M20 4v5h-5M4 20v-5h5',
+    hand: 'M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 9a1.5 1.5 0 0 1 3 0v4a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2-4a1.5 1.5 0 0 1 2.5-1.5L8 13',
+    folder: 'M3 6h6l2 2h10v11H3z', file: 'M6 3h9l3 3v15H6zM14 3v4h4', send: 'M4 12l16-8-6 16-2-7z', clip: 'M20 11.5l-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8',
+    info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v5M12 7.5v.5', spin: 'M12 3a9 9 0 1 0 9 9', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
+    search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', bell: 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4', plus: 'M12 5v14M5 12h14',
+    filter: 'M4 5h16l-6 8v5l-4 2v-7z', set: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4', home: 'M4 11l8-7 8 7v9H4z', inbox: 'M4 13l3-8h10l3 8v6H4zM4 13h5l1 2h4l1-2h5',
+    stack: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5', bot: 'M5 9h14v10H5zM12 5v4M9 13v1.5M15 13v1.5', spark: 'M12 3l2 7 7 2-7 2-2 7-2-7-7-2 7-2z', shield: 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'
+  };
+  ic = (n, s) => this.h('svg', { width: s || 14, height: s || 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { display: 'block', flex: 'none' } }, this.h('path', { d: this.P[n] }));
+
+  // ---------- data ----------
+  PEOPLE = { TB: ['Tomáš Beneš', '#d6d3d1'], KZ: ['Karel Zíbar', '#cbd5e1'], OK: ['Ondřej Král', '#e7e5e4'], PM: ['Petra Malá', '#d4d4d8'] };
+  PRS = [
+    { sec: 'review', id: '47714', key: 'CZ3TDR1-571', t: 'Cut over PartnerServiceAdd and delete its Smarty render', ini: 'TB', repo: 'cms4', age: '1d 9h', ci: 'ok', rv: 'approved', add: 412, del: 1290, files: 23, head: 'tb/CZ3TDR1-571-partner-service-add', base: 'master',
+      stack: [{ id: '48051', key: 'CZ3TDR1-896', t: 'Add the addon detail and ratings to the Partner Portal', ini: 'TB', repo: 'cms4', age: '1d 4h', ci: 'fail', rv: 'you', add: 388, del: 12, files: 10, head: 'tb/CZ3TDR1-896-addon-ratings', base: 'tb/CZ3TDR1-571-partner-service-add' }] },
+    { sec: 'review', id: '48102', key: 'CZ3PUR1-815', t: 'Migrate partner-cli CI to GitLab pipelines', agent: 'delivery', repo: 'partner-cli', age: '3h', ci: 'run', rv: 'you', add: 214, del: 96, files: 6, head: 'zibby/CZ3PUR1-815-gitlab-ci', base: 'develop', draft: true },
+    { sec: 'mine', id: '47385', key: 'CZ3TDR1-856', t: 'Portal account settings: API access credentials', ini: 'KZ', repo: 'cms4', age: '1d 5h', ci: 'conflict', rv: 'approved', add: 640, del: 88, files: 14, head: 'kz/CZ3TDR1-856-api-credentials', base: 'master', mine: true,
+      stack: [{ id: '47546', key: 'CZ3TDR1-855', t: 'Portal account settings: partner company and billing details', ini: 'KZ', repo: 'cms4', age: '4d 6h', ci: 'fail', rv: 'changes', add: 902, del: 141, files: 17, head: 'kz/CZ3TDR1-855-company-billing', base: 'kz/CZ3TDR1-856-api-credentials', mine: true }] },
+    { sec: 'mine', id: '47858', key: 'CZ3TDR1-852', t: 'Create a Partner Portal addon in one transaction', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'waiting', add: 233, del: 57, files: 8, head: 'kz/CZ3TDR1-852-addon-transaction', base: 'master', mine: true },
+    { sec: 'mine', id: '47977', key: 'CZ3TDR1-769', t: 'Move partner portal shop list to its own page and empty the portal root', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'approved', add: 318, del: 402, files: 11, head: 'kz/CZ3TDR1-769-shop-list', base: 'master', mine: true }
+  ];
+  RV = { approved: ['Schváleno', 'ok'], you: ['Tvoje review', 'you'], changes: ['Změny', 'warn'], waiting: ['Čeká na review', ''] };
+  CIL = { ok: 'CI prošlo', fail: 'CI selhalo', conflict: 'Konflikt s base', run: 'CI běží' };
+  CII = { ok: 'check', fail: 'x', conflict: 'branch', run: 'spin' };
+  FILES = [
+    { p: 'src/PartnerPortal/Addon/Detail.tsx', st: 'M', a: 8, d: 1, th: 1, hunks: [
+      { h: '@@ -1,6 +1,10 @@', o: 1, n: 1, l: [[' ', "import { useTranslation } from 'react-i18next';"], [' ', "import { usePartner } from '../partner';"], ['+', "import { useMemo } from 'react';"], ['+', "import { useAddonRatings } from './useAddonRatings';"], ['+', "import { RatingSummary } from './RatingSummary';"], ['+', "import { RatingList } from './RatingList';"], [' ', "import { AddonPricing } from './AddonPricing';"]] },
+      { h: '@@ -38,9 +42,12 @@ export function AddonDetail({ addon }: Props) {', o: 38, n: 42, thAfter: 2, l: [[' ', '  const { t } = useTranslation();'], [' ', '  const partner = usePartner();'], ['-', '  await sleep(3000);'], ['+', '  const ratings = useAddonRatings(addon.id);'], ['+', '  const average = useMemo(() => avg(ratings.data), [ratings.data]);'], [' ', ''], [' ', '  return ('], [' ', '    <Sheet title={addon.name}>'], ['+', '      <RatingSummary value={average} count={ratings.data?.length ?? 0} />'], ['+', '      <RatingList items={ratings.data} loading={ratings.isLoading} />'], [' ', '      <AddonPricing addon={addon} />']] }] },
+    { p: 'src/PartnerPortal/Addon/useAddonRatings.ts', st: 'A', a: 34, d: 0, more: 24, hunks: [
+      { h: '@@ -0,0 +1,34 @@', o: 0, n: 1, l: [['+', "import { useQuery } from '@tanstack/react-query';"], ['+', "import { api } from '../api';"], ['+', ''], ['+', '// Ratings se cachují minutu, detail se otevírá často'], ['+', 'export function useAddonRatings(addonId: string) {'], ['+', '  return useQuery({'], ['+', "    queryKey: ['addon', addonId, 'ratings'],"], ['+', '    queryFn: () => api.addons.ratings(addonId),'], ['+', '    staleTime: 60_000,'], ['+', '  });']] }] },
+    { p: 'src/PartnerPortal/Addon/RatingSummary.tsx', st: 'A', a: 41, d: 0 },
+    { p: 'src/PartnerPortal/Addon/RatingList.tsx', st: 'A', a: 58, d: 0 },
+    { p: 'src/PartnerPortal/Addon/legacy/AddonRatings.tpl', st: 'D', a: 0, d: 6, deleted: true },
+    { p: 'tests/e2e/partner-portal/addon-detail.spec.ts', st: 'M', a: 22, d: 4, hunks: [
+      { h: "@@ -12,8 +12,10 @@ test.describe('addon detail', () => {", o: 12, n: 12, l: [[' ', "  test('renders ratings', async ({ page }) => {"], [' ', "    await page.goto('/partner/addons/42');"], ['-', '    await page.waitForTimeout(3000);'], ['+', "    await expect(page.getByTestId('rating-summary')).toBeVisible();"], ['+', "    await expect(page.getByRole('listitem')).toHaveCount(5);"], [' ', '  });']] }] },
+    { p: 'locales/cs.json', st: 'M', a: 6, d: 0 },
+    { p: 'locales/en.json', st: 'M', a: 6, d: 0 },
+    { p: 'api/partner/addons.graphql', st: 'R', from: 'api/partner/addon.graphql', a: 1, d: 1 },
+    { p: 'pnpm-lock.yaml', st: 'M', a: 212, d: 0, gen: true }
+  ];
+  PH = {
+    intake: { nm: 'Intake', ag: 'switchboard', model: 'haiku', route: 'SWITCHBOARD → Engineering → Delivery · 92 %', dur: '0:41' },
+    plan: { nm: 'Plán', ag: 'architect', model: 'opus', dur: '3:12', cp: 'plan.md' },
+    impl: { nm: 'Implementace', ag: 'coder ⇄ reviewer', model: 'sonnet · opus', loop: true },
+    qa: { nm: 'Browser QA', ag: 'qa-browser', model: 'sonnet' },
+    pub: { nm: 'Publikace', ag: 'publisher', model: 'haiku', gate: true }
+  };
+  RUNSTATE = {
+    run: { pill: ['Běží', 'violet'], pct: 54, stage: 'Implementace · K2', retries: '1 / 3', cost: '$1,84', el: 1421, tick: true, cur: 'impl',
+      ph: { intake: 'done', plan: 'done', impl: 'run', qa: 'queue', pub: 'queue' }, rounds: [['Coder', 'done', 'K1', '6:02'], ['Reviewer', 'done', 'K1 · 2 nálezy', '1:48'], ['Coder', 'run', 'K2 · pokus 2/3', 'běží'], ['Reviewer', 'queue', 'K2', 'poběží']] },
+    appr: { pill: ['Čeká na schválení', 'amber'], pct: 86, stage: 'Publikace', retries: '1 / 3', cost: '$3,12', el: 2468, tick: true, cur: 'pub',
+      ph: { intake: 'done', plan: 'done', impl: 'done', qa: 'done', pub: 'wait' }, rounds: [['Coder', 'done', 'K1', '6:02'], ['Reviewer', 'done', 'K1 · 2 nálezy', '1:48'], ['Coder', 'done', 'K2', '4:31'], ['Reviewer', 'done', 'K2 · schváleno', '1:12']] },
+    park: { pill: ['Zaparkováno po 3 pokusech', 'amber'], pct: 71, stage: 'Browser QA', retries: '3 / 3', cost: '$4,07', el: 3305, tick: false, cur: 'qa',
+      ph: { intake: 'done', plan: 'done', impl: 'done', qa: 'park', pub: 'queue' }, rounds: [['Coder', 'done', 'K1', '6:02'], ['Reviewer', 'done', 'K1 · 2 nálezy', '1:48'], ['Coder', 'done', 'K2', '4:31'], ['Reviewer', 'done', 'K2 · schváleno', '1:12']] }
+  };
+  LOGS = {
+    intake: [['21:01:12', 'ev', 'Úloha přijata z Jira CZ3PUR1-815.'], ['21:01:40', 'ev', 'Routing: Engineering → Delivery (92 %), alternativa DevOps (6 %).']],
+    plan: [['21:02:05', 'tool', 'Read', '.github/workflows/ci.yml'], ['21:03:51', 'ev', 'Plán: 3 joby (lint, test, release), cache pnpm store, release jen na tagu.'], ['21:05:17', 'ev', 'Checkpoint uložen: plan.md']],
+    impl: [['21:14:02', 'rd', 'Kolo 2'], ['21:14:02', 'ev', 'Reviewer vrátil 2 nálezy: chybí cache pro pnpm store; release job běží i na MR.'], ['21:14:05', 'tool', 'Read', '.gitlab-ci.yml'], ['21:14:09', 'tool', 'Edit', '.gitlab-ci.yml  +18 −3'],
+      ['21:15:30', 'me', 'Nepoužívej docker:dind, máme runner s podmanem.', 'Doručeno → Implementace · K2'],
+      ['21:15:41', 'ag', 'Rozumím — přepínám build job na podman a ruším dind service. Upravuji rules u release jobu, aby běžel jen na tagu, a přidávám cache klíč podle pnpm-lock.yaml'],
+      ['21:16:10', 'meq', 'A přidej i job pro lint markdownu.', 'Ve frontě · doručí se do Reviewer · K2']],
+    qa: [['21:31:02', 'rd', 'Pokus 1'], ['21:31:40', 'tool', 'Browser', 'gitlab.com/shoptet/partner-cli/-/pipelines'], ['21:32:58', 'err', 'Pipeline #8812 · job test: runner shoptet-podman offline'], ['21:34:10', 'rd', 'Pokus 2'], ['21:35:44', 'err', 'Pipeline #8813 · job test: runner shoptet-podman offline'], ['21:37:20', 'rd', 'Pokus 3'], ['21:39:02', 'err', 'Pipeline #8815 · timeout 5 min čekání na runner'], ['21:39:03', 'ev', 'Pokusy vyčerpány. Běh zaparkován, čeká na tebe.']],
+    pub: [['21:40:12', 'ev', 'Připravuji publikaci: 6 souborů, větev zibby/CZ3PUR1-815-gitlab-ci.'], ['21:40:13', 'tool', 'Policy', 'gate · repo-write · střední závažnost'], ['21:40:13', 'ev', 'Čekám na schválení.']]
+  };
+  ISSUES = {
+    'CZ3TDR1-896': { k: 'CZ3TDR1-896', t: 'Add the addon detail and ratings to the Partner Portal', st: 'In review', epic: '[Portal] Addons — dev & testing', team: 'Partner Portal', src: 'JI', you: false, upd: '1d', pr: '48051', desc: 'Detail addonu v Partner Portalu má ukázat průměrné hodnocení a seznam recenzí. Data z nového endpointu ratings, cache na straně klienta.', zb: 'Sleduje CI na #48051. Rebase-resolver má připravenou opravu e2e testu, čeká se na spuštění.' },
+    'CZ3TDR1-852': { k: 'CZ3TDR1-852', t: 'Creating an addon with a marketing code fails but still saves a draft', st: 'To review', epic: '[Portal] Addons — dev & testing', team: 'Partner Portal', src: 'JI', you: true, upd: '4d', pr: '47858', desc: 'Při vytvoření addonu s marketingovým kódem API vrátí 422, ale draft se i tak uloží. Očekávané chování: transakce se celá vrátí a uživatel vidí chybu u pole kódu.', zb: 'Čeká na tebe: v review #47858 je otázka k marketing kódu. Zibby připravil návrh odpovědi.' },
+    'CZ3PUR1-815': { k: 'CZ3PUR1-815', t: 'Migrate partner-cli to GitLab', st: 'In progress', epic: 'Migrate non-cms4 related repos', team: 'DevEx', src: 'JI', you: false, upd: '3h', pr: '48102', desc: 'Přesunout CI partner-cli z GitHub Actions na GitLab pipelines, zachovat joby a release jen na tagu.', zb: 'Běh Delivery run_7Hq2kd implementuje migraci CI.' }
+  };
+
+  // ---------- helpers ----------
+  pad = n => String(n).padStart(2, '0');
+  view() { return this.state.view || this.props.view || 'pr-ov'; }
+  allPRs() { const o = []; this.PRS.forEach(p => { o.push(p); (p.stack || []).forEach(k => o.push(k)); }); return o; }
+  pr(id) { return this.allPRs().find(p => p.id === id); }
+  initStack(v) {
+    if (v === 'pr-ov') return [{ k: 'pr', id: '48051', tab: 'ov' }];
+    if (v === 'pr-ch') return [{ k: 'pr', id: '48051', tab: 'ch' }];
+    if (v === 'run-run') return [{ k: 'run', st: 'run' }];
+    if (v === 'run-appr') return [{ k: 'run', st: 'appr' }];
+    if (v === 'run-park') return [{ k: 'run', st: 'park' }];
+    return [];
+  }
+  stack() { return this.state.stack || this.initStack(this.view()); }
+  top() { const s = this.stack(); return s[s.length - 1]; }
+  push = it => this.setState({ stack: this.stack().concat([it]), phase: null });
+  pop = () => { const s = this.stack(); if (s.length > 1) this.setState({ stack: s.slice(0, -1), phase: null }); };
+  replaceTop = patch => { const s = this.stack().slice(); s[s.length - 1] = Object.assign({}, s[s.length - 1], patch); this.setState({ stack: s }); };
+  copy = (txt, key) => { try { navigator.clipboard && navigator.clipboard.writeText(txt); } catch (e) {} this.setState({ copied: key }); clearTimeout(this.ct); this.ct = setTimeout(() => this.setState({ copied: null }), 1200); };
+  fmt(s) { const m = Math.floor(s / 60), x = s % 60; return m + ':' + this.pad(x); }
+  prTones(p) {
+    const t = [];
+    if (p.ci === 'fail') t.push(['CI selhává', 'rose']);
+    if (p.ci === 'conflict') t.push(['Konflikt s base', 'amber']);
+    if (p.rv === 'you') t.push(['Čeká na tvoje review', 'amber', true]);
+    if (p.rv === 'changes') t.push(['Požadovány změny', 'amber', true]);
+    if (p.ci === 'run') t.push(['Checks běží', 'sky']);
+    if (p.draft) t.push(['Draft', 'idle']);
+    if (!t.length && p.rv === 'approved') t.push(['Schváleno', 'emerald']);
+    if (!t.length) t.push(['Čeká na review', 'idle']);
+    return t.slice(0, 2);
+  }
+  pill(l, tone, loud) { const h = this.h; return h('span', { className: 'pill ' + tone + (loud ? ' loud' : '') }, h('span', { className: 'dot ' + ({ rose: 'error', amber: 'blocked', emerald: 'done', sky: 'thinking', violet: 'working', idle: 'idle' })[tone] }), l); }
+  av(p) { const h = this.h; if (p.agent) return h('span', { className: 'av bot' }, this.ic('bot', 10)); const pp = this.PEOPLE[p.ini]; return h('span', { className: 'av', style: { background: pp[1] } }, p.ini); }
+  who(p) { return p.agent ? 'agent ' + p.agent : this.PEOPLE[p.ini][0]; }
+  pm(a, d) { const h = this.h, tot = a + d || 1, na = Math.round(a / tot * 5), nd = Math.min(5 - na, Math.round(d / tot * 5)); const out = []; for (let i = 0; i < 5; i++) out.push(h('i', { className: i < na ? 'a' : i < na + nd ? 'd' : '' })); return h('span', { className: 'pm', 'aria-label': '+' + a + ' −' + d }, out); }
+  hl(code) {
+    const h = this.h, re = /(\/\/.*$)|('[^']*'|"[^"]*"|`[^`]*`)|\b(const|let|return|await|async|export|function|import|from|if|else|new|type|interface|test|expect)\b|(<\/?[A-Z][A-Za-z]*)/g;
+    const out = []; let last = 0, m;
+    while ((m = re.exec(code))) { if (m.index > last) out.push(code.slice(last, m.index)); out.push(h('span', { className: m[1] ? 'tok-c' : m[2] ? 'tok-s' : m[3] ? 'tok-k' : 'tok-t' }, m[0])); last = m.index + m[0].length; }
+    if (last < code.length) out.push(code.slice(last)); return out;
+  }
+
+  // ---------- frame ----------
+  frame(o) {
+    const h = this.h, st = this.stack(), prev = st.length > 1 ? st[st.length - 2] : null;
+    const prevLabel = prev ? (prev.k === 'pr' ? '#' + prev.id : prev.k === 'run' ? 'run_7Hq2kd' : prev.k === 'issue' ? prev.id : prev.k) : '';
+    const ck = o.id;
+    return h('aside', { className: 'sx' + (o.static ? ' static' : ''), style: o.style, 'aria-label': o.kind + ' ' + o.id },
+      h('header', { className: 'sxh' },
+        h('div', { className: 'k1' },
+          h('span', { className: 'kg' }, this.ic(o.glyph, 13)),
+          h('span', { className: 'kind' }, o.kind),
+          h('button', { className: 'cid', onClick: () => this.copy(o.id, ck), 'aria-label': 'Kopírovat ' + o.id }, this.state.copied === ck ? 'Zkopírováno' : o.id, h('span', { className: 'cp' }, this.ic(this.state.copied === ck ? 'check' : 'copy', 11))),
+          h('span', { className: 'sp' }),
+          prev && !o.static ? h('button', { className: 'back', onClick: this.pop, 'aria-label': 'Zpět na ' + prevLabel }, this.ic('left', 12), h('span', null, prevLabel)) : null,
+          o.step ? h('span', { className: 'step' }, h('button', { className: 'ib', 'aria-label': 'Předchozí (K)', onClick: () => o.step(-1) }, this.ic('up', 13)), o.pos, h('button', { className: 'ib', 'aria-label': 'Další (J)', onClick: () => o.step(1) }, this.ic('down', 13))) : null,
+          o.expandable ? h('button', { className: 'ib', 'aria-label': o.expanded ? 'Zúžit' : 'Rozšířit', onClick: o.onExpand }, this.ic(o.expanded ? 'shrink' : 'expand', 13)) : null,
+          o.static ? null : h('button', { className: 'ib', 'aria-label': 'Zavřít (Esc)' }, this.ic('x', 14))),
+        h('div', { className: 't2r' }, h('h2', { style: { flex: 1, minWidth: 0, margin: 0 } }, h('a', { className: 'ttl', href: '#', onClick: e => e.preventDefault(), style: { color: 'inherit', textDecoration: 'none' } }, o.title)), o.actions ? h('div', { className: 'acts2' }, o.actions) : null),
+        o.meta ? h('div', { className: 'st2' }, o.meta) : null),
+      o.banner || null,
+      o.tabs || null,
+      h('div', { className: 'sxb', style: o.bodyStyle }, o.body),
+      o.composer || null,
+      o.note ? h('footer', { className: 'sxf' }, h('span', { style: { marginTop: 1 } }, this.ic('info', 13)), h('span', null, o.note)) : null);
+  }
+
+  // ---------- PR sheet ----------
+  prSheet(p, tab, style, phone) {
+    const h = this.h, tones = this.prTones(p), parent = this.allPRs().find(x => (x.stack || []).some(k => k.id === p.id));
+    const chain = parent ? [parent, p].concat(p.id === '48051' ? [{ id: '48120', ci: 'idle', draftChild: true }] : []) : p.stack ? [p].concat(p.stack) : null;
+    const ids = this.allPRs().map(x => x.id), idx = ids.indexOf(p.id);
+    const step = d => { const n = ids[Math.max(0, Math.min(ids.length - 1, idx + d))]; this.replaceTop({ id: n }); };
+    const draft = p.mine ? (this.state.draft ? 'draft' : 'ready') : null;
+    const canMerge = p.mine && p.rv === 'approved' && p.ci === 'ok';
+    const primary = p.rv === 'you' ? h('button', { className: 'btn pri' }, 'Review') : p.mine ? h('button', { className: 'btn' + (canMerge ? ' pri' : ''), disabled: !canMerge, title: canMerge ? '' : 'Nelze mergnout: ' + (p.ci !== 'ok' ? this.CIL[p.ci] : 'chybí schválení'), style: canMerge ? null : { opacity: .45, cursor: 'not-allowed' } }, 'Squash & merge', this.ic('chev', 12)) : h('button', { className: 'btn' }, 'Review');
+    const actions = phone ? null : [h('button', { className: 'btn gh' }, this.ic('chat', 13), 'Chat about'), primary, h('button', { className: 'ib', 'aria-label': 'Další akce' + (p.mine ? ' (zavřít PR)' : '') }, this.ic('more', 16))];
+    const meta = [
+      tones.map(t => this.pill(t[0], t[1], t[2])),
+      h('button', { className: 'brc', onClick: () => this.copy(p.head, 'h' + p.id), title: 'Kopírovat head' }, h('span', null, this.state.copied === 'h' + p.id ? 'zkopírováno' : p.head)), h('span', { className: 'dim' }, '→'),
+      h('button', { className: 'brc', onClick: () => this.copy(p.base, 'b' + p.id), title: 'Kopírovat base' }, h('span', null, this.state.copied === 'b' + p.id ? 'zkopírováno' : p.base)),
+      h('span', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+' + p.add), ' ', h('span', { style: { color: 'var(--rose)' } }, '−' + p.del), h('span', { className: 'dim' }, ' · ' + p.files + ' souborů')),
+      chain ? h('span', { className: 'crumbs', 'aria-label': 'Stack' }, this.ic('stack', 12), chain.map((c, i) => [i ? h('span', { className: 'ar' }, '→') : null, h('button', { className: c.id === p.id ? 'cur' : '', onClick: () => c.draftChild ? null : this.replaceTop({ id: c.id }), title: c.draftChild ? 'Draft' : c.t }, h('span', { className: 'dot ' + (c.draftChild ? 'idle' : c.ci === 'fail' ? 'error' : c.ci === 'conflict' ? 'blocked' : c.rv === 'approved' ? 'done' : 'idle') }), '#' + c.id)])) : null];
+    let banner = null;
+    if (p.ci === 'fail') banner = h('div', { className: 'ban rose', role: 'alert' }, h('span', { className: 'bi' }, this.ic('alert', 16)), h('div', null, h('b', null, '1 ze 4 checků selhává · e2e · PartnerPortal'), h('p', null, 'addon detail › renders ratings: timeout 30 s. rebase-resolver má připravenou opravu.')), h('div', { className: 'acts' }, h('button', { className: 'btn sm' }, h('span', { className: 'dot working', style: { width: 7, height: 7 } }), 'Fix CI'), h('button', { className: 'btn sm gh' }, 'Log ↗')));
+    else if (p.ci === 'conflict') banner = h('div', { className: 'ban amber', role: 'alert' }, h('span', { className: 'bi' }, this.ic('branch', 16)), h('div', null, h('b', null, 'Konflikt s ' + p.base), h('p', null, 'composer.lock se rozchází. Rebase běh je zaparkovaný 21 h.')), h('div', { className: 'acts' }, h('button', { className: 'btn sm pri' }, 'Předat agentovi'), h('button', { className: 'btn sm' }, 'Otevřít běh')));
+    else if (p.rv === 'changes') banner = h('div', { className: 'ban amber' }, h('span', { className: 'bi' }, this.ic('chat', 16)), h('div', null, h('b', null, 'Ondřej požaduje 2 změny'), h('p', null, 'Validace DIČ a chybějící test pro fakturační adresu.')), h('div', { className: 'acts' }, h('button', { className: 'btn sm' }, 'Zobrazit vlákna')));
+    const iss = this.ISSUES[p.key] ? p.key : 'CZ3TDR1-896';
+    const strip = h('div', { className: 'strip', style: { gridTemplateColumns: phone ? null : '1.25fr 1.1fr 1.2fr 1fr .8fr' } },
+      h('div', null, h('span', { className: 'l' }, 'Stav'), h('span', { className: 'v' }, draft ? h('span', { className: 'tgl', role: 'group', 'aria-label': 'Draft nebo Ready' }, h('button', { 'aria-pressed': draft === 'draft', onClick: () => this.setState({ draft: true }) }, 'Draft'), h('button', { 'aria-pressed': draft === 'ready', onClick: () => this.setState({ draft: false }) }, 'Ready')) : h('span', null, p.draft ? 'Draft' : 'Otevřený · ready'))),
+      h('div', null, h('span', { className: 'l' }, 'Checks'), h('span', { className: 'v' }, h('span', { className: 'ci ' + p.ci, style: { width: 18, height: 18 } }, this.ic(this.CII[p.ci], 10)), h('span', null, p.ci === 'fail' ? '3 / 4' : p.ci === 'run' ? '4 / 7' : p.ci === 'conflict' ? '4 / 4 · rebase' : '4 / 4'), p.ci === 'fail' ? h('button', { className: 'lnk', style: { fontSize: 12 } }, 'Fix CI') : null)),
+      h('div', null, h('span', { className: 'l' }, 'Issue'), h('span', { className: 'v' }, h('span', { className: 'trk', style: { width: 18, height: 18, fontSize: 8.5 } }, 'JI'), h('button', { className: 'lnk mono', style: { fontSize: 12 }, onClick: () => this.push({ k: 'issue', id: iss }) }, iss))),
+      h('div', null, h('span', { className: 'l' }, 'Autor'), h('span', { className: 'v' }, this.av(p), h('span', null, this.who(p)))),
+      h('div', null, h('span', { className: 'l' }, 'Projekt'), h('span', { className: 'v' }, h('span', null, p.repo))));
+    const R = [['Partner Portal', [['KZ', 'Karel Zíbar (ty)', p.rv === 'you' ? ['● žádost', 'var(--amber)'] : ['✓ schválil', 'var(--emerald)']], ['OK', 'Ondřej Král', p.rv === 'changes' ? ['✕ změny', 'var(--amber)'] : ['✓ schválil', 'var(--emerald)']]]], ['QA', [['PM', 'Petra Malá', ['💬 komentovala', 'var(--ink3)']]]]];
+    const reviewers = h('div', { className: 'rvt' }, R.map(([team, ppl]) => [h('div', { className: 'tm' }, this.ic('grid', 11), team), ppl.map(([ini, nm, s]) => h('div', { className: 'rvp' }, h('span', { className: 'av', style: { background: this.PEOPLE[ini][1] } }, ini), h('span', null, nm), h('span', { style: { color: s[1], fontSize: 11.5 } }, s[0])))]));
+    const runs = [['done', 'CI triage', 'PR CI triage · workflow', 'před 1d 2h', '4 min', 'run-done'], ['run', 'Fix CI', 'rebase-resolver · agent', 'navrženo', '—', 'run'], ['queue', 'Code review (browser)', 'PR review — thorough', 'naplánováno', '—', 'q']];
+    const overview = [
+      h('section', { className: 'sxs' }, strip, phone ? null : h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 240px', gap: 18, marginTop: 14 } },
+        h('div', { className: 'md' }, h('h5', null, 'Co se mění'), h('ul', null, h('li', null, 'Detail addonu načítá hodnocení přes ', h('code', null, 'useAddonRatings'), ' (React Query, cache 60 s).'), h('li', null, 'Nové komponenty ', h('code', null, 'RatingSummary'), ' a ', h('code', null, 'RatingList'), '.'), h('li', null, 'Smazaná Smarty šablona ', h('code', null, 'AddonRatings.tpl'), '.')), h('div', { className: 'img' }, 'obrázek · github.com/user-attachments · addon-detail.png'), h('p', { style: { margin: 0 } }, 'Closes ', h('button', { className: 'lnk mono', style: { fontSize: 12 }, onClick: () => this.push({ k: 'issue', id: iss }) }, iss), '. Stack nad #47714.')),
+        h('div', null, h('h4', { style: { fontSize: 12, fontWeight: 500, color: 'var(--ink2)', margin: '0 0 8px' } }, 'Reviewers'), reviewers))),
+      phone ? h('section', { className: 'sxs' }, h('h4', null, 'Reviewers'), reviewers) : null,
+      h('section', { className: 'sxs' }, h('h4', null, 'Konverzace', h('span', { className: 'n' }, '2'), h('span', { className: 'sp' }), h('span', { style: { color: 'var(--amber)', fontSize: 11.5, fontWeight: 400 } }, '1 nevyřešené')),
+        h('div', { className: 'thr' }, h('div', { className: 'th' }, h('span', { className: 'tmk' }), 'Detail.tsx : 44', h('span', { className: 'sp' }), 'nevyřešené'),
+          h('div', { className: 'cm' }, h('span', { className: 'av', style: { background: this.PEOPLE.OK[1] } }, 'OK'), h('div', null, h('b', null, 'Ondřej Král'), h('span', { className: 'dim', style: { fontSize: 11.5 } }, '  · před 20 h'), h('div', { className: 'tx' }, 'Proč tu byl pevný sleep? Pokud kvůli e2e, radši čekej na data přímo v testu.'))),
+          h('div', { className: 'cm', style: { paddingTop: 0 } }, h('span', { className: 'av', style: { background: this.PEOPLE.TB[1] } }, 'TB'), h('div', null, h('b', null, 'Tomáš Beneš'), h('span', { className: 'dim', style: { fontSize: 11.5 } }, '  · před 18 h'), h('div', { className: 'tx' }, 'Workaround na pomalé API. Test upravím, sleep jde pryč.'))),
+          h('div', { className: 'ta' }, h('button', { className: 'btn sm' }, 'Odpovědět'), h('button', { className: 'btn sm gh' }, 'Vyřešit'))),
+        h('div', { className: 'thr res' }, h('div', { className: 'th' }, this.ic('check', 11), 'RatingList.tsx : 12 · vyřešeno · 3 komentáře', h('span', { className: 'sp' }), this.ic('chev', 12)))),
+      h('section', { className: 'sxs' }, h('h4', null, 'Běhy', h('span', { className: 'n' }, '3')), runs.map(r => h('button', { className: 'lr', onClick: () => r[5] === 'run' ? this.push({ k: 'run', st: 'run' }) : null }, h('span', { className: 'dot ' + (r[0] === 'done' ? 'done' : r[0] === 'run' ? 'working' : 'idle'), style: { justifySelf: 'center', boxShadow: 'none' } }), h('span', { style: { minWidth: 0 } }, h('span', { className: 't' }, r[1]), h('span', { className: 'k' }, r[2])), h('span', { className: 'tm mono' }, r[3]), h('span', { className: 'tm mono' }, r[4]))))];
+    const tabs = h('div', { className: 'tbs', role: 'tablist' }, h('button', { role: 'tab', 'aria-selected': tab === 'ov', onClick: () => this.replaceTop({ tab: 'ov' }) }, 'Přehled'), h('button', { role: 'tab', 'aria-selected': tab === 'ch', onClick: () => this.replaceTop({ tab: 'ch' }) }, 'Změny', h('span', { className: 'n' }, p.files)), h('span', { className: 'sp' }), tab === 'ch' ? null : h('span', { className: 'dim', style: { alignSelf: 'center', fontSize: 11.5 } }, 'Změny otevřou širší sheet'));
+    const note = p.ci === 'fail' ? 'Nejde mergnout, dokud neprojde e2e a ty neschválíš review. Base je #47714, takže merge jde až po něm.' : p.ci === 'conflict' ? 'Schváleno, ale base se posunula — po vyřešení konfliktu v composer.lock půjde squash & merge.' : p.rv === 'changes' ? 'Čeká na úpravy podle 2 nevyřešených vláken; po push se review automaticky znovu vyžádá.' : p.ci === 'run' ? 'Agent otevřel PR jako draft a čeká na tvoje review; CI ještě běží.' : 'Vše zelené.';
+    return this.frame({ kind: 'Pull request', glyph: 'branch', id: '#' + p.id, title: p.t, actions, meta, banner, tabs: phone ? null : tabs, style, step: phone ? null : step, pos: (idx + 1) + ' / ' + ids.length, expandable: !phone, expanded: tab === 'ch', onExpand: () => this.replaceTop({ tab: tab === 'ch' ? 'ov' : 'ch' }),
+      body: tab === 'ch' ? this.changes(p) : overview, bodyStyle: tab === 'ch' ? { overflow: 'hidden' } : null, note });
+  }
+  changes(p) {
+    const h = this.h, F = this.FILES, split = this.state.split, vw = this.state.viewed, cl = this.state.closed;
+    const dirs = []; F.forEach(f => { const i = f.p.lastIndexOf('/'), d = i < 0 ? '' : f.p.slice(0, i + 1); let g = dirs.find(x => x.d === d); if (!g) { g = { d, f: [] }; dirs.push(g); } g.f.push(f); });
+    const toggle = (k, key) => this.setState({ [k]: Object.assign({}, this.state[k], { [key]: !this.state[k][key] }) });
+    const tree = h('nav', { className: 'ftree', 'aria-label': 'Soubory' }, h('div', { className: 'fl' }, this.ic('search', 12), 'Filtrovat soubory…', h('span', { style: { flex: 1 } }), h('span', { className: 'kbd' }, 'T')),
+      dirs.map(g => [g.d ? h('div', { className: 'fdir' }, this.ic('folder', 11), g.d) : null, g.f.map((f, i) => h('button', { className: 'ff' + (f.p === F[0].p ? ' on' : '') + (vw[f.p] ? ' vw' : '') }, h('span', { className: 'fs ' + f.st }, f.st), h('span', { className: 'nm' }, f.p.slice(g.d.length), f.th ? h('span', { className: 'tmk', title: '1 nevyřešené vlákno' }) : null), vw[f.p] ? h('span', { style: { color: 'var(--emerald)' } }, this.ic('check', 11)) : this.pm(f.a, f.d)))]));
+    const lineRow = (t, o, n, code) => h('div', { className: 'dl' + (t === '+' ? ' add' : t === '-' ? ' del' : '') }, h('span', { className: 'no' }, o || ''), h('span', { className: 'no' }, n || ''), h('span', { className: 'sg' }, t === ' ' ? '' : t === '-' ? '−' : '+'), h('span', { className: 'cd' }, this.hl(code)));
+    const thread = h('div', { className: 'ilt' }, h('div', { className: 'th' }, h('span', { className: 'tmk', style: { margin: 0 } }), 'Nevyřešené vlákno · 2 komentáře'),
+      h('div', { className: 'cm' }, h('span', { className: 'av', style: { background: this.PEOPLE.OK[1] } }, 'OK'), h('div', null, h('b', null, 'Ondřej Král'), h('div', { className: 'tx' }, 'Proč tu byl pevný sleep? Pokud kvůli e2e, radši čekej na data přímo v testu.'))),
+      h('div', { className: 'cm', style: { paddingTop: 0 } }, h('span', { className: 'av', style: { background: this.PEOPLE.TB[1] } }, 'TB'), h('div', null, h('b', null, 'Tomáš Beneš'), h('div', { className: 'tx' }, 'Workaround na pomalé API. Test upravím, sleep jde pryč.'))),
+      h('div', { className: 'ta', style: { display: 'flex', gap: 6, padding: '0 12px 10px 42px' } }, h('button', { className: 'btn sm' }, 'Odpovědět'), h('button', { className: 'btn sm gh' }, 'Vyřešit')));
+    const hunkUnified = hk => { let o = hk.o, n = hk.n; const rows = []; hk.l.forEach(([t, c], i) => { rows.push(lineRow(t, t === '+' ? null : o, t === '-' ? null : n, c)); if (t !== '+') o++; if (t !== '-') n++; if (hk.thAfter === i) rows.push(thread); }); return rows; };
+    const hunkSplit = hk => {
+      let o = hk.o, n = hk.n; const rows = []; const L = hk.l; let i = 0;
+      while (i < L.length) {
+        if (L[i][0] === ' ') { rows.push(h('div', { className: 'sp2' }, h('span', { className: 'no' }, o), h('span', { className: 'cd' }, this.hl(L[i][1])), h('span', { className: 'no' }, n), h('span', { className: 'cd' }, this.hl(L[i][1])))); o++; n++; if (hk.thAfter === i) rows.push(thread); i++; continue; }
+        const dels = [], adds = []; let thHere = false;
+        while (i < L.length && L[i][0] === '-') { dels.push(L[i][1]); if (hk.thAfter === i) thHere = true; i++; }
+        while (i < L.length && L[i][0] === '+') { adds.push(L[i][1]); if (hk.thAfter === i) thHere = true; i++; }
+        const m = Math.max(dels.length, adds.length);
+        for (let j = 0; j < m; j++) { const d = dels[j], a = adds[j];
+          rows.push(h('div', { className: 'sp2' }, h('span', { className: 'no' + (d != null ? ' del' : ' emp') }, d != null ? o++ : ''), h('span', { className: 'cd' + (d != null ? ' del' : ' emp') }, d != null ? this.hl(d) : ''), h('span', { className: 'no' + (a != null ? ' add' : ' emp') }, a != null ? n++ : ''), h('span', { className: 'cd' + (a != null ? ' add' : ' emp') }, a != null ? this.hl(a) : ''))); }
+        if (thHere) rows.push(thread);
+      }
+      return rows;
+    };
+    const file = f => {
+      const closed = !!cl[f.p] && !f.gen;
+      const i = f.p.lastIndexOf('/');
+      return h('div', { className: 'dfile' + (closed && !f.gen ? ' cl' : '') },
+        h('div', { className: 'dfh' }, h('button', { className: 'ib', style: { width: 22, height: 22 }, 'aria-label': closed ? 'Rozbalit' : 'Sbalit', 'aria-expanded': !closed, onClick: () => toggle('closed', f.p) }, this.ic(closed ? 'chevr' : 'chev', 12)), h('span', { className: 'fs ' + f.st }, f.st),
+          h('span', { className: 'path' }, f.from ? h('span', { className: 'dim' }, f.from + ' → ') : null, h('span', { className: 'dim' }, f.p.slice(0, i + 1)), f.p.slice(i + 1)),
+          h('span', { className: 'mono', style: { fontSize: 11.5, whiteSpace: 'nowrap' } }, f.a ? h('span', { style: { color: 'var(--emerald)' } }, '+' + f.a + ' ') : null, f.d ? h('span', { style: { color: 'var(--rose)' } }, '−' + f.d) : null), this.pm(f.a, f.d),
+          h('span', { className: 'sp' }), f.th ? h('span', { className: 'pill amber', style: { height: 20, fontSize: 11 } }, '1 vlákno') : null,
+          h('label', null, h('input', { type: 'checkbox', checked: !!vw[f.p], onChange: () => toggle('viewed', f.p) }), 'Viewed'), h('button', { className: 'ib', style: { width: 22, height: 22 }, 'aria-label': 'Možnosti souboru' }, this.ic('more', 14))),
+        f.gen ? h('div', { className: 'fnote' }, this.ic('info', 13), 'Generovaný soubor · 212 řádků skryto.', h('button', { className: 'btn sm gh' }, 'Načíst diff')) :
+        closed ? null :
+        f.deleted ? h('div', { className: 'fnote' }, this.ic('info', 13), 'Soubor smazán · 6 řádků Smarty šablony, nahrazeno RatingList.tsx.') :
+        f.hunks ? [f.hunks.map(hk => [h('div', { className: 'hk' }, hk.h), split ? hunkSplit(hk) : hunkUnified(hk)]), f.more ? h('button', { className: 'dmore' }, '↧ Zobrazit dalších ' + f.more + ' řádků') : null] :
+        h('div', { className: 'fnote' }, 'Diff se načte při rozbalení.'));
+    };
+    const viewed = Object.keys(vw).filter(k => vw[k]).length;
+    return h('div', { className: 'chg' }, tree,
+      h('div', { className: 'dpane' },
+        h('div', { className: 'dbar' }, h('span', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+388'), ' ', h('span', { style: { color: 'var(--rose)' } }, '−12'), h('span', { className: 'dim' }, ' · 10 souborů')), h('span', { className: 'sp' }),
+          h('span', { className: 'dim', style: { fontSize: 12 } }, 'Viewed ' + viewed + ' / 10'),
+          h('div', { className: 'seg', role: 'group', 'aria-label': 'Zobrazení diffu' }, h('button', { 'aria-pressed': !split, onClick: () => this.setState({ split: false }) }, 'Unified'), h('button', { 'aria-pressed': split, onClick: () => this.setState({ split: true }) }, 'Split')),
+          h('button', { className: 'btn sm gh' }, 'Sbalit vše'), h('button', { className: 'btn sm pri' }, 'Odeslat review')),
+        h('div', { className: 'trunc' }, this.ic('warn', 14), h('span', null, 'Velký diff: soubory se načítají postupně při scrollu, generované soubory jsou skryté.'), h('span', { style: { flex: 1 } }), h('button', { className: 'lnk', style: { fontSize: 12 } }, 'Otevřít na GitHubu ↗')),
+        F.map(file)));
+  }
+
+  // ---------- RUN sheet ----------
+  runSheet(stKey, style, phone) {
+    const h = this.h, S = this.RUNSTATE[stKey], sel = this.state.phase || S.cur, tab = this.state.rtab;
+    const el = S.el + (S.tick ? this.state.sec : 0);
+    const appr = stKey === 'appr' && this.state.approved;
+    const pill = appr ? ['Běží · publikace', 'violet'] : S.pill;
+    let banner = null;
+    if (stKey === 'appr') banner = appr ? h('div', { className: 'ban emerald' }, h('span', { className: 'bi' }, this.ic('check', 16)), h('div', null, h('b', null, 'Schváleno'), h('p', null, 'Publikuji 6 souborů a otevírám PR. Za chvíli se tu objeví v OUTPUT.')), h('span'))
+      : h('div', { className: 'ban amber big', role: 'alert' }, h('span', { className: 'bi' }, this.ic('shield', 18)),
+        h('div', null, h('b', null, 'Publikace čeká na tvoje schválení'),
+          h('div', { className: 'risk' }, this.pill('Střední závažnost', 'amber'), h('span', { className: 'pill idle' }, 'Zápis do repa'), h('span', { className: 'pill idle' }, 'Push větve'), h('span', { className: 'pill idle' }, 'Bez merge')),
+          h('div', { className: 'pub' }, h('div', null, this.ic('file', 12), h('span', null, 'Zveřejní 6 souborů ', h('span', { className: 'mono', style: { color: 'var(--emerald)' } }, '+120'), ' ', h('span', { className: 'mono', style: { color: 'var(--rose)' } }, '−34'), ' do zibby/CZ3PUR1-815-gitlab-ci'), h('span')),
+            [['A', '.gitlab-ci.yml', '+84'], ['D', '.github/workflows/ci.yml', '−31'], ['M', 'package.json', '+4 −1'], ['A', 'ci/podman-build.sh', '+22'], ['M', 'README.md', '+6 −2'], ['M', 'docs/release.md', '+4']].map(([s, f, d]) => h('div', null, h('span', { className: 'fs ' + s }, s), h('span', null, f), h('span', null, d)))),
+          h('div', { className: 'acts', style: { marginTop: 12 } },
+            h('button', { className: 'btn pri hold', onPointerDown: this.holdStart, onPointerUp: this.holdStop, onPointerLeave: this.holdStop, onKeyDown: e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); this.holdStart(); } }, onKeyUp: this.holdStop, 'aria-label': 'Podrž pro schválení' }, h('i', { style: { width: this.state.hold + '%' } }), h('span', null, this.state.hold > 0 ? 'Drž… ' + Math.round(this.state.hold) + ' %' : 'Podrž pro schválení')),
+            h('button', { className: 'btn' }, 'Upravit zadání'), h('button', { className: 'btn gh' }, 'Zamítnout'))));
+    if (stKey === 'park') banner = h('div', { className: 'ban amber big', role: 'alert' }, h('span', { className: 'bi' }, this.ic('pause', 18)),
+      h('div', null, h('b', null, 'Došly pokusy (3 / 3) ve fázi Browser QA'), h('p', null, 'Poslední chyba z pokusu 3 · před 4 min'), h('div', { className: 'code' }, 'Pipeline #8815 · job test\nERROR: Job failed: timeout 5 min čekání na runner "shoptet-podman"\nRunner je offline od 21:28.'),
+        h('div', { className: 'acts', style: { marginTop: 12 } }, h('button', { className: 'btn pri' }, this.ic('refresh', 13), 'Re-run fresh'), h('button', { className: 'btn' }, 'Pokračovat s pokynem'), h('button', { className: 'btn gh' }, this.ic('hand', 13), 'Předat'))));
+    const actions = phone ? null : stKey === 'run' || appr ? [h('button', { className: 'btn gh' }, this.ic('chat', 13), 'Chat about'), h('button', { className: 'btn' }, this.ic('pause', 12), 'Pause'), h('button', { className: 'btn' }, this.ic('stop', 11), 'Stop'), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 16))]
+      : stKey === 'park' ? [h('button', { className: 'btn gh' }, this.ic('chat', 13), 'Chat about'), h('button', { className: 'btn' }, 'Stop'), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 16))]
+      : [h('button', { className: 'btn gh' }, this.ic('chat', 13), 'Chat about'), h('button', { className: 'btn' }, this.ic('pause', 12), 'Pause'), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 16))];
+    const meta = [this.pill(pill[0], pill[1], pill[1] === 'amber'), h('span', null, 'Delivery workflow'), h('span', { className: 'dim' }, '·'), h('span', null, 'start 21:01'), h('span', { className: 'dim' }, '·'), h('span', null, 'Engineering → Delivery')];
+    const about = h('section', { className: 'sxs' },
+      h('div', { className: 'about' },
+        h('button', { className: 'lcard', onClick: () => this.push({ k: 'issue', id: 'CZ3PUR1-815' }) }, h('span', { className: 'kg' }, this.ic('issue', 14)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, 'Zdroj · Jira CZ3PUR1-815'), h('span', { className: 't' }, 'Migrate partner-cli to GitLab')), h('span', { className: 'dim' }, this.ic('chevr', 14))),
+        h('button', { className: 'lcard', onClick: () => this.push({ k: 'pr', id: '48102', tab: 'ov' }) }, h('span', { className: 'kg' }, this.ic('branch', 14)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, 'Výsledek · PR #48102 · draft'), h('span', { className: 't' }, 'Migrate partner-cli CI to GitLab pipelines')), h('span', { className: 'dim' }, this.ic('chevr', 14)))),
+      h('p', { className: 'impl' }, 'Převádí CI partner-cli z GitHub Actions na GitLab pipelines: lint, test a release job, build přes podman a cache pnpm store.'),
+      h('div', { className: 'strip', style: { gridTemplateColumns: phone ? null : 'repeat(5,minmax(0,1fr))', marginTop: 14 } },
+        h('div', null, h('span', { className: 'l' }, 'Průběh'), h('span', { className: 'v big' }, S.pct + ' %'), h('div', { className: 'prog' }, h('i', { style: { width: S.pct + '%', background: stKey === 'run' ? 'var(--violet)' : stKey === 'park' ? 'var(--amber)' : 'var(--ink2)' } }))),
+        h('div', null, h('span', { className: 'l' }, S.tick ? 'Čas · živě' : 'Čas'), h('span', { className: 'v big' }, this.fmt(el))),
+        h('div', null, h('span', { className: 'l' }, 'Fáze'), h('span', { className: 'v' }, h('span', null, S.stage))),
+        h('div', null, h('span', { className: 'l' }, 'Pokusy'), h('span', { className: 'v' }, h('span', { style: { color: stKey === 'park' ? 'var(--amber)' : null } }, S.retries))),
+        h('div', null, h('span', { className: 'l' }, 'Cena'), h('span', { className: 'v' }, S.cost))));
+    const order = ['intake', 'plan', 'impl', 'qa', 'pub'];
+    const mkCls = { done: 'done', run: 'run', wait: 'wait', park: 'park', queue: 'queue', stop: 'stop' };
+    const stLbl = { done: '', run: 'běží', wait: 'čeká na tebe', park: 'zaparkováno', queue: 'poběží', stop: 'zastaveno' };
+    const rail = h('div', { className: 'rl' + (phone ? ' mrail' : '') },
+      h('div', { className: 'rlh' }, 'Fáze', h('span', { className: 'sp' }), h('span', { className: 'mono', style: { letterSpacing: 0 } }, order.filter(k => S.ph[k] === 'done').length + ' / 5')),
+      order.map(k => { const ph = this.PH[k], st = S.ph[k], fut = st === 'queue', past = st === 'done';
+        return h('button', { className: 'rli' + (sel === k ? ' on' : '') + (fut ? ' fut' : '') + (past ? ' past' : ''), onClick: () => this.setState({ phase: k, rtab: 'live' }), 'aria-pressed': sel === k },
+          h('span', { className: 'mk2 ' + mkCls[st] }, past ? this.ic('check', 11) : st === 'wait' ? this.ic('shield', 10) : st === 'park' ? this.ic('pause', 10) : null),
+          h('span', { style: { minWidth: 0, display: 'block' } },
+            h('span', { className: 'nm' }, ph.nm, h('span', { className: 'sp' }), h('span', { className: 'tm mono', style: { color: st === 'wait' || st === 'park' ? 'var(--amber)' : st === 'run' ? 'var(--violet)' : null } }, stLbl[st] || ph.dur || '')),
+            h('span', { className: 'who' }, h('span', null, fut ? 'poběží:' : st === 'run' ? 'právě:' : 'dělal:'), h('b', null, ph.ag), h('span', { className: 'mdl' }, ph.model)),
+            ph.route ? h('span', { className: 'route' }, ph.route) : null,
+            ph.cp && past ? h('span', { className: 'cpt' }, this.ic('check', 10), 'checkpoint · ' + ph.cp) : null,
+            ph.loop ? h('span', { className: 'loop', style: { display: 'block' } }, h('span', { className: 'lh' }, this.ic('loop', 11), 'Coder ⇄ Reviewer · max 3 kola'),
+              S.rounds.map(r => h('span', { className: 'lp' + (r[1] === 'queue' ? ' fut' : '') }, h('span', { className: 'dot ' + (r[1] === 'done' ? 'done' : r[1] === 'run' ? 'working' : 'idle') }), h('span', null, r[0], ' ', h('span', { className: 'r' }, r[2])), h('span', { className: 'r' }, r[3])))) : null,
+            ph.gate ? h('span', { className: 'cpt' }, this.ic('shield', 10), 'brána · repo-write') : null));
+      }),
+      h('button', { className: 'folder' }, this.ic('folder', 13), 'tasks/T-0417-partner-cli-ci/', h('span', { style: { flex: 1 } }), this.ic('ext', 11)));
+    const logs = this.LOGS[sel] || [];
+    const log = h('div', { className: 'log' },
+      h('div', { className: 'logh' }, h('b', { style: { fontWeight: 500, color: 'var(--ink)' } }, this.PH[sel].nm), h('span', { className: 'dim' }, '· log fáze'), h('span', { className: 'sp' }), sel === 'impl' && stKey === 'run' ? h('span', { className: 'pill violet', style: { height: 20 } }, h('span', { className: 'dot working' }), 'stream') : null, h('button', { className: 'btn sm gh' }, 'Celý transkript')),
+      h('div', { className: 'logb', 'aria-live': 'polite' }, logs.map((e, i) => {
+        if (e[1] === 'rd') return h('div', { className: 'rd' }, e[2]);
+        if (e[1] === 'me' || e[1] === 'meq') return h('div', { className: 'me' + (e[1] === 'meq' ? ' q' : '') }, h('div', { className: 'bb' }, e[2]), h('span', { className: 'ms' }, e[1] === 'me' ? this.ic('check', 10) : this.ic('clock', 10), e[3], ' · ', e[0]));
+        return h('div', { className: 'ev' }, h('span', { className: 'tm' }, e[0]),
+          e[1] === 'tool' ? h('span', { className: 'tool' }, '▸ ', h('b', null, e[2]), ' ', e[3]) :
+          e[1] === 'err' ? h('span', { className: 'tx err' }, e[2]) :
+          e[1] === 'ag' ? h('span', { className: 'ag' }, e[2], stKey === 'run' && i === logs.length - 2 ? h('span', { className: 'caret', 'aria-hidden': 'true' }) : '.') :
+          h('span', { className: 'tx' }, e[2]));
+      })));
+    const tabs = h('div', { className: 'tbs', role: 'tablist' }, [['live', 'LIVE'], ['input', 'INPUT'], ['output', 'OUTPUT']].map(([k, l]) => h('button', { role: 'tab', 'aria-selected': tab === k, onClick: () => this.setState({ rtab: k }) }, k === 'live' && (stKey === 'run' || appr) ? h('span', { className: 'dot working', style: { width: 6, height: 6 } }) : null, l)), h('span', { className: 'sp' }), h('span', { className: 'dim', style: { alignSelf: 'center', fontSize: 11.5 } }, 'run_7Hq2kd'));
+    const input = h('div', null, h('section', { className: 'sxs' }, h('h4', null, 'Zadání'), h('div', { className: 'prompt' }, 'Migruj CI partner-cli z GitHub Actions na GitLab CI.\n– zachovej joby lint, test, release\n– release jen na tagu v*\n– build přes podman runner shoptet-podman\n– po migraci smaž .github/workflows')),
+      h('section', { className: 'sxs' }, h('h4', null, 'Přílohy', h('span', { className: 'n' }, '2')), [['ci.yml', 'původní workflow · 2,1 kB'], ['runner-notes.md', 'poznámky k runnerům · 0,8 kB']].map(([f, d]) => h('div', { className: 'ofile' }, this.ic('file', 12), h('span', null, f), h('span', { className: 'dim' }, d)))));
+    const output = h('div', null, h('section', { className: 'sxs' }, h('h4', null, 'Pull request'), h('button', { className: 'lcard', onClick: () => this.push({ k: 'pr', id: '48102', tab: 'ov' }) }, h('span', { className: 'kg' }, this.ic('branch', 14)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, '#48102 · draft · CI běží'), h('span', { className: 't' }, 'Migrate partner-cli CI to GitLab pipelines')), h('span', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+214'), ' ', h('span', { style: { color: 'var(--rose)' } }, '−96')))),
+      h('section', { className: 'sxs' }, h('h4', null, 'Složka', h('span', { className: 'n' }, '6 souborů')), h('button', { className: 'folder', style: { marginTop: 0 } }, this.ic('folder', 13), 'tasks/T-0417-partner-cli-ci/', h('span', { style: { flex: 1 } }), this.ic('ext', 11))),
+      h('section', { className: 'sxs' }, h('h4', null, 'Změny v tomto běhu'), [['A', '.gitlab-ci.yml', '+84'], ['D', '.github/workflows/ci.yml', '−31'], ['M', 'package.json', '+4 −1'], ['A', 'ci/podman-build.sh', '+22']].map(([s, f, d]) => h('div', { className: 'ofile' }, h('span', { className: 'fs ' + s }, s), h('span', null, f), h('span', null, d)))));
+    const body = [about, tabs, tab === 'live' ? h('div', { style: { height: 600, borderBottom: '1px solid var(--line)' } }, h('div', { className: 'live' }, rail, log)) : tab === 'input' ? input : output];
+    const composer = h('div', { className: 'cmp' }, h('button', { className: 'ib', 'aria-label': 'Přiložit' }, this.ic('clip', 15)), h('div', { style: { flex: 1 } }, h('textarea', { rows: 1, placeholder: stKey === 'park' ? 'Pokyn pro pokračování…' : 'Poznámka pro agenta…', value: this.state.msg, onChange: e => this.setState({ msg: e.target.value }), 'aria-label': 'Zpráva pro běh' }), h('span', { className: 'hint' }, stKey === 'park' ? 'Odesláním běh pokračuje od Browser QA s tvým pokynem.' : 'Doručí se do další fáze · ' + (stKey === 'run' ? 'Reviewer · K2' : 'po publikaci'))), h('button', { className: 'btn pri', 'aria-label': 'Odeslat' }, this.ic('send', 13)));
+    const note = stKey === 'run' ? 'Druhé kolo implementace po 2 nálezech revieweru; po schválení revieweru jde do Browser QA.' : appr ? 'Publikuje se; PR se otevře jako draft, merge zůstává na tobě.' : stKey === 'appr' ? 'Pravidlo repo-write vyžaduje lidské schválení před pushem do repozitáře.' : 'QA neproběhlo, protože GitLab runner shoptet-podman je offline — opakování bez změny nepomůže.';
+    return this.frame({ kind: 'Workflow · Delivery', glyph: 'run', id: 'run_7Hq2kd', title: 'Implementovat CZ3PUR1-815 · Migrate partner-cli CI to GitLab', actions, meta, banner, style, expandable: !phone, expanded: this.state.rexp, onExpand: () => this.setState({ rexp: !this.state.rexp }), pos: '1 / 6', step: phone ? null : () => {},
+      body, composer, note });
+  }
+  holdStart = () => { if (this.state.approved) return; clearInterval(this.hi); this.hi = setInterval(() => { const v = Math.min(100, this.state.hold + 100 / 40); if (v >= 100) { clearInterval(this.hi); this.setState({ hold: 0, approved: true }); } else this.setState({ hold: v }); }, 30); };
+  holdStop = () => { clearInterval(this.hi); if (!this.state.approved) this.setState({ hold: 0 }); };
+
+  // ---------- compact sheets ----------
+  issueSheet(id, style, stat) {
+    const h = this.h, I = this.ISSUES[id] || this.ISSUES['CZ3TDR1-852'], p = this.pr(I.pr);
+    return this.frame({ kind: 'Issue · Jira', glyph: 'issue', id: I.k, title: I.t, style, static: stat,
+      actions: [I.you ? h('button', { className: 'btn pri' }, 'Odpovědět') : h('button', { className: 'btn' }, 'Odpovědět'), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 16))],
+      meta: [this.pill(I.st, I.you ? 'amber' : 'idle', I.you), I.you ? h('span', { className: 'you' }, h('i', { className: 'd' }), 'Na tebe') : null, h('span', { className: 'pill idle' }, this.ic('stack', 11), I.epic)],
+      body: [h('section', { className: 'sxs' }, h('div', { className: 'strip', style: { gridTemplateColumns: 'repeat(3,minmax(0,1fr))' } },
+          h('div', null, h('span', { className: 'l' }, 'Projekt'), h('span', { className: 'v' }, 'cms4')), h('div', null, h('span', { className: 'l' }, 'Tým'), h('span', { className: 'v' }, h('span', null, I.team))), h('div', null, h('span', { className: 'l' }, 'Aktualizováno'), h('span', { className: 'v' }, 'před ' + I.upd))),
+          h('div', { className: 'zb', style: { marginTop: 10 } }, h('span', { style: { color: 'var(--ink)' } }, this.ic('spark', 15)), h('div', null, h('span', { className: 'zl2' }, 'Co s tím dělá Zibby'), I.zb, h('div', { className: 'acts', style: { marginTop: 8 } }, h('button', { className: 'btn sm' }, 'Zpracovat do tasku'), h('button', { className: 'btn sm gh' }, 'Zobrazit běh'))))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Popis', h('span', { className: 'sp' }), h('span', { className: 'dim', style: { fontWeight: 400 } }, 'z Jiry ↗')), h('div', { className: 'md', style: { fontSize: 13 } }, I.desc)),
+        h('section', { className: 'sxs' }, h('h4', null, 'Pull request'), p ? h('button', { className: 'lcard', onClick: () => this.push({ k: 'pr', id: p.id, tab: 'ov' }) }, h('span', { className: 'ci ' + p.ci, style: { width: 30, height: 30, borderRadius: 9 } }, this.ic(this.CII[p.ci], 13)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, '#' + p.id + ' · ' + this.RV[p.rv][0]), h('span', { className: 't' }, p.t)), h('span', { className: 'dim' }, this.ic('chevr', 14))) : null)],
+      note: I.you ? 'Čeká na tebe, protože v review PR je otázka adresovaná tobě.' : 'Sleduje se přes propojený PR; nic po tobě nechce.' });
+  }
+  taskSheet(style) {
+    const h = this.h;
+    const steps = [['done', 'Plán', 'architect'], ['run', 'Implementace', 'coder ⇄ reviewer'], ['queue', 'Browser QA', 'qa-browser'], ['wait', 'Publikace', 'čeká na schválení']];
+    return this.frame({ kind: 'Task', glyph: 'task', id: 'T-0417', title: 'Migrovat CI partner-cli na GitLab', style, static: true,
+      actions: [h('button', { className: 'btn' }, 'Otevřít schválení ↗')],
+      meta: [this.pill('Běží', 'violet'), h('span', null, 'Z Jira CZ3PUR1-815'), h('span', { className: 'dim' }, '·'), h('span', null, 'Engineering · partner-cli')],
+      body: [h('section', { className: 'sxs' }, h('div', { className: 'md', style: { fontSize: 13 } }, 'Převést pipeline na GitLab CI, zachovat joby a release jen na tagu.'), h('div', { className: 'dim', style: { fontSize: 12, marginTop: 6 } }, 'Vytvořeno dnes 21:01 · Delivery workflow')),
+        h('section', { className: 'sxs' }, h('h4', null, 'Řetěz', h('span', { className: 'n' }, '4')), h('div', { className: 'chain' }, steps.map(([s, n, a], i) => h('div', { className: 'chs' }, h('span', { className: 'mk2 ' + (s === 'done' ? 'done' : s === 'run' ? 'run' : s === 'wait' ? 'wait' : 'queue') }, s === 'done' ? this.ic('check', 11) : s === 'wait' ? this.ic('shield', 10) : null), h('span', null, n, h('span', { className: 's' }, 'Step ' + (i + 1) + ' · ' + a)), h('span', { className: 'tm mono' }, s === 'done' ? '3:12' : s === 'run' ? 'běží' : ''))))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Podúkoly', h('span', { className: 'n' }, '1 / 3')), [['Přepsat joby', 1], ['Cache pnpm store', 0], ['Smazat GitHub workflows', 0]].map(([t, d]) => h('div', { className: 'td', style: { padding: '0 2px', minHeight: 28 } }, h('span', { className: 'cb' + (d ? ' on' : '') }, d ? this.ic('check', 10) : null), h('span', { className: 'x', style: d ? { color: 'var(--ink3)', textDecoration: 'line-through' } : null }, t)))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Artefakty a PR'), h('div', { className: 'ofile' }, this.ic('file', 12), h('span', null, 'plan.md'), h('span', { className: 'dim' }, '1,4 kB')), h('div', { className: 'ofile' }, this.ic('branch', 12), h('button', { className: 'lnk', style: { textAlign: 'left' }, onClick: () => this.push({ k: 'pr', id: '48102', tab: 'ov' }) }, '#48102 Migrate partner-cli CI'), h('span', { className: 'dim' }, 'draft')))],
+      note: 'Druhý krok ze čtyř; poslední krok má bránu, která tě požádá o schválení.' });
+  }
+  autoSheet(style) {
+    const h = this.h, days = ['ne 15', 'po 16', 'út 17', 'st 18', 'čt 19', 'pá 20', 'so 21'];
+    return this.frame({ kind: 'Automatizace', glyph: 'clock', id: 'auto_distill', title: 'Destilace paměti', style, static: true,
+      actions: [h('button', { className: 'btn' }, this.ic('play', 11), 'Spustit teď')],
+      meta: [this.pill('Aktivní', 'idle'), h('span', { className: 'pill idle' }, this.ic('bot', 11), 'agent · librarian'), h('span', { className: 'pill idle' }, 'workflow · distill')],
+      body: [h('section', { className: 'sxs' }, h('h4', null, 'Rozvrh'), h('div', { className: 'cron' }, h('span', { className: 'h' }, 'Každý den ve 03:00'), h('span', { className: 'mono dim', style: { fontSize: 12 } }, '0 3 * * *')), h('div', { className: 'fires', 'aria-label': 'Příštích 7 spuštění' }, days.map((d, i) => h('span', { className: i === 0 ? 'on' : '' }, h('i'), d)))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Prompt'), h('div', { className: 'prompt' }, 'Projdi včerejší běhy a konverzace, vytáhni trvalá fakta a rozhodnutí a zapiš je do vaultu. Duplicity slouči, zastaralé označ.')),
+        h('section', { className: 'sxs' }, h('h4', null, 'Poslední spuštění'), h('button', { className: 'lr', onClick: () => null }, h('span', { className: 'dot done', style: { justifySelf: 'center', boxShadow: 'none' } }), h('span', null, h('span', { className: 't' }, 'Hotovo · 14 nových faktů'), h('span', { className: 'k' }, 'dnes 03:00 · 4 min 12 s')), h('span', { className: 'lnk', style: { fontSize: 12 } }, 'Běh ↗'), h('span'))) ],
+      note: 'Příští spuštění za 6 h; běží jako agent librarian s modelem haiku.' });
+  }
+  projSheet(style) {
+    const h = this.h, fix = 40;
+    return this.frame({ kind: 'Stav projektu', glyph: 'grid', id: 'partner-cli@develop', title: 'Shoptet Partner CLI', style, static: true,
+      actions: [h('button', { className: 'btn' }, 'Repozitář ↗')],
+      meta: [this.pill('CI selhává', 'rose'), h('span', { className: 'brc' }, h('span', null, 'develop')), h('span', null, 'padá 3 h')],
+      banner: h('div', { className: 'ban rose' }, h('span', { className: 'bi' }, this.ic('alert', 16)), h('div', null, h('b', null, 'Zibby opravuje CI'), h('p', null, 'Otevírá PR s opravou testů · ' + fix + ' %'), h('div', { className: 'prog' }, h('i', { style: { width: fix + '%' } }))), h('button', { className: 'btn sm' }, 'Otevřít task')),
+      body: [h('section', { className: 'sxs' }, h('h4', null, 'Workflow na develop', h('span', { className: 'n' }, '3')),
+          h('div', { className: 'wf' }, h('div', { className: 'wfh' }, h('span', { className: 'ci fail', style: { width: 18, height: 18 } }, this.ic('x', 10)), 'ci.yml', h('span', { className: 'sp' }), h('span', { className: 'dim' }, '#8815 · 21:39')),
+            h('div', { className: 'job' }, h('span', { style: { color: 'var(--emerald)' } }, this.ic('check', 12)), 'lint', h('span', { className: 'tm mono' }, '0:48')),
+            h('div', { className: 'job' }, h('span', { style: { color: 'var(--rose)' } }, this.ic('x', 12)), 'test', h('span', { className: 'tm mono' }, '5:00')),
+            h('div', { className: 'job stepl' }, h('span', { style: { color: 'var(--rose)' } }, this.ic('x', 11)), 'pnpm test --run · 3 testy selhaly', h('span', { className: 'lnk', style: { fontSize: 11 } }, 'log')),
+            h('div', { className: 'job' }, h('span', { className: 'dim' }, this.ic('stop', 11)), h('span', { className: 'dim' }, 'build · přeskočeno'), h('span'))),
+          h('div', { className: 'wf' }, h('div', { className: 'wfh' }, h('span', { className: 'ci ok', style: { width: 18, height: 18 } }, this.ic('check', 10)), 'release.yml', h('span', { className: 'sp' }), h('span', { className: 'dim' }, 'jen na tagu'))),
+          h('div', { className: 'unr' }, this.ic('info', 14), h('span', null, h('b', { style: { color: 'var(--ink)', fontWeight: 500 } }, '.gitlab-ci.yml'), ' — GitLab pipelines zatím nečteme. Stav uvidíš po dokončení migrace (T-0417).')))],
+      note: 'Develop padá kvůli 3 testům v test jobu; build se proto vůbec nespustil.' });
+  }
+  qaSheet(style) {
+    const h = this.h;
+    return this.frame({ kind: 'Rychlá akce', glyph: 'bolt', id: 'qa_standup', title: 'Standup', style, static: true,
+      actions: [h('button', { className: 'btn gh' }, 'Upravit'), h('button', { className: 'btn pri' }, this.ic('play', 11), 'Spustit')],
+      meta: [h('span', { className: 'pill idle' }, this.ic('bot', 11), 'agent · general-purpose')],
+      body: h('section', { className: 'sxs' }, h('div', { className: 'prompt' }, 'Připrav standup z včerejších commitů, PR a pohybů v Jiře: včera / dnes / blokery.')),
+      note: 'Jedno kliknutí zařadí úlohu do fronty agenta.' });
+  }
+  noteSheet(style) {
+    const h = this.h;
+    return this.frame({ kind: 'Poznámka', glyph: 'note', id: 'note_t1', title: 'Stack #48051 před mergem', style, static: true,
+      actions: [h('button', { className: 'btn gh' }, 'Upravit'), h('button', { className: 'ib', 'aria-label': 'Smazat' }, this.ic('x', 14))],
+      body: h('section', { className: 'sxs' }, h('div', { className: 'note2' }, 'Zeptat se ', h('span', { className: 'mn' }, '@Tomáš'), ' na stack #48051 — mergovat až po #47714, jinak se rozpadne base.')) });
+  }
+
+  // ---------- chrome ----------
+  topbar() {
+    const h = this.h;
+    return h('div', { className: 'top' }, h('div', { className: 'logo' }, h('i', null, 'Z'), 'ZibbyOS', h('small', null, 'v0.9')),
+      h('nav', { className: 'nav', 'aria-label': 'Hlavní' }, ['Přehled', 'Práce', 'Firmy', 'AI', 'Aktivita', 'Znalosti', 'Pravidla', 'Nastavení'].map((l, i) => h('button', { className: i === 0 ? 'on' : '' }, l))),
+      h('button', { className: 'search' }, this.ic('search', 14), h('span', null, 'Hledat nebo zadat úkol…'), h('span', { className: 'kbd' }, '⌘K')),
+      h('button', { className: 'bell', 'aria-label': 'Oznámení, 5 nových' }, this.ic('bell', 16), h('b', null, '5')));
+  }
+  sub() { const h = this.h; return h('div', { className: 'sub', style: { paddingTop: 16 } }, h('h1', null, 'Můstek'), h('div', { className: 'tabs' }, h('button', null, 'Inbox'), h('button', null, 'Issues', h('span', { className: 'n' }, '3')), h('button', null, 'Pull requesty', h('span', { className: 'n' }, '29'))), h('span', { className: 'sp' }), h('div', { className: 'seg' }, h('button', { 'aria-pressed': true }, 'Výchozí'), h('button', null, 'Review')), h('button', { className: 'btn pri' }, this.ic('plus', 13), 'Nový úkol')); }
+  wframe(o) {
+    const h = this.h;
+    return h('section', { className: 'w ' + (o.tier || 't2') + (o.cls ? ' ' + o.cls : ''), style: o.style, 'aria-label': o.title },
+      h('header', { className: 'wh' }, h('h3', { className: 'wt' }, o.title), o.count != null ? h('span', { className: 'cnt' }, this.pad(o.count)) : null, o.you ? h('span', { className: 'you' }, h('i', { className: 'd' }), o.you + ' na tebe') : null, h('span', { className: 'sp' }), o.aside ? h('span', { className: 'aside' }, o.aside) : null),
+      h('div', { className: 'wb' }, o.body));
+  }
+  prRow(p, compact) {
+    const h = this.h, cur = this.top(), sel = cur && cur.k === 'pr' && cur.id === p.id, rv = this.RV[p.rv];
+    return h('button', { className: 'row' + (sel ? ' sel' : ''), 'aria-pressed': sel, onClick: () => this.setState({ stack: [{ k: 'pr', id: p.id, tab: (cur && cur.tab) || 'ov' }] }), style: compact ? { gridTemplateColumns: '20px minmax(0,1fr)' } : null },
+      h('span', { className: 'ci ' + p.ci }, this.ic(this.CII[p.ci], 12)),
+      h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'l1' }, h('span', { className: 'id' }, '#' + p.id), h('span', { className: 't' }, p.t)), compact ? null : h('span', { className: 'meta' }, this.av(p), h('span', null, this.who(p)), h('span', { className: 'sep' }), h('span', null, p.age))),
+      compact ? null : h('span', { className: 'chip ' + rv[1] }, rv[0]));
+  }
+  prList(compact) {
+    const h = this.h;
+    return h('div', null, h('div', { className: 'sec amb' }, 'Ke kontrole', h('span', { className: 'n' }, '02')),
+      this.PRS.filter(p => p.sec === 'review').map(p => h('div', null, this.prRow(p, compact), p.stack ? h('div', { className: 'kids' }, p.stack.map(k => this.prRow(k, compact))) : null)),
+      h('div', { className: 'sec' }, 'Moje', h('span', { className: 'n' }, '05')),
+      this.PRS.filter(p => p.sec === 'mine').map(p => h('div', null, this.prRow(p, compact), p.stack ? h('div', { className: 'kids' }, p.stack.map(k => this.prRow(k, compact))) : null)));
+  }
+  runsWidget(stKey) {
+    const h = this.h, S = this.RUNSTATE[stKey];
+    const row = (dot, t, k, tm, sel) => h('button', { className: 'row' + (sel ? ' sel' : ''), style: { gridTemplateColumns: '20px minmax(0,1fr) auto' } }, h('span', { className: 'dot ' + dot, style: { justifySelf: 'center', marginTop: 6 } }), h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'l1' }, h('span', { className: 't' }, t)), h('span', { className: 'meta' }, k)), h('span', { className: 'tm mono' }, tm));
+    const me = row(stKey === 'run' ? 'working' : 'blocked', 'Implementovat CZ3PUR1-815', 'Delivery · ' + S.stage, this.fmt(S.el + (S.tick ? this.state.sec : 0)), true);
+    return this.wframe({ tier: 't1', title: 'Běhy', count: 11, you: stKey === 'run' ? 2 : 3, style: { gridColumn: '9 / span 4', gridRow: '1 / span 2' }, body: h('div', null,
+      h('div', { className: 'sec' + (stKey === 'run' ? '' : ' amb') }, stKey === 'run' ? 'Teď běží' : 'Na tebe', h('span', { className: 'n' }, stKey === 'run' ? '01' : '03')), me,
+      h('div', { className: 'sec amb' }, 'Zaparkováno', h('span', { className: 'n' }, '02')), row('blocked', 'Rebase shoptet/cms4#47385', 'PR rebase · workflow', '21 h'), row('blocked', 'Fix CI shoptet/cms4#47546', 'rebase-resolver · agent', '22 h'),
+      h('div', { className: 'sec' }, 'Ve frontě', h('span', { className: 'n' }, '03')), row('idle', 'Fix base-branch CI: shoptet/cli', 'delivery · workflow', 'za 11 min'), row('idle', 'Code review (browser) cms4', 'naplánováno', '1d 4h'),
+      h('div', { className: 'sec' }, 'Dokončené', h('span', { className: 'n' }, '10')), row('done', 'CI triage cms4#47385', 'workflow', '1d 6h'), row('done', 'CI triage cms4#47546', 'workflow', '1d 6h'), row('error', 'Fix CI cms4#47977', 'workflow', '2d 8h')) });
+  }
+  ghost(title, n, style) { const h = this.h; return h('div', { className: 'ghost', style }, this.wframe({ tier: 't2', title, count: n, body: h('div', { style: { height: 260 } }) })); }
+  currentSheet(style) {
+    const t = this.top(); if (!t) return null;
+    if (t.k === 'pr') return this.prSheet(this.pr(t.id), t.tab || 'ov', style);
+    if (t.k === 'run') return this.runSheet(t.st, style);
+    if (t.k === 'issue') return this.issueSheet(t.id, style);
+    return null;
+  }
+
+  // ---------- views ----------
+  prBoard() {
+    const h = this.h, t = this.top(), wide = t && t.k === 'pr' && t.tab === 'ch';
+    const W = t && t.k === 'pr' ? (wide ? null : 640) : t && t.k === 'run' ? 800 : 480;
+    const left = wide ? 28 + 3 * 97 + 2 * 20 + 12 : 28 + 5 * 97 + 4 * 20 + 12;
+    const style = wide ? { left, right: 16 } : { left, width: W };
+    return h('div', { className: 'stage tall' }, this.topbar(), this.sub(),
+      h('div', { className: 'board' }, h('div', { className: 'g' },
+        this.wframe({ tier: 't1', title: 'Pull requesty', count: 37, you: 2, style: { gridColumn: wide ? 'span 3' : 'span 5' }, body: this.prList(wide) }),
+        this.ghost('Běhy', 10, { gridColumn: wide ? 'span 5' : 'span 4' }), this.ghost('Návrhy', 1, { gridColumn: wide ? 'span 4' : 'span 3' }),
+        this.ghost('Issues', 7, { gridColumn: 'span 5' }), this.ghost('Zmínky', 50, { gridColumn: 'span 4' })),
+        this.currentSheet(style)));
+  }
+  runBoard(stKey) {
+    const h = this.h, t = this.top();
+    const W = t && t.k === 'run' ? (this.state.rexp ? 1440 - 28 - 4 * 97 - 3 * 20 - 12 - 16 : 800) : t && t.k === 'pr' ? (t.tab === 'ch' ? 960 : 640) : 480;
+    const right = 28 + 4 * 97 + 3 * 20 + 12;
+    return h('div', { className: 'stage tall' }, this.topbar(), this.sub(),
+      h('div', { className: 'board' }, h('div', { className: 'g', style: { gridTemplateRows: 'auto 1fr' } },
+        this.ghost('Pull requesty', 37, { gridColumn: '1 / span 5' }), this.ghost('Stav projektů', 4, { gridColumn: '6 / span 3' }),
+        this.runsWidget(stKey), this.ghost('Issues', 7, { gridColumn: '1 / span 5' }), this.ghost('Automatizace', 3, { gridColumn: '6 / span 3' })),
+        this.currentSheet({ right, width: W })));
+  }
+  gallery() {
+    const h = this.h, cell = (cap, el) => h('div', null, h('div', { className: 'gcap' }, cap), el);
+    return h('div', { className: 'stage', style: { background: '#0c0d10' } }, h('div', { className: 'gal' },
+      cell('Issue · 480 px', this.issueSheet('CZ3TDR1-852', null, true)), cell('Task · 480 px', this.taskSheet()), cell('Automatizace · 480 px', this.autoSheet()),
+      cell('Stav projektu · 480 px', this.projSheet()), cell('Rychlá akce · 400 px', this.qaSheet()), cell('Poznámka · 400 px', this.noteSheet())));
+  }
+  phonePR() {
+    const h = this.h, p = this.pr('47385'), tones = this.prTones(p), draft = this.state.draft ? 'draft' : 'ready';
+    return h('div', { className: 'stage phone', style: { margin: 0 } }, h('div', { className: 'pp' },
+      h('div', { className: 'sbar' }, h('span', null, '21:23'), h('span', { className: 'mono', style: { fontSize: 12 } }, '5G ▮▮▮')),
+      h('div', { className: 'scr' },
+        h('div', { className: 'pph' }, h('div', { className: 'nv' }, h('button', { className: 'back' }, this.ic('left', 13), h('span', null, 'Můstek')), h('span', { className: 'sp' }), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 18))),
+          h('div', { className: 'k1' }, h('span', { className: 'kg' }, this.ic('branch', 13)), h('span', { className: 'kind' }, 'Pull request'), h('button', { className: 'cid' }, '#47385', h('span', { className: 'cp', style: { opacity: .6 } }, this.ic('copy', 11)))),
+          h('h2', null, p.t), h('div', { className: 'st2', style: { marginTop: 0 } }, tones.map(t => this.pill(t[0], t[1], t[2])), h('span', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+640'), ' ', h('span', { style: { color: 'var(--rose)' } }, '−88'), h('span', { className: 'dim' }, ' · 14'))),
+          h('div', { className: 'st2' }, h('span', { className: 'brc' }, h('span', null, p.head)), '→', h('span', { className: 'brc' }, h('span', null, 'master'))),
+          h('div', { className: 'st2' }, h('span', { className: 'crumbs' }, this.ic('stack', 12), h('button', { className: 'cur' }, h('span', { className: 'dot blocked' }), '#47385'), h('span', { className: 'ar' }, '→'), h('button', null, h('span', { className: 'dot error' }), '#47546')))),
+        h('div', { className: 'ban amber' }, h('span', { className: 'bi' }, this.ic('branch', 16)), h('div', null, h('b', null, 'Konflikt s master'), h('p', null, 'composer.lock · rebase zaparkovaný 21 h')), h('span')),
+        h('section', { className: 'sxs' }, h('div', { className: 'strip' },
+          h('div', null, h('span', { className: 'l' }, 'Stav'), h('span', { className: 'v' }, h('span', { className: 'tgl' }, h('button', { 'aria-pressed': draft === 'draft', onClick: () => this.setState({ draft: true }) }, 'Draft'), h('button', { 'aria-pressed': draft === 'ready', onClick: () => this.setState({ draft: false }) }, 'Ready')))),
+          h('div', null, h('span', { className: 'l' }, 'Checks'), h('span', { className: 'v' }, h('span', { className: 'ci ok', style: { width: 18, height: 18 } }, this.ic('check', 10)), '4 / 4')),
+          h('div', null, h('span', { className: 'l' }, 'Issue'), h('span', { className: 'v' }, h('span', { className: 'trk', style: { width: 18, height: 18, fontSize: 8.5 } }, 'JI'), h('span', { className: 'lnk mono', style: { fontSize: 12 } }, 'CZ3TDR1-856'))),
+          h('div', null, h('span', { className: 'l' }, 'Review'), h('span', { className: 'v', style: { color: 'var(--emerald)' } }, '✓ 2 schválili')))),
+        h('div', { className: 'tbs', style: { top: 0 } }, h('button', { role: 'tab', 'aria-selected': true }, 'Přehled'), h('button', { role: 'tab', 'aria-selected': false }, 'Změny', h('span', { className: 'n' }, '14')), h('button', { role: 'tab', 'aria-selected': false }, 'Konverzace', h('span', { className: 'n' }, '3'))),
+        h('section', { className: 'sxs' }, h('div', { className: 'md', style: { fontSize: 13.5 } }, h('h5', null, 'Co se mění'), h('ul', null, h('li', null, 'Stránka API přístupů v Partner Portalu'), h('li', null, 'Generování a rotace klíčů'), h('li', null, 'Audit log pro přístupy')))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Běhy', h('span', { className: 'n' }, '2')), h('div', { className: 'lr' }, h('span', { className: 'dot blocked', style: { justifySelf: 'center' } }), h('span', null, h('span', { className: 't' }, 'Rebase #47385'), h('span', { className: 'k' }, 'zaparkováno · 21 h')), h('span'), h('span', { className: 'dim' }, this.ic('chevr', 14))), h('div', { className: 'lr' }, h('span', { className: 'dot done', style: { justifySelf: 'center', boxShadow: 'none' } }), h('span', null, h('span', { className: 't' }, 'CI triage'), h('span', { className: 'k' }, 'hotovo · 1d 6h')), h('span'), h('span', { className: 'dim' }, this.ic('chevr', 14)))),
+        h('footer', { className: 'sxf', style: { borderTop: '1px solid var(--line)' } }, this.ic('info', 13), h('span', null, 'Schváleno, ale base se posunula — po vyřešení konfliktu půjde squash & merge.'))),
+      h('div', { className: 'pbar' }, h('button', { className: 'btn' }, this.ic('chat', 13), 'Chat'), h('button', { className: 'btn pri' }, 'Předat agentovi')),
+      h('span', { className: 'home', 'aria-hidden': 'true' })));
+  }
+  phoneRun() {
+    const h = this.h, S = this.RUNSTATE.appr, appr = this.state.approved;
+    const order = ['intake', 'plan', 'impl', 'qa', 'pub'];
+    return h('div', { className: 'stage phone', style: { margin: 0 } }, h('div', { className: 'pp' },
+      h('div', { className: 'sbar' }, h('span', null, '21:23'), h('span', { className: 'mono', style: { fontSize: 12 } }, '5G ▮▮▮')),
+      h('div', { className: 'scr' },
+        h('div', { className: 'pph' }, h('div', { className: 'nv' }, h('button', { className: 'back' }, this.ic('left', 13), h('span', null, 'Běhy')), h('span', { className: 'sp' }), h('button', { className: 'ib', 'aria-label': 'Další akce' }, this.ic('more', 18))),
+          h('div', { className: 'k1' }, h('span', { className: 'kg' }, this.ic('run', 13)), h('span', { className: 'kind' }, 'Workflow · Delivery'), h('button', { className: 'cid' }, 'run_7Hq2kd')),
+          h('h2', null, 'Implementovat CZ3PUR1-815 · Migrate partner-cli CI to GitLab'),
+          h('div', { className: 'st2', style: { marginTop: 0 } }, appr ? this.pill('Běží · publikace', 'violet') : this.pill('Čeká na schválení', 'amber', true), h('span', null, this.fmt(S.el + this.state.sec)))),
+        appr ? h('div', { className: 'ban emerald' }, h('span', { className: 'bi' }, this.ic('check', 16)), h('div', null, h('b', null, 'Schváleno'), h('p', null, 'Publikuji 6 souborů.')), h('span')) :
+          h('div', { className: 'ban amber big' }, h('span', { className: 'bi' }, this.ic('shield', 18)), h('div', null, h('b', null, 'Publikace čeká na tvoje schválení'), h('div', { className: 'risk' }, this.pill('Střední', 'amber'), h('span', { className: 'pill idle' }, 'Zápis do repa')), h('p', { style: { marginTop: 8 } }, 'Zveřejní 6 souborů ', h('span', { className: 'mono', style: { color: 'var(--emerald)' } }, '+120'), ' ', h('span', { className: 'mono', style: { color: 'var(--rose)' } }, '−34'), ' do zibby/CZ3PUR1-815-gitlab-ci'))),
+        h('section', { className: 'sxs' }, h('div', { className: 'strip' },
+          h('div', null, h('span', { className: 'l' }, 'Průběh'), h('span', { className: 'v big' }, '86 %')), h('div', null, h('span', { className: 'l' }, 'Fáze'), h('span', { className: 'v' }, 'Publikace')),
+          h('div', null, h('span', { className: 'l' }, 'Pokusy'), h('span', { className: 'v' }, '1 / 3')), h('div', null, h('span', { className: 'l' }, 'Cena'), h('span', { className: 'v' }, '$3,12')))),
+        h('section', { className: 'sxs' }, h('div', { className: 'about', style: { gridTemplateColumns: '1fr' } },
+          h('div', { className: 'lcard' }, h('span', { className: 'kg' }, this.ic('issue', 14)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, 'Zdroj · CZ3PUR1-815'), h('span', { className: 't' }, 'Migrate partner-cli to GitLab')), this.ic('chevr', 14)),
+          h('div', { className: 'lcard' }, h('span', { className: 'kg' }, this.ic('branch', 14)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, 'Výsledek · #48102'), h('span', { className: 't' }, 'Migrate partner-cli CI to GitLab')), this.ic('chevr', 14)))),
+        h('section', { className: 'sxs' }, h('h4', null, 'Fáze', h('span', { className: 'n' }, '4 / 5')), h('div', { className: 'mrail' }, order.map(k => { const ph = this.PH[k], st = S.ph[k]; return h('div', { className: 'rli' + (st === 'done' ? ' past' : '') + (st === 'queue' ? ' fut' : '') + (k === 'pub' ? ' on' : '') }, h('span', { className: 'mk2 ' + (st === 'done' ? 'done' : st === 'wait' ? 'wait' : 'queue') }, st === 'done' ? this.ic('check', 11) : this.ic('shield', 10)), h('span', { style: { display: 'block' } }, h('span', { className: 'nm' }, ph.nm, h('span', { className: 'sp' }), h('span', { className: 'tm mono', style: { color: st === 'wait' ? 'var(--amber)' : null } }, st === 'wait' ? 'čeká' : ph.dur || '')), h('span', { className: 'who' }, h('b', null, ph.ag), h('span', { className: 'mdl' }, ph.model)))); })))),
+      appr ? h('div', { className: 'pbar' }, h('button', { className: 'btn' }, this.ic('pause', 12), 'Pause'), h('button', { className: 'btn' }, 'LIVE log')) :
+        h('div', { className: 'pbar' }, h('button', { className: 'btn gh', style: { flex: '.6' } }, 'Zamítnout'), h('button', { className: 'btn pri hold', onPointerDown: this.holdStart, onPointerUp: this.holdStop, onPointerLeave: this.holdStop }, h('i', { style: { width: this.state.hold + '%' } }), h('span', null, this.state.hold > 0 ? 'Drž… ' + Math.round(this.state.hold) + ' %' : 'Podrž pro schválení'))),
+      h('span', { className: 'home', 'aria-hidden': 'true' })));
+  }
+
+  CAPS = {
+    'pr-ov': ['PR · Přehled', 'Klik na řádek v Pull requestech otevře sheet vedle widgetu. J/K (nebo šipky v hlavičce) přepíná PR, crumbs ve stacku taky. Klik na issue CZ3TDR1-896 nebo na běh „Fix CI“ otevře navázaný sheet s tlačítkem Zpět.'],
+    'pr-ch': ['PR · Změny (rozšířený sheet)', 'Widget se zúží na seznam ID, sheet zabere zbytek. Strom souborů s A/M/D/R a ± bary, sbalitelné soubory, Unified ↔ Split, inline vlákno, Viewed, skrytý lock soubor, upozornění na velký diff.'],
+    'run-run': ['Běh · běží', 'Sheet se otevře vlevo od widgetu Běhy (napravo nebylo místo). Stage rail: minulost / přítomnost / budoucnost, smyčka Coder ⇄ Reviewer s koly, agent + model + routing. Čas tiká, log streamuje, moje zprávy Ve frontě / Doručeno. Klikni na jinou fázi — log se přepne.'],
+    'run-appr': ['Běh · čeká na schválení', 'Jediný hlasitý banner: závažnost, riziko, náhled publikace. Tlačítko schválení se musí podržet 1,2 s (zkus to).'],
+    'run-park': ['Běh · zaparkováno', 'Pokusy 3/3, poslední chyba, akce Re-run fresh / Pokračovat s pokynem / Předat. Composer říká, co se po odeslání stane.'],
+    other: ['Kompaktní detaily', 'Stejný rám, lehčí tělo. Každý druh se pozná podle glyfu a rozvržení: Issue má blok „Co s tím dělá Zibby“, Task řetěz kroků, Automatizace rozvrh, Projekt strom workflow → job → krok.'],
+    phone: ['Telefon · PR a Běh jako stránky', 'Hlavička se zmenší, pruh metrik 2×2, banner hned pod hlavičkou, primární akce ve spodní liště. U běhu i na telefonu Hold to approve.']
+  };
+
+  componentDidMount() {
+    this.ti = setInterval(() => { const v = this.view(); if (v === 'run-run' || v === 'run-appr' || v === 'phone') this.setState(s => ({ sec: s.sec + 1 })); }, 1000);
+    this.onKey = e => {
+      const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      const top = this.top(); if (!top) return;
+      const k = (e.key || '').toLowerCase();
+      if ((k === 'j' || k === 'k') && top.k === 'pr') { const ids = this.allPRs().map(p => p.id), i = ids.indexOf(top.id); const n = ids[Math.max(0, Math.min(ids.length - 1, i + (k === 'j' ? 1 : -1)))]; this.replaceTop({ id: n }); }
+      else if (e.key === 'Backspace' || (e.altKey && e.key === 'ArrowLeft')) this.pop();
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { clearInterval(this.ti); clearInterval(this.hi); clearTimeout(this.ct); window.removeEventListener('keydown', this.onKey); }
+
+  renderVals() {
+    const v = this.view(), h = this.h;
+    const VL = [['pr-ov', 'PR · Přehled'], ['pr-ch', 'PR · Změny'], ['run-run', 'Běh · běží'], ['run-appr', 'Běh · schválení'], ['run-park', 'Běh · zaparkováno'], ['other', 'Ostatní detaily'], ['phone', 'Telefon'], ['spec', 'Spec']];
+    const isSpec = v === 'spec';
+    let dash = null;
+    if (!isSpec) {
+      const cap = this.CAPS[v];
+      const body = v.indexOf('pr-') === 0 ? this.prBoard() : v === 'run-run' ? this.runBoard('run') : v === 'run-appr' ? this.runBoard('appr') : v === 'run-park' ? this.runBoard('park') : v === 'other' ? this.gallery() : h('div', { className: 'phs', style: { margin: '14px auto 64px' } }, this.phonePR(), this.phoneRun());
+      dash = h('div', null, h('div', { className: 'cap' }, h('b', null, cap[0]), h('span', null, cap[1])), body);
+    }
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => this.setState({ view: k, stack: null, phase: null, rtab: 'live', hold: 0, approved: false, rexp: false }) })),
+      isDash: !isSpec, isSpec, dash
+    };
+  }
+}
+</script>
+</body>
+</html>
