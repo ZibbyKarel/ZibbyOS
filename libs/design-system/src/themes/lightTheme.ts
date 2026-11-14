@@ -80,8 +80,8 @@ export const lightTheme: Theme = {
   shadowModal: "0 12px 28px rgba(0, 0, 0, 0.1)",
   shadowGlowAccent: "none",
 
-  // ---- Fonts — Inter / JetBrains Mono -----------------------------------------
-  fontSans: "var(--font-sans, Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif)",
+  // ---- Fonts — Geist / Geist Mono --------------------------------------------
+  fontSans: "var(--font-sans, Geist, -apple-system, BlinkMacSystemFont, system-ui, sans-serif)",
   fontMono:
-    "var(--font-mono, 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace)",
+    "var(--font-mono, 'Geist Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace)",
 };

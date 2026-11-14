@@ -1,23 +1,23 @@
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeScript, htmlFontAttrs } from "@zibby/design-system";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "./providers";
 import { PropsWithChildren } from "react";
 
-// Zibby 2.0 design — Inter (UI) + JetBrains Mono (logs, ids, kbd).
-const inter = Inter({
+// Bridge redesign — Geist (UI) + Geist Mono (ids, times, branches). Variable fonts,
+// self-hosted by next/font at build time (no runtime network).
+const geist = Geist({
   subsets: ["latin", "latin-ext"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -38,7 +38,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
   return (
     <html
       suppressHydrationWarning
-      {...htmlFontAttrs(inter.variable, jetbrainsMono.variable)}
+      {...htmlFontAttrs(geist.variable, geistMono.variable)}
       lang={locale}
     >
       <head>

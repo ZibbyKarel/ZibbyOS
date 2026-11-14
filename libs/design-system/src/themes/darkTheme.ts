@@ -1,6 +1,7 @@
 /**
  * Zibby 2.0 dark theme — adopted from the "Zibby-2.0 Dashboard" design
- * (claude.ai/design project `Zibby-2.0`, `Zibby-2.0-Dashboard-Standalone.html`).
+ * (claude.ai/design project `Zibby-2.0`, `Zibby-2.0-Dashboard-Standalone.html`),
+ * values retuned to the Bridge redesign palette (`design/bridge-redesign/bridge.css`).
  *
  * Cool graphite neutrals, soft 10px corners, a single amber brand accent and a
  * Tailwind-ish status palette (violet / sky / amber / rose / emerald). Every value
@@ -25,21 +26,21 @@ export const darkTheme: Theme = {
   colorBg: "#0a0b0d",
   colorPanel: "#0f1114",
   colorPanel2: "#151820",
-  colorLine: "#22262f",
-  colorLine2: "#2d323d",
-  colorInk: "#e6e8ec",
-  colorInk2: "#b4b8c2",
-  colorInk3: "#7a8090",
+  colorLine: "rgba(255, 255, 255, 0.06)",
+  colorLine2: "rgba(255, 255, 255, 0.11)",
+  colorInk: "#eceef2",
+  colorInk2: "#a6acb7",
+  colorInk3: "#80868f",
   // The design has no background grid — kept as a token, painted transparent.
   colorGrid: "transparent",
 
   // ---- State vocabulary (working → thinking → blocked → error → done → idle) --
   colorStateWork: "#a78bfa",
-  colorStateThink: "#38bdf8",
-  colorStateBlock: "#f59e0b",
-  colorStateErr: "#f43f5e",
-  colorStateDone: "#10b981",
-  colorStateIdle: "#555a66",
+  colorStateThink: "#7dd3fc",
+  colorStateBlock: "#f5a524",
+  colorStateErr: "#fb7185",
+  colorStateDone: "#34d399",
+  colorStateIdle: "#6b7280",
 
   // ---- Effects — only live status glows, only in dark -------------------------
   glowWidth: "8px",
@@ -50,28 +51,28 @@ export const darkTheme: Theme = {
   colorBackground: "#0a0b0d", // --bg
   colorSurface: "#0f1114", // --panel
   colorElevated: "#151820", // --panel2
-  colorRaised: "#1b1f28", // design --bg-3
-  colorHover: "#1e222c", // design --bg-hover
+  colorRaised: "#1c2029", // design --bg-3
+  colorHover: "#1c2029", // Bridge spec §7: p3 doubles as hover
 
   // ---- Legacy foreground — mapped onto ink/ink2/ink3 --------------------------
-  colorForeground: "#e6e8ec", // --ink
-  colorForegroundDim: "#b4b8c2", // --ink2
-  colorForegroundFaint: "#7a8090", // --ink3
+  colorForeground: "#eceef2", // --ink
+  colorForegroundDim: "#a6acb7", // --ink2
+  colorForegroundFaint: "#80868f", // --ink3
 
   // ---- Legacy borders — mapped onto line/line2 --------------------------------
-  colorBorder: "#22262f", // --line
-  colorBorderStrong: "#2d323d", // --line2
+  colorBorder: "rgba(255, 255, 255, 0.06)", // --line
+  colorBorderStrong: "rgba(255, 255, 255, 0.11)", // --line2
 
   // ---- Brand accent -----------------------------------------------------------
-  colorAccent: "#f59e0b",
-  colorAccentDim: "rgba(245, 158, 11, 0.12)",
-  colorAccentContrast: "#0a0b0d",
-  colorAccentGlow: "rgba(245, 158, 11, 0.35)",
+  colorAccent: "#f5a524",
+  colorAccentDim: "rgba(245, 165, 36, 0.12)",
+  colorAccentContrast: "#1a1204",
+  colorAccentGlow: "rgba(245, 165, 36, 0.35)",
 
   // ---- Legacy status — LEGACY_TONE_MAP: ok→done, warn→blocked, bad→error, run→working
-  colorOk: "#10b981",
-  colorWarn: "#f59e0b",
-  colorDanger: "#f43f5e",
+  colorOk: "#34d399",
+  colorWarn: "#f5a524",
+  colorDanger: "#fb7185",
   colorRun: "#a78bfa",
 
   // ---- Risk categories — the only categorical palette -------------------------
@@ -90,10 +91,10 @@ export const darkTheme: Theme = {
   // ---- Shadows — design `--shadow-1` (cards) / `--shadow-2` (overlays) --------
   shadowCard: "0 1px 2px rgba(0, 0, 0, 0.35)",
   shadowModal: "0 8px 24px rgba(0, 0, 0, 0.45)",
-  shadowGlowAccent: "0 0 8px rgba(245, 158, 11, 0.45)",
+  shadowGlowAccent: "0 0 8px rgba(245, 165, 36, 0.45)",
 
-  // ---- Fonts — Inter / JetBrains Mono -----------------------------------------
-  fontSans: "var(--font-sans, Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif)",
+  // ---- Fonts — Geist / Geist Mono --------------------------------------------
+  fontSans: "var(--font-sans, Geist, -apple-system, BlinkMacSystemFont, system-ui, sans-serif)",
   fontMono:
-    "var(--font-mono, 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace)",
+    "var(--font-mono, 'Geist Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace)",
 };

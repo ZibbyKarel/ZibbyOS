@@ -108,11 +108,11 @@ export const stateToneVar: Record<StateTone, string> = {
  */
 export const stateToneHex: Record<StateTone, string> = {
   working: "#a78bfa",
-  thinking: "#38bdf8",
-  blocked: "#f59e0b",
-  error: "#f43f5e",
-  done: "#10b981",
-  idle: "#555a66",
+  thinking: "#7dd3fc",
+  blocked: "#f5a524",
+  error: "#fb7185",
+  done: "#34d399",
+  idle: "#6b7280",
 };
 
 let hexCache: Partial<Record<StateTone, string>> = {};

@@ -5,8 +5,8 @@ import { lightTheme } from "./lightTheme";
 
 describe("Zibby 2.0 theme alignment", () => {
   it("maps the design's text-2 onto foreground-faint", () => {
-    expect(darkTheme.colorForegroundFaint).toBe("#7a8090");
-    expect(darkTheme.colorInk3).toBe("#7a8090");
+    expect(darkTheme.colorForegroundFaint).toBe("#80868f");
+    expect(darkTheme.colorInk3).toBe("#80868f");
   });
 
   it("carries no glass recipe", () => {
@@ -37,7 +37,7 @@ describe("Zibby 2.0 theme alignment", () => {
 
   it("running is violet, done is emerald, and the hex fallbacks mirror dark", () => {
     expect(darkTheme.colorStateWork).toBe("#a78bfa");
-    expect(darkTheme.colorStateDone).toBe("#10b981");
+    expect(darkTheme.colorStateDone).toBe("#34d399");
     expect(lightTheme.colorStateWork).toBe("#7c3aed");
     expect(lightTheme.colorStateDone).toBe("#059669");
     expect(stateToneHex).toMatchObject({

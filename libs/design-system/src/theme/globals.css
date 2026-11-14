@@ -50,19 +50,19 @@
   --color-bg: #0a0b0d;
   --color-panel: #0f1114;
   --color-panel-2: #151820;
-  --color-line: #22262f;
-  --color-line-2: #2d323d;
-  --color-ink: #e6e8ec;
-  --color-ink-2: #b4b8c2;
-  --color-ink-3: #7a8090;
+  --color-line: rgba(255, 255, 255, 0.06);
+  --color-line-2: rgba(255, 255, 255, 0.11);
+  --color-ink: #eceef2;
+  --color-ink-2: #a6acb7;
+  --color-ink-3: #80868f;
   --color-grid: transparent;
 
   --color-state-work: #a78bfa;
-  --color-state-think: #38bdf8;
-  --color-state-block: #f59e0b;
-  --color-state-err: #f43f5e;
-  --color-state-done: #10b981;
-  --color-state-idle: #555a66;
+  --color-state-think: #7dd3fc;
+  --color-state-block: #f5a524;
+  --color-state-err: #fb7185;
+  --color-state-done: #34d399;
+  --color-state-idle: #6b7280;
 
   --gw: 8px;
   --dot-r: 9999px;
@@ -73,8 +73,8 @@
   --color-background: var(--color-bg);
   --color-surface: var(--color-panel);
   --color-elevated: var(--color-panel-2);
-  --color-raised: #1b1f28;
-  --color-hover: #1e222c;
+  --color-raised: #1c2029;
+  --color-hover: #1c2029;
   --color-surface-panel: var(--color-panel);
 
   /* ---- Foreground / text — mapped onto ink/ink2/ink3 ---------------------- */
@@ -89,8 +89,8 @@
   --color-overlay: color-mix(in oklch, var(--color-bg) 70%, transparent);
 
   /* ---- Accent — legacy vocabulary; LEGACY_TONE_MAP: accent → thinking ----- */
-  --color-brand: #f59e0b;
-  --color-brand-contrast: #0a0b0d;
+  --color-brand: #f5a524;
+  --color-brand-contrast: #1a1204;
   --color-accent: var(--color-brand);
   --color-accent-dim: color-mix(in oklch, var(--color-brand) 12%, transparent);
   --color-accent-contrast: var(--color-brand-contrast);
@@ -119,6 +119,14 @@
   --color-risk-push: #b07cff;
   --color-risk-send: #56c4d6;
 
+  /* ---- Bridge redesign surfaces (design/bridge-redesign/bridge.css). CSS-only:
+   * not in `Theme`, so the [data-theme] blocks below carry the light values.
+   * Amber soft (`--amb-s`) is `--color-accent-dim`; CTA ink is `--color-accent-contrast`. */
+  --color-tier1-from: #171b23; /* T1 widget gradient, top */
+  --color-tier1-to: #12151a; /* T1 widget gradient, bottom */
+  --color-sheet: #161a22; /* detail sheet surface */
+  --color-paper: #13151a; /* TODO "paper" widget surface */
+
   /* ---- Scene ------------------------------------------------------------- */
   /* Depth comes from the background itself — no scanlines, no grid overlays. */
   --gradient-scene: radial-gradient(
@@ -134,8 +142,8 @@
   --color-white: #ffffff;
 
   /* ---- Typography: font families (DS.md §3 — Geist / Geist Mono) --------- */
-  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ---- Typography: 8-step scale (11–30px, nothing below 11px) ------------
    * label/micro 11 · data 12 · bodySm 13 · body 14 · title 21 · num 26 · display 30
@@ -144,7 +152,8 @@
   --text-xs: 0.6875rem; /* 11px — label / micro */
   --text-sm: 0.75rem; /* 12px — data */
   --text-caption: 0.8125rem; /* 13px — bodySm */
-  --text-base: 0.875rem; /* 14px — body */
+  --text-base: 0.8125rem; /* 13px — body (Bridge redesign base, D6) */
+  --text-base--line-height: 1.5;
   --text-md: 0.875rem; /* 14px */
   --text-lg: 0.875rem; /* 14px */
   --text-xl: 1.3125rem; /* 21px — title */
@@ -152,6 +161,45 @@
   --text-3xl: 1.3125rem; /* 21px */
   --text-4xl: 1.625rem; /* 26px — num */
   --text-5xl: 1.875rem; /* 30px — display */
+
+  /* ---- Typography: Bridge redesign scale (spec §5) — size / line-height /
+   * weight / tracking. `text-widget-t3` and `text-meta` pair with ink2 / ink3. */
+  --text-display: 2.625rem; /* 42 */
+  --text-display--line-height: 42px;
+  --text-display--font-weight: 300;
+  --text-display--letter-spacing: -0.04em;
+  --text-title-xl: 1.875rem; /* 30 */
+  --text-title-xl--line-height: 35px;
+  --text-title-xl--font-weight: 500;
+  --text-title-xl--letter-spacing: -0.03em;
+  --text-title-l: 1.375rem; /* 22 */
+  --text-title-l--line-height: 28px;
+  --text-title-l--font-weight: 600;
+  --text-title-l--letter-spacing: -0.025em;
+  --text-widget-t1: 0.9375rem; /* 15 */
+  --text-widget-t1--line-height: 20px;
+  --text-widget-t1--font-weight: 600;
+  --text-widget-t2: 0.8125rem; /* 13 */
+  --text-widget-t2--line-height: 18px;
+  --text-widget-t2--font-weight: 600;
+  --text-widget-t3: 0.75rem; /* 12 */
+  --text-widget-t3--line-height: 16px;
+  --text-widget-t3--font-weight: 500;
+  --text-body: 0.8125rem; /* 13 */
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 450;
+  --text-reading: 0.84375rem; /* 13.5 */
+  --text-reading--line-height: 20px;
+  --text-reading--font-weight: 400;
+  --text-meta: 0.75rem; /* 12 */
+  --text-meta--line-height: 16px;
+  --text-meta--font-weight: 400;
+  --text-mono: 0.71875rem; /* 11.5 — pair with font-mono */
+  --text-mono--line-height: 16px;
+  --text-overline: 0.6875rem; /* 11 — pair with uppercase */
+  --text-overline--line-height: 14px;
+  --text-overline--font-weight: 500;
+  --text-overline--letter-spacing: 0.06em;
 
   /* ---- Typography: font weights ----------------------------------------- */
   --font-weight-normal: 400;
@@ -174,6 +222,7 @@
   --radius-sm: 6px;
   --radius: 10px;
   --radius-md: 8px;
+  --radius-tile: 9px; /* Bridge tiles / launcher icons */
   --radius-lg: 12px;
   --radius-xl: 14px;
   --radius-2xl: 16px;
@@ -258,6 +307,7 @@
 
 [data-density="compact"] {
   --density: 0.75;
+  --rowpad: 4px;
   --bridge-gap: 8px;
   --bridge-rh: 30px;
   --bridge-bp: 12px;
@@ -282,6 +332,7 @@
 
 [data-density="comfort"] {
   --density: 1;
+  --rowpad: 8px;
   --bridge-gap: 12px;
   --bridge-rh: 32px;
   --bridge-bp: 20px;
@@ -306,6 +357,7 @@
 
 [data-density="airy"] {
   --density: 1.25;
+  --rowpad: 12px;
   --bridge-gap: 14px;
   --bridge-rh: 34px;
   --bridge-bp: 32px;
@@ -330,6 +382,7 @@
 
 [data-density="open"] {
   --density: 1.25;
+  --rowpad: 12px;
   --bridge-gap: 16px;
   --bridge-rh: 34px;
   --bridge-bp: 36px;
@@ -418,6 +471,10 @@
   --color-elevated: var(--color-panel-2);
   --color-raised: #f0f0ec;
   --color-hover: #ececea;
+  --color-tier1-from: var(--color-panel);
+  --color-tier1-to: var(--color-panel-2);
+  --color-sheet: var(--color-panel);
+  --color-paper: var(--color-panel-2);
   --color-surface-panel: var(--color-panel);
   --color-foreground: var(--color-ink);
   --color-foreground-dim: var(--color-ink-2);
@@ -458,27 +515,31 @@
   --color-bg: #0a0b0d;
   --color-panel: #0f1114;
   --color-panel-2: #151820;
-  --color-line: #22262f;
-  --color-line-2: #2d323d;
-  --color-ink: #e6e8ec;
-  --color-ink-2: #b4b8c2;
-  --color-ink-3: #7a8090;
+  --color-line: rgba(255, 255, 255, 0.06);
+  --color-line-2: rgba(255, 255, 255, 0.11);
+  --color-ink: #eceef2;
+  --color-ink-2: #a6acb7;
+  --color-ink-3: #80868f;
   --color-grid: transparent;
   --gw: 8px;
   --dot-r: 9999px;
   --color-state-work: #a78bfa;
-  --color-state-think: #38bdf8;
-  --color-state-block: #f59e0b;
-  --color-state-err: #f43f5e;
-  --color-state-done: #10b981;
-  --color-state-idle: #555a66;
+  --color-state-think: #7dd3fc;
+  --color-state-block: #f5a524;
+  --color-state-err: #fb7185;
+  --color-state-done: #34d399;
+  --color-state-idle: #6b7280;
 
   --color-background-deep: var(--color-bg);
   --color-background: var(--color-bg);
   --color-surface: var(--color-panel);
   --color-elevated: var(--color-panel-2);
-  --color-raised: #1b1f28;
-  --color-hover: #1e222c;
+  --color-raised: #1c2029;
+  --color-hover: #1c2029;
+  --color-tier1-from: #171b23;
+  --color-tier1-to: #12151a;
+  --color-sheet: #161a22;
+  --color-paper: #13151a;
   --color-surface-panel: var(--color-panel);
   --color-foreground: var(--color-ink);
   --color-foreground-dim: var(--color-ink-2);
@@ -486,8 +547,8 @@
   --color-border: var(--color-line);
   --color-border-strong: var(--color-line-2);
   --color-overlay: color-mix(in oklch, var(--color-bg) 70%, transparent);
-  --color-brand: #f59e0b;
-  --color-brand-contrast: #0a0b0d;
+  --color-brand: #f5a524;
+  --color-brand-contrast: #1a1204;
   --color-accent: var(--color-brand);
   --color-accent-dim: color-mix(in oklch, var(--color-brand) 12%, transparent);
   --color-accent-contrast: var(--color-brand-contrast);
@@ -538,6 +599,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    font-feature-settings: "ss01";
     -webkit-font-smoothing: antialiased;
   }
 
