@@ -2328,7 +2328,6 @@
     "loading": "Načítám…",
     "error": "Nepodařilo se načíst.",
     "retry": "Zkusit znovu",
-    "ago": "před {age}",
     "runs": {
       "title": "Běhy",
       "empty": "Žádné běhy",

@@ -744,7 +744,7 @@ function draw(entry: OrbEntry, dt: number, T: number) {
       glow(spx, spy, cc[1], P.sats * 0.5 * sd, lw * 16);
     }
   }
-  // beacon rings (needs you)
+  // signal rings (needs you)
   if (P.ring > 0.03) {
     ctx.fillStyle = rgba(light ? cc[0] : lc[0], 1);
     for (let w = 0; w < 2; w++) {

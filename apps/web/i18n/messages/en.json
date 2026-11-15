@@ -2328,7 +2328,6 @@
     "loading": "Loading…",
     "error": "Couldn't load this.",
     "retry": "Try again",
-    "ago": "{age} ago",
     "runs": {
       "title": "Runs",
       "empty": "No runs",
