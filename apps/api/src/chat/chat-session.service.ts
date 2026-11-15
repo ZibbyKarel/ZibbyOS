@@ -1,6 +1,7 @@
 import { externalSkillPrompt } from "../external-skills/skill-repo";
 import { type ChildProcess, spawn } from "node:child_process";
 import { agentBaseEnv } from "../shared/agent-env";
+import { resolveVaultDir } from "../shared/data-dir";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import {
@@ -720,7 +721,8 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
       detached: true,
       // opencode's stderr is never read; an unread pipe could stall it.
       stdio: ["ignore", "pipe", opts ? "ignore" : "pipe"],
-      env: opts?.env ?? agentBaseEnv(CHAT_CLAUDE_ENV),
+      // ZIBBY_VAULT: where the zibby:todo script finds `projects/<id>/TODO.md` (same vault ZibbyOS uses).
+      env: opts?.env ?? agentBaseEnv({ ...CHAT_CLAUDE_ENV, ZIBBY_VAULT: resolveVaultDir() }),
     }) as ChildProcess;
   }
 

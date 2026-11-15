@@ -21,20 +21,30 @@ export class ProjectVaultService {
 
   async write(project: Project): Promise<void> {
     try {
-      await ensureDir(this.projectsDir);
-      const file = path.join(this.projectsDir, `${project.id}.md`);
-      await writeFileAtomic(file, serialize(project));
+      await ensureDir(path.join(this.projectsDir, project.id));
+      await writeFileAtomic(this.noteFile(project.id), serialize(project));
+      // Migrate on write: a legacy flat note would otherwise duplicate the note id.
+      await fs.unlink(this.legacyFile(project.id)).catch(() => undefined);
     } catch {
       // Vault write is a best-effort mirror; never fail the registry op.
     }
   }
 
+  /** Removes only the profile note; the folder (TODO.md etc.) is the operator's. */
   async remove(id: string): Promise<void> {
-    try {
-      await fs.unlink(path.join(this.projectsDir, `${id}.md`));
-    } catch {
-      // Ignore missing file.
+    for (const file of [this.noteFile(id), this.legacyFile(id)]) {
+      await fs.unlink(file).catch(() => undefined); // missing file is fine
     }
+  }
+
+  /** Folder layout: `projects/<id>/<id>.md`. */
+  private noteFile(id: string): string {
+    return path.join(this.projectsDir, id, `${id}.md`);
+  }
+
+  /** Legacy flat layout: `projects/<id>.md` (read-fallback / cleaned up on write). */
+  private legacyFile(id: string): string {
+    return path.join(this.projectsDir, `${id}.md`);
   }
 }
 

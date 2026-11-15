@@ -196,6 +196,20 @@ function humanizeId(id: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * `projects/index.md` (the projects MOC) and `projects/<id>/TODO.md` (per-project
+ * backlogs) live in the vault but are not notes: a `TODO` id would collide across
+ * projects. Reading a project's note works for both `projects/<id>/<id>.md` and the
+ * legacy flat `projects/<id>.md` (ids are basenames, the walk is recursive).
+ */
+function isProjectsNonNote(rel: string): boolean {
+  const parts = rel.split(path.sep);
+  return (
+    parts[0] === "projects" &&
+    (rel === path.join("projects", "index.md") || parts.at(-1) === "TODO.md")
+  );
+}
+
 /** Note ids whose own writes are never logged (the log itself and the lint report). */
 const UNLOGGED_IDS = new Set(["vault-log", "vault-lint"]);
 const VAULT_LOG_ID = "vault-log";
@@ -619,6 +633,7 @@ export class VaultService implements OnModuleInit {
     if (this.cache && Date.now() - this.cache.at < VaultService.CACHE_MS) return this.cache.notes;
     const notes: RawNote[] = [];
     for (const file of await this.walk(this.dir)) {
+      if (isProjectsNonNote(path.relative(this.dir, file))) continue;
       const raw = await fs.readFile(file, "utf8").catch(() => null);
       if (raw === null) continue;
       let parsed: matter.GrayMatterFile<string>;
