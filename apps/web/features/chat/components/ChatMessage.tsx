@@ -27,11 +27,13 @@ import { useMentionHighlighter } from "../../tasks/hooks/useMentionHighlighter";
 import { useAudioPlayback } from "../hooks/useAudioPlayback";
 import { useSynthesizeSpeechMutation } from "../mutations/useSynthesizeSpeechMutation";
 import { BriefingMessageCard } from "./BriefingMessageCard";
+import { ChatWidgetCard } from "../../zibby/widgets/ChatWidgetCard";
 import { ChatRunCard } from "./ChatRunCard";
 import { TargetIdentity } from "./TargetIdentity";
 
 export enum ChatMessageTestId {
   Root = "chat-message",
+  Widgets = "chat-message-widgets",
   UserBubble = "chat-message-user",
   AssistantBubble = "chat-message-assistant",
   Text = "chat-message-text",
@@ -72,6 +74,11 @@ export interface ChatMessageProps {
   onCreateTask?: () => void;
   /** The hand-off is being prepared (the conversation may be compacting). */
   createTaskPending?: boolean;
+  /**
+   * Lets an inline widget card (`toolEvents[].widget`) send a follow-up message to Zibby on the
+   * operator's behalf (e.g. the CI card's "fix it"). Omit and such buttons are not rendered.
+   */
+  onPrompt?: (text: string) => void;
 }
 
 /** Map a tool event status onto the DS StatusDot tone. */
@@ -88,8 +95,10 @@ function toolTone(status: ChatToolEvent["status"]): DotTone {
  */
 export function visibleToolEvents(events: ChatToolEvent[], streaming: boolean): ChatToolEvent[] {
   const isDispatch = (e: ChatToolEvent) => e.name === "create_task";
-  const latest = streaming ? events.filter((e) => !isDispatch(e)).at(-1) : undefined;
-  return events.filter((e) => isDispatch(e) || e === latest);
+  // A widget event renders as a card (see `ChatMessage`), never as a plain tool row.
+  const progress = events.filter((e) => !e.widget);
+  const latest = streaming ? progress.filter((e) => !isDispatch(e)).at(-1) : undefined;
+  return progress.filter((e) => isDispatch(e) || e === latest);
 }
 
 function ToolEventRow({ event }: { event: ChatToolEvent }) {
@@ -210,6 +219,7 @@ export function ChatMessage({
   streaming,
   onCreateTask,
   createTaskPending,
+  onPrompt,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
   const isUser = role === "user";
@@ -217,6 +227,7 @@ export function ChatMessage({
   // never the live-streaming bubble (its text isn't final yet) or a user turn.
   const showActions = !isUser && !streaming && text.trim().length > 0;
   const shownToolEvents = visibleToolEvents(toolEvents ?? [], Boolean(streaming));
+  const widgetEvents = (toolEvents ?? []).filter((e) => e.widget !== undefined);
 
   return (
     <Stack
@@ -305,6 +316,20 @@ export function ChatMessage({
           {shownToolEvents.map((event, i) => (
             <ToolEventRow event={event} key={`${event.name}-${i}`} />
           ))}
+        </Stack>
+      )}
+
+      {widgetEvents.length > 0 && (
+        <Stack data-testid={ChatMessageTestId.Widgets} direction="col" gap="100">
+          {widgetEvents.map((event, i) =>
+            event.widget ? (
+              <ChatWidgetCard
+                key={event.callId ?? `${event.name}-${i}`}
+                onPrompt={onPrompt}
+                widget={event.widget}
+              />
+            ) : null,
+          )}
         </Stack>
       )}
     </Stack>

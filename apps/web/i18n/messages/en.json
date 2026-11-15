@@ -1000,6 +1000,60 @@
     "confirmRevise": "Send",
     "cancelRevise": "Cancel"
   },
+  "zibbyConversations": {
+    "newTitle": "New conversation",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "older": "Older"
+    },
+    "toast": {
+      "savedInHistory": "The previous conversation is saved in history",
+      "cleared": "Conversation cleared",
+      "deleted": "Deleted “{title}”",
+      "undo": "Undo"
+    },
+    "errors": {
+      "open": "Couldn't open the conversation.",
+      "rename": "Couldn't rename the conversation.",
+      "clear": "Couldn't clear the conversation.",
+      "delete": "Couldn't delete the conversation.",
+      "restore": "Couldn't restore the conversation."
+    }
+  },
+  "zibbyVoice": {
+    "status": {
+      "sleep": "Asleep",
+      "ready": "I'm here · hold Space and talk",
+      "wake": "Waking up…",
+      "listen": "Listening…",
+      "think": "Thinking…",
+      "search": "Searching…",
+      "work": "Working…",
+      "speak": "Speaking · press Space to interrupt me",
+      "needs": "Waiting for you",
+      "done": "Done",
+      "error": "Something went wrong",
+      "paused": "Paused",
+      "drop": "Drop the files, I'll read them"
+    },
+    "hint": {
+      "tooShort": "Hold Space the whole time you speak."
+    },
+    "error": {
+      "micDenied": "Microphone access is blocked — allow it in the site settings and try again.",
+      "unavailable": "Voice input isn't available here. You can type instead."
+    },
+    "mode": {
+      "ptt": "Hold Space",
+      "handsfree": "Hands-free"
+    },
+    "mute": {
+      "on": "Mute voice",
+      "off": "Turn voice on"
+    }
+  },
   "zibbyShortcut": {
     "title": "Shortcuts",
     "hint": "The global combination that summons Zibby from any page, even while you are typing. Tap to open; hold to talk and release to send.",
@@ -2323,7 +2377,9 @@
         "jira": "Jira",
         "github": "GitHub",
         "slack": "Slack",
-        "email": "Email"
+        "email": "Email",
+        "calendar": "Calendar",
+        "sentry": "Sentry"
       },
       "state": {
         "new": "New",

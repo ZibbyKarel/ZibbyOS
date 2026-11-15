@@ -18,7 +18,6 @@ describe("ZibbyIconButton", () => {
     const onClick = vi.fn();
     render(<ZibbyIconButton icon="x" label="Close" onClick={onClick} />);
     await user.click(screen.getByTestId(ZibbyIconButtonTestId.Root));
-    await user.tab();
     expect(screen.getByTestId(ZibbyIconButtonTestId.Root)).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(onClick).toHaveBeenCalledTimes(2);

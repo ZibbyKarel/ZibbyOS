@@ -13,8 +13,8 @@ import {
   Icon,
   Stack,
   StatusDot,
-  TextLink,
   type SubNavLinkComponent,
+  TextLink,
   Typography,
 } from "@zibby/design-system";
 
@@ -90,17 +90,22 @@ export function ChatWidgetFrame({
 
   return (
     <Card
+      clip
       aria-busy={status === "loading"}
       aria-label={title}
       background="raised"
-      clip
       data-testid={rootTestId}
       radius="lg"
       role="region"
     >
       <Stack direction="col">
         <Container padding={["100", "150"]}>
-          <Stack align="center" data-testid={ChatWidgetFrameTestId.Header} direction="row" gap="100">
+          <Stack
+            align="center"
+            data-testid={ChatWidgetFrameTestId.Header}
+            direction="row"
+            gap="100"
+          >
             <Container grow minW0>
               <Stack align="baseline" direction="row" gap="75">
                 <Typography
@@ -114,8 +119,8 @@ export function ChatWidgetFrame({
                 </Typography>
                 {count !== undefined && count > 0 && (
                   <Typography
-                    data-testid={ChatWidgetFrameTestId.Count}
                     mono
+                    data-testid={ChatWidgetFrameTestId.Count}
                     size="xs"
                     type="note"
                     variant="tertiary"
@@ -286,8 +291,8 @@ export function ChatWidgetRow({
   const suffix = itemKey ? `-${itemKey}` : "";
   const titleText = (
     <Typography
-      as="span"
       truncate
+      as="span"
       size="sm"
       type="note"
       variant={dim ? "tertiary" : "primary"}

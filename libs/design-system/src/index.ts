@@ -587,6 +587,12 @@ export type {
 } from "./components/BrandMark/BrandMark";
 export { ZibbyOrb, ZibbyOrbTestId, ZIBBY_ORB_STATES } from "./components/ZibbyOrb/ZibbyOrb";
 export type { ZibbyOrbProps, ZibbyOrbState } from "./components/ZibbyOrb/ZibbyOrb";
+export {
+  ZibbyOverlay,
+  ZibbyOverlayTestId,
+  ZIBBY_OVERLAY_AUTOFOCUS_ATTR,
+} from "./components/ZibbyOverlay/ZibbyOverlay";
+export type { ZibbyOverlayProps, ZibbyOverlayPhase } from "./components/ZibbyOverlay/ZibbyOverlay";
 export { Wordmark, WordmarkTestId } from "./components/Wordmark/Wordmark";
 export type { WordmarkProps, WordmarkSize } from "./components/Wordmark/Wordmark";
 
@@ -754,3 +760,79 @@ export { Tile, TileGrid, TileGridTestId } from "./components/TileGrid/TileGrid";
 export type { TileGridProps, TileProps } from "./components/TileGrid/TileGrid";
 export { TimelineAxis, TimelineAxisTestId } from "./components/TimelineAxis/TimelineAxis";
 export type { TimelineAxisProps, TimelinePoint } from "./components/TimelineAxis/TimelineAxis";
+export {
+  ZibbyBubble,
+  ZibbyBubbleTestId,
+  type ZibbyBubbleAuthor,
+  type ZibbyBubbleProps,
+} from "./components/ZibbyBubble/ZibbyBubble";
+export {
+  ZibbyThreadEmpty,
+  ZibbyThreadEmptyTestId,
+  type ZibbyThreadEmptyProps,
+} from "./components/ZibbyThreadEmpty/ZibbyThreadEmpty";
+export {
+  ZibbySuggestions,
+  ZibbySuggestionsTestId,
+  type ZibbySuggestionItem,
+  type ZibbySuggestionsProps,
+} from "./components/ZibbySuggestions/ZibbySuggestions";
+export {
+  ZibbyPttButton,
+  ZibbyPttButtonTestId,
+  type ZibbyPttButtonProps,
+} from "./components/ZibbyPttButton/ZibbyPttButton";
+export {
+  ZibbyComposerBar,
+  ZibbyComposerInput,
+  ZibbyComposerBarTestId,
+  type ZibbyComposerBarProps,
+  type ZibbyComposerInputProps,
+} from "./components/ZibbyComposerBar/ZibbyComposerBar";
+export {
+  ZibbyFooter,
+  ZibbyFooterTestId,
+  type ZibbyFooterProps,
+} from "./components/ZibbyFooter/ZibbyFooter";
+export {
+  ZibbyAttachmentChip,
+  ZibbyAttachmentChipTestId,
+  type ZibbyAttachmentKind,
+  type ZibbyAttachmentChipProps,
+} from "./components/ZibbyAttachmentChip/ZibbyAttachmentChip";
+export {
+  ZibbyAttachmentRow,
+  ZibbyAttachmentRowTestId,
+  type ZibbyAttachmentRowProps,
+} from "./components/ZibbyAttachmentRow/ZibbyAttachmentRow";
+export { ZibbyChip, ZibbyChipTestId, type ZibbyChipProps } from "./components/ZibbyChip/ZibbyChip";
+
+export {
+  ZibbyIconButton,
+  ZibbyIconButtonTestId,
+} from "./components/ZibbyIconButton/ZibbyIconButton";
+export type {
+  ZibbyIconButtonProps,
+  ZibbyIconButtonSize,
+} from "./components/ZibbyIconButton/ZibbyIconButton";
+export { ZibbyTopBar, ZibbyTopBarTestId } from "./components/ZibbyTopBar/ZibbyTopBar";
+export type { ZibbyTopBarProps } from "./components/ZibbyTopBar/ZibbyTopBar";
+export {
+  ZibbyTopBarMenu,
+  ZibbyTopBarMenuTestId,
+} from "./components/ZibbyTopBarMenu/ZibbyTopBarMenu";
+export type {
+  ZibbyTopBarMenuItem,
+  ZibbyTopBarMenuProps,
+} from "./components/ZibbyTopBarMenu/ZibbyTopBarMenu";
+export {
+  ZibbyHistoryPanel,
+  ZibbyHistoryPanelTestId,
+} from "./components/ZibbyHistoryPanel/ZibbyHistoryPanel";
+export type {
+  ZibbyHistoryGroup,
+  ZibbyHistoryItemData,
+  ZibbyHistoryPanelProps,
+} from "./components/ZibbyHistoryPanel/ZibbyHistoryPanel";
+export { ZibbyToast, ZibbyToastTestId } from "./components/ZibbyToast/ZibbyToast";
+export type { ZibbyToastProps } from "./components/ZibbyToast/ZibbyToast";

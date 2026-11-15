@@ -1000,6 +1000,60 @@
     "confirmRevise": "Odeslat",
     "cancelRevise": "Zrušit"
   },
+  "zibbyConversations": {
+    "newTitle": "Nový rozhovor",
+    "groups": {
+      "today": "Dnes",
+      "yesterday": "Včera",
+      "thisWeek": "Tento týden",
+      "older": "Starší"
+    },
+    "toast": {
+      "savedInHistory": "Předchozí rozhovor je uložený v historii",
+      "cleared": "Konverzace vyčištěna",
+      "deleted": "Smazáno „{title}“",
+      "undo": "Vrátit"
+    },
+    "errors": {
+      "open": "Rozhovor se nepodařilo otevřít.",
+      "rename": "Rozhovor se nepodařilo přejmenovat.",
+      "clear": "Konverzaci se nepodařilo vyčistit.",
+      "delete": "Rozhovor se nepodařilo smazat.",
+      "restore": "Rozhovor se nepodařilo vrátit."
+    }
+  },
+  "zibbyVoice": {
+    "status": {
+      "sleep": "Spí",
+      "ready": "Jsem tady · drž mezerník a mluv",
+      "wake": "Probouzím se…",
+      "listen": "Poslouchám…",
+      "think": "Přemýšlím…",
+      "search": "Hledám…",
+      "work": "Pracuji…",
+      "speak": "Mluvím · mezerníkem mě přerušíš",
+      "needs": "Čekám na tebe",
+      "done": "Hotovo",
+      "error": "Něco se nepovedlo",
+      "paused": "Pozastaveno",
+      "drop": "Pusť soubory, přečtu je"
+    },
+    "hint": {
+      "tooShort": "Drž mezerník po celou dobu, co mluvíš."
+    },
+    "error": {
+      "micDenied": "Přístup k mikrofonu je zablokovaný — povol ho v nastavení stránky a zkus to znovu.",
+      "unavailable": "Hlasový vstup tu není dostupný. Můžeš psát."
+    },
+    "mode": {
+      "ptt": "Drž mezerník",
+      "handsfree": "Hands-free"
+    },
+    "mute": {
+      "on": "Ztlumit hlas",
+      "off": "Zapnout hlas"
+    }
+  },
   "zibbyShortcut": {
     "title": "Zkratky",
     "hint": "Globální kombinace, kterou vyvoláš Zibbyho na kterékoli stránce, i když zrovna píšeš. Ťuknutím otevřeš; podržením mluvíš a puštěním odešleš.",
@@ -2323,7 +2377,9 @@
         "jira": "Jira",
         "github": "GitHub",
         "slack": "Slack",
-        "email": "E-mail"
+        "email": "E-mail",
+        "calendar": "Kalendář",
+        "sentry": "Sentry"
       },
       "state": {
         "new": "Nové",

@@ -1185,6 +1185,16 @@
       transform: scaleY(1);
     }
   }
+  /* Zibby push-to-talk waveform bar (18px bar, 4px → 18px). */
+  @keyframes zb-wave {
+    0%,
+    100% {
+      transform: scaleY(0.22);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
 }
 
 /* Markdown prose (`Markdown`'s `variant="prose"`) — the chat transcript and

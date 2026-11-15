@@ -6,17 +6,15 @@ import type { ChatWidget } from "@zibby/contracts";
 import type { StateTone } from "@zibby/design-system";
 import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
-import { useInvalidateOnTerminalRun, useLiveRunsSnapshot } from "../../runs/components/TasksDockPanel";
+import {
+  useInvalidateOnTerminalRun,
+  useLiveRunsSnapshot,
+} from "../../runs/components/TasksDockPanel";
 import { useRecentArchivedRunsQuery } from "../../runs/queries/useRecentArchivedRunsQuery";
 import { useRunsQuery } from "../../runs/queries/useRunsQuery";
 import type { RunView } from "../../runs/run";
 import { runRows } from "../../bridge/state/rows";
-import {
-  ChatWidgetFrame,
-  ChatWidgetRow,
-  takeRows,
-  widgetStatus,
-} from "./ChatWidgetFrame";
+import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum RunsWidgetCardTestId {
   Root = "runs-widget-card",

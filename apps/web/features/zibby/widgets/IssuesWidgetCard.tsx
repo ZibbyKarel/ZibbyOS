@@ -37,8 +37,7 @@ export function IssuesWidgetCard({ widget }: IssuesWidgetCardProps) {
       search: "",
       showDone: false,
       showHidden: false,
-    })
-      .filter((item) => !widget.projectId || item.project.id === widget.projectId);
+    }).filter((item) => !widget.projectId || item.project.id === widget.projectId);
     return items.map((item) => issueRow("zibby", item, [], (iso) => compactAgo(iso, now)));
   }, [query.data, filters, widget.projectId, now]);
 

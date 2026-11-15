@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { OPERATOR_QUESTION_ACTION, type ChatWidget } from "@zibby/contracts";
+import { type ChatWidget, OPERATOR_QUESTION_ACTION } from "@zibby/contracts";
 import { Button, HoldButton, Typography } from "@zibby/design-system";
 import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
 import { useApprovalsQuery, useApproveMutation, useRejectMutation } from "../../approvals";
-import { HIGH_RISK_TYPES, type DashboardApproval } from "../../approvals/approval";
+import { type DashboardApproval, HIGH_RISK_TYPES } from "../../approvals/approval";
 import { useRunsQuery } from "../../runs/queries/useRunsQuery";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 

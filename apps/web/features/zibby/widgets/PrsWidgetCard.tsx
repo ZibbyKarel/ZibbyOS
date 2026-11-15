@@ -23,7 +23,10 @@ export interface PrsWidgetCardProps {
 
 /** A PR carries no project id — only `org/repo`. A project owns it when its git remote ends in that repo. */
 export function projectOwnsRepo(project: Pick<Project, "gitRemote"> | undefined, repo: string) {
-  const remote = project?.gitRemote?.replace(/\.git$/, "").replace(/\/$/, "").toLowerCase();
+  const remote = project?.gitRemote
+    ?.replace(/\.git$/, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
   return remote !== undefined && remote.endsWith(repo.toLowerCase());
 }
 
@@ -54,9 +57,7 @@ export function PrsWidgetCard({ widget }: PrsWidgetCardProps) {
       ? (projects ?? []).find((p) => p.id === widget.projectId)
       : undefined;
     const prs: InboxPr[] = (query.data?.prs ?? []).filter(
-      (p) =>
-        passesFilters(filters, p) &&
-        (!widget.projectId || projectOwnsRepo(project, p.repo)),
+      (p) => passesFilters(filters, p) && (!widget.projectId || projectOwnsRepo(project, p.repo)),
     );
     return prs
       .map((p) => ({

@@ -44,6 +44,8 @@ export default defineConfig({
       "features/zibby/shortcut/**/*.test.{ts,tsx}",
       // Zibby voice engine (PTT / hands-free / TTS hooks + orb-state derivation).
       "features/zibby/voice/**/*.test.{ts,tsx}",
+      // Zibby overlay conversation state (grouping helpers + history hook).
+      "features/zibby/conversations/**/*.test.{ts,tsx}",
       // Feature mutation hooks (TanStack Query mutations; renderHook needs jsdom).
       "features/*/mutations/**/*.test.{ts,tsx}",
       // Shared hooks (generic cross-domain browser-API wrappers).

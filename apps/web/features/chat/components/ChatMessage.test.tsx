@@ -4,9 +4,18 @@ import type { Briefing } from "@zibby/contracts";
 import { FilePreviewTestId, HighlightTextTestId } from "@zibby/design-system";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import { BriefingMessageCardTestId } from "./BriefingMessageCard";
-import { ChatMessage, ChatMessageTestId } from "./ChatMessage";
+import { ChatMessage, ChatMessageTestId, visibleToolEvents } from "./ChatMessage";
 import { TargetIdentityTestId } from "./TargetIdentity";
 import { ChatRunCardTestId } from "./ChatRunCard";
+
+// Inline widget cards are unit-tested in features/zibby/widgets; here we only assert the wiring.
+vi.mock("../../zibby/widgets/ChatWidgetCard", () => ({
+  ChatWidgetCard: (p: { widget: { kind: string }; onPrompt?: (t: string) => void }) => (
+    <button data-testid="widget-card" onClick={() => p.onPrompt?.("fix")} type="button">
+      {p.widget.kind}
+    </button>
+  ),
+}));
 
 const calmBriefing: Briefing = {
   generatedAt: "2026-07-19T07:00:00.000Z",
@@ -435,6 +444,45 @@ describe("ChatMessage", () => {
 
       expect(stop).toHaveBeenCalledTimes(1);
       expect(mutate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("inline widgets", () => {
+    const events = [
+      {
+        name: "show_widget",
+        status: "ok" as const,
+        callId: "w-1",
+        widget: { kind: "ci" as const },
+      },
+      {
+        name: "show_widget",
+        status: "ok" as const,
+        callId: "w-2",
+        widget: { kind: "runs" as const },
+      },
+    ];
+
+    it("renders a card per widget event in order, not as a plain tool row", () => {
+      renderWithProviders(<ChatMessage role="assistant" text="Hotovo" toolEvents={events} />);
+      const cards = within(screen.getByTestId(ChatMessageTestId.Widgets)).getAllByTestId(
+        "widget-card",
+      );
+      expect(cards.map((c) => c.textContent)).toEqual(["ci", "runs"]);
+      expect(screen.queryByTestId(ChatMessageTestId.ToolEvent)).not.toBeInTheDocument();
+    });
+
+    it("threads onPrompt to the card", async () => {
+      const onPrompt = vi.fn();
+      renderWithProviders(
+        <ChatMessage onPrompt={onPrompt} role="assistant" text="x" toolEvents={events} />,
+      );
+      await userEvent.click(screen.getAllByTestId("widget-card")[0] as HTMLElement);
+      expect(onPrompt).toHaveBeenCalledWith("fix");
+    });
+
+    it("excludes widget events from visibleToolEvents", () => {
+      expect(visibleToolEvents(events, true)).toEqual([]);
     });
   });
 });

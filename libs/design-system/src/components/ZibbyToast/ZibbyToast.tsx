@@ -1,6 +1,5 @@
 import type { Ref } from "react";
 import { cn } from "../../utils/cn";
-import { focusRing } from "../../utils/focus";
 
 export enum ZibbyToastTestId {
   Root = "zibby-toast-root",

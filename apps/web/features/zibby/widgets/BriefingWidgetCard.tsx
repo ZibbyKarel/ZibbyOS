@@ -34,7 +34,13 @@ export function BriefingWidgetCard({ widget }: BriefingWidgetCardProps) {
   const query = useBriefingQuery();
   const briefing = query.data;
 
-  const status = query.isError ? "error" : query.isPending ? "loading" : briefing ? "ready" : "empty";
+  const status = query.isError
+    ? "error"
+    : query.isPending
+      ? "loading"
+      : briefing
+        ? "ready"
+        : "empty";
   const needs = briefing?.needsYou ?? [];
   const watching = briefing?.watching.filter((w) => w.integrationId).length ?? 0;
 

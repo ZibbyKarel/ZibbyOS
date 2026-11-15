@@ -26,6 +26,8 @@ export interface ChatTranscriptProps {
   onCreateTask?: (messageId: string) => void;
   /** The message whose hand-off is being prepared, if any. */
   creatingTaskFor?: string;
+  /** Lets inline widget cards send a follow-up message to Zibby (persisted and live turns). */
+  onPrompt?: (text: string) => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export function ChatTranscript({
   thinking,
   onCreateTask,
   creatingTaskFor,
+  onPrompt,
 }: ChatTranscriptProps) {
   const t = useTranslations("chat");
   const hasLive =
@@ -63,6 +66,7 @@ export function ChatTranscript({
           key={message.id}
           mentions={message.mentions}
           onCreateTask={onCreateTask && (() => onCreateTask(message.id))}
+          onPrompt={onPrompt}
           role={message.role}
           text={message.text}
           toolEvents={message.toolEvents}
@@ -72,6 +76,7 @@ export function ChatTranscript({
       {hasLive && (
         <div data-testid={ChatTranscriptTestId.LiveTurn}>
           <ChatMessage
+            onPrompt={onPrompt}
             role="assistant"
             streaming={streaming}
             text={liveText ?? ""}

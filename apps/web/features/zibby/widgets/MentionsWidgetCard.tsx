@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import type { ChannelItem, ChatWidget, IntegrationKind } from "@zibby/contracts";
+import type { ChannelItem, ChatWidget } from "@zibby/contracts";
 import { Tag } from "@zibby/design-system";
 import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
@@ -18,9 +18,6 @@ export enum MentionsWidgetCardTestId {
 export interface MentionsWidgetCardProps {
   widget: Extract<ChatWidget, { kind: "mentions" }>;
 }
-
-/** Channel kinds the card names; anything else falls back to the raw kind. */
-const SOURCE_KINDS: readonly IntegrationKind[] = ["jira", "github", "slack", "email"];
 
 /** Items still open for the operator: not ignored (via `mentionItems`) and not yet handled. */
 export function openMentions(items: readonly ChannelItem[], projectId?: string): ChannelItem[] {
@@ -50,8 +47,6 @@ export function MentionsWidgetCard({ widget }: MentionsWidgetCardProps) {
     [query.data, widget.projectId],
   );
   const { shown, hiddenCount } = takeRows(rows, widget.limit);
-  const sourceLabel = (kind: IntegrationKind) =>
-    (SOURCE_KINDS as readonly string[]).includes(kind) ? t(`mentions.source.${kind}`) : kind;
 
   return (
     <ChatWidgetFrame
@@ -80,7 +75,7 @@ export function MentionsWidgetCard({ widget }: MentionsWidgetCardProps) {
           tone={i.state === "new" || i.state === "needs-draft" ? "wait" : "idle"}
           trailing={
             <Tag data-testid={`${MentionsWidgetCardTestId.Source}-${i.id}`} tone="neutral">
-              {sourceLabel(i.kind)}
+              {t(`mentions.source.${i.kind}`)}
             </Tag>
           }
         />
