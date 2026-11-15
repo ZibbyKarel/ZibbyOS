@@ -22,7 +22,8 @@ import {
 import { CatalogProvider } from "../../../state/store";
 import { NEW_TASK_PAGE_HREF, NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
-import { ChatDock, ChatProvider, useChat } from "../../../features/chat";
+import { ChatProvider, useChat } from "../../../features/chat";
+import { ZibbyHeaderChip, ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
 import { CommandPaletteHost, useCommandPaletteHotkey } from "../../../features/command-palette";
 import { ApprovalSheet } from "../../../features/approvals/components/ApprovalSheet";
 import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSheetParam";
@@ -359,7 +360,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
   const currentHref = pinHrefFor(pathname, searchParams.toString());
   const onPinRequested = () => setPinDialogOpen(true);
   const openNote = () => {
-    // Close the chat so its mic turns off and its Esc listener does not also close the note.
+    // Close Zibby so its mic turns off and its Esc listener does not also close the note.
     setDockOpen(false);
     setNoteOpen(true);
   };
@@ -381,8 +382,9 @@ function AppShellChrome({ children }: { children: ReactNode }) {
           dock={
             <>
               <NoteDock onClose={() => setNoteOpen(false)} open={noteOpen} />
-              {/* Hidden, not unmounted: unmounting drops the composer draft, the in-flight stream and the open thread. */}
-              <ChatDock hidden={noteOpen} />
+              {/* Zibby: the overlay assistant (full screen, summoned from anywhere). It owns the
+                  chat engine — mounted exactly once, so the app keeps a single SSE stream. */}
+              <ZibbyHost />
             </>
           }
           fullBleed={pathname === "/dashboard"}
@@ -391,6 +393,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
               <MobileToolbar
                 actions={
                   <>
+                    <ZibbyHeaderChip iconOnly needsAttention={trailing.markState === "blocked"} />
                     {pageActions}
                     <AutopilotToggle />
                     <PinControl
@@ -418,6 +421,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 searchLabel={tShell("search")}
                 themeToggle={<ThemeToggle />}
                 version={trailing.version}
+                zibby={<ZibbyHeaderChip needsAttention={trailing.markState === "blocked"} />}
               />
             )
           }
@@ -464,11 +468,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           "+ NEW TASK" action and the retired HUD's own doc history. */}
       <NewTaskProvider>
         <ChatProvider>
-          <ApprovalNotifier />
-          <AutopilotGlow />
-          <Suspense>
-            <AppShellChrome>{children}</AppShellChrome>
-          </Suspense>
+          <ZibbyLiveProvider>
+            <ApprovalNotifier />
+            <AutopilotGlow />
+            <Suspense>
+              <AppShellChrome>{children}</AppShellChrome>
+            </Suspense>
+          </ZibbyLiveProvider>
         </ChatProvider>
       </NewTaskProvider>
     </CatalogProvider>

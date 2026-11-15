@@ -1000,6 +1000,79 @@
     "confirmRevise": "Odeslat",
     "cancelRevise": "Zrušit"
   },
+  "zibby": {
+    "label": "Zibby",
+    "chip": {
+      "label": "Zibby",
+      "aria": "Vyvolat Zibbyho ({shortcut})"
+    },
+    "thread": {
+      "empty": "Drž mezerník a mluv, nebo sem přetáhni soubory. Puštěním mezerníku se zpráva sama odešle a Zibby odpoví hlasem i textem.",
+      "meta": {
+        "voice": "přepis · {time}",
+        "typed": "napsáno · {time}"
+      }
+    },
+    "suggestions": {
+      "lead": "Zkus říct:",
+      "label": "Návrhy, co říct",
+      "today": "Co mě dneska čeká?",
+      "approvals": "Co čeká na schválení?",
+      "prs": "Ukaž moje pull requesty"
+    },
+    "composer": {
+      "label": "Napsat Zibbymu",
+      "placeholder": "nebo napiš…",
+      "placeholderAttached": "Napiš, co s tím…",
+      "send": "Odeslat",
+      "sendBusy": "Zibby ještě odpovídá"
+    },
+    "ptt": {
+      "holdAria": "Drž a mluv",
+      "tapAria": "Ťukni a mluv",
+      "holdIdle": "Drž Space a mluv",
+      "holdActive": "Pusť a odešle se",
+      "tapIdle": "Ťukni a mluv",
+      "tapActive": "Ťukni pro konec"
+    },
+    "topBar": {
+      "history": "Historie",
+      "historyKbd": "⌥ H",
+      "titleHint": "Přejmenovat",
+      "titleInput": "Název rozhovoru",
+      "new": "Nový rozhovor",
+      "menu": "Další akce s rozhovorem",
+      "rename": "Přejmenovat",
+      "clear": "Vyčistit a začít znovu",
+      "delete": "Smazat rozhovor",
+      "close": "Zavřít (Esc)"
+    },
+    "history": {
+      "label": "Historie rozhovorů",
+      "title": "Rozhovory",
+      "close": "Zavřít historii (⌥ H)",
+      "new": "Nový rozhovor",
+      "searchLabel": "Hledat v rozhovorech",
+      "searchPlaceholder": "Hledat v rozhovorech…",
+      "clearSearch": "Vymazat hledání",
+      "empty": "Zatím žádné rozhovory",
+      "noMatch": "Nic nenalezeno pro „{query}“",
+      "rename": "Přejmenovat „{title}“",
+      "delete": "Smazat „{title}“",
+      "renameInput": "Nový název rozhovoru",
+      "footer": "Ukládá se automaticky · ⌥ H otevře a zavře · dvojklik přejmenuje"
+    },
+    "footer": {
+      "mode": "Režim mluvení",
+      "voiceOn": "Hlas zapnutý",
+      "voiceOff": "Hlas vypnutý · jen text",
+      "hint": "Esc zavře · {shortcut} vyvolá · soubory přetáhni kamkoli"
+    },
+    "drop": {
+      "title": "Pusť soubory sem",
+      "hint": "Zibby je přečte a přiloží k rozhovoru · obrázky, PDF, kód, tabulky"
+    }
+  },
   "zibbyConversations": {
     "newTitle": "Nový rozhovor",
     "groups": {

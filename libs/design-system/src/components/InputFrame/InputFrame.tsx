@@ -13,14 +13,22 @@ export interface InputFrameProps {
   /** Trailing control (e.g. mic button). */
   end?: ReactNode;
   children: ReactNode;
+  /** Drop the hairline border, fill and corners — for a host that already frames the row
+   *  itself (the Zibby composer bar). Default `false`. */
+  bare?: boolean;
   ref?: Ref<HTMLDivElement>;
 }
 
 /** The framed one-line composer box: `start | input | end`, hairline border, 8px corners. */
-export function InputFrame({ start, end, children, ref }: InputFrameProps) {
+export function InputFrame({ start, end, children, bare = false, ref }: InputFrameProps) {
   return (
     <div
-      className="flex min-h-[34px] min-w-0 flex-1 items-center rounded-md border border-line-2 bg-panel transition-colors focus-within:border-accent motion-reduce:transition-none"
+      className={
+        bare
+          ? "flex min-h-[34px] min-w-0 flex-1 items-center"
+          : "flex min-h-[34px] min-w-0 flex-1 items-center rounded-md border border-line-2 bg-panel transition-colors focus-within:border-accent motion-reduce:transition-none"
+      }
+      data-bare={bare || undefined}
       data-testid={InputFrameTestId.Root}
       ref={ref}
     >

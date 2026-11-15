@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { Briefing } from "@zibby/contracts";
-import { FilePreviewTestId, HighlightTextTestId } from "@zibby/design-system";
+import { FilePreviewTestId, HighlightTextTestId, ZibbyBubbleTestId } from "@zibby/design-system";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import { BriefingMessageCardTestId } from "./BriefingMessageCard";
 import { ChatMessage, ChatMessageTestId, visibleToolEvents } from "./ChatMessage";
@@ -107,26 +107,57 @@ describe("ChatMessage", () => {
     expect(screen.getByTestId(ChatMessageTestId.AssistantBubble)).toBeInTheDocument();
   });
 
-  it("distinguishes assistant vs user turns by background tone, with no repeated author header (Phase 33)", () => {
+  it("distinguishes assistant vs user turns: free text with an orb avatar vs a filled bubble", () => {
     renderWithProviders(<ChatMessage role="assistant" text="Ahoj!" />);
-    // Bridge redesign: ZIBBY's reply is an unfilled, bordered bubble — the
-    // operator's own turn is the neutral filled one (below).
+    // ZIBBY's reply is free text beside a 28 px orb avatar — no filled bubble, no author header.
     const assistant = screen.getByTestId(ChatMessageTestId.AssistantBubble);
-    expect(assistant.className).toContain("border-line");
+    expect(assistant).toHaveAttribute("data-author", "zibby");
     expect(assistant.className).not.toContain("bg-panel-2");
-    // The old per-message "ZIBBY" name + bowler-hat header is gone — role now
-    // reads from the bubble's background alone.
+    expect(within(assistant).getByTestId(ZibbyBubbleTestId.Avatar)).toBeInTheDocument();
     expect(screen.queryByText("ZIBBY")).not.toBeInTheDocument();
 
     renderWithProviders(<ChatMessage role="user" text="Ahoj" />);
-    expect(screen.getByTestId(ChatMessageTestId.UserBubble).className).toContain("bg-panel-2");
+    const user = screen.getByTestId(ChatMessageTestId.UserBubble);
+    expect(user).toHaveAttribute("data-author", "me");
+    expect(user.className).toContain("bg-panel-2");
   });
 
-  it("shows the streaming cursor only while streaming", () => {
+  it("shows the streaming caret only while streaming", () => {
     const { rerender } = renderWithProviders(<ChatMessage streaming role="assistant" text="…" />);
-    expect(screen.getByTestId(ChatMessageTestId.StreamingCursor)).toBeInTheDocument();
+    expect(screen.getByTestId(ZibbyBubbleTestId.Caret)).toBeInTheDocument();
     rerender(<ChatMessage role="assistant" text="done" />);
-    expect(screen.queryByTestId(ChatMessageTestId.StreamingCursor)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(ZibbyBubbleTestId.Caret)).not.toBeInTheDocument();
+  });
+
+  describe("user meta line", () => {
+    it("shows 'přepis · time' with a mic for a voice-originated turn", () => {
+      renderWithProviders(<ChatMessage origin="voice" role="user" text="Ahoj" time="17:34" />);
+      expect(screen.getByTestId(ChatMessageTestId.Meta)).toHaveTextContent("přepis · 17:34");
+    });
+
+    it("shows 'napsáno · time' for a typed turn", () => {
+      renderWithProviders(<ChatMessage origin="typed" role="user" text="Ahoj" time="17:34" />);
+      expect(screen.getByTestId(ChatMessageTestId.Meta)).toHaveTextContent("napsáno · 17:34");
+    });
+
+    it("shows just the time when the origin is unknown (a persisted turn)", () => {
+      renderWithProviders(<ChatMessage role="user" text="Ahoj" time="17:34" />);
+      expect(screen.getByTestId(ChatMessageTestId.Meta)).toHaveTextContent(/^17:34$/);
+    });
+
+    it("has no meta line without a time", () => {
+      renderWithProviders(<ChatMessage role="user" text="Ahoj" />);
+      expect(screen.queryByTestId(ChatMessageTestId.Meta)).not.toBeInTheDocument();
+    });
+  });
+
+  it("trails a '…' on a reply Zibby was interrupted in", () => {
+    const { rerender } = renderWithProviders(
+      <ChatMessage interrupted role="assistant" text="Ahoj" />,
+    );
+    expect(screen.getByTestId(ChatMessageTestId.Interrupted)).toHaveTextContent("…");
+    rerender(<ChatMessage role="assistant" text="Ahoj" />);
+    expect(screen.queryByTestId(ChatMessageTestId.Interrupted)).not.toBeInTheDocument();
   });
 
   it("renders a tool dispatch announcement as a link to its href", () => {

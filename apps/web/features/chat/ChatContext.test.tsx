@@ -120,7 +120,7 @@ describe("ChatProvider", () => {
     expect(screen.getByTestId("message-count")).toHaveTextContent("0");
   });
 
-  it("⌘/Ctrl+J toggles the dock and mints a conversation", () => {
+  it("no longer reacts to the retired ⌘/Ctrl+J chord (D-7)", () => {
     renderWithProviders(
       <ChatProvider>
         <Harness />
@@ -128,21 +128,9 @@ describe("ChatProvider", () => {
     );
 
     fireKey({ key: "j", metaKey: true });
-    expect(screen.getByTestId("dock-open")).toHaveTextContent("true");
-    expect(screen.getByTestId("conversation-id")).not.toHaveTextContent("none");
-
     fireKey({ key: "j", ctrlKey: true });
     expect(screen.getByTestId("dock-open")).toHaveTextContent("false");
-  });
-
-  it("ignores the key without the modifier", () => {
-    renderWithProviders(
-      <ChatProvider>
-        <Harness />
-      </ChatProvider>,
-    );
-    fireKey({ key: "j" });
-    expect(screen.getByTestId("dock-open")).toHaveTextContent("false");
+    expect(screen.getByTestId("conversation-id")).toHaveTextContent("none");
   });
 
   it("keeps the transcript across the chat surface unmounting and remounting (route navigation)", async () => {

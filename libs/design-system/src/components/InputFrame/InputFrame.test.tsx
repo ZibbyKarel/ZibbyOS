@@ -21,4 +21,12 @@ describe("InputFrame", () => {
     expect(screen.queryByTestId(InputFrameTestId.Start)).toBeNull();
     expect(screen.queryByTestId(InputFrameTestId.End)).toBeNull();
   });
+
+  it("drops its own border and fill when bare", () => {
+    render(<InputFrame bare>body</InputFrame>);
+    const root = screen.getByTestId(InputFrameTestId.Root);
+    expect(root).not.toHaveClass("border");
+    expect(root).not.toHaveClass("bg-panel");
+    expect(root).toHaveAttribute("data-bare", "true");
+  });
 });

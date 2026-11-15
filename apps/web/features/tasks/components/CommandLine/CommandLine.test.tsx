@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, createRef } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,13 +8,19 @@ import {
   SearchMenuTestId,
 } from "@zibby/design-system";
 import {
+  act,
   fireEvent,
   renderWithProviders as render,
   screen,
   waitFor,
   within,
 } from "../../../../test/render";
-import { CommandLine, CommandLineTestId, mentionRanges } from "./CommandLine";
+import {
+  CommandLine,
+  type CommandLineHandle,
+  CommandLineTestId,
+  mentionRanges,
+} from "./CommandLine";
 
 /** Marks are keyed per segment (`${Mark}-${start}`), so every rendered mark is
  *  selected by prefix — the same way `HighlightTextAreaField`'s own suite does it. */
@@ -781,6 +787,80 @@ describe("CommandLine (Phase 118d generic composer)", () => {
       expect(onSubmit).toHaveBeenCalledWith("zkontroluj zálohy", undefined, {
         attachmentSetId: "set_1",
         files: [{ name: "a.txt", size: 2 }],
+      });
+    });
+
+    it("uploads files injected from outside (a page-wide drop) exactly like the attach button, once", async () => {
+      const onConsumed = vi.fn();
+      const file = new File(["hi"], "a.txt", { type: "text/plain" });
+      render(
+        <CommandLine
+          injectedFiles={[file]}
+          onInjectedFilesConsumed={onConsumed}
+          onSubmit={vi.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId(FilePreviewTestId.Name)).toHaveTextContent("a.txt");
+      });
+      expect(uploadMutateAsync).toHaveBeenCalledWith([file]);
+      expect(onConsumed).toHaveBeenCalledTimes(1);
+    });
+
+    it("ignores injected files when attaching is off", () => {
+      const onConsumed = vi.fn();
+      render(
+        <CommandLine
+          injectedFiles={[new File(["hi"], "a.txt")]}
+          onInjectedFilesConsumed={onConsumed}
+          onSubmit={vi.fn()}
+          showAttach={false}
+        />,
+      );
+      expect(uploadMutateAsync).not.toHaveBeenCalled();
+      expect(onConsumed).not.toHaveBeenCalled();
+    });
+
+    describe("handleRef.submitSpoken", () => {
+      it("sends the spoken text with the pending attachments, clears them and leaves the draft", async () => {
+        const handle = createRef<CommandLineHandle>();
+        const onSubmit = vi.fn();
+        const user = userEvent.setup();
+        render(<CommandLine multipleTargets handleRef={handle} onSubmit={onSubmit} />);
+        await user.upload(
+          screen.getByTestId(CommandLineTestId.FileInput),
+          new File(["hi"], "a.txt", { type: "text/plain" }),
+        );
+        await waitFor(() => expect(screen.getByTestId(FilePreviewTestId.Name)).toBeInTheDocument());
+        await user.type(screen.getByTestId(CommandLineTestId.Input), "rozepsáno");
+
+        let sent = false;
+        act(() => {
+          sent = handle.current?.submitSpoken("  řekni to nahlas ") ?? false;
+        });
+
+        expect(sent).toBe(true);
+        expect(onSubmit).toHaveBeenCalledWith(
+          "řekni to nahlas",
+          undefined,
+          { attachmentSetId: "set_1", files: [{ name: "a.txt", size: 2 }] },
+          undefined,
+        );
+        expect(screen.queryByTestId(FilePreviewTestId.Name)).not.toBeInTheDocument();
+        expect(screen.getByTestId(CommandLineTestId.Input)).toHaveValue("rozepsáno");
+      });
+
+      it("refuses (returns false) when submit is blocked or the text is blank", () => {
+        const handle = createRef<CommandLineHandle>();
+        const onSubmit = vi.fn();
+        const { rerender } = render(
+          <CommandLine submitDisabled handleRef={handle} onSubmit={onSubmit} />,
+        );
+        expect(handle.current?.submitSpoken("ahoj")).toBe(false);
+        rerender(<CommandLine handleRef={handle} onSubmit={onSubmit} />);
+        expect(handle.current?.submitSpoken("   ")).toBe(false);
+        expect(onSubmit).not.toHaveBeenCalled();
       });
     });
 

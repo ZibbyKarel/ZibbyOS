@@ -1000,6 +1000,79 @@
     "confirmRevise": "Send",
     "cancelRevise": "Cancel"
   },
+  "zibby": {
+    "label": "Zibby",
+    "chip": {
+      "label": "Zibby",
+      "aria": "Summon Zibby ({shortcut})"
+    },
+    "thread": {
+      "empty": "Hold Space and talk, or drop files here. Releasing Space sends the message and Zibby answers by voice and text.",
+      "meta": {
+        "voice": "transcript · {time}",
+        "typed": "typed · {time}"
+      }
+    },
+    "suggestions": {
+      "lead": "Try saying:",
+      "label": "Suggestions",
+      "today": "What's on my plate today?",
+      "approvals": "What's waiting for approval?",
+      "prs": "Show my pull requests"
+    },
+    "composer": {
+      "label": "Write to Zibby",
+      "placeholder": "or type…",
+      "placeholderAttached": "Say what to do with these…",
+      "send": "Send",
+      "sendBusy": "Zibby is still answering"
+    },
+    "ptt": {
+      "holdAria": "Hold and talk",
+      "tapAria": "Tap and talk",
+      "holdIdle": "Hold Space and talk",
+      "holdActive": "Release to send",
+      "tapIdle": "Tap and talk",
+      "tapActive": "Tap to finish"
+    },
+    "topBar": {
+      "history": "History",
+      "historyKbd": "⌥ H",
+      "titleHint": "Rename",
+      "titleInput": "Conversation title",
+      "new": "New conversation",
+      "menu": "More conversation actions",
+      "rename": "Rename",
+      "clear": "Clear and start over",
+      "delete": "Delete conversation",
+      "close": "Close (Esc)"
+    },
+    "history": {
+      "label": "Conversation history",
+      "title": "Conversations",
+      "close": "Close history (⌥ H)",
+      "new": "New conversation",
+      "searchLabel": "Search conversations",
+      "searchPlaceholder": "Search conversations…",
+      "clearSearch": "Clear search",
+      "empty": "No conversations yet",
+      "noMatch": "Nothing found for “{query}”",
+      "rename": "Rename “{title}”",
+      "delete": "Delete “{title}”",
+      "renameInput": "New conversation title",
+      "footer": "Saved automatically · ⌥ H opens and closes · double-click renames"
+    },
+    "footer": {
+      "mode": "Talk mode",
+      "voiceOn": "Voice on",
+      "voiceOff": "Voice off · text only",
+      "hint": "Esc closes · {shortcut} summons · drop files anywhere"
+    },
+    "drop": {
+      "title": "Drop files here",
+      "hint": "Zibby reads them and attaches them to the conversation · images, PDFs, code, spreadsheets"
+    }
+  },
   "zibbyConversations": {
     "newTitle": "New conversation",
     "groups": {

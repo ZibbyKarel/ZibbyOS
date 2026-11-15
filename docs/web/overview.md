@@ -114,7 +114,7 @@ bridge widgets. The `AutopilotToggle` icon sits in the top bar on every page. Ph
   the page actions slot, autopilot, pin, new task and notifications. On the
   dashboard, the page actions slot holds the manage-layouts button.
 - There is no sub-nav row.
-- `ChatDock` is `compact`: a round launcher that opens a full-screen chat.
+- Zibby (the chat overlay, below) is `compact`: an icon-only orb chip in the toolbar opens it full screen, with the large round push-to-talk button.
 - The bridge board stacks widgets full width, with no drag or resize. A widget row
   that has a detail page (`BridgeSelection.href`) navigates to it instead of opening
   the sheet.
@@ -199,6 +199,12 @@ permanent redirect
 to `/org` (D-009) — there is no `app/(company)/chat/page.tsx` any more. See
 `features/chat`'s surviving surface below (ChatContext, hooks, mutations,
 queries, and the components the COO dock actually renders).
+
+**Zibby overlay (2026-11, supersedes the dock described next).** The chat UI is now the full-screen Zibby
+overlay (`features/zibby/ZibbyHost.tsx`, mounted in `AppShell`; summoned by the configurable hotkey, default
+Alt+Space — the ⌘/Ctrl+J chord is gone — by the header chip, or by dragging a file over the app). See
+`docs/api/chat.md` → "Web overlay". The paragraph below is the historical ZB-12 description; `CooDock` /
+`ChatDock` no longer exist as the chat UI.
 
 **ZB-12 — chat is the shell-global COO dock (supersedes Phase 23 below).** The
 `/chat` page is retired (it redirects to `/org`). `AppShell` mounts `CooDock`

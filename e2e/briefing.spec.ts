@@ -7,9 +7,9 @@ const API = "http://localhost:3333";
  * `briefing-generated` activity entry, and — since F8a (O6) — renders as its own
  * message variant in the chat transcript (`BriefingMessageCard`), not a page section.
  *
- * ZB-13: the standalone `/chat` page is gone — the chat engine is now the
- * shell-global COO dock (ZB-01/ZB-12), toggled by its ⌘/Ctrl+J shortcut from any
- * route. `BriefingMessageCard` deliberately has **no live control surface** of its
+ * ZB-13: the standalone `/chat` page is gone — the chat engine is now owned by the
+ * shell-global Zibby overlay (ZB-01/ZB-12, replaced the COO dock), summoned by its
+ * configurable shortcut (default Alt+Space) from any route. `BriefingMessageCard` deliberately has **no live control surface** of its
  * own (its own docblock: "a past turn is a fixed snapshot of the briefing that was
  * generated, not a live control surface") — there is currently no UI button anywhere
  * that triggers an on-demand briefing. This is a gap this deletion phase surfaces
@@ -17,7 +17,7 @@ const API = "http://localhost:3333";
  * unattended morning automation). Generating here goes straight at the REST endpoint
  * (`POST /api/briefing/generate`, the same call `useGenerateBriefingMutation` makes)
  * — chat is deliberately single-thread (`ChatTranscriptStore`'s own docblock), so a
- * dock opened with no `conversationId` yet resolves to the exact same "active
+ * overlay opened with no `conversationId` yet resolves to the exact same "active
  * conversation" the briefing sink (`ChatBriefingSinkService.announce`) just
  * appended to.
  */
@@ -29,7 +29,7 @@ test("generating a briefing appends it to the chat transcript", async ({ page })
   } = (await res.json()) as { briefing: { headline: string } };
 
   await page.goto("/dashboard");
-  await page.keyboard.press("Control+j");
+  await page.keyboard.press("Alt+Space");
 
   // `BriefingMessageCardTestId.Root` — the transcript's briefing card variant.
   // Chat is single-thread (`ChatTranscriptStore`'s own docblock): the transcript

@@ -48,6 +48,19 @@ describe("AppHeader", () => {
     expect(screen.queryByTestId(AppHeaderTestId.Search)).toBeNull();
     expect(screen.queryByTestId(AppHeaderTestId.Notifications)).toBeNull();
     expect(screen.queryByTestId(AppHeaderTestId.Menu)).toBeNull();
+    expect(screen.queryByTestId(AppHeaderTestId.Zibby)).toBeNull();
+  });
+
+  it("renders the zibby slot first in the trailing cluster", () => {
+    render(
+      <AppHeader operator={<span>Karel</span>} zibby={<button type="button">Zibby</button>} />,
+    );
+    const zibby = screen.getByTestId(AppHeaderTestId.Zibby);
+    expect(zibby).toHaveTextContent("Zibby");
+    expect(
+      zibby.compareDocumentPosition(screen.getByTestId(AppHeaderTestId.Operator)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("renders the menu slot when provided, last in the trailing cluster", () => {

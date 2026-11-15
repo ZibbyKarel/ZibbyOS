@@ -4,16 +4,17 @@ import {
   APP_FRAME_MAIN_CONTENT_ID,
   AppFrameTestId,
   AppHeaderTestId,
-  ChatDockTestId,
   MenuButtonTestId,
   MobileMenuTestId,
   MobileToolbarTestId,
   ScreenGlowTestId,
   SubNavTestId,
   TabsTestId,
+  ZibbyOverlayTestId,
 } from "@zibby/design-system";
-import { renderWithProviders, screen } from "../../../test/render";
+import { renderWithProviders, screen, waitFor } from "../../../test/render";
 import { PinPageDialogTestId } from "../../../features/pins";
+import { ZibbyHeaderChipTestId } from "../../../features/zibby";
 import { AppShell, AppShellTestId } from "./AppShell";
 
 let mockPath = "/chat";
@@ -244,23 +245,34 @@ describe("AppShell New note button", () => {
     expect(button.nextElementSibling).toBe(screen.getByTestId(AppShellTestId.NewTask));
   });
 
-  it("opens the note window and hides the chat dock", async () => {
+  it("shows the Zibby summon chip in the header's trailing cluster", () => {
     renderShell();
-    expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "false");
-    expect(screen.getByTestId(ChatDockTestId.Root)).toBeInTheDocument();
-    await userEvent.click(screen.getByTestId(AppShellTestId.NewNote));
-    expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "true");
-    expect(screen.getByTestId(ChatDockTestId.Root)).not.toBeVisible();
+    const slot = screen.getByTestId(AppHeaderTestId.Zibby);
+    expect(slot).toContainElement(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId(ZibbyHeaderChipTestId.Root)).toHaveTextContent("Zibby");
+    expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument();
   });
 
-  it("keeps the chat dock mounted while the note is open and shows it again after", async () => {
+  it("summons the overlay from the chip (and the chip toggles it closed)", async () => {
     renderShell();
-    const chat = screen.getByTestId(ChatDockTestId.Root);
+    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId(ZibbyOverlayTestId.Root)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    await waitFor(() =>
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument(),
+    );
+  });
+
+  it("opens the note window and closes the Zibby overlay", async () => {
+    renderShell();
+    expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "false");
+    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId(ZibbyOverlayTestId.Root)).toBeInTheDocument();
     await userEvent.click(screen.getByTestId(AppShellTestId.NewNote));
-    expect(chat).not.toBeVisible();
-    await userEvent.click(screen.getByTestId("note-dock-close"));
-    expect(screen.getByTestId(ChatDockTestId.Root)).toBe(chat);
-    expect(chat).toBeVisible();
+    expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "true");
+    await waitFor(() =>
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument(),
+    );
   });
 
   it("keeps New note on the new-task page", () => {
@@ -326,6 +338,9 @@ describe("AppShell phone layout", () => {
     expect(actions).toContainElement(screen.getByTestId(AppShellTestId.NewNote));
     expect(actions).toContainElement(screen.getByTestId(AppShellTestId.NewTask));
     expect(actions).toContainElement(screen.getByTestId(AppShellTestId.PageActions));
+    // Phone: no keyboard — the Zibby chip is icon-only (orb), first in the actions.
+    expect(actions).toContainElement(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId(ZibbyHeaderChipTestId.Root)).toHaveTextContent("");
   });
 
   it("opens the section tree with the active section expanded", async () => {

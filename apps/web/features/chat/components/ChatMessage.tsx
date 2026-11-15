@@ -1,20 +1,14 @@
-import { useId } from "react";
-import type { Route } from "next";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   Button,
-  ChatBubble,
   Container,
   FilePreview,
-  HighlightText,
   Icon,
   Markdown,
   Stack,
-  StatusDot,
-  Typography,
+  ZibbyBubble,
+  ZibbyOrb,
 } from "@zibby/design-system";
-import type { DotTone } from "@zibby/design-system";
 import type {
   Attachment,
   Briefing,
@@ -22,31 +16,22 @@ import type {
   ChatMessage as ChatMessageType,
   ChatToolEvent,
 } from "@zibby/contracts";
-import { useSystemConfigQuery } from "../../system";
-import { useMentionHighlighter } from "../../tasks/hooks/useMentionHighlighter";
-import { useAudioPlayback } from "../hooks/useAudioPlayback";
-import { useSynthesizeSpeechMutation } from "../mutations/useSynthesizeSpeechMutation";
 import { BriefingMessageCard } from "./BriefingMessageCard";
-import { ChatWidgetCard } from "../../zibby/widgets/ChatWidgetCard";
-import { ChatRunCard } from "./ChatRunCard";
+import {
+  ChatMessageTestId,
+  ChatReadAloudButton,
+  ChatToolEventRows,
+  ChatUserText,
+  ChatWidgetCards,
+  visibleToolEvents,
+} from "./ChatMessageParts";
 import { TargetIdentity } from "./TargetIdentity";
 
-export enum ChatMessageTestId {
-  Root = "chat-message",
-  Widgets = "chat-message-widgets",
-  UserBubble = "chat-message-user",
-  AssistantBubble = "chat-message-assistant",
-  Text = "chat-message-text",
-  ToolEvent = "chat-message-tool-event",
-  ToolEventLink = "chat-message-tool-event-link",
-  StreamingCursor = "chat-message-streaming-cursor",
-  ReadAloudButton = "chat-message-read-aloud",
-  CreateTaskButton = "chat-message-create-task",
-  /** D-020 — the user bubble's `@mention` chip row. */
-  Mentions = "chat-message-mentions",
-  /** D-020 — the user bubble's attached-file row. */
-  Attachments = "chat-message-attachments",
-}
+// The test ids and the tool-event filter live with the reusable parts.
+export { ChatMessageTestId, visibleToolEvents };
+
+/** How the operator's turn was produced — decides the meta line under their bubble. */
+export type ChatMessageOrigin = "voice" | "typed";
 
 export interface ChatMessageProps {
   role: ChatMessageType["role"];
@@ -65,11 +50,11 @@ export interface ChatMessageProps {
    * `.text`, e.g. a future search over the transcript).
    */
   briefing?: Briefing;
-  /** Marks the assistant turn that is still streaming (shows a live cursor). */
+  /** Marks the assistant turn that is still streaming (the bubble shows its live caret). */
   streaming?: boolean;
   /**
-   * ZB-12 — "CREATE TASK" from a settled assistant reply: the host (the chat dock)
-   * hands the conversation up to this turn to a new task. Omit for no action.
+   * ZB-12 — "CREATE TASK" from a settled assistant reply: the host hands the
+   * conversation up to this turn to a new task. Omit for no action.
    */
   onCreateTask?: () => void;
   /** The hand-off is being prepared (the conversation may be compacting). */
@@ -79,135 +64,22 @@ export interface ChatMessageProps {
    * operator's behalf (e.g. the CI card's "fix it"). Omit and such buttons are not rendered.
    */
   onPrompt?: (text: string) => void;
-}
-
-/** Map a tool event status onto the DS StatusDot tone. */
-function toolTone(status: ChatToolEvent["status"]): DotTone {
-  if (status === "error") return "bad";
-  if (status === "ok") return "ok";
-  return "run";
-}
-
-/**
- * todo-3: the tool calls worth showing. A `create_task` dispatch is the turn's outcome and always
- * stays; every other call is just progress — while streaming only the latest one shows (proof
- * that something is happening), and a settled turn drops them all.
- */
-export function visibleToolEvents(events: ChatToolEvent[], streaming: boolean): ChatToolEvent[] {
-  const isDispatch = (e: ChatToolEvent) => e.name === "create_task";
-  // A widget event renders as a card (see `ChatMessage`), never as a plain tool row.
-  const progress = events.filter((e) => !e.widget);
-  const latest = streaming ? progress.filter((e) => !isDispatch(e)).at(-1) : undefined;
-  return progress.filter((e) => isDispatch(e) || e === latest);
-}
-
-function ToolEventRow({ event }: { event: ChatToolEvent }) {
-  // A dispatch that has produced a run (`runRef` known — the `ok` phase of the
-  // two-phase create_task event, Fáze 14.2) renders the live run card instead of
-  // the flat announcement row (Fáze 14.3, Rozhodnutí 5). The `started` phase has
-  // no `runRef` yet, so it still renders the flat row below — the row upgrades to
-  // a card in place the instant `useChatStream` merges in the matching `ok` event
-  // (same callId), with no extra state needed here.
-  if (event.runRef) {
-    return <ChatRunCard runRef={event.runRef} target={event.target} />;
-  }
-
-  const summary = event.summary ?? event.name;
-  const body = (
-    <Stack direction="col" gap="50">
-      {event.target && <TargetIdentity targets={[event.target]} />}
-      <Stack align="center" data-testid={ChatMessageTestId.ToolEvent} direction="row" gap="75">
-        <StatusDot pulse={event.status === "started"} tone={toolTone(event.status)} />
-        <Typography mono size="xs" type="note" variant="secondary">
-          {summary}
-        </Typography>
-        {event.href && <Icon name="chevron" size="sm" tone="faint" />}
-      </Stack>
-    </Stack>
-  );
-
-  if (!event.href) return body;
-  return (
-    <Link
-      data-testid={ChatMessageTestId.ToolEventLink}
-      href={event.href as Route}
-      style={{ display: "block", textDecoration: "none" }}
-    >
-      {body}
-    </Link>
-  );
+  /** User turn: the clock time shown in the meta line ("17:34"). Omit for no meta line. */
+  time?: string;
+  /** User turn: voice-originated ("přepis") or typed ("napsáno"); unknown shows just the time. */
+  origin?: ChatMessageOrigin;
+  /** Assistant turn: Zibby was cut off while reading this aloud — trails a "…". */
+  interrupted?: boolean;
 }
 
 /**
- * Manual "read aloud" trigger for one completed assistant message (Phase 120).
- * `useId()` gives this mounted instance a stable player key so
- * {@link useAudioPlayback} knows whether IT is the one currently speaking (the
- * player is a module-level singleton — only one message speaks at a time).
- * Idle → `play`; synthesizing → the `Button`'s own spinner (`loading`,
- * suppresses clicks); speaking → `stop`, clicking stops it. A failed
- * synthesize call throws and is surfaced by the app-wide mutation-error toast
- * (`MutationCache.onError`) — nothing bespoke here.
- *
- * Sends the operator's `/settings` voice pick (`SystemConfig.ttsVoice`, Phase
- * 119c) when set; omitting the key when it's `null` (the common case) lets the
- * daemon use its own default rather than sending an explicit "default" id it
- * may not recognize.
- */
-function ReadAloudButton({ text }: { text: string }) {
-  const t = useTranslations("chat");
-  const key = useId();
-  const { isPlaying, play, stop } = useAudioPlayback(key);
-  const synthesize = useSynthesizeSpeechMutation();
-  const { data: config } = useSystemConfigQuery();
-
-  const handleClick = () => {
-    if (isPlaying) {
-      stop();
-      return;
-    }
-    synthesize.mutate(
-      { body: { text, ...(config?.ttsVoice ? { voice: config.ttsVoice } : {}) } },
-      { onSuccess: (result) => play(result.body.audioBase64) },
-    );
-  };
-
-  const label = t(isPlaying ? "readAloudStop" : "readAloud");
-
-  return (
-    <Button
-      aria-label={label}
-      data-testid={ChatMessageTestId.ReadAloudButton}
-      icon={isPlaying ? "stop" : "play"}
-      intent="ghost"
-      loading={synthesize.isPending}
-      onClick={handleClick}
-      size="sm"
-      title={label}
-    />
-  );
-}
-
-/** The operator's turn text, its `@`/`#`/`/` mentions highlighted. */
-function UserText({ text }: { text: string }) {
-  const highlight = useMentionHighlighter();
-  return (
-    <Container data-testid={ChatMessageTestId.Text}>
-      <HighlightText highlights={highlight(text)} text={text} />
-    </Container>
-  );
-}
-
-/**
- * One transcript message. User turns sit to the right in a filled bubble;
- * assistant turns sit to the left, render their (possibly streaming) text and any
- * inline tool-dispatch announcements with a link into the app. While `streaming`,
- * a trailing cursor signals tokens are still arriving.
- *
- * Phase 33 dropped the per-message "Zibby" name + bowler-hat header — role is
- * read from the bubble's background tone instead (accent-tinted for the
- * operator's own turn, the plain raised surface for ZIBBY's reply — Velin-D
- * design-match: the operator's turn is the one that stands out), so nothing
- * repeats per turn.
+ * One transcript message in the Zibby overlay's look ({@link ZibbyBubble}). User
+ * turns sit to the right in a filled bubble (text, mentions, attachments and a
+ * "přepis/napsáno · HH:mm" line); assistant turns are free text beside a 28 px orb
+ * avatar — GitHub-flavoured markdown, tool-dispatch rows, the living run card,
+ * inline widget cards and (settled turns only) the CREATE TASK / read-aloud
+ * actions. While `streaming`, the bubble shows its live caret and the avatar orb
+ * speaks.
  */
 export function ChatMessage({
   role,
@@ -220,118 +92,132 @@ export function ChatMessage({
   onCreateTask,
   createTaskPending,
   onPrompt,
+  time,
+  origin,
+  interrupted,
 }: ChatMessageProps) {
   const t = useTranslations("chat");
+  const tz = useTranslations("zibby");
   const isUser = role === "user";
   // Manual read-aloud (Phase 120) + CREATE TASK — only on a settled assistant turn,
   // never the live-streaming bubble (its text isn't final yet) or a user turn.
   const showActions = !isUser && !streaming && text.trim().length > 0;
-  const shownToolEvents = visibleToolEvents(toolEvents ?? [], Boolean(streaming));
-  const widgetEvents = (toolEvents ?? []).filter((e) => e.widget !== undefined);
+  const events = toolEvents ?? [];
+
+  if (isUser) {
+    const metaLabel = !time
+      ? null
+      : origin === "voice"
+        ? tz("thread.meta.voice", { time })
+        : origin === "typed"
+          ? tz("thread.meta.typed", { time })
+          : time;
+    return (
+      <Stack align="end" data-testid={ChatMessageTestId.Root} direction="col" gap="75">
+        <ZibbyBubble
+          attachments={
+            attachments && attachments.length > 0 ? (
+              <Stack data-testid={ChatMessageTestId.Attachments} direction="col" gap="50">
+                {attachments.map((file) => (
+                  <FilePreview
+                    key={file.name}
+                    mediaType={file.mediaType}
+                    name={file.name}
+                    size={file.size}
+                  />
+                ))}
+              </Stack>
+            ) : undefined
+          }
+          author="me"
+          data-testid={ChatMessageTestId.UserBubble}
+          meta={
+            metaLabel ? (
+              <span data-testid={ChatMessageTestId.Meta}>
+                {origin === "voice" && <Icon name="mic" size="sm" />}
+                {metaLabel}
+              </span>
+            ) : undefined
+          }
+        >
+          {/* The operator's own turn is plain text — rendered verbatim (its mentions
+              marked exactly as the composer marked them), plus (D-020) the units they
+              addressed and any files they attached. */}
+          <Stack direction="col" gap="75">
+            <ChatUserText text={text} />
+            {mentions && mentions.length > 0 && (
+              <Container data-testid={ChatMessageTestId.Mentions}>
+                <TargetIdentity targets={mentions} />
+              </Container>
+            )}
+          </Stack>
+        </ZibbyBubble>
+      </Stack>
+    );
+  }
+
+  if (briefing) {
+    // F8a (O6) — the structured card replaces the markdown bubble entirely (not a
+    // sibling to it): a briefing turn has no prose to format, and the card is the
+    // transcript-native rendering of its rows/counters.
+    return (
+      <Stack align="start" data-testid={ChatMessageTestId.Root} direction="col" gap="75">
+        <BriefingMessageCard briefing={briefing} />
+        <ChatToolEventRows events={events} streaming={Boolean(streaming)} />
+        <ChatWidgetCards events={events} onPrompt={onPrompt} />
+      </Stack>
+    );
+  }
+
+  const hasCards =
+    visibleToolEvents(events, Boolean(streaming)).length > 0 ||
+    events.some((e) => e.widget !== undefined);
 
   return (
-    <Stack
-      align={isUser ? "end" : "start"}
-      data-testid={ChatMessageTestId.Root}
-      direction="col"
-      gap="75"
-    >
-      {briefing ? (
-        // F8a (O6) — the structured card replaces the markdown bubble entirely
-        // (not a sibling to it): a briefing turn has no prose to format, and the
-        // card is the transcript-native rendering of its rows/counters.
-        <BriefingMessageCard briefing={briefing} />
-      ) : (
-        <ChatBubble
-          actions={
-            showActions && (
-              <>
-                {onCreateTask && (
-                  <Button
-                    data-testid={ChatMessageTestId.CreateTaskButton}
-                    disabled={createTaskPending}
-                    intent="primary"
-                    loading={createTaskPending}
-                    onClick={onCreateTask}
-                    size="sm"
-                  >
-                    {t("createTask")}
-                  </Button>
-                )}
-                <ReadAloudButton text={text} />
-              </>
-            )
-          }
-          author={isUser ? "you" : "assistant"}
-          data-testid={isUser ? ChatMessageTestId.UserBubble : ChatMessageTestId.AssistantBubble}
-        >
-          {isUser ? (
-            // The operator's own turn is plain text — render it verbatim (its
-            // mentions marked exactly as the composer marked them), plus (D-020)
-            // the units they addressed and any files they attached.
-            <Stack direction="col" gap="75">
-              <UserText text={text} />
-              {mentions && mentions.length > 0 && (
-                <Container data-testid={ChatMessageTestId.Mentions}>
-                  <TargetIdentity targets={mentions} />
-                </Container>
-              )}
-              {attachments && attachments.length > 0 && (
-                <Stack data-testid={ChatMessageTestId.Attachments} direction="col" gap="50">
-                  {attachments.map((file) => (
-                    <FilePreview
-                      key={file.name}
-                      mediaType={file.mediaType}
-                      name={file.name}
-                      size={file.size}
-                    />
-                  ))}
-                </Stack>
-              )}
-            </Stack>
-          ) : (
-            // ZIBBY's turn is GitHub-flavoured markdown — format it. The live cursor
-            // is a sibling, never part of the markdown string (so a half-typed `**`
-            // can't break the parse).
+    <Stack align="start" data-testid={ChatMessageTestId.Root} direction="col" gap="75">
+      <ZibbyBubble
+        actions={
+          showActions ? (
             <>
-              <Markdown source={text} variant="prose" />
-              {streaming && (
-                <Typography
-                  aria-label={t("streaming")}
-                  as="span"
-                  data-testid={ChatMessageTestId.StreamingCursor}
-                  type="text"
-                  variant="tertiary"
+              {onCreateTask && (
+                <Button
+                  data-testid={ChatMessageTestId.CreateTaskButton}
+                  disabled={createTaskPending}
+                  intent="primary"
+                  loading={createTaskPending}
+                  onClick={onCreateTask}
+                  size="sm"
                 >
-                  {" █"}
-                </Typography>
+                  {t("createTask")}
+                </Button>
               )}
+              <ChatReadAloudButton text={text} />
             </>
-          )}
-        </ChatBubble>
-      )}
-
-      {shownToolEvents.length > 0 && (
-        <Stack direction="col" gap="50">
-          {shownToolEvents.map((event, i) => (
-            <ToolEventRow event={event} key={`${event.name}-${i}`} />
-          ))}
-        </Stack>
-      )}
-
-      {widgetEvents.length > 0 && (
-        <Stack data-testid={ChatMessageTestId.Widgets} direction="col" gap="100">
-          {widgetEvents.map((event, i) =>
-            event.widget ? (
-              <ChatWidgetCard
-                key={event.callId ?? `${event.name}-${i}`}
-                onPrompt={onPrompt}
-                widget={event.widget}
-              />
-            ) : null,
-          )}
-        </Stack>
-      )}
+          ) : undefined
+        }
+        author="zibby"
+        avatar={<ZibbyOrb size={28} state={streaming ? "speak" : "ready"} />}
+        cards={
+          hasCards ? (
+            <>
+              <ChatToolEventRows events={events} streaming={Boolean(streaming)} />
+              <ChatWidgetCards events={events} onPrompt={onPrompt} />
+            </>
+          ) : undefined
+        }
+        data-testid={ChatMessageTestId.AssistantBubble}
+        streaming={streaming}
+      >
+        {/* ZIBBY's turn is GitHub-flavoured markdown — format it. The live caret is the
+            bubble's own sibling, never part of the markdown string (so a half-typed `**`
+            can't break the parse). */}
+        <Markdown source={text} variant="prose" />
+        {interrupted && (
+          <Container as="span" data-testid={ChatMessageTestId.Interrupted}>
+            {" …"}
+          </Container>
+        )}
+      </ZibbyBubble>
     </Stack>
   );
 }

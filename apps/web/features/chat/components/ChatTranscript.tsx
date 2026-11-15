@@ -1,7 +1,7 @@
-import { useTranslations } from "next-intl";
-import { ChatBubble, Stack, TypingDots } from "@zibby/design-system";
+import { useLocale, useTranslations } from "next-intl";
+import { Stack, TypingDots, ZibbyBubble, ZibbyOrb } from "@zibby/design-system";
 import type { ChatMessage as ChatMessageType, ChatToolEvent } from "@zibby/contracts";
-import { ChatMessage } from "./ChatMessage";
+import { ChatMessage, type ChatMessageOrigin } from "./ChatMessage";
 
 export enum ChatTranscriptTestId {
   Root = "chat-transcript",
@@ -28,6 +28,18 @@ export interface ChatTranscriptProps {
   creatingTaskFor?: string;
   /** Lets inline widget cards send a follow-up message to Zibby (persisted and live turns). */
   onPrompt?: (text: string) => void;
+  /** How the operator's turns sent in THIS session were produced (voice / typed), by message id.
+   *  A persisted turn without an entry shows just its time. */
+  origins?: Readonly<Record<string, ChatMessageOrigin>>;
+  /** Id of the reply Zibby was interrupted in while reading it aloud (trails a "…"). */
+  interruptedId?: string | null;
+}
+
+/** "17:34" in the app locale; `undefined` for an unparsable timestamp. */
+function clockTime(at: string, locale: string): string | undefined {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 /**
@@ -46,8 +58,11 @@ export function ChatTranscript({
   onCreateTask,
   creatingTaskFor,
   onPrompt,
+  origins,
+  interruptedId,
 }: ChatTranscriptProps) {
   const t = useTranslations("chat");
+  const locale = useLocale();
   const hasLive =
     Boolean(streaming) && ((liveText ?? "").length > 0 || (liveToolEvents?.length ?? 0) > 0);
   // The gap between send and the first token/tool event — `thinking` is already
@@ -63,12 +78,15 @@ export function ChatTranscript({
           attachments={message.attachments}
           briefing={message.briefing}
           createTaskPending={creatingTaskFor === message.id}
+          interrupted={interruptedId === message.id}
           key={message.id}
           mentions={message.mentions}
           onCreateTask={onCreateTask && (() => onCreateTask(message.id))}
           onPrompt={onPrompt}
+          origin={origins?.[message.id]}
           role={message.role}
           text={message.text}
+          time={message.role === "user" ? clockTime(message.at, locale) : undefined}
           toolEvents={message.toolEvents}
         />
       ))}
@@ -92,9 +110,9 @@ export function ChatTranscript({
           direction="col"
           gap="75"
         >
-          <ChatBubble author="assistant">
+          <ZibbyBubble author="zibby" avatar={<ZibbyOrb size={28} state="think" />}>
             <TypingDots label={t("streaming")} />
-          </ChatBubble>
+          </ZibbyBubble>
         </Stack>
       )}
     </Stack>

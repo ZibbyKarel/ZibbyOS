@@ -1,0 +1,407 @@
+"use client";
+
+import type { CompletedTurn } from "../chat/hooks/useChatStream";
+import type { TaskTarget } from "@zibby/contracts";
+import {
+  StatusDot,
+  ZibbyOrb,
+  ZibbyOverlay,
+  ZibbySuggestions,
+  ZibbyToast,
+} from "@zibby/design-system";
+import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useIsPhone } from "../../hooks/useIsPhone";
+import { useChat } from "../chat/ChatContext";
+import type { ChatMessageOrigin } from "../chat/components/ChatMessage";
+import { useChatDock } from "../chat/hooks/useChatDock";
+import type { CommandLineHandle } from "../tasks/components/CommandLine/CommandLine";
+import type { TaskAttachmentSet } from "../tasks/components/TaskAttachments";
+import { ZibbyContextChips } from "./composer/ZibbyContextChips";
+import { ZibbyComposer } from "./composer/ZibbyComposer";
+import { useZibbyConversations } from "./conversations";
+import { ZibbyOverlayFooter } from "./footer/ZibbyOverlayFooter";
+import { ZibbyHistory } from "./history/ZibbyHistory";
+import { readKnotOrigin } from "./hooks/knotOrigin";
+import { useOnline } from "./hooks/useOnline";
+import { useTransientFlag } from "./hooks/useTransientFlag";
+import { useWindowFileDrag } from "./hooks/useWindowFileDrag";
+import { useZibbyCreateTask } from "./hooks/useZibbyCreateTask";
+import { useZibbySummon } from "./hooks/useZibbySummon";
+import { usePublishZibbyLive } from "./live/ZibbyLiveContext";
+import { ZibbyLiveTranscript } from "./live/ZibbyLiveTranscript";
+import { ZibbyThread } from "./thread/ZibbyThread";
+import { ZibbyOverlayTopBar } from "./topbar/ZibbyOverlayTopBar";
+import {
+  DROP_LABEL_KEY,
+  ZIBBY_VOICE_MESSAGE_KEYS,
+  type ZibbyOrbState,
+  type ZibbyOverlayPhase,
+  deriveOrbState,
+  orbStateLabelKey,
+} from "./voice/orbState";
+import { useSpaceToTalk } from "./voice/useSpaceToTalk";
+import { type ZibbyVoice, useZibbyVoice } from "./voice/useZibbyVoice";
+
+export enum ZibbyHostTestId {
+  /** The orb's status line sits in the overlay frame; this id marks its text. */
+  Status = "zibby-host-status",
+}
+
+/** Attachments per message (the server's upload limit). */
+export const MAX_ATTACHED_FILES = 10;
+/** How long the orb shows `done` / `error` after a turn ends. */
+const TRANSIENT_MS = 1500;
+
+/** Orb state → the status dot of the status line (the design's `.zstl .dot`). */
+const STATUS_DOT_TONE = {
+  needs: "blocked",
+  error: "error",
+  done: "done",
+  work: "working",
+  think: "working",
+  listen: "thinking",
+  search: "thinking",
+} as const satisfies Partial<Record<ZibbyOrbState, string>>;
+
+function statusDotTone(state: ZibbyOrbState) {
+  return state in STATUS_DOT_TONE ? STATUS_DOT_TONE[state as keyof typeof STATUS_DOT_TONE] : "idle";
+}
+
+/**
+ * The Zibby overlay, mounted once in `AppShell` inside `ChatProvider` — it replaces the old chat
+ * dock and OWNS the chat engine ({@link useChatDock}: the one and only mount app-wide, hence the
+ * single SSE `EventSource`), the voice engine, the conversation history, the summon hotkey and
+ * the window-level file-drag listener, and assembles the DS `ZibbyOverlay` frame from them.
+ *
+ * - **Open state** is `ChatContext.dockOpen` (`open()` / `openAbout()` from any screen keep
+ *   working). Closes on a route change (cards and links in the thread navigate).
+ * - **Summon:** the global hotkey — tap toggles, hold talks (see {@link useZibbySummon}); the
+ *   header chip; any file dragged over the closed app. Flight origin = the logo knot.
+ * - **Orb state** is derived (see `deriveOrbState`) from the overlay phase, the mic, the in-flight
+ *   turn (+ its latest live tool event), speech, an `approvals` widget awaiting the operator
+ *   (`needsDecision`), a 1.5 s `done` after a dispatch / `error` after a failure, offline
+ *   (`paused`) and file dragging. It is also published to the header chip.
+ * - **Voice:** Space (bare, outside text fields) is push-to-talk while the overlay is open; an
+ *   utterance is sent as a message at once — through the composer, so pending attachments ride
+ *   along (when the composer's submit is blocked, e.g. a turn is in flight, the words land in its
+ *   draft instead of being lost). Completed replies are read aloud unless voice is off; Space /
+ *   PTT interrupts. Hands-free does NOT re-arm the mic after Zibby finishes speaking — listening
+ *   is always an explicit act.
+ */
+export function ZibbyHost() {
+  const t = useTranslations("zibby");
+  const tVoice = useTranslations("zibbyVoice");
+  const tConversations = useTranslations("zibbyConversations");
+  const compact = useIsPhone();
+  const pathname = usePathname();
+  const historyId = useId();
+  const {
+    dockOpen,
+    setDockOpen,
+    open,
+    dockTarget,
+    setDockTarget,
+    about,
+    setAbout,
+    messages,
+    model,
+    setModel,
+  } = useChat();
+
+  // ---- overlay state --------------------------------------------------------------------
+  const [phase, setPhase] = useState<ZibbyOverlayPhase>("closed");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [injectedFiles, setInjectedFiles] = useState<File[] | undefined>(undefined);
+  const [injectedText, setInjectedText] = useState<string | undefined>(undefined);
+  /** Voice / typed origin of the user turns sent in this session (a persisted turn has none). */
+  const [origins, setOrigins] = useState<Record<string, ChatMessageOrigin>>({});
+  const composerHandle = useRef<CommandLineHandle>(null);
+  const originOfNextSend = useRef<ChatMessageOrigin>("typed");
+
+  // ---- engine (the single mount) ----------------------------------------------------------
+  const [justDone, flashDone] = useTransientFlag(TRANSIENT_MS);
+  const [justErrored, flashError] = useTransientFlag(TRANSIENT_MS);
+  const voiceRef = useRef<ZibbyVoice | null>(null);
+  const openRef = useRef(dockOpen);
+  useEffect(() => {
+    openRef.current = dockOpen;
+  });
+
+  const { stream, thinking, send, setScope, setSkillId } = useChatDock({
+    onTurnComplete: (turn: CompletedTurn) => {
+      // A dispatched task (create_task / anything that produced a run) = a finished action.
+      if (turn.toolEvents.some((e) => e.name.endsWith("create_task") || e.runRef !== undefined)) {
+        flashDone();
+      }
+      // Auto-speak: read the finished reply aloud — only while the overlay is open and voice is on.
+      const voice = voiceRef.current;
+      if (openRef.current && voice && !voice.muted && turn.text.trim()) {
+        voice.speak(turn.turnId, turn.text);
+      }
+    },
+    onTurnError: () => flashError(),
+  });
+
+  const sendMessage = useCallback(
+    (
+      text: string,
+      mentions: TaskTarget[] | undefined,
+      attachments: TaskAttachmentSet | undefined,
+      origin: ChatMessageOrigin,
+    ) => {
+      const id = send(text, mentions, attachments);
+      if (id) setOrigins((prev) => ({ ...prev, [id]: origin }));
+    },
+    [send],
+  );
+
+  /** `CommandLine.onSubmit` (Enter / send button / a spoken utterance routed through the composer). */
+  const sendFromComposer = useCallback(
+    (text: string, mentions?: TaskTarget[], attachments?: TaskAttachmentSet) => {
+      const origin = originOfNextSend.current;
+      originOfNextSend.current = "typed";
+      sendMessage(text, mentions, attachments, origin);
+    },
+    [sendMessage],
+  );
+
+  const onUtterance = useCallback((text: string) => {
+    originOfNextSend.current = "voice";
+    const sent = composerHandle.current?.submitSpoken(text) ?? false;
+    originOfNextSend.current = "typed";
+    // Blocked (a turn is in flight): keep the words in the draft rather than dropping them.
+    if (!sent) setInjectedText((prev) => (prev ? `${prev} ${text}` : text));
+  }, []);
+
+  // ---- voice ---------------------------------------------------------------------------
+  const voice = useZibbyVoice({ enabled: dockOpen, onUtterance });
+  useEffect(() => {
+    voiceRef.current = voice;
+  });
+
+  useSpaceToTalk({
+    enabled: dockOpen && phase === "open",
+    onDown: voice.pressTalk,
+    onUp: voice.releaseTalk,
+  });
+
+  // ---- summon / dismiss -------------------------------------------------------------------
+  useZibbySummon({
+    open: dockOpen,
+    setOpen: (next) => (next ? open() : setDockOpen(false)),
+    phase,
+    pressTalk: voice.pressTalk,
+    releaseTalk: voice.releaseTalk,
+    cancelTalk: voice.cancelTalk,
+  });
+
+  // Cards and links in the thread navigate — leave the overlay behind on a route change.
+  const lastPathname = useRef(pathname);
+  useEffect(() => {
+    if (lastPathname.current === pathname) return;
+    lastPathname.current = pathname;
+    setDockOpen(false);
+  }, [pathname, setDockOpen]);
+
+  // ⌥ H toggles the history panel while the overlay is open.
+  useEffect(() => {
+    if (!dockOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey && event.code === "KeyH" && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        setHistoryOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dockOpen]);
+
+  // A file dragged over the closed app summons Zibby with the drop zone showing.
+  useWindowFileDrag(!dockOpen, () => {
+    open();
+    setDragging(true);
+  });
+  const onFilesDrop = useCallback((files: File[]) => {
+    setInjectedFiles(files.slice(0, MAX_ATTACHED_FILES));
+  }, []);
+
+  // Where the orb flies from / back to: the logo's knot (measured whenever the open flag flips).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const origin = useMemo(() => readKnotOrigin(), [dockOpen]);
+
+  // ---- conversations -----------------------------------------------------------------------
+  const conversations = useZibbyConversations({ busy: thinking });
+  const { createTask, pendingFor } = useZibbyCreateTask();
+
+  // ---- orb ----------------------------------------------------------------------------------
+  const online = useOnline();
+  const lastMessage = messages.at(-1);
+  // Something awaits the operator: the last reply (or the live turn) carries an `approvals` card.
+  const needsDecision = (
+    stream.streaming
+      ? stream.toolEvents
+      : lastMessage?.role === "assistant"
+        ? (lastMessage.toolEvents ?? [])
+        : []
+  ).some((e) => e.widget?.kind === "approvals");
+  const orbState = deriveOrbState({
+    phase,
+    listening: voice.listening,
+    thinking: thinking || voice.transcribing,
+    lastToolEvent: stream.toolEvents.at(-1) ?? null,
+    streamingText: stream.text.length > 0,
+    speaking: voice.speaking,
+    voiceOn: !voice.muted,
+    needsDecision,
+    justDone,
+    justErrored,
+    paused: !online,
+    dragging,
+  });
+
+  const publish = usePublishZibbyLive();
+  useEffect(() => {
+    publish({ phase, orbState });
+  }, [publish, phase, orbState]);
+
+  const statusText = dragging ? tVoice(DROP_LABEL_KEY) : tVoice(orbStateLabelKey(orbState));
+  const hint = voice.hint
+    ? tVoice(ZIBBY_VOICE_MESSAGE_KEYS[voice.hint])
+    : voice.error
+      ? tVoice(ZIBBY_VOICE_MESSAGE_KEYS[voice.error])
+      : null;
+
+  const threadEmpty = messages.length === 0;
+  const showSuggestions = threadEmpty && !thinking && !stream.streaming;
+  const prompt = (text: string) => sendMessage(text, undefined, undefined, "typed");
+  const toast = conversations.toast;
+
+  return (
+    <ZibbyOverlay
+      attachments={
+        dockTarget || about ? (
+          <ZibbyContextChips
+            about={about}
+            onClearAbout={() => setAbout(null)}
+            onClearTarget={() => setDockTarget(null)}
+            target={dockTarget}
+          />
+        ) : undefined
+      }
+      compact={compact}
+      composer={
+        <ZibbyComposer
+          compact={compact}
+          handleRef={composerHandle}
+          injectedFiles={injectedFiles}
+          injectedText={injectedText}
+          level={voice.level}
+          listening={voice.listening}
+          mode={voice.mode}
+          model={model}
+          onInjectedFilesConsumed={() => setInjectedFiles(undefined)}
+          onInjectedTextConsumed={() => setInjectedText(undefined)}
+          onModelChange={setModel}
+          onPressTalk={voice.pressTalk}
+          onReleaseTalk={voice.releaseTalk}
+          onScopeChange={setScope}
+          onSend={sendFromComposer}
+          onSkillChange={setSkillId}
+          thinking={thinking}
+        />
+      }
+      dropActive={dragging}
+      dropHint={t("drop.hint")}
+      dropTitle={t("drop.title")}
+      footer={
+        <ZibbyOverlayFooter
+          compact={compact}
+          mode={voice.mode}
+          muted={voice.muted}
+          onModeChange={voice.setMode}
+          onMutedChange={voice.setMuted}
+        />
+      }
+      hint={hint}
+      history={<ZibbyHistory conversations={conversations} onClose={() => setHistoryOpen(false)} />}
+      historyLabel={t("history.label")}
+      historyOpen={historyOpen}
+      label={t("label")}
+      live={<ZibbyLiveTranscript transcript={voice.transcript} />}
+      onDragActiveChange={setDragging}
+      onFilesDrop={onFilesDrop}
+      onHistoryOpenChange={setHistoryOpen}
+      onOpenChange={setDockOpen}
+      onPhaseChange={(next) => {
+        setPhase(next);
+        if (next === "closed") {
+          setHistoryOpen(false);
+          setDragging(false);
+        }
+      }}
+      open={dockOpen}
+      orb={<ZibbyOrb level={voice.level} size={140} state={orbState} />}
+      origin={origin}
+      scrollKey={`${messages.length}:${stream.text.length}:${thinking}`}
+      status={
+        <>
+          <StatusDot tone={statusDotTone(orbState)} />
+          <span data-testid={ZibbyHostTestId.Status}>{statusText}</span>
+        </>
+      }
+      suggestions={
+        showSuggestions ? (
+          <ZibbySuggestions
+            items={[
+              { label: t("suggestions.today"), onSelect: () => prompt(t("suggestions.today")) },
+              {
+                label: t("suggestions.approvals"),
+                onSelect: () => prompt(t("suggestions.approvals")),
+              },
+              { label: t("suggestions.prs"), onSelect: () => prompt(t("suggestions.prs")) },
+            ]}
+            label={t("suggestions.label")}
+            lead={t("suggestions.lead")}
+          />
+        ) : undefined
+      }
+      thread={
+        <ZibbyThread
+          creatingTaskFor={pendingFor}
+          interruptedId={voice.interruptedId}
+          liveText={stream.text}
+          liveToolEvents={stream.toolEvents}
+          messages={messages}
+          onCreateTask={createTask}
+          onPrompt={prompt}
+          origins={origins}
+          streaming={stream.streaming}
+          thinking={thinking}
+        />
+      }
+      toast={
+        toast ? (
+          <ZibbyToast
+            actionLabel={toast.undo ? tConversations("toast.undo") : undefined}
+            message={toast.message}
+            onAction={toast.undo}
+          />
+        ) : undefined
+      }
+      topBar={
+        <ZibbyOverlayTopBar
+          compact={compact}
+          conversations={conversations}
+          historyControls={historyId}
+          historyOpen={historyOpen}
+          onClose={() => setDockOpen(false)}
+          onHistoryToggle={() => setHistoryOpen((prev) => !prev)}
+          threadEmpty={threadEmpty}
+        />
+      }
+    />
+  );
+}

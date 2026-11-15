@@ -21,12 +21,6 @@ import {
   useState,
 } from "react";
 
-/**
- * Modifier shortcut that toggles the chat dock from anywhere. ⌘K is the command
- * palette and bare `n` opens New Task, so chat takes ⌘/Ctrl+J (free).
- */
-export const CHAT_SHORTCUT_KEY = "j";
-
 /** localStorage key the conversation id survives a full page reload under. */
 const CHAT_CONVERSATION_KEY = "zibby.chat.conversationId";
 
@@ -57,13 +51,13 @@ function readStoredModel(): ChatModel {
 
 interface ChatStore {
   /**
-   * Open the shell-global chat dock (ZB-12), minting a conversation if this thread
+   * Open the shell-global Zibby overlay (ZB-12), minting a conversation if this thread
    * doesn't have one yet. `target` scopes the dock to an **explicit** destination
    * (O-20: a department page opens it pre-scoped to that department — "explicit
    * target overrides the classifier"); omitting it keeps whatever scope is set.
    */
   open: (target?: TaskTarget) => void;
-  /** Whether the chat dock is expanded (transcript visible). */
+  /** Whether the Zibby overlay is open (summoned). */
   dockOpen: boolean;
   setDockOpen: (open: boolean) => void;
   /**
@@ -111,10 +105,11 @@ interface ChatStore {
 const ChatContext = createContext<ChatStore | null>(null);
 
 /**
- * Owns the chat conversation state and the chat dock's open/scope state, plus the
- * global ⌘/Ctrl+J shortcut. Mounted once in {@link AppShell}; the dock itself
- * (`ChatDock`) renders in the shell's `dock` slot on every route (ZB-12 — the
- * `/chat` page is retired and redirects to `/dashboard`).
+ * Owns the chat conversation state and the open/scope state of the Zibby overlay
+ * (`dockOpen` is its open flag — the name predates the overlay and is kept so existing
+ * callers keep working). Mounted once in {@link AppShell}; the overlay itself
+ * (`ZibbyHost`) renders on every route and owns the summon shortcut
+ * (`useZibbyHotkey`, default ⌥ Space) — the old ⌘/Ctrl+J chord is gone (D-7).
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
   // Lazily initialised from localStorage so a full page reload re-attaches to the
@@ -197,21 +192,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [newChat, setAbout],
   );
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // The chord uses a modifier, so it's safe while typing; only intercept the
-      // exact ⌘/Ctrl+J combination (no other modifiers). It toggles the dock.
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-      if (e.key.toLowerCase() === CHAT_SHORTCUT_KEY) {
-        e.preventDefault();
-        ensureConversation();
-        setDockOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [ensureConversation]);
 
   const value = useMemo<ChatStore>(
     () => ({

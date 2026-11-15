@@ -436,42 +436,45 @@ change does not apply mid-way through a running `--resume` thread.
   turns send only `{ conversationId, text }`, with no tags, mentions or
   attachments.
 
-## Web dock (shell-global COO dock, ZB-12/ZB-13)
+## Web overlay (Zibby, shell-global — replaced the dock)
 
-`/chat` has no page of its own any more — it is a single `next.config.mjs`
-permanent redirect to `/org` (D-009). The chat engine is `CooDock`
-(`apps/web/features/chat/components/CooDock.tsx`), mounted once in `AppFrame`'s
-`dock` slot by `AppShell` so it is available on every route, wired to the DS
-`ChatDock` shell component. The old JARVIS-style full-page surface
-(`ChatScreen`, its orb-map backdrop, glass top bar and tool dock) was deleted
-in ZB-13 — see `docs/web/overview.md`'s ZB-12/ZB-13 notes.
+`/chat` has no page of its own — it is a `next.config.mjs` permanent redirect (D-009). The chat UI is
+**Zibby**, a full-screen overlay (`apps/web/features/zibby/ZibbyHost.tsx`, composing the DS `ZibbyOverlay`
+frame) mounted once in `AppShell` inside `ChatProvider`, so it is reachable from every route. It replaced
+the old COO dock (`ChatDock` — summoned by ⌘/Ctrl+J, now gone, decision D-7); the DS `ChatDock`/`ChatBubble`
+components still exist for the knowledge `NoteDock` window.
 
-- `useCooChat` (`features/chat/hooks/useCooChat.ts`) is the single owner of the
-  chat stream (`useChatStream` + `useSendChatMessageMutation`, the same
-  `claude --resume` conversation id) and of the reload hydration off
-  `GET /api/chat/transcript` — unlike the old page, the dock rehydrates the
-  transcript from the API on mount rather than relying solely on in-memory
-  client state.
-- **Preserved across navigation, reset by "New chat":** `ChatProvider` mints
-  `conversationId` once, lazily, and keeps it as the operator navigates
-  between routes (the provider sits above the whole shell in `AppShell`, so it
-  survives any single route unmounting) — the same id keeps `--resume`-ing
-  ZIBBY's `claude` session. Only "New chat" mints a fresh id and clears the
-  transcript, starting a session with nothing to `--resume`.
-- ⌘/Ctrl+J toggles the dock open/closed from anywhere; a department page's
-  "Chat with" button opens it with an explicit department target (O-20).
-- D-020: the composer's attach control is back (`showAttach`, the same upload
-  hook/drag-and-drop as New task), and `CommandLine` runs in its opt-in
-  `multipleTargets` mode here — each `@`-picked agent/workflow/department
-  becomes its own removable chip, and submit passes the whole list as
-  `mentions`. The dock's O-20 department scope, when set, is used as the
-  turn's sole mention whenever the composer's own picked list is empty
-  (`useCooChat.send`'s fallback) — a per-turn `@`-mention still wins outright.
-- The dock has no small "mini chat" state: once open it is always full size
-  (the DS `ChatDock` expand/collapse toggle was removed 2026-10-26).
-- "Create task" on a settled reply calls `POST /api/chat/handoff` and opens
-  `/work/tasks/new` prefilled with the hand-off text; if that call fails, the
-  form gets the reply plus a pointer to the conversation id.
+- **Engine:** `useChatDock` (`features/chat/hooks/useChatDock.ts`) is unchanged in role — the single owner of
+  the chat stream (`useChatStream` + `useSendChatMessageMutation`, the same `claude --resume` conversation id)
+  and of the reload hydration off `GET /api/chat/transcript`. It is called ONLY by `ZibbyHost`, so the app keeps
+  exactly one SSE `EventSource`. It now also takes `{ onTurnComplete, onTurnError }` and `send` returns the
+  optimistic user message id (the host records voice vs typed origin by it).
+- **Open state** is still `ChatContext.dockOpen` (`open(target?)`, `openAbout(next)`, `setDockOpen`), so every
+  existing caller works unchanged: a department page's "Chat with" button opens it with an explicit department
+  target (O-20, shown as a clearable chip), `ChatAboutButton` opens it about a thing. It closes on a route change.
+- **Summon:** the configurable global hotkey (default Alt+Space, Ctrl+Space as an alias off macOS — see the
+  Settings → Shortcuts block): a tap toggles, a hold is push-to-talk (release sends). Also the header chip
+  (`ZibbyHeaderChip`: orb + "Zibby" + the shortcut; the orb mirrors the live state, amber when something waits on
+  the operator) and any file dragged over the closed app. The orb flies out of / back into the logo's knot.
+- **Voice:** bare Space (outside text fields) talks while the overlay is open; hold mode or hands-free; the
+  utterance is sent as a message at once — through the composer, so pending attachments ride along (if the
+  composer's submit is blocked, e.g. a turn is in flight, the words land in its draft). Completed replies are
+  read aloud unless voice is off; talking interrupts (the cut reply gets a trailing "…"). Hands-free never
+  re-arms the mic after Zibby speaks.
+- **Thread:** the same message pieces as before (`ChatTranscript`/`ChatMessage`, now in the `ZibbyBubble` look):
+  markdown replies, tool rows, the living run card, widget cards (`ChatWidgetCard`, follow-up prompts are sent as
+  messages), the briefing card, mentions/attachments on the user's bubble, per-message read-aloud, and
+  "CREATE TASK" on a settled reply. User bubbles show "přepis · HH:mm" / "napsáno · HH:mm" for turns sent in this
+  session (a persisted turn shows only the time).
+- **Composer (D-020):** the rich `CommandLine` (`multipleTargets`, `@` mentions, `#` scope, `/` skills, attach,
+  model picker) between the push-to-talk button and send. Files dragged anywhere on the page are uploaded through
+  the composer's own attach path (`injectedFiles`, max 10).
+- **Conversations:** history panel (Today / Yesterday / This week / Older, full-text search), rename, clear,
+  soft-delete with a 5 s undo (`features/zibby/conversations`, the `PATCH`/`DELETE`/`clear`/`restore` routes above).
+- **Preserved across navigation, reset by "New conversation":** `ChatProvider` mints `conversationId` once and
+  keeps it between routes — the same id keeps `--resume`-ing ZIBBY's `claude` session.
+- "Create task" on a settled reply calls `POST /api/chat/handoff` and opens `/work/tasks/new` prefilled with the
+  hand-off text; if that call fails, the form gets the reply plus a pointer to the conversation id.
 
 ## MVP scope
 

@@ -7,15 +7,20 @@ import type { TaskAttachmentSet } from "../../tasks/components/TaskAttachments";
 import { useChat } from "../ChatContext";
 import { useSendChatMessageMutation } from "../mutations/useSendChatMessageMutation";
 import { useChatTranscriptQuery } from "../queries/useChatTranscriptQuery";
-import { useAnyAudioPlaying } from "./useAudioPlayback";
 import { type ChatStreamState, type CompletedTurn, useChatStream } from "./useChatStream";
-import { type VoiceMode, useVoiceMode } from "./useVoiceMode";
 
 /** D-020 — every kind `CommandLine`'s `multipleTargets` mention picker ever
  *  produces (agent/workflow/department, mirrors `ChatMentionTargetSchema`) — the
  *  runtime shape `send`'s `mentions` argument always carries. */
 function isMentionTarget(target: TaskTarget): target is ChatMentionTarget {
   return target.kind === "agent" || target.kind === "workflow" || target.kind === "department";
+}
+
+export interface ChatDockOptions {
+  /** A turn finished (terminal `done`) and was appended to the transcript. */
+  onTurnComplete?: (turn: CompletedTurn) => void;
+  /** A turn failed (terminal `error`); the error line was appended to the transcript. */
+  onTurnError?: (message: string) => void;
 }
 
 export interface ChatDockEngine {
@@ -28,28 +33,26 @@ export interface ChatDockEngine {
    * `@`-addressed units (0–8); when absent/empty the dock's explicit scope
    * (`dockTarget`, O-20) applies as the sole mention; when both are empty the
    * the classifier routes. `attachments`, when its upload produced a set,
-   * rides as `attachmentSetId`.
+   * rides as `attachmentSetId`. Returns the id of the optimistic user message (so a
+   * host can annotate it, e.g. voice vs typed), or `undefined` when nothing was sent.
    */
-  send: (text: string, mentions?: TaskTarget[], attachments?: TaskAttachmentSet) => void;
+  send: (
+    text: string,
+    mentions?: TaskTarget[],
+    attachments?: TaskAttachmentSet,
+  ) => string | undefined;
   /** The composer's `#`-tagged team/project/company — a scope for the turn, not a target. */
   setScope: (kind: ScopeKind, id: string | undefined) => void;
   /** The composer's `/`-picked skill for the turn. */
   setSkillId: (skillId: string | undefined) => void;
-  /** Hands-free dictation over `useSpeechRecognition` (O-22). */
-  voice: VoiceMode;
-  /** Dictated text not yet appended to the composer (fed to `CommandLine`'s
-   *  `injectedText`); `undefined` once consumed. */
-  dictated: string | undefined;
-  /** Clears {@link ChatDockEngine.dictated} once the composer has appended it. */
-  consumeDictated: () => void;
 }
 
 /**
- * The chat dock's engine (ZB-12) — the one owner of the conversation stream
+ * The chat engine (ZB-12), owned by the Zibby overlay host — the one owner of the conversation stream
  * app-wide. It reuses the engine the retired `/chat` page ran on unchanged
  * (`useChatStream` over `GET /api/chat/stream`, `useSendChatMessageMutation`,
  * the `claude --resume` conversation id from {@link ChatProvider}), so mounting
- * it exactly once — in the shell's dock — keeps a single EventSource.
+ * it exactly once — in the shell's `ZibbyHost` overlay — keeps a single EventSource.
  *
  * Also owns the reload hydration the `/chat` screen used to do: on a full page
  * reload the provider's in-memory transcript is gone, so the durable copy
@@ -59,12 +62,19 @@ export interface ChatDockEngine {
  * ref makes the seed one-shot so it never clobbers live or optimistic turns
  * already in state.
  *
- * Voice (O-22): dictation only — a finalized utterance is appended to the
- * composer draft (`dictated`), and the operator sends it with Enter. The mic
- * stays live while a turn is in flight and is disarmed only while a reply is
- * being read aloud (echo guard: the mic must never transcribe ZIBBY's own voice).
+ * Voice lives in `features/zibby/voice` (`useZibbyVoice`): the host feeds spoken utterances to
+ * `send` through the composer and reads completed turns aloud from `onTurnComplete`.
  */
-export function useChatDock(): ChatDockEngine {
+export function useChatDock(options: ChatDockOptions = {}): ChatDockEngine {
+  // Latest-callback refs: the host's callbacks change identity every render, the
+  // stream hook's handlers must not.
+  const onTurnCompleteRef = useRef(options.onTurnComplete);
+  const onTurnErrorRef = useRef(options.onTurnError);
+  useEffect(() => {
+    onTurnCompleteRef.current = options.onTurnComplete;
+    onTurnErrorRef.current = options.onTurnError;
+  });
+
   const {
     conversationId,
     ensureConversation,
@@ -75,9 +85,9 @@ export function useChatDock(): ChatDockEngine {
     model,
   } = useChat();
 
-  // Deliberately NOT `conversationId ?? undefined`: `ChatContext`'s `open()`/⌘J
-  // handler mints a conversation id client-side, synchronously, the moment the
-  // dock is toggled — which can (and does, reliably under Playwright's fast
+  // Deliberately NOT `conversationId ?? undefined`: `ChatContext`'s `open()`
+  // mints a conversation id client-side, synchronously, the moment the
+  // overlay is summoned — which can (and does, reliably under Playwright's fast
   // synthetic input) race ahead of this query's own network round trip. Once
   // the query key stopped being `undefined`, the fetch it's keyed on stops
   // resolving the server's *active* thread and starts asking for that specific
@@ -93,7 +103,7 @@ export function useChatDock(): ChatDockEngine {
 
   // Once hydration has settled without producing a thread (no active thread on
   // the server yet, or the read failed), mint one locally — otherwise a turn
-  // typed into the always-visible dock composer before anyone pressed ⌘J would
+  // typed into the composer before the overlay was ever summoned would
   // hit `send`'s `!conversationId` guard and be dropped silently. Minting only
   // AFTER the query settles keeps the race described above closed.
   const hydrationSettled = transcriptQuery.isSuccess || transcriptQuery.isError;
@@ -103,14 +113,19 @@ export function useChatDock(): ChatDockEngine {
   const hydratedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!transcript) return;
-    if (hydratedFor.current === transcript.conversationId) return;
+    // One-shot per mount: a later refetch of the "active thread" (the conversation mutations
+    // invalidate this key — rename / clear / delete / restore) must never yank the operator
+    // off the conversation they have open.
+    if (hydratedFor.current !== null) return;
     hydratedFor.current = transcript.conversationId;
     setConversationId(transcript.conversationId);
     setMessages(transcript.messages);
   }, [transcript, setConversationId, setMessages]);
 
   const appendAssistant = useCallback(
-    ({ turnId, text, toolEvents }: CompletedTurn) => {
+    (turn: CompletedTurn) => {
+      const { turnId, text, toolEvents } = turn;
+      onTurnCompleteRef.current?.(turn);
       if (!text && toolEvents.length === 0) return;
       setMessages((prev) => [
         ...prev,
@@ -128,6 +143,7 @@ export function useChatDock(): ChatDockEngine {
 
   const appendError = useCallback(
     (message: string) => {
+      onTurnErrorRef.current?.(message);
       setMessages((prev) => [
         ...prev,
         {
@@ -168,7 +184,7 @@ export function useChatDock(): ChatDockEngine {
 
   const send = useCallback(
     (text: string, mentions?: TaskTarget[], attachments?: TaskAttachmentSet) => {
-      if (!conversationId) return;
+      if (!conversationId) return undefined;
       // D-020: an empty/absent mentions list falls back to the dock's explicit
       // scope (O-20) as the sole mention — mirrors the old single-`target`
       // fallback, just generalised to a list. `CommandLine`'s picker only ever
@@ -176,9 +192,10 @@ export function useChatDock(): ChatDockEngine {
       const effectiveMentions = (
         mentions && mentions.length > 0 ? mentions : dockTarget ? [dockTarget] : []
       ).filter(isMentionTarget);
+      const messageId = `u-${crypto.randomUUID()}`;
       setMessages((prev) => [
         ...prev,
-        { id: `u-${crypto.randomUUID()}`, role: "user", text, at: new Date().toISOString() },
+        { id: messageId, role: "user", text, at: new Date().toISOString() },
       ]);
       sendMessage.mutate({
         body: {
@@ -196,21 +213,10 @@ export function useChatDock(): ChatDockEngine {
       });
       // Tags are one-turn (ported from PR #69).
       setTags({});
+      return messageId;
     },
     [conversationId, dockTarget, about, model, setMessages, sendMessage, tags],
   );
 
-  const speaking = useAnyAudioPlaying();
-  // Chunks finalized before the composer consumed the previous one accumulate.
-  const [dictated, setDictated] = useState<string | undefined>(undefined);
-  const appendDictated = useCallback(
-    (chunk: string) => setDictated((prev) => (prev ? `${prev} ${chunk}` : chunk)),
-    [],
-  );
-  const consumeDictated = useCallback(() => setDictated(undefined), []);
-  // Only the echo guard suspends the mic — dictating the next message while a
-  // turn is in flight is allowed (the composer just can't submit until it settles).
-  const voice = useVoiceMode({ onFinal: appendDictated, suspended: speaking });
-
-  return { stream, thinking, send, setScope, setSkillId, voice, dictated, consumeDictated };
+  return { stream, thinking, send, setScope, setSkillId };
 }

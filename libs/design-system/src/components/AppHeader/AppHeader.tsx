@@ -21,6 +21,7 @@ export enum AppHeaderTestId {
   Search = "app-header-search",
   SearchShortcut = "app-header-search-shortcut",
   Menu = "app-header-menu",
+  Zibby = "app-header-zibby",
 }
 
 export interface AppHeaderProps {
@@ -40,6 +41,8 @@ export interface AppHeaderProps {
   /** Section navigation — the app composes a `Tabs variant="mono"`. Auto
    *  width (never grows) — the center search region absorbs the rest. */
   nav?: ReactNode;
+  /** Summon button of the Zibby overlay (a `ZibbyChip`), first in the trailing cluster. */
+  zibby?: ReactNode;
   /** Operator identity slot, trailing cluster. */
   operator?: ReactNode;
   /** Active-agent count slot, trailing cluster. */
@@ -87,6 +90,7 @@ export function AppHeader({
   homeHref,
   homeLabel = "ZibbyOS",
   nav,
+  zibby,
   operator,
   activeCount,
   limits,
@@ -166,6 +170,7 @@ export function AppHeader({
       </div>
 
       <Row align="center" gap="150" shrink={false}>
+        {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
         {operator && <span data-testid={AppHeaderTestId.Operator}>{operator}</span>}
         {activeCount && <span data-testid={AppHeaderTestId.ActiveCount}>{activeCount}</span>}
         {limits && (

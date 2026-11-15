@@ -1,0 +1,88 @@
+import userEvent from "@testing-library/user-event";
+import { ZibbyChipTestId, ZibbyOrbTestId } from "@zibby/design-system";
+import { useEffect } from "react";
+import { describe, expect, it } from "vitest";
+import { renderWithProviders, screen } from "../../../test/render";
+import { ChatProvider, useChat } from "../../chat/ChatContext";
+import { ZibbyLiveProvider, usePublishZibbyLive } from "../live/ZibbyLiveContext";
+import { ZibbyHeaderChip, ZibbyHeaderChipTestId } from "./ZibbyHeaderChip";
+
+function OpenFlag() {
+  const { dockOpen } = useChat();
+  return <span data-testid="open-flag">{String(dockOpen)}</span>;
+}
+
+/** Stands in for the host: publishes the overlay's live phase + orb state. */
+function Publisher({
+  phase,
+  orbState,
+}: {
+  phase: "closed" | "open";
+  orbState: "listen" | "ready";
+}) {
+  const publish = usePublishZibbyLive();
+  useEffect(() => publish({ phase, orbState }), [publish, phase, orbState]);
+  return null;
+}
+
+function renderChip(
+  props: Parameters<typeof ZibbyHeaderChip>[0] = {},
+  live?: Parameters<typeof Publisher>[0],
+) {
+  return renderWithProviders(
+    <ChatProvider>
+      <ZibbyLiveProvider>
+        {live && <Publisher {...live} />}
+        <OpenFlag />
+        <ZibbyHeaderChip {...props} />
+      </ZibbyLiveProvider>
+    </ChatProvider>,
+  );
+}
+
+const orbState = () =>
+  screen
+    .getByTestId(ZibbyHeaderChipTestId.Root)
+    .querySelector(`[data-testid="${ZibbyOrbTestId.Root}"]`)
+    ?.getAttribute("data-state");
+
+describe("ZibbyHeaderChip", () => {
+  it("shows the orb, the label and the real shortcut", () => {
+    renderChip();
+    const chip = screen.getByTestId(ZibbyHeaderChipTestId.Root);
+    expect(chip).toHaveTextContent("Zibby");
+    expect(chip).toHaveTextContent("Alt");
+    expect(chip).toHaveTextContent("Space");
+    expect(chip).toHaveAccessibleName("Vyvolat Zibbyho (Alt Space)");
+    expect(screen.getByTestId(ZibbyChipTestId.Orb)).toBeInTheDocument();
+  });
+
+  it("is asleep when closed and idle, 'needs' when something waits on the operator", () => {
+    const { unmount } = renderChip();
+    expect(orbState()).toBe("sleep");
+    unmount();
+    renderChip({ needsAttention: true });
+    expect(orbState()).toBe("needs");
+  });
+
+  it("mirrors the live orb state while the overlay is up", () => {
+    renderChip({ needsAttention: true }, { phase: "open", orbState: "listen" });
+    expect(orbState()).toBe("listen");
+  });
+
+  it("is icon-only on the phone toolbar (no label, no keys, still named)", () => {
+    renderChip({ iconOnly: true });
+    const chip = screen.getByTestId(ZibbyHeaderChipTestId.Root);
+    expect(chip).toHaveTextContent("");
+    expect(chip).toHaveAccessibleName(/Vyvolat Zibbyho/);
+  });
+
+  it("summons the overlay on click and closes it on the next", async () => {
+    const user = userEvent.setup();
+    renderChip();
+    await user.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId("open-flag")).toHaveTextContent("true");
+    await user.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    expect(screen.getByTestId("open-flag")).toHaveTextContent("false");
+  });
+});

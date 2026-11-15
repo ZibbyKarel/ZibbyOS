@@ -25,8 +25,9 @@ import type {
   KeyboardEvent,
   MouseEvent,
   ReactNode,
+  Ref,
 } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAgentsQuery } from "../../../agents";
 import { useWorkflowsQuery } from "../../../workflows";
@@ -63,6 +64,18 @@ export enum CommandLineTestId {
   /** D-020 — one removable `multipleTargets` mention chip — suffixed
    *  `-${kind}-${id}` so a test can scope into a SPECIFIC chip among several. */
   MentionChip = "command-line-mention-chip",
+}
+
+/** The imperative surface a host can reach through {@link CommandLineProps.handleRef}. */
+export interface CommandLineHandle {
+  /**
+   * Sends `text` — typically a spoken utterance — through the same `onSubmit` path as Enter,
+   * carrying the files currently attached (and clearing them), but leaving the draft, its
+   * `@`/`#`/`/` tags and mention chips untouched: they belong to the typed text, not to the
+   * speech. Returns `false` (nothing sent) while the composer's submit is blocked
+   * (`disabled` / `submitDisabled`) or `text` is blank, so the caller can fall back.
+   */
+  submitSpoken: (text: string) => boolean;
 }
 
 /** A `#` scope source — WHAT a turn can see (a company, a team's knowledge base, a
@@ -209,6 +222,17 @@ export interface CommandLineProps {
   /** Fired once `injectedText` above has been applied. */
   onInjectedTextConsumed?: () => void;
   /**
+   * Files produced OUTSIDE the attach control — e.g. dropped anywhere on the page — uploaded
+   * exactly like the attach button's picks (same mutation, same one-set-replaces-the-last
+   * semantics). One-shot like `injectedText`: `onInjectedFilesConsumed` fires right after.
+   * Ignored unless `showAttach`.
+   */
+  injectedFiles?: File[];
+  /** Fired once `injectedFiles` above has been taken up. */
+  onInjectedFilesConsumed?: () => void;
+  /** Receives the {@link CommandLineHandle} (ref-as-prop). */
+  handleRef?: Ref<CommandLineHandle>;
+  /**
    * Show the `+`/attach affordance (and the drag-and-drop file overlay). Default
    * `true`. Chat passes `false`: the chat message API has no attachment channel
    * yet, so the affordance would silently be ignored rather than hidden.
@@ -240,6 +264,9 @@ export interface CommandLineProps {
    * chip row ABOVE the bar. Default `false` — today's layout, unchanged.
    */
   inline?: boolean;
+  /** With {@link CommandLineProps.inline}: the row's own border/fill is dropped — for a host
+   *  that frames the composer itself (the Zibby composer bar). Default `false`. */
+  bareFrame?: boolean;
 }
 
 /** An in-progress `<trigger>query` the caret is currently sitting inside — `start` is
@@ -529,11 +556,15 @@ export function CommandLine({
   onInjectedTargetConsumed,
   injectedText,
   onInjectedTextConsumed,
+  injectedFiles,
+  onInjectedFilesConsumed,
+  handleRef,
   showAttach = true,
   submitLabel,
   leadingActions,
   renderTrailing,
   inline = false,
+  bareFrame = false,
 }: CommandLineProps) {
   const t = useTranslations("tasks");
   const tMention = useTranslations("chat.mention");
@@ -848,6 +879,31 @@ export function CommandLine({
     notifyDraftChange(suggestion);
     pendingSuggestionRef.current = true;
   }
+
+  // The imperative surface (see `CommandLineHandle`) — re-created every render so
+  // `submitSpoken` always reads the current attachments / guards.
+  useImperativeHandle(handleRef, () => ({
+    submitSpoken(spoken: string) {
+      const trimmed = spoken.trim();
+      if (!trimmed || disabled || submitDisabled) return false;
+      const payload = attachments.files.length > 0 ? attachments : undefined;
+      if (multipleTargets) onSubmit(trimmed, undefined, payload, undefined);
+      else onSubmit(trimmed, undefined, payload);
+      if (payload) {
+        setAttachments({ files: [] });
+        onAttachmentsChange?.({ files: [] });
+      }
+      return true;
+    },
+  }));
+
+  // Files injected from outside (a page-wide drop) take the attach control's upload path.
+  useEffect(() => {
+    if (!showAttach || !injectedFiles || injectedFiles.length === 0) return;
+    void uploadFiles(injectedFiles);
+    onInjectedFilesConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injectedFiles]);
 
   function closeMention() {
     setMention(null);
@@ -1306,6 +1362,7 @@ export function CommandLine({
           )}
           <Stack align="center" direction="row" gap="100">
             <InputFrame
+              bare={bareFrame}
               end={leadingActions}
               start={
                 showAttach && (
