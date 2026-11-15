@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Můstek — redesign</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+html,body{margin:0;background:#07080a}
+.bz{--bg:#0a0b0d;--p1:#0f1114;--p2:#151820;--p3:#1c2029;--line:rgba(255,255,255,.06);--line2:rgba(255,255,255,.11);--ink:#eceef2;--ink2:#a6acb7;--ink3:#80868f;--amber:#f5a524;--amb-s:rgba(245,165,36,.12);--violet:#a78bfa;--sky:#7dd3fc;--rose:#fb7185;--emerald:#34d399;--idle:#6b7280;--under:var(--bg);min-height:100vh;background:#07080a;color:var(--ink);font:13px/1.5 'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:'ss01'}
+.bz *{box-sizing:border-box}
+.bz button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
+.bz button:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+.bz h1,.bz h2,.bz h3,.bz h4,.bz p{margin:0}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.dim{color:var(--ink3)}
+.vt{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:10px 20px;background:rgba(7,8,10,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.vt .lbl{font-weight:600;margin-right:12px;letter-spacing:-.01em}
+.vtb{padding:6px 11px;border-radius:999px;color:var(--ink2);font-size:12px}
+.vtb:hover{background:var(--p2);color:var(--ink)}
+.vtb[aria-pressed=true]{background:var(--ink);color:#0a0b0d}
+.vt .sp{flex:1}
+.cap{width:1440px;max-width:calc(100% - 40px);margin:28px auto 0;display:flex;gap:24px;align-items:baseline}
+.cap.ph{width:410px}
+.cap b{font-size:15px;font-weight:600;white-space:nowrap}
+.cap span{color:var(--ink2);font-size:13px;max-width:760px}
+.cap.ph{flex-direction:column;gap:4px}
+.stage{width:1440px;margin:14px auto 64px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);position:relative}
+.stage.phone{width:410px;height:864px;border-radius:48px;border:10px solid #1b1e25;box-shadow:0 40px 100px -30px rgba(0,0,0,.9)}
+/* top bar */
+.top{display:flex;align-items:center;gap:18px;height:52px;padding:0 20px;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.01em}
+.logo i{width:26px;height:26px;border-radius:7px;background:var(--ink);color:#0a0b0d;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:14px}
+.logo small{font-family:'Geist Mono';font-size:10.5px;color:var(--ink3);font-weight:400}
+.nav{display:flex;gap:2px}
+.nav button{padding:6px 10px;border-radius:7px;color:var(--ink3);font-size:13px}
+.nav button:hover{color:var(--ink);background:var(--p2)}
+.nav .on{color:var(--ink);background:var(--p2)}
+.search{flex:1;max-width:380px;margin-left:auto;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;background:var(--p1);border:1px solid var(--line);color:var(--ink3)}
+.search span{flex:1}
+.kbd{font-family:'Geist Mono';font-size:10.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--line2);color:var(--ink3)}
+.quota{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);line-height:1.2}
+.quota small{display:block;color:var(--ink3);font-size:11px}
+.bell{position:relative;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:var(--ink2)}
+.bell:hover{background:var(--p2)}
+.bell b{position:absolute;top:3px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:99px;background:var(--amber);color:#1a1204;font-size:9.5px;display:grid;place-items:center}
+/* sub bar */
+.sub{display:flex;align-items:center;gap:18px;padding:20px 28px 0}
+.sub h1{font-size:22px;font-weight:600;letter-spacing:-.025em}
+.tabs{display:flex;gap:16px;padding-left:18px;border-left:1px solid var(--line);color:var(--ink3);font-size:13px}
+.tabs button:hover{color:var(--ink)}
+.tabs .n{font-family:'Geist Mono';font-size:11.5px;margin-left:4px}
+.sub .sp{flex:1}
+.seg{display:flex;padding:3px;border-radius:9px;background:var(--p1);border:1px solid var(--line)}
+.seg button{padding:4px 10px;border-radius:6px;font-size:12px;color:var(--ink3)}
+.seg button:hover{color:var(--ink)}
+.seg [aria-pressed=true]{background:var(--p3);color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid var(--line2);color:var(--ink);white-space:nowrap}
+.bz .btn{text-align:center}
+.btn:hover{background:var(--p2)}
+.btn.pri{background:var(--amber);border-color:var(--amber);color:#1a1204}
+.btn.pri:hover{background:#ffb43d}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.btn.gh{border-color:transparent;color:var(--ink2)}
+.ib{width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--ink3)}
+.ib:hover{background:var(--p3);color:var(--ink)}
+/* grid */
+.g{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:20px;padding:22px 28px 36px;align-items:start}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.rel{position:relative;min-width:0}
+/* hero */
+.hero{grid-column:span 12;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:48px;align-items:end;padding:6px 4px 10px;position:relative}
+.hero .eb{font-size:12px;color:var(--ink3);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.hero h2{font-size:30px;line-height:1.15;font-weight:500;letter-spacing:-.03em;margin-bottom:8px}
+.hero p{font-size:15px;line-height:1.6;color:var(--ink2);max-width:660px;text-wrap:pretty}
+.hero p strong{color:var(--ink);font-weight:500}
+.hero p .a{color:var(--amber)}
+.hero p .r{color:var(--rose)}
+.ctrs{display:flex;gap:30px}
+.ctr{display:flex;flex-direction:column;gap:4px;min-width:60px}
+.ctr .n{font-weight:300;font-size:42px;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ctr .l{font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ctr.amber .n{color:var(--amber)}
+.ctr.rose .n{color:var(--rose)}
+.ctr.dim .n{color:var(--ink3)}
+.hero.slim{grid-template-columns:minmax(0,1fr) auto;padding:0 4px}
+.hero.slim h2{font-size:20px;margin:0}
+.hero.slim .ctr .n{font-size:28px}
+/* widget */
+.w{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:10px}
+.w.t1{--under:#14171e;background:linear-gradient(180deg,#171b23 0%,#12151a 100%);border:1px solid rgba(245,165,36,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 24px 48px -28px rgba(0,0,0,.9)}
+.w.t1::before{content:'';position:absolute;left:18px;right:18px;top:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(245,165,36,.75),transparent)}
+.w.t2{--under:var(--p1);background:var(--p1);border:1px solid var(--line)}
+.w.t3{--under:var(--bg);background:transparent;border:1px solid transparent}
+.w.t3:hover{border-color:var(--line)}
+.w.cl{background:transparent;border:1px dashed var(--line2)}
+.wh{display:flex;align-items:center;gap:8px;min-height:46px;padding:12px 12px 8px 16px;position:relative}
+.t3 .wh{padding:4px 4px 6px;min-height:32px}
+.cl .wh{min-height:38px;padding:6px 10px 6px 14px}
+.wt{font-size:13px;font-weight:600;letter-spacing:-.005em;white-space:nowrap}
+.t1 .wt{font-size:15px}
+.t3 .wt,.cl .wt{font-size:12px;font-weight:500;color:var(--ink2)}
+.cnt{font-family:'Geist Mono';font-size:12px;color:var(--ink3)}
+.you{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:999px;background:var(--amb-s);color:var(--amber);font-size:11.5px;font-weight:500;white-space:nowrap}
+.you .d{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(245,165,36,.18)}
+.wh .sp{flex:1}
+.aside{font-size:12px;color:var(--ink3);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.ctl{display:flex;gap:1px;opacity:0;transition:opacity .15s}
+.w:hover .ctl,.w:focus-within .ctl{opacity:1}
+.ctl .ib{width:26px;height:26px}
+.grip{position:absolute;left:4px;top:50%;transform:translateY(-50%);color:var(--ink3);opacity:0;font-size:9px;letter-spacing:-2px;line-height:1}
+.w:hover .grip{opacity:.7}
+.t3 .grip{left:-12px}
+.rz{position:absolute;right:4px;bottom:4px;width:9px;height:9px;border-right:1.5px solid var(--ink3);border-bottom:1.5px solid var(--ink3);border-radius:0 0 3px 0;opacity:0}
+.w:hover .rz{opacity:.5}
+.wb{padding:0 6px 10px;min-width:0}
+.t3 .wb{padding:0 0 4px}
+.more{display:block;width:calc(100% - 20px);margin:6px 10px 2px;padding:7px 0;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}
+.bz .more{text-align:left}
+.more:hover{color:var(--ink)}
+/* rows */
+.row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;padding:var(--rowpad,8px) 10px;border-radius:8px;position:relative}
+.row:hover{background:rgba(255,255,255,.035)}
+.row.sel{background:rgba(245,165,36,.08);box-shadow:inset 0 0 0 1px rgba(245,165,36,.3)}
+.l1{display:flex;gap:8px;align-items:baseline;min-width:0}
+.l1 .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:450}
+.rev .l1 .t{white-space:normal;text-wrap:pretty}
+.id{font-family:'Geist Mono';font-size:11.5px;color:var(--ink3);flex:none}
+.meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--ink3);min-width:0;flex-wrap:wrap}
+.meta .sep::before{content:'·'}
+.av{width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center;font-size:8px;font-weight:700;color:#0a0b0d;flex:none}
+.av.bot{background:var(--p3);color:var(--ink2);border-radius:5px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:6px;font-size:11.5px;color:var(--ink2);background:rgba(255,255,255,.045);white-space:nowrap}
+.chip.ok{color:var(--emerald);background:rgba(52,211,153,.09)}
+.chip.warn{color:var(--amber);background:var(--amb-s)}
+.chip.err{color:var(--rose);background:rgba(251,113,133,.1)}
+.chip.you{color:#1a1204;background:var(--amber);font-weight:500}
+.ci{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;margin-top:1px}
+.ci.ok{color:var(--emerald);background:rgba(52,211,153,.1)}
+.ci.fail{color:var(--rose);background:rgba(251,113,133,.11)}
+.ci.conflict{color:var(--amber);background:var(--amb-s)}
+.ci.run{color:var(--sky);background:rgba(125,211,252,.1)}
+.ci.run svg{animation:spin 1.4s linear infinite}
+.sec{display:flex;align-items:center;gap:8px;padding:12px 10px 4px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.sec .n{font-family:'Geist Mono';letter-spacing:0}
+.sec::after{content:'';flex:1;height:1px;background:var(--line)}
+.sec.amb{color:var(--amber)}
+/* stacks */
+.kids{position:relative;margin-left:19px;padding-left:12px}
+.kids::before{content:'';position:absolute;left:0;top:-4px;bottom:20px;width:1px;background:var(--line2)}
+.kids .row::before{content:'';position:absolute;left:-12px;top:19px;width:9px;height:1px;background:var(--line2)}
+.stk{display:inline-flex;gap:4px;align-items:center;color:var(--ink2)}
+/* runs */
+.now{display:flex;align-items:center;gap:8px;margin:2px 10px 4px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.025);font-size:12.5px;color:var(--ink2)}
+.now .sp{flex:1}
+.rail{position:relative;padding:2px 10px}
+.rail::before{content:'';position:absolute;left:23px;top:12px;bottom:12px;width:1px;background:var(--line2)}
+.ri{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;padding:6px 0;align-items:start}
+.ri>.dot{justify-self:center;margin-top:6px;position:relative;z-index:1;box-shadow:0 0 0 4px var(--under)}
+.ri .t{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri .k{display:block;font-size:11.5px;color:var(--ink3)}
+.ri .tm,.tm{font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.ri.mini .t{color:var(--ink2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);display:inline-block;flex:none}
+.dot.working{background:var(--violet);animation:pulse 1.6s ease-in-out infinite}
+.dot.thinking{background:var(--sky);animation:pulse 2.2s ease-in-out infinite}
+.dot.blocked{background:var(--amber);box-shadow:0 0 0 3px rgba(245,165,36,.18)}
+.dot.error{background:var(--rose)}
+.dot.done{background:var(--emerald)}
+.dot.idle{background:transparent;border:1.5px solid var(--idle)}
+.park{margin:4px 10px;padding:11px 12px;border-radius:9px;background:rgba(245,165,36,.06);border:1px solid rgba(245,165,36,.16)}
+.park .pt{display:flex;align-items:center;gap:8px;font-weight:500}
+.park .pt .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.park .pk{font-size:11.5px;color:var(--ink3);margin:2px 0 0 16px}
+.park .why{font-size:12.5px;color:var(--ink2);margin:6px 0 10px 16px;text-wrap:pretty}
+.park .acts{margin-left:16px}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+/* issues */
+.epic{display:grid;grid-template-columns:14px minmax(0,1fr) 72px auto;gap:10px;align-items:center;padding:10px 10px 4px;width:100%}
+.epic .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epic .nm .id{margin-right:6px}
+.epic .f{font-family:'Geist Mono';font-size:11.5px;color:var(--ink3)}
+.bar{height:4px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ink2);border-radius:99px}
+.trk{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-family:'Geist Mono';font-size:9px;font-weight:600;background:rgba(255,255,255,.06);color:var(--ink2);margin-top:1px}
+/* decision */
+.decide{margin:2px 10px 6px;padding:14px;border-radius:10px;background:var(--p2);border:1px solid var(--line2)}
+.decide .eb{font-size:11.5px;color:var(--ink3);display:flex;gap:6px;align-items:center}
+.decide h4{margin:6px 0 4px;font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;text-wrap:pretty}
+.decide p{margin:0 0 12px;color:var(--ink2);font-size:12.5px;text-wrap:pretty}
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{padding:10px 12px;border-radius:9px;background:rgba(255,255,255,.025);border:1px solid var(--line);display:flex;flex-direction:column;gap:3px;width:100%;min-width:0}
+.tile:hover{border-color:var(--line2)}
+.tile .nm{display:flex;align-items:center;gap:7px;font-weight:500;min-width:0}
+.tile .nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .br{font-family:'Geist Mono';font-size:11px;color:var(--ink3);padding-left:15px}
+.tile.err{background:rgba(251,113,133,.07);border-color:rgba(251,113,133,.32)}
+.tile.err .br{color:var(--rose)}
+/* timeline */
+.tl{position:relative;height:46px;margin:4px 6px 6px}
+.tl .ax{position:absolute;left:0;right:0;top:17px;height:1px;background:var(--line2)}
+.tl .nw{position:absolute;left:0;top:7px;width:2px;height:21px;background:var(--amber);border-radius:2px}
+.tl .tk{position:absolute;top:28px;font-family:'Geist Mono';font-size:10.5px;color:var(--ink3);transform:translateX(-50%)}
+.tl .mk{position:absolute;top:12px;width:10px;height:10px;border-radius:2px;background:var(--p3);border:1.5px solid var(--ink2);transform:translateX(-50%) rotate(45deg)}
+.al{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding:5px 2px;font-size:12.5px;color:var(--ink2);align-items:baseline}
+.al span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+/* meters */
+.mt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:7px 2px}
+.mt .bar{grid-column:1/-1;height:5px}
+.mt .v{font-family:'Geist Mono';font-size:11.5px;color:var(--ink2)}
+.mt.hot .bar i{background:var(--amber)}
+.mt.hot .note{grid-column:1/-1;color:var(--amber);font-size:11.5px}
+/* quick actions */
+.qa{display:flex;flex-wrap:wrap;gap:8px}
+.qa button{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--line2);background:var(--p1);font-weight:500}
+.qa button:hover{border-color:var(--ink3);background:var(--p2)}
+.qa .pl{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--p3);color:var(--ink)}
+.qa small{color:var(--ink3);font-size:11px;font-weight:400}
+.qa .add{border-style:dashed;color:var(--ink3);background:transparent;padding:0 12px}
+/* launcher */
+.lz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.lz button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 2px;border-radius:9px;font-size:11.5px;color:var(--ink2)}
+.bz .lz button{text-align:center}
+.lz button:hover{background:var(--p2);color:var(--ink)}
+.lz .lg{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);color:var(--ink)}
+/* feed */
+.fd{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;padding:7px 4px;align-items:start;width:100%;border-radius:8px}
+.fd:hover{background:rgba(255,255,255,.03)}
+.src{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-family:'Geist Mono';font-size:10px;font-weight:600;background:var(--p2);border:1px solid var(--line);color:var(--ink2)}
+.fd .who{display:block;font-size:11.5px;color:var(--ink3)}
+.fd .tx{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+.fd.un .tx{color:var(--ink);font-weight:500}
+.fd .ud{width:6px;height:6px;border-radius:50%;background:var(--ink);display:inline-block;margin-left:6px;vertical-align:middle}
+/* knowledge */
+.kn{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start;padding:10px 2px;border-bottom:1px solid var(--line)}
+.kn:last-child{border-bottom:0}
+.kn .q{font-size:13.5px;line-height:1.45;color:var(--ink);text-wrap:pretty}
+.kn .s{display:block;font-size:11.5px;color:var(--ink3);margin-top:2px}
+.kn .lk{font-size:12px;color:var(--ink3);padding:2px 6px;border-radius:6px}
+.kn .lk:hover{color:var(--ink);background:var(--p2)}
+.kn.ag .q{color:var(--ink2)}
+/* todo paper */
+.w.paper{--under:#13151a;background:#13151a;border:1px solid var(--line);background-image:repeating-linear-gradient(180deg,transparent 0 33px,rgba(255,255,255,.035) 33px 34px)}
+.td{display:flex;gap:10px;align-items:center;min-height:34px;padding:0 12px;width:100%}
+.cb{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--ink3);flex:none;display:grid;place-items:center;color:#0a0b0d}
+.cb.on{background:var(--emerald);border-color:var(--emerald)}
+.td.done .x{color:var(--ink3);text-decoration:line-through}
+.mn{color:var(--sky)}
+.tdadd{display:flex;gap:10px;align-items:center;min-height:34px;padding:0 12px;color:var(--ink3)}
+.tdadd input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font:inherit}
+.tdadd input::placeholder{color:var(--ink3)}
+/* sheet */
+.sheet{position:absolute;top:0;left:calc(100% + 14px);width:470px;z-index:12;background:#161a22;border:1px solid var(--line2);border-radius:12px;box-shadow:0 40px 90px -20px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.6);overflow:hidden}
+.sheet .sh{display:flex;align-items:center;gap:8px;padding:12px 12px 12px 16px;border-bottom:1px solid var(--line)}
+.sheet .bd{padding:16px}
+.sheet h3{font-size:17px;font-weight:600;line-height:1.35;letter-spacing:-.015em;margin-bottom:10px;text-wrap:pretty}
+.kv{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 12px;font-size:12.5px;margin:14px 0}
+.kv dt{color:var(--ink3)}
+.kv dd{margin:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chk{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:start;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px}
+.chk .m{display:block;color:var(--rose);font-family:'Geist Mono';font-size:11px;margin-top:2px}
+.sug{margin-top:14px;padding:12px;border-radius:10px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.22);font-size:12.5px;color:var(--ink2)}
+.sug b{color:var(--ink);font-weight:500}
+.sheet .ft{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+.sheet .ft .sp{flex:1}
+.fchips{display:flex;gap:6px;padding:2px 10px 6px;flex-wrap:wrap}
+.fchips button{height:26px;padding:0 10px;border-radius:999px;font-size:12px;color:var(--ink2);border:1px solid var(--line)}
+.fchips button:hover{border-color:var(--line2);color:var(--ink)}
+.fchips [aria-pressed=true]{background:var(--ink);color:#0a0b0d;border-color:var(--ink)}
+.fchips .n{font-family:'Geist Mono';font-size:11px;margin-left:4px;opacity:.7}
+/* phone */
+.ph{height:100%;position:relative;overflow:hidden;background:var(--bg)}
+.ph .scr{height:100%;overflow-y:auto;padding-bottom:96px}
+.sbar{height:46px;display:flex;justify-content:space-between;align-items:center;padding:0 28px;font-size:14px;font-weight:600}
+.ab{display:flex;align-items:center;gap:10px;padding:4px 16px 8px}
+.ab h1{font-size:17px;font-weight:600}
+.ab .sp{flex:1}
+.hero2{padding:10px 18px 14px}
+.hero2 .eb{font-size:12px;color:var(--ink3);margin-bottom:6px}
+.hero2 h2{font-size:24px;line-height:1.2;font-weight:500;letter-spacing:-.025em;margin-bottom:6px}
+.hero2 p{font-size:14px;color:var(--ink2);line-height:1.55}
+.hero2 p .a{color:var(--amber)}
+.ctrs2{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 6px;scrollbar-width:none}
+.ctr2{flex:none;min-width:92px;padding:10px 12px;border-radius:12px;background:var(--p1);border:1px solid var(--line)}
+.ctr2 .n{font-size:26px;font-weight:300;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.ctr2 .l{font-size:11.5px;color:var(--ink3)}
+.ctr2.amber .n{color:var(--amber)}
+.ctr2.rose .n{color:var(--rose)}
+.zl{display:flex;align-items:center;gap:8px;padding:18px 18px 8px;font-size:12px;color:var(--ink3);font-weight:500}
+.zl .sp{flex:1}
+.zone{padding:0 10px;display:flex;flex-direction:column;gap:10px}
+.sum{display:grid;grid-template-columns:22px minmax(0,1fr) auto 14px;gap:10px;align-items:center;padding:12px 8px;width:100%;border-bottom:1px solid var(--line);color:var(--ink2)}
+.sum:last-child{border-bottom:0}
+.sum b{font-weight:500;color:var(--ink)}
+.sum .v{font-size:12px;color:var(--ink3);display:inline-flex;gap:6px;align-items:center}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:82px;padding:8px 8px 26px;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(13,15,18,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+.tabbar button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:var(--ink3);position:relative}
+.bz .tabbar button{text-align:center}
+.tabbar .on{color:var(--ink)}
+.tabbar b{position:absolute;top:-2px;left:calc(50% + 6px);min-width:15px;height:15px;padding:0 4px;border-radius:99px;background:var(--amber);color:#1a1204;font-size:9.5px;display:grid;place-items:center}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:9px;background:rgba(255,255,255,.5)}
+/* B queue */
+.qh{display:flex;align-items:baseline;gap:14px;margin:4px 4px 14px}
+.qh h2{font-size:26px;font-weight:500;letter-spacing:-.03em}
+.qh span{color:var(--ink2)}
+.qh .sp{flex:1}
+.qlist{display:flex;flex-direction:column;gap:8px}
+.q{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--p1);border:1px solid var(--line)}
+.q:hover{border-color:var(--line2)}
+.q .sg{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);color:var(--ink2)}
+.q.hot{background:linear-gradient(90deg,rgba(245,165,36,.07),var(--p1) 40%);border-color:rgba(245,165,36,.22)}
+.q.hot .sg{color:var(--amber);border-color:rgba(245,165,36,.35);background:var(--amb-s)}
+.q .src3{font-size:11.5px;color:var(--ink3)}
+.q h4{font-size:14.5px;font-weight:500;letter-spacing:-.01em;margin:1px 0 2px}
+.q p{font-size:12.5px;color:var(--ink2)}
+.inst{padding:18px 18px 8px;border-radius:12px;background:var(--p1);border:1px solid var(--line);display:flex;flex-direction:column;gap:18px}
+.inst h3{font-size:12px;font-weight:500;color:var(--ink3);display:flex;justify-content:space-between}
+/* C edition */
+.ed{padding:26px 40px 36px}
+.mast{display:flex;align-items:baseline;gap:16px;padding-bottom:14px;border-bottom:1px solid var(--line2)}
+.mast .nm{font-size:13px;color:var(--ink2)}
+.mast .sp{flex:1}
+.lead{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:56px;padding:30px 0;border-bottom:1px solid var(--line)}
+.lead .eb{font-size:12px;color:var(--ink3);margin-bottom:12px}
+.lead h2{font-size:48px;line-height:1.02;letter-spacing:-.04em;font-weight:500;margin-bottom:22px}
+.nd{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:12px 0;border-top:1px solid var(--line);width:100%}
+.nd:hover .tt{color:var(--amber)}
+.nd .no{font-family:'Geist Mono';font-size:12px;color:var(--amber)}
+.nd .tt{font-size:17px;letter-spacing:-.01em}
+.nd .s{font-size:12px;color:var(--ink3)}
+.figs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 24px;align-content:end}
+.fig .n{font-size:60px;font-weight:300;line-height:.95;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.fig .l{font-size:12.5px;color:var(--ink3);margin-top:6px}
+.fig.rose .n{color:var(--rose)}
+.fig.dim .n{color:var(--ink3)}
+.cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.cols>div{padding:22px 24px 0;border-left:1px solid var(--line);min-width:0}
+.cols>div:first-child{border-left:0;padding-left:0}
+.cols h3{font-size:12px;font-weight:500;color:var(--ink3);margin-bottom:6px;display:flex;justify-content:space-between}
+.cols h5{font-size:11px;font-weight:500;color:var(--ink3);margin:18px 0 2px;text-transform:uppercase;letter-spacing:.06em}
+.it{padding:10px 0;border-bottom:1px solid var(--line)}
+.it .k{font-family:'Geist Mono';font-size:11px;color:var(--ink3);display:flex;gap:8px;align-items:center}
+.it .tt{font-size:14px;line-height:1.4;margin-top:2px;text-wrap:pretty}
+.it .s{font-size:12px;color:var(--ink3);margin-top:2px}
+.foot{display:flex;gap:28px;align-items:center;margin-top:26px;padding-top:14px;border-top:1px solid var(--line2);font-size:12.5px;color:var(--ink2);flex-wrap:wrap}
+.foot .m{display:inline-flex;align-items:center;gap:8px}
+.foot .bar{width:60px}
+/* spec */
+.spec{width:1100px;max-width:calc(100% - 40px);margin:28px auto 80px;line-height:1.6;color:var(--ink2)}
+.spec h1{font-size:32px;font-weight:500;letter-spacing:-.03em;color:var(--ink);margin-bottom:8px}
+.spec h2{font-size:18px;font-weight:600;color:var(--ink);margin:40px 0 10px;letter-spacing:-.015em}
+.spec p{margin:0 0 10px;max-width:780px}
+.spec strong{color:var(--ink);font-weight:500}
+.spec .lede{font-size:16px;max-width:820px}
+.spec table{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 4px}
+.spec th{text-align:left;font-weight:500;color:var(--ink3);padding:8px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.spec td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.spec td:first-child{color:var(--ink);white-space:nowrap}
+.spec code,.spec pre{font-family:'Geist Mono';font-size:12px}
+.spec code{color:var(--ink);background:var(--p2);padding:1px 5px;border-radius:4px}
+.spec pre{background:var(--p1);border:1px solid var(--line);border-radius:10px;padding:16px;color:var(--ink2);overflow-x:auto;line-height:1.55}
+.spec ol,.spec ul{margin:0 0 10px;padding-left:20px;max-width:820px}
+.spec li{margin:4px 0}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.tiers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:12px 0}
+.tiers>div{padding:14px;border-radius:10px;min-height:120px;font-size:12px}
+.tiers b{display:block;color:var(--ink);font-size:13px;font-weight:600;margin-bottom:4px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(167,139,250,.55)}50%{box-shadow:0 0 0 6px rgba(167,139,250,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.bz *{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="bz" style="--rowpad:{{ rowpad }}">
+  <nav class="vt" aria-label="Pohledy redesignu">
+    <span class="lbl">Můstek · redesign</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="6">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <span class="sp"></span>
+    <span class="dim" style="font-size:12px;margin-right:6px">Hustota</span>
+    <div class="seg" role="group" aria-label="Hustota">
+      <sc-for list="{{ dens }}" as="d" hint-placeholder-count="3">
+        <button aria-pressed="{{ d.on }}" onClick="{{ d.pick }}">{{ d.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    {{ dash }}
+  </sc-if>
+
+  <sc-if value="{{ isSpec }}" hint-placeholder-val="{{ false }}">
+    <article class="spec">
+      <h1>Můstek — specifikace redesignu</h1>
+      <p class="lede">Jedna věta: <strong>barva říká stav, tvar říká typ, úroveň říká prioritu.</strong> Dnes má všech 13 widgetů stejný rám, stejnou hlavičku a stejné řádky, takže oko nemá kam sednout. Redesign drží paletu, rohy 10 px i 12sloupcovou volnou mřížku, ale každému widgetu dává vlastní „druh“ a nad tím jednoduchý algoritmus, který rozhodne, co je nahlas a co potichu.</p>
+
+      <h2>1. Co se mění proti současnému vzhledu</h2>
+      <ul>
+        <li><strong>Pryč s verzálkami a prostrkaným monospace v hlavičkách.</strong> Nadpisy jsou ve větném tvaru (Geist 13–15 px, 600). Mono zůstává jen pro ID, čísla, časy a větve.</li>
+        <li><strong>Pryč s barevnými levými proužky u řádků.</strong> Stav nese malý glyf (CI čtverec, stavová tečka), ne svislá čára přes celý řádek.</li>
+        <li><strong>Méně rámečků.</strong> Ambientní widgety nemají žádný kontejner; rámeček se ukáže jen při hoveru (kvůli drag &amp; resize).</li>
+        <li><strong>Ovládání widgetu (sync, filtr, +, nastavení, sbalit) je skryté</strong> a ukáže se při hoveru nebo focusu. Klávesnicí je vždy dosažitelné.</li>
+        <li><strong>Avatary jsou malé (16 px) a neutrální</strong> — žádné fotky 40 px, které dnes dominují seznamu PR.</li>
+        <li><strong>Briefing přestává být karta.</strong> Je to hero bez chrome: pozdrav, jedna věta, velké číslice.</li>
+      </ul>
+
+      <h2>2. Úrovně kontejneru (tier)</h2>
+      <div class="tiers">
+        <div style="border:1px dashed var(--line2)"><b>T0 · Hero</b>Bez pozadí i rámu. Display typografie, velké číslice. Jen Briefing. Vždy nahoře, přes celou šířku.</div>
+        <div style="background:linear-gradient(180deg,#171b23,#12151a);border:1px solid rgba(245,165,36,.25)"><b>T1 · Primární</b>Zvednutý povrch #171b23→#12151a, jantarová hrana 20 %, jantarový přechod na horní hraně, stín. Titulek 15/600. Max 2 na layout.</div>
+        <div style="background:var(--p1);border:1px solid var(--line)"><b>T2 · Standardní</b>Panel #0f1114, linka 6 %. Titulek 13/600. Widgety s obsahem pro tebe, které se nevešly do T1.</div>
+        <div style="border:1px solid var(--line)"><b>T3 · Ambientní</b>Bez pozadí a bez rámu (rám jen při hoveru). Titulek 12/500 ink2. Kontext, který se jen čte.</div>
+        <div style="border:1px dashed var(--line2)"><b>Sbaleno · ALL CLEAR</b>Jen hlavička 38 px, přerušovaná linka, „Vše v pořádku“ šedě. Tělo zmizí, výška se vrátí na min.</div>
+      </div>
+
+      <h2>3. Hlavička widgetu</h2>
+      <p>Pořadí slotů zleva: <code>grip</code> (jen při hoveru) · <code>titulek</code> · <code>počet</code> (mono, šedý, bez nul na začátku u T3) · <code>N na tebe</code> (jantarová pilulka s tečkou — jediný jantarový prvek hlavičky) · <code>mezera</code> · <code>aside</code> (šedý text, např. „Vše v pořádku“, „další za 11 min“) · <code>ovládání</code> (opacity 0 → 1 při <code>:hover</code> / <code>:focus-within</code>). Pod 4 sloupci šířky se ovládání schová do jednoho tlačítka „⋯“.</p>
+
+      <h2>4. Druhy widgetů</h2>
+      <table>
+        <thead><tr><th>Widget</th><th>Druh</th><th>Tvar těla</th><th>Min–max (sl×ř)</th><th>Prázdný stav</th></tr></thead>
+        <tbody>
+          <tr><td>Briefing</td><td>Hero</td><td>Pozdrav, odstavec, 3–5 číslic 42/300 tabular</td><td>6×2 – 12×4</td><td>„Klidný den.“ + jen číslice</td></tr>
+          <tr><td>Pull requests</td><td>Stack list</td><td>CI čtverec · #id + název · meta · stav review; stacky odsazené se spojnicí</td><td>3×6 – 12×24</td><td>glyf PR</td></tr>
+          <tr><td>Issues</td><td>Seskupený seznam</td><td>Hlavička epiku s progress barem a zlomkem, pod ní položky s tracker glyfem</td><td>3×6 – 12×24</td><td>glyf issue</td></tr>
+          <tr><td>Runs</td><td>Stavová kolejnice</td><td>„Teď“ řádek, zaparkované jako akční bloky, fronta a hotové na svislé ose se stavovými tečkami (pulz = běží)</td><td>3×6 – 6×24</td><td>„Nic neběží“</td></tr>
+          <tr><td>Automation runs</td><td>Časová osa</td><td>24h osa od teď, kosočtverce = starty, pod tím krátký seznam</td><td>3×3 – 12×6</td><td>prázdná osa</td></tr>
+          <tr><td>Project status</td><td>Mřížka dlaždic</td><td>Dlaždice: tečka + projekt + větev; chyba = růžový nádech celé dlaždice</td><td>2×3 – 6×8</td><td>glyf projektu</td></tr>
+          <tr><td>Budgets &amp; limits</td><td>Měřáky</td><td>Popisek, hodnota, tenký bar; nad 85 % jantar + predikce „dojde za…“</td><td>2×3 – 6×10</td><td>—</td></tr>
+          <tr><td>Proposals</td><td>Rozhodovací karty</td><td>Kontext, titulek, zdůvodnění, cena, akce Schválit / Zamítnout / Upravit</td><td>3×4 – 8×16</td><td>sbaleno · ALL CLEAR</td></tr>
+          <tr><td>Mentions</td><td>Feed</td><td>Zdrojový glyf (GH, JI, #, @), kdo, jeden řádek, stáří; nepřečtené tučně</td><td>3×6 – 8×24</td><td>glyf zmínky</td></tr>
+          <tr><td>Team knowledge</td><td>Čtecí seznam</td><td>Otázky 13.5 px s řádkováním 1.45, oddělené linkou, odkaz „Vyřešit“ potichu</td><td>3×6 – 8×20</td><td>glyf knihy</td></tr>
+          <tr><td>TODO</td><td>Papír</td><td>Linkovaný povrch, checkboxy, inline přidání, @zmínky modře</td><td>2×4 – 6×16</td><td>jen řádek pro přidání</td></tr>
+          <tr><td>Quick actions</td><td>Paleta tlačítek</td><td>Pilulky s play glyfem, čárkovaná „Přidat“</td><td>2×2 – 12×4</td><td>jen „Přidat“</td></tr>
+          <tr><td>Pinned</td><td>Launcher</td><td>Mřížka ikon 36 px s popiskem</td><td>2×3 – 6×8</td><td>glyf špendlíku</td></tr>
+        </tbody>
+      </table>
+
+      <h2>5. Typová škála</h2>
+      <table>
+        <thead><tr><th>Token</th><th>Velikost / řádkování / řez</th><th>Použití</th></tr></thead>
+        <tbody>
+          <tr><td><code>display</code></td><td>42 / 42 / 300, −0.04em, tabular</td><td>Číslice v hero</td></tr>
+          <tr><td><code>title-xl</code></td><td>30 / 35 / 500, −0.03em</td><td>Pozdrav v hero (telefon 24)</td></tr>
+          <tr><td><code>title-l</code></td><td>22 / 28 / 600, −0.025em</td><td>Název stránky „Můstek“</td></tr>
+          <tr><td><code>widget-t1</code></td><td>15 / 20 / 600</td><td>Titulek primárního widgetu</td></tr>
+          <tr><td><code>widget-t2</code></td><td>13 / 18 / 600</td><td>Titulek standardního widgetu</td></tr>
+          <tr><td><code>widget-t3</code></td><td>12 / 16 / 500, ink2</td><td>Titulek ambientního widgetu</td></tr>
+          <tr><td><code>body</code></td><td>13 / 20 / 450</td><td>Názvy řádků</td></tr>
+          <tr><td><code>reading</code></td><td>13.5 / 20 / 400</td><td>Team knowledge, zdůvodnění návrhů</td></tr>
+          <tr><td><code>meta</code></td><td>12 / 16 / 400, ink3</td><td>Autor, repo, stáří</td></tr>
+          <tr><td><code>mono</code></td><td>11.5 / 16 / Geist Mono</td><td>ID, časy, větve, zlomky</td></tr>
+          <tr><td><code>overline</code></td><td>11 / 14 / 500, verzálky, +0.06em</td><td>Jen dělicí sekce uvnitř widgetu („Zaparkováno“)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>6. Jak se rozhoduje hierarchie</h2>
+      <p>Každý widget hlásí z dat jedno skóre. Skóre nemění pozici v mřížce (layout je tvůj), mění jen <strong>úroveň kontejneru</strong>.</p>
+      <pre>score = 3 × youCount          // položky s badge „na tebe“
+      + 3 × blockedRuns       // zaparkované / blokované běhy
+      + 3 × pendingProposals  // návrhy čekající na rozhodnutí
+      + 2 × errors            // selhané CI na hlavní větvi, chybové běhy
+      + 1 × budgetsOver85
+
+tier =
+  widget.kind === 'briefing'          → 'hero'
+  score === 0 &amp;&amp; isEmpty            → 'collapsed'   // ALL CLEAR ustoupí
+  score &gt; 0 &amp;&amp; rank(score) ≤ 2      → 'primary'     // max 2 T1
+  score &gt; 0                         → 'standard'    // + jantarová pilulka
+  jinak                             → 'ambient'
+
+// uživatel může v nastavení widgetu tier připnout (override)</pre>
+      <ol>
+        <li><strong>„Na tebe“ táhne oko třikrát:</strong> T1 kontejner, jantarová pilulka v hlavičce, jantarově zvýrazněná položka v těle (zaparkovaný běh, pilulka „Tvoje review“).</li>
+        <li><strong>ALL CLEAR ustupuje:</strong> widget se sbalí na hlavičku s přerušovanou linkou. Na desktopu drží místo v mřížce (min výška), na telefonu jde do sekce „Ostatní“ jako jeden souhrnný řádek.</li>
+        <li><strong>Jantar je vyhrazený</strong> pro „čeká na tebe“ a primární CTA. Žádná dekorace.</li>
+        <li><strong>Telefon:</strong> jeden sloupec, pořadí = hero → T1 → T2 → (T3 a sbalené jako souhrnné řádky „Stav projektů · 1 selhává ›“). V rámci tieru drží pořadí z desktopového layoutu. Tap naviguje na stránku, žádný sheet, žádný drag.</li>
+      </ol>
+
+      <h2>7. Barvy</h2>
+      <table>
+        <thead><tr><th>Token</th><th>Hodnota</th><th>Význam</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw" style="background:#0a0b0d;border:1px solid var(--line2)"></span>bg / p1 / p2 / p3</td><td class="mono">#0a0b0d · #0f1114 · #151820 · #1c2029</td><td>Pozadí, T2 panel, zvednuté prvky, hover</td></tr>
+          <tr><td><span class="sw" style="background:#eceef2"></span>ink / ink2 / ink3</td><td class="mono">#eceef2 · #a6acb7 · #80868f</td><td>Text; ink3 drží 4.5:1 na bg</td></tr>
+          <tr><td><span class="sw" style="background:var(--amber)"></span>amber</td><td class="mono">#f5a524</td><td>Brand + „čeká na tebe“ + blokováno + primární CTA</td></tr>
+          <tr><td><span class="sw" style="background:var(--violet)"></span>violet</td><td class="mono">#a78bfa</td><td>Pracuje (pulzuje)</td></tr>
+          <tr><td><span class="sw" style="background:var(--sky)"></span>sky</td><td class="mono">#7dd3fc</td><td>Přemýšlí / CI běží; také @zmínky v TODO</td></tr>
+          <tr><td><span class="sw" style="background:var(--rose)"></span>rose</td><td class="mono">#fb7185</td><td>Chyba</td></tr>
+          <tr><td><span class="sw" style="background:var(--emerald)"></span>emerald</td><td class="mono">#34d399</td><td>Hotovo / CI zelená / schváleno</td></tr>
+          <tr><td><span class="sw" style="border:1.5px solid var(--idle)"></span>idle</td><td class="mono">#6b7280</td><td>Nečinné, ve frontě (dutá tečka)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>8. Interakce, které zůstávají</h2>
+      <ul>
+        <li><strong>Drag &amp; resize:</strong> chytá se za hlavičku (grip se ukáže při hoveru), roh vpravo dole. U T3 se rámeček objeví při hoveru, aby bylo vidět, co táhneš. Min/max podle druhu (tabulka výše).</li>
+        <li><strong>Detail:</strong> sheet 470 px se otevře hned vedle widgetu, vybraný řádek dostane jantarový obrys. <code>J</code>/<code>K</code> posouvá výběr a sheet se aktualizuje, <code>Esc</code> zavírá.</li>
+        <li><strong>Hustota:</strong> mění jen vertikální padding řádků (<code>--rowpad</code> 4 / 8 / 12 px), typová škála zůstává.</li>
+        <li><strong>Prázdný widget:</strong> glyf druhu 28 px, ink3, uprostřed.</li>
+      </ul>
+
+      <h2>9. Mapování na primitives</h2>
+      <pre>type WidgetTier = 'hero' | 'primary' | 'standard' | 'ambient' | 'collapsed';
+type WidgetSpecies =
+  | 'hero' | 'stackList' | 'groupedList' | 'statusRail' | 'timeline'
+  | 'tileGrid' | 'meters' | 'decisionCards' | 'feed' | 'readingList'
+  | 'paper' | 'chipPalette' | 'launcher';
+
+interface WidgetFrameProps {
+  tier: WidgetTier;            // z useWidgetPriority(widgetId)
+  species: WidgetSpecies;      // statické, z registry widgetů
+  title: string;
+  count?: number;
+  youCount?: number;           // → &lt;YouBadge /&gt;
+  aside?: ReactNode;
+  controls?: WidgetControl[];  // sync | filter | add | settings | collapse
+  emptyGlyph: IconName;
+}
+
+// Tailwind: tier → třídy na rámu
+const frame = cva('relative flex flex-col min-w-0 rounded-[10px]', {
+  variants: { tier: {
+    primary:   'bg-gradient-to-b from-[#171b23] to-[#12151a] border border-amber-500/20 shadow-xl',
+    standard:  'bg-surface-1 border border-white/[.06]',
+    ambient:   'border border-transparent hover:border-white/[.06]',
+    collapsed: 'border border-dashed border-white/10',
+    hero:      '',
+  } },
+});</pre>
+      <p>Pořadí implementace: (1) <code>tier</code> + <code>cva</code> na existujícím rámu a skrytí ovládání do hoveru — největší vizuální zisk za den práce; (2) nová hlavička a typová škála; (3) druhy jeden po druhém, začít Runs (kolejnice) a Project status (dlaždice), protože jsou nejvíc „tabulkové“ a nejméně čitelné; (4) priority hook a sbalení ALL CLEAR.</p>
+    </article>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","default":"a-default","options":["a-default","a-review","a-phone","b-queue","c-edition","spec"],"tsType":"string","section":"Pohled"},"density":{"editor":"enum","default":"comfortable","options":["compact","comfortable","spacious"],"tsType":"string","section":"Pohled"}}'>
+class Component extends DCLogic {
+  state = { view: null, sel: undefined, density: null, todo: { t3: true }, prf: 'all' };
+
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+
+  P = {
+    sync: 'M20 11a8 8 0 0 0-14.3-4.9M4 13a8 8 0 0 0 14.3 4.9M20 4v5h-5M4 20v-5h5',
+    filter: 'M4 5h16l-6 8v5l-4 2v-7z',
+    plus: 'M12 5v14M5 12h14',
+    set: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+    chev: 'M6 9l6 6 6-6',
+    chevr: 'M9 6l6 6-6 6',
+    check: 'M5 12.5l4.5 4.5L19 7',
+    x: 'M6 6l12 12M18 6L6 18',
+    branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+    spin: 'M12 3a9 9 0 1 0 9 9',
+    play: 'M8 5.5v13l10-6.5z',
+    pin: 'M9 4h6l-1 6 4 3H6l4-3zM12 13v8',
+    spark: 'M12 3l2 7 7 2-7 2-2 7-2-7-7-2 7-2z',
+    bell: 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4',
+    search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    bot: 'M5 9h14v10H5zM12 5v4M9 13v1.5M15 13v1.5',
+    flow: 'M4 4h6v6H4zM14 14h6v6h-6zM10 7h3a3 3 0 0 1 3 3v4',
+    book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5',
+    shield: 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z',
+    stack: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+    pause: 'M9 5v14M15 5v14',
+    pr: 'M6 4v11M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 15V9a3 3 0 0 0-3-3h-4M13 3l-3 3 3 3',
+    issue: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16v.5',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
+    ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    home: 'M4 11l8-7 8 7v9H4z',
+    inbox: 'M4 13l3-8h10l3 8v6H4zM4 13h5l1 2h4l1-2h5',
+    note: 'M5 4h14v16H5zM8 9h8M8 13h8M8 17h5',
+    layout: 'M4 4h16v16H4zM4 10h16M10 10v10',
+    lines: 'M4 6h16M4 12h16M4 18h16',
+    clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2'
+  };
+  ic = (n, s) => this.h('svg', { width: s || 14, height: s || 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { display: 'block', flex: 'none' } }, this.h('path', { d: this.P[n] }));
+  pad = n => String(n).padStart(2, '0');
+
+  // ---------- data (z aktuálního stavu ZibbyOS) ----------
+  PEOPLE = { TB: ['Tomáš Beneš', '#d6d3d1'], KZ: ['Karel Zíbar', '#cbd5e1'] };
+  PRS = [
+    { sec: 'review', id: '47714', key: 'CZ3TDR1-571', t: 'Cut over PartnerServiceAdd and delete its Smarty render', ini: 'TB', repo: 'cms4', age: '1d 9h', ci: 'ok', rv: 'approved', add: 412, del: 1290,
+      stack: [{ id: '48051', key: 'CZ3TDR1-896', t: 'Add the addon detail and ratings to the Partner Portal', ini: 'TB', repo: 'cms4', age: '1d 4h', ci: 'fail', rv: 'you', add: 388, del: 12 }] },
+    { sec: 'review', id: '48102', key: 'CZ3PUR1-815', t: 'Migrate partner-cli CI to GitLab pipelines', agent: 'delivery', repo: 'partner-cli', age: '3h', ci: 'run', rv: 'you', add: 214, del: 96 },
+    { sec: 'mine', id: '47385', key: 'CZ3TDR1-856', t: 'Portal account settings: API access credentials', ini: 'KZ', repo: 'cms4', age: '1d 5h', ci: 'conflict', rv: 'approved', add: 640, del: 88,
+      stack: [{ id: '47546', key: 'CZ3TDR1-855', t: 'Portal account settings: partner company and billing details', ini: 'KZ', repo: 'cms4', age: '4d 6h', ci: 'fail', rv: 'changes', add: 902, del: 141 }] },
+    { sec: 'mine', id: '47858', key: 'CZ3TDR1-852', t: 'Create a Partner Portal addon in one transaction', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'waiting', add: 233, del: 57 },
+    { sec: 'mine', id: '47977', key: 'CZ3TDR1-769', t: 'Move partner portal shop list to its own page and empty the portal root', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'approved', add: 318, del: 402 }
+  ];
+  RV = { approved: ['Schváleno', 'ok'], you: ['Tvoje review', 'you'], changes: ['Změny', 'warn'], waiting: ['Čeká na review', ''], pending: ['Rozpracováno', ''] };
+  CIL = { ok: 'CI prošlo', fail: 'CI selhalo', conflict: 'Konflikt s base', run: 'CI běží' };
+  CII = { ok: 'check', fail: 'x', conflict: 'branch', run: 'spin' };
+  PARK = [
+    { t: 'Rebase shoptet/cms4#47385', k: 'PR rebase · workflow', time: '21 h', why: 'Zastavil se na konfliktu v composer.lock. Vyber verzi, nebo to předej rebase-resolveru.', act: 'Předat agentovi' },
+    { t: 'Fix CI shoptet/cms4#47546', k: 'rebase-resolver · agent', time: '22 h', why: 'Oprava 3 e2e testů je připravená, potřebuje povolit force-push do větve.', act: 'Povolit' }
+  ];
+  QUEUE = [
+    { t: 'Fix base-branch CI: shoptet/cli', k: 'delivery · workflow', time: 'za 11 min', s: 'idle' },
+    { t: 'Fix CI shoptet/cms4#47385', k: 'naplánováno', time: '1d 4h', s: 'idle' },
+    { t: 'Code review (browser) shoptet/cms4', k: 'naplánováno', time: '1d 4h', s: 'idle' }
+  ];
+  DONE = [
+    { t: 'CI triage shoptet/cms4#47385', k: 'PR CI triage · workflow', time: '1d 6h', s: 'done' },
+    { t: 'CI triage shoptet/cms4#47546', k: 'PR CI triage · workflow', time: '1d 6h', s: 'done' },
+    { t: 'Code review (browser) shoptet/cms4', k: 'PR review — thorough + browser', time: '1d 22h', s: 'done' },
+    { t: 'Fix CI shoptet/cms4#47977', k: 'PR fix CI · workflow', time: '2d 8h', s: 'error' }
+  ];
+  EPICS = [
+    { key: 'CZ3TDR1-618', nm: '[Portal] Addons — dev & testing', d: 18, n: 47, items: [
+      { k: 'CZ3TDR1-852', t: 'Creating an addon with a marketing code fails but still saves a draft', st: 'Čeká na tebe', you: true, pr: '#47858', trk: 'JI' },
+      { k: 'CZ3TDR1-670', t: 'Move Account settings to Partner Portal', st: 'To review', age: '8d 7h', trk: 'JI' }] },
+    { key: 'CZ3TDR1-620', nm: '[Portal] Partner access to CMS', d: 1, n: 2, items: [
+      { k: 'CZ3TDR1-769', t: '[Portal] Store access: move the shop list to its own page', st: 'Čeká na tebe', you: true, pr: '#47977', trk: 'JI' }] },
+    { key: 'CZ3PUR1-784', nm: 'Migrate non-cms4 related repos', d: 1, n: 52, items: [
+      { k: 'CZ3PUR1-815', t: 'Migrate partner-cli to GitLab', st: 'Request', age: '9d 6h', trk: 'JI' }] },
+    { key: null, nm: 'Bez epicu', items: [
+      { k: 'CZ3TDR1-893', t: 'Stop ModalForm submit from bubbling into an enclosing form', st: 'In progress', trk: 'GH' },
+      { k: 'CZ3TDR1-855', t: '[Portal] Account settings page: partner company and billing', st: 'To review', pr: '#47546', trk: 'JI' },
+      { k: 'CZ3TDR1-856', t: '[Portal] Account settings page: API access credentials', st: 'To review', pr: '#47385', trk: 'JI' }] }
+  ];
+  AUTO = [{ t: 'Destilace paměti', at: '03:00', in: 'za 6 h', h: 6.17 }, { t: 'Obnova sebeznalosti', at: '03:30', in: 'za 7 h', h: 6.67 }, { t: 'Lint vaultu', at: '03:30', in: 'za 7 h', h: 6.67 }];
+  PROJ = [{ nm: 'cms4', br: 'master', s: 'done', note: 'zelená' }, { nm: 'Shoptet Partner CLI', br: 'develop · padá 3 h', s: 'error', err: true }, { nm: 'DevRel knowledge base', br: 'main', s: 'idle' }, { nm: 'sit-and-park', br: 'main', s: 'idle' }];
+  BUD = [{ l: 'Shoptet Partner CLI', v: '$18 / $20', p: 90, hot: true, note: 'Dojde za ~2 dny při současném tempu' }, { l: 'cms4', v: '$41 / $60', p: 68 }, { l: 'Firma Shoptet · měsíc', v: '$212 / $400', p: 53 }, { l: 'Osobní', v: '$6 / $40', p: 15 }];
+  FEED = [
+    { src: 'GH', who: 'ZibbyKarel · cms4', t: '#47977 Move partner portal shop list to its own page and empty the portal root', age: '3d', un: true },
+    { src: '#', who: 'Tomáš Beneš · #cms4-portal', t: '@karel mrkneš prosím na ratingy v detailu addonu?', age: '3d', un: true },
+    { src: 'GH', who: 'benest99 · cms4', t: '#47714 Cut over PartnerServiceAdd and delete its Smarty render', age: '4d' },
+    { src: 'JI', who: 'Jira · CZ3TDR1-852', t: 'Poznámky ke změně — CZ3TDR1-852', age: '4d' },
+    { src: '@', who: 'GitLab', t: 'Pipeline failed for partner-cli · develop', age: '5d' }
+  ];
+  KN = [
+    { q: 'Kdy a s jakým go-to-market se práce obnoví?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Kdo kromě autora první verze se bude podílet na dalším rozvoji?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Je cílem projektu MVP podle návrhu, nebo i fáze závislé na platformě?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Jaké cílové hodnoty mají definovat „předvídatelné“ review a kdo je bude měřit?', s: 'Předvídatelné review doplňků · 30. 10.' },
+    { q: 'Stack PR má nejvýš 3 úrovně, hlubší se rozdělí do epiku.', s: 'Dohoda · cms4 · 2. 11.', ag: true }
+  ];
+  TODO = [{ id: 't1', x: ['Zeptat se ', ['@Tomáš', 1], ' na stack #48051 před mergem'] }, { id: 't2', x: ['Projít review checklist pro Partner Portal'] }, { id: 't3', x: ['Poslat odhad partner-cli migrace'] }, { id: 't4', x: [['@zibby', 1], ' připrav standup na pondělí'] }];
+  PINS = [['flow', 'PR review'], ['bot', 'rebase-resolver'], ['book', 'Vault'], ['layout', 'Portal epic'], ['shield', 'Pravidla'], ['note', 'Souhrny']];
+
+  // ---------- lifecycle ----------
+  view() { return this.state.view || this.props.view || 'a-default'; }
+  allPRs() { const o = []; this.PRS.forEach(p => { o.push(p); (p.stack || []).forEach(k => o.push(k)); }); return o; }
+  selId() { const v = this.view(); if (this.state.sel !== undefined) return this.state.sel; return v === 'a-review' ? '48051' : null; }
+  componentDidMount() {
+    this.onKey = e => {
+      const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      const v = this.view(); if (v !== 'a-default' && v !== 'a-review') return;
+      const k = (e.key || '').toLowerCase();
+      if (k === 'j' || k === 'k') {
+        const ids = this.allPRs().map(p => p.id); let i = ids.indexOf(this.selId());
+        i = i < 0 ? 0 : (k === 'j' ? Math.min(ids.length - 1, i + 1) : Math.max(0, i - 1));
+        this.setState({ sel: ids[i] });
+      } else if (e.key === 'Escape') this.setState({ sel: null });
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); }
+
+  // ---------- primitives ----------
+  av(p) { const h = this.h; if (p.agent) return h('span', { className: 'av bot' }, this.ic('bot', 10)); const pp = this.PEOPLE[p.ini]; return h('span', { className: 'av', style: { background: pp[1] } }, p.ini); }
+  who(p) { return p.agent ? 'agent ' + p.agent : this.PEOPLE[p.ini][0]; }
+  widget(o) {
+    const h = this.h, tier = o.tier || 't2';
+    const ctl = (o.controls || ['sync', 'filter', 'set', 'chev']).map(c => h('button', { className: 'ib', 'aria-label': { sync: 'Synchronizovat', filter: 'Filtr', plus: 'Přidat', set: 'Nastavení', chev: 'Sbalit' }[c] }, this.ic(c, 14)));
+    return h('section', { className: 'w ' + tier + (o.cls ? ' ' + o.cls : ''), style: o.span ? { gridColumn: 'span ' + o.span } : null, 'aria-label': o.title },
+      h('header', { className: 'wh' },
+        h('span', { className: 'grip', 'aria-hidden': 'true' }, '⋮⋮'),
+        h('h3', { className: 'wt' }, o.title),
+        o.count != null ? h('span', { className: 'cnt' }, tier === 't3' || tier === 'cl' ? String(o.count) : this.pad(o.count)) : null,
+        o.you ? h('span', { className: 'you' }, h('i', { className: 'd' }), o.you + ' na tebe') : null,
+        h('span', { className: 'sp' }),
+        o.aside ? h('span', { className: 'aside' }, o.aside) : null,
+        h('span', { className: 'ctl' }, ctl)),
+      o.body ? h('div', { className: 'wb' }, o.body) : null,
+      h('span', { className: 'rz', 'aria-hidden': 'true' }));
+  }
+
+  // ---------- species ----------
+  prRow(p, mode, kid) {
+    const h = this.h, sel = this.selId() === p.id, rv = this.RV[p.rv];
+    return h('button', { className: 'row' + (sel ? ' sel' : ''), 'aria-pressed': sel, onClick: () => this.setState({ sel: sel ? null : p.id }) },
+      h('span', { className: 'ci ' + p.ci, title: this.CIL[p.ci] }, this.ic(this.CII[p.ci], 12)),
+      h('span', { style: { minWidth: 0, display: 'block' } },
+        h('span', { className: 'l1' }, h('span', { className: 'id' }, '#' + p.id), h('span', { className: 't' }, p.t)),
+        h('span', { className: 'meta' }, this.av(p), h('span', null, this.who(p)), h('span', { className: 'sep' }), h('span', null, p.repo), h('span', { className: 'sep' }), h('span', null, p.age),
+          p.stack && !kid ? [h('span', { className: 'sep' }), h('span', { className: 'stk' }, this.ic('stack', 11), 'stack ' + (p.stack.length + 1))] : null,
+          mode === 'review' ? [h('span', { className: 'sep' }), h('span', { className: 'mono', style: { color: 'var(--emerald)' } }, '+' + p.add), h('span', { className: 'mono', style: { color: 'var(--rose)' } }, '−' + p.del), h('span', { className: 'sep' }), h('span', { className: 'mono' }, p.key)] : null)),
+      h('span', { className: 'chip ' + rv[1] }, rv[0]));
+  }
+  prStack(p, mode) { const h = this.h; return h('div', null, this.prRow(p, mode), p.stack ? h('div', { className: 'kids' }, p.stack.map(k => this.prRow(k, mode, true))) : null); }
+  prBody(mode) {
+    const h = this.h, f = this.state.prf;
+    let list = this.PRS;
+    if (mode === 'review' && f !== 'all') list = list.filter(p => f === 'you' ? (p.rv === 'you' || (p.stack || []).some(k => k.rv === 'you')) : f === 'mine' ? p.sec === 'mine' : f === 'agent' ? !!p.agent : (p.ci === 'fail' || (p.stack || []).some(k => k.ci === 'fail')));
+    const chips = mode === 'review' ? h('div', { className: 'fchips', role: 'group', 'aria-label': 'Filtr PR' },
+      [['all', 'Vše', 37], ['you', 'Na tebe', 2], ['mine', 'Moje', 5], ['agent', 'Od agentů', 1], ['fail', 'CI selhává', 3]].map(([k, l, n]) => h('button', { 'aria-pressed': f === k, onClick: () => this.setState({ prf: k }) }, l, h('span', { className: 'n' }, n)))) : null;
+    const rv = list.filter(p => p.sec === 'review'), mine = list.filter(p => p.sec === 'mine');
+    return h('div', { className: mode === 'review' ? 'rev' : '' }, chips,
+      rv.length ? [h('div', { className: 'sec amb' }, 'Ke kontrole', h('span', { className: 'n' }, '02')), rv.map(p => this.prStack(p, mode))] : null,
+      mine.length ? [h('div', { className: 'sec' }, 'Moje', h('span', { className: 'n' }, '05')), mine.map(p => this.prStack(p, mode))] : null,
+      h('button', { className: 'more' }, 'Dalších 30 PR (29 k review od týmu) →'));
+  }
+  ri(r) { const h = this.h; return h('div', { className: 'ri' + (r.s === 'done' ? ' mini' : '') }, h('span', { className: 'dot ' + r.s }), h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 't' }, r.t), h('span', { className: 'k' }, r.k)), h('span', { className: 'tm mono' }, r.time)); }
+  park(r) { const h = this.h; return h('div', { className: 'park' }, h('div', { className: 'pt' }, h('span', { className: 'dot blocked' }), h('span', { className: 't' }, r.t), h('span', { className: 'tm mono' }, r.time)), h('div', { className: 'pk' }, r.k), h('div', { className: 'why' }, r.why), h('div', { className: 'acts' }, h('button', { className: 'btn sm pri' }, r.act), h('button', { className: 'btn sm' }, 'Detail'))); }
+  runsBody(compact, noPark) {
+    const h = this.h;
+    return h('div', null,
+      h('div', { className: 'now' }, h('span', { className: 'dot idle' }), 'Teď nic neběží', h('span', { className: 'sp' }), h('span', { className: 'mono dim', style: { fontSize: '11.5px' } }, 'další za 11 min')),
+      noPark ? null : [h('div', { className: 'sec amb' }, 'Zaparkováno', h('span', { className: 'n' }, '02')), this.PARK.map(r => this.park(r))],
+      h('div', { className: 'sec' }, 'Ve frontě', h('span', { className: 'n' }, '03')),
+      h('div', { className: 'rail' }, this.QUEUE.slice(0, compact ? 2 : 3).map(r => this.ri(r))),
+      h('div', { className: 'sec' }, 'Dokončené', h('span', { className: 'n' }, '10')),
+      h('div', { className: 'rail' }, this.DONE.slice(0, compact ? 2 : 4).map(r => this.ri(r))),
+      h('button', { className: 'more' }, 'Všechny běhy →'));
+  }
+  issueRow(it) {
+    const h = this.h;
+    return h('button', { className: 'row' },
+      h('span', { className: 'trk' }, it.trk),
+      h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'l1' }, h('span', { className: 'id' }, it.k), h('span', { className: 't' }, it.t)),
+        h('span', { className: 'meta' }, it.you ? h('span', null, it.st === 'Čeká na tebe' ? 'odpověď v review' : it.st) : h('span', null, it.st), it.pr ? [h('span', { className: 'sep' }), h('span', { className: 'mono' }, it.pr)] : null, it.age ? [h('span', { className: 'sep' }), h('span', null, it.age)] : null)),
+      it.you ? h('span', { className: 'chip you' }, 'Na tebe') : h('span', null));
+  }
+  issuesBody(compact) {
+    const h = this.h;
+    if (compact) {
+      const you = []; this.EPICS.forEach(e => e.items.forEach(i => { if (i.you) you.push(i); }));
+      return h('div', null, h('div', { className: 'sec amb' }, 'Na tebe', h('span', { className: 'n' }, '02')), you.map(i => this.issueRow(i)), h('button', { className: 'more' }, 'Dalších 5 ve 4 epicích →'));
+    }
+    return h('div', null, this.EPICS.map(e => [
+      h('button', { className: 'epic' }, h('span', { className: 'dim' }, this.ic('chev', 12)),
+        h('span', { className: 'nm' }, e.key ? h('span', { className: 'id' }, e.key) : null, e.nm),
+        e.n ? h('span', { className: 'bar', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(4, e.d / e.n * 100) + '%' } })) : h('span'),
+        h('span', { className: 'f' }, e.n ? e.d + '/' + e.n : this.pad(e.items.length))),
+      e.items.map(i => this.issueRow(i))]));
+  }
+  decide() {
+    const h = this.h;
+    return h('div', { className: 'decide' },
+      h('div', { className: 'eb' }, this.ic('spark', 12), 'Automatizace · CI triage · před 40 min'),
+      h('h4', null, 'Spouštět noční CI triage i pro shoptet/partner-cli'),
+      h('p', null, 'Develop padá třetí den po sobě. Triage by běžel ve 02:00 a ráno by čekal souhrn příčin. Odhad $0,40 za běh.'),
+      h('div', { className: 'acts' }, h('button', { className: 'btn sm pri' }, 'Schválit'), h('button', { className: 'btn sm' }, 'Zamítnout'), h('button', { className: 'btn sm gh' }, 'Upravit')));
+  }
+  tiles() { const h = this.h; return h('div', { className: 'tiles' }, this.PROJ.map(p => h('button', { className: 'tile' + (p.err ? ' err' : '') }, h('span', { className: 'nm' }, h('span', { className: 'dot ' + p.s, style: { width: 7, height: 7, boxShadow: 'none' } }), h('span', null, p.nm)), h('span', { className: 'br' }, p.br)))); }
+  timeline() {
+    const h = this.h, pct = x => (x / 24 * 100) + '%';
+    const ticks = [[3.17, '00'], [9.17, '06'], [15.17, '12'], [21.17, '18']];
+    return h('div', null,
+      h('div', { className: 'tl', role: 'img', 'aria-label': 'Časová osa příštích 24 hodin: 3 starty kolem 03:00' },
+        h('span', { className: 'ax' }), h('span', { className: 'nw' }),
+        ticks.map(([x, l]) => h('span', { className: 'tk', style: { left: pct(x) } }, l)),
+        [6.17, 6.67].map(x => h('span', { className: 'mk', style: { left: pct(x) } }))),
+      this.AUTO.map(a => h('div', { className: 'al' }, h('span', null, a.t), h('span', { className: 'mono' }, a.at), h('span', { className: 'dim', style: { fontSize: '11.5px' } }, a.in))));
+  }
+  meters(n) { const h = this.h; return h('div', null, this.BUD.slice(0, n || 4).map(b => h('div', { className: 'mt' + (b.hot ? ' hot' : '') }, h('span', null, b.l), h('span', { className: 'v' }, b.v), h('span', { className: 'bar', role: 'img', 'aria-label': b.p + ' %' }, h('i', { style: { width: b.p + '%' } })), b.hot ? h('span', { className: 'note' }, b.note) : null))); }
+  quick() { const h = this.h; return h('div', { className: 'qa' }, h('button', null, h('span', { className: 'pl' }, this.ic('play', 10)), 'Standup ', h('small', null, 'general')), h('button', null, h('span', { className: 'pl' }, this.ic('play', 10)), 'Dětské omalovánky'), h('button', { className: 'add' }, this.ic('plus', 12), 'Přidat')); }
+  pins() { const h = this.h; return h('div', { className: 'lz' }, this.PINS.map(([i, l]) => h('button', null, h('span', { className: 'lg' }, this.ic(i, 16)), l))); }
+  feed(n) { const h = this.h; return h('div', null, this.FEED.slice(0, n || 5).map(f => h('button', { className: 'fd' + (f.un ? ' un' : '') }, h('span', { className: 'src' }, f.src), h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'who' }, f.who), h('span', { className: 'tx' }, f.t)), h('span', { className: 'tm mono' }, f.age, f.un ? h('span', { className: 'ud', 'aria-label': 'nepřečteno' }) : null)))); }
+  know(n) { const h = this.h; return h('div', null, this.KN.slice(0, n || 5).map(k => h('div', { className: 'kn' + (k.ag ? ' ag' : '') }, h('div', null, h('div', { className: 'q' }, k.ag ? h('span', { style: { color: 'var(--emerald)', marginRight: 6 } }, '✓') : null, k.q), h('span', { className: 's' }, k.s)), k.ag ? h('span') : h('button', { className: 'lk' }, 'Vyřešit')))); }
+  todo() {
+    const h = this.h, done = this.state.todo;
+    return h('div', { style: { paddingTop: 2 } }, this.TODO.map(t => h('button', { className: 'td' + (done[t.id] ? ' done' : ''), 'aria-pressed': !!done[t.id], onClick: () => this.setState({ todo: Object.assign({}, done, { [t.id]: !done[t.id] }) }) },
+      h('span', { className: 'cb' + (done[t.id] ? ' on' : '') }, done[t.id] ? this.ic('check', 10) : null),
+      h('span', { className: 'x' }, t.x.map(s => Array.isArray(s) ? h('span', { className: 'mn' }, s[0]) : s)))),
+      h('label', { className: 'tdadd' }, this.ic('plus', 14), h('input', { placeholder: 'Přidat poznámku… @ pro zmínku', 'aria-label': 'Nová poznámka' })));
+  }
+  sheet(p) {
+    const h = this.h, rv = this.RV[p.rv];
+    const checks = p.ci === 'fail' ? [['ok', 'lint'], ['ok', 'unit · 1 284 testů'], ['fail', 'e2e · PartnerPortal', 'addon detail › renders ratings: timeout 30 s'], ['ok', 'phpstan']]
+      : p.ci === 'conflict' ? [['ok', 'lint'], ['ok', 'unit'], ['conflict', 'rebase na master', 'konflikt v composer.lock']]
+      : p.ci === 'run' ? [['ok', 'lint'], ['run', 'pipeline gitlab-ci · 4/7']] : [['ok', 'lint'], ['ok', 'unit'], ['ok', 'e2e'], ['ok', 'phpstan']];
+    const parent = this.PRS.find(x => (x.stack || []).some(k => k.id === p.id));
+    return h('aside', { className: 'sheet', 'aria-label': 'Detail #' + p.id },
+      h('div', { className: 'sh' }, h('span', { className: 'ci ' + p.ci }, this.ic(this.CII[p.ci], 12)), h('span', { className: 'mono dim', style: { fontSize: 12 } }, '#' + p.id + ' · ' + p.key), h('span', { style: { flex: 1 } }), h('span', { className: 'kbd' }, 'J'), h('span', { className: 'kbd' }, 'K'), h('button', { className: 'ib', 'aria-label': 'Zavřít detail', onClick: () => this.setState({ sel: null }) }, this.ic('x', 14))),
+      h('div', { className: 'bd' },
+        h('h3', null, p.t),
+        h('div', { className: 'meta' }, this.av(p), h('span', null, this.who(p)), h('span', { className: 'sep' }), h('span', null, 'shoptet/' + p.repo), h('span', { className: 'sep' }), h('span', null, p.age)),
+        h('dl', { className: 'kv' },
+          h('dt', null, 'Review'), h('dd', null, h('span', { className: 'chip ' + rv[1] }, rv[0])),
+          h('dt', null, 'CI'), h('dd', null, this.CIL[p.ci]),
+          parent || p.stack ? [h('dt', null, 'Stack'), h('dd', { className: 'mono', style: { fontSize: 12 } }, parent ? '#' + parent.id + ' → #' + p.id : '#' + p.id + ' → ' + p.stack.map(k => '#' + k.id).join(', '))] : null,
+          h('dt', null, 'Změny'), h('dd', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+' + p.add), h('span', { style: { color: 'var(--rose)' } }, '−' + p.del))),
+        checks.map(c => h('div', { className: 'chk' }, h('span', { className: 'ci ' + c[0], style: { width: 18, height: 18 } }, this.ic(this.CII[c[0]], 10)), h('span', null, c[1], c[2] ? h('span', { className: 'm' }, c[2]) : null), h('span', { className: 'dim', style: { fontSize: 11.5 } }, c[0] === 'run' ? 'běží' : c[0] === 'ok' ? '✓' : 'log ↗'))),
+        p.ci === 'fail' || p.ci === 'conflict' ? h('div', { className: 'sug' }, h('b', null, 'rebase-resolver'), ' navrhuje: ', p.ci === 'fail' ? 'zvednout timeout a čekat na načtení ratingů místo pevného sleepu. Oprava je v 1 souboru.' : 'vzít composer.lock z master a znovu spustit composer update pro dotčené balíčky.', h('div', { className: 'acts', style: { marginTop: 10 } }, h('button', { className: 'btn sm' }, h('span', { className: 'dot working', style: { width: 7, height: 7 } }), 'Spustit opravu')))
+          : null),
+      h('div', { className: 'ft' }, h('button', { className: 'btn pri' }, p.rv === 'you' ? 'Otevřít review' : 'Otevřít PR'), h('button', { className: 'btn' }, 'GitHub', this.ic('ext', 12)), h('span', { className: 'sp' }), h('span', { className: 'dim', style: { fontSize: 11.5 } }, 'Esc zavře')));
+  }
+
+  // ---------- chrome ----------
+  top() {
+    const h = this.h;
+    const ring = (pct) => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'rgba(255,255,255,.1)', strokeWidth: 2.5 }), h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'var(--ink2)', strokeWidth: 2.5, strokeDasharray: (pct / 100 * 56.5) + ' 56.5', transform: 'rotate(-90 12 12)', strokeLinecap: 'round' }));
+    return h('div', { className: 'top' },
+      h('div', { className: 'logo' }, h('i', null, 'Z'), 'ZibbyOS', h('small', null, 'v0.9')),
+      h('nav', { className: 'nav', 'aria-label': 'Hlavní' }, ['Přehled', 'Práce', 'Firmy', 'AI', 'Aktivita', 'Znalosti', 'Pravidla', 'Nastavení'].map((l, i) => h('button', { className: i === 0 ? 'on' : '' }, l))),
+      h('button', { className: 'search' }, this.ic('search', 14), h('span', null, 'Hledat nebo zadat úkol…'), h('span', { className: 'kbd' }, '⌘K')),
+      h('div', { className: 'quota' }, ring(3), h('span', null, '5 h · 0 %', h('small', null, 'reset za 2 h 31 m'))),
+      h('div', { className: 'quota' }, ring(15), h('span', null, 'Týden · 15 %', h('small', null, 'reset za 5 d 16 h'))),
+      h('button', { className: 'bell', 'aria-label': 'Oznámení, 5 nových' }, this.ic('bell', 16), h('b', null, '5')));
+  }
+  sub(layout) {
+    const h = this.h, v = this.view();
+    const L = [['a-default', 'Výchozí'], ['a-review', 'Review']];
+    return h('div', { className: 'sub' },
+      h('h1', null, 'Můstek'),
+      h('div', { className: 'tabs' }, h('button', null, 'Inbox'), h('button', null, 'Issues', h('span', { className: 'n' }, '3')), h('button', null, 'Pull requesty', h('span', { className: 'n' }, '29')), h('button', null, 'Souhrny')),
+      h('span', { className: 'sp' }),
+      layout === 'queue' ? h('div', { className: 'seg' }, h('button', { 'aria-pressed': true }, 'Fronta')) :
+        h('div', { className: 'seg', role: 'group', 'aria-label': 'Layout' }, L.map(([k, l]) => h('button', { 'aria-pressed': v === k, onClick: () => this.setState({ view: k, sel: undefined }) }, l)), h('button', { 'aria-label': 'Nový layout' }, this.ic('plus', 12))),
+      h('button', { className: 'btn' }, this.ic('note', 13), 'Nová poznámka'),
+      h('button', { className: 'btn pri' }, this.ic('plus', 13), 'Nový úkol'));
+  }
+  hero() {
+    const h = this.h;
+    const C = [['03', 'Na tebe', 'amber'], ['00', 'Běží', 'dim'], ['37', 'Otevřené PR', ''], ['29', 'K review', ''], ['01', 'Selhává', 'rose']];
+    return h('section', { className: 'hero', 'aria-label': 'Briefing' },
+      h('div', null,
+        h('div', { className: 'eb' }, 'Sobota 14. listopadu · 20:50'),
+        h('h2', null, 'Dobrý večer, Karle.'),
+        h('p', null, 'Tři věci čekají na tebe — ', h('strong', { className: 'a' }, '1 schválení'), ' a ', h('strong', { className: 'a' }, '2 zaparkované běhy'), '. Jinak klid: nic neběží, cms4 je zelená a jen ', h('strong', null, 'Shoptet Partner CLI'), ' padá na develop.')),
+      h('div', { className: 'ctrs' }, C.map(([n, l, c]) => h('div', { className: 'ctr ' + c }, h('span', { className: 'n' }, n), h('span', { className: 'l' }, l)))));
+  }
+
+  // ---------- views ----------
+  aDefault() {
+    const h = this.h, sel = this.selId(), sp = sel && this.allPRs().find(p => p.id === sel);
+    return h('div', { className: 'stage' }, this.top(), this.sub(),
+      h('div', { className: 'g' },
+        this.hero(),
+        h('div', { className: 'rel', style: { gridColumn: 'span 5' } },
+          this.widget({ tier: 't1', title: 'Pull requesty', count: 37, you: 2, body: this.prBody('default'), controls: ['sync', 'filter', 'set', 'chev'] }),
+          sp ? this.sheet(sp) : null),
+        this.widget({ tier: 't1', span: 4, title: 'Běhy', count: 10, you: 2, body: this.runsBody(false), controls: ['set', 'chev'] }),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Návrhy', count: 1, you: 1, body: this.decide(), controls: ['set', 'chev'] }),
+          this.widget({ tier: 't3', title: 'Stav projektů', count: 4, aside: h('span', { style: { color: 'var(--rose)' } }, '1 selhává'), body: this.tiles(), controls: ['set'] }),
+          this.widget({ tier: 't3', title: 'Automatizace · 24 h', count: 3, body: this.timeline(), controls: ['set'] })),
+        this.widget({ tier: 't2', span: 5, title: 'Issues', count: 7, you: 2, body: this.issuesBody(false) }),
+        h('div', { className: 'col', style: { gridColumn: 'span 4' } },
+          this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(5), controls: ['filter', 'set'] }),
+          this.widget({ tier: 't3', title: 'Tým — znalosti', count: 39, body: this.know(4), controls: ['set'] })),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't3', title: 'Rozpočty a limity', aside: h('span', { style: { color: 'var(--amber)' } }, '1 nad 85 %'), body: this.meters(4), controls: ['set'] }),
+          this.widget({ tier: 'paper', cls: 'paper', title: 'TODO', count: 4, body: this.todo(), controls: ['plus', 'set'] }),
+          this.widget({ tier: 't3', title: 'Rychlé akce', count: 2, body: this.quick(), controls: ['plus', 'set'] }),
+          this.widget({ tier: 't3', title: 'Připnuté', count: 6, body: this.pins(), controls: ['set'] }))));
+  }
+  aReview() {
+    const h = this.h, sel = this.selId(), sp = sel && this.allPRs().find(p => p.id === sel);
+    return h('div', { className: 'stage' }, this.top(), this.sub(),
+      h('div', { className: 'g' },
+        h('section', { className: 'hero slim', 'aria-label': 'Briefing' },
+          h('h2', null, '29 PR čeká na review týmu, ', h('span', { style: { color: 'var(--amber)' } }, '2 přímo na tebe'), '. Jeden stack padá na e2e.'),
+          h('div', { className: 'ctrs' }, [['02', 'Na tebe', 'amber'], ['37', 'Otevřené', ''], ['03', 'CI selhává', 'rose'], ['01', 'Konflikt', '']].map(([n, l, c]) => h('div', { className: 'ctr ' + c }, h('span', { className: 'n' }, n), h('span', { className: 'l' }, l))))),
+        h('div', { className: 'rel', style: { gridColumn: 'span 6' } },
+          this.widget({ tier: 't1', title: 'Pull requesty', count: 37, you: 2, aside: 'seřazeno podle priority', body: this.prBody('review') }),
+          sp ? this.sheet(sp) : null),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Issues', count: 7, you: 2, body: this.issuesBody(true) }),
+          this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(3), controls: ['filter', 'set'] })),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Běhy', count: 10, you: 2, body: this.runsBody(true), controls: ['set', 'chev'] }),
+          this.widget({ tier: 'cl', title: 'Návrhy', count: 0, aside: h('span', null, h('span', { style: { color: 'var(--emerald)', opacity: .7 } }, '✓'), 'Vše v pořádku'), controls: ['set'] }),
+          this.widget({ tier: 't3', title: 'Stav projektů', count: 4, aside: h('span', { style: { color: 'var(--rose)' } }, '1 selhává'), body: this.tiles(), controls: ['set'] }))));
+  }
+  aPhone() {
+    const h = this.h;
+    const youPR = this.allPRs().filter(p => p.rv === 'you');
+    const sums = [
+      ['grid', 'Stav projektů', h('span', { className: 'v', style: { color: 'var(--rose)' } }, h('span', { className: 'dot error', style: { width: 7, height: 7 } }), '1 selhává')],
+      ['clock', 'Automatizace', h('span', { className: 'v' }, '3 v noci · 03:00')],
+      ['lines', 'Rozpočty', h('span', { className: 'v', style: { color: 'var(--amber)' } }, 'Partner CLI 90 %')],
+      ['bell', 'Zmínky', h('span', { className: 'v' }, '2 nepřečtené')],
+      ['book', 'Tým — znalosti', h('span', { className: 'v' }, '4 otázky')],
+      ['note', 'TODO', h('span', { className: 'v' }, '3 otevřené')],
+      ['spark', 'Návrhy', h('span', { className: 'v' }, 'po schválení prázdné')]
+    ];
+    return h('div', { className: 'stage phone' }, h('div', { className: 'ph' }, h('div', { className: 'scr' },
+      h('div', { className: 'sbar' }, h('span', null, '20:50'), h('span', { className: 'mono', style: { fontSize: 12 } }, '5G ▮▮▮')),
+      h('div', { className: 'ab' }, h('div', { className: 'logo' }, h('i', null, 'Z')), h('h1', null, 'Můstek'), h('span', { className: 'sp' }), h('button', { className: 'bell', 'aria-label': 'Hledat' }, this.ic('search', 17)), h('button', { className: 'bell', 'aria-label': 'Oznámení, 5 nových' }, this.ic('bell', 17), h('b', null, '5'))),
+      h('div', { className: 'hero2' }, h('div', { className: 'eb' }, 'Sobota 14. 11. · 20:50'), h('h2', null, 'Dobrý večer, Karle.'), h('p', null, 'Tři věci čekají na tebe — ', h('span', { className: 'a' }, '1 schválení a 2 zaparkované běhy'), '. Jinak klid.')),
+      h('div', { className: 'ctrs2' }, [['03', 'Na tebe', 'amber'], ['00', 'Běží', ''], ['29', 'K review', ''], ['01', 'Selhává', 'rose']].map(([n, l, c]) => h('div', { className: 'ctr2 ' + c }, h('div', { className: 'n' }, n), h('div', { className: 'l' }, l)))),
+      h('div', { className: 'zl' }, h('span', { className: 'you' }, h('i', { className: 'd' }), 'Na tebe · 3'), h('span', { className: 'sp' })),
+      h('div', { className: 'zone' },
+        this.widget({ tier: 't1', title: 'Návrhy', count: 1, body: this.decide(), controls: [] }),
+        this.widget({ tier: 't1', title: 'Běhy', count: 10, aside: '2 zaparkované', body: h('div', null, this.PARK.map(r => this.park(r)), h('button', { className: 'more' }, 'Fronta 3 · Dokončené 10 →')), controls: [] })),
+      h('div', { className: 'zl' }, 'Ke kontrole'),
+      h('div', { className: 'zone' },
+        this.widget({ tier: 't2', title: 'Pull requesty', count: 37, you: 2, body: h('div', null, youPR.map(p => this.prRow(p, 'default', true)), this.prRow(this.PRS[2], 'default'), h('button', { className: 'more' }, 'Všech 37 →')), controls: [] }),
+        this.widget({ tier: 't2', title: 'Issues', count: 7, you: 2, body: this.issuesBody(true), controls: [] })),
+      h('div', { className: 'zl' }, 'Ostatní'),
+      h('div', { className: 'zone' }, h('div', { className: 'w t2', style: { padding: '2px 8px' } }, sums.map(([i, l, v]) => h('button', { className: 'sum' }, h('span', { className: 'dim' }, this.ic(i, 16)), h('b', null, l), v, h('span', { className: 'dim' }, this.ic('chevr', 14)))))),
+      h('div', { className: 'zl' }, 'Rychlé akce'),
+      h('div', { style: { padding: '0 16px 20px' } }, this.quick())),
+      h('nav', { className: 'tabbar', 'aria-label': 'Navigace' }, [['home', 'Můstek', 1], ['inbox', 'Inbox', 0, '3'], ['grid', 'Práce'], ['search', 'Hledat']].map(([i, l, on, b]) => h('button', { className: on ? 'on' : '' }, this.ic(i, 20), l, b ? h('b', null, b) : null))),
+      h('span', { className: 'home', 'aria-hidden': 'true' })));
+  }
+  bQueue() {
+    const h = this.h;
+    const Q = [
+      { sg: 'spark', hot: true, src: 'Návrhy · automatizace', t: 'Spouštět noční CI triage i pro shoptet/partner-cli', p: 'Develop padá třetí den. Odhad $0,40 za běh.', a: ['Schválit', 'Zamítnout'] },
+      { sg: 'pause', hot: true, src: 'Běhy · PR rebase · 21 h', t: 'Rebase cms4#47385 se zastavil na konfliktu', p: 'composer.lock — vyber verzi, nebo předej rebase-resolveru.', a: ['Předat agentovi', 'Otevřít'] },
+      { sg: 'pause', hot: true, src: 'Běhy · rebase-resolver · 22 h', t: 'Fix CI cms4#47546 čeká na povolení force-push', p: 'Oprava 3 e2e testů je připravená.', a: ['Povolit', 'Detail'] },
+      { sg: 'pr', src: 'Pull requesty · agent delivery · 3 h', t: '#48102 Migrate partner-cli CI to GitLab pipelines', p: 'Požádal tě o review · CI běží · +214 −96', a: ['Otevřít review'] },
+      { sg: 'pr', src: 'Pull requesty · Tomáš Beneš · 1d 4h', t: '#48051 Add the addon detail and ratings to the Partner Portal', p: 'Stack nad #47714 · e2e selhává na ratingách', a: ['Otevřít review'] },
+      { sg: 'issue', src: 'Issues · CZ3TDR1-852 + CZ3TDR1-769', t: '2 issues čekají na tvou odpověď v review', p: 'Portal Addons · Partner access to CMS', a: ['Projít'] }
+    ];
+    const mine = this.PRS.filter(p => p.sec === 'mine');
+    return h('div', { className: 'stage' }, this.top(), this.sub('queue'),
+      h('div', { className: 'g' },
+        h('div', { style: { gridColumn: 'span 8', minWidth: 0 } },
+          h('div', { className: 'qh' }, h('h2', null, 'Na tahu'), h('span', null, '3 blokují práci · 3 čekají na review · ~25 min'), h('span', { className: 'sp' }), h('button', { className: 'btn gh' }, 'Vyřídit postupně', h('span', { className: 'kbd' }, '↵'))),
+          h('div', { className: 'qlist' }, Q.map(q => h('div', { className: 'q' + (q.hot ? ' hot' : '') },
+            h('span', { className: 'sg' }, this.ic(q.sg, 17)),
+            h('div', { style: { minWidth: 0 } }, h('div', { className: 'src3' }, q.src), h('h4', null, q.t), h('p', null, q.p)),
+            h('div', { className: 'acts' }, q.a.map((a, i) => h('button', { className: 'btn sm' + (i === 0 && q.hot ? ' pri' : i === 0 ? '' : ' gh') }, a)))))),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 28, marginTop: 30 } },
+            this.widget({ tier: 't3', title: 'Moje PR', count: 5, body: h('div', null, mine.map(p => this.prStack(p, 'default'))), controls: ['filter', 'set'] }),
+            this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(5), controls: ['set'] }))),
+        h('div', { style: { gridColumn: 'span 4', minWidth: 0 } },
+          h('div', { className: 'inst' },
+            h('div', null, h('h3', null, h('span', null, 'Projekty'), h('span', { style: { color: 'var(--rose)' } }, '1 selhává')), h('div', { style: { marginTop: 10 } }, this.tiles())),
+            h('div', null, h('h3', null, h('span', null, 'Běhy'), h('span', null, '0 běží')), h('div', { style: { margin: '4px -10px 0' } }, this.runsBody(true, true))),
+            h('div', null, h('h3', null, h('span', null, 'Dnes v noci'), h('span', null, '3 automatizace')), this.timeline()),
+            h('div', null, h('h3', null, h('span', null, 'Rozpočty'), h('span', { style: { color: 'var(--amber)' } }, '1 nad 85 %')), this.meters(3)),
+            h('div', { style: { paddingBottom: 10 } }, h('h3', { style: { marginBottom: 10 } }, h('span', null, 'Rychlé akce'), h('span')), this.quick())))));
+  }
+  cEdition() {
+    const h = this.h;
+    const N = [['01', 'Schválit noční CI triage pro partner-cli', 'Návrh automatizace'], ['02', 'Rozhodnout konflikt v rebase #47385', 'Zaparkovaný běh · 21 h'], ['03', 'Povolit force-push pro Fix CI #47546', 'Zaparkovaný běh · 22 h']];
+    const it = (k, t, s, dot) => h('div', { className: 'it' }, h('div', { className: 'k' }, dot ? h('span', { className: 'dot ' + dot, style: { width: 6, height: 6, boxShadow: 'none' } }) : null, k), h('div', { className: 'tt' }, t), s ? h('div', { className: 's' }, s) : null);
+    return h('div', { className: 'stage' }, this.top(),
+      h('div', { className: 'ed' },
+        h('div', { className: 'mast' }, h('h1', { style: { fontSize: 22, fontWeight: 600, letterSpacing: '-.025em' } }, 'Můstek'), h('span', { className: 'nm' }, 'Večerní vydání'), h('span', { className: 'sp' }), h('span', { className: 'nm' }, 'Sobota 14. listopadu 2026 · 20:50'), h('button', { className: 'btn pri' }, this.ic('plus', 13), 'Nový úkol')),
+        h('div', { className: 'lead' },
+          h('div', null, h('div', { className: 'eb' }, 'Na tebe'), h('h2', null, 'Tři věci čekají na tebe.'),
+            N.map(([n, t, s]) => h('button', { className: 'nd' }, h('span', { className: 'no' }, n), h('span', null, h('span', { className: 'tt', style: { display: 'block' } }, t), h('span', { className: 's' }, s)), h('span', { className: 'dim' }, this.ic('chevr', 16))))),
+          h('div', { className: 'figs' }, [['37', 'otevřených PR', ''], ['29', 'čeká na review týmu', ''], ['0', 'běží právě teď', 'dim'], ['1', 'projekt selhává na CI', 'rose']].map(([n, l, c]) => h('div', { className: 'fig ' + c }, h('div', { className: 'n' }, n), h('div', { className: 'l' }, l))))),
+        h('div', { className: 'cols' },
+          h('div', null, h('h3', null, h('span', null, 'Kód'), h('span', { className: 'mono' }, '37')),
+            it('#48051 · TOMÁŠ BENEŠ', 'Add the addon detail and ratings to the Partner Portal', 'Tvoje review · e2e selhává', 'error'),
+            it('#48102 · AGENT DELIVERY', 'Migrate partner-cli CI to GitLab pipelines', 'Tvoje review · CI běží', 'thinking'),
+            it('#47385 · MOJE', 'Portal account settings: API access credentials', 'Schváleno · konflikt s master', 'blocked'),
+            it('#47977 · MOJE', 'Move partner portal shop list to its own page', 'Schváleno · připraveno k merge', 'done')),
+          h('div', null, h('h3', null, h('span', null, 'Práce'), h('span', { className: 'mono' }, '7')),
+            this.EPICS.slice(0, 3).map(e => it(e.key + ' · ' + e.d + '/' + e.n, e.nm, e.items.filter(i => i.you).length ? e.items.filter(i => i.you).length + ' čeká na tebe' : e.items.length + ' otevřené')),
+            it('BEZ EPICU · 3', 'ModalForm, Account settings ×2', '2 k review')),
+          h('div', null, h('h3', null, h('span', null, 'Stroje'), h('span', null, 'nic neběží')),
+            h('h5', null, 'Ve frontě'), this.QUEUE.map(r => it(r.time.toUpperCase(), r.t, null, 'idle')),
+            h('h5', null, 'Dnes v noci'), it('03:00 · 03:30', 'Destilace paměti, Obnova sebeznalosti, Lint vaultu'),
+            h('h5', null, 'Projekty'), h('div', { className: 'it' }, h('div', { className: 'tt', style: { fontSize: 13.5 } }, 'cms4 zelená. ', h('span', { style: { color: 'var(--rose)' } }, 'Partner CLI padá na develop.'), ' DevRel a sit-and-park v klidu.'))),
+          h('div', null, h('h3', null, h('span', null, 'Tým'), h('span', null, '2 nepřečtené')),
+            this.FEED.slice(0, 2).map(f => it(f.src + ' · ' + f.age, f.t, f.who)),
+            h('h5', null, 'Otevřené otázky'), this.KN.slice(0, 2).map(k => it(k.s.toUpperCase(), k.q)))),
+        h('div', { className: 'foot' }, h('span', { className: 'dim' }, 'Rozpočty'),
+          this.BUD.map(b => h('span', { className: 'm' + (b.hot ? '' : '') }, b.l, h('span', { className: 'bar', style: { display: 'inline-block' } }, h('i', { style: { width: b.p + '%', background: b.hot ? 'var(--amber)' : undefined } })), h('span', { className: 'mono', style: { color: b.hot ? 'var(--amber)' : 'var(--ink3)' } }, b.p + ' %'))),
+          h('span', { style: { flex: 1 } }), h('button', { className: 'btn sm' }, this.ic('play', 10), 'Standup'), h('button', { className: 'btn sm' }, this.ic('play', 10), 'Dětské omalovánky'))));
+  }
+
+  CAPS = {
+    'a-default': ['A · Tichý briefing — výchozí layout', 'Briefing jako hero bez rámu, dvě primární (T1) karty s jantarovou hranou pro to, co čeká na tebe, zbytek ambientně bez chrome. Klikni na PR — detail se otevře vedle; J/K prochází, Esc zavírá. Ovládání widgetů se ukáže při najetí.'],
+    'a-review': ['A · Tichý briefing — layout REVIEW', 'PR na 6 sloupců s filtry, diffem a otevřeným detailem vedle řádku. Návrhy jsou prázdné, takže se sbalily na jednu tichou hlavičku (ALL CLEAR ustupuje).'],
+    'a-phone': ['A · Telefon 390 px', 'Jeden sloupec, hierarchie zachovaná: hero → „Na tebe“ (T1) → ke kontrole (T2) → ostatní jako souhrnné řádky. Tap naviguje, žádný drag.'],
+    'b-queue': ['B · Fronta — alternativní směr', 'Všechno „na tebe“ se z widgetů vytáhne do jedné fronty rozhodnutí vlevo. Widgety vpravo se stanou tichým „přístrojovým“ sloupcem. Méně svobody v layoutu, víc „inbox zero“.'],
+    'c-edition': ['C · Vydání — alternativní směr', 'Žádné karty: Můstek jako titulní strana novin. Velká typografie, sloupce oddělené linkou, čísla jako infografika. Nejklidnější, ale drag mřížka by žila jen v režimu úprav.']
+  };
+
+  renderVals() {
+    const v = this.view(), dn = this.state.density || this.props.density || 'comfortable';
+    const VL = [['a-default', 'A · Výchozí'], ['a-review', 'A · Review'], ['a-phone', 'A · Telefon'], ['b-queue', 'B · Fronta'], ['c-edition', 'C · Vydání'], ['spec', 'Spec']];
+    const isSpec = v === 'spec';
+    let dash = null;
+    if (!isSpec) {
+      const h = this.h, cap = this.CAPS[v] || this.CAPS['a-default'];
+      const body = v === 'a-review' ? this.aReview() : v === 'a-phone' ? this.aPhone() : v === 'b-queue' ? this.bQueue() : v === 'c-edition' ? this.cEdition() : this.aDefault();
+      dash = h('div', null, h('div', { className: 'cap' + (v === 'a-phone' ? ' ph' : '') }, h('b', null, cap[0]), h('span', null, cap[1])), body);
+    }
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => this.setState({ view: k, sel: undefined }) })),
+      dens: [['compact', 'Kompaktní'], ['comfortable', 'Normální'], ['spacious', 'Vzdušná']].map(([k, l]) => ({ label: l, on: dn === k, pick: () => this.setState({ density: k }) })),
+      rowpad: { compact: '4px', comfortable: '8px', spacious: '12px' }[dn] || '8px',
+      isDash: !isSpec, isSpec, dash
+    };
+  }
+}
+</script>
+</body>
+</html>
