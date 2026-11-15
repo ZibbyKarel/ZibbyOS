@@ -18,12 +18,13 @@ const CI_STATUS_POLL_MS = 60 * 1000;
  * Last known CI health for one project from `GET /api/monitors/status` (N4b) —
  * one entry per watched (integration × adapter). Going red refreshes instantly:
  * `runEvents` invalidates the key family on the `monitor-alert` activity entry;
- * the interval covers the silent green recovery.
+ * the interval covers the silent green recovery. Without a `projectId` it lists every
+ * watched source (the key is then the `["ci-status"]` family prefix).
  */
-export function useCiStatusQuery(projectId: string) {
+export function useCiStatusQuery(projectId?: string) {
   return apiClient.monitors.listCiStatus.useQuery({
     queryKey: getCiStatusQueryKey(projectId),
-    queryData: { query: { projectId } },
+    queryData: { query: projectId ? { projectId } : {} },
     refetchInterval: CI_STATUS_POLL_MS,
     retry: false,
     select: selectApiResponseBody,

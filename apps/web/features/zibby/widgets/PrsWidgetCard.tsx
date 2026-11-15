@@ -88,18 +88,16 @@ export function PrsWidgetCard({ widget }: PrsWidgetCardProps) {
         <ChatWidgetRow
           dim={r.muted}
           href={prListHref(r.id)}
-          itemKey={r.id}
+          itemKey={`${r.project}${r.number}`}
           key={r.id}
           linkLabel={t("prs.openAria", { title: r.title })}
           meta={[
-            tPrs(`ci.${r.ci}`),
             r.needsYou ? tPrs("pill.you") : tPrs(`pill.${r.review}`),
             ...(r.draft ? [tPrs("pill.draft")] : []),
             `${r.project} ${r.number}`,
             r.age,
           ].join(" · ")}
-          pulse={false}
-          statusLabel={r.needsYou ? tPrs("pill.you") : tPrs(`ci.${r.ci}`)}
+          statusLabel={tPrs(`ci.${r.ci}`)}
           title={r.title}
           tone={rowTone(r.tone)}
         />
