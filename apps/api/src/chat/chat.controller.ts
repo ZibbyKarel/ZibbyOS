@@ -11,6 +11,10 @@ import { ChatHandoffService } from "./chat-handoff.service";
 import { ChatSessionService } from "./chat-session.service";
 import { ChatTranscriptStore } from "./chat-transcript.store";
 
+function notFound(conversationId: string) {
+  return { status: 404 as const, body: { message: `Conversation ${conversationId} not found` } };
+}
+
 /**
  * Chat HTTP surface. The ts-rest handlers cover the request/response routes
  * (`POST /chat/messages`, `GET /chat/transcript`, `GET /chat/conversations`); the streaming of assistant
@@ -59,6 +63,22 @@ export class ChatController {
         status: 200 as const,
         body: await this.store.listConversations(query.q),
       }),
+      renameConversation: async ({ params, body }) => {
+        const summary = await this.store.renameConversation(params.conversationId, body.title);
+        return summary ? { status: 200 as const, body: summary } : notFound(params.conversationId);
+      },
+      deleteConversation: async ({ params }) =>
+        (await this.store.deleteConversation(params.conversationId))
+          ? { status: 200 as const, body: { conversationId: params.conversationId } }
+          : notFound(params.conversationId),
+      clearConversation: async ({ params }) =>
+        (await this.store.clearConversation(params.conversationId))
+          ? { status: 200 as const, body: { conversationId: params.conversationId } }
+          : notFound(params.conversationId),
+      restoreConversation: async ({ params }) => {
+        const summary = await this.store.restoreConversation(params.conversationId);
+        return summary ? { status: 200 as const, body: summary } : notFound(params.conversationId);
+      },
       createHandoff: async ({ body }) => {
         const handoff = await this.handoff.build(body);
         return handoff

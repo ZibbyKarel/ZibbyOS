@@ -1000,6 +1000,44 @@
     "confirmRevise": "Odeslat",
     "cancelRevise": "Zrušit"
   },
+  "zibbyShortcut": {
+    "title": "Zkratky",
+    "hint": "Globální kombinace, kterou vyvoláš Zibbyho na kterékoli stránce, i když zrovna píšeš. Ťuknutím otevřeš; podržením mluvíš a puštěním odešleš.",
+    "current": "Vyvolat Zibbyho",
+    "recording": "Stiskni novou kombinaci… (Esc zruší)",
+    "record": "Nahrát",
+    "cancel": "Zrušit",
+    "reset": "Obnovit výchozí",
+    "alias": "V tomto systému funguje i:",
+    "needsModifier": "Přidej Alt, Ctrl nebo Cmd (nebo použij funkční klávesu), ať se nikdy nepřebije psaní.",
+    "collisionTitle": "Kombinace se může krýt",
+    "collision": {
+      "spotlight": "Cmd Mezerník otevírá na macOS Spotlight, takže ho Zibby nemusí nikdy zachytit.",
+      "inputSourceMac": "Ctrl Mezerník přepíná na macOS zdroj vstupu.",
+      "inputSourceSuper": "Super Mezerník obvykle přepíná rozložení klávesnice nebo jazyk vstupu.",
+      "windowMenu": "Alt Mezerník otevírá ve Windows a většině linuxových desktopů menu okna.",
+      "altTab": "Alt Tab přepíná okna.",
+      "closeWindow": "Alt F4 zavírá okno.",
+      "quitApp": "Tahle kombinace ukončí prohlížeč nebo aplikaci.",
+      "browserCloseTab": "Tahle kombinace zavírá kartu nebo okno prohlížeče.",
+      "browserNewTab": "Tahle kombinace otevírá nebo obnovuje kartu prohlížeče.",
+      "browserNewWindow": "Tahle kombinace otevírá nové okno prohlížeče.",
+      "browserReload": "Tahle kombinace znovu načte stránku.",
+      "browserLocation": "Tahle kombinace přesune fokus do adresního řádku prohlížeče.",
+      "browserPrint": "Tahle kombinace otevírá dialog tisku.",
+      "browserFind": "Tahle kombinace hledá na stránce.",
+      "browserSave": "Tahle kombinace ukládá stránku.",
+      "browserTabSwitch": "Tahle kombinace přepíná karty prohlížeče.",
+      "browserTabSelect": "Tahle kombinace přeskočí na kartu prohlížeče.",
+      "browserBackForward": "Tahle kombinace v prohlížeči listuje zpět nebo vpřed.",
+      "browserEditing": "Tahle kombinace je běžná editační zkratka (vybrat, kopírovat, vložit, zpět).",
+      "browserHelp": "F1 otevírá nápovědu prohlížeče.",
+      "browserFullscreen": "F11 přepíná celou obrazovku.",
+      "browserDevtools": "F12 otevírá vývojářské nástroje prohlížeče.",
+      "commandPalette": "Cmd/Ctrl K otevírá v této aplikaci paletu příkazů.",
+      "newTask": "Samotné N otevírá v této aplikaci Nový úkol."
+    }
+  },
   "settings": {
     "operatorToken": "Operátorský token",
     "operatorTokenHint": "Potřebný ke schválení, zamítnutí nebo odpovědi. Stejná hodnota jako ZIBBY_OPERATOR_TOKEN v API, nebo obsah souboru ~/.config/zibby/operator-token. Ukládá se jen v tomto prohlížeči.",
@@ -2227,6 +2265,97 @@
     "emptyTitle": "Zatím žádné příkazy",
     "deleteTitle": "Smazat příkaz?",
     "deleteBody": "Opravdu smazat příkaz /{id}? Smaže se i jeho definiční soubor. Tuto akci nelze vrátit."
+  },
+  "zibbyWidgets": {
+    "openAll": "Otevřít vše",
+    "openAllAria": "Otevřít vše: {title}",
+    "more": "+{count} dalších",
+    "moreAria": "Zobrazit dalších {count}: {title}",
+    "loading": "Načítám…",
+    "error": "Nepodařilo se načíst.",
+    "retry": "Zkusit znovu",
+    "ago": "před {age}",
+    "runs": {
+      "title": "Běhy",
+      "empty": "Žádné běhy",
+      "openAria": "Otevřít běh: {title}"
+    },
+    "prs": {
+      "title": "Pull requesty",
+      "empty": "Žádné otevřené pull requesty",
+      "openAria": "Otevřít pull request: {title}"
+    },
+    "issues": {
+      "title": "Issues",
+      "empty": "Žádné otevřené issues",
+      "openAria": "Otevřít issue: {title}",
+      "open": "Otevřené"
+    },
+    "approvals": {
+      "title": "Ke schválení",
+      "empty": "Nic nečeká na schválení",
+      "openAria": "Otevřít schválení: {title}",
+      "pending": "Čeká na schválení",
+      "question": "Čeká na tvoji odpověď",
+      "approve": "Schválit",
+      "reject": "Zamítnout",
+      "approveAria": "Schválit: {title}",
+      "rejectAria": "Zamítnout: {title}",
+      "answer": "Odpovědět",
+      "approved": "Schváleno",
+      "rejected": "Zamítnuto",
+      "deciding": "Odesílám…"
+    },
+    "briefing": {
+      "title": "Briefing",
+      "empty": "Briefing zatím není hotový",
+      "calm": "Nic nepotřebuje tvoji pozornost",
+      "needsYou": "Čeká na tebe",
+      "moreNeedsYou": "+{count} dalších čeká na tebe",
+      "open": "Celý briefing"
+    },
+    "mentions": {
+      "title": "Zmínky",
+      "empty": "Nic nečeká na odpověď",
+      "openAria": "Otevřít v doručené poště: {title}",
+      "unknownSender": "Neznámý odesílatel",
+      "source": {
+        "jira": "Jira",
+        "github": "GitHub",
+        "slack": "Slack",
+        "email": "E-mail"
+      },
+      "state": {
+        "new": "Nové",
+        "needs-draft": "Čeká na návrh odpovědi",
+        "triaged": "Roztříděno",
+        "handled": "Vyřízeno",
+        "ignored": "Ignorováno"
+      }
+    },
+    "projectStatus": {
+      "title": "Stav projektů",
+      "empty": "Žádné projekty",
+      "openAria": "Otevřít projekt: {name}",
+      "ciRed": "CI padá od {since}",
+      "ciGreen": "CI prochází",
+      "ciUnknown": "CI bez dat",
+      "healthUp": "Web běží",
+      "healthDown": "Web nedostupný od {since}",
+      "healthUnknown": "Web bez kontroly",
+      "attention": "Potřebuje pozornost",
+      "ok": "V pořádku"
+    },
+    "ci": {
+      "title": "CI",
+      "empty": "Žádné sledované CI",
+      "red": "Padá od {since}",
+      "green": "Prochází od {since}",
+      "fix": "Oprav to",
+      "fixAria": "Požádat Zibbyho o opravu CI: {name}",
+      "fixPrompt": "Oprav padající CI běh „{name}“ v projektu {project}.",
+      "openAria": "Otevřít CI běh: {name}"
+    }
   },
   "chat": {
     "createTask": "Vytvořit úkol",

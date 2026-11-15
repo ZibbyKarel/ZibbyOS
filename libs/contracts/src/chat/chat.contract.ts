@@ -2,15 +2,19 @@ import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { ErrorSchema } from "../common.schema";
 import {
+  ChatConversationRefSchema,
   ChatConversationSummarySchema,
   ChatHandoffBodySchema,
   ChatHandoffSchema,
   ChatTranscriptSchema,
+  RenameChatConversationBodySchema,
   SendChatMessageBodySchema,
   SendChatMessageResultSchema,
 } from "./chat.schema";
 
 const c = initContract();
+
+const conversationPathParams = z.object({ conversationId: z.string() });
 
 /**
  * Chat (chat-first conversational layer). `POST /chat/messages` appends the
@@ -40,10 +44,42 @@ export const chatContract = c.router(
     listConversations: {
       method: "GET",
       path: "/chat/conversations",
-      /** `q` — case-insensitive substring match over every message's text. */
+      /** `q` — case-insensitive substring match over the title and every message's text; adds `snippet`. */
       query: z.object({ q: z.string().optional() }),
       responses: { 200: z.array(ChatConversationSummarySchema) },
       summary: "List past conversations, newest first (pure read)",
+    },
+    renameConversation: {
+      method: "PATCH",
+      path: "/chat/conversations/:conversationId",
+      pathParams: conversationPathParams,
+      body: RenameChatConversationBodySchema,
+      responses: { 200: ChatConversationSummarySchema, 404: ErrorSchema },
+      summary: "Rename a conversation (custom title wins over the derived one)",
+    },
+    deleteConversation: {
+      method: "DELETE",
+      path: "/chat/conversations/:conversationId",
+      pathParams: conversationPathParams,
+      body: c.noBody(),
+      responses: { 200: ChatConversationRefSchema, 404: ErrorSchema },
+      summary: "Soft-delete a conversation (moved to the chat trash, restorable)",
+    },
+    clearConversation: {
+      method: "POST",
+      path: "/chat/conversations/:conversationId/clear",
+      pathParams: conversationPathParams,
+      body: c.noBody(),
+      responses: { 200: ChatConversationRefSchema, 404: ErrorSchema },
+      summary: "Snapshot a conversation to the trash, then empty it in place",
+    },
+    restoreConversation: {
+      method: "POST",
+      path: "/chat/conversations/:conversationId/restore",
+      pathParams: conversationPathParams,
+      body: c.noBody(),
+      responses: { 200: ChatConversationSummarySchema, 404: ErrorSchema },
+      summary: "Restore a conversation from the trash (after a delete or a clear)",
     },
     createHandoff: {
       method: "POST",

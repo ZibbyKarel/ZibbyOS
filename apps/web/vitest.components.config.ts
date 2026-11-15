@@ -40,6 +40,8 @@ export default defineConfig({
       // Bridge grid engine (pure layout math).
       "features/*/grid/**/*.test.ts",
       "features/*/widgets/**/*.test.{ts,tsx}",
+      // Zibby overlay shortcut foundation (pure logic + hotkey/storage hooks).
+      "features/zibby/shortcut/**/*.test.{ts,tsx}",
       // Feature mutation hooks (TanStack Query mutations; renderHook needs jsdom).
       "features/*/mutations/**/*.test.{ts,tsx}",
       // Shared hooks (generic cross-domain browser-API wrappers).

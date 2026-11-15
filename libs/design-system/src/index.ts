@@ -585,6 +585,8 @@ export type {
   BrandMarkSize,
   BrandMarkState,
 } from "./components/BrandMark/BrandMark";
+export { ZibbyOrb, ZibbyOrbTestId, ZIBBY_ORB_STATES } from "./components/ZibbyOrb/ZibbyOrb";
+export type { ZibbyOrbProps, ZibbyOrbState } from "./components/ZibbyOrb/ZibbyOrb";
 export { Wordmark, WordmarkTestId } from "./components/Wordmark/Wordmark";
 export type { WordmarkProps, WordmarkSize } from "./components/Wordmark/Wordmark";
 

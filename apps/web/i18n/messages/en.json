@@ -1000,6 +1000,44 @@
     "confirmRevise": "Send",
     "cancelRevise": "Cancel"
   },
+  "zibbyShortcut": {
+    "title": "Shortcuts",
+    "hint": "The global combination that summons Zibby from any page, even while you are typing. Tap to open; hold to talk and release to send.",
+    "current": "Summon Zibby",
+    "recording": "Press the new combination… (Esc cancels)",
+    "record": "Record",
+    "cancel": "Cancel",
+    "reset": "Reset to default",
+    "alias": "Also works on this system:",
+    "needsModifier": "Add Alt, Ctrl or Cmd (or use a function key) so typing is never hijacked.",
+    "collisionTitle": "This combination may clash",
+    "collision": {
+      "spotlight": "Cmd Space opens Spotlight on macOS, so Zibby may never see it.",
+      "inputSourceMac": "Ctrl Space switches the input source on macOS.",
+      "inputSourceSuper": "Super Space usually switches the keyboard layout or input language.",
+      "windowMenu": "Alt Space opens the window menu in Windows and most Linux desktops.",
+      "altTab": "Alt Tab switches windows.",
+      "closeWindow": "Alt F4 closes the window.",
+      "quitApp": "This combination quits the browser or app.",
+      "browserCloseTab": "This combination closes a tab or window in the browser.",
+      "browserNewTab": "This combination opens or reopens a browser tab.",
+      "browserNewWindow": "This combination opens a new browser window.",
+      "browserReload": "This combination reloads the page.",
+      "browserLocation": "This combination focuses the browser address bar.",
+      "browserPrint": "This combination opens the print dialog.",
+      "browserFind": "This combination searches within the page.",
+      "browserSave": "This combination saves the page.",
+      "browserTabSwitch": "This combination switches browser tabs.",
+      "browserTabSelect": "This combination jumps to a browser tab.",
+      "browserBackForward": "This combination navigates back or forward in the browser.",
+      "browserEditing": "This combination is a standard editing shortcut (select, copy, paste, undo).",
+      "browserHelp": "F1 opens help in the browser.",
+      "browserFullscreen": "F11 toggles full screen.",
+      "browserDevtools": "F12 opens the browser developer tools.",
+      "commandPalette": "Cmd/Ctrl K opens this app's command palette.",
+      "newTask": "A bare N opens New Task in this app."
+    }
+  },
   "settings": {
     "operatorToken": "Operator token",
     "operatorTokenHint": "Needed to approve, reject or answer. Same value as the API's ZIBBY_OPERATOR_TOKEN, or the contents of ~/.config/zibby/operator-token. Stored in this browser only.",
@@ -2227,6 +2265,97 @@
     "emptyTitle": "No commands yet",
     "deleteTitle": "Delete command?",
     "deleteBody": "Really delete command /{id}? Its definition file is deleted too. This cannot be undone."
+  },
+  "zibbyWidgets": {
+    "openAll": "Open all",
+    "openAllAria": "Open all: {title}",
+    "more": "+{count} more",
+    "moreAria": "Show {count} more: {title}",
+    "loading": "Loading…",
+    "error": "Couldn't load this.",
+    "retry": "Try again",
+    "ago": "{age} ago",
+    "runs": {
+      "title": "Runs",
+      "empty": "No runs",
+      "openAria": "Open run: {title}"
+    },
+    "prs": {
+      "title": "Pull requests",
+      "empty": "No open pull requests",
+      "openAria": "Open pull request: {title}"
+    },
+    "issues": {
+      "title": "Issues",
+      "empty": "No open issues",
+      "openAria": "Open issue: {title}",
+      "open": "Open"
+    },
+    "approvals": {
+      "title": "To approve",
+      "empty": "Nothing is waiting for approval",
+      "openAria": "Open approval: {title}",
+      "pending": "Waiting for approval",
+      "question": "Waiting for your answer",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveAria": "Approve: {title}",
+      "rejectAria": "Reject: {title}",
+      "answer": "Answer",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "deciding": "Sending…"
+    },
+    "briefing": {
+      "title": "Briefing",
+      "empty": "No briefing yet",
+      "calm": "Nothing needs your attention",
+      "needsYou": "Needs you",
+      "moreNeedsYou": "+{count} more need you",
+      "open": "Full briefing"
+    },
+    "mentions": {
+      "title": "Mentions",
+      "empty": "Nothing is waiting for a reply",
+      "openAria": "Open in the inbox: {title}",
+      "unknownSender": "Unknown sender",
+      "source": {
+        "jira": "Jira",
+        "github": "GitHub",
+        "slack": "Slack",
+        "email": "Email"
+      },
+      "state": {
+        "new": "New",
+        "needs-draft": "Needs a draft reply",
+        "triaged": "Triaged",
+        "handled": "Handled",
+        "ignored": "Ignored"
+      }
+    },
+    "projectStatus": {
+      "title": "Project status",
+      "empty": "No projects",
+      "openAria": "Open project: {name}",
+      "ciRed": "CI failing since {since}",
+      "ciGreen": "CI passing",
+      "ciUnknown": "No CI data",
+      "healthUp": "Site up",
+      "healthDown": "Site down since {since}",
+      "healthUnknown": "Site not checked",
+      "attention": "Needs attention",
+      "ok": "All good"
+    },
+    "ci": {
+      "title": "CI",
+      "empty": "No watched CI",
+      "red": "Failing since {since}",
+      "green": "Passing since {since}",
+      "fix": "Fix it",
+      "fixAria": "Ask Zibby to fix CI: {name}",
+      "fixPrompt": "Fix the failing CI run \"{name}\" in project {project}.",
+      "openAria": "Open CI run: {name}"
+    }
   },
   "chat": {
     "createTask": "Create task",

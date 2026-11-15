@@ -19,6 +19,7 @@ import { ActivitySection } from "./components/ActivitySection";
 import { AppearanceSection } from "./components/AppearanceSection";
 import { ChatSection } from "./components/ChatSection";
 import { OperatorChannelSection } from "./components/OperatorChannelSection";
+import { ZibbyShortcutSection } from "./components/ZibbyShortcutSection";
 import { WebPushSection } from "./components/WebPushSection";
 import { OperatorTokenSection } from "./components/OperatorTokenSection";
 import { MachineSection } from "./components/MachineSection";
@@ -150,6 +151,7 @@ export function SettingsScreen({ section }: SettingsScreenProps) {
               <AppearanceSection />
               <MachineSection />
               <ChatSection />
+              <ZibbyShortcutSection />
               <OperatorTokenSection />
               <OperatorChannelSection />
               <WebPushSection />

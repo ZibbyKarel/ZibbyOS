@@ -10,14 +10,18 @@ of the conversation.
 
 ## Endpoints
 
-| Method       | Path                                   | Description                                                                                                                                                                                                                                                 |
-| ------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST`       | `/api/chat/messages`                   | Adds the operator's turn and starts the streaming reply. Body: see [Send body](#send-body) → `{ conversationId, turnId }` (returns immediately; tokens arrive over SSE).                                                                                    |
-| `GET`        | `/api/chat/transcript?conversationId=` | Plain read of the conversation transcript (`{ conversationId, sessionId, sessionEngine?, messages }`). Without `conversationId` → the active thread.                                                                                                        |
-| `GET`        | `/api/chat/conversations?q=`           | Past conversations for the history sidebar, newest first: `[{ conversationId, title, messageCount, updatedAt }]`. `title` = first operator turn (truncated to 80 chars); empty threads skipped; `q` = case-insensitive substring over every message's text. |
-| `POST`       | `/api/chat/handoff`                    | "Create task" from chat. Body `{ conversationId, upToMessageId? }` → `{ text, compacted, transcriptPath }`: a task description carrying the conversation up to that reply — see [Hand-off](#hand-off-create-task-from-chat). No messages → 404.             |
-| `GET`        | `/api/chat/stream?conversationId=`     | **SSE** (raw `@Sse()`, outside ts-rest) — live tokens. Each `data` is a JSON `ChatTurnEvent`.                                                                                                                                                               |
-| `POST`/`GET` | `/api/chat/mcp`                        | In-process **MCP server** (Streamable HTTP) exposing ZIBBY's tools. Called by the spawned `claude` process, not the frontend — gated by `ChatMcpAuthGuard` (see below); `GET` is an unguarded 405 (no server-initiated streaming needed).                   |
+| Method       | Path                                              | Description                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST`       | `/api/chat/messages`                              | Adds the operator's turn and starts the streaming reply. Body: see [Send body](#send-body) → `{ conversationId, turnId }` (returns immediately; tokens arrive over SSE).                                                                                                                                                                                                                                         |
+| `GET`        | `/api/chat/transcript?conversationId=`            | Plain read of the conversation transcript (`{ conversationId, sessionId, sessionEngine?, messages }`). Without `conversationId` → the active thread.                                                                                                                                                                                                                                                             |
+| `GET`        | `/api/chat/conversations?q=`                      | Past conversations for the history panel, newest first: `[{ conversationId, title, messageCount, updatedAt, snippet? }]`. `title` = custom title (rename) else first operator turn (80 chars); empty threads skipped; `q` = case-insensitive substring over the title and every message; with `q`, `snippet` = ≈140-char single-line excerpt centred on the first matching message (omitted on title-only hits). |
+| `PATCH`      | `/api/chat/conversations/:conversationId`         | Rename. Body `{ title }` (trimmed, 1-120 chars, single line) -> `ChatConversationSummary`; unknown -> 404.                                                                                                                                                                                                                                                                                                       |
+| `DELETE`     | `/api/chat/conversations/:conversationId`         | **Soft** delete: files move to the [trash](#trash--restore); clears the active pointer if it was active -> `{ conversationId }`; unknown -> 404.                                                                                                                                                                                                                                                                 |
+| `POST`       | `/api/chat/conversations/:conversationId/clear`   | Snapshot to the trash, then empty in place (no messages, `sessionId` null so the next turn does not `--resume`, custom title and distilled counter reset) -> `{ conversationId }`; unknown -> 404.                                                                                                                                                                                                               |
+| `POST`       | `/api/chat/conversations/:conversationId/restore` | Bring back the trashed snapshot (after a delete or a clear; the UI's 5 s Undo) -> `ChatConversationSummary`; nothing in the trash -> 404.                                                                                                                                                                                                                                                                        |
+| `POST`       | `/api/chat/handoff`                               | "Create task" from chat. Body `{ conversationId, upToMessageId? }` → `{ text, compacted, transcriptPath }`: a task description carrying the conversation up to that reply — see [Hand-off](#hand-off-create-task-from-chat). No messages → 404.                                                                                                                                                                  |
+| `GET`        | `/api/chat/stream?conversationId=`                | **SSE** (raw `@Sse()`, outside ts-rest) — live tokens. Each `data` is a JSON `ChatTurnEvent`.                                                                                                                                                                                                                                                                                                                    |
+| `POST`/`GET` | `/api/chat/mcp`                                   | In-process **MCP server** (Streamable HTTP) exposing ZIBBY's tools. Called by the spawned `claude` process, not the frontend — gated by `ChatMcpAuthGuard` (see below); `GET` is an unguarded 405 (no server-initiated streaming needed).                                                                                                                                                                        |
 
 ### Send body
 
@@ -40,6 +44,19 @@ of the conversation.
 An unknown `teamId` / `projectId` / `companyId` / `skillId` → **404**, before
 anything is written. The tags are one-turn: the web composer clears them after
 every send (`useCooChat`).
+
+### Trash / restore
+
+Irreversible deletes are a Never-rule, so `DELETE` and `clear` never unlink:
+every file of the conversation (`<id>.jsonl`, `<id>.meta.json`, `<id>.distilled.json`)
+goes to `<chatDir>/.trash/<id>/` (`DELETE` moves, `clear` copies then empties in place).
+`restore` moves them back (overwriting the emptied files after a clear) and removes the
+trash folder. A newer snapshot never overwrites an older one: the older folder is kept
+as `.trash/<id>.<epoch-ms>/` (not restorable via the API, still on disk). The store's
+readers only see `*.jsonl` files at the top of the chat dir, so the trash is never
+listed as a conversation. Conversation ids are validated against
+`^[A-Za-z0-9_][A-Za-z0-9_-]{0,127}$` (no dots or slashes) before touching any path; an
+invalid id on these routes is a 404.
 
 ### Hand-off (create task from chat)
 

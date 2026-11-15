@@ -235,8 +235,25 @@ export const ChatConversationSummarySchema = z.object({
   messageCount: z.number().int().nonnegative(),
   /** ISO timestamp of the last message. */
   updatedAt: z.string(),
+  /** Only with `?q=`: ≈140-char single-line excerpt of the first matching message (omitted on title-only hits). */
+  snippet: z.string().optional(),
 });
 export type ChatConversationSummary = z.infer<typeof ChatConversationSummarySchema>;
+
+/** Rename body: a trimmed, non-empty, single-line title (≤ 120 chars). */
+export const RenameChatConversationBodySchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .refine((v) => !/[\r\n]/.test(v), { message: "title must be a single line" }),
+});
+export type RenameChatConversationBody = z.infer<typeof RenameChatConversationBodySchema>;
+
+/** Result of a delete / clear. */
+export const ChatConversationRefSchema = z.object({ conversationId: z.string() });
+export type ChatConversationRef = z.infer<typeof ChatConversationRefSchema>;
 
 export const SendChatMessageBodySchema = z.object({
   /** Omit to use (or create) the single active conversation. */

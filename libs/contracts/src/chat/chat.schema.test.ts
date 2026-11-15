@@ -4,10 +4,12 @@ import { TaskTargetSchema } from "../tasks/task.schema";
 import {
   CHAT_MODELS,
   ChatAboutRefSchema,
+  ChatConversationSummarySchema,
   ChatMentionTargetSchema,
   ChatMessageSchema,
   ChatToolEventSchema,
   ChatWidgetSchema,
+  RenameChatConversationBodySchema,
   SendChatMessageBodySchema,
 } from "./chat.schema";
 
@@ -309,5 +311,25 @@ describe("ChatWidgetSchema", () => {
   it("rides on a tool event", () => {
     const event = { name: "show_widget", status: "ok", callId: "w-1", widget: { kind: "ci" } };
     expect(ChatToolEventSchema.parse(event)).toEqual(event);
+  });
+});
+
+describe("conversation management schemas", () => {
+  it("trims the rename title and enforces 1-120 single-line", () => {
+    expect(RenameChatConversationBodySchema.parse({ title: "  Ahoj  " })).toEqual({
+      title: "Ahoj",
+    });
+    for (const title of ["", "   ", "a\nb", "x".repeat(121)]) {
+      expect(RenameChatConversationBodySchema.safeParse({ title }).success).toBe(false);
+    }
+    expect(RenameChatConversationBodySchema.safeParse({ title: "x".repeat(120) }).success).toBe(
+      true,
+    );
+  });
+
+  it("summary carries an optional snippet", () => {
+    const base = { conversationId: "c", title: "t", messageCount: 1, updatedAt: "x" };
+    expect(ChatConversationSummarySchema.parse(base)).toEqual(base);
+    expect(ChatConversationSummarySchema.parse({ ...base, snippet: "s" }).snippet).toBe("s");
   });
 });

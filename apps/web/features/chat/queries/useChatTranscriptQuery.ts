@@ -1,9 +1,14 @@
 import { apiClient } from "../../../state/api";
 import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
 
+/** Prefix of every transcript cache entry — what mutations invalidate. */
+export function getChatTranscriptRootQueryKey() {
+  return ["chat", "transcript"] as const;
+}
+
 /** Cache key for the transcript of one conversation (or the active thread, when omitted). */
 export function getChatTranscriptQueryKey(conversationId?: string) {
-  return ["chat", "transcript", conversationId ?? null] as const;
+  return [...getChatTranscriptRootQueryKey(), conversationId ?? null] as const;
 }
 
 /**

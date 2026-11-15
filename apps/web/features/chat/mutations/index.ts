@@ -4,3 +4,7 @@ export { useSynthesizeSpeechMutation } from "./useSynthesizeSpeechMutation";
 export { useTranscribeSpeechMutation } from "./useTranscribeSpeechMutation";
 export { useStartDictationMutation } from "./useStartDictationMutation";
 export { useFinishDictationMutation } from "./useFinishDictationMutation";
+export { useRenameChatConversationMutation } from "./useRenameChatConversationMutation";
+export { useDeleteChatConversationMutation } from "./useDeleteChatConversationMutation";
+export { useClearChatConversationMutation } from "./useClearChatConversationMutation";
+export { useRestoreChatConversationMutation } from "./useRestoreChatConversationMutation";

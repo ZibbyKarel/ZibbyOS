@@ -23,12 +23,58 @@ export const CHAT_DIR = "CHAT_DIR";
 /** Longest title a history row carries (the first operator turn, truncated). */
 const TITLE_MAX = 80;
 
+/** Directory (inside the chat dir) soft-deleted / cleared conversations are moved to. */
+export const CHAT_TRASH_DIRNAME = ".trash";
+
+/** Longest search-hit excerpt a history row carries (≈ — an ellipsis may add a char or two). */
+const SNIPPET_MAX = 140;
+
+/**
+ * Strict conversation id: ids are `conv_<ms>_<hex>`, but tests/clients may use other
+ * simple slugs. No dots, slashes or leading dashes — so an id can never traverse out of
+ * the chat dir nor collide with `.trash` / `active.json`.
+ */
+const CONVERSATION_ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_-]{0,127}$/;
+
+/** True when `id` is safe to splice into a file name under the chat dir. */
+export function isValidConversationId(id: unknown): id is string {
+  return typeof id === "string" && CONVERSATION_ID_RE.test(id);
+}
+
+function assertValidId(conversationId: string): void {
+  if (!isValidConversationId(conversationId)) {
+    throw new Error(`Invalid chat conversation id: ${JSON.stringify(conversationId)}`);
+  }
+}
+
+function ignoreMissing(error: unknown): void {
+  if ((error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT") throw error;
+}
+
+/** Collapse all whitespace (incl. newlines) so titles/snippets are single-line. */
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/** ≈{@link SNIPPET_MAX}-char single-line excerpt of `text` centred on the first `needle` hit. */
+function makeSnippet(text: string, needle: string): string {
+  const flat = oneLine(text);
+  const hit = Math.max(0, flat.toLowerCase().indexOf(needle));
+  if (flat.length <= SNIPPET_MAX) return flat;
+  let start = Math.max(0, hit - Math.floor((SNIPPET_MAX - needle.length) / 2));
+  const end = Math.min(flat.length, start + SNIPPET_MAX);
+  start = Math.max(0, end - SNIPPET_MAX);
+  return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
+}
+
 /** Sidecar meta for one conversation: the threaded `claude` session id lives here. */
 interface ConversationMeta {
   conversationId: string;
   sessionId: string | null;
   /** A24 — the engine `sessionId` belongs to; absent = `claude` (meta from before engines). */
   sessionEngine?: AiEngine;
+  /** Operator-chosen title (rename); absent = derived from the first operator turn. */
+  title?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,29 +176,156 @@ export class ChatTranscriptStore implements AttachmentSetRefProvider {
 
   /**
    * Past conversations for the history sidebar, newest first. Empty threads are
-   * skipped; `q` keeps only threads where some message's text contains it
-   * (case-insensitive).
+   * skipped; `q` keeps only threads whose title or some message's text contains it
+   * (case-insensitive, whitespace-normalised) and adds a `snippet` of the first
+   * matching message (omitted when only the title matched).
    */
   async listConversations(q?: string): Promise<ChatConversationSummary[]> {
     // ponytail: reads every transcript per call — fine for one operator's history,
     // add a summary index if it grows to thousands of threads.
-    const needle = q?.trim().toLowerCase();
+    const needle = q ? oneLine(q).toLowerCase() : "";
     const out: ChatConversationSummary[] = [];
     for (const conversationId of await this.listConversationIds()) {
-      const messages = await this.readMessages(conversationId);
-      const last = messages.at(-1);
-      if (!last) continue;
-      if (needle && !messages.some((m) => m.text.toLowerCase().includes(needle))) continue;
-      const first = messages.find((m) => m.role === "user") ?? messages[0];
-      const title = (first?.text ?? "").replace(/\s+/g, " ").trim();
-      out.push({
-        conversationId,
-        title: title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 1)}…` : title,
-        messageCount: messages.length,
-        updatedAt: last.at,
-      });
+      const summary = await this.summarize(conversationId, needle);
+      if (summary && summary.messageCount > 0) out.push(summary);
     }
     return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  /**
+   * One history row. With a non-empty `needle`, returns null when nothing matches.
+   * A conversation without messages yields `messageCount: 0` (callers decide to skip).
+   */
+  private async summarize(
+    conversationId: string,
+    needle = "",
+  ): Promise<ChatConversationSummary | null> {
+    const messages = await this.readMessages(conversationId);
+    const meta = await this.readMeta(conversationId);
+    const last = messages.at(-1);
+    const first = messages.find((m) => m.role === "user") ?? messages[0];
+    const derived = oneLine(first?.text ?? "");
+    const title =
+      meta?.title ?? (derived.length > TITLE_MAX ? `${derived.slice(0, TITLE_MAX - 1)}…` : derived);
+    let snippet: string | undefined;
+    if (needle) {
+      const hit = messages.find((m) => oneLine(m.text).toLowerCase().includes(needle));
+      if (hit) snippet = makeSnippet(hit.text, needle);
+      else if (!title.toLowerCase().includes(needle)) return null;
+    }
+    return {
+      conversationId,
+      title,
+      messageCount: messages.length,
+      updatedAt: last?.at ?? meta?.updatedAt ?? new Date(0).toISOString(),
+      ...(snippet !== undefined ? { snippet } : {}),
+    };
+  }
+
+  /** Does this conversation have any file on disk (transcript or meta)? */
+  async conversationExists(conversationId: string): Promise<boolean> {
+    if (!isValidConversationId(conversationId)) return false;
+    return (
+      (await fileExists(this.fileFor(conversationId))) ||
+      (await fileExists(this.metaFile(conversationId)))
+    );
+  }
+
+  /** Set a custom title. Null when the conversation is unknown. */
+  async renameConversation(
+    conversationId: string,
+    title: string,
+    now: Date = new Date(),
+  ): Promise<ChatConversationSummary | null> {
+    if (!(await this.conversationExists(conversationId))) return null;
+    const meta = (await this.readMeta(conversationId)) ?? this.freshMeta(conversationId, now);
+    await this.writeMeta({ ...meta, title: oneLine(title), updatedAt: now.toISOString() });
+    return this.summarize(conversationId);
+  }
+
+  /**
+   * Soft delete: MOVE every file of the conversation into `<dir>/.trash/<id>/` (never
+   * unlink) and clear the active pointer if it pointed here. False when unknown.
+   */
+  async deleteConversation(conversationId: string, now: Date = new Date()): Promise<boolean> {
+    if (!(await this.conversationExists(conversationId))) return false;
+    const trash = await this.freshTrashDir(conversationId, now);
+    for (const file of this.conversationFiles(conversationId)) {
+      await fs.rename(file, path.join(trash, path.basename(file))).catch(ignoreMissing);
+    }
+    if ((await this.readActive()) === conversationId) {
+      await fs.rm(this.activeFile(), { force: true });
+    }
+    return true;
+  }
+
+  /**
+   * Snapshot the conversation into the trash (same layout as a delete, so
+   * {@link restoreConversation} works), then empty it in place: no messages, no CLI
+   * session (next turn starts fresh, no `--resume`), no custom title, distilled
+   * counter reset. False when unknown.
+   */
+  async clearConversation(conversationId: string, now: Date = new Date()): Promise<boolean> {
+    if (!(await this.conversationExists(conversationId))) return false;
+    const trash = await this.freshTrashDir(conversationId, now);
+    for (const file of this.conversationFiles(conversationId)) {
+      await fs.copyFile(file, path.join(trash, path.basename(file))).catch(ignoreMissing);
+    }
+    const old = await this.readMeta(conversationId);
+    await writeFileAtomic(this.fileFor(conversationId), "");
+    await fs.rm(this.distilledFile(conversationId), { force: true });
+    await this.writeMeta({
+      conversationId,
+      sessionId: null,
+      createdAt: old?.createdAt ?? now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+    return true;
+  }
+
+  /**
+   * Bring back the trashed snapshot (after a delete or a clear; a clear's emptied files
+   * are overwritten). Null when the trash holds nothing for this id.
+   */
+  async restoreConversation(conversationId: string): Promise<ChatConversationSummary | null> {
+    if (!isValidConversationId(conversationId)) return null;
+    const trash = this.trashDirFor(conversationId);
+    const names = await fs.readdir(trash).catch(() => [] as string[]);
+    const wanted = new Set(this.conversationFiles(conversationId).map((f) => path.basename(f)));
+    const restorable = names.filter((n) => wanted.has(n));
+    if (restorable.length === 0) return null;
+    // Drop a distilled file the snapshot does not carry, so the counter matches the restored transcript.
+    if (!restorable.includes(path.basename(this.distilledFile(conversationId)))) {
+      await fs.rm(this.distilledFile(conversationId), { force: true });
+    }
+    for (const name of restorable) {
+      await fs.rename(path.join(trash, name), path.join(this.dir, name));
+    }
+    await fs.rmdir(trash).catch(() => undefined);
+    return this.summarize(conversationId);
+  }
+
+  private trashDirFor(conversationId: string): string {
+    return path.join(this.dir, CHAT_TRASH_DIRNAME, conversationId);
+  }
+
+  /** Empty `.trash/<id>/`; an earlier snapshot is archived next to it, never overwritten. */
+  private async freshTrashDir(conversationId: string, now: Date): Promise<string> {
+    const trash = this.trashDirFor(conversationId);
+    if (await fileExists(trash)) {
+      await fs.rename(trash, `${trash}.${now.getTime()}`);
+    }
+    await ensureDir(trash);
+    return trash;
+  }
+
+  /** The (possibly non-existent) files that make up one conversation. */
+  private conversationFiles(conversationId: string): string[] {
+    return [
+      this.fileFor(conversationId),
+      this.metaFile(conversationId),
+      this.distilledFile(conversationId),
+    ];
   }
 
   /** Every conversation id with a transcript on disk (newest intake order not implied). */
@@ -160,7 +333,8 @@ export class ChatTranscriptStore implements AttachmentSetRefProvider {
     const entries = await fs.readdir(this.dir).catch(() => [] as string[]);
     return entries
       .filter((name) => name.endsWith(".jsonl"))
-      .map((name) => name.slice(0, -".jsonl".length));
+      .map((name) => name.slice(0, -".jsonl".length))
+      .filter(isValidConversationId);
   }
 
   /**
@@ -250,14 +424,17 @@ export class ChatTranscriptStore implements AttachmentSetRefProvider {
   }
 
   private fileFor(conversationId: string): string {
+    assertValidId(conversationId);
     return path.join(this.dir, `${conversationId}.jsonl`);
   }
 
   private metaFile(conversationId: string): string {
+    assertValidId(conversationId);
     return path.join(this.dir, `${conversationId}.meta.json`);
   }
 
   private distilledFile(conversationId: string): string {
+    assertValidId(conversationId);
     return path.join(this.dir, `${conversationId}.distilled.json`);
   }
 

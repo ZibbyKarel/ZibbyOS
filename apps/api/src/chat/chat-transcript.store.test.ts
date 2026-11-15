@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ChatMessage } from "@zibby/contracts";
-import { ChatTranscriptStore } from "./chat-transcript.store";
+import { ChatTranscriptStore, isValidConversationId } from "./chat-transcript.store";
 
 const msg = (over: Partial<ChatMessage> = {}): ChatMessage => ({
   id: "m1",
@@ -136,5 +136,116 @@ describe("ChatTranscriptStore", () => {
       updatedAt: "2026-06-23T10:01:00.000Z",
     });
     expect((await store.listConversations("BRIEF")).map((c) => c.conversationId)).toEqual(["old"]);
+  });
+
+  describe("conversation management", () => {
+    const trashOf = (id: string) => path.join(dir, ".trash", id);
+    const seed = async (id: string, text = "ahoj světe") => {
+      await store.ensureConversation(id);
+      await store.appendMessage(id, msg({ id: `${id}-u`, text }));
+      await store.setSessionId(id, "sess-1");
+      await store.markDistilled(id, 1);
+    };
+
+    it("rejects path-traversal ids everywhere", async () => {
+      for (const bad of ["../x", "a/b", "..", ".trash", "", "a.b", "-x"]) {
+        expect(isValidConversationId(bad)).toBe(false);
+        expect(await store.deleteConversation(bad)).toBe(false);
+        expect(await store.clearConversation(bad)).toBe(false);
+        expect(await store.restoreConversation(bad)).toBeNull();
+        expect(await store.renameConversation(bad, "x")).toBeNull();
+      }
+      await expect(store.readTranscript("../x")).rejects.toThrow(/Invalid chat conversation id/);
+      expect(isValidConversationId("conv_1731660000000_ab12cd")).toBe(true);
+    });
+
+    it("renames: the custom title wins in the list; unknown -> null", async () => {
+      await seed("c1", "first turn");
+      const renamed = await store.renameConversation("c1", "  Můj  název ");
+      expect(renamed?.title).toBe("Můj název");
+      expect((await store.listConversations())[0]?.title).toBe("Můj název");
+      expect((await store.listConversations("Můj"))[0]?.snippet).toBeUndefined();
+      expect(await store.renameConversation("nope", "x")).toBeNull();
+    });
+
+    it("soft-deletes into .trash, hides it everywhere, clears the active pointer", async () => {
+      const active = await store.ensureConversation();
+      await store.appendMessage(active, msg({ attachmentSetId: "set-1" }));
+      await store.markDistilled(active, 1);
+      expect(await store.deleteConversation(active)).toBe(true);
+
+      expect(await store.readActive()).toBeNull();
+      expect(await store.listConversations()).toEqual([]);
+      expect(await store.listConversationIds()).toEqual([]);
+      expect(await store.referencedSetIds()).toEqual([]);
+      expect((await fs.readdir(trashOf(active))).sort()).toEqual(
+        [`${active}.distilled.json`, `${active}.jsonl`, `${active}.meta.json`].sort(),
+      );
+      expect(await fs.readdir(dir)).toEqual([".trash"]);
+      expect(await store.deleteConversation(active)).toBe(false);
+    });
+
+    it("restores a deleted conversation intact", async () => {
+      await seed("c1");
+      await store.deleteConversation("c1");
+      const restored = await store.restoreConversation("c1");
+      expect(restored).toMatchObject({ conversationId: "c1", messageCount: 1 });
+      expect(await store.getSessionId("c1")).toBe("sess-1");
+      expect(await store.distilledCount("c1")).toBe(1);
+      expect((await store.listConversations()).map((c) => c.conversationId)).toEqual(["c1"]);
+      expect(await store.restoreConversation("c1")).toBeNull();
+    });
+
+    it("clears in place (snapshot kept) and restore overwrites the emptied files", async () => {
+      await seed("c1");
+      await store.renameConversation("c1", "Titulek");
+      expect(await store.clearConversation("c1")).toBe(true);
+
+      const transcript = await store.readTranscript("c1");
+      expect(transcript.messages).toEqual([]);
+      expect(transcript.sessionId).toBeNull();
+      expect(await store.distilledCount("c1")).toBe(0);
+      expect(await store.listConversations()).toEqual([]);
+      expect((await fs.readdir(trashOf("c1"))).length).toBe(3);
+
+      const restored = await store.restoreConversation("c1");
+      expect(restored).toMatchObject({ title: "Titulek", messageCount: 1 });
+      expect(await store.getSessionId("c1")).toBe("sess-1");
+      expect(await store.distilledCount("c1")).toBe(1);
+    });
+
+    it("keeps an older snapshot instead of overwriting it", async () => {
+      await seed("c1", "one");
+      await store.deleteConversation("c1");
+      await seed("c1", "two");
+      await store.deleteConversation("c1");
+      const names = await fs.readdir(path.join(dir, ".trash"));
+      expect(names.length).toBe(2);
+      const restored = await store.restoreConversation("c1");
+      expect(restored?.title).toBe("two");
+    });
+
+    it("adds a centred single-line snippet for message hits, none for title-only hits", async () => {
+      const long = `${"a ".repeat(100)}NEEDLE\nmiddle ${"b ".repeat(100)}`;
+      await store.appendMessage("c1", msg({ id: "u1", text: "faktura" }));
+      await store.appendMessage("c1", msg({ id: "a1", role: "assistant", text: long }));
+      const [hit] = await store.listConversations("needle");
+      expect(hit?.snippet).toContain("NEEDLE middle");
+      expect(hit?.snippet).not.toMatch(/\n/);
+      expect(hit?.snippet?.length).toBeLessThanOrEqual(142);
+      // title ("faktura") match is also a message match here -> snippet is the message text
+      expect((await store.listConversations("faktura"))[0]?.snippet).toBe("faktura");
+      expect(await store.listConversations("zzz")).toEqual([]);
+      // no q -> no snippet
+      expect((await store.listConversations())[0]).not.toHaveProperty("snippet");
+    });
+
+    it("title-only hit (custom title) has no snippet", async () => {
+      await seed("c1", "obsah");
+      await store.renameConversation("c1", "Rozpočet");
+      const [hit] = await store.listConversations("rozpo");
+      expect(hit?.conversationId).toBe("c1");
+      expect(hit).not.toHaveProperty("snippet");
+    });
   });
 });
