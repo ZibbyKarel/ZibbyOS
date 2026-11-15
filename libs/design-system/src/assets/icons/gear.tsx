@@ -1,8 +1,4 @@
 import type { ReactNode } from "react";
 
-export const gear: ReactNode = (
-  <>
-    <circle cx="12" cy="12" r="3.2" />
-    <path d="M19.4 13.5a1.5 1.5 0 0 0 .3 1.65l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05a1.5 1.5 0 0 0-2.55 1.06V20a2 2 0 0 1-4 0v-.07a1.5 1.5 0 0 0-2.55-1.06l-.05.05A2 2 0 1 1 2.84 16.1l.05-.05A1.5 1.5 0 0 0 1.83 13.5H1.7a2 2 0 0 1 0-4h.13a1.5 1.5 0 0 0 1.06-2.55l-.05-.05A2 2 0 1 1 5.7 4.07l.05.05a1.5 1.5 0 0 0 1.65.3H7.5a1.5 1.5 0 0 0 .9-1.37V3a2 2 0 0 1 4 0v.07a1.5 1.5 0 0 0 2.55 1.06l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05a1.5 1.5 0 0 0-.3 1.65V8.5a1.5 1.5 0 0 0 1.37.9H22a2 2 0 0 1 0 4h-.07a1.5 1.5 0 0 0-1.37.9z" />
-  </>
-);
+/** Settings glyph — horizontal sliders (Bridge redesign `set` path); name kept for API stability. */
+export const gear: ReactNode = <path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4" />;

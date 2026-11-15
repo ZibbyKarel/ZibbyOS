@@ -1,15 +1,35 @@
-import { AnchoredSheet, AnchoredSheetTestId, WidgetFrameTestId } from "@zibby/design-system";
+import {
+  AnchoredSheet,
+  type AnchoredSheetProps,
+  AnchoredSheetTestId,
+  WidgetFrameTestId,
+} from "@zibby/design-system";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, renderWithProviders as render, screen } from "../../../test/render";
 import type { BridgeSelection } from "../widgets/registry";
 import { DetailSheet } from "./DetailSheet";
+
+const uiMock = vi.hoisted(() => ({
+  widths: {} as Record<string, number>,
+  setBridge: vi.fn(),
+}));
+vi.mock("../../system", () => ({
+  useUiSettings: () => ({
+    ui: { bridge: { sheetWidths: uiMock.widths } },
+    loaded: true,
+    setBridge: uiMock.setBridge,
+  }),
+}));
 
 // The real sheets pull in queries / mutations — this test is about anchoring + keys.
 vi.mock("./sheets/IssueSheet", () => ({
   IssueSheet: (p: {
     id: string;
     anchor: { side: string; left: number; width: number; eT: number; eH: number };
+    frame?: {
+      nav: Pick<AnchoredSheetProps, "onResize" | "onResizeEnd" | "resizeLabel">;
+    };
   }) => (
     <AnchoredSheet
       closeLabel="Close"
@@ -17,6 +37,7 @@ vi.mock("./sheets/IssueSheet", () => ({
       onClose={() => {}}
       title="t"
       {...p.anchor}
+      {...p.frame?.nav}
       height={10}
       top={0}
     >
@@ -210,5 +231,99 @@ describe("DetailSheet", () => {
       "data-presentation",
       "anchored",
     );
+  });
+
+  describe("sheet width", () => {
+    // jsdom has no PointerEvent; MouseEvent carries the clientX the handler reads.
+    beforeEach(() => void vi.stubGlobal("PointerEvent", MouseEvent));
+    afterEach(() => void vi.unstubAllGlobals());
+    const widthOf = () =>
+      JSON.parse(screen.getByTestId("issue-sheet").dataset.anchor ?? "{}").width;
+    const drag = (toX: number) => {
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      // the handle starts at the sheet's right edge: 309 + 480 = 789
+      fireEvent.pointerDown(h, { clientX: 789, pointerId: 1 });
+      fireEvent.pointerMove(h, { clientX: toX, pointerId: 1 });
+    };
+    const end = () =>
+      fireEvent.lostPointerCapture(screen.getByTestId(AnchoredSheetTestId.ResizeHandle), {
+        pointerId: 1,
+      });
+
+    it("a drag snaps to 5 % of the page (60 px of 1200) and persists per kind on release", () => {
+      uiMock.widths = {};
+      uiMock.setBridge.mockClear();
+      render(<Harness />);
+      stubRects();
+      open("a", 10, 300);
+      expect(widthOf()).toBe(480);
+      drag(789 + 170); // 650 px -> 10.83 columns -> 11 -> 55 % = 660 px
+      expect(widthOf()).toBe(660);
+      expect(uiMock.setBridge).not.toHaveBeenCalled(); // live only until release
+      end();
+      expect(widthOf()).toBe(660);
+      expect(uiMock.setBridge).toHaveBeenCalledWith({ sheetWidths: { issue: 55 } });
+    });
+
+    it("clamps to the free space beside the widget", () => {
+      uiMock.widths = {};
+      render(<Harness />);
+      stubRects();
+      open("a", 10, 300); // 891 px free on the right = 14 columns = 70 %
+      drag(789 + 600);
+      expect(widthOf()).toBe(840);
+    });
+
+    it("opens at the saved width, falling back to the kind default", () => {
+      uiMock.widths = { issue: 40 };
+      render(<Harness />);
+      stubRects();
+      open("a", 10, 300);
+      expect(widthOf()).toBe(480); // 40 % of 1200
+      uiMock.widths = { issue: 25 };
+      fireEvent.click(screen.getByTestId("row-b"));
+      expect(widthOf()).toBe(300);
+    });
+
+    it("arrow keys step exactly one column even on a 1920 px page", () => {
+      uiMock.widths = {};
+      uiMock.setBridge.mockClear();
+      render(<Harness />);
+      stubRects();
+      screen.getByTestId("root").getBoundingClientRect = () => rect(0, 100, 1920, 700);
+      open("a", 10, 300);
+      expect(widthOf()).toBe(480); // 25 %
+      fireEvent.keyDown(screen.getByTestId(AnchoredSheetTestId.ResizeHandle), {
+        key: "ArrowRight",
+      });
+      expect(widthOf()).toBe(576); // 30 % = one column (96 px) wider
+      expect(uiMock.setBridge).toHaveBeenLastCalledWith({ sheetWidths: { issue: 30 } });
+    });
+
+    it("an abandoned drag does not leak into the next opened sheet", () => {
+      uiMock.widths = {};
+      render(<Harness />);
+      stubRects();
+      open("a", 10, 300);
+      drag(789 + 170); // never released
+      expect(widthOf()).toBe(660);
+      fireEvent.click(screen.getByTestId("row-b"));
+      expect(widthOf()).toBe(480);
+    });
+
+    it("has no handle on a phone", () => {
+      const mm = vi.spyOn(window, "matchMedia").mockImplementation(
+        (q) =>
+          ({
+            matches: true,
+            media: q,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          }) as unknown as MediaQueryList,
+      );
+      render(<Harness initial="missing" />);
+      expect(screen.queryByTestId(AnchoredSheetTestId.ResizeHandle)).toBeNull();
+      mm.mockRestore();
+    });
   });
 });

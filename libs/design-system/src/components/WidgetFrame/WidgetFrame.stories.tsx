@@ -37,6 +37,9 @@ export const CompactControls: Story = {
     compactControls: true,
     onRefresh: () => {},
     onToggleFilters: () => {},
+    onToggleCollapse: () => {},
+    onSettings: () => {},
+    onAdd: () => {},
     style: { left: 16, top: 16, width: 240, height: 220 },
   },
 };

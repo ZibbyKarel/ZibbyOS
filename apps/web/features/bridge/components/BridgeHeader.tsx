@@ -7,7 +7,6 @@ import {
   DENSITIES,
   DensityMenu,
   MenuButton,
-  PageTitle,
   SegmentedControl,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
@@ -33,7 +32,7 @@ export interface BridgeHeaderProps {
   compact?: boolean;
 }
 
-/** The Bridge page title (`title-l`, sentence case, desktop only) and its controls — layout
+/** The Bridge page controls (no title row — the sub-nav names the page) — layout
  *  presets (segmented), density (system-wide) and the edit controls (Add widget, manage
  *  layouts) — portalled into the shell's sub-menu row before "+ NEW TASK". */
 export function BridgeHeader({
@@ -80,51 +79,48 @@ export function BridgeHeader({
   }
 
   return (
-    <>
-      <PageTitle>{t("title")}</PageTitle>
-      <PageActions>
-        <CommandBarGroup>
-          <SegmentedControl
-            ariaLabel={t("layout")}
-            items={names.map((name) => ({ value: name, label: presetLabel(name) }))}
-            onChange={(name) => name !== CUSTOM_PRESET && onPreset(name)}
-            size="sm"
-            value={preset}
-          />
-        </CommandBarGroup>
-        <DensityMenu
-          label={t("density.label")}
-          labels={Object.fromEntries(DENSITIES.map((d) => [d, t(`density.${d}`)])) as never}
-          onChange={setDensity}
-          value={ui.density}
+    <PageActions>
+      <CommandBarGroup>
+        <SegmentedControl
+          ariaLabel={t("layout")}
+          items={names.map((name) => ({ value: name, label: presetLabel(name) }))}
+          onChange={(name) => name !== CUSTOM_PRESET && onPreset(name)}
+          size="sm"
+          value={preset}
         />
-        <CommandBarGroup>
-          {/* Every type, even ones already on the board — a widget type can have several instances. */}
-          <MenuButton
-            ariaLabel={t("addWidget")}
-            icon="plus"
+      </CommandBarGroup>
+      <DensityMenu
+        label={t("density.label")}
+        labels={Object.fromEntries(DENSITIES.map((d) => [d, t(`density.${d}`)])) as never}
+        onChange={setDensity}
+        value={ui.density}
+      />
+      <CommandBarGroup>
+        {/* Every type, even ones already on the board — a widget type can have several instances. */}
+        <MenuButton
+          ariaLabel={t("addWidget")}
+          icon="plus"
+          intent="ghost"
+          items={WIDGET_TYPES.map((type) => ({
+            id: type,
+            label: tRoot(WIDGETS[type].labelKey),
+            description: tRoot(WIDGETS[type].descKey),
+            icon: WIDGETS[type].icon,
+            onSelect: () => onAddWidget(type),
+          }))}
+          size="sm"
+        />
+        <Container data-testid={BridgeHeaderTestId.Manage}>
+          <Button
+            aria-label={t("editLayout")}
+            icon="layout"
             intent="ghost"
-            items={WIDGET_TYPES.map((type) => ({
-              id: type,
-              label: tRoot(WIDGETS[type].labelKey),
-              description: tRoot(WIDGETS[type].descKey),
-              icon: WIDGETS[type].icon,
-              onSelect: () => onAddWidget(type),
-            }))}
+            onClick={onManage}
             size="sm"
+            title={t("editLayout")}
           />
-          <Container data-testid={BridgeHeaderTestId.Manage}>
-            <Button
-              aria-label={t("editLayout")}
-              icon="layout"
-              intent="ghost"
-              onClick={onManage}
-              size="sm"
-              title={t("editLayout")}
-            />
-          </Container>
-        </CommandBarGroup>
-      </PageActions>
-    </>
+        </Container>
+      </CommandBarGroup>
+    </PageActions>
   );
 }

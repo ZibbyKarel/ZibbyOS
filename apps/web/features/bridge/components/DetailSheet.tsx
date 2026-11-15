@@ -8,6 +8,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useIsPhone } from "../../../hooks/useIsPhone";
+import { useUiSettings } from "../../system";
 import { SHEET_WIDTH, type SheetAnchor, anchorChanged, measureSheet } from "../state/measure";
 import { selectionLabel, useSheetHistory } from "../state/sheetHistory";
 import { findRow, rowPosition, stepRow, useRowKeyNav } from "../state/useRowKeyNav";
@@ -72,8 +73,25 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
   const expanded = itemId !== null && expandedId === itemId;
   const last = useRef<SheetAnchor | null>(null);
   const history = useSheetHistory(selection, onOpen ?? (() => {}));
+  // Width (px) while dragging the handle, and sheet widths (% of page) saved this session — the
+  // persisted setting lags by the debounce, so a re-open right after a drag still sees the new one.
+  // Tied to the item it started on, so an abandoned drag (sheet closed / swapped mid-drag) is ignored.
+  const [drag, setDrag] = useState<{ key: string; px: number } | null>(null);
+  const { ui, setBridge } = useUiSettings();
+  const [localWidths, setLocalWidths] = useState<Record<string, number>>({});
+  const sheetWidths = { ...ui.bridge.sheetWidths, ...localWidths };
+  // Once the persisted value catches up, it wins again (so later external changes show).
+  const caughtUp = Object.entries(localWidths).filter(([k, v]) => ui.bridge.sheetWidths[k] === v);
+  if (caughtUp.length > 0) {
+    const rest = { ...localWidths };
+    for (const [k] of caughtUp) delete rest[k];
+    setLocalWidths(rest);
+  }
+  const [room, setRoom] = useState({ page: 0, free: 0 });
   const key = selection?.key;
   const kind = selection?.kind;
+  const dragWidth = drag && drag.key === key ? drag.px : null;
+  const pct = kind ? sheetWidths[kind] : undefined;
   const side = anchor?.side;
 
   useRowKeyNav(selection, root);
@@ -104,11 +122,16 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       const w =
         row.closest(`[data-testid="${WidgetFrameTestId.Root}"]`)?.getBoundingClientRect() ?? r;
       const band = { left: w.left, right: w.right, top: r.top, bottom: r.bottom, height: r.height };
+      const page = rect.right - rect.left;
+      const preferred =
+        dragWidth ?? (pct ? (pct / 100) * page : kind ? SHEET_WIDTH[kind] : undefined);
       const next = measureSheet(rect, band, rect, {
-        width: kind ? SHEET_WIDTH[kind] : undefined,
+        width: preferred,
         expanded,
         ...(grid && { grid }),
       });
+      const free = Math.max(rect.right - w.right, w.left - rect.left) + 1;
+      setRoom((r) => (r.page === page && r.free === free ? r : { page, free }));
       const p = rowPosition(host, key);
       setPos((prev) => (samePos(prev, p) ? prev : p));
       if (!anchorChanged(next, last.current)) return; // observers fire often — only real moves set state
@@ -130,7 +153,7 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       host.removeEventListener("scroll", measure, true);
       window.removeEventListener("resize", measure);
     };
-  }, [key, kind, expanded]);
+  }, [key, kind, expanded, pct, dragWidth]);
 
   const hostMarker = <span hidden data-testid={DetailSheetTestId.Host} ref={marker} />;
   const placed = anchor ?? (phone ? PHONE_ANCHOR : null);
@@ -143,8 +166,33 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
     ); // same child slots as below: the marker never remounts
 
   const prev = history.prev;
+  // 1 column = 5 % of the page; never wider than the free space beside the anchored widget
+  // (below 15 % of free space the cap is simply what fits, min 1 column).
+  const { page: pageW, free } = room;
+  const col = pageW / 20;
+  const cap = Math.max(5, Math.min(95, Math.floor(free / col) * 5));
+  const snap = (px: number) => Math.min(cap, Math.max(Math.min(15, cap), Math.round(px / col) * 5));
+  const resize =
+    phone || expanded || !kind || !key || !pageW
+      ? undefined
+      : {
+          onResize: (px: number) => setDrag({ key, px: (snap(px) / 100) * pageW }),
+          onResizeEnd: (px: number) => {
+            const p = snap(px);
+            setDrag(null);
+            if (p < 15) return; // schema floor; a sheet this narrow isn't worth remembering
+            const next = { ...sheetWidths, [kind]: p };
+            setLocalWidths(next);
+            setBridge({ sheetWidths: next });
+          },
+          resizeStep: col,
+          resizeMin: (Math.min(15, cap) / 100) * pageW,
+          resizeMax: (cap / 100) * pageW,
+          resizeLabel: t("bridge.sheet.resize"),
+        };
   const frame: SheetFrame = {
     nav: {
+      ...resize,
       ...(prev && {
         onBack: history.back,
         backLabel: selectionLabel(prev),

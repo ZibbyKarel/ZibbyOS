@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
 import { DetailTable } from "../DetailTable/DetailTable";
 import { NeedsYouCard } from "../NeedsYouCard/NeedsYouCard";
 import { StackCrumbs } from "../StackCrumbs/StackCrumbs";
@@ -155,6 +156,23 @@ export const Frame: Story = {
       {body}
     </AnchoredSheet>
   ),
+};
+
+/** Drag the right edge; this story snaps to 40 px just to show the live feedback loop. */
+export const Resizable: Story = {
+  render: function Render(args) {
+    const [w, setW] = useState(500);
+    return (
+      <AnchoredSheet
+        {...args}
+        onResize={(px) => setW(Math.max(300, Math.round(px / 40) * 40))}
+        resizeEdge="right"
+        width={w}
+      >
+        {body}
+      </AnchoredSheet>
+    );
+  },
 };
 
 export const Playground: Story = {

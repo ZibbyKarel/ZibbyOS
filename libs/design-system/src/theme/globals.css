@@ -176,9 +176,9 @@
    * Legacy size names are snapped onto the scale. */
   --text-2xs: 0.6875rem; /* 11px */
   --text-xs: 0.6875rem; /* 11px — label / micro */
-  --text-sm: 0.75rem; /* 12px — data */
-  --text-caption: 0.8125rem; /* 13px — bodySm */
-  --text-base: 0.8125rem; /* 13px — body (Bridge redesign base, D6) */
+  --text-sm: 0.8125rem; /* 13px — data */
+  --text-caption: 0.875rem; /* 14px — bodySm */
+  --text-base: 0.875rem; /* 14px — body (Bridge redesign base, D6 + operator +1px) */
   --text-base--line-height: 1.5;
   --text-md: 0.875rem; /* 14px */
   --text-lg: 0.875rem; /* 14px */
@@ -202,26 +202,26 @@
   --text-title-l--line-height: 28px;
   --text-title-l--font-weight: 600;
   --text-title-l--letter-spacing: -0.025em;
-  --text-widget-t1: 0.9375rem; /* 15 */
-  --text-widget-t1--line-height: 20px;
+  --text-widget-t1: 1rem; /* 16 */
+  --text-widget-t1--line-height: 21px;
   --text-widget-t1--font-weight: 600;
-  --text-widget-t2: 0.8125rem; /* 13 */
-  --text-widget-t2--line-height: 18px;
+  --text-widget-t2: 0.875rem; /* 14 */
+  --text-widget-t2--line-height: 19px;
   --text-widget-t2--font-weight: 600;
-  --text-widget-t3: 0.75rem; /* 12 */
-  --text-widget-t3--line-height: 16px;
+  --text-widget-t3: 0.8125rem; /* 13 */
+  --text-widget-t3--line-height: 17px;
   --text-widget-t3--font-weight: 500;
-  --text-body: 0.8125rem; /* 13 */
-  --text-body--line-height: 20px;
+  --text-body: 0.875rem; /* 14 */
+  --text-body--line-height: 21px;
   --text-body--font-weight: 450;
-  --text-reading: 0.84375rem; /* 13.5 */
-  --text-reading--line-height: 20px;
+  --text-reading: 0.90625rem; /* 14.5 */
+  --text-reading--line-height: 21px;
   --text-reading--font-weight: 400;
-  --text-meta: 0.75rem; /* 12 */
-  --text-meta--line-height: 16px;
+  --text-meta: 0.8125rem; /* 13 */
+  --text-meta--line-height: 17px;
   --text-meta--font-weight: 400;
-  --text-mono: 0.71875rem; /* 11.5 — pair with font-mono */
-  --text-mono--line-height: 16px;
+  --text-mono: 0.78125rem; /* 12.5 — pair with font-mono */
+  --text-mono--line-height: 17px;
   --text-overline: 0.6875rem; /* 11 — pair with uppercase */
   --text-overline--line-height: 14px;
   --text-overline--font-weight: 500;

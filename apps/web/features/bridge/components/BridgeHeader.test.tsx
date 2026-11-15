@@ -105,10 +105,8 @@ describe("BridgeHeader", () => {
     expect(screen.queryByText("Rozložení")).toBeNull();
   });
 
-  it("shows the page title (title-l, sentence case) on desktop only", () => {
-    const { rerender } = renderWithProviders(<BridgeHeader {...props} />);
-    expect(screen.getByTestId(PageTitleTestId.Root)).toHaveTextContent("Můstek");
-    rerender(<BridgeHeader {...props} compact />);
+  it("renders no page title row (the sub-nav names the page)", () => {
+    renderWithProviders(<BridgeHeader {...props} />);
     expect(screen.queryByTestId(PageTitleTestId.Root)).toBeNull();
   });
 

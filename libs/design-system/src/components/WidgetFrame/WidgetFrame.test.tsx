@@ -318,7 +318,7 @@ describe("WidgetFrame", () => {
     );
   });
 
-  it("compactControls folds the controls into one menu with the same actions", async () => {
+  it("compactControls keeps refresh/filters/collapse inline and folds add/settings into the menu", async () => {
     const onSettings = vi.fn();
     const onMove = vi.fn();
     render(
@@ -326,28 +326,70 @@ describe("WidgetFrame", () => {
         compactControls
         controlsLabel="More"
         label="X"
+        onAdd={() => {}}
         onMovePointerDown={onMove}
         onRefresh={() => {}}
         onSettings={onSettings}
         onToggleCollapse={() => {}}
+        onToggleFilters={() => {}}
         settingsLabel="Settings"
       />,
     );
+    expect(screen.getByTestId(WidgetFrameTestId.Refresh)).toHaveClass("opacity-0");
+    expect(screen.getByTestId(WidgetFrameTestId.Filters)).toHaveClass("opacity-0");
+    expect(screen.getByTestId(WidgetFrameTestId.Collapse)).toBeInTheDocument();
     expect(screen.queryByTestId(WidgetFrameTestId.Settings)).toBeNull();
-    const controls = screen.getByTestId(WidgetFrameTestId.Controls);
-    fireEvent.pointerDown(controls);
+    expect(screen.queryByTestId(WidgetFrameTestId.Add)).toBeNull();
+    // Row order: refresh, filters, ⋯, collapse.
+    const order = [
+      WidgetFrameTestId.Refresh,
+      WidgetFrameTestId.Filters,
+      WidgetFrameTestId.Controls,
+      WidgetFrameTestId.Collapse,
+    ].map((id) => screen.getByTestId(id));
+    order.slice(1).forEach((el, i) => {
+      expect(order[i]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+    fireEvent.pointerDown(screen.getByTestId(WidgetFrameTestId.Controls));
     expect(onMove).not.toHaveBeenCalled();
     const trigger = screen.getByTestId(MenuButtonTestId.Trigger);
     expect(trigger).toHaveAccessibleName("More");
     await userEvent.click(trigger);
     const items = screen.getAllByRole("menuitem").map((i) => i.getAttribute("data-testid"));
-    expect(items).toEqual([
-      "menu-button-item-refresh",
-      "menu-button-item-settings",
-      "menu-button-item-collapse",
-    ]);
+    expect(items).toEqual(["menu-button-item-add", "menu-button-item-settings"]);
     await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-settings`));
     expect(onSettings).toHaveBeenCalledOnce();
+  });
+
+  it("compactControls renders no menu when only the always-inline controls exist", () => {
+    render(
+      <WidgetFrame
+        compactControls
+        label="X"
+        onRefresh={() => {}}
+        onToggleCollapse={() => {}}
+        onToggleFilters={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId(WidgetFrameTestId.Controls)).toBeNull();
+    expect(screen.getByTestId(WidgetFrameTestId.Refresh)).toBeInTheDocument();
+    expect(screen.getByTestId(WidgetFrameTestId.Filters)).toBeInTheDocument();
+    expect(screen.getByTestId(WidgetFrameTestId.Collapse)).toBeInTheDocument();
+  });
+
+  it("compactControls inline controls stay visible while pressed/active/refreshing", () => {
+    render(
+      <WidgetFrame
+        compactControls
+        filtersActive
+        refreshing
+        label="X"
+        onRefresh={() => {}}
+        onToggleFilters={() => {}}
+      />,
+    );
+    expect(screen.getByTestId(WidgetFrameTestId.Filters)).not.toHaveClass("opacity-0");
+    expect(screen.getByTestId(WidgetFrameTestId.Refresh)).not.toHaveClass("opacity-0");
   });
 
   it("renders the you pill with its amber dot", () => {

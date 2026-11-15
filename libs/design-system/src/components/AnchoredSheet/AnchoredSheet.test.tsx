@@ -1,6 +1,6 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "../../utils/testRender";
 import { AnchoredSheet, AnchoredSheetTestId } from "./AnchoredSheet";
 import { SheetPresentationContext } from "./sheetPresentation";
@@ -380,5 +380,96 @@ describe("SheetAction", () => {
     expect(el).toHaveAttribute("aria-disabled", "true");
     await userEvent.click(el);
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  describe("resize handle", () => {
+    // jsdom has no PointerEvent; MouseEvent carries the clientX the handler reads.
+    beforeEach(() => void vi.stubGlobal("PointerEvent", MouseEvent));
+    afterEach(() => void vi.unstubAllGlobals());
+    const base = { closeLabel: "Close", kind: "PR", onClose: () => {}, title: "t", ...geo };
+
+    it("is absent without onResize and on a page", () => {
+      const { rerender } = render(<AnchoredSheet {...base} />);
+      expect(screen.queryByTestId(AnchoredSheetTestId.ResizeHandle)).toBeNull();
+      rerender(<AnchoredSheet {...base} onResize={() => {}} presentation="page" />);
+      expect(screen.queryByTestId(AnchoredSheetTestId.ResizeHandle)).toBeNull();
+    });
+
+    it("is a labelled vertical separator on the chosen edge", () => {
+      render(
+        <AnchoredSheet {...base} onResize={() => {}} resizeEdge="left" resizeLabel="Změnit" />,
+      );
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      expect(h).toHaveRole("separator");
+      expect(h).toHaveAttribute("aria-orientation", "vertical");
+      expect(h).toHaveAccessibleName("Změnit");
+      expect(h.className).toContain("left-0");
+    });
+
+    it("drags a right edge wider by dx and reports the last width on release", () => {
+      const onResize = vi.fn();
+      const onResizeEnd = vi.fn();
+      render(<AnchoredSheet {...base} onResize={onResize} onResizeEnd={onResizeEnd} />);
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      fireEvent.pointerDown(h, { clientX: 600, pointerId: 1 });
+      fireEvent.pointerMove(h, { clientX: 650, pointerId: 1 });
+      expect(onResize).toHaveBeenLastCalledWith(550);
+      fireEvent.pointerMove(h, { clientX: 700, pointerId: 1 });
+      fireEvent.lostPointerCapture(h, { pointerId: 1 });
+      expect(onResizeEnd).toHaveBeenCalledWith(600);
+    });
+
+    it("only the primary button starts a drag; pointercancel ends it", () => {
+      const onResize = vi.fn();
+      const onResizeEnd = vi.fn();
+      render(<AnchoredSheet {...base} onResize={onResize} onResizeEnd={onResizeEnd} />);
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      fireEvent.pointerDown(h, { clientX: 600, button: 2, pointerId: 1 });
+      fireEvent.pointerMove(h, { clientX: 650, pointerId: 1 });
+      expect(onResize).not.toHaveBeenCalled();
+      fireEvent.pointerDown(h, { clientX: 600, button: 0, pointerId: 1 });
+      fireEvent.pointerMove(h, { clientX: 620, pointerId: 1 });
+      fireEvent.pointerCancel(h, { pointerId: 1 });
+      fireEvent.lostPointerCapture(h, { pointerId: 1 });
+      expect(onResizeEnd).toHaveBeenCalledTimes(1);
+      expect(onResizeEnd).toHaveBeenCalledWith(520);
+    });
+
+    it("exposes the range on the separator", () => {
+      render(<AnchoredSheet {...base} onResize={() => {}} resizeMax={900} resizeMin={200} />);
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      expect(h).toHaveAttribute("aria-valuemin", "200");
+      expect(h).toHaveAttribute("aria-valuemax", "900");
+      expect(h).toHaveAttribute("aria-valuenow", "500");
+    });
+
+    it("a left edge grows when dragged left", () => {
+      const onResize = vi.fn();
+      render(<AnchoredSheet {...base} onResize={onResize} resizeEdge="left" />);
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      fireEvent.pointerDown(h, { clientX: 100, pointerId: 1 });
+      fireEvent.pointerMove(h, { clientX: 60, pointerId: 1 });
+      expect(onResize).toHaveBeenLastCalledWith(540);
+    });
+
+    it("ignores moves with no drag in progress", () => {
+      const onResize = vi.fn();
+      render(<AnchoredSheet {...base} onResize={onResize} />);
+      fireEvent.pointerMove(screen.getByTestId(AnchoredSheetTestId.ResizeHandle), { clientX: 5 });
+      expect(onResize).not.toHaveBeenCalled();
+    });
+
+    it("arrow keys step the width", () => {
+      const onResize = vi.fn();
+      const onResizeEnd = vi.fn();
+      render(
+        <AnchoredSheet {...base} onResize={onResize} onResizeEnd={onResizeEnd} resizeStep={50} />,
+      );
+      const h = screen.getByTestId(AnchoredSheetTestId.ResizeHandle);
+      fireEvent.keyDown(h, { key: "ArrowRight" });
+      expect(onResizeEnd).toHaveBeenLastCalledWith(550);
+      fireEvent.keyDown(h, { key: "ArrowLeft" });
+      expect(onResize).toHaveBeenLastCalledWith(450);
+    });
   });
 });

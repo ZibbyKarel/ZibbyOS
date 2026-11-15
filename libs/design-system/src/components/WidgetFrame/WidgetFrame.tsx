@@ -52,7 +52,7 @@ export interface WidgetFrameProps {
   tier?: WidgetTier;
   /** Body shape of the widget, emitted as `data-species`. */
   species?: WidgetSpecies;
-  /** Fold the header controls into one "⋯" menu (narrow widgets). */
+  /** Narrow widgets: refresh, filters and collapse stay inline; the rest (add, settings) fold into a "⋯" menu. */
   compactControls?: boolean;
   /** Accessible name of the "⋯" trigger. */
   controlsLabel?: string;
@@ -189,7 +189,7 @@ const stop = (e: PointerEvent<HTMLElement>) => e.stopPropagation();
  * collapsed), header (grip · title · count · "N for you" pill · aside · controls), scrolling
  * body, and the always-on affordances (header move cursor, four corner resize handles; size
  * label while dragging). Controls fade in on hover / focus-within and stay visible while
- * pressed; `compactControls` folds them into one "⋯" menu. Positioned `absolute` — the caller
+ * pressed; `compactControls` folds all but refresh / filters / collapse into a "⋯" menu. Positioned `absolute` — the caller
  * supplies geometry via `style` inside a `WidgetBoard`. Sizes read the `--bridge-*` density
  * variables.
  */
@@ -238,29 +238,96 @@ export function WidgetFrame({
   const hero = tier === "hero";
   const filtersShown = filtersOpen || filtersActive;
 
+  // Header buttons — shared by the inline row and the compact (folded) layout.
+  const refreshBtn = onRefresh ? (
+    <button
+      aria-label={refreshLabel ?? "Sync"}
+      className={cn(headerBtn(refreshing), "disabled:cursor-default disabled:opacity-60")}
+      data-testid={WidgetFrameTestId.Refresh}
+      disabled={refreshing}
+      onClick={onRefresh}
+      onPointerDown={stop}
+      title={refreshLabel ?? "Sync"}
+      type="button"
+    >
+      <span className={cn("block", refreshing && "animate-spinner motion-reduce:animate-none")}>
+        <Icon name="retry" size="sm" />
+      </span>
+    </button>
+  ) : null;
+
+  const filtersBtn = onToggleFilters ? (
+    <button
+      aria-label={filtersLabel ?? "Filters"}
+      aria-pressed={filtersOpen}
+      className={cn(headerBtn(filtersShown), "relative")}
+      data-active={filtersActive || undefined}
+      data-testid={WidgetFrameTestId.Filters}
+      onClick={onToggleFilters}
+      onPointerDown={stop}
+      title={filtersLabel ?? "Filters"}
+      type="button"
+    >
+      <Icon name="filter" size="sm" />
+      {filtersActive ? (
+        <span className="absolute right-[3px] top-[1px] h-[5px] w-[5px] rounded-full bg-ink" />
+      ) : null}
+    </button>
+  ) : null;
+
+  const addBtn = onAdd ? (
+    <button
+      aria-label={addLabel ?? "Add"}
+      aria-pressed={adding}
+      className={headerBtn(adding)}
+      data-testid={WidgetFrameTestId.Add}
+      onClick={onAdd}
+      onPointerDown={stop}
+      title={addLabel ?? "Add"}
+      type="button"
+    >
+      <Icon name="plus" size="sm" />
+    </button>
+  ) : null;
+
+  const settingsBtn = onSettings ? (
+    <button
+      aria-label={settingsLabel ?? "Settings"}
+      className={headerBtn(false)}
+      data-testid={WidgetFrameTestId.Settings}
+      onClick={onSettings}
+      onPointerDown={stop}
+      title={settingsLabel ?? "Settings"}
+      type="button"
+    >
+      <Icon name="gear" size="sm" />
+    </button>
+  ) : null;
+
+  const collapseBtn = onToggleCollapse ? (
+    <button
+      aria-expanded={!collapsed}
+      aria-label={collapseLabel}
+      className={headerBtn(false)}
+      data-testid={WidgetFrameTestId.Collapse}
+      onClick={onToggleCollapse}
+      onPointerDown={stop}
+      title={collapseLabel}
+      type="button"
+    >
+      <span
+        className={cn(
+          "block transition-transform duration-150 motion-reduce:transition-none",
+          !collapsed && "rotate-90",
+        )}
+      >
+        <Icon name="chevron" size="sm" />
+      </span>
+    </button>
+  ) : null;
+
+  // Compact mode: refresh / filters / collapse stay inline; only the rest folds into "⋯".
   const menuItems: MenuButtonItem[] = [
-    ...(onRefresh
-      ? [
-          {
-            id: "refresh",
-            label: refreshLabel ?? "Sync",
-            icon: "retry" as const,
-            disabled: refreshing,
-            onSelect: onRefresh,
-          },
-        ]
-      : []),
-    ...(onToggleFilters
-      ? [
-          {
-            id: "filters",
-            label: filtersLabel ?? "Filters",
-            icon: "filter" as const,
-            trailing: filtersShown ? "●" : undefined,
-            onSelect: onToggleFilters,
-          },
-        ]
-      : []),
     ...(onAdd
       ? [
           {
@@ -279,16 +346,6 @@ export function WidgetFrame({
             label: settingsLabel ?? "Settings",
             icon: "gear" as const,
             onSelect: onSettings,
-          },
-        ]
-      : []),
-    ...(onToggleCollapse
-      ? [
-          {
-            id: "collapse",
-            label: collapseLabel ?? "Collapse",
-            icon: "chevron" as const,
-            onSelect: onToggleCollapse,
           },
         ]
       : []),
@@ -365,10 +422,12 @@ export function WidgetFrame({
             {aside}
           </span>
         ) : null}
+        {refreshBtn}
+        {filtersBtn}
         {compactControls ? (
           menuItems.length ? (
             <span
-              className={filtersShown || adding || refreshing ? undefined : reveal}
+              className={adding ? undefined : reveal}
               data-testid={WidgetFrameTestId.Controls}
               onPointerDown={stop}
             >
@@ -377,95 +436,11 @@ export function WidgetFrame({
           ) : null
         ) : (
           <>
-            {onRefresh ? (
-              <button
-                aria-label={refreshLabel ?? "Sync"}
-                className={cn(headerBtn(refreshing), "disabled:cursor-default disabled:opacity-60")}
-                data-testid={WidgetFrameTestId.Refresh}
-                disabled={refreshing}
-                onClick={onRefresh}
-                onPointerDown={stop}
-                title={refreshLabel ?? "Sync"}
-                type="button"
-              >
-                <span
-                  className={cn(
-                    "block",
-                    refreshing && "animate-spinner motion-reduce:animate-none",
-                  )}
-                >
-                  <Icon name="retry" size="sm" />
-                </span>
-              </button>
-            ) : null}
-            {onToggleFilters ? (
-              <button
-                aria-label={filtersLabel ?? "Filters"}
-                aria-pressed={filtersOpen}
-                className={cn(headerBtn(filtersShown), "relative")}
-                data-active={filtersActive || undefined}
-                data-testid={WidgetFrameTestId.Filters}
-                onClick={onToggleFilters}
-                onPointerDown={stop}
-                title={filtersLabel ?? "Filters"}
-                type="button"
-              >
-                <Icon name="filter" size="sm" />
-                {filtersActive ? (
-                  <span className="absolute right-[3px] top-[1px] h-[5px] w-[5px] rounded-full bg-ink" />
-                ) : null}
-              </button>
-            ) : null}
-            {onAdd ? (
-              <button
-                aria-label={addLabel ?? "Add"}
-                aria-pressed={adding}
-                className={headerBtn(adding)}
-                data-testid={WidgetFrameTestId.Add}
-                onClick={onAdd}
-                onPointerDown={stop}
-                title={addLabel ?? "Add"}
-                type="button"
-              >
-                <Icon name="plus" size="sm" />
-              </button>
-            ) : null}
-            {onSettings ? (
-              <button
-                aria-label={settingsLabel ?? "Settings"}
-                className={headerBtn(false)}
-                data-testid={WidgetFrameTestId.Settings}
-                onClick={onSettings}
-                onPointerDown={stop}
-                title={settingsLabel ?? "Settings"}
-                type="button"
-              >
-                <Icon name="gear" size="sm" />
-              </button>
-            ) : null}
-            {onToggleCollapse ? (
-              <button
-                aria-expanded={!collapsed}
-                aria-label={collapseLabel}
-                className={headerBtn(false)}
-                data-testid={WidgetFrameTestId.Collapse}
-                onClick={onToggleCollapse}
-                onPointerDown={stop}
-                title={collapseLabel}
-                type="button"
-              >
-                <span
-                  className={cn(
-                    "block transition-transform duration-150 motion-reduce:transition-none",
-                    !collapsed && "rotate-90",
-                  )}
-                >
-                  <Icon name="chevron" size="sm" />
-                </span>
-              </button>
-            ) : null}
+            {addBtn}
+            {settingsBtn}
           </>
         )}
+        {collapseBtn}
       </header>
       <div
         className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"

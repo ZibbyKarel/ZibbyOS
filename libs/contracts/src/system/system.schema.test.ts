@@ -88,6 +88,30 @@ describe("BridgeWidgetSchema title and filters", () => {
   });
 });
 
+describe("ui.bridge.sheetWidths", () => {
+  it("defaults to {} so an older config still parses", () => {
+    expect(UiSettingsSchema.parse({}).bridge.sheetWidths).toEqual({});
+  });
+
+  it("accepts multiples of 5 within 15-95", () => {
+    const ui = UiSettingsSchema.parse({ bridge: { sheetWidths: { pr: 60, run: 95 } } });
+    expect(ui.bridge.sheetWidths).toEqual({ pr: 60, run: 95 });
+  });
+
+  it.each([12, 10, 100, 62.5, "wide"])(
+    "a hand-edited %s falls back to {} without failing ui",
+    (w) => {
+      const parsed = UiSettingsSchema.safeParse({
+        density: "compact",
+        bridge: { sheetWidths: { pr: w } },
+      });
+      expect(parsed.success).toBe(true);
+      expect(parsed.data?.bridge.sheetWidths).toEqual({});
+      expect(parsed.data?.density).toBe("compact");
+    },
+  );
+});
+
 describe("removed widget types in saved layouts (todo-16)", () => {
   const tasks = { ...base, id: "tasks", type: "tasks" };
   const runs = { ...base, id: "runs", type: "runs" };

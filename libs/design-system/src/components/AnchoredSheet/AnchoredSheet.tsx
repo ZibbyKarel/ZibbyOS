@@ -22,6 +22,7 @@ export enum AnchoredSheetTestId {
   StepNext = "anchored-sheet-step-next",
   StepPosition = "anchored-sheet-step-position",
   Expand = "anchored-sheet-expand",
+  ResizeHandle = "anchored-sheet-resize-handle",
   State = "anchored-sheet-state",
   Hint = "anchored-sheet-hint",
   Close = "anchored-sheet-close",
@@ -110,6 +111,20 @@ export interface AnchoredSheetProps {
   width: number;
   top: number;
   height: number;
+  /**
+   * Shows a drag handle on the edge away from the anchor (`resizeEdge`). `onResize` gets the raw
+   * proposed width (px) while dragging (the caller snaps / clamps and feeds it back via `width`);
+   * `onResizeEnd` gets the last one. Arrow keys on the focused handle step by `resizeStep` px.
+   * Ignored on a `page`.
+   */
+  onResize?: (widthPx: number) => void;
+  onResizeEnd?: (widthPx: number) => void;
+  resizeEdge?: "left" | "right";
+  resizeStep?: number;
+  /** Bounds (px) exposed as `aria-valuemin` / `aria-valuemax`; the caller still enforces them. */
+  resizeMin?: number;
+  resizeMax?: number;
+  resizeLabel?: string;
   /** Optional strip on the shared edge (same colour as the sheet) at the row's height. */
   eraserLeft?: number;
   eraserTop?: number;
@@ -248,6 +263,13 @@ export function AnchoredSheet({
   width,
   top,
   height,
+  onResize,
+  onResizeEnd,
+  resizeEdge = "right",
+  resizeStep = 40,
+  resizeMin,
+  resizeMax,
+  resizeLabel = "Resize sheet",
   eraserLeft = 0,
   eraserTop = 0,
   eraserHeight = 0,
@@ -294,6 +316,14 @@ export function AnchoredSheet({
       first.focus();
     }
   };
+  // Drag: the width is `start + dx` (mirrored for a left edge), computed from the width at pointer-down.
+  const drag = useRef<{ x: number; width: number; last: number } | null>(null);
+  const endDrag = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d) onResizeEnd?.(d.last);
+  };
+  const sign = resizeEdge === "right" ? 1 : -1;
   const pills = sheetPills(
     tones ?? (stateLabel ? [{ tone: pillTone(tone), label: stateLabel }] : []),
   );
@@ -326,6 +356,45 @@ export function AnchoredSheet({
         style={page ? undefined : { left, top, width, height }}
         tabIndex={page ? -1 : undefined}
       >
+        {!page && onResize ? (
+          <div
+            aria-label={resizeLabel}
+            aria-orientation="vertical"
+            aria-valuemax={resizeMax === undefined ? undefined : Math.round(resizeMax)}
+            aria-valuemin={resizeMin === undefined ? undefined : Math.round(resizeMin)}
+            aria-valuenow={Math.round(width)}
+            className={cn(
+              "group absolute inset-y-0 z-[2] w-[8px] cursor-ew-resize touch-none",
+              resizeEdge === "right" ? "right-0" : "left-0",
+            )}
+            data-testid={AnchoredSheetTestId.ResizeHandle}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              const next = width + (e.key === "ArrowRight" ? 1 : -1) * sign * resizeStep;
+              onResize(next);
+              onResizeEnd?.(next);
+            }}
+            onLostPointerCapture={endDrag}
+            onPointerCancel={endDrag}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+              drag.current = { x: e.clientX, width, last: width };
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current;
+              if (!d) return;
+              d.last = d.width + sign * (e.clientX - d.x);
+              onResize(d.last);
+            }}
+            role="separator"
+            tabIndex={0}
+          >
+            <span className="absolute inset-y-0 left-[4px] w-[2px] rounded-full bg-accent opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />
+          </div>
+        ) : null}
         {!page && eraserHeight > 0 ? (
           <div
             className="absolute w-[3px] bg-sheet"

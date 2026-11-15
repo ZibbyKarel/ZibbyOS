@@ -30,6 +30,12 @@ export interface SheetFrame {
     | "copiedLabel"
     | "expandLabel"
     | "shrinkLabel"
+    | "onResize"
+    | "onResizeEnd"
+    | "resizeStep"
+    | "resizeMin"
+    | "resizeMax"
+    | "resizeLabel"
   >;
   /** Expanded = all but 3 grid columns wide (PR Changes tab, run ⤢). */
   expanded: boolean;
@@ -52,6 +58,8 @@ export const geometry = (a: SheetAnchor, frame?: SheetFrame) => ({
   width: a.width,
   top: a.top,
   height: a.height,
+  // The resize handle sits on the edge away from the anchor.
+  resizeEdge: a.side === "r" ? ("right" as const) : ("left" as const),
   ...frame?.nav,
 });
 

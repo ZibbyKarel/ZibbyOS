@@ -159,6 +159,11 @@ export const UiSettingsSchema = z.object({
       /** Revision of the built-in layouts the saved DEFAULT was last reconciled with; the web
        *  drops a saved DEFAULT from an older revision once (bridge redesign = 2). */
       designRev: z.number().int().default(1),
+      /** Detail-sheet kind -> desktop width in % of the page width (multiples of 5, 15-95). */
+      sheetWidths: z
+        .record(z.string(), z.number().int().min(15).max(95).multipleOf(5))
+        .default({})
+        .catch({}),
     })
     .prefault({}),
 });

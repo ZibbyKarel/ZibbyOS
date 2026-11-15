@@ -3833,7 +3833,8 @@
       "stepPrev": "Previous row (↑)",
       "stepNext": "Next row (↓)",
       "expand": "Expand",
-      "shrink": "Shrink"
+      "shrink": "Shrink",
+      "resize": "Resize sheet"
     },
     "moreLayouts": "More layouts",
     "deleteLayout": "Delete",

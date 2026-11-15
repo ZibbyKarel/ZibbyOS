@@ -232,9 +232,9 @@ describe("BridgeBoard", () => {
     expect(screen.getAllByTestId(WidgetFrameTestId.Count)[0]).toHaveTextContent(/^1$/);
     expect(mentions).toHaveAttribute("data-tier", "collapsed");
     expect(mentions).toHaveAttribute("data-species", "feed");
-    // w < 4 → controls folded into the "⋯" menu.
-    expect(screen.getAllByTestId(WidgetFrameTestId.Collapse)).toHaveLength(1);
-    await userEvent.click(screen.getByTestId(WidgetFrameTestId.Collapse));
+    // Collapse stays inline even on a narrow (w < 4) widget.
+    expect(screen.getAllByTestId(WidgetFrameTestId.Collapse)).toHaveLength(2);
+    await userEvent.click(screen.getAllByTestId(WidgetFrameTestId.Collapse)[0]!);
     expect(toggleCollapsed).toHaveBeenLastCalledWith("prs", false);
   });
 
