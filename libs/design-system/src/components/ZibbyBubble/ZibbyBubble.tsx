@@ -120,7 +120,10 @@ export function ZibbyBubble({
   return (
     <div
       aria-busy={streaming || undefined}
-      className="group/zm self-start grid grid-cols-[28px_minmax(0,1fr)] gap-3 max-w-[90%]"
+      className={cn(
+        "group/zm self-start grid grid-cols-[28px_minmax(0,1fr)] gap-3 max-w-[90%]",
+        cards ? "w-[90%]" : undefined,
+      )}
       data-author="zibby"
       data-testid={testId}
       ref={ref}

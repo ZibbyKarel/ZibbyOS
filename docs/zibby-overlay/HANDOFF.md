@@ -2,35 +2,36 @@
 
 Aktuální stav pro obnovení práce. Přepisuje se při každém milníku.
 
-## Stav (2026-11-15)
+## Stav (2026-11-15) — HOTOVO, v `main`
 
-- [x] Průzkum, otázky operátorovi, rozhodnutí (DECISIONS.md)
-- [x] M1 Kontrakt + backend widgetů (`ChatWidget`, `show_widget`) — commit `2e3b9ca`, pushnuto do main
-- [x] M2 Stavební díly (Sonnet agenti, paralelně, NEcommitují — commituje hlavní model, až všichni doběhnou):
-  - [x] B `ZibbyOrb` v DS (`libs/design-system/src/components/ZibbyOrb/`) — hotovo, 9 testů, vizuálně ověřeno
-  - [x] A správa rozhovorů: rename / soft-delete / clear / restore / snippet (kontrakt + API + web hooky ve `features/chat/{queries,mutations}`)
-  - [x] C widget karty: `apps/web/features/zibby/widgets/` + `ChatWidgetCard`, napojení do `ChatMessage`/`ChatTranscript` (`onPrompt`)
-  - [x] E zkratka: `apps/web/features/zibby/shortcut/` (`useZibbyShortcut`, `useZibbyHotkey({onPress,onRelease})`, blok v Nastavení)
-  - [x] D1a DS `ZibbyOverlay` (rám: fáze, let orbu z `origin`, sloty, focus trap, compact/telefon)
-  - [x] D1b DS vlákno + composer: `ZibbyBubble`, `ZibbyThreadEmpty`, `ZibbySuggestions`, `ZibbyPttButton`, `ZibbyComposerBar`, `ZibbyFooter`, `ZibbyAttachmentChip/Row`, `ZibbyChip`
-  - [x] D1c DS historie: `ZibbyTopBar` (+ `ZibbyTopBarMenu`), `ZibbyHistoryPanel`, `ZibbyToast`
-  - [x] D4 stav historie: `apps/web/features/zibby/conversations/` (`useZibbyConversations`, `groupConversations`)
-  - [x] D3 hlas: `apps/web/features/zibby/voice/` (`useZibbyVoice`, `useSpaceToTalk`, `deriveOrbState`)
-- [x] M3 Kontejner (2026-11-15): `apps/web/features/zibby/ZibbyHost.tsx` skládá DS díly + engine (`useChatDock` — jediný mount), hlas, konverzace, hotkey (tap = přepnout, hold = mluvit; `hooks/useZibbySummon`), drag souborů kamkoli (`hooks/useWindowFileDrag` → `CommandLine.injectedFiles`), chip v hlavičce (`header/ZibbyHeaderChip`, nový slot `zibby` v DS `AppHeader`, na telefonu icon-only v `MobileToolbar`), origin = uzel `BrandMark` (`hooks/knotOrigin`), orb stav odvozen v hostu a publikován chipu (`live/ZibbyLiveContext`). Podsložky: `composer/`, `thread/`, `topbar/`, `history/`, `footer/`, `hooks/`, `live/`, `header/`.
-- [x] M4 Integrace (2026-11-15): `ChatDock`, `ChatHistorySidebar`, `ChatButton` smazány; `AppShell` mountuje `ZibbyHost` (+ `ZibbyLiveProvider`); ⌘J zrušeno (`CHAT_SHORTCUT_KEY` pryč); `ChatMessage`/`ChatTranscript` přepsány na `ZibbyBubble` (obsahové díly v `ChatMessageParts.tsx`); `CommandLine` dostal `handleRef` (`submitSpoken`), `injectedFiles`, `bareFrame`; DS `InputFrame bare`; `useChatDock({onTurnComplete,onTurnError})`, `send` vrací id, hydratace je one-shot; i18n skupina `zibby`; e2e `briefing.spec.ts` na Alt+Space; docs (`docs/api/chat.md`, `docs/web/overview.md`).
-- [ ] Zbývá: commit + push (dělá hlavní model), vizuální kontrola v reálném prohlížeči s plně funkčním API a mikrofonem (hlasový přepis/TTS jen ověřen s fake mikrofonem), případné úklidové mazání mrtvých i18n klíčů `chat.dock.launcher/history.*/voice.*/trigger*` (nechány).
+- [x] M1 Kontrakt + backend widgetů (`ChatWidget`, `show_widget`)
+- [x] M2 Stavební díly (DS `Zibby*`, widget karty, zkratka, hlas, stav rozhovorů, API správy rozhovorů)
+- [x] M3 Kontejner `apps/web/features/zibby/ZibbyHost.tsx` + chip v hlavičce
+- [x] M4 Integrace: `ChatDock`, `ChatHistorySidebar`, `ChatButton` a zkratka ⌘/Ctrl+J odstraněny; `AppShell` mountuje `ZibbyHost`
 
-## Jak navázat po přerušení
+API dílů: `PARTS.md`. Rozhodnutí: `DECISIONS.md`.
 
-1. `git status` — necommitnutá práce agentů M2 je v pracovním stromu. Ověřit `pnpm exec tsc --noEmit -p apps/web/tsconfig.json`, `-p apps/api/tsconfig.json`, `-p libs/design-system/tsconfig.json` a testy dotčených složek.
-2. Před commitem po změně API: `pnpm self-knowledge:generate`; `docs/api/chat.md` musí být součástí commitu, když se mění `apps/api/src/chat/`.
-3. Commit → `git push origin HEAD:main`.
-4. Pokračovat prvním neodškrtnutým bodem.
+## Ověřeno
 
-## Poznámky
+- `pnpm check:types`, `pnpm check:lint` (0 chyb), `node tools/check-names.mjs`.
+- `pnpm test`: 9908 prošlo, 30 selhalo — vše v `apps/api` mimo chat (workflows, backup, system-config, ai-providers, review-learning). `system-config` a `ai-providers` padají stejně i bez těchto změn; zbytek nebyl proti základu porovnán jednotlivě, ale žádný z těch souborů se neměnil.
+- V prohlížeči (Chromium, sandbox, API s podvrženým rozhovorem): otevření ⌥ Space, let orbu, vlákno s kartami všech druhů (prázdné stavy), historie, menu, Esc, drop souborů, telefon 390×844.
 
-- 19:10 UTC: Sonnet agenti spadli na 5h limit, po resetu obnoveni přes SendMessage (pokračují ze svých transkriptů). WIP checkpointy jdou na větev `claude/inspiring-wright-ndxxkg` (`--no-verify`), do `main` jen ověřené milníky.
-- `apps/web/vitest.components.config.ts` má explicitní globy — každá nová složka `features/zibby/*` tam musí přibýt, jinak se její testy nespustí.
+## NEověřeno (chybí v sandboxu)
 
-- Test `chat-session.service.test.ts > killTurnProcess` padá i bez našich změn (omezení sandboxu) — ignorovat.
-- Agenti nesmí commitovat (lint-staged dělá stash a rozbil by práci ostatních).
+- Skutečná odpověď modelu a to, že model sám volá `show_widget` (není tu backend modelu).
+- Hlas se skutečným mikrofonem: STT, TTS, auto-čtení odpovědí, přerušení.
+- Karty s reálnými daty (v sandboxu jsou všechny seznamy prázdné) a tlačítka Schválit/Zamítnout na kartě schválení.
+- Playwright e2e sada (`pnpm e2e`) — upraven jen `e2e/briefing.spec.ts`, nespuštěno.
+
+## Otevřené body
+
+1. Vložení souborů ze schránky nefunguje (`CommandLine` nemá paste handler) — nebylo ani v docku.
+2. Diktát během běžícího tahu se neodešle, vloží se do konceptu.
+3. Druhý drop souborů nahradí první sadu; nad 10 souborů se tiše ořízne.
+4. Mrtvé i18n klíče: `chat.dock.launcher`, `chat.history.*`, `chat.voice.*`, `chat.trigger*`, `chat.composer.listening`.
+5. Toast může překrýt řádek návrhů / patičku historie.
+6. Zmínky nemají deep-link na položku (karta vede na `/activity/channels`); karta CI ukazuje sledované zdroje, ne jednotlivé běhy.
+7. Zamítnutí na kartě schválení je na jeden klik (dashboard potvrzuje dialogem).
+8. `speakLevel` je vždy 0 (orb při řeči animuje bez amplitudy TTS).
+9. Zkratka je v localStorage, ne v souboru (D-8).
