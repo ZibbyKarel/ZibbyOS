@@ -149,6 +149,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "open_folder",
       "open_maps",
       "recall_memory",
+      "show_widget",
     ]);
 
     const result = await client.callTool({ name: "get_status", arguments: {} });

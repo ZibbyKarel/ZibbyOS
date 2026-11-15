@@ -53,6 +53,63 @@ export type ChatRole = z.infer<typeof ChatRoleSchema>;
 export const ChatPersonaSchema = z.enum(["jarvis", "concise", "formal"]);
 export type ChatPersona = z.infer<typeof ChatPersonaSchema>;
 
+/** Kinds of inline card ("chat widget") ZIBBY can drop into the thread. */
+export const CHAT_WIDGET_KINDS = [
+  "run",
+  "runs",
+  "prs",
+  "issues",
+  "approvals",
+  "briefing",
+  "mentions",
+  "project-status",
+  "ci",
+] as const;
+export const ChatWidgetKindSchema = z.enum(CHAT_WIDGET_KINDS);
+export type ChatWidgetKind = z.infer<typeof ChatWidgetKindSchema>;
+
+/** Most rows a list widget shows in the thread. */
+export const MAX_CHAT_WIDGET_ROWS = 10;
+
+const widgetBase = {
+  /** Optional heading override; the card has a localized default per kind. */
+  title: z.string().min(1).max(120).optional(),
+};
+const widgetList = {
+  ...widgetBase,
+  /** Narrow the list to one project; omitted = across all projects. */
+  projectId: ProjectIdSchema.optional(),
+  limit: z.number().int().min(1).max(MAX_CHAT_WIDGET_ROWS).optional(),
+};
+
+/**
+ * An inline, interactive card in the chat thread — a simplified dashboard
+ * widget. It is a REFERENCE (kind + ids/filters), never a data snapshot: the
+ * card loads live data through the same queries the dashboard uses, so files
+ * stay the source of truth and a card in an old transcript is still current.
+ */
+export const ChatWidgetSchema = z.discriminatedUnion("kind", [
+  /** One run, living card (state, stages, link to detail). */
+  z.object({ kind: z.literal("run"), runRef: z.string().min(1).max(256), ...widgetBase }),
+  /** Recent / active runs. */
+  z.object({ kind: z.literal("runs"), ...widgetList }),
+  /** Open pull requests (mine + review requests). */
+  z.object({ kind: z.literal("prs"), ...widgetList }),
+  /** Open issues assigned to / reported by the operator. */
+  z.object({ kind: z.literal("issues"), ...widgetList }),
+  /** Pending approvals with inline approve / reject. */
+  z.object({ kind: z.literal("approvals"), ...widgetList }),
+  /** The latest briefing, condensed. */
+  z.object({ kind: z.literal("briefing"), ...widgetBase }),
+  /** Mentions / inbox items waiting on the operator. */
+  z.object({ kind: z.literal("mentions"), ...widgetList }),
+  /** Project health at a glance. */
+  z.object({ kind: z.literal("project-status"), ...widgetList }),
+  /** Latest CI runs; a red run offers "fix it". */
+  z.object({ kind: z.literal("ci"), ...widgetList }),
+]);
+export type ChatWidget = z.infer<typeof ChatWidgetSchema>;
+
 /**
  * A tool ZIBBY invoked mid-turn (e.g. `create_task`). Surfaced inline in the
  * transcript so a dispatch is announced, never invisible (autonomy contract).
@@ -73,6 +130,8 @@ export const ChatToolEventSchema = z.object({
   runRef: z.string().optional(),
   /** The scheduler's task id for the dispatch, when known. */
   taskId: z.string().optional(),
+  /** An inline card to render in the thread at this point (`show_widget`). */
+  widget: ChatWidgetSchema.optional(),
 });
 export type ChatToolEvent = z.infer<typeof ChatToolEventSchema>;
 

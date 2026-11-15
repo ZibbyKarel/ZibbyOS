@@ -7,6 +7,7 @@ import {
   ChatMentionTargetSchema,
   ChatMessageSchema,
   ChatToolEventSchema,
+  ChatWidgetSchema,
   SendChatMessageBodySchema,
 } from "./chat.schema";
 
@@ -283,5 +284,30 @@ describe("ChatModel (todo-30)", () => {
     const base = { id: "m1", role: "assistant", text: "x", at: "2026-07-07T13:11:49.031Z" };
     expect(ChatMessageSchema.parse({ ...base, model: "opus" }).model).toBe("opus");
     expect(ChatMessageSchema.parse(base).model).toBeUndefined();
+  });
+});
+
+describe("ChatWidgetSchema", () => {
+  it("accepts a list widget with a project filter", () => {
+    expect(ChatWidgetSchema.parse({ kind: "prs", projectId: "cms4", limit: 5 })).toEqual({
+      kind: "prs",
+      projectId: "cms4",
+      limit: 5,
+    });
+  });
+
+  it("requires runRef for a run widget", () => {
+    expect(ChatWidgetSchema.safeParse({ kind: "run" }).success).toBe(false);
+    expect(ChatWidgetSchema.safeParse({ kind: "run", runRef: "r-1" }).success).toBe(true);
+  });
+
+  it("rejects an unknown kind and an oversized limit", () => {
+    expect(ChatWidgetSchema.safeParse({ kind: "budget" }).success).toBe(false);
+    expect(ChatWidgetSchema.safeParse({ kind: "runs", limit: 99 }).success).toBe(false);
+  });
+
+  it("rides on a tool event", () => {
+    const event = { name: "show_widget", status: "ok", callId: "w-1", widget: { kind: "ci" } };
+    expect(ChatToolEventSchema.parse(event)).toEqual(event);
   });
 });

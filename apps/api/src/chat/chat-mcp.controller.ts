@@ -2,7 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Controller, Get, Logger, Optional, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { DepartmentIdSchema, type TaskTarget } from "@zibby/contracts";
+import {
+  CHAT_WIDGET_KINDS,
+  ChatWidgetSchema,
+  DepartmentIdSchema,
+  MAX_CHAT_WIDGET_ROWS,
+  type TaskTarget,
+} from "@zibby/contracts";
 import { z } from "zod";
 import { AutopilotService } from "../autopilot/autopilot.service";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
@@ -385,6 +391,53 @@ export class ChatMcpController {
           ...(body !== undefined ? { body } : {}),
         });
         return res.ok ? text(res.text) : errorText(res.text);
+      },
+    );
+
+    server.registerTool(
+      "show_widget",
+      {
+        description:
+          "Show an inline, interactive CARD in the chat thread instead of listing the same " +
+          "data as text. The card loads live data itself — you pass only what to show. " +
+          "Kinds: `run` (one run, needs `runRef`), `runs` (recent/active runs), `prs` (open " +
+          "pull requests), `issues` (open issues), `approvals` (pending approvals with " +
+          "approve/reject buttons), `briefing` (latest briefing), `mentions` (inbox items " +
+          "waiting on the operator), `project-status` (project health), `ci` (latest CI " +
+          "runs). Use it whenever the operator asks about one of these; then add at most " +
+          "one short sentence — do NOT repeat the card's content in prose. Read-only: " +
+          "showing a card never performs an action.",
+        inputSchema: {
+          kind: z.enum(CHAT_WIDGET_KINDS).describe("Which card to show."),
+          runRef: z.string().optional().describe("Run id — required for kind `run`."),
+          projectId: z
+            .string()
+            .optional()
+            .describe("Optional project id to narrow a list card to one project."),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(MAX_CHAT_WIDGET_ROWS)
+            .optional()
+            .describe("Optional max rows for a list card."),
+          title: z.string().optional().describe("Optional heading override."),
+        },
+      },
+      async (input) => {
+        // Drop undefined keys so the discriminated union sees only what was given.
+        const candidate = Object.fromEntries(
+          Object.entries(input).filter(([, value]) => value !== undefined),
+        );
+        const parsed = ChatWidgetSchema.safeParse(candidate);
+        if (!parsed.success) {
+          return errorText(
+            `Invalid widget: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+          );
+        }
+        const shown = this.toolResults.pushWidget(conversationId, parsed.data);
+        if (!shown) return errorText("No chat turn is in flight — the card could not be shown.");
+        return text(`Card "${parsed.data.kind}" is now shown to the operator in the thread.`);
       },
     );
 

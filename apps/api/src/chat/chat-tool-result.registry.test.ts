@@ -192,3 +192,21 @@ describe("ChatToolResultRegistry", () => {
     });
   });
 });
+
+describe("ChatToolResultRegistry widgets", () => {
+  it("hands a pushed widget to the turn's subscriber", () => {
+    const registry = new ChatToolResultRegistry();
+    const seen: unknown[] = [];
+    const unsubscribe = registry.onWidget("c1", (widget) => seen.push(widget));
+    expect(registry.pushWidget("c1", { kind: "prs" })).toBe(true);
+    expect(seen).toEqual([{ kind: "prs" }]);
+    unsubscribe();
+    expect(registry.pushWidget("c1", { kind: "prs" })).toBe(false);
+  });
+
+  it("reports false when no turn is in flight for the conversation", () => {
+    const registry = new ChatToolResultRegistry();
+    registry.onWidget("other", () => undefined);
+    expect(registry.pushWidget("c1", { kind: "briefing" })).toBe(false);
+  });
+});

@@ -259,6 +259,26 @@ Server id `zibby`:
 | `open_maps`      | `MachineService` (via `ChatToolsService.proposeOpenMaps`)   | PROPOSEs opening Apple Maps with a search query — still approval-gated even though it only opens a window.                                                                                                                                                                                                                            |
 | `open_folder`    | `MachineService` (via `ChatToolsService.proposeOpenFolder`) | PROPOSEs opening a named folder in the operator's file manager — still approval-gated.                                                                                                                                                                                                                                                |
 
+### Inline cards — `show_widget` (Zibby overlay)
+
+`show_widget` drops an inline, interactive **card** ("chat widget") into the thread
+instead of the model listing the same data as text. A widget is a **reference**, not a
+snapshot — `ChatWidgetSchema` (`libs/contracts/src/chat/chat.schema.ts`) is a
+discriminated union on `kind` carrying only ids/filters (`runRef`, `projectId`, `limit`,
+`title`); the web card loads live data through the same queries the dashboard widgets use.
+
+Kinds: `run`, `runs`, `prs`, `issues`, `approvals`, `briefing`, `mentions`,
+`project-status`, `ci`.
+
+Flow: the MCP handler validates the input against `ChatWidgetSchema` and calls
+`ChatToolResultRegistry.pushWidget(conversationId, widget)`; the running turn
+(`runTurn`, subscribed through `onWidget`) emits it as a `tool` event
+`{ name: "show_widget", status: "ok", callId: "w-<uuid>", widget }` and persists it in the
+message's `toolEvents`. The generic single-phase event for the `show_widget` stream line
+is suppressed, so each card appears exactly once. With no turn in flight the tool returns
+an error to the model. Showing a card is read-only — any action on a card (approve,
+reject, "fix it") is the operator's click and goes through the normal gated endpoints.
+
 ### Auth on `/api/chat/mcp` (`ChatMcpAuthGuard`)
 
 `POST /api/chat/mcp` carries a real tool surface (6 privileged tools) on an

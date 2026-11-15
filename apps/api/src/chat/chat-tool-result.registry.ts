@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { TaskTarget } from "@zibby/contracts";
+import type { ChatWidget, TaskTarget } from "@zibby/contracts";
 
 /**
  * The structured payload `create_task` produces, alongside the Czech confirmation
@@ -53,6 +53,33 @@ export class ChatToolResultRegistry {
   private readonly mentions = new Map<string, TaskTarget[]>();
   private readonly attachmentSetIds = new Map<string, string>();
   private readonly subscribers = new Map<string, (result: ChatCreateTaskMeta) => void>();
+  private readonly widgetSubscribers = new Map<string, (widget: ChatWidget) => void>();
+
+  /**
+   * Subscribe to `show_widget` calls for a conversation — `runTurn` registers
+   * for the duration of a turn and turns each one into a tool event carrying
+   * the widget. One subscriber per conversation; returns the `unsubscribe`.
+   */
+  onWidget(conversationId: string, cb: (widget: ChatWidget) => void): () => void {
+    this.widgetSubscribers.set(conversationId, cb);
+    return () => {
+      if (this.widgetSubscribers.get(conversationId) === cb) {
+        this.widgetSubscribers.delete(conversationId);
+      }
+    };
+  }
+
+  /**
+   * Deliver a widget the model asked to show. Returns `false` when no turn is
+   * in flight for the conversation (nothing to attach the card to) — the tool
+   * handler reports that back to the model instead of dropping it silently.
+   */
+  pushWidget(conversationId: string, widget: ChatWidget): boolean {
+    const subscriber = this.widgetSubscribers.get(conversationId);
+    if (!subscriber) return false;
+    subscriber(widget);
+    return true;
+  }
 
   /**
    * Subscribe to `create_task` results for a conversation as they are pushed —

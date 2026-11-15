@@ -1,0 +1,15 @@
+/* Zibby orb — obal pro síťovanou kouli. Kreslí orb.js na <canvas class="zorb">; canvas přesahuje o 40 % kvůli záři a částicím. */
+.orb {
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  flex: none;
+}
+.orb canvas {
+  position: absolute;
+  left: -40%;
+  top: -40%;
+  width: 180%;
+  height: 180%;
+  pointer-events: none;
+}

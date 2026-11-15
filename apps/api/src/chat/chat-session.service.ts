@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { externalSkillPrompt } from "../external-skills/skill-repo";
 import { type ChildProcess, spawn } from "node:child_process";
 import { agentBaseEnv } from "../shared/agent-env";
@@ -861,6 +862,18 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     };
 
     const unsubscribe = this.toolResults.onCreateTaskResult(conversationId, emitCreateTaskOk);
+    // `show_widget` — the MCP handler pushes the validated widget; it becomes its
+    // own tool event (unique callId, so two cards never collapse into one).
+    const unsubscribeWidgets = this.toolResults.onWidget(conversationId, (widget) => {
+      const tool: ChatToolEvent = {
+        name: "show_widget",
+        status: "ok",
+        callId: `w-${randomUUID()}`,
+        widget,
+      };
+      toolEvents = mergeToolEvent(toolEvents, tool);
+      this.events.emit({ conversationId, turnId, type: "tool", tool });
+    });
 
     const apply = (event: ChatStreamEvent): void => {
       switch (event.type) {
@@ -884,6 +897,8 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
           // opencode reports a tool call only once it has finished, after the registry
           // already delivered create_task's result — that result is the event.
           if (opencodeTurn && name === "create_task") break;
+          // The widget itself is the event (emitted when the handler pushes it).
+          if (name === "show_widget") break;
           const tool = this.describeToolStarted(event.name, event.id);
           if (tool.status === "started") pendingCreateTaskCallIds.push(event.id);
           toolEvents = mergeToolEvent(toolEvents, tool);
@@ -951,6 +966,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     // leftover result is still paired with the oldest remaining pending callId. A
     // `started` create_task that never got a result (the tool errored) is left as-is.
     unsubscribe();
+    unsubscribeWidgets();
     let leftover: ChatCreateTaskMeta | undefined;
     while ((leftover = this.toolResults.drainCreateTaskResult(conversationId))) {
       emitCreateTaskOk(leftover);
