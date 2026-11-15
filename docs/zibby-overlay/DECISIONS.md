@@ -49,3 +49,11 @@ Brand prvek použitý v hlavičce, vlákně i overlayi → `libs/design-system`.
 ## D-7 Zkratka ⌘/Ctrl+J končí
 
 Nahrazuje ji nastavitelná zkratka Zibbyho (default Alt+Space; na ne-Mac i Ctrl+Space). Uložení viz HANDOFF (rozhodne agent podle existujícího settings úložiště).
+
+## D-8 Zkratka se ukládá v localStorage (`zibby-shortcut`)
+
+Stejně jako téma/pohyb (`state/appearance.tsx`): zkratka je per-prohlížeč a per-OS (⌥ na Macu, Ctrl+Space jinde, kolize se liší stroj od stroje), takže do sdíleného `SystemConfig` nepatří. Vědomá odchylka od „files are source of truth“; případný přesun = pole `zibbyShortcut` v `SystemConfig`. Kolizní varování neblokuje uložení. Na ne-Macu platí při výchozím nastavení i alias Ctrl+Space.
+
+## D-9 Koš rozhovorů
+
+`<chatDir>/.trash/<conversationId>/` (delete přesouvá, clear kopíruje). Druhý snapshot téhož id starší složku přejmenuje na `.trash/<id>.<epoch-ms>/` — API ji neobnoví, ale na disku zůstává. Id rozhovoru se validuje (`isValidConversationId`), neplatné → 404.

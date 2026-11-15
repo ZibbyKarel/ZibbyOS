@@ -297,6 +297,20 @@
   --animate-fade-up: fade-up 0.5s ease forwards;
   --animate-status-in: status-in 0.22s ease forwards;
   --animate-screen-out: screen-out 0.55s cubic-bezier(0.4, 0, 1, 1) forwards;
+
+  /* ZibbyOverlay — flight in/out, backdrop, landing shockwave, flight-less pop */
+  --animate-zo-fx: zo-fx 0.85s cubic-bezier(0.2, 0.75, 0.3, 1) both;
+  --animate-zo-fy: zo-fy 0.85s cubic-bezier(0.55, 0, 0.75, 0.6) both;
+  --animate-zo-sc: zo-sc 0.85s cubic-bezier(0.3, 1.25, 0.5, 1) both;
+  --animate-zo-fx-out: zo-fx-out 0.5s cubic-bezier(0.6, 0, 0.85, 0.4) both;
+  --animate-zo-fy-out: zo-fy-out 0.5s cubic-bezier(0.2, 0.5, 0.4, 1) both;
+  --animate-zo-sc-out: zo-sc-out 0.5s cubic-bezier(0.6, 0, 0.8, 0.3) both;
+  --animate-zo-bd-in: fade-in 0.5s ease 0.12s both;
+  --animate-zo-bd-out: zo-fade-out 0.45s ease both;
+  --animate-zo-shock: zo-shock 0.9s ease-out both;
+  --animate-zo-pop: zo-pop 0.4s ease-out both;
+  --animate-zo-pop-out: zo-pop-out 0.3s ease-in both;
+  --animate-zo-fade-out: zo-fade-out 0.15s ease both;
 }
 
 /* ---------------------------------------------------------------------------
@@ -727,6 +741,98 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ---- ZibbyOverlay flight (design/zibby/zibby.css zx/zy/zsc) ------------------
+ * Orb flies from --zo-dx/--zo-dy (offset of the origin from the resting point). */
+@keyframes zo-fx {
+  from {
+    translate: var(--zo-dx, 0px) 0;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes zo-fy {
+  from {
+    translate: 0 var(--zo-dy, 0px);
+  }
+  to {
+    translate: 0 0;
+  }
+}
+@keyframes zo-fx-out {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: var(--zo-dx, 0px) 0;
+  }
+}
+@keyframes zo-fy-out {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 var(--zo-dy, 0px);
+  }
+}
+@keyframes zo-sc {
+  0% {
+    transform: scale(0.06);
+  }
+  16% {
+    transform: scale(0.17);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes zo-sc-out {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.06);
+  }
+}
+@keyframes zo-shock {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+@keyframes zo-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes zo-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes zo-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.85);
   }
 }
 

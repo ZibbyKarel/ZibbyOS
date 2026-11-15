@@ -9,7 +9,7 @@ import { type SpeechRecognitionErrorKind, useSpeechRecognition } from "./useSpee
 
 /** App locale → BCP-47 recognition tag. Only `cs`/`en` catalogs exist; anything
  * else (and the `cs` default) speaks Czech. */
-function localeToLang(locale: string): string {
+export function localeToLang(locale: string): string {
   return locale.startsWith("en") ? "en-US" : "cs-CZ";
 }
 

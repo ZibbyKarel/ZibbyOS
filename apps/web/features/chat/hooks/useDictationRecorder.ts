@@ -20,6 +20,12 @@ export interface UseDictationRecorderOptions {
   onFinal: (text: string) => void;
   /** `mic-denied` when the microphone is blocked, `network` for any other fault. */
   onError: (kind: SpeechRecognitionErrorKind) => void;
+  /**
+   * Optional: the live mic stream once recording started (so a level meter can reuse it
+   * instead of opening a second one), and `null` when the recorder released it. The
+   * recorder still owns the stream — never stop its tracks.
+   */
+  onStream?: (stream: MediaStream | null) => void;
 }
 
 export interface DictationRecorder {
@@ -171,6 +177,7 @@ export function useDictationRecorder({
   lang,
   onFinal,
   onError,
+  onStream,
 }: UseDictationRecorderOptions): DictationRecorder {
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(0);
@@ -190,6 +197,7 @@ export function useDictationRecorder({
     lang,
     onFinal,
     onError,
+    onStream,
     mutateAsync: transcribe.mutateAsync,
     startAsync: startDictation.mutateAsync,
     finishAsync: finishDictation.mutateAsync,
@@ -199,6 +207,7 @@ export function useDictationRecorder({
       lang,
       onFinal,
       onError,
+      onStream,
       mutateAsync: transcribe.mutateAsync,
       startAsync: startDictation.mutateAsync,
       finishAsync: finishDictation.mutateAsync,
@@ -244,7 +253,11 @@ export function useDictationRecorder({
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        const release = () => stream.getTracks().forEach((t) => t.stop());
+        let reported = false;
+        const release = () => {
+          stream.getTracks().forEach((t) => t.stop());
+          if (reported) callbacks.current.onStream?.(null);
+        };
         if (recId.current !== id || !mounted.current) return release();
         starting.current = false;
         try {
@@ -296,6 +309,8 @@ export function useDictationRecorder({
           };
           recorder.current = rec;
           rec.start(CHUNK_SLICE_MS);
+          reported = true;
+          callbacks.current.onStream?.(stream);
           cap.id = setTimeout(() => rec.state !== "inactive" && rec.stop(), MAX_RECORDING_MS);
         } catch {
           // MediaRecorder rejected the stream/options — don't leave the mic indicator on.

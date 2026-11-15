@@ -42,6 +42,8 @@ export default defineConfig({
       "features/*/widgets/**/*.test.{ts,tsx}",
       // Zibby overlay shortcut foundation (pure logic + hotkey/storage hooks).
       "features/zibby/shortcut/**/*.test.{ts,tsx}",
+      // Zibby voice engine (PTT / hands-free / TTS hooks + orb-state derivation).
+      "features/zibby/voice/**/*.test.{ts,tsx}",
       // Feature mutation hooks (TanStack Query mutations; renderHook needs jsdom).
       "features/*/mutations/**/*.test.{ts,tsx}",
       // Shared hooks (generic cross-domain browser-API wrappers).
