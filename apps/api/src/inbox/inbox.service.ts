@@ -59,12 +59,17 @@ interface GhPull {
   user?: { login?: string; avatar_url?: string } | null;
   head?: { sha?: string; ref?: string; repo?: { full_name?: string } | null };
   base?: { ref?: string };
+  requested_reviewers?: { login?: string }[];
 }
 
-/** Latest non-COMMENTED review per reviewer: any CHANGES_REQUESTED wins, then any APPROVED. */
-export function reviewState(reviews: readonly GhReview[]): InboxPrReview {
+/** Latest non-COMMENTED review per reviewer (re-requested reviewers skipped): any CHANGES_REQUESTED wins, then any APPROVED. */
+export function reviewState(
+  reviews: readonly GhReview[],
+  requested: readonly string[] = [],
+): InboxPrReview {
   const latest = new Map<string, string>();
   for (const review of reviews) {
+    if (requested.includes(review.user?.login ?? "")) continue;
     if (!review.state || review.state === "COMMENTED" || review.state === "PENDING") continue;
     latest.set(review.user?.login ?? "", review.state);
   }
@@ -512,7 +517,10 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
       const ignored = project.ciIgnoredChecks;
       const ci = checks ? ciState(checks.check_runs ?? [], ignored) : ("unknown" as const);
       const ciExtra = checks ? ciDetails(checks.check_runs ?? [], ignored) : {};
-      const review = reviewState(Array.isArray(reviews) ? reviews : []);
+      const review = reviewState(
+        Array.isArray(reviews) ? reviews : [],
+        (pull.requested_reviewers ?? []).map((u) => u.login ?? "").filter(Boolean),
+      );
       const mergeable = pull.mergeable ?? null;
       const unresolvedThreads =
         bucket.bucket === "mine"

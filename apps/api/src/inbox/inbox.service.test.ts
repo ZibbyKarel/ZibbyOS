@@ -81,6 +81,13 @@ describe("PR classification", () => {
         { user: { login: "b" }, state: "CHANGES_REQUESTED" },
       ]),
     ).toBe("changes-requested");
+    // a re-requested reviewer's old verdict no longer counts
+    const approvals = [
+      { user: { login: "a" }, state: "APPROVED" },
+      { user: { login: "b" }, state: "APPROVED" },
+    ];
+    expect(reviewState(approvals.slice(0, 1), ["a"])).toBe("none");
+    expect(reviewState(approvals, ["a"])).toBe("approved");
   });
 
   it("ciState: failing > pending > passing, none = unknown", () => {
