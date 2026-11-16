@@ -4,18 +4,29 @@ import {
   APP_FRAME_MAIN_CONTENT_ID,
   AppFrameTestId,
   AppHeaderTestId,
+  HeaderChromeTestId,
   MenuButtonTestId,
   MobileMenuTestId,
   MobileToolbarTestId,
   ScreenGlowTestId,
+  SectionTrackTestId,
   SubNavTestId,
-  TabsTestId,
   ZibbyOverlayTestId,
 } from "@zibby/design-system";
-import { renderWithProviders, screen, waitFor } from "../../../test/render";
+import { renderWithProviders, screen, waitFor, within } from "../../../test/render";
+import { AiEngineSwitcherTestId } from "../AiEngineSwitcher/AiEngineSwitcher";
+import { HeaderPopoverTestId } from "../HeaderPopover/HeaderPopover";
+import { AutopilotToggleTestId } from "../../../features/autopilot";
 import { PinPageDialogTestId } from "../../../features/pins";
 import { ZibbyHeaderChipTestId } from "../../../features/zibby";
+import { SECTIONS } from "../../../state/config";
 import { AppShell, AppShellTestId } from "./AppShell";
+
+const sectionHref = (id: string) => SECTIONS.find((x) => x.id === id)?.href ?? "";
+const sectionItem = (id: string) =>
+  screen.getByTestId(`${SectionTrackTestId.Item}-${sectionHref(id)}`);
+const openMenuOf = async (slot: AppHeaderTestId) =>
+  userEvent.click(within(screen.getByTestId(slot)).getByRole("button"));
 
 let mockPath = "/chat";
 let mockAutopilotLevel: "off" | "full" | undefined;
@@ -52,7 +63,8 @@ vi.mock("next/navigation", () => ({
 // these tests assert. `AppHeader`'s `operator`/`activeCount` slots are
 // optional and `AppShellChrome` never fills them (there is no operator-
 // identity/active-run-count source wired up yet) — they're asserted absent,
-// not with stale placeholder text.
+// not with stale placeholder text. (The top chrome is now the two-row redesign: zone A
+// `SectionTrack`, zone B search/"+ New"/Zibby, zone C status/mode/bell/preferences.)
 describe("AppShell", () => {
   it.each([
     ["full", true],
@@ -90,7 +102,7 @@ describe("AppShell", () => {
     expect(link).toHaveAttribute("href", `#${APP_FRAME_MAIN_CONTENT_ID}`);
   });
 
-  it("renders the header's section nav with all eight sections, and no operator/active-count slot", () => {
+  it("renders the header's section track with all eight sections", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
@@ -107,10 +119,8 @@ describe("AppShell", () => {
       "governance",
       "system",
     ]) {
-      expect(screen.getByTestId(`${TabsTestId.Tab}-${id}`)).toBeInTheDocument();
+      expect(sectionItem(id)).toBeInTheDocument();
     }
-    expect(screen.queryByTestId(AppHeaderTestId.Operator)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.ActiveCount)).toBeNull();
   });
 
   it("labels the AI and Settings sections", () => {
@@ -119,27 +129,74 @@ describe("AppShell", () => {
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.getByTestId(`${TabsTestId.Tab}-workforce`)).toHaveTextContent("AI");
-    expect(screen.getByTestId(`${TabsTestId.Tab}-system`)).toHaveTextContent("Nastavení");
+    expect(sectionItem("workforce")).toHaveTextContent("AI");
+    expect(sectionItem("system")).toHaveTextContent("Nastavení");
   });
 
-  it("renders the light/dark toggle in the header", () => {
+  it("offers the light/dark switch and a Settings link in the preferences menu", async () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.getByTestId(AppHeaderTestId.ThemeToggle)).toBeInTheDocument();
+    expect(screen.queryByTestId(`${MenuButtonTestId.Item}-theme`)).toBeNull();
+    await openMenuOf(AppHeaderTestId.Preferences);
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-theme`)).toBeInTheDocument();
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-settings`)).toHaveAttribute(
+      "href",
+      sectionHref("system"),
+    );
   });
 
-  it("renders no settings cog or menu slot in the header", () => {
+  it("shows the status chip, mode group and bell in zone C, no engine switcher before config loads", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.queryByTestId(AppHeaderTestId.Menu)).toBeNull();
-    expect(screen.queryByTestId(MenuButtonTestId.Trigger)).toBeNull();
+    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName(
+      "Stav systému: běží 0",
+    );
+    expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAccessibleName("Provozní režim");
+    expect(screen.getByTestId(AppHeaderTestId.Notifications)).toBeInTheDocument();
+    expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();
+  });
+
+  it("shows autopilot as the Approve mode, and as live Autopilot when on", () => {
+    const { unmount } = renderWithProviders(
+      <AppShell>
+        <div />
+      </AppShell>,
+    );
+    expect(screen.getByTestId(AutopilotToggleTestId.Toggle)).toHaveTextContent("Schvalovat");
+    expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).not.toHaveAttribute("data-active");
+    unmount();
+    mockAutopilotLevel = "full";
+    try {
+      renderWithProviders(
+        <AppShell>
+          <div />
+        </AppShell>,
+      );
+      expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAttribute(
+        "data-active",
+        "true",
+      );
+      expect(screen.getByTestId(AppHeaderTestId.Root)).toHaveAttribute("data-autopilot", "true");
+    } finally {
+      mockAutopilotLevel = undefined;
+    }
+  });
+
+  it("opens the status popover with the version", async () => {
+    renderWithProviders(
+      <AppShell>
+        <div />
+      </AppShell>,
+    );
+    expect(screen.queryByTestId(HeaderPopoverTestId.Panel)).toBeNull();
+    await userEvent.click(screen.getByTestId(HeaderChromeTestId.Status));
+    expect(screen.getByTestId(HeaderPopoverTestId.Panel)).toBeInTheDocument();
   });
 
   it("opens the pin dialog for the current page from the sub-nav pin button", async () => {
@@ -208,13 +265,14 @@ describe("AppShell", () => {
     }
   });
 
-  it("shows the sub-nav New task button except on the new-task page itself", () => {
+  it("offers New task in the + New menu except on the new-task page itself", async () => {
     const { unmount } = renderWithProviders(
       <AppShell>
         <div />
       </AppShell>,
     );
-    expect(screen.getByTestId(AppShellTestId.NewTask)).toHaveAccessibleName("Nový úkol");
+    await openMenuOf(AppHeaderTestId.Create);
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-new-task`)).toHaveTextContent("Nový úkol");
     unmount();
     mockPath = "/work/tasks/new";
     try {
@@ -223,27 +281,33 @@ describe("AppShell", () => {
           <div />
         </AppShell>,
       );
-      expect(screen.queryByTestId(AppShellTestId.NewTask)).toBeNull();
+      await openMenuOf(AppHeaderTestId.Create);
+      expect(screen.queryByTestId(`${MenuButtonTestId.Item}-new-task`)).toBeNull();
+      expect(screen.getByTestId(`${MenuButtonTestId.Item}-new-note`)).toBeInTheDocument();
     } finally {
       mockPath = "/chat";
     }
   });
+
+  it("keeps New task / New note out of the sub-nav row", () => {
+    renderWithProviders(
+      <AppShell>
+        <div />
+      </AppShell>,
+    );
+    const actions = screen.getByTestId(SubNavTestId.Actions);
+    expect(actions).toContainElement(screen.getByTestId(AppShellTestId.PinToggle));
+    expect(within(actions).queryByTestId(HeaderChromeTestId.NewButton)).toBeNull();
+  });
 });
 
-describe("AppShell New note button", () => {
+describe("AppShell header: create menu and Zibby", () => {
   const renderShell = () =>
     renderWithProviders(
       <AppShell>
         <div />
       </AppShell>,
     );
-
-  it("shows the New note button next to New task", () => {
-    renderShell();
-    const button = screen.getByTestId(AppShellTestId.NewNote);
-    expect(button).toHaveAccessibleName("Nová poznámka");
-    expect(button.nextElementSibling).toBe(screen.getByTestId(AppShellTestId.NewTask));
-  });
 
   it("shows the Zibby summon chip in the header's trailing cluster", () => {
     renderShell();
@@ -268,21 +332,12 @@ describe("AppShell New note button", () => {
     expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "false");
     await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
     expect(screen.getByTestId(ZibbyOverlayTestId.Root)).toBeInTheDocument();
-    await userEvent.click(screen.getByTestId(AppShellTestId.NewNote));
+    await openMenuOf(AppHeaderTestId.Create);
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-new-note`));
     expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "true");
     await waitFor(() =>
       expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument(),
     );
-  });
-
-  it("keeps New note on the new-task page", () => {
-    mockPath = "/work/tasks/new";
-    try {
-      renderShell();
-      expect(screen.getByTestId(AppShellTestId.NewNote)).toBeInTheDocument();
-    } finally {
-      mockPath = "/chat";
-    }
   });
 });
 
@@ -301,10 +356,7 @@ describe("AppShell top menu sections", () => {
           <div />
         </AppShell>,
       );
-      expect(screen.getByTestId(`${TabsTestId.Tab}-${id}`)).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      expect(sectionItem(id)).toHaveAttribute("aria-current", "page");
     } finally {
       mockPath = "/chat";
     }
@@ -326,21 +378,43 @@ describe("AppShell phone layout", () => {
     mockPath = "/chat";
   });
 
-  it("replaces the header and sub-nav with a toolbar holding the menu and actions", () => {
+  it("replaces the header with a toolbar: menu, brand, section title and icon actions", () => {
     renderPhone();
     expect(screen.getByTestId(MobileToolbarTestId.Root)).toBeInTheDocument();
     expect(screen.getByTestId(MobileMenuTestId.Trigger)).toHaveAccessibleName("Menu");
     expect(screen.queryByTestId(AppHeaderTestId.Root)).toBeNull();
-    expect(screen.queryByTestId(AppFrameTestId.SubNav)).toBeNull();
     expect(screen.queryByTestId(AppFrameTestId.Rail)).toBeNull();
+    expect(screen.getByTestId(MobileToolbarTestId.Brand)).toBeInTheDocument();
+    expect(screen.getByTestId(MobileToolbarTestId.Title)).toHaveTextContent("Práce");
     const actions = screen.getByTestId(MobileToolbarTestId.Actions);
-    expect(actions).toContainElement(screen.getByTestId(AppShellTestId.PinToggle));
-    expect(actions).toContainElement(screen.getByTestId(AppShellTestId.NewNote));
-    expect(actions).toContainElement(screen.getByTestId(AppShellTestId.NewTask));
-    expect(actions).toContainElement(screen.getByTestId(AppShellTestId.PageActions));
-    // Phone: no keyboard — the Zibby chip is icon-only (orb), first in the actions.
+    expect(actions).toContainElement(screen.getByTestId(HeaderChromeTestId.NewButton));
+    expect(screen.getByTestId(HeaderChromeTestId.NewButton)).toHaveTextContent("");
+    expect(actions).toContainElement(screen.getByTestId(AutopilotToggleTestId.Toggle));
+    // Phone: no keyboard — the Zibby chip is icon-only (orb).
     expect(actions).toContainElement(screen.getByTestId(ZibbyHeaderChipTestId.Root));
     expect(screen.getByTestId(ZibbyHeaderChipTestId.Root)).toHaveTextContent("");
+    expect(screen.queryByTestId(MobileToolbarTestId.Banner)).toBeNull();
+  });
+
+  it("renders the sub-nav row with the pin and page actions", () => {
+    renderPhone();
+    const subnav = screen.getByTestId(AppFrameTestId.SubNav);
+    expect(subnav).toContainElement(screen.getByTestId(`${SubNavTestId.Item}-/work/goals`));
+    expect(subnav).toContainElement(screen.getByTestId(AppShellTestId.PinToggle));
+    expect(subnav).toContainElement(screen.getByTestId(AppShellTestId.PageActions));
+  });
+
+  it("shows the amber autopilot band with a Change action when autopilot is on", () => {
+    mockAutopilotLevel = "full";
+    try {
+      renderPhone();
+      expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Autopilot zapnut");
+      expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Změnit");
+      // The icon trigger is replaced by the banner's action while on.
+      expect(screen.queryByTestId(AutopilotToggleTestId.Toggle)).toBeNull();
+    } finally {
+      mockAutopilotLevel = undefined;
+    }
   });
 
   it("opens the section tree with the active section expanded", async () => {
@@ -352,8 +426,10 @@ describe("AppShell phone layout", () => {
     );
   });
 
-  it("hides the new-task button on the new-task page", () => {
+  it("hides New task in the + menu on the new-task page", async () => {
     renderPhone("/work/tasks/new");
-    expect(screen.queryByTestId(AppShellTestId.NewTask)).toBeNull();
+    await userEvent.click(screen.getByTestId(HeaderChromeTestId.NewButton));
+    expect(screen.queryByTestId(`${MenuButtonTestId.Item}-new-task`)).toBeNull();
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-new-note`)).toBeInTheDocument();
   });
 });

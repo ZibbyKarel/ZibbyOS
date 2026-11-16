@@ -2887,6 +2887,17 @@
     "pinnedUnpinAria": "Odepnout {name}",
     "pagePinAria": "Připnout stránku",
     "pageUnpinAria": "Odepnout stránku",
+    "newMenu": "Nový",
+    "newMenuAria": "Vytvořit",
+    "statusAria": "Stav systému: běží {count}",
+    "statusPopoverTitle": "Systém",
+    "statusVersion": "Verze {version}",
+    "modeGroupAria": "Provozní režim",
+    "preferences": "Předvolby",
+    "settings": "Nastavení",
+    "sectionsAria": "Sekce",
+    "autopilotBanner": "<b>Autopilot zapnut</b> · agenti jednají bez ptaní",
+    "autopilotBannerChange": "Změnit",
     "selfUpgrade": {
       "aria": "Aktualizovat ZibbyOS na {version}"
     }

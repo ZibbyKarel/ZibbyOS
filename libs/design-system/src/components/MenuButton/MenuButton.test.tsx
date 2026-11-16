@@ -257,4 +257,26 @@ describe("MenuButton outside dismiss (todo-12)", () => {
     fireEvent.pointerDown(document.body);
     expect(screen.queryByTestId(MenuButtonTestId.Menu)).not.toBeInTheDocument();
   });
+
+  it("renders a custom trigger as the only DOM child and drives the menu through it", async () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <MenuButton
+        items={[{ id: "go", label: "Go", onSelect }]}
+        renderTrigger={(props) => (
+          <button data-testid="custom-trigger" {...props} type="button">
+            +
+          </button>
+        )}
+      />,
+    );
+    expect(screen.queryByTestId(MenuButtonTestId.Root)).toBeNull();
+    expect(container.children).toHaveLength(1);
+    const trigger = screen.getByTestId("custom-trigger");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-go`));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
 });

@@ -44,7 +44,7 @@ export interface AppFrameProps {
 }
 
 /**
- * The ZibbyOS app shell — DS.md §5's grid: a 56px header row over a
+ * The ZibbyOS app shell — DS.md §5's grid: a 52px header row over a
  * `auto | 1fr` body (rail + main) — the rail column is as wide as its child
  * (the `ActivityDock`: 50px bar, plus its body when open) — content spanning the
  * full width over the 24px grid background. At 390px nothing
@@ -88,9 +88,9 @@ export function AppFrame({
         {skipLinkLabel}
       </a>
 
-      {/* Below the header's natural width the header scrolls on its own
-          axis instead of widening the frame. */}
-      <div className="min-w-0 overflow-x-auto" data-testid={AppFrameTestId.Header}>
+      {/* The header measures its own overflow and collapses (app-level); clipping, never a
+          scrollbar, is the last resort. */}
+      <div className="min-w-0 overflow-x-hidden" data-testid={AppFrameTestId.Header}>
         {header}
       </div>
 

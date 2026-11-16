@@ -5,6 +5,8 @@ import {
   Button,
   CellStrip,
   EmptyState,
+  HeaderIconButton,
+  Icon,
   Row,
   Sheet,
   Stack,
@@ -86,16 +88,15 @@ export function NotificationBell() {
 
   return (
     <>
-      <Button
+      <HeaderIconButton
         aria-label={t("bellLabel", { count: total })}
+        badge={total > 0 ? total : undefined}
+        badgeTone="attention"
         data-testid={NotificationBellTestId.Trigger}
-        icon="bell"
-        intent={total > 0 ? "danger" : "ghost"}
         onClick={() => setOpen(true)}
-        size="sm"
       >
-        {total > 0 ? String(total) : undefined}
-      </Button>
+        <Icon name="bell" size="md" />
+      </HeaderIconButton>
       <Sheet
         footer={
           items.length > 0 && (

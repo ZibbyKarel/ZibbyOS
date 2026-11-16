@@ -40,82 +40,99 @@ describe("AppHeader", () => {
     expect(screen.getByTestId(AppHeaderTestId.Nav)).toHaveTextContent("Section nav");
   });
 
-  it("omits optional trailing slots when not provided", () => {
+  it("omits optional slots when not provided", () => {
     render(<AppHeader />);
-    expect(screen.queryByTestId(AppHeaderTestId.Operator)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.ActiveCount)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.Limits)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.Search)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.Notifications)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.Menu)).toBeNull();
-    expect(screen.queryByTestId(AppHeaderTestId.Zibby)).toBeNull();
+    for (const id of [
+      AppHeaderTestId.Search,
+      AppHeaderTestId.Create,
+      AppHeaderTestId.Zibby,
+      AppHeaderTestId.Status,
+      AppHeaderTestId.Mode,
+      AppHeaderTestId.Notifications,
+      AppHeaderTestId.Preferences,
+      AppHeaderTestId.Nav,
+    ]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
   });
 
-  it("renders the zibby slot first in the trailing cluster", () => {
-    render(
-      <AppHeader operator={<span>Karel</span>} zibby={<button type="button">Zibby</button>} />,
-    );
-    const zibby = screen.getByTestId(AppHeaderTestId.Zibby);
-    expect(zibby).toHaveTextContent("Zibby");
-    expect(
-      zibby.compareDocumentPosition(screen.getByTestId(AppHeaderTestId.Operator)) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+  it("lays out zone A (brand + nav), zone B, a divider and zone C in order", () => {
+    render(<AppHeader nav={<nav>n</nav>} />);
+    const order = [
+      AppHeaderTestId.ZoneA,
+      AppHeaderTestId.ZoneB,
+      AppHeaderTestId.Divider,
+      AppHeaderTestId.ZoneC,
+    ].map((id) => screen.getByTestId(id));
+    for (let i = 1; i < order.length; i++) {
+      expect(
+        order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    const zoneA = screen.getByTestId(AppHeaderTestId.ZoneA);
+    expect(zoneA).toContainElement(screen.getByTestId(AppHeaderTestId.Wordmark));
+    expect(zoneA).toContainElement(screen.getByTestId(AppHeaderTestId.Nav));
   });
 
-  it("renders the menu slot when provided, last in the trailing cluster", () => {
+  it("puts search, create and zibby in zone B, in that order", () => {
     render(
       <AppHeader
-        menu={<button type="button">More</button>}
-        notifications={<span>Bell</span>}
-        operator={<span>Karel</span>}
+        create={<button type="button">New</button>}
+        onSearchClick={() => {}}
+        zibby={<button type="button">Zibby</button>}
       />,
     );
-    const menu = screen.getByTestId(AppHeaderTestId.Menu);
-    expect(menu).toHaveTextContent("More");
-    const trailing = [
-      AppHeaderTestId.Operator,
-      AppHeaderTestId.Notifications,
-      AppHeaderTestId.Menu,
-    ].map((id) => screen.getByTestId(id));
-    // Each slot appears strictly after the previous one in document order.
-    for (let i = 1; i < trailing.length; i++) {
+    const zoneB = screen.getByTestId(AppHeaderTestId.ZoneB);
+    const ids = [AppHeaderTestId.Search, AppHeaderTestId.Create, AppHeaderTestId.Zibby].map((id) =>
+      screen.getByTestId(id),
+    );
+    ids.forEach((el) => expect(zoneB).toContainElement(el));
+    for (let i = 1; i < ids.length; i++) {
       expect(
-        trailing[i - 1]!.compareDocumentPosition(trailing[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ids[i - 1]!.compareDocumentPosition(ids[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
   });
 
-  it("still renders a center region with no search button when onSearchClick is omitted", () => {
-    render(<AppHeader nav={<nav>Section nav</nav>} />);
-    expect(screen.queryByTestId(AppHeaderTestId.Search)).toBeNull();
-    // The nav and trailing slots are still both present and the layout holds —
-    // i.e. the center region didn't collapse the row into a 2-slot layout.
-    expect(screen.getByTestId(AppHeaderTestId.Nav)).toHaveTextContent("Section nav");
-    expect(screen.getByTestId(AppHeaderTestId.Root)).toBeInTheDocument();
-  });
-
-  it("renders the themeToggle slot when provided", () => {
-    render(<AppHeader themeToggle={<button type="button">Theme</button>} />);
-    expect(screen.getByTestId(AppHeaderTestId.ThemeToggle)).toHaveTextContent("Theme");
-  });
-
-  it("renders the notifications slot when provided", () => {
-    render(<AppHeader notifications={<button type="button">Bell</button>} />);
-    expect(screen.getByTestId(AppHeaderTestId.Notifications)).toHaveTextContent("Bell");
-  });
-
-  it("renders the operator/activeCount/limits slots when provided", () => {
+  it("puts status, mode, notifications and preferences in zone C, in that order", () => {
     render(
       <AppHeader
-        activeCount={<span>4 active</span>}
-        limits={<span>5H 40%</span>}
-        operator={<span>Karel</span>}
+        mode={<span>Mode</span>}
+        notifications={<span>Bell</span>}
+        preferences={<span>Prefs</span>}
+        status={<span>Status</span>}
       />,
     );
-    expect(screen.getByTestId(AppHeaderTestId.Operator)).toHaveTextContent("Karel");
-    expect(screen.getByTestId(AppHeaderTestId.ActiveCount)).toHaveTextContent("4 active");
-    expect(screen.getByTestId(AppHeaderTestId.Limits)).toHaveTextContent("5H 40%");
+    const zoneC = screen.getByTestId(AppHeaderTestId.ZoneC);
+    const ids = [
+      AppHeaderTestId.Status,
+      AppHeaderTestId.Mode,
+      AppHeaderTestId.Notifications,
+      AppHeaderTestId.Preferences,
+    ].map((id) => screen.getByTestId(id));
+    ids.forEach((el) => expect(zoneC).toContainElement(el));
+    expect(ids[0]).toHaveTextContent("Status");
+    for (let i = 1; i < ids.length; i++) {
+      expect(
+        ids[i - 1]!.compareDocumentPosition(ids[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("turns the bottom border amber with autopilotActive", () => {
+    const { rerender } = render(<AppHeader />);
+    const root = screen.getByTestId(AppHeaderTestId.Root);
+    expect(root).not.toHaveAttribute("data-autopilot");
+    expect(root.className).toContain("border-line");
+    rerender(<AppHeader autopilotActive />);
+    expect(root).toHaveAttribute("data-autopilot", "true");
+    expect(root.className).toContain("border-accent/50");
+  });
+
+  it("keeps the layout when onSearchClick is omitted", () => {
+    render(<AppHeader nav={<nav>Section nav</nav>} />);
+    expect(screen.queryByTestId(AppHeaderTestId.Search)).toBeNull();
+    expect(screen.getByTestId(AppHeaderTestId.Nav)).toHaveTextContent("Section nav");
   });
 
   it("renders the search trigger with the ⌘K shortcut and fires onSearchClick", async () => {

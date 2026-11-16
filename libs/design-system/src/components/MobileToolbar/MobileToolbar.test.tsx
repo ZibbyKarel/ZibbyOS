@@ -15,4 +15,31 @@ describe("MobileToolbar", () => {
     render(<MobileToolbar actions={<span>a</span>} />);
     expect(screen.queryByTestId(MobileToolbarTestId.Leading)).toBeNull();
   });
+
+  it("renders brand and section title in order inside the bar", () => {
+    render(
+      <MobileToolbar brand={<span>knot</span>} leading={<span>menu</span>} title="Dashboard" />,
+    );
+    const bar = screen.getByTestId(MobileToolbarTestId.Bar);
+    expect(bar).toContainElement(screen.getByTestId(MobileToolbarTestId.Brand));
+    expect(screen.getByTestId(MobileToolbarTestId.Title)).toHaveTextContent("Dashboard");
+    expect(
+      screen
+        .getByTestId(MobileToolbarTestId.Leading)
+        .compareDocumentPosition(screen.getByTestId(MobileToolbarTestId.Brand)),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("shows the autopilot band with its action only when a banner is given", () => {
+    const { rerender } = render(<MobileToolbar title="x" />);
+    expect(screen.queryByTestId(MobileToolbarTestId.Banner)).toBeNull();
+    rerender(<MobileToolbar banner="Autopilot on" bannerAction={<a href="/x">Change</a>} />);
+    expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Autopilot on");
+    expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Change");
+  });
+
+  it("omits the banner action without bannerAction", () => {
+    render(<MobileToolbar banner="Autopilot on" />);
+    expect(screen.queryByTestId(MobileToolbarTestId.BannerAction)).toBeNull();
+  });
 });

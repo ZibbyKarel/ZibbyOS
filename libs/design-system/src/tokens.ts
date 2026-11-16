@@ -66,8 +66,8 @@ export const spacingValues: Record<Spacing, string> = {
  * `AppHeader`/`Rail` (ZA-06) and any layout math read directly.
  */
 export const LAYOUT = {
-  headerHeight: 56,
-  subNavHeight: 44,
+  headerHeight: 52,
+  subNavHeight: 42,
   railWidthLeft: 280,
   dockBarWidth: 50,
   railWidthRight: 400,

@@ -1,7 +1,8 @@
 import type { ReactNode, Ref } from "react";
 import { LAYOUT } from "../../tokens";
 import { cn } from "../../utils/cn";
-import { focusRing, focusRingInset } from "../../utils/focus";
+import { focusRingInset } from "../../utils/focus";
+import { Icon } from "../Icon/Icon";
 import { BrandMark, type BrandMarkState } from "../BrandMark/BrandMark";
 import { Row } from "../Stack/Stack";
 import type { SubNavLinkComponent } from "../SubNav/SubNav";
@@ -11,17 +12,22 @@ export enum AppHeaderTestId {
   Root = "app-header-root",
   Wordmark = "app-header-wordmark",
   HomeLink = "app-header-home-link",
+  /** Zone A - brand + section nav. */
+  ZoneA = "app-header-zone-a",
+  /** Zone B - command: search, create, Zibby. */
+  ZoneB = "app-header-zone-b",
+  /** Zone C - system: status, mode, notifications, preferences. */
+  ZoneC = "app-header-zone-c",
+  Divider = "app-header-divider",
   Nav = "app-header-nav",
-  Operator = "app-header-operator",
-  ActiveCount = "app-header-active-count",
-  Limits = "app-header-limits",
-  Autopilot = "app-header-autopilot",
-  ThemeToggle = "app-header-theme-toggle",
-  Notifications = "app-header-notifications",
   Search = "app-header-search",
   SearchShortcut = "app-header-search-shortcut",
-  Menu = "app-header-menu",
+  Create = "app-header-create",
   Zibby = "app-header-zibby",
+  Status = "app-header-status",
+  Mode = "app-header-mode",
+  Notifications = "app-header-notifications",
+  Preferences = "app-header-preferences",
 }
 
 export interface AppHeaderProps {
@@ -38,50 +44,44 @@ export interface AppHeaderProps {
   homeHref?: string;
   /** Accessible name for the brand mark link (only used when `homeHref` is set). */
   homeLabel?: string;
-  /** Section navigation — the app composes a `Tabs variant="mono"`. Auto
-   *  width (never grows) — the center search region absorbs the rest. */
+  /** Zone A, after the brand - the section nav (a `SectionTrack`). */
   nav?: ReactNode;
-  /** Summon button of the Zibby overlay (a `ZibbyChip`), first in the trailing cluster. */
+  /** Zone B - create trigger (a `HeaderNewButton`, + its menu). */
+  create?: ReactNode;
+  /** Zone B, last - summon button of the Zibby overlay (a `ZibbyChip`). */
   zibby?: ReactNode;
-  /** Operator identity slot, trailing cluster. */
-  operator?: ReactNode;
-  /** Active-agent count slot, trailing cluster. */
-  activeCount?: ReactNode;
-  /** 5H / WEEK usage readout slot (a `LimitBar` pair), trailing cluster. */
-  limits?: ReactNode;
-  /** Autopilot switch slot (an app-composed icon toggle), first in the trailing
-   *  cluster — kept on every width. */
-  autopilot?: ReactNode;
-  /** Light/dark toggle slot (an app-composed icon `Button`), trailing cluster —
-   *  just before the notification bell. */
-  themeToggle?: ReactNode;
-  /** Notification bell slot, trailing cluster. */
+  /** Zone C, first - system status trigger (a `HeaderStatus`). */
+  status?: ReactNode;
+  /** Zone C - operating mode (a `HeaderModeGroup`). */
+  mode?: ReactNode;
+  /** Zone C - notification bell (a `HeaderIconButton`). */
   notifications?: ReactNode;
-  /** Trailing action slot — last in the trailing cluster. The app composes a
-   *  standalone icon button here (the settings cog). */
-  menu?: ReactNode;
-  /** Search trigger label — the control itself is built in and always shows
-   *  `⌘K`. Omit `onSearchClick` to not render the trigger at all — the
-   *  center region still reserves its space either way, so the layout never
-   *  shifts when a screen opts out of search. */
+  /** Zone C, last - preferences & settings (a `HeaderIconButton`). */
+  preferences?: ReactNode;
+  /** Narrow header: hide the wordmark text (the knot still links home). */
+  hideWordmark?: boolean;
+  /** Narrow header: the search trigger shows only the icon and `⌘K`. */
+  searchCompact?: boolean;
+  /** Autopilot is on: the header's bottom border turns amber (pairs with `ScreenGlow`). */
+  autopilotActive?: boolean;
+  /** Search trigger label - the control itself is built in and always shows
+   *  `⌘K`. Omit `onSearchClick` to not render the trigger at all. */
   searchLabel?: string;
   onSearchClick?: () => void;
-  /** Overrides the rendered anchor for `homeHref` — pass the app's
+  /** Overrides the rendered anchor for `homeHref` - pass the app's
    *  `next/link` `Link`, same contract as `SubNav`/`Breadcrumb`. */
   linkComponent?: SubNavLinkComponent;
   ref?: Ref<HTMLElement>;
 }
 
 /**
- * DS.md §5/§8 app shell top bar — a fixed `LAYOUT.headerHeight` (56px) band,
- * `--panel` background, a bottom hairline. Leading brand mark (linking home,
- * ZB-01) + auto-width section nav, a centered search trigger (`flex:1`
- * region, ZB-06), and a trailing operator/active-count/usage/notifications/action
- * cluster. Every trailing slot the app owns is an opaque `ReactNode`
- * (domain-neutral, no `next/link` import here) except the search trigger,
- * which `AppHeader` renders itself so every screen gets the identical `⌘K`
- * affordance for free (DS.md §8 "Search trigger"). The `menu` slot holds the
- * app-composed settings cog.
+ * Top-chrome row 1 - a fixed `LAYOUT.headerHeight` (52px) band on `--panel` with a
+ * bottom hairline, in three zones: **A** brand + section nav, a flexible spacer,
+ * **B** command (search trigger, create, Zibby), a 1x22px divider, **C** system
+ * (status, mode, notifications, preferences). Every slot is an opaque `ReactNode`
+ * (domain-neutral, no `next/link` import here) except the search trigger, which
+ * `AppHeader` renders itself so every screen gets the identical `⌘K` affordance.
+ * With `autopilotActive` the bottom border turns amber.
  */
 export function AppHeader({
   wordmark,
@@ -90,14 +90,15 @@ export function AppHeader({
   homeHref,
   homeLabel = "ZibbyOS",
   nav,
+  create,
   zibby,
-  operator,
-  activeCount,
-  limits,
-  autopilot,
-  themeToggle,
+  status,
+  mode,
   notifications,
-  menu,
+  preferences,
+  autopilotActive = false,
+  hideWordmark = false,
+  searchCompact = false,
   searchLabel = "Search",
   onSearchClick,
   linkComponent,
@@ -105,60 +106,67 @@ export function AppHeader({
 }: AppHeaderProps) {
   const HomeLink = linkComponent ?? "a";
   const mark = wordmark ?? (
-    <Row align="center" style={{ gap: 10 }}>
-      <BrandMark live={markState !== undefined} state={markState} />
-      <span className="hidden md:inline-flex">
-        <Wordmark version={version} />
-      </span>
+    <Row align="center" style={{ gap: 8 }}>
+      <BrandMark live={markState !== undefined} size={24} state={markState} />
+      {!hideWordmark && (
+        <span className="hidden md:inline-flex">
+          <Wordmark size="sm" version={version} />
+        </span>
+      )}
     </Row>
   );
   return (
     <header
-      className="flex items-center gap-3 border-b border-line px-3 md:gap-4 md:px-5"
+      className={cn(
+        "relative z-40 flex items-center gap-2.5 border-b bg-panel pr-3.5 pl-4",
+        autopilotActive ? "border-accent/50" : "border-line",
+      )}
+      data-autopilot={autopilotActive || undefined}
       data-testid={AppHeaderTestId.Root}
       ref={ref}
       style={{ height: LAYOUT.headerHeight }}
     >
-      <div data-testid={AppHeaderTestId.Wordmark}>
-        {homeHref ? (
-          <HomeLink
-            aria-label={homeLabel}
-            className={cn("inline-flex items-center", focusRingInset)}
-            data-testid={AppHeaderTestId.HomeLink}
-            href={homeHref}
-          >
-            {mark}
-          </HomeLink>
-        ) : (
-          mark
+      <div className="flex flex-none items-center gap-2.5" data-testid={AppHeaderTestId.ZoneA}>
+        <div className="rounded-lg py-1 pr-1 pl-0.5" data-testid={AppHeaderTestId.Wordmark}>
+          {homeHref ? (
+            <HomeLink
+              aria-label={homeLabel}
+              className={cn("inline-flex items-center rounded-lg", focusRingInset)}
+              data-testid={AppHeaderTestId.HomeLink}
+              href={homeHref}
+            >
+              {mark}
+            </HomeLink>
+          ) : (
+            mark
+          )}
+        </div>
+        {nav && (
+          <div className="min-w-0" data-testid={AppHeaderTestId.Nav}>
+            {nav}
+          </div>
         )}
       </div>
 
-      {/* Below `md` the nav takes the free width and scrolls on its own axis; the
-          search trigger, usage readout and theme toggle step aside. */}
-      <div
-        className="h-full min-w-0 flex-1 overflow-x-auto md:flex-none md:shrink-0 md:overflow-visible"
-        data-testid={AppHeaderTestId.Nav}
-      >
-        {nav}
-      </div>
+      <span className="min-w-2 flex-1" />
 
-      <div className="hidden min-w-0 flex-1 justify-center md:flex">
+      <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneB}>
         {onSearchClick && (
           <button
             aria-label={searchLabel}
             className={cn(
-              "inline-flex h-8 w-[340px] max-w-full items-center justify-between gap-3.5",
-              "rounded-md border border-line bg-panel px-3",
-              "font-sans text-body text-ink-3 transition-colors",
-              "hover:border-line-2",
-              focusRing,
+              "hidden h-[30px] items-center gap-[7px] rounded-lg border border-line-2 bg-bg py-0 pr-1.5 pl-[9px] md:inline-flex",
+              "font-sans text-[12.5px] whitespace-nowrap text-ink-3 transition-colors",
+              "hover:border-ink-3 hover:text-ink",
+              "focus-visible:border-ink-2 focus-visible:text-ink focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ink)_12%,transparent)]",
+              "outline-none",
             )}
             data-testid={AppHeaderTestId.Search}
             onClick={onSearchClick}
             type="button"
           >
-            <span>{searchLabel}</span>
+            <Icon name="search" size="sm" />
+            {!searchCompact && <span>{searchLabel}</span>}
             <span
               className="rounded-[4px] border border-line-2 px-[5px] py-px font-mono text-[10.5px] text-ink-3"
               data-testid={AppHeaderTestId.SearchShortcut}
@@ -167,26 +175,22 @@ export function AppHeader({
             </span>
           </button>
         )}
+        {create && <span data-testid={AppHeaderTestId.Create}>{create}</span>}
+        {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
       </div>
 
-      <Row align="center" gap="150" shrink={false}>
-        {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
-        {operator && <span data-testid={AppHeaderTestId.Operator}>{operator}</span>}
-        {activeCount && <span data-testid={AppHeaderTestId.ActiveCount}>{activeCount}</span>}
-        {limits && (
-          <span className="hidden md:inline" data-testid={AppHeaderTestId.Limits}>
-            {limits}
-          </span>
-        )}
-        {autopilot && <span data-testid={AppHeaderTestId.Autopilot}>{autopilot}</span>}
-        {themeToggle && (
-          <span className="hidden md:inline" data-testid={AppHeaderTestId.ThemeToggle}>
-            {themeToggle}
-          </span>
-        )}
+      <span
+        aria-hidden="true"
+        className="mx-1 hidden h-[22px] w-px flex-none bg-line-2 md:block"
+        data-testid={AppHeaderTestId.Divider}
+      />
+
+      <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneC}>
+        {status && <span data-testid={AppHeaderTestId.Status}>{status}</span>}
+        {mode && <span data-testid={AppHeaderTestId.Mode}>{mode}</span>}
         {notifications && <span data-testid={AppHeaderTestId.Notifications}>{notifications}</span>}
-        {menu && <span data-testid={AppHeaderTestId.Menu}>{menu}</span>}
-      </Row>
+        {preferences && <span data-testid={AppHeaderTestId.Preferences}>{preferences}</span>}
+      </div>
     </header>
   );
 }

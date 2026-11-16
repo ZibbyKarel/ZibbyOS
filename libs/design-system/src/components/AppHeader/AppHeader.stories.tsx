@@ -1,33 +1,59 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { AppHeader } from "./AppHeader";
-import { Tab, TabList, Tabs } from "../Tabs/Tabs";
-import { LimitBar } from "../LimitBar/LimitBar";
-import { MenuButton } from "../MenuButton/MenuButton";
-import { Typography } from "../Typography/Typography";
+import { Icon } from "../Icon/Icon";
+import {
+  HeaderIconButton,
+  HeaderModeButton,
+  HeaderModeGroup,
+  HeaderNewButton,
+  HeaderStatus,
+  UsageRing,
+} from "../HeaderChrome/HeaderChrome";
+import { SectionTrack } from "../SectionTrack/SectionTrack";
 
 const nav = (
-  <Tabs value="org" variant="mono">
-    <TabList>
-      <Tab value="org">Org</Tab>
-      <Tab value="work">Work</Tab>
-      <Tab value="activity">Activity</Tab>
-      <Tab value="policy">Policy</Tab>
-    </TabList>
-  </Tabs>
-);
-
-const overflowMenu = (
-  <MenuButton
-    ariaLabel="More"
+  <SectionTrack
     items={[
-      { id: "pin", label: "Pin page", trailing: "+", onSelect: () => {} },
-      { id: "d1", divider: true },
-      { id: "settings", label: "Settings", trailing: "⚙", href: "/system/settings" },
-      { id: "registries", label: "Registries", trailing: "→", href: "/system/registries" },
+      { href: "/overview", label: "Dashboard", icon: "grid", active: true, attention: true },
+      { href: "/runs", label: "Runs", icon: "play" },
+      { href: "/memory", label: "Memory", icon: "stack" },
     ]}
-    variant="bordered"
   />
 );
+
+const zoneC = (autopilot: boolean) => ({
+  status: (
+    <HeaderStatus
+      aria-label="3 agents working"
+      count={3}
+      rings={
+        <>
+          <UsageRing value={62} />
+          <UsageRing value={41} />
+        </>
+      }
+    />
+  ),
+  mode: (
+    <HeaderModeGroup active={autopilot} ariaLabel="Operating mode">
+      {autopilot ? (
+        <HeaderModeButton live pressed label="Autopilot" />
+      ) : (
+        <HeaderModeButton pressed icon="compass" label="Approve" />
+      )}
+    </HeaderModeGroup>
+  ),
+  notifications: (
+    <HeaderIconButton aria-label="Notifications, 5 unread" badge={5}>
+      <Icon name="bell" size="lg" />
+    </HeaderIconButton>
+  ),
+  preferences: (
+    <HeaderIconButton aria-label="Preferences">
+      <Icon name="gear" size="lg" />
+    </HeaderIconButton>
+  ),
+});
 
 const meta: Meta<typeof AppHeader> = {
   title: "DesignSystem/AppHeader",
@@ -41,25 +67,26 @@ type Story = StoryObj<typeof AppHeader>;
 export const Overview: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
-      <AppHeader homeHref="/org" nav={nav} onSearchClick={() => {}} version="v0.2.1" />
+      <AppHeader homeHref="/overview" nav={nav} onSearchClick={() => {}} />
       <AppHeader
-        activeCount={<Typography type="labelSm">6 active</Typography>}
-        homeHref="/org"
-        limits={
-          <div className="flex gap-4">
-            <LimitBar label="5H" max={100} value={40} />
-            <LimitBar label="WEEK" max={100} value={62} />
-          </div>
-        }
-        menu={overflowMenu}
+        create={<HeaderNewButton aria-haspopup="menu" label="New" />}
+        homeHref="/overview"
         nav={nav}
         onSearchClick={() => {}}
-        operator={<Typography type="labelSm">Karel</Typography>}
+        {...zoneC(false)}
+      />
+      <AppHeader
+        autopilotActive
+        create={<HeaderNewButton aria-haspopup="menu" label="New" />}
+        homeHref="/overview"
+        nav={nav}
+        onSearchClick={() => {}}
+        {...zoneC(true)}
       />
     </div>
   ),
 };
 
 export const Playground: Story = {
-  args: { homeHref: "/org", menu: overflowMenu, nav, onSearchClick: () => {} },
+  args: { homeHref: "/overview", nav, onSearchClick: () => {}, ...zoneC(false) },
 };

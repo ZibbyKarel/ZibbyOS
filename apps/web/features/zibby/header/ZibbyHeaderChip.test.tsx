@@ -47,12 +47,11 @@ const orbState = () =>
     ?.getAttribute("data-state");
 
 describe("ZibbyHeaderChip", () => {
-  it("shows the orb, the label and the real shortcut", () => {
+  it("shows the orb and the label, with the real shortcut only in the accessible name", () => {
     renderChip();
     const chip = screen.getByTestId(ZibbyHeaderChipTestId.Root);
     expect(chip).toHaveTextContent("Zibby");
-    expect(chip).toHaveTextContent("Alt");
-    expect(chip).toHaveTextContent("Space");
+    expect(chip).not.toHaveTextContent("Alt");
     expect(chip).toHaveAccessibleName("Vyvolat Zibbyho (Alt Space)");
     expect(screen.getByTestId(ZibbyChipTestId.Orb)).toBeInTheDocument();
   });

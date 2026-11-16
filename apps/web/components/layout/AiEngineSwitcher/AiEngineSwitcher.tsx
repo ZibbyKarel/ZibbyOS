@@ -1,11 +1,11 @@
 "use client";
 
 import {
+  HeaderModeButton,
   Icon,
   type IconName,
   MenuButton,
   type MenuButtonEntry,
-  Stack,
   type SubNavLinkComponent,
 } from "@zibby/design-system";
 import { MODEL_FAMILIES, type ModelFamily } from "@zibby/contracts";
@@ -29,8 +29,8 @@ export const FAMILY_ICON: Record<ModelFamily, IconName> = {
   bluecode: "code",
 };
 
-/** Top-bar family switch: the active family's glyph opens the other families (same write as Settings). */
-export function AiEngineSwitcher(): ReactNode {
+/** Header family switch (a `HeaderModeButton`): the active family's glyph + name opens the other families (same write as Settings). */
+export function AiEngineSwitcher({ compact = false }: { compact?: boolean } = {}): ReactNode {
   const t = useTranslations("aiEngine");
   const { data: config } = useSystemConfigQuery();
   const { data } = useAiEnginesQuery();
@@ -56,26 +56,37 @@ export function AiEngineSwitcher(): ReactNode {
     },
   ];
 
+  const family = t(`family.${config.modelFamily}`);
+  // A direct child of the header's `HeaderModeGroup` (its segments style by sibling position),
+  // so the save-failed warning rides inside the trigger instead of beside it.
   return (
-    <Stack align="center" data-testid={AiEngineSwitcherTestId.Root} direction="row" gap="50">
-      <MenuButton
-        ariaLabel={t("switcher", { family: t(`family.${config.modelFamily}`) })}
-        icon={FAMILY_ICON[config.modelFamily]}
-        intent="ghost"
-        items={items}
-        linkComponent={Link as SubNavLinkComponent}
-        size="md"
-      />
-      {setConfig.isError && (
-        <span
-          aria-label={t("saveFailed")}
-          data-testid={AiEngineSwitcherTestId.SaveFailed}
-          role="img"
-          title={t("saveFailed")}
-        >
-          <Icon name="warn" size="sm" tone="warn" />
-        </span>
+    <MenuButton
+      items={items}
+      linkComponent={Link as SubNavLinkComponent}
+      renderTrigger={(props) => (
+        <HeaderModeButton
+          {...props}
+          aria-label={t("switcher", { family })}
+          data-testid={AiEngineSwitcherTestId.Root}
+          icon={FAMILY_ICON[config.modelFamily]}
+          label={compact ? undefined : family}
+          trailing={
+            <>
+              {setConfig.isError && (
+                <span
+                  aria-label={t("saveFailed")}
+                  data-testid={AiEngineSwitcherTestId.SaveFailed}
+                  role="img"
+                  title={t("saveFailed")}
+                >
+                  <Icon name="warn" size="sm" tone="warn" />
+                </span>
+              )}
+              <Icon name="chevron" size="xs" />
+            </>
+          }
+        />
       )}
-    </Stack>
+    />
   );
 }

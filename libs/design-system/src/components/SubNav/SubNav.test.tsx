@@ -89,4 +89,25 @@ describe("SubNav", () => {
     render(<SubNav items={items} />);
     expect(screen.queryByTestId(SubNavTestId.Trail)).not.toBeInTheDocument();
   });
+
+  it("renders a counter pill per item with a count, in default or attention tone", () => {
+    render(
+      <SubNav
+        items={[
+          { href: "/a", label: "A", count: 3 },
+          { href: "/b", label: "B", count: 1, countTone: "attention" },
+          { href: "/c", label: "C" },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId(`${SubNavTestId.Count}-/a`)).toHaveTextContent("3");
+    expect(screen.getByTestId(`${SubNavTestId.Count}-/a`).className).toContain("bg-ink/7");
+    expect(screen.getByTestId(`${SubNavTestId.Count}-/b`).className).toContain("bg-accent-soft");
+    expect(screen.queryByTestId(`${SubNavTestId.Count}-/c`)).toBeNull();
+  });
+
+  it("renders a zero count (not treated as empty)", () => {
+    render(<SubNav items={[{ href: "/a", label: "A", count: 0 }]} />);
+    expect(screen.getByTestId(`${SubNavTestId.Count}-/a`)).toHaveTextContent("0");
+  });
 });

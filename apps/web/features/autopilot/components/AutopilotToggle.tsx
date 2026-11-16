@@ -3,8 +3,8 @@
 import { type AutopilotAutomation, NO_AUTOMATION } from "@zibby/contracts";
 import {
   Button,
-  Container,
   Dialog,
+  HeaderModeButton,
   OptionToggle,
   Row,
   Stack,
@@ -12,7 +12,7 @@ import {
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { isOperatorTokenError } from "../../../state/operatorToken";
 import { useCompaniesQuery } from "../../companies";
 import { useTeamsQuery } from "../../teams";
@@ -21,7 +21,6 @@ import { useAutopilotQuery } from "../queries";
 import { AutomationTree } from "./AutomationTree";
 
 export enum AutopilotToggleTestId {
-  Root = "autopilot-toggle",
   Toggle = "autopilot-toggle-button",
   Mode = "autopilot-toggle-mode",
   Confirm = "autopilot-toggle-confirm",
@@ -46,15 +45,22 @@ const HELP_KEYS = [
   "autoFixCi",
 ] as const;
 
+export interface AutopilotToggleProps {
+  /** Phone toolbar: no label, only the glyph. */
+  iconOnly?: boolean;
+  /** Replaces the default `HeaderModeButton` trigger (e.g. the phone banner's "Change" link). */
+  renderTrigger?: (open: () => void, on: boolean) => ReactNode;
+}
+
 /**
- * The top-bar Autopilot button (`aria-pressed` while on). A click opens a dialog (saving needs
+ * The header's Autopilot mode button (`aria-pressed` while on). A click opens a dialog (saving needs
  * the operator token) with the per-company/team toggles, which start the work in both modes.
  * The mode only switches the approval gates: "Approve" (level `off`) keeps them, "AUTOPILOT"
  * (level `full`) sends the toggled work without asking and only reports it. There is no global
  * level: `global` is always forced to all-off, so nothing hidden is inherited. The dialog
  * pre-fills from the stored tree.
  */
-export function AutopilotToggle() {
+export function AutopilotToggle({ iconOnly = false, renderTrigger }: AutopilotToggleProps = {}) {
   const t = useTranslations("autopilot");
   const tc = useTranslations("common");
   const { data } = useAutopilotQuery();
@@ -87,25 +93,34 @@ export function AutopilotToggle() {
     setAutopilot.reset();
   };
 
+  const begin = () => {
+    setAutomation({
+      ...(data?.automation ?? EMPTY_AUTOMATION),
+      global: { ...NO_AUTOMATION },
+    });
+    setMode(on ? "full" : "off");
+    setConfirming(true);
+  };
+  const label = on ? t("status", { pending }) : t("turnOn");
+
+  // No wrapper element: the trigger is a direct child of the header's `HeaderModeGroup`
+  // (segments style by sibling position); the dialog is portaled.
   return (
-    <Container data-testid={AutopilotToggleTestId.Root}>
-      <Button
-        aria-label={on ? t("status", { pending }) : t("turnOn")}
-        aria-pressed={on}
-        data-testid={AutopilotToggleTestId.Toggle}
-        icon="sparkles"
-        intent={on ? "primary" : "ghost"}
-        onClick={() => {
-          setAutomation({
-            ...(data?.automation ?? EMPTY_AUTOMATION),
-            global: { ...NO_AUTOMATION },
-          });
-          setMode(on ? "full" : "off");
-          setConfirming(true);
-        }}
-        size="sm"
-        title={on ? t("status", { pending }) : t("turnOn")}
-      />
+    <>
+      {renderTrigger ? (
+        renderTrigger(begin, on)
+      ) : (
+        <HeaderModeButton
+          aria-label={label}
+          data-testid={AutopilotToggleTestId.Toggle}
+          icon="compass"
+          label={iconOnly ? undefined : on ? t("modeAutopilot") : t("modeApprove")}
+          live={on}
+          onClick={begin}
+          pressed={on}
+          title={label}
+        />
+      )}
       <Dialog
         actions={
           <>
@@ -184,6 +199,6 @@ export function AutopilotToggle() {
           ) : null}
         </Stack>
       </Dialog>
-    </Container>
+    </>
   );
 }

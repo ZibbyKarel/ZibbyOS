@@ -1,5 +1,15 @@
 "use client";
-import { type CSSProperties, useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../utils/cn";
 import { focusRingInset } from "../../utils/focus";
@@ -52,6 +62,17 @@ function isDivider(entry: MenuButtonEntry): entry is MenuButtonDivider {
   return "divider" in entry && entry.divider === true;
 }
 
+/** What a custom trigger (`renderTrigger`) must spread on its button. */
+export interface MenuButtonTriggerProps {
+  ref: Ref<HTMLButtonElement>;
+  "aria-activedescendant": string | undefined;
+  "aria-controls": string;
+  "aria-expanded": boolean;
+  "aria-haspopup": "menu";
+  onClick: () => void;
+  onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
+}
+
 export interface MenuButtonProps {
   /** The action rows (and optional dividers) shown in the menu. */
   items: MenuButtonEntry[];
@@ -77,6 +98,10 @@ export interface MenuButtonProps {
    * trailing-mark-right rows (`AppHeader`'s `menu` slot).
    */
   variant?: "kebab" | "bordered";
+  /** Renders the app's own trigger (e.g. a header control) instead of the built-in
+   *  button; spread the given props on a `<button>`. The wrapper div is dropped, so
+   *  the trigger is the only DOM child (the menu itself is portaled). */
+  renderTrigger?: (props: MenuButtonTriggerProps, open: boolean) => ReactNode;
 }
 
 /**
@@ -102,6 +127,7 @@ export function MenuButton({
   icon = "dots",
   linkComponent,
   variant = "kebab",
+  renderTrigger,
 }: MenuButtonProps) {
   const [open, setOpen] = useState(false);
   // Highlighted row for keyboard navigation (focus stays on the trigger; the
@@ -176,7 +202,7 @@ export function MenuButton({
     [items, baseId],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       if (!open) {
@@ -228,9 +254,25 @@ export function MenuButton({
       : { top: rect.bottom + gap, ...horizontal, maxHeight };
   })();
 
-  return (
-    <div className="relative inline-flex" data-testid={MenuButtonTestId.Root}>
-      {bordered ? (
+  /* eslint-disable react-hooks/refs -- the ref is only forwarded to the consumer's trigger, never read here */
+  const customTrigger = renderTrigger?.(
+    {
+      ref: triggerRef,
+      "aria-activedescendant": open && activeRow >= 0 ? itemId(activeRow) : undefined,
+      "aria-controls": `${baseId}-menu`,
+      "aria-expanded": open,
+      "aria-haspopup": "menu",
+      onClick: () => (open ? close() : openMenu()),
+      onKeyDown: handleKeyDown,
+    },
+    open,
+  );
+  /* eslint-enable react-hooks/refs */
+  const content = (
+    <>
+      {customTrigger ? (
+        customTrigger
+      ) : bordered ? (
         <button
           aria-activedescendant={open && activeRow >= 0 ? itemId(activeRow) : undefined}
           aria-controls={`${baseId}-menu`}
@@ -376,6 +418,13 @@ export function MenuButton({
           </MenuSurface>,
           document.body,
         )}
+    </>
+  );
+  return renderTrigger ? (
+    content
+  ) : (
+    <div className="relative inline-flex" data-testid={MenuButtonTestId.Root}>
+      {content}
     </div>
   );
 }

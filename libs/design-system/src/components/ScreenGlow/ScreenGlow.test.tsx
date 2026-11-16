@@ -12,8 +12,8 @@ describe("ScreenGlow", () => {
     expect(root.className).toContain("inset-0");
   });
 
-  it("draws the glowing edge ring inside the overlay", () => {
+  it("carries the amber breathing frame class", () => {
     render(<ScreenGlow />);
-    expect(screen.getByTestId(ScreenGlowTestId.Ring).className).toContain("zb-screen-glow");
+    expect(screen.getByTestId(ScreenGlowTestId.Root).className).toContain("zb-screen-glow");
   });
 });

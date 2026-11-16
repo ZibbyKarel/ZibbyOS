@@ -1,26 +1,24 @@
 "use client";
 
-import { type AnchorHTMLAttributes, type ReactNode, Suspense, useState } from "react";
-import type { Route } from "next";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { type ReactNode, Suspense, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   AppFrame,
   AppHeader,
+  BrandMark,
   type BrandMarkState,
   Button,
+  HeaderModeGroup,
   MobileMenu,
   MobileToolbar,
   ScreenGlow,
+  SectionTrack,
   Stack,
   SubNav,
-  Tab,
-  TabList,
-  Tabs,
 } from "@zibby/design-system";
 import { CatalogProvider } from "../../../state/store";
-import { NEW_TASK_PAGE_HREF, NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
+import { NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
 import { ChatProvider, useChat } from "../../../features/chat";
 import { ZibbyHeaderChip, ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
@@ -43,17 +41,15 @@ import {
   usePagePins,
 } from "../../../features/pins";
 import { AiEngineSwitcher } from "../AiEngineSwitcher/AiEngineSwitcher";
-import { HeaderLimits } from "../HeaderLimits/HeaderLimits";
 import { useHeaderLimitItems } from "../HeaderLimits/useHeaderLimitItems";
 import { PageActionsSlotProvider } from "../PageActions";
 import { PageBreadcrumbSlotProvider } from "../PageBreadcrumb";
-import { SelfUpgrade } from "../SelfUpgrade";
-import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
+import { NewMenu, PreferencesMenu, SystemStatus } from "./HeaderControls";
+import { NavLink } from "./NavLink";
+import { type HeaderCollapseLevel, useHeaderCollapse } from "./useHeaderCollapse";
 import { SECTIONS, type SectionId, type SubTabConfig, sectionForPath } from "../../../state/config";
 
 export enum AppShellTestId {
-  NewNote = "app-shell-new-note",
-  NewTask = "app-shell-new-task",
   PinToggle = "app-shell-pin-toggle",
   PageActions = "app-shell-page-actions",
 }
@@ -71,44 +67,35 @@ function matchEntityDetail(
 }
 
 /**
- * Adapts `next/link`'s `Link` (which types `href` as `Route | UrlObject`) to
- * `SubNav`/`AppHeader`'s router-agnostic `linkComponent` contract (`href:
- * string`) — the DS component itself never imports `next/link`. `href` is cast
- * once here, at the one seam that needs it, rather than at every call site.
+ * The section nav (`AppHeader`'s `nav` slot) — a `SectionTrack` of links. Each section's `href`
+ * is today's closest existing route (`SECTIONS`, ZB-01); the dashboard carries an amber dot while
+ * something waits for the operator.
  */
-function NavLink({
-  href,
-  ...rest
-}: { href: string } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href">) {
-  return <Link href={href as Route} {...rest} />;
-}
-
-/**
- * The section nav (`AppHeader`'s `nav` slot) — a mono `Tabs` bar that navigates
- * instead of switching an internal panel (`AppHeader`'s own doc comment: "the
- * app composes a `Tabs variant=mono`"). Each section's `href` is today's closest
- * existing route (`SECTIONS`, ZB-01) until its own screen phase ships.
- */
-function SectionNav({ active }: { active: SectionId }) {
+function SectionNav({
+  active,
+  attention,
+  iconOnlyInactive,
+}: {
+  active: SectionId;
+  attention: boolean;
+  /** Narrow header: only the active section keeps its label. */
+  iconOnlyInactive: boolean;
+}) {
   const t = useTranslations("nav");
-  const router = useRouter();
+  const tShell = useTranslations("shell");
   return (
-    <Tabs
-      onValueChange={(id) => {
-        const section = SECTIONS.find((s) => s.id === id);
-        if (section) router.push(section.href);
-      }}
-      value={active}
-      variant="mono"
-    >
-      <TabList>
-        {SECTIONS.map((section) => (
-          <Tab key={section.id} value={section.id}>
-            {t(section.id)}
-          </Tab>
-        ))}
-      </TabList>
-    </Tabs>
+    <SectionTrack
+      ariaLabel={tShell("sectionsAria")}
+      items={SECTIONS.map((section) => ({
+        href: section.href,
+        label: t(section.id),
+        icon: section.glyph,
+        active: section.id === active,
+        attention: attention && section.id === "dashboard",
+        iconOnly: iconOnlyInactive && section.id !== active,
+      }))}
+      linkComponent={NavLink}
+    />
   );
 }
 
@@ -183,51 +170,12 @@ function PinControl({
   );
 }
 
-/** Opens the floating note window; always shown, icon-only on the phone toolbar. */
-function NewNoteButton({ iconOnly, onClick }: { iconOnly: boolean; onClick: () => void }) {
-  const tShell = useTranslations("shell");
-  return (
-    <Button
-      aria-label={tShell("newNote")}
-      data-testid={AppShellTestId.NewNote}
-      icon="edit"
-      intent="secondary"
-      onClick={onClick}
-      size="sm"
-    >
-      {iconOnly ? null : tShell("newNote")}
-    </Button>
-  );
-}
-
-/** ZB-04b: "+ NEW TASK" opens the dedicated `/work/tasks/new` page (Option+N does
- *  the same from anywhere; the classify-driven dialog stays reachable via the `N`
- *  shortcut). Hidden on that page itself; icon-only on the phone toolbar. */
-function NewTaskButton({ pathname, iconOnly }: { pathname: string; iconOnly: boolean }) {
-  const tShell = useTranslations("shell");
-  const router = useRouter();
-  if (pathname === NEW_TASK_PAGE_HREF) return null;
-  return (
-    <Button
-      aria-label={tShell("newTask")}
-      data-testid={AppShellTestId.NewTask}
-      icon="plus"
-      intent="primary"
-      onClick={() => router.push(NEW_TASK_PAGE_HREF as Route)}
-      size="sm"
-    >
-      {iconOnly ? null : tShell("newTask")}
-    </Button>
-  );
-}
-
 function SectionSubNav({
   active,
   trail,
   pageActions,
   currentHref,
   onPinRequested,
-  onNewNote,
 }: {
   active: SectionId;
   /** The page-breadcrumb portal target, rendered after the tabs. */
@@ -236,22 +184,29 @@ function SectionSubNav({
   pageActions: ReactNode;
   currentHref: string;
   onPinRequested: () => void;
-  onNewNote: () => void;
 }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const section = SECTIONS.find((s) => s.id === active) ?? SECTIONS[0];
   const activeHref = activeSubNavHref(section.tabs, pathname);
-  // Inbox counters (global, actionable only) ride in the tab labels — `SubNavItem`
-  // has no badge slot. Only fetched while the Dashboard section is open.
+  // Inbox counters (global, actionable only) ride in the tab's count pill, amber while they
+  // need the operator. Only fetched while the Dashboard section is open.
   const inboxCounts = useInboxCounts(active === "dashboard");
-  const items = section.tabs.map((tab) => ({
-    href: tab.href,
-    label:
-      t(`subtab.${section.id}.${tab.id}` as Parameters<typeof t>[0]) +
-      (active === "dashboard" ? counterSuffix(tab.id, inboxCounts) : ""),
-    active: tab.href === activeHref,
-  }));
+  const items = section.tabs.map((tab) => {
+    const count =
+      active === "dashboard" ? counterSuffix(tab.id, inboxCounts).replace(/^ · /, "") : "";
+    const waiting =
+      tab.id === "issues"
+        ? (inboxCounts?.issues ?? 0) > 0
+        : (inboxCounts?.toReview ?? 0) + (inboxCounts?.mineBlocked ?? 0) > 0;
+    return {
+      href: tab.href,
+      label: t(`subtab.${section.id}.${tab.id}` as Parameters<typeof t>[0]),
+      active: tab.href === activeHref,
+      count: count || undefined,
+      countTone: waiting ? ("attention" as const) : ("default" as const),
+    };
+  });
   return (
     <SubNav
       actions={
@@ -262,8 +217,6 @@ function SectionSubNav({
             onPinRequested={onPinRequested}
             pathname={pathname}
           />
-          <NewNoteButton iconOnly={false} onClick={onNewNote} />
-          <NewTaskButton iconOnly={false} pathname={pathname} />
         </>
       }
       items={items}
@@ -303,9 +256,7 @@ function PhoneMenu({ pathname }: { pathname: string }) {
   );
 }
 
-/** `AppHeader`'s trailing limits cluster — a custom hook (not a component) so
- *  it can return a plain node for `AppHeader`'s named slot rather than one
- *  wrapping element. */
+/** Live system state feeding the header: the brand knot, the status chip and the usage rings. */
 function useHeaderTrailing() {
   const { data: status } = useSelfStatusQuery();
   const limitItems = useHeaderLimitItems();
@@ -323,24 +274,26 @@ function useHeaderTrailing() {
   return {
     markState,
     version: status?.appVersion ? `v${status.appVersion}` : undefined,
-    limits: (
-      <Stack align="center" direction="row" gap="100">
-        <SelfUpgrade />
-        <AiEngineSwitcher />
-        <HeaderLimits items={limitItems} />
-      </Stack>
-    ),
+    limitItems,
+    runningCount: runs.filter((r) => r.status === "running").length,
+    updateAvailable: Boolean(status?.appUpdateAvailable),
   };
 }
 
 function AppShellChrome({ children }: { children: ReactNode }) {
   const t = useTranslations("common");
   const tShell = useTranslations("shell");
+  const tNav = useTranslations("nav");
   const pathname = usePathname();
+  const { data: autopilot } = useAutopilotQuery();
+  const autopilotOn = autopilot?.level === "full";
   const phone = useIsPhone();
   const searchParams = useSearchParams();
   const active = sectionForPath(pathname);
   const trailing = useHeaderTrailing();
+  const { ref: headerRef, level } = useHeaderCollapse(trailing.markState);
+  const lv: HeaderCollapseLevel = level;
+  const needsAttention = trailing.markState === "blocked";
   const approvalSheet = useApprovalSheetParam();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
@@ -366,7 +319,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
   };
   // `display: contents` — the portalled controls join the actions row's own flex
   // gap; an empty slot takes no room. The slot lives in the sub-nav (desktop) or
-  // the toolbar (phone).
+  // the sub-nav row on both desktop and phone.
   const pageActions = (
     <Stack
       data-testid={AppShellTestId.PageActions}
@@ -393,50 +346,86 @@ function AppShellChrome({ children }: { children: ReactNode }) {
               <MobileToolbar
                 actions={
                   <>
-                    <ZibbyHeaderChip iconOnly needsAttention={trailing.markState === "blocked"} />
-                    {pageActions}
-                    <AutopilotToggle />
-                    <PinControl
-                      currentHref={currentHref}
-                      onPinRequested={onPinRequested}
-                      pathname={pathname}
-                    />
-                    <NewNoteButton iconOnly onClick={openNote} />
-                    <NewTaskButton iconOnly pathname={pathname} />
+                    <ZibbyHeaderChip iconOnly needsAttention={needsAttention} />
+                    {autopilotOn ? null : <AutopilotToggle iconOnly />}
+                    <NewMenu iconOnly onNewNote={openNote} />
                     <NotificationBell />
                   </>
                 }
+                banner={
+                  autopilotOn
+                    ? tShell.rich("autopilotBanner", { b: (chunks) => <b>{chunks}</b> })
+                    : undefined
+                }
+                bannerAction={
+                  autopilotOn ? (
+                    <AutopilotToggle
+                      renderTrigger={(begin) => (
+                        <Button intent="ghost" onClick={begin} size="sm">
+                          {tShell("autopilotBannerChange")}
+                        </Button>
+                      )}
+                    />
+                  ) : undefined
+                }
+                brand={
+                  <NavLink aria-label="ZibbyOS" href="/dashboard">
+                    <BrandMark live state={trailing.markState} />
+                  </NavLink>
+                }
                 leading={<PhoneMenu pathname={pathname} />}
+                title={tNav(active)}
               />
             ) : (
               <AppHeader
-                autopilot={<AutopilotToggle />}
+                autopilotActive={autopilotOn}
+                create={<NewMenu iconOnly={lv >= 2} onNewNote={openNote} />}
+                hideWordmark={lv >= 1}
                 homeHref="/dashboard"
-                limits={trailing.limits}
                 linkComponent={NavLink}
                 markState={trailing.markState}
-                nav={<SectionNav active={active} />}
+                mode={
+                  <HeaderModeGroup active={autopilotOn} ariaLabel={tShell("modeGroupAria")}>
+                    <AiEngineSwitcher compact={lv >= 2} />
+                    <AutopilotToggle iconOnly={lv >= 2 && !autopilotOn} />
+                  </HeaderModeGroup>
+                }
+                nav={
+                  <SectionNav
+                    active={active}
+                    attention={needsAttention}
+                    iconOnlyInactive={lv >= 2}
+                  />
+                }
                 notifications={<NotificationBell />}
                 onSearchClick={() => setPaletteOpen(true)}
+                preferences={<PreferencesMenu />}
+                ref={headerRef}
+                searchCompact={lv >= 1}
                 searchLabel={tShell("search")}
-                themeToggle={<ThemeToggle />}
-                version={trailing.version}
-                zibby={<ZibbyHeaderChip needsAttention={trailing.markState === "blocked"} />}
+                status={
+                  <SystemStatus
+                    limitItems={trailing.limitItems}
+                    markState={trailing.markState}
+                    mergeRings={lv >= 1}
+                    runningCount={trailing.runningCount}
+                    updateAvailable={trailing.updateAvailable}
+                    version={trailing.version}
+                  />
+                }
+                zibby={<ZibbyHeaderChip needsAttention={needsAttention} />}
               />
             )
           }
           skipLinkLabel={t("skipToContent")}
           subnav={
-            phone ? undefined : (
-              <SectionSubNav
-                active={active}
-                currentHref={currentHref}
-                onNewNote={openNote}
-                onPinRequested={onPinRequested}
-                pageActions={pageActions}
-                trail={<div ref={setCrumbSlot} />}
-              />
-            )
+            <SectionSubNav
+              active={active}
+              currentHref={currentHref}
+              onPinRequested={onPinRequested}
+              pageActions={pageActions}
+              trail={<div ref={setCrumbSlot} />}
+            />
           }
         >
           {children}

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * The shell's section nav — `AppHeader`'s 8-section `Tabs` bar
+ * The shell's section nav — `AppHeader`'s 8-section `SectionTrack`
  * (`state/config.ts`'s `SECTIONS`) plus the `SubNav` sub-tab strip for the active
  * section.
  */
@@ -11,30 +11,30 @@ test("the section nav renders all eight sections and navigates on click", async 
   const nav = page.getByTestId("app-header-nav");
   await expect(nav).toBeVisible();
 
-  const sections: Array<[id: string, label: string]> = [
-    ["dashboard", "Dashboard"],
-    ["work", "Work"],
-    ["companies", "Companies"],
-    ["workforce", "AI"],
-    ["activity", "Activity"],
-    ["knowledge", "Knowledge"],
-    ["governance", "Governance"],
-    ["system", "Settings"],
+  // [section href, label] — the track's items are keyed by their href.
+  const sections: Array<[href: string, label: string]> = [
+    ["/dashboard", "Dashboard"],
+    ["/work/goals", "Work"],
+    ["/companies", "Companies"],
+    ["/workforce/agents", "AI"],
+    ["/activity/log", "Activity"],
+    ["/knowledge/vault", "Knowledge"],
+    ["/governance/gates", "Governance"],
+    ["/system/settings/general", "Settings"],
   ];
-  for (const [id, label] of sections) {
-    await expect(nav.getByTestId(`tabs-tab-${id}`)).toHaveText(label);
+  for (const [href, label] of sections) {
+    await expect(nav.getByTestId(`section-track-item-${href}`)).toHaveAccessibleName(label);
   }
 
-  await expect(nav.getByTestId("tabs-tab-dashboard")).toHaveAttribute("aria-selected", "true");
+  await expect(nav.getByTestId("section-track-item-/dashboard")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 
-  await nav.getByTestId("tabs-tab-work").click();
-  await expect(page).toHaveURL(/\/work\/tasks$/);
-  await nav.getByTestId("tabs-tab-workforce").click();
-  await expect(page).toHaveURL(/\/workforce\/agents$/);
-  await nav.getByTestId("tabs-tab-governance").click();
-  await expect(page).toHaveURL(/\/governance\/approvals$/);
-  await nav.getByTestId("tabs-tab-system").click();
-  await expect(page).toHaveURL(/\/system\/settings\/general$/);
+  for (const [href] of sections.slice(1, 4)) {
+    await nav.getByTestId(`section-track-item-${href}`).click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+  }
 });
 
 test("AI and Settings sub-menus list their items; no header cog", async ({ page }) => {
@@ -53,7 +53,7 @@ test("AI and Settings sub-menus list their items; no header cog", async ({ page 
   await expect(page.getByTestId("app-shell-settings-cog")).toHaveCount(0);
 });
 
-test("the sub-nav lists the active section's tabs and offers + New task", async ({ page }) => {
+test("the sub-nav lists the active section's tabs; + New offers New task", async ({ page }) => {
   await page.goto("/work/goals");
 
   const subnav = page.getByTestId("subnav-root");
@@ -63,7 +63,9 @@ test("the sub-nav lists the active section's tabs and offers + New task", async 
   await expect(subnav).toContainText("Workflows");
   await expect(subnav).toContainText("Automations");
 
-  await expect(subnav.getByRole("button", { name: "New task" })).toBeVisible();
+  // New task moved from the sub-nav row into the header's "+ New" menu.
+  await page.getByTestId("header-new-button").click();
+  await expect(page.getByRole("menuitem", { name: "New task" })).toBeVisible();
 });
 
 test("the NEEDS YOU rail renders on every section", async ({ page }) => {

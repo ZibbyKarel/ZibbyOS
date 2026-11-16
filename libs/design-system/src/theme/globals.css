@@ -93,6 +93,7 @@
   --color-brand-contrast: #1a1204;
   --color-accent: var(--color-brand);
   --color-accent-dim: color-mix(in srgb, var(--color-brand) 12%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--color-brand) 12%, transparent);
   --color-accent-contrast: var(--color-brand-contrast);
   --color-accent-glow: color-mix(in srgb, var(--color-brand) 35%, transparent);
 
@@ -524,6 +525,7 @@
   --color-brand-contrast: #1a1204;
   --color-accent: var(--color-brand);
   --color-accent-dim: color-mix(in srgb, var(--color-brand) 12%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--color-brand) 18%, transparent);
   --color-accent-contrast: var(--color-brand-contrast);
   --color-accent-glow: color-mix(in srgb, var(--color-brand) 35%, transparent);
   --color-ok: var(--color-state-done);
@@ -613,6 +615,7 @@
   --color-brand-contrast: #1a1204;
   --color-accent: var(--color-brand);
   --color-accent-dim: color-mix(in srgb, var(--color-brand) 12%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--color-brand) 12%, transparent);
   --color-accent-contrast: var(--color-brand-contrast);
   --color-accent-glow: color-mix(in srgb, var(--color-brand) 35%, transparent);
   --color-ok: var(--color-state-done);
@@ -1361,43 +1364,44 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Screen glow (`ScreenGlow`, TODO 18) — the Siri-like Autopilot edge glow. A
- * conic gradient of the state-tone tokens, masked to a ring along the viewport
- * edge (the parent blurs it soft). The hue rotation only runs under
- * `prefers-reduced-motion: no-preference`; otherwise it stays a static glow.
+ * Screen glow (`ScreenGlow`) - the Autopilot frame: an amber inset hairline plus
+ * a soft inner glow around the whole viewport, breathing .75 <-> 1 over 3.2s.
+ * Static under `prefers-reduced-motion: reduce`.
  * --------------------------------------------------------------------------- */
-@property --zb-screen-glow-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
 .zb-screen-glow {
-  padding: 10px;
-  opacity: 0.55;
-  /* Calm palette: only the new-design violet/sky/brand tones. The old
-   * green/amber/red stops made the ring flash through contrasting hues. */
-  background: conic-gradient(
-    from var(--zb-screen-glow-angle),
-    var(--color-state-work),
-    var(--color-state-think),
-    var(--color-state-work),
-    var(--color-brand),
-    var(--color-state-work)
-  );
-  mask:
-    linear-gradient(#000 0 0) content-box exclude,
-    linear-gradient(#000 0 0);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-brand) 70%, transparent),
+    inset 0 0 46px color-mix(in srgb, var(--color-brand) 24%, transparent);
+  opacity: 0.9;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .zb-screen-glow {
-    animation: zb-screen-glow-spin 48s linear infinite;
+    animation: zb-screen-glow-breathe 3.2s ease-in-out infinite;
   }
 
-  @keyframes zb-screen-glow-spin {
-    to {
-      --zb-screen-glow-angle: 360deg;
+  @keyframes zb-screen-glow-breathe {
+    0%,
+    100% {
+      opacity: 0.75;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Header chrome: the pulsing Autopilot dot. */
+  .zb-header-pulse {
+    animation: zb-header-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes zb-header-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
     }
   }
 }

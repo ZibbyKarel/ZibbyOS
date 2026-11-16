@@ -3,7 +3,7 @@ import { type AutopilotStatus, NO_AUTOMATION } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render, screen, within } from "../../../test/render";
 import { AutomationTreeTestId } from "./AutomationTree";
-import { OptionToggleTestId } from "@zibby/design-system";
+import { HeaderChromeTestId, OptionToggleTestId } from "@zibby/design-system";
 import { AutopilotToggle, AutopilotToggleTestId } from "./AutopilotToggle";
 
 let status: AutopilotStatus = { level: "off", pendingApprovals: 3 };
@@ -58,6 +58,33 @@ describe("AutopilotToggle", () => {
       },
       expect.anything(),
     );
+  });
+
+  it("is a mode button: Approve when off, live Autopilot when on", () => {
+    const { unmount } = render(<AutopilotToggle />);
+    expect(screen.getByTestId(AutopilotToggleTestId.Toggle)).toHaveTextContent("Schvalovat");
+    unmount();
+    status = { level: "full", pendingApprovals: 1 };
+    render(<AutopilotToggle />);
+    const on = screen.getByTestId(AutopilotToggleTestId.Toggle);
+    expect(on).toHaveTextContent("Autopilot");
+    expect(on).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId(HeaderChromeTestId.ModeLiveDot)).toBeInTheDocument();
+  });
+
+  it("a custom trigger opens the same dialog", async () => {
+    render(
+      <AutopilotToggle
+        renderTrigger={(begin) => (
+          <button data-testid="custom" onClick={begin} type="button">
+            x
+          </button>
+        )}
+      />,
+    );
+    expect(screen.queryByTestId(AutopilotToggleTestId.Toggle)).toBeNull();
+    await userEvent.click(screen.getByTestId("custom"));
+    expect(screen.getByTestId(AutopilotToggleTestId.Confirm)).toBeInTheDocument();
   });
 
   it("AUTOPILOT shows the tree; save is disabled until a company/team toggle is on", async () => {

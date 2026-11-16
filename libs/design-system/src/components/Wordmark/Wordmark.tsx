@@ -9,21 +9,22 @@ export enum WordmarkTestId {
   Version = "wordmark-version",
 }
 
-export type WordmarkSize = "md" | "lg";
+export type WordmarkSize = "sm" | "md" | "lg";
 
 export interface WordmarkProps {
   /** Overrides the default `zibby.` lettering. Rendered as written, without the dot. */
   children?: string;
   /** Optional small second line under the name, e.g. the running release `v0.2.1`. */
   version?: string;
-  /** `md` = app header (20px), `lg` = splash (34px, 44px from `md` up). */
+  /** `sm` = compact app header (14.5px / 600), `md` = 20px, `lg` = splash (34px, 44px from `md` up). */
   size?: WordmarkSize;
   ref?: Ref<HTMLElement>;
 }
 
 const SIZE_CLASS: Record<WordmarkSize, string> = {
-  md: "text-[20px]",
-  lg: "text-[34px] md:text-[44px]",
+  sm: "text-[14.5px] font-semibold",
+  md: "text-[20px] font-bold",
+  lg: "text-[34px] md:text-[44px] font-bold",
 };
 
 /**
@@ -43,10 +44,7 @@ export function Wordmark({ children, version, size = "md", ref }: WordmarkProps)
     >
       <span
         aria-hidden="true"
-        className={cn(
-          "font-sans leading-none font-bold tracking-[-0.065em] text-ink",
-          SIZE_CLASS[size],
-        )}
+        className={cn("font-sans leading-none tracking-[-0.065em] text-ink", SIZE_CLASS[size])}
         data-testid={WordmarkTestId.Name}
       >
         {children ?? (

@@ -11,7 +11,7 @@ export default meta;
 
 type Story = StoryObj<typeof ScreenGlow>;
 
-/** The glow hugs the viewport edge; content underneath stays clickable. */
+/** The amber frame hugs the viewport edge; content underneath stays clickable. */
 export const Default: Story = {
   render: () => (
     <div className="flex h-screen items-center justify-center">

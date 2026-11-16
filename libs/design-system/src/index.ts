@@ -373,6 +373,7 @@ export type {
   MenuButtonEntry,
   MenuButtonItem,
   MenuButtonProps,
+  MenuButtonTriggerProps,
 } from "./components/MenuButton/MenuButton";
 
 export {
@@ -838,3 +839,24 @@ export type {
 } from "./components/ZibbyHistoryPanel/ZibbyHistoryPanel";
 export { ZibbyToast, ZibbyToastTestId } from "./components/ZibbyToast/ZibbyToast";
 export type { ZibbyToastProps } from "./components/ZibbyToast/ZibbyToast";
+
+export { SectionTrack, SectionTrackTestId } from "./components/SectionTrack/SectionTrack";
+export type { SectionTrackItem, SectionTrackProps } from "./components/SectionTrack/SectionTrack";
+export {
+  HeaderChromeTestId,
+  HeaderIconButton,
+  HeaderModeButton,
+  HeaderModeGroup,
+  HeaderNewButton,
+  HeaderStatus,
+  UsageRing,
+} from "./components/HeaderChrome/HeaderChrome";
+export type {
+  HeaderIconButtonProps,
+  HeaderModeButtonProps,
+  HeaderModeGroupProps,
+  HeaderNewButtonProps,
+  HeaderStatusProps,
+  HeaderStatusState,
+  UsageRingProps,
+} from "./components/HeaderChrome/HeaderChrome";

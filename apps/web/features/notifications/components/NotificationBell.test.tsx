@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ButtonTestId } from "@zibby/design-system";
+import { HeaderChromeTestId } from "@zibby/design-system";
 import { fireEvent, renderWithProviders as render, screen, within } from "../../../test/render";
 import { NotificationBell, NotificationBellTestId } from "./NotificationBell";
 
@@ -109,27 +109,29 @@ describe("NotificationBell", () => {
     );
   });
 
-  it("is a ghost trigger without count when nothing is wrong", () => {
+  it("is a plain trigger without count when nothing is wrong", () => {
     notifications = [];
     render(<NotificationBell />);
     const trigger = screen.getByTestId(NotificationBellTestId.Trigger);
     expect(trigger).not.toHaveTextContent(/\d/);
   });
 
-  it("uses danger intent and a mixed-count accessible name when something is wrong", () => {
+  it("shows an amber count badge and a mixed-count accessible name when something is wrong", () => {
     health = [downStatus];
     render(<NotificationBell />);
     const trigger = screen.getByTestId(NotificationBellTestId.Trigger);
     expect(trigger).toHaveAccessibleName("Notifikace (3)");
-    expect(within(trigger).getByTestId(ButtonTestId.Dot)).toBeInTheDocument();
+    expect(within(trigger).getByTestId(HeaderChromeTestId.IconButtonBadge)).toBeInTheDocument();
   });
 
-  it("uses ghost intent (no danger dot) when nothing is wrong", () => {
+  it("shows no badge when nothing is wrong", () => {
     notifications = [];
     render(<NotificationBell />);
     const trigger = screen.getByTestId(NotificationBellTestId.Trigger);
     expect(trigger).toHaveAccessibleName("Notifikace (0)");
-    expect(within(trigger).queryByTestId(ButtonTestId.Dot)).not.toBeInTheDocument();
+    expect(
+      within(trigger).queryByTestId(HeaderChromeTestId.IconButtonBadge),
+    ).not.toBeInTheDocument();
   });
 
   it("falls back to the project id when the project is not in the list", () => {

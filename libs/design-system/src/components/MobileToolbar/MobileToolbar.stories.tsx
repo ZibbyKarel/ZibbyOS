@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { Button } from "../Button/Button";
+import { Icon } from "../Icon/Icon";
+import { HeaderIconButton } from "../HeaderChrome/HeaderChrome";
+import { BrandMark } from "../BrandMark/BrandMark";
 import { MobileToolbar } from "./MobileToolbar";
 
 const meta: Meta<typeof MobileToolbar> = {
@@ -7,16 +9,31 @@ const meta: Meta<typeof MobileToolbar> = {
   component: MobileToolbar,
   parameters: { backgrounds: { default: "velin" } },
   args: {
-    leading: <Button aria-label="Menu" icon="menu" intent="ghost" size="sm" />,
+    leading: (
+      <HeaderIconButton aria-label="Menu">
+        <Icon name="menu" size="lg" />
+      </HeaderIconButton>
+    ),
+    brand: <BrandMark size={24} />,
+    title: "Dashboard",
     actions: (
-      <>
-        <Button aria-label="Pin" icon="pin" intent="ghost" size="sm" />
-        <Button aria-label="New task" icon="plus" intent="primary" size="sm" />
-        <Button aria-label="Notifications" icon="bell" intent="ghost" size="sm" />
-      </>
+      <HeaderIconButton aria-label="Notifications" badge={5}>
+        <Icon name="bell" size="lg" />
+      </HeaderIconButton>
     ),
   },
 };
 export default meta;
 
 export const Playground: StoryObj<typeof MobileToolbar> = {};
+
+export const AutopilotOn: StoryObj<typeof MobileToolbar> = {
+  args: {
+    banner: (
+      <>
+        <b>Autopilot on</b> · agents act without asking
+      </>
+    ),
+    bannerAction: <a href="/settings">Change</a>,
+  },
+};

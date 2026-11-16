@@ -39,4 +39,14 @@ export const Overview: Story = {
   ),
 };
 
+export const WithCounts: Story = {
+  args: {
+    items: [
+      { href: "/inbox/all", label: "All", active: true, count: 12 },
+      { href: "/inbox/approvals", label: "Approvals", count: 2, countTone: "attention" },
+      { href: "/inbox/mentions", label: "Mentions" },
+    ],
+  },
+};
+
 export const Playground: Story = {};

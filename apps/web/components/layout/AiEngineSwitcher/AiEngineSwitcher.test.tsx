@@ -5,7 +5,7 @@ import {
   SystemConfigSchema,
   applyModelFamily,
 } from "@zibby/contracts";
-import { ButtonTestId, IconTestId, MenuButtonTestId } from "@zibby/design-system";
+import { IconTestId, MenuButtonTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render, screen, within } from "../../../test/render";
 import { AiEngineSwitcher, AiEngineSwitcherTestId } from "./AiEngineSwitcher";
@@ -47,15 +47,18 @@ beforeEach(() => {
 describe("AiEngineSwitcher", () => {
   it("shows the active family's glyph and names it", () => {
     render(<AiEngineSwitcher />);
-    const trigger = screen.getByTestId(MenuButtonTestId.Trigger);
+    const trigger = screen.getByTestId(AiEngineSwitcherTestId.Root);
     expect(trigger).toHaveAccessibleName("AI engine: Claude");
-    // Button stamps its own icon testid over Icon's.
-    expect(within(trigger).getByTestId(ButtonTestId.Icon)).toHaveAttribute("data-icon", "claude");
+    expect(trigger).toHaveTextContent("Claude");
+    expect(within(trigger).getAllByTestId(IconTestId.Root)[0]).toHaveAttribute(
+      "data-icon",
+      "claude",
+    );
   });
 
   it("lists the other families with glyphs, then Settings last", async () => {
     render(<AiEngineSwitcher />);
-    await userEvent.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    await userEvent.click(screen.getByTestId(AiEngineSwitcherTestId.Root));
     expect(screen.queryByTestId(`${MenuButtonTestId.Item}-claude`)).not.toBeInTheDocument();
     const openai = screen.getByTestId(`${MenuButtonTestId.Item}-openai`);
     expect(within(openai).getByTestId(IconTestId.Root)).toHaveAttribute("data-icon", "openai");
@@ -70,7 +73,7 @@ describe("AiEngineSwitcher", () => {
 
   it("picking a connected family writes the Settings body", async () => {
     render(<AiEngineSwitcher />);
-    await userEvent.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    await userEvent.click(screen.getByTestId(AiEngineSwitcherTestId.Root));
     await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-openai`));
     expect(setConfig).toHaveBeenCalledWith({
       body: { ...config, ...applyModelFamily("openai", CATALOG) },
@@ -79,7 +82,7 @@ describe("AiEngineSwitcher", () => {
 
   it("a disconnected family is disabled, explained and not written", async () => {
     render(<AiEngineSwitcher />);
-    await userEvent.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    await userEvent.click(screen.getByTestId(AiEngineSwitcherTestId.Root));
     const bluecode = screen.getByTestId(`${MenuButtonTestId.Item}-bluecode`);
     expect(bluecode).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByTestId(`${MenuButtonTestId.Description}-bluecode`)).toHaveTextContent(
@@ -92,7 +95,7 @@ describe("AiEngineSwitcher", () => {
   it("an unreadable catalog leaves every family selectable", async () => {
     engines = [{ id: "opencode", available: false, models: [], providers: [] }];
     render(<AiEngineSwitcher />);
-    await userEvent.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    await userEvent.click(screen.getByTestId(AiEngineSwitcherTestId.Root));
     expect(screen.getByTestId(`${MenuButtonTestId.Item}-bluecode`)).not.toHaveAttribute(
       "aria-disabled",
     );
