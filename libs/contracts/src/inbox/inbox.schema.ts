@@ -294,11 +294,8 @@ export type ReviewInboxPrInput = z.infer<typeof ReviewInboxPrInputSchema>;
 export const ReviewInboxPrResultSchema = z.object({ taskId: z.string().min(1) });
 export type ReviewInboxPrResult = z.infer<typeof ReviewInboxPrResultSchema>;
 
-/**
- * todo-11 — body of `POST /api/inbox/prs/rebase`. Branch names and the head sha are
- * read from GitHub server-side, never taken from the client. Response = `ReviewInboxPrResult`.
- */
-export const RebaseInboxPrInputSchema = z
+/** Shared body of the PR-push actions (rebase, address comments, fix CI). */
+const PrActionBaseSchema = z
   .object({
     projectId: z.string().min(1),
     repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
@@ -307,19 +304,34 @@ export const RebaseInboxPrInputSchema = z
     title: z.string().max(300).optional(),
   })
   .strict();
-export type RebaseInboxPrInput = z.infer<typeof RebaseInboxPrInputSchema>;
 
 /**
- * Body of `POST /api/inbox/prs/address-comments` — same shape as a rebase; refs are read from GitHub
+ * todo-11 — body of `POST /api/inbox/prs/rebase` ("Update branch"). Branch names and the head sha
+ * are read from GitHub server-side, never taken from the client. `method` defaults to `merge`.
+ */
+export const RebaseInboxPrInputSchema = PrActionBaseSchema.extend({
+  method: z.enum(["merge", "rebase"]).optional(),
+}).strict();
+export type RebaseInboxPrInput = z.infer<typeof RebaseInboxPrInputSchema>;
+
+/** Response of the rebase route: `updated` = GitHub updated the branch itself (no task); else the fallback `taskId`. */
+export const UpdatePrBranchResultSchema = z.object({
+  taskId: z.string().min(1).optional(),
+  updated: z.literal(true).optional(),
+});
+export type UpdatePrBranchResult = z.infer<typeof UpdatePrBranchResultSchema>;
+
+/**
+ * Body of `POST /api/inbox/prs/address-comments` — refs are read from GitHub
  * server-side. Strict, so a client can never send `auto` (400): todo-16's auto flag is a separate
  * server-side argument of `InboxAddressCommentsService.start`, never part of the HTTP body.
  */
-export const AddressInboxPrCommentsInputSchema = RebaseInboxPrInputSchema;
-export type AddressInboxPrCommentsInput = RebaseInboxPrInput;
+export const AddressInboxPrCommentsInputSchema = PrActionBaseSchema;
+export type AddressInboxPrCommentsInput = z.infer<typeof AddressInboxPrCommentsInputSchema>;
 
-/** Body of `POST /api/inbox/prs/fix-ci` — same shape as a rebase. */
-export const FixInboxPrCiInputSchema = RebaseInboxPrInputSchema;
-export type FixInboxPrCiInput = RebaseInboxPrInput;
+/** Body of `POST /api/inbox/prs/fix-ci` — same shape as address-comments. */
+export const FixInboxPrCiInputSchema = PrActionBaseSchema;
+export type FixInboxPrCiInput = z.infer<typeof FixInboxPrCiInputSchema>;
 
 /** One PR's unified diff; `truncated` = GitHub refused it (too large) or it was capped. */
 export const InboxPrDiffSchema = z.object({ diff: z.string(), truncated: z.boolean() });

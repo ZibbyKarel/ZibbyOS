@@ -22,6 +22,8 @@ describe("InboxRebaseService", () => {
   let dropPrsCache: ReturnType<typeof vi.fn>;
   let pushRebased: ReturnType<typeof vi.fn>;
   let pull: Record<string, unknown>;
+  let graphql: { status: number; body: unknown };
+  let fetchImpl: ReturnType<typeof vi.fn>;
   let integrations: Integration[];
   let service: InboxRebaseService;
 
@@ -32,6 +34,7 @@ describe("InboxRebaseService", () => {
     integrations = [GITHUB];
     pull = {
       state: "open",
+      node_id: "PR_node",
       mergeable: true,
       head: { ref: "feat", sha: "sha1", repo: { full_name: "acme/app" } },
       base: { ref: "main", repo: { full_name: "acme/app", default_branch: "main" } },
@@ -53,7 +56,12 @@ describe("InboxRebaseService", () => {
     register = vi.fn();
     dropPrsCache = vi.fn();
     pushRebased = vi.fn(async () => "newsha");
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(pull), { status: 200 }));
+    graphql = { status: 200, body: { errors: [{ message: "merge conflict" }] } };
+    fetchImpl = vi.fn(async (url: string) =>
+      url.endsWith("/graphql")
+        ? new Response(JSON.stringify(graphql.body), { status: graphql.status })
+        : new Response(JSON.stringify(pull), { status: 200 }),
+    );
     service = new InboxRebaseService(
       {
         get: async (id: string) => {
@@ -85,8 +93,49 @@ describe("InboxRebaseService", () => {
     expect(register).toHaveBeenCalledWith("pr-rebase", expect.anything());
   });
 
-  it("start creates a pr-rebase workflow task and stamps the GitHub refs", async () => {
+  const startRebase = () =>
+    service.start({
+      projectId: "acme",
+      repo: "Acme/App",
+      number: 7,
+      title: "Fix it",
+      method: "rebase",
+    });
+
+  it("GitHub's server-side update succeeding returns updated and creates no task", async () => {
+    graphql = { status: 200, body: { data: { updatePullRequestBranch: {} } } };
+    expect(await start()).toEqual({ updated: true });
+    expect(createTask).not.toHaveBeenCalled();
+    expect(dropPrsCache).toHaveBeenCalled();
+    const call = fetchImpl.mock.calls.find(([u]) => String(u).endsWith("/graphql"));
+    expect(JSON.parse(call?.[1].body).variables.input).toEqual({
+      pullRequestId: "PR_node",
+      expectedHeadOid: "sha1",
+      updateMethod: "MERGE",
+    });
+    await startRebase();
+    const last = fetchImpl.mock.calls.filter(([u]) => String(u).endsWith("/graphql")).pop();
+    expect(JSON.parse(last?.[1].body).variables.input.updateMethod).toBe("REBASE");
+  });
+
+  it("a refused GitHub update falls back to the merge brief by default", async () => {
     expect(await start()).toEqual({ taskId: "task_b1" });
+    const text: string = createTask.mock.calls[0]?.[0].text ?? "";
+    expect(text).toContain("git merge --no-ff origin/main");
+    expect(text).toContain("Merge branch 'main' into feat");
+    expect(text).not.toContain("rerere");
+    expect((await storage.get("task_b1")).prRebase?.method).toBe("merge");
+  });
+
+  it("a non-200 GraphQL answer falls back too, with the rebase brief for method rebase", async () => {
+    graphql = { status: 502, body: {} };
+    expect(await startRebase()).toEqual({ taskId: "task_b1" });
+    expect(createTask.mock.calls[0]?.[0].text).toContain("rerere.enabled=true");
+    expect((await storage.get("task_b1")).prRebase?.method).toBe("rebase");
+  });
+
+  it("start creates a pr-rebase workflow task and stamps the GitHub refs", async () => {
+    expect(await startRebase()).toEqual({ taskId: "task_b1" });
     const [input, , trustedProjectId, target, background] = createTask.mock.calls[0] ?? [];
     expect(trustedProjectId).toBe("acme");
     expect(target).toMatchObject({ kind: "workflow", id: "pr-rebase" });
@@ -107,12 +156,13 @@ describe("InboxRebaseService", () => {
       base: "main",
       headSha: "sha1",
       conflictAtStart: false,
+      method: "rebase",
       state: "running",
     });
   });
 
   it("the brief's first-line rule matches the rebase-resolver report contract", async () => {
-    await start();
+    await startRebase();
     const text: string = createTask.mock.calls[0]?.[0].text ?? "";
     expect(text).toContain("`Conflicts: aborted` followed by the reason");
     expect(text).toContain("`Conflicts: <n> files, checks failed`");

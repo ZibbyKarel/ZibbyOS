@@ -3488,7 +3488,12 @@
           "discarded": "Oprava CI zahozena",
           "failed": "Oprava CI selhala"
         },
-        "rebaseOn": "Rebase na {base}"
+        "branchUpdated": "Větev aktualizována.",
+        "updateMethodsAria": "Možnosti aktualizace větve",
+        "updateMethod": {
+          "merge": { "label": "Aktualizovat větev", "item": "Aktualizovat merge commitem" },
+          "rebase": { "label": "Rebase větve", "item": "Aktualizovat rebasem" }
+        }
       },
       "listTitle": "Pull requesty",
       "on": "Na {base}",

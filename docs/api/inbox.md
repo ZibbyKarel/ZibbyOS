@@ -30,7 +30,7 @@ squash-and-merge through the projects merge route. UI spec: `docs/plans/inbox-ui
 | GET    | `/api/roadmap/items`                                        | —                                                                                                                                  | `InboxItemsResponse`                                                                                                                                                  |
 | GET    | `/api/inbox/prs`                                            | —                                                                                                                                  | `InboxPrsResponse`                                                                                                                                                    |
 | POST   | `/api/inbox/prs/review`                                     | `{ projectId, repo, number, title?, level? }` (strict; `level` = `quick` \| `thorough` \| `tested` \| `browser`, absent = `quick`) | 201 `{ taskId }`; 404 project; 422 no GitHub link / repo not the project's                                                                                            |
-| POST   | `/api/inbox/prs/rebase`                                     | `{ projectId, repo, number, title? }` (strict)                                                                                     | 201 `{ taskId }`; 404 project; 422 no GitHub link / not the project's repo / fork / closed / head is base or default                                                  |
+| POST   | `/api/inbox/prs/rebase`                                     | `{ projectId, repo, number, title?, method? }` (strict; `method` merge (default) / rebase)                                         | 201 `{ updated: true }` or `{ taskId }`; 404 project; 422 no GitHub link / not the project's repo / fork / closed / head is base or default                           |
 | POST   | `/api/inbox/prs/address-comments`                           | `{ projectId, repo, number, title? }` (strict; same body as rebase)                                                                | 201 `{ taskId }`; 404 project; 422 no GitHub link / foreign repo / fork / closed / head is base or default / run in flight                                            |
 | POST   | `/api/inbox/prs/fix-ci`                                     | `{ projectId, repo, number, title? }` (strict; same body as rebase)                                                                | 201 `{ taskId }`; 404 project; 422 no GitHub link / foreign repo / fork / closed / head is base or default / run in flight                                            |
 | GET    | `/api/inbox/prs/:projectId/:number/diff`                    | —                                                                                                                                  | 200 `{ diff, truncated }`; 404 project/PR; 422 no GitHub link/token rejected; 502 GitHub error                                                                        |
@@ -526,7 +526,16 @@ autopilotAt? }`. It refuses (`PrRefusedError`) when the head moved off the `head
 Caps (decided by the heartbeat): 2 reruns per head, 2 fix attempts per PR chain, and the same failure
 after a fix parks. `GET /api/inbox/prs` rows list the triage in `runs[]` with kind `ci-triage`.
 
-## Rebase (`POST /api/inbox/prs/rebase`)
+## Update branch / Rebase (`POST /api/inbox/prs/rebase`)
+
+GitHub-style "Update branch" split button. Body `{ projectId, repo, number, title?, method? }`
+(strict; `method` = `merge` (default) or `rebase`). After the guards, `start` first calls GitHub's
+GraphQL `updatePullRequestBranch` (`expectedHeadOid` = the clicked sha, `updateMethod` MERGE /
+REBASE) → 201 `{ updated: true }`, no task, no LLM. When GitHub refuses (conflicts, non-200) it
+falls back to the `pr-rebase` workflow below → 201 `{ taskId }`; the brief follows `method`
+(`merge`: `git merge --no-ff origin/<base>` in one pass; `rebase`: the rebase brief) and the
+method is stored on `prRebase.method`. A merge result is a fast-forward of the clicked head, so
+`pushRebased` accepts it unchanged.
 
 todo-11. Body `{ projectId, repo, number, title? }` (strict) → 201 `{ taskId }`; 404 unknown
 project; 422 no GitHub link / repo not the project's / fork head / closed PR / head is the

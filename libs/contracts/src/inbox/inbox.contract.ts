@@ -22,6 +22,7 @@ import {
   SetInboxHiddenSchema,
   SubmitInboxPrReviewInputSchema,
   SubmitInboxPrReviewResultSchema,
+  UpdatePrBranchResultSchema,
 } from "./inbox.schema";
 
 const c = initContract();
@@ -82,14 +83,14 @@ export const inboxContract = c.router(
       path: "/inbox/prs/rebase",
       body: RebaseInboxPrInputSchema,
       responses: {
-        201: ReviewInboxPrResultSchema,
+        201: UpdatePrBranchResultSchema,
         404: ErrorSchema,
         // 422: no GitHub link, foreign repo, fork head, closed PR, or a head that is the
         // base/default branch.
         422: ErrorSchema,
       },
       summary:
-        "Start a rebase of one PR's head onto its base (pr-rebase workflow); ZIBBY force-pushes with lease — right away when conflict-free, after a Tier-3 approval when conflicts were resolved",
+        "Update one PR's branch from its base (method merge by default, or rebase): GitHub's server-side update first ({ updated: true }); when it refuses (conflicts) a pr-rebase workflow task resolves them ({ taskId }) and ZIBBY pushes — right away when green, after a Tier-3 approval otherwise",
     },
     addressInboxPrComments: {
       method: "POST",

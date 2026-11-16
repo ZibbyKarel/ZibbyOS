@@ -3488,7 +3488,12 @@
           "discarded": "CI fix discarded",
           "failed": "CI fix failed"
         },
-        "rebaseOn": "Rebase on {base}"
+        "branchUpdated": "Branch updated.",
+        "updateMethodsAria": "Update branch options",
+        "updateMethod": {
+          "merge": { "label": "Update branch", "item": "Update with merge commit" },
+          "rebase": { "label": "Rebase branch", "item": "Update with rebase" }
+        }
       },
       "listTitle": "Pull requests",
       "on": "On {base}",

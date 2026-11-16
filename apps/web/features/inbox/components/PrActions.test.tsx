@@ -283,16 +283,45 @@ describe("PrActions address / rebase", () => {
     expect(screen.getByTestId(PrActionsTestId.Rebase)).toBeInTheDocument();
   });
 
-  it("REBASE ON <base> only when conflicting or behind — never as a fallback", () => {
+  it("Update branch only when conflicting or behind — never as a fallback", () => {
     const { rerender } = renderWithProviders(
       <PrActions baseLabel="#12" pr={pr(7, { behind: true })} />,
     );
-    expect(screen.getByTestId(PrActionsTestId.Rebase)).toHaveTextContent("Rebase na #12");
+    expect(screen.getByTestId(DropDownButtonTestId.Primary)).toHaveTextContent(
+      "Aktualizovat větev",
+    );
     rerender(<PrActions baseLabel="main" pr={pr(7, { mergeable: false })} />);
-    expect(screen.getByTestId(PrActionsTestId.Rebase)).toHaveTextContent("Rebase na main");
+    expect(screen.getByTestId(PrActionsTestId.Rebase)).toBeInTheDocument();
     rerender(<PrActions baseLabel="main" pr={pr(7, {})} />);
     expect(screen.queryByTestId(PrActionsTestId.Rebase)).toBeNull();
     expect(hasPrActions(pr(7, {}))).toBe(false);
+  });
+
+  it("the menu only picks the update mode; the primary click sends it (merge by default)", () => {
+    renderWithProviders(<PrActions baseLabel="main" pr={pr(1, { mergeable: false })} />);
+    fireEvent.click(screen.getByTestId(DropDownButtonTestId.Primary));
+    expect(rebase).toHaveBeenLastCalledWith(
+      { body: { projectId: "api", repo: "acme/api", number: 1, title: "PR 1", method: "merge" } },
+      expect.anything(),
+    );
+    fireEvent.click(screen.getByTestId(DropDownButtonTestId.Trigger));
+    fireEvent.click(screen.getByTestId(`${DropDownButtonTestId.Item}-rebase`));
+    expect(rebase).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId(DropDownButtonTestId.Primary)).toHaveTextContent("Rebase větve");
+    fireEvent.click(screen.getByTestId(DropDownButtonTestId.Primary));
+    expect(rebase).toHaveBeenLastCalledWith(
+      { body: expect.objectContaining({ method: "rebase" }) },
+      expect.anything(),
+    );
+  });
+
+  it("a server-side update shows the confirmation", () => {
+    rebase.mockImplementationOnce((_vars, opts: { onSuccess?: (r: unknown) => void }) =>
+      opts.onSuccess?.({ status: 201, body: { updated: true } }),
+    );
+    renderWithProviders(<PrActions baseLabel="main" pr={pr(1, { mergeable: false })} />);
+    fireEvent.click(screen.getByTestId(DropDownButtonTestId.Primary));
+    expect(screen.getByTestId(PrActionsTestId.Message)).toHaveTextContent("Větev aktualizována.");
   });
 
   it("clicking Rebase starts it; a refusal shows the server's reason", () => {
@@ -300,9 +329,9 @@ describe("PrActions address / rebase", () => {
       opts.onError?.({ status: 422, body: { message: "acme/api#1 comes from a fork" } }),
     );
     renderWithProviders(<PrActions baseLabel="main" pr={pr(1, { mergeable: false })} />);
-    fireEvent.click(screen.getByTestId(PrActionsTestId.Rebase));
+    fireEvent.click(screen.getByTestId(DropDownButtonTestId.Primary));
     expect(rebase).toHaveBeenCalledWith(
-      { body: { projectId: "api", repo: "acme/api", number: 1, title: "PR 1" } },
+      { body: { projectId: "api", repo: "acme/api", number: 1, title: "PR 1", method: "merge" } },
       expect.anything(),
     );
     expect(screen.getByTestId(PrActionsTestId.Message)).toHaveTextContent(

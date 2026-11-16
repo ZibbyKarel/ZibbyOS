@@ -56,11 +56,15 @@ export type PrReviewMode = Exclude<PrReviewLevel, "thorough">;
 export const REVIEW_MODES: readonly PrReviewMode[] = ["quick", "tested", "browser"];
 export const REVIEW_MODE_STORAGE_KEY = "zibby-inbox-pr-review-mode";
 
+export type PrUpdateMethod = "merge" | "rebase";
+export const UPDATE_METHODS: readonly PrUpdateMethod[] = ["merge", "rebase"];
+export const UPDATE_METHOD_STORAGE_KEY = "zibby-inbox-pr-update-method";
+
 const taskHref = (id: string) => `/work/tasks/${encodeURIComponent(id)}`;
 
 export interface PrActionButtonsProps {
   pr: InboxPr;
-  /** What the PR sits on (`prBaseLabel`): `#12` or a branch — "Rebase on …". */
+  /** What the PR sits on (`prBaseLabel`): `#12` or a branch. */
   baseLabel: string;
   /** Leave "Fix CI" out — the PR detail renders `PrFixCiButton` in its checks summary instead. */
   hideFixCi?: boolean;
@@ -125,13 +129,13 @@ export function PrFixCiButton({ pr }: PrFixCiButtonProps) {
  *   after a Tier-3 approval otherwise;
  * - a PR with failing checks → "Fix CI": a `pr-fix-ci` task. ZIBBY fast-forwards the fix (never force) —
  *   right away for `Fixed: all` on my own PR (Tier-2), after a Tier-3 approval otherwise;
- * - any PR conflicting with / behind its base → "Rebase on <base>" (todo-11). Never a fallback;
+ * - any PR conflicting with / behind its base → "Update branch" split button (todo-11): merge (default) or rebase, GitHub first. Never a fallback;
  * - `ready-to-merge` → hold-to-confirm "Squash and merge" (optionally deleting the head branch).
  * While a ZIBBY run is in flight its running label (linked to the task) replaces the buttons;
  * a failed run keeps the buttons and adds a link to the failed task. Review / Address / Fix CI hide once
  * their latest run succeeded after the PR's last GitHub change (`updatedAt` ≤ `finishedAt`).
  */
-export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionButtonsProps) {
+export function PrActionButtons({ pr, hideFixCi = false }: PrActionButtonsProps) {
   const t = useTranslations("inboxPage.prs.actions");
   const qc = useQueryClient();
   const review = useReviewInboxPrMutation();
@@ -142,6 +146,8 @@ export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionBu
   const [message, setMessage] = useState<string | null>(null);
   const [modes, setMode] = useSessionFlags<string>(REVIEW_MODE_STORAGE_KEY);
   const mode = REVIEW_MODES.find((m) => m === modes[pr.url]) ?? "quick";
+  const [methods, setMethod] = useSessionFlags<string>(UPDATE_METHOD_STORAGE_KEY);
+  const method = UPDATE_METHODS.find((m) => m === methods[pr.url]) ?? "merge";
 
   if (!hasPrActions(pr)) return null;
 
@@ -170,11 +176,16 @@ export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionBu
       },
     );
 
-  const onRebase = () =>
+  const onRebase = (updateMethod: PrUpdateMethod) =>
     rebase.mutate(
-      { body: target },
+      { body: { ...target, method: updateMethod } },
       {
-        onSuccess: () => setMessage(null),
+        onSuccess: (res) => {
+          if (res.status === 201 && res.body.updated) {
+            void qc.invalidateQueries({ queryKey: getInboxPrsQueryKey() });
+            setMessage(t("branchUpdated"));
+          } else setMessage(null);
+        },
         onError: (err) =>
           setMessage(
             "status" in err && err.status === 422
@@ -275,16 +286,23 @@ export function PrActionButtons({ pr, baseLabel, hideFixCi = false }: PrActionBu
           )}
           {!hideFixCi && <PrFixCiButton pr={pr} />}
           {isRebase(pr) && (
-            <Button
-              data-testid={PrActionsTestId.Rebase}
-              disabled={rebase.isPending}
-              intent="secondary"
-              loading={rebase.isPending}
-              onClick={onRebase}
-              size="sm"
-            >
-              {t("rebaseOn", { base: baseLabel })}
-            </Button>
+            <Container data-testid={PrActionsTestId.Rebase}>
+              <DropDownButton
+                disabled={rebase.isPending}
+                intent="secondary"
+                label={t(`updateMethod.${method}.label`)}
+                loading={rebase.isPending}
+                menuAriaLabel={t("updateMethodsAria")}
+                menuItems={UPDATE_METHODS.map((m) => ({
+                  id: m,
+                  label: t(`updateMethod.${m}.item`),
+                  checked: m === method,
+                  onSelect: () => setMethod(pr.url, m),
+                }))}
+                onClick={() => onRebase(method)}
+                size="sm"
+              />
+            </Container>
           )}
           {isMerge(pr) && (
             <>

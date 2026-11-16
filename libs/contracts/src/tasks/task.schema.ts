@@ -842,6 +842,8 @@ export const ScheduledTaskSchema = z.object({
       base: z.string().min(1),
       headSha: z.string().min(1),
       conflictAtStart: z.boolean(),
+      /** How the base was brought in: `merge` (default) or `rebase`. */
+      method: z.enum(["merge", "rebase"]).optional(),
       state: PrRebaseStateSchema,
       report: z.string().optional(),
       worktree: z.string().optional(),
