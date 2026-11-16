@@ -1373,14 +1373,16 @@
 }
 
 .zb-screen-glow {
-  padding: 14px;
+  padding: 10px;
+  opacity: 0.55;
+  /* Calm palette: only the new-design violet/sky/brand tones. The old
+   * green/amber/red stops made the ring flash through contrasting hues. */
   background: conic-gradient(
     from var(--zb-screen-glow-angle),
     var(--color-state-work),
     var(--color-state-think),
-    var(--color-state-done),
-    var(--color-state-block),
-    var(--color-state-err),
+    var(--color-state-work),
+    var(--color-brand),
     var(--color-state-work)
   );
   mask:
@@ -1390,7 +1392,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .zb-screen-glow {
-    animation: zb-screen-glow-spin 8s linear infinite;
+    animation: zb-screen-glow-spin 48s linear infinite;
   }
 
   @keyframes zb-screen-glow-spin {
