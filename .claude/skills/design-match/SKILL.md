@@ -122,7 +122,7 @@ outside the repo hits it before a socket is opened:
 ```
 $ node .claude/skills/design-match/scripts/cli.mjs measure /tmp/dm-probe/x.html "karta"
 [design-match] design-match: adresář mockupu (/private/tmp/dm-probe) leží mimo aktuální
-pracovní adresář (/Users/zibby/Workspace/z.i.b.b.y) — design-match servíruje jen adresáře
+pracovní adresář (/Users/zibby/Workspace/ZibbyOS) — design-match servíruje jen adresáře
 uvnitř něj. Spusť measure z adresáře, který mockup obsahuje, nebo mockup do něj zkopíruj.
 EXIT=3
 ```

@@ -3,16 +3,16 @@ import { normalizeRemote, redactRemote } from "./self-remote";
 
 describe("normalizeRemote", () => {
   it.each([
-    "git@github.com:ZibbyKarel/z.i.b.b.y.git",
-    "git@GitHub.com:ZibbyKarel/z.i.b.b.y",
-    "ssh://git@github.com/ZibbyKarel/z.i.b.b.y.git",
-    "ssh://git@github.com:22/ZibbyKarel/z.i.b.b.y",
-    "https://github.com/ZibbyKarel/z.i.b.b.y",
-    "https://github.com/ZibbyKarel/z.i.b.b.y.git",
-    "https://github.com/ZibbyKarel/z.i.b.b.y/",
-    "https://user:tok@GITHUB.com/ZibbyKarel/z.i.b.b.y.git",
+    "git@github.com:ZibbyKarel/ZibbyOS.git",
+    "git@GitHub.com:ZibbyKarel/ZibbyOS",
+    "ssh://git@github.com/ZibbyKarel/ZibbyOS.git",
+    "ssh://git@github.com:22/ZibbyKarel/ZibbyOS",
+    "https://github.com/ZibbyKarel/ZibbyOS",
+    "https://github.com/ZibbyKarel/ZibbyOS.git",
+    "https://github.com/ZibbyKarel/ZibbyOS/",
+    "https://user:tok@GITHUB.com/ZibbyKarel/ZibbyOS.git",
   ])("maps %s to host/owner/repo", (url) => {
-    expect(normalizeRemote(url)).toBe("github.com/ZibbyKarel/z.i.b.b.y");
+    expect(normalizeRemote(url)).toBe("github.com/ZibbyKarel/ZibbyOS");
   });
 
   it("keeps different repos/hosts apart", () => {

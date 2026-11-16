@@ -150,7 +150,7 @@ describe("SelfService.status", () => {
       appUpdateAvailable: true,
     });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://api.github.com/repos/ZibbyKarel/z.i.b.b.y/releases?per_page=30",
+      "https://api.github.com/repos/ZibbyKarel/ZibbyOS/releases?per_page=30",
       expect.anything(),
     );
   });

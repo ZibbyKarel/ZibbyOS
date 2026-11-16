@@ -24,13 +24,13 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>⟨/Users/you/Workspace/z.i.b.b.y⟩/apps/api/scripts/backup.sh</string>
+    <string>⟨/Users/you/Workspace/ZibbyOS⟩/apps/api/scripts/backup.sh</string>
   </array>
 
   <key>EnvironmentVariables</key>
   <dict>
     <key>ZIBBY_DATA_DIR</key>
-    <string>⟨/Users/you/Workspace/z.i.b.b.y⟩/apps/api/data</string>
+    <string>⟨/Users/you/Workspace/ZibbyOS⟩/apps/api/data</string>
     <key>ZIBBY_BACKUP_DIR</key>
     <string>⟨/Users/you/zibby-backups⟩</string>
     <key>PATH</key>

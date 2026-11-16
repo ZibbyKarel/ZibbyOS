@@ -43,7 +43,7 @@ Reads local git state in `installRoot()`:
   `version` of `apps/desktop/package.json` under `installRoot()`.
   `latestAppVersion` / `latestAppReleaseUrl` are the highest non-draft,
   non-prerelease `desktop-v*` release from
-  `api.github.com/repos/ZibbyKarel/z.i.b.b.y/releases?per_page=30`, cached in
+  `api.github.com/repos/ZibbyKarel/ZibbyOS/releases?per_page=30`, cached in
   memory 24 h (a failed lookup is retried after 5 min). The first status read
   after API boot is the startup check. `appUpdateAvailable` is
   `true` only when both are known and the latest is strictly newer (numeric

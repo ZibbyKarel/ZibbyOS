@@ -38,7 +38,7 @@ The installed app checks the releases at launch and then every 24 hours, or on d
 
 There is no Apple Developer ID: the app is ad-hoc signed, so Squirrel/`electron-updater` can't be used (it requires a stable signing identity). The download goes through Node's `fetch`, so the new bundle never gets a quarantine flag and Gatekeeper doesn't block it. The updater only works when the app runs from a writable location such as `/Applications`, not from the DMG. It logs to `~/Library/Logs/ZibbyOS/updater.log`. `ZIBBY_UPDATE_RELEASES_URL` points it at another feed for testing.
 
-CI builds bake `~/Workspace/z.i.b.b.y` as the source checkout (expanded at runtime); a local `pnpm desktop:dist` bakes the checkout it was built from.
+CI builds bake `~/Workspace/ZibbyOS` as the source checkout (expanded at runtime); a local `pnpm desktop:dist` bakes the checkout it was built from.
 
 ### Where things live
 

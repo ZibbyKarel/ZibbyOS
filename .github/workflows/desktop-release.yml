@@ -50,7 +50,7 @@ jobs:
         run: pnpm desktop:dist
         env:
           # Baked into build-info.json; the app expands `~` at runtime.
-          ZIBBY_BUILD_SOURCE_ROOT: ~/Workspace/z.i.b.b.y
+          ZIBBY_BUILD_SOURCE_ROOT: ~/Workspace/ZibbyOS
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Checksum

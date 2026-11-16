@@ -29,7 +29,7 @@ const BASE: SelfStatus = {
 const UPDATE: SelfStatus = {
   ...BASE,
   latestAppVersion: "0.3.0",
-  latestAppReleaseUrl: "https://github.com/ZibbyKarel/z.i.b.b.y/releases/tag/desktop-v0.3.0",
+  latestAppReleaseUrl: "https://github.com/ZibbyKarel/ZibbyOS/releases/tag/desktop-v0.3.0",
   appUpdateAvailable: true,
 };
 

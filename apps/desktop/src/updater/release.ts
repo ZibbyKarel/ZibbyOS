@@ -3,7 +3,7 @@
  * `desktop-v<major>.<minor>.<patch>` (other tags in the repo are ignored) and carries
  * the zipped app plus a `<zip>.sha256` sidecar the CI writes next to it.
  */
-export const RELEASE_REPO = "ZibbyKarel/z.i.b.b.y";
+export const RELEASE_REPO = "ZibbyKarel/ZibbyOS";
 export const RELEASE_TAG_PREFIX = "desktop-v";
 export const DEFAULT_RELEASES_URL = `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=30`;
 

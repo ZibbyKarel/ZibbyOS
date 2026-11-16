@@ -38,7 +38,7 @@ export function readBuildInfo(): BuildInfo {
   return { ...info, sourceRoot: expandHome(info.sourceRoot, app.getPath("home")) };
 }
 
-/** CI release builds bake `~/Workspace/z.i.b.b.y` — the runner's own path means nothing here. */
+/** CI release builds bake `~/Workspace/ZibbyOS` — the runner's own path means nothing here. */
 export function expandHome(p: string, home: string): string {
   if (p === "~") return home;
   return p.startsWith("~/") ? path.join(home, p.slice(2)) : p;

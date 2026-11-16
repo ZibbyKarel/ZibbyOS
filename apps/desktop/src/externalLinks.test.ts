@@ -12,7 +12,7 @@ describe("classifyUrl", () => {
   });
 
   it("sends other web origins to the browser", () => {
-    expect(classifyUrl("https://github.com/ZibbyKarel/z.i.b.b.y/pull/1", ORIGIN)).toBe("external");
+    expect(classifyUrl("https://github.com/ZibbyKarel/ZibbyOS/pull/1", ORIGIN)).toBe("external");
     expect(classifyUrl("http://localhost:3000/", ORIGIN)).toBe("external");
     expect(classifyUrl("mailto:someone@example.com", ORIGIN)).toBe("external");
   });

@@ -5,7 +5,7 @@ const rel = (tag: string, extra: Record<string, unknown> = {}) => ({
   tag_name: tag,
   draft: false,
   prerelease: false,
-  html_url: `https://github.com/ZibbyKarel/z.i.b.b.y/releases/tag/${tag}`,
+  html_url: `https://github.com/ZibbyKarel/ZibbyOS/releases/tag/${tag}`,
   ...extra,
 });
 
@@ -21,7 +21,7 @@ describe("pickLatestDesktopVersion", () => {
   it("picks the highest published desktop-v* release, ignoring drafts, prereleases and foreign tags", () => {
     expect(pickLatestDesktopVersion(RELEASES)).toEqual({
       version: "0.3.0",
-      url: "https://github.com/ZibbyKarel/z.i.b.b.y/releases/tag/desktop-v0.3.0",
+      url: "https://github.com/ZibbyKarel/ZibbyOS/releases/tag/desktop-v0.3.0",
     });
   });
 

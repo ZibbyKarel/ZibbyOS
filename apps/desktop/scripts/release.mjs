@@ -50,7 +50,10 @@ const behind = git(["rev-list", "--count", "HEAD..origin/main"]);
 if (behind !== "0") fail(`main is ${behind} commit(s) behind origin/main — pull first`);
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-const next = bump(pkg.version, process.argv[2] ?? fail("missing bump — use pnpm release:patch | release:minor | release:major"));
+const next = bump(
+  pkg.version,
+  process.argv[2] ?? fail("missing bump — use pnpm release:patch | release:minor | release:major"),
+);
 const tag = `${TAG_PREFIX}${next}`;
 if (git(["tag", "-l", tag])) fail(`tag ${tag} already exists`);
 
@@ -66,7 +69,7 @@ git(["tag", "-a", tag, "-m", `ZibbyOS ${next}`]);
 git(["push", "--atomic", "origin", "main", tag], { stdio: "inherit" });
 
 console.log(
-  `\nPushed ${tag}. The build runs at https://github.com/ZibbyKarel/z.i.b.b.y/actions/workflows/desktop-release.yml`,
+  `\nPushed ${tag}. The build runs at https://github.com/ZibbyKarel/ZibbyOS/actions/workflows/desktop-release.yml`,
 );
 console.log(
   "When it finishes, the installed ZibbyOS offers the update within 6 hours (or now: ZibbyOS → Check for Updates…).",

@@ -4,8 +4,7 @@
  * repo, version parsing) without importing from the desktop app.
  */
 const RELEASE_TAG_PREFIX = "desktop-v";
-export const RELEASES_URL =
-  "https://api.github.com/repos/ZibbyKarel/z.i.b.b.y/releases?per_page=30";
+export const RELEASES_URL = "https://api.github.com/repos/ZibbyKarel/ZibbyOS/releases?per_page=30";
 
 /** Matches the desktop updater's schedule: one lookup per day unless forced. */
 const SUCCESS_TTL_MS = 24 * 60 * 60 * 1000;

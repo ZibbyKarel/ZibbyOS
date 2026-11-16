@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "file=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); echo \"$file\" | grep -qE '\\.(tsx?|jsx?)$' && cd ~/Workspace/z.i.b.b.y && pnpm eslint --fix \"$file\" > /dev/null 2>&1 || true",
+            "command": "file=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); echo \"$file\" | grep -qE '\\.(tsx?|jsx?)$' && cd ~/Workspace/ZibbyOS && pnpm eslint --fix \"$file\" > /dev/null 2>&1 || true",
             "async": true,
             "statusMessage": "ESLint fix..."
           },

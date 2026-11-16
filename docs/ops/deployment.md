@@ -41,7 +41,7 @@ restart on crash.
      <string>api:start</string>
    </array>
    <key>WorkingDirectory</key>
-   <string>⟨/Users/you/Workspace/z.i.b.b.y⟩</string>
+   <string>⟨/Users/you/Workspace/ZibbyOS⟩</string>
    <key>PATH</key>
    <string>⟨/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin⟩</string>
    ```
