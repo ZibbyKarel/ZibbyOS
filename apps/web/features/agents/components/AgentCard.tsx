@@ -1,7 +1,7 @@
 import type { Agent } from "@zibby/contracts";
 import { EntityCard, Icon, type IconName, Tag } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
-import { useTierLabel } from "../../ai-providers";
+import { useEngineBadge, useTierLabel } from "../../ai-providers";
 import { ModelBadge, ThinkBadge } from "../../../components/RuntimeBadges/RuntimeBadges";
 
 export interface AgentCardProps {
@@ -14,6 +14,7 @@ export interface AgentCardProps {
 export function AgentCard({ agent, workflowCount = 0, onClick }: AgentCardProps) {
   const t = useTranslations("agents");
   const tierLabel = useTierLabel();
+  const engineBadge = useEngineBadge();
   const name = agent.displayName ?? agent.name ?? agent.id;
   const tools = agent.tools ?? [];
 
@@ -41,6 +42,7 @@ export function AgentCard({ agent, workflowCount = 0, onClick }: AgentCardProps)
         )),
       ]}
       description={agent.description}
+      engineBadge={engineBadge(agent)}
       glyph={(agent.glyph as IconName | undefined) ?? "bot"}
       logoSrc={agent.avatar}
       onClick={onClick ? () => onClick(agent) : undefined}

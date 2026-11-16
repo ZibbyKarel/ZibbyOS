@@ -21,6 +21,14 @@ export interface ResolvedAiEngine {
 /** What a run asks to execute on: engine / exact-model overrides + the model tier. */
 export type EngineTarget = Pick<Agent, "engine" | "engineModel" | "model">;
 
+/** A firing automation's engine override (`Automation.engine` / `engineModel`). */
+export type EngineOverride = Pick<Agent, "engine" | "engineModel">;
+
+/** The override carried by a task / create input, or `undefined` when it names no engine. */
+export function engineOverrideOf(o: EngineOverride): EngineOverride | undefined {
+  return o.engine ? { engine: o.engine, engineModel: o.engineModel } : undefined;
+}
+
 /**
  * Effective engine for a run: the target's own override ?? the global setting. On
  * opencode the model is the explicit `engineModel` ?? the tier mapped through

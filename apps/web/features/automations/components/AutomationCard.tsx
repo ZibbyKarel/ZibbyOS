@@ -5,6 +5,7 @@ import {
   Card,
   Container,
   Divider,
+  EngineBadge,
   Icon,
   type IconName,
   IconTile,
@@ -15,6 +16,7 @@ import {
 } from "@zibby/design-system";
 import type { Automation, Target } from "@zibby/contracts";
 import { nextCronRun, relativeLabel } from "../schedule";
+import { useAutomationEngineBadge } from "../useAutomationEngineBadge";
 import { useCronLabel } from "../useCronLabel";
 
 /** Testids for the automation card (the screen + tests select via these). */
@@ -95,6 +97,7 @@ export function AutomationCard({
   const t = useTranslations("automations");
   const locale = useLocale();
   const cronLabel = useCronLabel();
+  const engineBadge = useAutomationEngineBadge(automation);
   const { trigger, target, enabled } = automation;
   const name = automation.name ?? automation.id;
 
@@ -204,6 +207,7 @@ export function AutomationCard({
             />
             <Icon name="arrow" size="sm" tone="faint" />
             <FlowBox
+              badge={engineBadge}
               glyph={
                 targetGlyph ??
                 (target.type === "task" ? taskGlyph(target) : TARGET_GLYPH[target.type])
@@ -256,11 +260,13 @@ export function AutomationCard({
 
 /** A bordered trigger/target tile: glyph + uppercase kind + the spec value. */
 function FlowBox({
+  badge,
   glyph,
   kind,
   value,
   testid,
 }: {
+  badge?: { engine: "claude" | "openai" | "opencode"; label: string } | undefined;
   glyph: IconName;
   kind: string;
   value: string;
@@ -271,7 +277,9 @@ function FlowBox({
       <Card background="background" radius="default">
         <Container padding={["100", "150"]}>
           <Stack align="center" direction="row" gap="100">
-            <IconTile glyph={glyph} size="sm" />
+            <EngineBadge {...badge}>
+              <IconTile glyph={glyph} size="sm" />
+            </EngineBadge>
             <Container grow minW0>
               <Stack gap="25">
                 <Typography size="2xs" type="label" variant="tertiary">

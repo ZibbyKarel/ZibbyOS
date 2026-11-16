@@ -3,6 +3,7 @@ import {
   type AiEngineStatus,
   type ModelTier,
   type OpencodeTierModels,
+  type SystemConfig,
   resolveTierModel,
 } from "@zibby/contracts";
 
@@ -73,4 +74,89 @@ export function lacksThinkingVariant(
   if (!model || !level || model.includes("#")) return false;
   const found = models.find((m) => m.id === model);
   return found !== undefined && !found.variants.includes(level);
+}
+
+/** The engine mark an avatar's corner badge shows. */
+export type EngineMark = "claude" | "openai" | "opencode";
+
+/**
+ * Which mark an entity's badge shows: its effective engine (override ?? global) → `claude`; on
+ * opencode, an `openai/` model (explicit `engineModel`, else the tier's mapping) → `openai`,
+ * anything else → `opencode`. Mirrors the API's `resolveAiEngine`.
+ */
+export function engineMark(
+  target: { engine?: AiEngine | undefined; engineModel?: string | undefined; model?: ModelTier },
+  config: Pick<SystemConfig, "aiEngine" | "opencodeModel" | "opencodeTierModels"> | undefined,
+  listed?: readonly string[],
+): EngineMark {
+  const engine = target.engine ?? config?.aiEngine ?? "claude";
+  if (engine === "claude") return "claude";
+  const model =
+    target.engineModel ??
+    resolveTierModel(
+      target.model ?? "sonnet",
+      config?.opencodeTierModels,
+      config?.opencodeModel ?? "",
+      listed,
+    );
+  return model.startsWith("openai/") ? "openai" : "opencode";
+}
+
+const MARK_ORDER: readonly EngineMark[] = ["claude", "openai", "opencode"];
+
+/**
+ * The `engineMark` target of one agent step. Mirrors the API's `stageEngineTarget`: the step's
+ * engine / model over the agent's; an OpenAI text model runs as `openai/` on opencode.
+ */
+export function stepEngineTarget(
+  step: {
+    engine?: AiEngine | undefined;
+    engineModel?: string | undefined;
+    model?: ModelTier | undefined;
+    openaiModel?: string | undefined;
+  },
+  agent: { engine?: AiEngine | undefined; engineModel?: string | undefined } | undefined,
+): { engine?: AiEngine; engineModel?: string; model?: ModelTier } {
+  if (step.openaiModel) return { engine: "opencode", engineModel: `openai/${step.openaiModel}` };
+  return {
+    engine: step.engine ?? agent?.engine,
+    engineModel: step.engineModel ?? agent?.engineModel,
+    model: step.model,
+  } as { engine?: AiEngine; engineModel?: string; model?: ModelTier };
+}
+
+/**
+ * Every distinct engine mark a workflow's agent steps run on (claude, openai, opencode order).
+ * Without agent steps it is the global engine's mark alone (`markOf({})`).
+ */
+export function workflowEngineMarks(
+  steps: readonly {
+    type?: string | undefined;
+    agent?: string | undefined;
+    engine?: AiEngine | undefined;
+    engineModel?: string | undefined;
+    model?: ModelTier | undefined;
+    openaiModel?: string | undefined;
+  }[],
+  agents: readonly {
+    id: string;
+    engine?: AiEngine | undefined;
+    engineModel?: string | undefined;
+  }[],
+  markOf: (target: ReturnType<typeof stepEngineTarget>) => EngineMark,
+): EngineMark[] {
+  const found = new Set(
+    steps
+      .filter((s) => (s.type ?? "agent") === "agent")
+      .map((s) =>
+        markOf(
+          stepEngineTarget(
+            s,
+            agents.find((a) => a.id === s.agent),
+          ),
+        ),
+      ),
+  );
+  if (!found.size) found.add(markOf({}));
+  return MARK_ORDER.filter((m) => found.has(m));
 }

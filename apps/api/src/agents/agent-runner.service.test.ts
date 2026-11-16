@@ -402,6 +402,48 @@ describe("AgentRunnerService.evaluateIntent — classifier-fallback orchestrator
   });
 });
 
+describe("AgentRunnerService.start — automation engine override", () => {
+  function startHarness() {
+    const runner = Object.create(AgentRunnerService.prototype) as AgentRunnerService;
+    const launch = vi.fn(async () => ({}));
+    const stored = { ...agentFixture, engine: "claude" as const, engineModel: "x/stored" };
+    Object.assign(runner, { agents: { get: async () => stored }, launch });
+    return { runner, launch };
+  }
+  const launched = (l: ReturnType<typeof vi.fn>) => l.mock.calls[0]?.[0];
+
+  it("wins over the agent's own engine and engineModel (automation ?? agent)", async () => {
+    const { runner, launch } = startHarness();
+    await runner.start(
+      "koder",
+      "p",
+      "",
+      [],
+      "t",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [],
+      undefined,
+      {
+        engine: "opencode",
+        engineModel: "opencode/big-pickle",
+      },
+    );
+    expect(launched(launch)).toMatchObject({
+      engine: "opencode",
+      engineModel: "opencode/big-pickle",
+    });
+  });
+
+  it("without an override the agent keeps its own engine", async () => {
+    const { runner, launch } = startHarness();
+    await runner.start("koder", "p", "", [], "t");
+    expect(launched(launch)).toMatchObject({ engine: "claude", engineModel: "x/stored" });
+  });
+});
+
 describe("AgentRunnerService.rerun — note and fresh (D-RESUME)", () => {
   function rerunHarness(sessionId?: string) {
     const runner = Object.create(AgentRunnerService.prototype) as AgentRunnerService;

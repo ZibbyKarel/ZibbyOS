@@ -218,6 +218,11 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
       ? [automation.prompt, signalText].filter(Boolean).join("\n\n")
       : automation.prompt;
     this.log.info("dispatching automation", { id: automation.id, target: target.type });
+    // Per-automation engine override: rides the task to an agent target's run, where it
+    // wins over the agent's own engine (workflow stages keep their own engines).
+    const engineOverride = automation.engine
+      ? { engine: automation.engine, engineModel: automation.engineModel }
+      : {};
     switch (target.type) {
       case "agent":
       case "workflow": {
@@ -236,6 +241,7 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
             target: explicit,
             source: "automation",
             automationId: automation.id,
+            ...(target.type === "agent" ? engineOverride : {}),
           },
           Date.now(),
           signal?.projectId,
@@ -300,6 +306,7 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
             toolGrants: target.toolGrants,
             source: "automation",
             automationId: automation.id,
+            ...engineOverride,
           },
           Date.now(),
           signal?.projectId,

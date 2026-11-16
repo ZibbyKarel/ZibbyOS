@@ -2,9 +2,11 @@
 import { useTranslations } from "next-intl";
 import type { Agent } from "@zibby/contracts";
 import type { IconName } from "@zibby/design-system";
+import { useEngineBadge } from "../../../ai-providers";
 import {
   Button,
   Container,
+  EngineBadge,
   Icon,
   IconTile,
   Pressable,
@@ -40,6 +42,7 @@ const glyphOf = (a: Agent): IconName => (a.glyph as IconName | undefined) ?? "bo
  */
 export function AgentPalette({ agents, onAdd, onAddStep, onClose, closeLabel }: AgentPaletteProps) {
   const t = useTranslations("forms.workflow");
+  const engineBadge = useEngineBadge();
   return (
     <Container
       height="100%"
@@ -105,7 +108,9 @@ export function AgentPalette({ agents, onAdd, onAddStep, onClose, closeLabel }: 
           >
             <Container padding={["75", "100"]}>
               <Stack align="center" direction="row" gap="100">
-                <IconTile glyph={glyphOf(a)} size="sm" />
+                <EngineBadge {...engineBadge(a)}>
+                  <IconTile glyph={glyphOf(a)} size="sm" />
+                </EngineBadge>
                 <Container grow minW0 textAlign="left">
                   <Typography mono truncate size="xs" type="note" weight="semibold">
                     {a.name ?? a.id}

@@ -2,6 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { Card } from "../Card/Card";
 import { Container } from "../Container/Container";
 import { Divider } from "../Divider/Divider";
+import { EngineBadge, type EngineBadgeProps } from "../EngineBadge/EngineBadge";
 import { IconTile, type IconTileSize } from "../IconTile/IconTile";
 import type { IconName } from "../Icon/Icon";
 import { Pressable } from "../Pressable/Pressable";
@@ -33,6 +34,8 @@ export interface EntityCardProps {
   logoSrc?: string;
   /** Accessible alt text for `logoSrc`; defaults to `title`. */
   logoAlt?: string;
+  /** Engine mark pinned to the avatar's bottom-right corner. */
+  engineBadge?: Pick<EngineBadgeProps, "engine" | "label">;
   /** Mono meta line right under the title (a path, an id…), single-line truncated. */
   subtitle?: string;
   /** Secondary text under the title, clamped to two lines. */
@@ -65,6 +68,7 @@ export function EntityCard({
   avatarSize = "md",
   logoSrc,
   logoAlt,
+  engineBadge,
   subtitle,
   description,
   aside,
@@ -80,12 +84,14 @@ export function EntityCard({
       <Stack gap="150">
         <Stack align="start" direction="row" gap="150">
           <span data-testid={EntityCardTestId.Glyph}>
-            <IconTile
-              alt={logoAlt ?? title}
-              glyph={glyph ?? "bot"}
-              size={avatarSize}
-              src={logoSrc}
-            />
+            <EngineBadge {...engineBadge}>
+              <IconTile
+                alt={logoAlt ?? title}
+                glyph={glyph ?? "bot"}
+                size={avatarSize}
+                src={logoSrc}
+              />
+            </EngineBadge>
           </span>
           <Container grow minW0>
             <Stack gap="25">

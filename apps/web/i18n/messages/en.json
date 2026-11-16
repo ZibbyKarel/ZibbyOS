@@ -4250,6 +4250,11 @@
     }
   },
   "aiEngine": {
+    "badge": {
+      "claude": "Claude Code",
+      "openai": "OpenAI",
+      "opencode": "OpenCode"
+    },
     "title": "AI engine",
     "hint": "Which CLI runs agents and workflow stages: the Claude subscription or opencode with a model you pick. Everything on opencode should stay free.",
     "engine": {
@@ -4288,6 +4293,7 @@
     "switcherNotConnected": "Not connected — connect it in Settings",
     "agentField": "AI engine",
     "useGlobal": "Use global setting",
+    "automationHint": "Overrides the agent's own engine for runs this automation fires. Workflow stages keep their own engines.",
     "operatorTokenRequired": "Changing the AI engine needs the operator token.",
     "operatorTokenLink": "Set it in Settings → General",
     "noModels": "No opencode models could be listed (model catalog unavailable). Check that opencode works in a terminal.",

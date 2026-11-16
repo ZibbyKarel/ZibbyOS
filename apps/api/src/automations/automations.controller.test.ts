@@ -47,6 +47,7 @@ beforeEach(async () => {
     storage as never,
     {} as never,
     fires,
+    {} as never,
   ).handler() as unknown as Impl;
 });
 afterEach(async () => {

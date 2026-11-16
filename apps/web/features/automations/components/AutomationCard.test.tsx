@@ -1,6 +1,7 @@
 import { renderWithProviders as render, screen } from "../../../test/render";
 import { describe, expect, it } from "vitest";
 import type { Automation } from "@zibby/contracts";
+import { EngineBadgeTestId } from "@zibby/design-system";
 import { AutomationCard, AutomationCardTestId } from "./AutomationCard";
 
 const base: Automation = {
@@ -87,5 +88,17 @@ describe("AutomationCard — task target (Phase 116e)", () => {
   it("falls back to the generic 'prompt task' label when unrouted (no @-mention)", () => {
     renderCard({ target: { type: "task", text: "Zkontroluj otevřené PR" } });
     expect(screen.getByTestId(AutomationCardTestId.Target)).toHaveTextContent("prompt úkol");
+  });
+});
+
+describe("AutomationCard — engine badge", () => {
+  it("badges an agent automation with its own engine override; a workflow gets none", () => {
+    renderCard({ target: { type: "agent", agentId: "a" }, engine: "opencode" });
+    expect(screen.getByTestId(EngineBadgeTestId.Badge)).toHaveAttribute("data-engine", "opencode");
+  });
+
+  it("shows no badge for a workflow target", () => {
+    renderCard({ target: { type: "workflow", workflowId: "w" }, engine: "opencode" });
+    expect(screen.queryByTestId(EngineBadgeTestId.Badge)).not.toBeInTheDocument();
   });
 });

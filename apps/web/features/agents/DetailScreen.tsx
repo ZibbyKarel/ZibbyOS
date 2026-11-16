@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import {
   Button,
   Container,
+  EngineBadge,
+  type IconName,
+  IconTile,
   Panel,
   Stack,
   type SubNavLinkComponent,
@@ -24,7 +27,7 @@ import { RuleModal } from "../gates/components/RuleModal";
 import { useWorkflowsQuery } from "../workflows";
 import { useNewTask } from "../tasks";
 import { isOperatorTokenError } from "../../state/operatorToken";
-import { OperatorTokenNotice } from "../ai-providers";
+import { OperatorTokenNotice, useEngineBadge } from "../ai-providers";
 import { agentFile } from "./agentDraft";
 import { AgentEditBasics } from "./components/AgentEditBasics";
 import { AgentRulesSection } from "./components/AgentRulesSection";
@@ -73,6 +76,7 @@ function AgentEditor({ agent }: { agent: Agent }) {
   const updateAgent = useUpdateAgentMutation();
   const deleteAgent = useDeleteAgentMutation();
   const { open: openNewTask } = useNewTask();
+  const engineBadge = useEngineBadge();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   /** The API refused the save with 401 (engine writes need the operator token). */
@@ -135,7 +139,17 @@ function AgentEditor({ agent }: { agent: Agent }) {
           />
 
           <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Typography type="h1">{name}</Typography>
+            <Stack align="center" direction="row" gap="150">
+              <EngineBadge {...engineBadge(agent)}>
+                <IconTile
+                  alt={name}
+                  glyph={(agent.glyph as IconName | undefined) ?? "bot"}
+                  size="lg"
+                  src={agent.avatar}
+                />
+              </EngineBadge>
+              <Typography type="h1">{name}</Typography>
+            </Stack>
             <Stack align="center" direction="row" gap="100">
               <Button
                 data-testid={AgentDetailScreenTestId.Run}

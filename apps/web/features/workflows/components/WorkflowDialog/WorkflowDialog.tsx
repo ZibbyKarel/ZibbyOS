@@ -12,6 +12,7 @@ import {
   Button,
   Container,
   Dialog,
+  EngineBadge,
   GraphInlineInput,
   IconTile,
   NumberField,
@@ -19,7 +20,7 @@ import {
   Stack,
   Typography,
 } from "@zibby/design-system";
-import { OperatorTokenNotice } from "../../../ai-providers";
+import { OperatorTokenNotice, useWorkflowEngineBadge } from "../../../ai-providers";
 import { isOperatorTokenError } from "../../../../state/operatorToken";
 import { useProjectsQuery } from "../../../projects/queries";
 import type { Workflow } from "../../../../domain";
@@ -79,6 +80,7 @@ export function WorkflowDialog({
   defaultOwnerDepartment,
 }: WorkflowDialogProps) {
   const t = useTranslations();
+  const engineBadge = useWorkflowEngineBadge();
   const [name, setName] = useState(initial?.name ?? "");
   const [desc, setDesc] = useState(initial?.desc ?? "");
   const [budget, setBudget] = useState<number | null>(initial?.budget?.maxCostUsd ?? null);
@@ -204,7 +206,9 @@ export function WorkflowDialog({
       >
         {/* topbar: name + description */}
         <Stack align="center" direction="row" gap="150">
-          <IconTile glyph="flow" size="md" />
+          <EngineBadge {...engineBadge(graph.nodes, agents)}>
+            <IconTile glyph="flow" size="md" />
+          </EngineBadge>
           <GraphInlineInput
             aria-label={t("forms.workflow.nameLabel")}
             onChange={(e) => setName(e.target.value)}

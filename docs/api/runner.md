@@ -510,7 +510,9 @@ hard boundary — see _Known ceiling_ in `docs/api/approvals.md`.
 ## Two engines: claude and opencode
 
 Agent runs and workflow agent stages run on `claude -p` (unchanged) or on
-`opencode run`. The engine is `agent.engine ?? SystemConfig.aiEngine`
+`opencode run`. The engine is `automation.engine ?? agent.engine ?? SystemConfig.aiEngine` (the automation
+override is applied in `AgentRunnerService.start`, agent targets only; workflow stages use
+`stageEngineTarget` as below and ignore it)
 (`resolveAiEngine` in `runner/ai-engine.ts`, exposed as
 `ClaudeRunCommandService.resolveEngine`). On opencode the model is the explicit
 `engineModel`, else the model tier mapped through `SystemConfig.opencodeTierModels`
@@ -629,3 +631,5 @@ Four callers each own their own `RunnerCore` instance and runs directory:
 - The stream-json cost/session-id extraction (`extractResultCost`,
   `extractSessionId`) only fires when `formatLine` is wired — demo/test runs
   without it never populate `costUsd`/`sessionId`.
+
+<!-- Last reviewed 2026-11-16: engine precedence now includes the automation override. -->

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DeleteResponseSchema, EmptyBodySchema } from "../common.schema";
-import { AutomationSchema, automationsContract } from "../index";
+import { AutomationSchema, UpdateAutomationSchema, automationsContract } from "../index";
 
 describe("automationsContract", () => {
   it("exposes CRUD + trigger under /api/automations", () => {
@@ -52,6 +52,28 @@ describe("automation schema — NS2 F5c arch-audit target", () => {
     });
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.target).toEqual({ type: "arch-audit" });
+  });
+});
+
+describe("automation engine override", () => {
+  const base = {
+    id: "nightly",
+    trigger: { type: "cron", expr: "0 3 * * *" },
+    target: { type: "agent", agentId: "writer" },
+    enabled: true,
+  };
+
+  it("accepts engine + engineModel and rejects an unknown engine", () => {
+    expect(
+      AutomationSchema.parse({ ...base, engine: "opencode", engineModel: "p/m" }),
+    ).toMatchObject({ engine: "opencode", engineModel: "p/m" });
+    expect(AutomationSchema.safeParse({ ...base, engine: "gpt" }).success).toBe(false);
+  });
+
+  it("an update may send null to clear the override", () => {
+    expect(UpdateAutomationSchema.safeParse({ engine: null, engineModel: null }).success).toBe(
+      true,
+    );
   });
 });
 

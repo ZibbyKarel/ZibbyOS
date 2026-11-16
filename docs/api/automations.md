@@ -16,10 +16,24 @@ interface Automation {
   approval?: "ask"; // Tier 3: park an `automation-dispatch` approval before dispatching
   prompt?: string; // free-text steering forwarded to whatever the target runs
   enabled: boolean;
+  engine?: "claude" | "opencode"; // run-engine override for an agent target (see below)
+  engineModel?: string; // opencode provider/model; ignored on claude
   system: boolean; // server-owned: cannot be deleted, only its schedule is editable
   lastFiredAt?: string; // ISO datetime (idempotence)
 }
 ```
+
+**Engine override.** `engine` / `engineModel` (same types as an agent's) win over the
+target agent's own: precedence is `automation ?? agent ?? SystemConfig.aiEngine`. On fire
+they ride the task (`CreateTaskInput.engine` / `engineModel`, persisted on the
+`ScheduledTask`, so a held/queued task keeps them) into `AgentRunnerService.start`, which
+applies them before the engine is resolved. They apply to `agent` targets and to a `task`
+target that resolves to an agent. **Limitation:** a workflow target does not receive the
+override — its stages keep their own phase/agent engines (the run record would need to
+carry it). In `PATCH /api/automations/:id`, `engine: null` clears the override (and its
+model); `engineModel: null` clears only the model. Like an agent's engine, creating or
+changing either needs the operator token (401 without it). A system automation's engine is
+not editable.
 
 `system` is **server-owned** — it cannot be set through create/update (it is
 omitted from both input schemas). See [System automations](#system-automations).
@@ -191,7 +205,7 @@ when the config changes.
      firing automation's id as proposal provenance (TODO 14, `docs/api/proposals.md`)
    - `agent-factory` → `AgentFactoryService.detect()`
    - `review-learn` → `ReviewLearningService.learn()`, ref `review-rules:<observations>`
-   - `task` → `TaskSchedulerService.createTask({ text, target, attachmentSetId, output, toolGrants, source: "automation" }, now, undefined, target, background: false)`
+   - `task` → `TaskSchedulerService.createTask({ text, target, attachmentSetId, output, toolGrants, engine?, engineModel?, source: "automation" }, now, undefined, target, background: false)`
      (Phase 116b; `source: "automation"` added ZB-04a / O-18 — server-stamped, never
      client-settable, same posture as every other automatic creation leg. See
      [tasks.md](./tasks.md) → _Parent/subtask read model_.)
@@ -467,3 +481,5 @@ target:
 ```
 
 <!-- Last reviewed 2026-11-09: still accurate; the pattern-extract vault note id is now flat (`patterns-suggestions`), see docs/api/patterns.md. -->
+
+<!-- Last reviewed 2026-11-16: added the automation engine/engineModel override. -->

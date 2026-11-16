@@ -14,6 +14,7 @@ import { ProjectSecretsStore } from "../projects/project-secrets.store";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ClaudePreflightService } from "../runner/claude-preflight.service";
 import {
+  type EngineOverride,
   type ResolvedAiEngine,
   applyThinkingVariant,
   assertOpencodeReady,
@@ -201,9 +202,15 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     toolGrants?: string[],
     /** todo-8 handover: cut the worktree from this existing local branch. */
     baseBranch?: string,
+    /**
+     * The firing automation's engine override: wins over the agent's own `engine` /
+     * `engineModel` (automation ?? agent ?? global). Absent for every other caller.
+     */
+    engineOverride?: EngineOverride,
   ): Promise<AgentRun> {
     // Throws AgentNotFoundError / InvalidAgentIdError when the agent is unknown.
-    const agent = await this.agents.get(agentId);
+    const stored = await this.agents.get(agentId);
+    const agent = engineOverride?.engine ? { ...stored, ...engineOverride } : stored;
     return this.launch(
       agent,
       prompt,

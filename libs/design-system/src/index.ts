@@ -98,6 +98,8 @@ export type { IconName, IconProps, IconStroke, IconTone } from "./components/Ico
 
 export { IconBadge, IconBadgeTestId } from "./components/IconBadge/IconBadge";
 export type { IconBadgeProps } from "./components/IconBadge/IconBadge";
+export { EngineBadge, EngineBadgeTestId } from "./components/EngineBadge/EngineBadge";
+export type { EngineBadgeEngine, EngineBadgeProps } from "./components/EngineBadge/EngineBadge";
 
 export { IconTile, IconTileTestId } from "./components/IconTile/IconTile";
 export type {

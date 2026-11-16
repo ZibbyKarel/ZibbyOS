@@ -83,6 +83,11 @@ create dialog requires a department.
 
 ## Agent Run — dispatch
 
+An automation-fired task may carry an engine override (`Automation.engine` / `engineModel`,
+see [automations.md](./automations.md)): `AgentRunnerService.start(..., baseBranch?, engineOverride?)`
+overlays it on the stored agent before `launch`, so precedence is
+`automation ?? agent ?? SystemConfig.aiEngine`. Without it the agent's own engine applies.
+
 > **A run only starts via a task.** There is no operator path that starts an
 > agent directly — the only entry point is creating a task
 > (`POST /api/tasks`) with target `{ kind: "agent", id }` (or letting the
@@ -243,3 +248,5 @@ Runs directly as the `claude` CLI with generic instructions.
 <!-- Last reviewed 2026-09-24 (ZibbyOS rename): module code changed only by the subsystem → department rename; this doc has no subsystem references. -->
 
 <!-- Last reviewed 2026-10-21 (gates unified): only agent-runner.service.test.ts changed (PolicyStorageService now wraps GateRulesStorageService); no runtime behavior described here changed. -->
+
+<!-- Last reviewed 2026-11-16: documented the automation engine override in dispatch. -->

@@ -338,10 +338,18 @@ export class AutomationsStorageService extends EntityFileStore<Automation> {
         );
         if (touchesLockedField) throw new SystemAutomationError(id);
       }
-      const next = { ...existing, ...patch, id: existing.id, system: existing.system };
+      const { engine, engineModel, ...rest } = patch;
+      const next: Automation = { ...existing, ...rest, id: existing.id, system: existing.system };
       const description = next.description?.trim();
       if (description) next.description = description;
       else delete next.description;
+      // `null` clears the engine override (and its model); a value sets it.
+      if (engine === null) {
+        delete next.engine;
+        delete next.engineModel;
+      } else if (engine) next.engine = engine;
+      if (engineModel === null) delete next.engineModel;
+      else if (engineModel) next.engineModel = engineModel;
       return next;
     });
   }

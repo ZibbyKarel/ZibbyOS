@@ -1,6 +1,8 @@
 import { Controller } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { type Automation, type AutomationView, automationsContract } from "@zibby/contracts";
+import { requireOperatorTokenIf } from "../approvals/operator-token.guard";
+import { OperatorTokenService } from "../approvals/operator-token.service";
 import { makeErrorMapper } from "../shared/http/error-mapping";
 import {
   AutomationConflictError,
@@ -32,7 +34,27 @@ export class AutomationsController {
     private readonly storage: AutomationsStorageService,
     private readonly scheduler: SchedulerService,
     private readonly fires: AutomationFiresStore,
+    private readonly tokens: OperatorTokenService,
   ) {}
+
+  /** Setting / changing an automation's engine override is operator-only (throws 401), like an agent's. */
+  private async engineGuard(
+    id: string | null,
+    body: { engine?: string | null; engineModel?: string | null },
+    headers: Record<string, unknown>,
+  ): Promise<void> {
+    if (body.engine === undefined && body.engineModel === undefined) return;
+    const cur: Partial<Automation> = id ? await this.storage.get(id) : {};
+    // `null` clears the override — the same as an absent stored value.
+    const differs = (next: string | null | undefined, stored: string | undefined) =>
+      next !== undefined && (next ?? undefined) !== stored;
+    requireOperatorTokenIf(
+      differs(body.engine, cur.engine) || differs(body.engineModel, cur.engineModel),
+      this.tokens,
+      headers,
+      "Changing an automation's AI engine or model",
+    );
+  }
 
   /** Response-only read model: `lastFire` is never written into the automation file. */
   private async withLastFire(automation: Automation): Promise<AutomationView> {
@@ -43,7 +65,10 @@ export class AutomationsController {
   @TsRestHandler(automationsContract)
   handler() {
     return tsRestHandler(automationsContract, {
-      createAutomation: ({ body }) => errors.created(() => this.storage.create(body)),
+      createAutomation: async ({ body, headers }) => {
+        await this.engineGuard(null, body, headers);
+        return errors.created(() => this.storage.create(body));
+      },
 
       listAutomations: async () => ({
         status: 200,
@@ -58,8 +83,15 @@ export class AutomationsController {
       getAutomation: ({ params: { id } }) =>
         errors.or404(id, async () => this.withLastFire(await this.storage.get(id))),
 
-      updateAutomation: ({ params: { id }, body }) =>
-        errors.or404(id, () => this.storage.update(id, body), system409),
+      updateAutomation: ({ params: { id }, body, headers }) =>
+        errors.or404(
+          id,
+          async () => {
+            await this.engineGuard(id, body, headers);
+            return this.storage.update(id, body);
+          },
+          system409,
+        ),
 
       deleteAutomation: ({ params: { id } }) =>
         errors.or404(

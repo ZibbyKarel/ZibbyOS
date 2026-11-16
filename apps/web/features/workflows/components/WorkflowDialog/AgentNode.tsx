@@ -5,6 +5,7 @@ import type { Agent, Department } from "@zibby/contracts";
 import type { IconName } from "@zibby/design-system";
 import {
   Container,
+  EngineBadge,
   GraphInlineInput,
   Icon,
   IconTile,
@@ -13,9 +14,9 @@ import {
   Tag,
   Typography,
 } from "@zibby/design-system";
-import { useTierLabel } from "../../../ai-providers";
+import { useEngineBadge, useTierLabel } from "../../../ai-providers";
 import { agentSymbol } from "../../../agents/agentSymbol";
-import { stepEngineChoice } from "../../../../utils/engine";
+import { stepEngineChoice, stepEngineTarget } from "../../../../utils/engine";
 import { toolOpenAiImageModel } from "../../openaiImageModel";
 import { ModelBadge, ThinkBadge } from "../../../../components/RuntimeBadges/RuntimeBadges";
 import { ACCENT, BAD, SURFACE, SURFACE_HI, mix } from "./canvas-tokens";
@@ -116,11 +117,10 @@ export function AgentNode({
 }: AgentNodeProps) {
   const t = useTranslations("forms.workflow");
   const tierLabel = useTierLabel();
+  const engineBadge = useEngineBadge();
   // The step's (else its agent's) exact opencode model; otherwise the tier's model on its effective engine.
-  const choice = stepEngineChoice(
-    node,
-    agents.find((a) => a.id === node.agent),
-  );
+  const agent = agents.find((a) => a.id === node.agent);
+  const choice = stepEngineChoice(node, agent);
   const modelLabel =
     choice.engineModel?.split("/").pop() ?? tierLabel(node.model, choice.engine, true);
   const imageModel =
@@ -230,12 +230,14 @@ export function AgentNode({
       )}
 
       <Stack align="center" direction="row" gap="75">
-        <IconTile
-          alt={node.type === "agent" ? node.agent : undefined}
-          {...symbolOf(node, agents, departments)}
-          size="sm"
-          src={avatarOf(node, agents)}
-        />
+        <EngineBadge {...(node.type === "agent" ? engineBadge(stepEngineTarget(node, agent)) : {})}>
+          <IconTile
+            alt={node.type === "agent" ? node.agent : undefined}
+            {...symbolOf(node, agents, departments)}
+            size="sm"
+            src={avatarOf(node, agents)}
+          />
+        </EngineBadge>
         <Container grow minW0>
           <Typography mono truncate size="xs" type="note" weight="bold">
             {label}

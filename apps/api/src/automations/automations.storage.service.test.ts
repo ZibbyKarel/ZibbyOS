@@ -69,6 +69,16 @@ describe("AutomationsStorageService", () => {
     expect(updated.name).toBe("Nightly digest");
   });
 
+  it("stores an engine override and `null` clears it together with its model", async () => {
+    await service.create(sample);
+    const set = await service.update("nightly", { engine: "opencode", engineModel: "p/m" });
+    expect(set).toMatchObject({ engine: "opencode", engineModel: "p/m" });
+    const cleared = await service.update("nightly", { engine: null });
+    expect(cleared.engine).toBeUndefined();
+    expect(cleared.engineModel).toBeUndefined();
+    expect((await service.get("nightly")).engine).toBeUndefined();
+  });
+
   it("stamps lastFiredAt via markFired", async () => {
     await service.create(sample);
     const at = "2026-06-04T09:00:00.000Z";

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AvatarSchema, DiffFileSchema, IsoDateTimeSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
+import { AiEngineSchema } from "../ai-providers/ai-providers.schema";
 import { MakerRefSchema, VerifierSpecSchema } from "../goals/goal.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
 import { DepartmentIdSchema } from "../departments/department.schema";
@@ -727,6 +728,9 @@ export const ScheduledTaskSchema = z.object({
   immediate: z.literal(true).optional(),
   /** The automation that fired this task (stamped by the automation scheduler). */
   automationId: z.string().min(1).optional(),
+  /** The firing automation's engine override (wins over the agent's) for an agent target. */
+  engine: AiEngineSchema.optional(),
+  engineModel: z.string().min(1).optional(),
   /**
    * ZB-04a / O-06 — the department this task's dispatched unit belongs to,
    * stamped at DISPATCH time (never on creation — a scheduled/held/queued task
@@ -1091,6 +1095,9 @@ export const CreateTaskInputSchema = z.object({
   immediate: z.boolean().optional(),
   /** The automation firing this task — set only by the automation scheduler. */
   automationId: z.string().min(1).optional(),
+  /** The automation's engine override, forwarded to an agent target's run (see `Automation.engine`). */
+  engine: AiEngineSchema.optional(),
+  engineModel: z.string().min(1).optional(),
   /**
    * The TODO note this task was created from (`/work/tasks/new?todo=<id>`). After the
    * task is created the server deletes that note — a missing note is ignored and a

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ApprovalsModule } from "../approvals/approvals.module";
 import { AgentFactoryModule } from "../agent-factory/agent-factory.module";
 import { AgentsModule } from "../agents/agents.module";
 import { BriefingModule } from "../briefing/briefing.module";
@@ -56,6 +57,7 @@ export function resolveAutomationsDir(): string {
 @Module({
   imports: [
     AgentFactoryModule,
+    ApprovalsModule,
     AgentsModule,
     BriefingModule,
     ExternalSkillsModule,

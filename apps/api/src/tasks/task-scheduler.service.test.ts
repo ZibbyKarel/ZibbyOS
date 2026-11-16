@@ -946,6 +946,18 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
     });
   });
 
+  it("a task engine override decides over the agent's own engine", async () => {
+    agentsStore.listActive.mockResolvedValue([{ id: "cl", name: "CL" }]);
+    const off = (override?: unknown) =>
+      (
+        service as unknown as {
+          targetOffClaude(t: unknown, o?: unknown): Promise<boolean>;
+        }
+      ).targetOffClaude({ kind: "agent", id: "cl", name: "CL" }, override);
+    expect(await off()).toBe(false);
+    expect(await off({ engine: "opencode", engineModel: "opencode/big-pickle" })).toBe(true);
+  });
+
   it("a phase's own engine decides (A21): a claude agent moved onto opencode is off Claude", async () => {
     agentsStore.listActive.mockResolvedValue([{ id: "cl", name: "CL" }]);
     workflowsStore.list.mockResolvedValue([

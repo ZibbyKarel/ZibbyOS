@@ -8,7 +8,9 @@ import {
   Button,
   Card,
   Container,
+  EngineBadge,
   Icon,
+  IconTile,
   MarkdownEditor,
   Panel,
   Stack,
@@ -19,11 +21,12 @@ import {
 } from "@zibby/design-system";
 import { PageBreadcrumb } from "../../components/layout/PageBreadcrumb";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
-import type { Automation } from "@zibby/contracts";
+import type { AiEngine, Automation } from "@zibby/contracts";
 import { QueryError } from "../../components/LoadError/QueryError";
 import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { AutomationFormFields, useAutomationFormState } from "./components/AutomationFormFields";
+import { AutomationEngineFields } from "./components/AutomationEngineFields";
 import { TriggerFields } from "./components/TriggerFields";
 import { AutomationFires } from "./components/AutomationFires";
 import {
@@ -32,6 +35,7 @@ import {
   useUpdateAutomationMutation,
 } from "./mutations";
 import { useAutomationQuery } from "./queries";
+import { useAutomationEngineBadge } from "./useAutomationEngineBadge";
 import { useQuickActionsQuery } from "../quick-actions/queries";
 import { useUpdateQuickActions } from "../quick-actions/useUpdateQuickActions";
 
@@ -85,12 +89,16 @@ function AutomationEditor({ automation }: { automation: Automation }) {
   const { update: updateQuickActions, pending: pinPending } = useUpdateQuickActions(
     quickActions ?? [],
   );
+  const engineBadge = useAutomationEngineBadge(automation);
   const form = useAutomationFormState(automation);
   const [nameDraft, setNameDraft] = useState(automation.name ?? "");
   const [descriptionDraft, setDescriptionDraft] = useState(automation.description ?? "");
   const [taskText, setTaskText] = useState(
     automation.target.type === "task" ? automation.target.text : "",
   );
+
+  const [engineDraft, setEngineDraft] = useState<AiEngine | "">(automation.engine ?? "");
+  const [engineModelDraft, setEngineModelDraft] = useState(automation.engineModel ?? "");
 
   const isSystem = automation.system ?? false;
   const target = automation.target;
@@ -114,6 +122,16 @@ function AutomationEditor({ automation }: { automation: Automation }) {
         },
       ];
     });
+  // The engine override applies to agent targets only (a task automation may resolve
+  // to one); `null` clears it. Never sent for a system automation (server-owned).
+  const hasEngine = !isSystem && (target.type === "task" || target.type === "agent");
+  // Same-value writes are no-ops server-side; only a CHANGE needs the operator token.
+  const engineBody = hasEngine
+    ? {
+        engine: engineDraft || null,
+        engineModel: engineDraft === "opencode" && engineModelDraft ? engineModelDraft : null,
+      }
+    : {};
   // System AND the legacy schedule-only fallback both persist ONLY the trigger —
   // the target/name (system: server-owned; legacy: no picker to edit it with) never
   // moves through this path.
@@ -124,6 +142,7 @@ function AutomationEditor({ automation }: { automation: Automation }) {
         trigger: form.buildTrigger(),
         // A system automation's name/description are server-owned (the server 409s a change).
         ...(isSystem ? {} : { name: nameDraft.trim(), description: descriptionDraft.trim() }),
+        ...engineBody,
       },
     });
   };
@@ -141,6 +160,7 @@ function AutomationEditor({ automation }: { automation: Automation }) {
         target: { ...target, text: taskText.trim() },
         enabled: automation.enabled,
         approval: form.buildApproval(),
+        ...engineBody,
       },
     });
   };
@@ -155,7 +175,12 @@ function AutomationEditor({ automation }: { automation: Automation }) {
           />
 
           <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Typography type="h1">{name}</Typography>
+            <Stack align="center" direction="row" gap="150">
+              <EngineBadge {...engineBadge}>
+                <IconTile glyph={isTask ? "spark" : "bot"} size="md" />
+              </EngineBadge>
+              <Typography type="h1">{name}</Typography>
+            </Stack>
             <Stack align="center" direction="row" gap="100">
               <Button
                 data-testid={AutomationDetailScreenTestId.Run}
@@ -229,6 +254,14 @@ function AutomationEditor({ automation }: { automation: Automation }) {
                     value={descriptionDraft}
                   />
                 </Stack>
+              )}
+              {hasEngine && (
+                <AutomationEngineFields
+                  engine={engineDraft}
+                  engineModel={engineModelDraft}
+                  onEngineChange={setEngineDraft}
+                  onEngineModelChange={setEngineModelDraft}
+                />
               )}
               {isSystem ? (
                 <AutomationFormFields isSystem form={form} />

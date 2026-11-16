@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
+import { AiEngineSchema } from "../ai-providers/ai-providers.schema";
 import { DepartmentIdSchema } from "../departments/department.schema";
 import { SignalSeveritySchema } from "./signal.schema";
 import { TaskOutputSchema, TaskTargetSchema } from "../tasks/task.schema";
@@ -164,6 +165,14 @@ export const AutomationSchema = z.object({
   prompt: z.string().optional(),
   enabled: z.boolean(),
   /**
+   * Per-automation run engine override: wins over the target agent's own `engine`
+   * (automation ?? agent ?? global). Absent = the agent's / global engine. Applies to
+   * agent targets only (workflow stages keep their own phase/agent engines).
+   */
+  engine: AiEngineSchema.optional(),
+  /** opencode `provider/model` for this automation; ignored unless `engine` is set / on claude. */
+  engineModel: z.string().min(1).optional(),
+  /**
    * Tier 3 gate for a `signal`-triggered automation: `"ask"` parks an
    * `automation-dispatch` approval and only dispatches once the operator approves.
    * Absent or `"auto"` = dispatch immediately (Tier 2, act then report). `"auto"` exists so
@@ -192,6 +201,11 @@ export const UpdateAutomationSchema = AutomationSchema.omit({
 })
   // An update may send `""` to clear the description (an omitted field can't);
   // the storage layer drops the empty value.
-  .extend({ description: z.string().optional() })
+  .extend({
+    description: z.string().optional(),
+    // `null` clears the engine override (an omitted field can't).
+    engine: AiEngineSchema.nullable().optional(),
+    engineModel: z.string().min(1).nullable().optional(),
+  })
   .partial();
 export type UpdateAutomationInput = z.infer<typeof UpdateAutomationSchema>;

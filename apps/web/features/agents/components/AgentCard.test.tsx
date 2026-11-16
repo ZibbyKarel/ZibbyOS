@@ -1,5 +1,5 @@
 import type { Agent } from "@zibby/contracts";
-import { IconTileTestId } from "@zibby/design-system";
+import { EngineBadgeTestId, IconTileTestId } from "@zibby/design-system";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render, screen } from "../../../test/render";
 import { AgentCard } from "./AgentCard";
@@ -35,5 +35,17 @@ describe("AgentCard", () => {
       "src",
       "/avatars/architect.png",
     );
+  });
+
+  it("badges the avatar with the agent's engine override", () => {
+    render(<AgentCard agent={{ ...baseAgent, engine: "claude" }} />);
+    const badge = screen.getByTestId(EngineBadgeTestId.Badge);
+    expect(badge).toHaveAttribute("data-engine", "claude");
+    expect(badge).toHaveAccessibleName("Claude Code");
+  });
+
+  it("shows the OpenAI mark for an opencode agent on an openai/ model", () => {
+    render(<AgentCard agent={{ ...baseAgent, engine: "opencode", engineModel: "openai/gpt-5" }} />);
+    expect(screen.getByTestId(EngineBadgeTestId.Badge)).toHaveAccessibleName("OpenAI");
   });
 });

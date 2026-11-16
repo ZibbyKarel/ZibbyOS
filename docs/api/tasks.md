@@ -81,6 +81,9 @@ Body: {
                                # for every `source: "automation"` task: the run
                                # takes no run slot, so it bypasses the global and per-project
                                # concurrency caps. Budget hold, usage limits and gates still apply.
+  engine?: "claude" | "opencode"  # The firing automation's engine override (+ engineModel); wins over
+  engineModel?: string            # the agent's own engine for an agent target. Persisted on the task.
+                                  # The usage-limit deferral / Claude-budget bypass honour it too (agent targets).
   automationId?: string        # Stamped by the automation scheduler: the automation firing
                                # the task. Persisted on the task and enriched onto its
                                # `TaskRun.automationId` (drives the Bridge "Automation runs" widget).
@@ -998,3 +1001,5 @@ ignores them):
 | `task-queued`     | A task was queued (no capacity)                                                                                                                                                 |
 | `task-held`       | A task was parked for budget approval                                                                                                                                           |
 | `task-outcome`    | A run finished, outcome written back                                                                                                                                            |
+
+<!-- Last reviewed 2026-11-16: CreateTaskInput/ScheduledTask gained engine/engineModel (automation override, agent targets). -->

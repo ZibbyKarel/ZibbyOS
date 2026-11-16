@@ -1,7 +1,17 @@
 import type { Agent } from "@zibby/contracts";
-import { Card, Container, Divider, Icon, IconTile, Stack, Typography } from "@zibby/design-system";
+import {
+  Card,
+  Container,
+  Divider,
+  EngineBadge,
+  Icon,
+  IconTile,
+  Stack,
+  Typography,
+} from "@zibby/design-system";
 import { Fragment } from "react";
 import { type Workflow, glyphForPhase } from "../../../../domain";
+import { useWorkflowEngineBadge } from "../../../ai-providers";
 import { WorkflowOwnerChip } from "./WorkflowOwnerChip";
 
 export enum WorkflowCardTestId {
@@ -17,6 +27,7 @@ export interface WorkflowCardProps {
 
 /** Grid card for a workflow: name, phase chips + owner. Fills its grid cell. */
 export function WorkflowCard({ workflow, showPhases, agents, onSelect }: WorkflowCardProps) {
+  const engineBadge = useWorkflowEngineBadge();
   return (
     <Card
       interactive
@@ -28,7 +39,9 @@ export function WorkflowCard({ workflow, showPhases, agents, onSelect }: Workflo
       <Container padding="150">
         <Stack gap="150">
           <Stack align="start" direction="row" gap="150">
-            <IconTile alt={workflow.name} glyph="flow" size="md" />
+            <EngineBadge {...engineBadge(workflow.phases, agents)}>
+              <IconTile alt={workflow.name} glyph="flow" size="md" />
+            </EngineBadge>
             <Stack gap="75">
               <Typography mono size="md" type="note" weight="bold">
                 {workflow.name}

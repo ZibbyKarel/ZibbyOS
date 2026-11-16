@@ -261,6 +261,35 @@ describe("SchedulerService — dispatch (agent / workflow targets ride the task 
     expect(ref).toBe("writer_1_1");
   });
 
+  it("threads the automation's engine override into the agent task, not into a workflow's", async () => {
+    const createTask = dispatched("writer_1_2");
+    const { service } = makeService({
+      automation: workflowAutomation({
+        id: "agent-engine",
+        target: { type: "agent", agentId: "writer" },
+        engine: "opencode",
+        engineModel: "opencode/big-pickle",
+      }),
+      taskScheduler: { createTask },
+    });
+    await service.trigger("agent-engine");
+    expect(createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ engine: "opencode", engineModel: "opencode/big-pickle" }),
+      expect.any(Number),
+      undefined,
+      expect.anything(),
+      false,
+    );
+
+    const wfCreate = dispatched("release_3");
+    const wf = makeService({
+      automation: workflowAutomation({ id: "wf-engine", engine: "opencode" }),
+      taskScheduler: { createTask: wfCreate },
+    });
+    await wf.service.trigger("wf-engine");
+    expect((wfCreate.mock.calls as unknown[][])[0]?.[0]).not.toHaveProperty("engine");
+  });
+
   it("refs the parked task's id when the run slots are full and the task queues", async () => {
     const createTask = vi.fn(async () => ({
       outcome: "scheduled" as const,

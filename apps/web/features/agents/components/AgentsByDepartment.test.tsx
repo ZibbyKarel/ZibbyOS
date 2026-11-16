@@ -1,5 +1,5 @@
 import type { Agent } from "@zibby/contracts";
-import { EntityCardTestId, IconTestId } from "@zibby/design-system";
+import { EntityCardTestId, IconTestId, IconTileTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, renderWithProviders as render, screen, within } from "../../../test/render";
 import { LoadErrorTestId } from "../../../components/LoadError/LoadError";
@@ -52,9 +52,11 @@ describe("AgentsByDepartment", () => {
     const glyphOf = (a: Agent) => {
       state.data = [a];
       const { unmount } = render(<AgentsByDepartment />);
-      const html = within(screen.getByTestId(EntityCardTestId.Glyph)).getByTestId(
-        IconTestId.Root,
-      ).innerHTML;
+      // The tile's own icon — the engine badge in the corner renders a second one.
+      const tile = within(screen.getByTestId(EntityCardTestId.Glyph)).getByTestId(
+        IconTileTestId.Root,
+      );
+      const html = within(tile).getByTestId(IconTestId.Root).innerHTML;
       unmount();
       return html;
     };

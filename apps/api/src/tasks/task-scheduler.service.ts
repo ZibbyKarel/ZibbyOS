@@ -49,7 +49,13 @@ import { normalizeSummary } from "../shared/text/normalize-summary";
 import { TraceContextService } from "../shared/logging/trace-context.service";
 import { TickingWatcherBase } from "../shared/ticking-watcher-base";
 import { SystemConfigStore } from "../system/system-config.store";
-import { resolveAiEngine, spendsClaudeSubscription, stageSpendsClaude } from "../runner/ai-engine";
+import {
+  type EngineOverride,
+  engineOverrideOf,
+  resolveAiEngine,
+  spendsClaudeSubscription,
+  stageSpendsClaude,
+} from "../runner/ai-engine";
 import { AttachmentStorageService } from "./attachment-storage.service";
 import { ClaudeCliTaskNamer, deriveTitleFallback } from "./claude-cli-task-namer";
 import { ScheduledTasksStorageService } from "./scheduled-tasks.storage.service";
@@ -865,7 +871,7 @@ export class TaskSchedulerService
     target?: TaskTarget,
   ): Promise<{ ok: true } | { ok: false; result: CreateTaskResult }> {
     const check = await this.budget.check(projectId, new Date(now), {
-      offClaude: await this.offClaude(target),
+      offClaude: await this.offClaude(target, engineOverrideOf(input)),
     });
     if (!check.ok) {
       const task = await this.storage.createHeld(taskId, input, projectId, check.detail, now);
@@ -934,7 +940,7 @@ export class TaskSchedulerService
     // falls through to the budget + concurrency guards exactly as before. Not part
     // of the capacity/budget race (a limit deferral never dispatches), so it stays
     // outside `project-capacity`.
-    const deferral = await this.limitDeferral(now, explicitTarget);
+    const deferral = await this.limitDeferral(now, explicitTarget, engineOverrideOf(input));
     if (deferral) {
       const task = await this.storage.createDeferredLimit(
         taskId,
@@ -998,6 +1004,7 @@ export class TaskSchedulerService
       undefined,
       input.immediate,
       input.baseBranch,
+      engineOverrideOf(input),
     );
     if (!dispatched) throw new EmptyCatalogError();
     if (isQueued(dispatched)) {
@@ -1070,6 +1077,7 @@ export class TaskSchedulerService
             undefined,
             task.immediate,
             task.baseBranch,
+            engineOverrideOf(task),
           );
           if (!dispatched) {
             await this.failPending(
@@ -1136,7 +1144,7 @@ export class TaskSchedulerService
   ): Promise<"ok" | "held"> {
     if (!skipBudget) {
       const check = await this.budget.check(task.projectId, at, {
-        offClaude: await this.offClaude(task.target),
+        offClaude: await this.offClaude(task.target, engineOverrideOf(task)),
       });
       if (!check.ok) {
         await this.storage.markHeld(task.id, check.detail);
@@ -1163,7 +1171,7 @@ export class TaskSchedulerService
     // Phase 9: limit guard first — even an operator-approved overage (`skipBudget`)
     // can't run with the window exhausted, so re-defer to the reset. The existing
     // tick re-fires the now-`scheduled` task; still exhausted → re-defer again.
-    const deferral = await this.limitDeferral(at.getTime(), task.target);
+    const deferral = await this.limitDeferral(at.getTime(), task.target, engineOverrideOf(task));
     if (deferral) {
       const deferred = await this.storage.markDeferredLimit(task.id, deferral.resumeAt);
       this.recordDeferredLimit(deferred);
@@ -1190,6 +1198,7 @@ export class TaskSchedulerService
         task.classification,
         task.immediate,
         task.baseBranch,
+        engineOverrideOf(task),
       ));
     if (!dispatched) {
       await this.storage.markFailed(task.id, "No agents or workflows available to route to");
@@ -1410,6 +1419,8 @@ export class TaskSchedulerService
     immediate?: boolean,
     /** todo-8 handover: cut the run's worktree from this existing local branch. */
     baseBranch?: string,
+    /** The firing automation's engine override — applied to an agent target's run only. */
+    engineOverride?: EngineOverride,
   ): Promise<Dispatched | QueuedDispatch | null> {
     // Build the run-attachments reference ONCE: an absolute dir (from storage) plus
     // the filenames, or undefined when the task carries no attachment set.
@@ -1473,6 +1484,11 @@ export class TaskSchedulerService
     if (!slot) return { queued: true, target, classification };
     if (target.kind === "agent") {
       const agentId = target.id;
+      const agentTail: [string?, EngineOverride?] = engineOverride
+        ? [baseBranch, engineOverride]
+        : baseBranch
+          ? [baseBranch]
+          : [];
       const run = await this.startHolding(
         slot,
         () =>
@@ -1487,8 +1503,8 @@ export class TaskSchedulerService
             undefined,
             runAttachments,
             toolGrants,
-            // Only when set, so every non-handover call keeps its exact arity.
-            ...(baseBranch ? ([baseBranch] as const) : ([] as const)),
+            // Only when set, so every plain call keeps its exact arity.
+            ...agentTail,
           ),
         (r) => r.runId,
         (r) => TERMINAL_AGENT.has(this.liveStatus(() => this.agentRunner.get(r.runId), r)),
@@ -1819,11 +1835,12 @@ export class TaskSchedulerService
   private async limitDeferral(
     now: number,
     target: TaskTarget | undefined,
+    override?: EngineOverride,
   ): Promise<{ resumeAt: number } | null> {
     // The window is Claude's: a task whose known target runs wholly off the Claude
     // subscription is not deferred. An unrouted task still is: its target (and, A32,
     // the router one-shot on a `claude-agent/*` mapping) may spend the window.
-    if (await this.offClaude(target)) return null;
+    if (await this.offClaude(target, override)) return null;
     const { exhausted, resumeAt } = await this.limits.windowExhausted().catch(() => ({
       exhausted: false,
       resumeAt: null,
@@ -1833,8 +1850,11 @@ export class TaskSchedulerService
   }
 
   /** {@link targetOffClaude} for an optional target; unknown / unreadable → false (fail-closed). */
-  private async offClaude(target: TaskTarget | undefined): Promise<boolean> {
-    return target ? this.targetOffClaude(target).catch(() => false) : false;
+  private async offClaude(
+    target: TaskTarget | undefined,
+    override?: EngineOverride,
+  ): Promise<boolean> {
+    return target ? this.targetOffClaude(target, override).catch(() => false) : false;
   }
 
   /**
@@ -1842,7 +1862,7 @@ export class TaskSchedulerService
    * whose every agent phase is, per-step engine and escalation rungs included
    * (A16/A18/A21).
    */
-  private async targetOffClaude(target: TaskTarget): Promise<boolean> {
+  private async targetOffClaude(target: TaskTarget, override?: EngineOverride): Promise<boolean> {
     if (target.kind !== "agent" && target.kind !== "workflow") return false;
     const config = this.systemConfig.current();
     const resolve = (t: Parameters<typeof resolveAiEngine>[0]) => resolveAiEngine(t, config);
@@ -1851,7 +1871,9 @@ export class TaskSchedulerService
     if (target.kind === "agent") {
       const agent = agentOf(target.id);
       if (!agent) return false;
-      const engine = resolve(agent);
+      // The task's engine override wins over the agent's (as in AgentRunnerService.start);
+      // it applies to an agent target only — workflow phases keep their own engines.
+      const engine = resolve(override ? { ...agent, ...override } : agent);
       return !spendsClaudeSubscription(engine.engine, engine.model);
     }
     const workflows = await this.workflowsStore.list().catch((): Workflow[] => []);

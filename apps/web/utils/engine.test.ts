@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogIds,
+  engineMark,
   formatEngine,
   lacksThinkingVariant,
   stepEngineChoice,
   tierConcreteModel,
+  workflowEngineMarks,
 } from "./engine";
 
 describe("tier helpers", () => {
@@ -87,5 +89,54 @@ describe("stepEngineChoice", () => {
       engineModel: undefined,
     });
     expect(stepEngineChoice({}, undefined).engine).toBeUndefined();
+  });
+});
+
+describe("engineMark", () => {
+  const config = {
+    aiEngine: "opencode" as const,
+    opencodeModel: "beam/free",
+    opencodeTierModels: { sonnet: "openai/gpt-5", opus: "anthropic/opus" },
+  };
+
+  it("claude (override or global) → claude, whatever the model", () => {
+    expect(engineMark({ engine: "claude", engineModel: "openai/x" }, config)).toBe("claude");
+    expect(engineMark({}, { ...config, aiEngine: "claude" })).toBe("claude");
+    expect(engineMark({}, undefined)).toBe("claude");
+  });
+
+  it("opencode: explicit engineModel decides", () => {
+    expect(engineMark({ engine: "opencode", engineModel: "openai/gpt-5" }, config)).toBe("openai");
+    expect(engineMark({ engineModel: "beam/free" }, config)).toBe("opencode");
+  });
+
+  it("opencode: the tier mapping decides without an engineModel", () => {
+    expect(engineMark({ model: "sonnet" }, config)).toBe("openai");
+    expect(engineMark({ model: "opus" }, config)).toBe("opencode");
+    expect(engineMark({}, config)).toBe("openai");
+  });
+
+  it("opencode with nothing mapped → opencode", () => {
+    expect(engineMark({ model: "haiku" }, { ...config, opencodeTierModels: {} })).toBe("opencode");
+  });
+});
+
+describe("workflowEngineMarks", () => {
+  const markOf = (t: { engine?: string; engineModel?: string }) =>
+    engineMark(t as never, { aiEngine: "claude", opencodeModel: "", opencodeTierModels: {} });
+  const agents = [{ id: "a", engine: "opencode", engineModel: "x/y" } as const];
+
+  it("collects distinct marks in claude, openai, opencode order (global included)", () => {
+    const steps = [
+      { type: "agent", agent: "a" }, // agent's opencode
+      { type: "agent", agent: "b", openaiModel: "gpt-5" }, // openai
+      { type: "agent", agent: "b" }, // global claude
+      { type: "tool" },
+    ];
+    expect(workflowEngineMarks(steps, agents, markOf)).toEqual(["claude", "openai", "opencode"]);
+  });
+
+  it("falls back to the global engine without agent steps", () => {
+    expect(workflowEngineMarks([{ type: "tool" }], agents, markOf)).toEqual(["claude"]);
   });
 });
