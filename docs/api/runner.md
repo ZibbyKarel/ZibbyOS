@@ -542,7 +542,15 @@ cached catalog lists that variant id. The full picture is in
   `OPENCODE_CONFIG`. It is never written to `~/.config/opencode` or put in the env
   (`OPENCODE_CONFIG_CONTENT` would leak MCP secrets to every shell command). Inherited
   `OPENCODE_*` vars are stripped from the child env; `OPENCODE_DISABLE_PROJECT_CONFIG=1`
-  keeps a repo's `opencode.json` from loading. `PWD` is pinned to the spawn dir (opencode
+  keeps a repo's `opencode.json` from loading. opencode still merges the operator's global
+  `~/.config/opencode/opencode.json` (`$XDG_CONFIG_HOME/opencode`) — no env var turns that
+  off (verified 2.2.7) — so the builder copies every global MCP server the run does not mount
+  into the per-run config with `disabled: true`. Without that, the operator's global servers
+  (e.g. ms-365 `--org-mode`) inflated every prompt to ~920k tokens and opencode compacted after
+  every step, so the agent kept re-reading files. The config also carries
+  `compaction: { auto: true, buffer: "<100 - SystemConfig.autoCompactPct.opencode>%" }`; the
+  claude engine gets `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = autoCompactPct.claude`. Both are set
+  from the runtime settings sliders and read per run. `PWD` is pinned to the spawn dir (opencode
   takes its project dir from `$PWD`), and `OPENCODE_CLAUDE_PATH` is set from the API's
   `OPENCODE_CLAUDE_PATH ?? CLAUDE_BIN` for the `claude-agent/*` provider. `--standalone`
   is required, because the background service ignores per-run config.

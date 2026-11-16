@@ -1219,6 +1219,10 @@
       "dockDoneTasksLimit": "Počet hotových úkolů v doku",
       "dockDoneTasksLimitHint": "Kolik posledních dokončených či selhaných úkolů ukazuje panel Úkoly.",
       "goalAutoResume": "Auto-resume cílů při startu",
+      "autoCompact": "Auto-kompakce",
+      "autoCompactHint": "Při jakém zaplnění kontextového okna modelu engine zkompaktuje konverzaci běhu. Nižší hodnota = kompaktuje dřív.",
+      "autoCompactOpencode": "OpenCode",
+      "autoCompactClaude": "Claude (nativní CLI)",
       "goalAutoResumeHint": "Zapni pro bezobslužný (launchd) režim — běžící/limitem pozastavené cíle se po restartu samy znovu rozjedou. Vypnuto = parkují a čekají na schválení (Law 3).",
       "save": "Uložit",
       "unit": {

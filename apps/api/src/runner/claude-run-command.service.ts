@@ -8,6 +8,7 @@ import {
   type Skill,
 } from "@zibby/contracts";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { AgentsStorageService } from "../agents/agents.storage.service";
 import { bluecodeConfigPart } from "../ai-providers/bluecode-provider";
@@ -599,6 +600,14 @@ const THINKING_TO_EFFORT: Record<NonNullable<Agent["thinking"]>, string> = {
  * Args are built up-front and persisted in the run spec, so the approval→resume
  * path replays them unchanged — gated runs spawn with the same catalog.
  */
+const DEFAULT_AUTO_COMPACT_PCT = 80;
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Drops whole-line `//` comments (JSONC); anything fancier fails to parse and is skipped. */
+const stripJsonComments = (text: string): string => text.replace(/^\s*\/\/.*$/gm, "");
+
 @Injectable()
 export class ClaudeRunCommandService {
   constructor(
@@ -630,7 +639,8 @@ export class ClaudeRunCommandService {
   /**
    * The `opencode run` sibling of {@link buildClaudeCommand}. Everything the session
    * needs rides one per-run config (`opencodeConfig`, written by RunnerCore outside the
-   * agent's free zone before every spawn — never `~/.config/opencode`): the system
+   * agent's free zone before every spawn; opencode still merges the operator's global
+   * `~/.config/opencode` on top, so its servers are re-declared `disabled`): the system
    * prompt as the `zibby` agent, the enabled MCP servers, and the approval gate —
    * `permissions: ask *` (no `--auto`, so an unapproved call is auto-rejected), deny
    * rules for `execute`, `question` and every tool the agent's `tools` list lacks
@@ -670,6 +680,8 @@ export class ClaudeRunCommandService {
               codemode: false,
             };
     }
+    const allServers = { ...(await this.disabledGlobalOpencodeServers(servers)), ...servers };
+    const pct = this.systemConfig?.current().autoCompactPct?.opencode ?? DEFAULT_AUTO_COMPACT_PCT;
     const rules = opencodeToolRules(opts.tools);
     const config = {
       agents: {
@@ -683,7 +695,9 @@ export class ClaudeRunCommandService {
         ...rules.deny.map((action) => ({ action, resource: "*", effect: "deny" })),
       ],
       plugins: [OPENCODE_GATE_PLUGIN],
-      ...(Object.keys(servers).length ? { mcp: { servers } } : {}),
+      // Global servers the run did not mount stay off: their tool schemas bloat every prompt.
+      ...(Object.keys(allServers).length ? { mcp: { servers: allServers } } : {}),
+      compaction: { auto: true, buffer: `${100 - pct}%` },
       ...bluecodeConfigPart(),
     };
     const args = [
@@ -759,6 +773,41 @@ export class ClaudeRunCommandService {
     return { servers, operatorConfigs };
   }
 
+  /** `disabled` copies of the operator's global opencode MCP servers not in `mounted`. */
+  private async disabledGlobalOpencodeServers(
+    mounted: Record<string, unknown>,
+  ): Promise<Record<string, Record<string, unknown>>> {
+    const out: Record<string, Record<string, unknown>> = {};
+    for (const [id, entry] of Object.entries(await this.globalOpencodeServers())) {
+      if (!(id in mounted)) out[id] = { ...entry, disabled: true };
+    }
+    return out;
+  }
+
+  /**
+   * The MCP servers in the operator's global opencode config (opencode always merges it) —
+   * the test seam (tests read none by default). Unreadable / unparsable files are skipped;
+   * `mcp.servers.{id}` (v2) and the legacy `mcp.{id}` map are both understood.
+   */
+  protected async globalOpencodeServers(): Promise<Record<string, Record<string, unknown>>> {
+    const xdg = process.env.XDG_CONFIG_HOME;
+    const dir = path.join(xdg ? xdg : path.join(os.homedir(), ".config"), "opencode");
+    const out: Record<string, Record<string, unknown>> = {};
+    for (const file of ["config.json", "opencode.jsonc", "opencode.json"]) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stripJsonComments(await fs.readFile(path.join(dir, file), "utf8")));
+      } catch {
+        continue; // missing or invalid — skip
+      }
+      const mcp = (parsed as { mcp?: unknown } | null)?.mcp;
+      if (!isRecord(mcp)) continue;
+      const map = isRecord(mcp.servers) ? mcp.servers : mcp;
+      for (const [id, entry] of Object.entries(map)) if (isRecord(entry)) out[id] = entry;
+    }
+    return out;
+  }
+
   /** A27 — the operator's own MCP servers; the test seam (tests mount none by default). */
   protected operatorMcpServers(cwd?: string): Promise<OperatorMcpServer[]> {
     const loc = resolveClaudeLocations();
@@ -776,6 +825,8 @@ export class ClaudeRunCommandService {
      * inside a single `claude -p` process otherwise loses the delegate's own identity.
      */
     catalogAgentIds: string[];
+    /** Per-run env the caller merges over the project env (compaction threshold). */
+    env: Record<string, string>;
   }> {
     // Their tools widen the session allow-list (see buildCatalog) and their
     // connection config rides `--mcp-config`.
@@ -855,7 +906,14 @@ export class ClaudeRunCommandService {
     }
     // `CLAUDE_BIN` is a test seam (point it at a stub binary); production runs the
     // real `claude` CLI. The command/args are always the real claude shape.
-    return { command: process.env.CLAUDE_BIN ?? "claude", args, catalogAgentIds };
+    // Read live per run so a Settings change applies to the next spawn.
+    const pct = this.systemConfig?.current().autoCompactPct?.claude ?? DEFAULT_AUTO_COMPACT_PCT;
+    return {
+      command: process.env.CLAUDE_BIN ?? "claude",
+      args,
+      catalogAgentIds,
+      env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: String(pct) },
+    };
   }
 
   /**

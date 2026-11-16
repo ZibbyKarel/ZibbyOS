@@ -7,6 +7,7 @@ import {
   Divider,
   NumberField,
   Panel,
+  Slider,
   Stack,
   ToggleField,
   Typography,
@@ -27,6 +28,8 @@ export enum SystemSectionTestId {
   MaxConcurrentRuns = "system-max-concurrent-runs",
   DockDoneTasksLimit = "system-dock-done-tasks-limit",
   GoalAutoResume = "system-goal-auto-resume",
+  AutoCompactOpencode = "system-auto-compact-opencode",
+  AutoCompactClaude = "system-auto-compact-claude",
   Save = "system-save",
 }
 
@@ -65,6 +68,7 @@ function SystemEditor({ config }: { config: SystemConfig }) {
     config.dockDoneTasksLimit,
   );
   const [goalAutoResume, setGoalAutoResume] = useState(config.goalAutoResume);
+  const [autoCompactPct, setAutoCompactPct] = useState(config.autoCompactPct);
 
   /** Coerce a possibly-cleared tick to a non-negative integer (empty → 0 = disabled). */
   const tick = (value: number | null) => Math.max(0, Math.floor(value ?? 0));
@@ -87,6 +91,7 @@ function SystemEditor({ config }: { config: SystemConfig }) {
         maxConcurrentRuns: positive(maxConcurrentRuns, 1),
         dockDoneTasksLimit: Math.min(100, positive(dockDoneTasksLimit, 1)),
         goalAutoResume,
+        autoCompactPct,
       },
     });
 
@@ -177,6 +182,35 @@ function SystemEditor({ config }: { config: SystemConfig }) {
           label={t("runtime.goalAutoResume")}
           onChange={setGoalAutoResume}
         />
+
+        <Divider />
+
+        <Typography type="body">{t("runtime.autoCompact")}</Typography>
+        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+          {t("runtime.autoCompactHint")}
+        </Typography>
+        <div data-testid={SystemSectionTestId.AutoCompactOpencode}>
+          <Slider
+            format={(v) => `${v} %`}
+            label={t("runtime.autoCompactOpencode")}
+            max={95}
+            min={50}
+            onChange={(opencode) => setAutoCompactPct((p) => ({ ...p, opencode }))}
+            step={5}
+            value={autoCompactPct.opencode}
+          />
+        </div>
+        <div data-testid={SystemSectionTestId.AutoCompactClaude}>
+          <Slider
+            format={(v) => `${v} %`}
+            label={t("runtime.autoCompactClaude")}
+            max={95}
+            min={50}
+            onChange={(claude) => setAutoCompactPct((p) => ({ ...p, claude }))}
+            step={5}
+            value={autoCompactPct.claude}
+          />
+        </div>
 
         <Stack align="center" direction="row" justify="end">
           <Button

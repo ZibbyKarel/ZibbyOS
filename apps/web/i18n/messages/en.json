@@ -1219,6 +1219,10 @@
       "dockDoneTasksLimit": "Finished tasks in the dock",
       "dockDoneTasksLimitHint": "How many of the latest finished or failed tasks the Tasks panel shows.",
       "goalAutoResume": "Auto-resume goals on boot",
+      "autoCompact": "Auto-compaction",
+      "autoCompactHint": "Context window fill at which the engine compacts the run's conversation. Lower = compacts sooner.",
+      "autoCompactOpencode": "OpenCode",
+      "autoCompactClaude": "Claude (native CLI)",
       "goalAutoResumeHint": "Enable for unattended (launchd) mode — running/limit-paused goals re-dispatch on restart. Off = they park and wait for approval (Law 3).",
       "save": "Save",
       "unit": {

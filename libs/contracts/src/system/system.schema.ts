@@ -179,6 +179,9 @@ export type UiSettings = z.infer<typeof UiSettingsSchema>;
  *
  * `.strict()` so a stale/renamed key can't smuggle in a knob the server doesn't honour.
  */
+/** Auto-compaction threshold: % of the context window filled before compacting. */
+export const AutoCompactPctSchema = z.number().int().min(50).max(95);
+
 export const SystemConfigSchema = z
   .object({
     /** Task scheduler heartbeat (ms). `0` disables the loop (drive `tick()` directly). */
@@ -256,6 +259,17 @@ export const SystemConfigSchema = z
      * per-step overrides but the UI no longer offers it. See docs/api/ai-engines.md.
      */
     aiEngine: AiEngineSchema.default("opencode"),
+    /**
+     * Context fill (% of the model's window) at which each engine auto-compacts a run's
+     * conversation. opencode → per-run config `compaction.buffer = (100 - pct)%`;
+     * claude → `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`. Tunable from `/settings` (runtime).
+     */
+    autoCompactPct: z
+      .object({
+        opencode: AutoCompactPctSchema.default(80),
+        claude: AutoCompactPctSchema.default(80),
+      })
+      .prefault({}),
     /** A31 — the model family last picked in Settings (an opencode provider id, see `MODEL_FAMILY_PRESETS`). */
     modelFamily: ModelFamilySchema.default("claude"),
     /** The opencode `provider/model` used when the engine is `opencode` ("" = not chosen). */

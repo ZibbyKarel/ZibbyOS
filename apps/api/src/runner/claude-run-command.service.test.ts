@@ -19,6 +19,7 @@ import type { McpServersStorageService } from "../mcp/mcp.storage.service";
 import { externalSkillPrompt } from "../external-skills/skill-repo";
 import { FAKE_BLUECODE_KEY, withBlueCodeDir } from "../ai-providers/bluecode-fixture";
 import { GRANT_DIRS_ENV, freeDirs } from "./runner-core";
+import type { SystemConfigStore } from "../system/system-config.store";
 import type { SkillsStorageService } from "../skills/skills.storage.service";
 import {
   CORE_DELEGATE_IDS,
@@ -40,6 +41,10 @@ interface ServiceOpts {
   marketplaces?: Marketplace[] | (() => Promise<Marketplace[]>);
   /** A27: the operator's own Claude Code servers (default none — never the real machine's). */
   operatorMcpServers?: OperatorMcpServer[];
+  /** The operator's global opencode MCP servers (default none — never the real machine's). */
+  globalOpencodeServers?: Record<string, Record<string, unknown>>;
+  /** `autoCompactPct` the live system config reports (default: no system config at all). */
+  autoCompactPct?: { opencode: number; claude: number };
 }
 
 /** Build the service over fixed in-memory catalogs (only `list`/`read` are exercised). */
@@ -78,7 +83,15 @@ function makeService(
     mcpStore,
     mcpCreds,
     marketplaceStore,
+    opts.autoCompactPct
+      ? ({
+          current: () => ({ autoCompactPct: opts.autoCompactPct }),
+        } as unknown as SystemConfigStore)
+      : undefined,
   );
+  (
+    svc as unknown as { globalOpencodeServers: () => Promise<Record<string, unknown>> }
+  ).globalOpencodeServers = async () => opts.globalOpencodeServers ?? {};
   (
     svc as unknown as { operatorMcpServers: () => Promise<OperatorMcpServer[]> }
   ).operatorMcpServers = async () => opts.operatorMcpServers ?? [];
@@ -1220,6 +1233,52 @@ describe("buildOpencodeCommand", () => {
     // `git` = Bash(git:*): the shell stays, limited to that prefix by the gate plugin.
     expect(opencodeToolRules(["read", "git"])).toMatchObject({ shellPrefixes: ["git"] });
     expect(opencodeToolRules(["read", "git"]).deny).not.toContain("shell");
+  });
+});
+
+describe("opencode global config isolation + compaction", () => {
+  const GLOBAL = {
+    outlook: { type: "local", command: ["npx", "outlook"] },
+    fs: { type: "local", command: ["npx", "global-fs"] },
+    figma: { type: "remote", url: "https://figma.example/mcp" },
+  };
+  const run = (svc: ClaudeRunCommandService) =>
+    svc
+      .buildOpencodeCommand({ instructions: "B", task: "t" }, "opencode/x")
+      .then((r) => JSON.parse(r.opencodeConfig) as Record<string, any>); // eslint-disable-line
+
+  it("disables global servers the run does not mount, keeps mounted ones enabled", async () => {
+    const cfg = await run(
+      makeService([CODER], [], {
+        globalOpencodeServers: GLOBAL,
+        mcpServers: [
+          { id: "fs", type: "stdio", command: "npx", enabled: true, hasCredentials: false },
+        ],
+      }),
+    );
+    expect(cfg.mcp.servers.outlook).toEqual({ ...GLOBAL.outlook, disabled: true });
+    expect(cfg.mcp.servers.figma).toEqual({ ...GLOBAL.figma, disabled: true });
+    expect(cfg.mcp.servers.fs.disabled).toBeUndefined();
+    expect(cfg.mcp.servers.fs.command).toEqual(["npx"]);
+  });
+
+  it("compaction buffer follows autoCompactPct.opencode (80 without a system config)", async () => {
+    expect((await run(makeService([CODER], []))).compaction).toEqual({ auto: true, buffer: "20%" });
+    const cfg = await run(
+      makeService([CODER], [], { autoCompactPct: { opencode: 65, claude: 90 } }),
+    );
+    expect(cfg.compaction).toEqual({ auto: true, buffer: "35%" });
+  });
+
+  it("native claude env carries CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", async () => {
+    const svc = makeService([CODER], [], { autoCompactPct: { opencode: 65, claude: 90 } });
+    const { env } = await svc.buildClaudeCommand({ instructions: "B", task: "t" });
+    expect(env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE).toBe("90");
+    const dflt = await makeService([CODER], []).buildClaudeCommand({
+      instructions: "B",
+      task: "t",
+    });
+    expect(dflt.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE).toBe("80");
   });
 });
 

@@ -1,7 +1,8 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { fireEvent, renderWithProviders as render, screen, within } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type SystemConfig, UiSettingsSchema } from "@zibby/contracts";
+import { SliderTestId } from "@zibby/design-system";
 import { SystemSection, SystemSectionTestId } from "./SystemSection";
 
 const DEFAULTS: SystemConfig = {
@@ -16,6 +17,7 @@ const DEFAULTS: SystemConfig = {
   maxConcurrentRuns: 3,
   dockDoneTasksLimit: 20,
   goalAutoResume: false,
+  autoCompactPct: { opencode: 80, claude: 80 },
   chatPersona: "jarvis",
   aiEngine: "claude",
   modelFamily: "claude",
@@ -69,6 +71,19 @@ describe("SystemSection", () => {
     await userEvent.click(screen.getByTestId(SystemSectionTestId.Save));
     expect(setConfig).toHaveBeenCalledWith({
       body: { ...DEFAULTS, operatorName: "Karel", companyName: "Acme" },
+    });
+  });
+
+  it("Save sends the full autoCompactPct object after a slider change", async () => {
+    render(<SystemSection />);
+    const root = screen.getByTestId(SystemSectionTestId.AutoCompactClaude);
+    const input = within(root).getByTestId(SliderTestId.Input);
+    expect(within(root).getByTestId(SliderTestId.Readout)).toHaveTextContent("80 %");
+    fireEvent.change(input, { target: { value: "65" } });
+    expect(within(root).getByTestId(SliderTestId.Readout)).toHaveTextContent("65 %");
+    await userEvent.click(screen.getByTestId(SystemSectionTestId.Save));
+    expect(setConfig).toHaveBeenCalledWith({
+      body: { ...DEFAULTS, autoCompactPct: { opencode: 80, claude: 65 } },
     });
   });
 
