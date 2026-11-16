@@ -844,6 +844,13 @@ export const ScheduledTaskSchema = z.object({
       conflictAtStart: z.boolean(),
       /** How the base was brought in: `merge` (default) or `rebase`. */
       method: z.enum(["merge", "rebase"]).optional(),
+      /** Stacked PR: head sha of the newest already-merged parent PR found in this branch; the rebase goes `--onto` it. */
+      stackBoundary: z
+        .string()
+        .regex(/^[0-9a-f]{40}$/)
+        .optional(),
+      /** Number of that merged parent PR. */
+      stackParent: z.number().int().positive().optional(),
       state: PrRebaseStateSchema,
       report: z.string().optional(),
       worktree: z.string().optional(),

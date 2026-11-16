@@ -54,6 +54,33 @@ export interface RebaseBrief {
   head: string;
   base: string;
   headSha: string;
+  /** Stacked PR: head of an already-merged parent PR inside this branch — rebase `--onto` it. */
+  boundary?: { sha: string; parent: number };
+}
+
+/** A closed PR as far as stack detection cares. */
+export interface MergedPull {
+  number: number;
+  headSha: string;
+}
+
+/**
+ * The newest commit of the PR branch that is the head of an already-merged PR (its parent
+ * in a stack, since squash-merged): the candidate occurring LATEST in `commits` (oldest
+ * first). The PR's own head is never a boundary. `null` when there is none.
+ */
+export function findStackBoundary(
+  commits: string[],
+  mergedPulls: MergedPull[],
+): { sha: string; parent: number } | null {
+  const own = commits[commits.length - 1];
+  const parentOf = new Map(mergedPulls.map((p) => [p.headSha, p.number]));
+  for (let i = commits.length - 2; i >= 0; i--) {
+    const sha = commits[i];
+    const parent = sha ? parentOf.get(sha) : undefined;
+    if (sha && sha !== own && parent !== undefined) return { sha, parent };
+  }
+  return null;
 }
 
 /**
@@ -112,13 +139,28 @@ export async function readPushablePr(
 
 /** The `rebase` phase's brief (`task.md`). The PR title is inbound content — data only. */
 export function rebaseTaskText(p: RebaseBrief): string {
+  const b = p.boundary?.sha;
+  const count = b
+    ? `\`git rev-list --count --no-merges ${b}..HEAD\``
+    : `\`git rev-list --count --no-merges origin/${p.base}..HEAD\``;
+  const squash = b
+    ? `\`git reset --soft ${b} && git commit -m <the PR title>\``
+    : `\`git reset --soft $(git merge-base HEAD origin/${p.base}) && git commit -m <the PR title>\``;
+  const rebaseCmd = b
+    ? `git -c rerere.enabled=true -c rerere.autoupdate=true rebase --onto origin/${p.base} ${b}`
+    : `git -c rerere.enabled=true -c rerere.autoupdate=true rebase origin/${p.base}`;
   return [
     `Rebase GitHub pull request ${p.repo}#${p.number} (${p.url}): branch \`${p.head}\` onto \`${p.base}\` — a ZIBBY pr-rebase workflow run.`,
     "",
     "Your working directory is this run's own git worktree of the project.",
     `1. \`git fetch origin ${p.base} ${p.head}\`, then \`git checkout --detach ${p.headSha}\` — the PR head the operator clicked on. If \`git rev-parse origin/${p.head}\` is not \`${p.headSha}\`, stop: report that the branch moved and do nothing else.`,
-    `2. Count the PR's own commits: \`git rev-list --count --no-merges origin/${p.base}..HEAD\`. When it is more than ${SQUASH_OVER}, squash them first — \`git reset --soft $(git merge-base HEAD origin/${p.base}) && git commit -m <the PR title>\` — so conflicts are resolved once, not once per commit; the PR's per-commit history is not worth keeping. A squashed run never reports \`Conflicts: none\` (the commits were rewritten): report \`Conflicts: 0 files\` when the rebase of the squash was conflict-free.`,
-    `3. \`git -c rerere.enabled=true -c rerere.autoupdate=true rebase origin/${p.base}\` (rerere replays a conflict resolution you already made on an earlier commit). For each conflict read both sides and the PR (\`gh pr view ${p.number} --repo ${p.repo}\`, \`gh pr diff ${p.number} --repo ${p.repo}\`), resolve it so the base change AND the PR change both keep their intent, \`git add\` the file, \`git rebase --continue\`.`,
+    `2. Count the PR's own commits: ${count}. When it is more than ${SQUASH_OVER}, squash them first — ${squash} — so conflicts are resolved once, not once per commit; the PR's per-commit history is not worth keeping. A squashed run never reports \`Conflicts: none\` (the commits were rewritten): report \`Conflicts: 0 files\` when the rebase of the squash was conflict-free.`,
+    `3. \`${rebaseCmd}\` (rerere replays a conflict resolution you already made on an earlier commit). For each conflict read both sides and the PR (\`gh pr view ${p.number} --repo ${p.repo}\`, \`gh pr diff ${p.number} --repo ${p.repo}\`), resolve it so the base change AND the PR change both keep their intent, \`git add\` the file, \`git rebase --continue\`.`,
+    ...(p.boundary
+      ? [
+          `   The commits up to \`${p.boundary.sha}\` belong to the already-merged parent PR #${p.boundary.parent}, whose squash is already on \`${p.base}\`, so they are dropped on purpose.`,
+        ]
+      : []),
     "   Never drop the PR's side silently: no wholesale `--ours`/`--theirs`, no `git rebase --skip`, no deleting the PR's changes — unless that PR change is already in the base, and then say so for that file.",
     "4. If a conflict can't be resolved with confidence, `git rebase --abort` and report why. Leave nothing half-done.",
     `5. Only when you resolved conflicts: run quick checks — the typecheck of each package a conflicted file belongs to and the linter on the conflicted files (package.json scripts, README, CLAUDE.md). Do NOT run test suites; GitHub CI runs them after the push. If a quick check shows the rebase broke something, fix it in a new commit \`fix: adapt <file> after rebase onto ${p.base}\`. A conflict-free rebase runs no checks — write the report and finish.`,
@@ -222,8 +264,20 @@ export class InboxRebaseService implements OnModuleInit {
       link,
       input.number,
     );
-    const method = input.method ?? "merge";
-    if (await this.updateOnGithub(link.token, nodeId, headSha, method)) {
+    const boundary = await this.findBoundary(link, input.number, base);
+    // A stacked PR's merge/rebase would replay the parent's already-squashed commits
+    // (phantom conflicts): skip GitHub's update and always rebase --onto the parent.
+    const method = boundary ? "rebase" : (input.method ?? "merge");
+    if (boundary) {
+      this.log?.info("stacked pr: rebasing onto merged parent's head", {
+        repo: link.repo,
+        number: input.number,
+        boundary: boundary.sha,
+        parent: boundary.parent,
+        requested: input.method ?? "merge",
+      });
+    }
+    if (!boundary && (await this.updateOnGithub(link.token, nodeId, headSha, method))) {
       this.inbox.dropPrsCache();
       this.log?.info("pr branch updated by github", {
         repo: link.repo,
@@ -250,6 +304,7 @@ export class InboxRebaseService implements OnModuleInit {
           head,
           base,
           headSha,
+          ...(boundary ? { boundary } : {}),
         }),
       },
       Date.now(),
@@ -268,6 +323,7 @@ export class InboxRebaseService implements OnModuleInit {
       headSha,
       conflictAtStart: mergeable !== true,
       method,
+      ...(boundary ? { stackBoundary: boundary.sha, stackParent: boundary.parent } : {}),
       state: "running",
     }));
     this.log?.info("pr rebase task started", {
@@ -277,6 +333,48 @@ export class InboxRebaseService implements OnModuleInit {
       base,
     });
     return { taskId: result.task.id };
+  }
+
+  /**
+   * Stacked-PR detection: the newest commit of the PR that is the head of an already-merged
+   * PR into the same base. Any API failure → `null` (warn), never a throw.
+   */
+  private async findBoundary(
+    link: { repo: string; token: string },
+    number: number,
+    base: string,
+  ): Promise<{ sha: string; parent: number } | null> {
+    const headers = {
+      authorization: `Bearer ${link.token}`,
+      accept: "application/vnd.github+json",
+    };
+    const get = async (url: string): Promise<unknown> => {
+      const res = await this.fetchImpl(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    };
+    try {
+      const commits: string[] = [];
+      // GitHub caps this endpoint at 250 commits.
+      for (let page = 1; page <= 3; page++) {
+        const batch = (await get(
+          `${GITHUB_API}/repos/${link.repo}/pulls/${number}/commits?per_page=100&page=${page}`,
+        )) as { sha?: string }[];
+        for (const c of batch) if (c.sha) commits.push(c.sha);
+        if (batch.length < 100) break;
+      }
+      // ponytail: only the 100 most recently updated closed PRs into the same base are checked.
+      const closed = (await get(
+        `${GITHUB_API}/repos/${link.repo}/pulls?state=closed&base=${encodeURIComponent(base)}&sort=updated&direction=desc&per_page=100`,
+      )) as { number: number; merged_at?: string | null; head?: { sha?: string } }[];
+      const merged: MergedPull[] = closed
+        .filter((p) => p.merged_at && p.number !== number && p.head?.sha)
+        .map((p) => ({ number: p.number, headSha: p.head?.sha ?? "" }));
+      return findStackBoundary(commits, merged);
+    } catch (error) {
+      this.log?.warn("stack boundary lookup failed, continuing without", { err: errMsg(error) });
+      return null;
+    }
   }
 
   /** GitHub's server-side branch update; `false` on any refusal or failure (→ LLM fallback). */
@@ -349,6 +447,7 @@ export class InboxRebaseService implements OnModuleInit {
         // (conflicts resolved, reviewed) rebase legitimately does.
         allowRewrittenCommits: !isCleanPrRebase(rebase.conflictAtStart, rebase.report ?? ""),
         ...(rebase.rebasedSha ? { rebasedSha: rebase.rebasedSha } : {}),
+        ...(rebase.stackBoundary ? { dropBelow: rebase.stackBoundary } : {}),
       });
       await settle({ state: "pushed", note: sha });
     } catch (error) {

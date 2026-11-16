@@ -453,7 +453,7 @@ export class WorkspaceService {
    * one own commit beyond `origin/<base>`. With `rebasedSha` (the HEAD ZIBBY verified at approval time) the
    * worktree HEAD must still equal it, and exactly that sha is pushed. The lease pins
    * the remote branch to `expectedSha`, so a push made since the click is never
-   * overwritten. Returns the pushed sha; throws an Error with the reason.
+   * overwritten. With `dropBelow` (stacked PR) the old range is `dropBelow..expectedSha`. Returns the pushed sha; throws an Error with the reason.
    */
   async pushRebased(opts: {
     cwd: string;
@@ -462,8 +462,18 @@ export class WorkspaceService {
     expectedSha: string;
     allowRewrittenCommits?: boolean;
     rebasedSha?: string;
+    /** Stacked PR: the already-merged parent's head. Its commits (`..dropBelow`) were dropped on purpose (`rebase --onto`), so the preservation check starts above it. */
+    dropBelow?: string;
   }): Promise<string> {
-    const { cwd, head, base, expectedSha, allowRewrittenCommits = false, rebasedSha } = opts;
+    const {
+      cwd,
+      head,
+      base,
+      expectedSha,
+      allowRewrittenCommits = false,
+      rebasedSha,
+      dropBelow,
+    } = opts;
     const git = async (args: string[], timeout = GIT_TIMEOUT_MS): Promise<string> =>
       (await exec("git", args, { cwd, timeout, maxBuffer: 64 * 1024 * 1024 })).stdout.trim();
     const ok = (args: string[]) =>
@@ -484,6 +494,9 @@ export class WorkspaceService {
     }
     if (rebasedSha !== undefined && !/^[0-9a-f]{40}$/.test(rebasedSha)) {
       throw new Error(`rebasedSha is not a full 40-char sha: "${rebasedSha}"`);
+    }
+    if (dropBelow !== undefined && !/^[0-9a-f]{40}$/.test(dropBelow)) {
+      throw new Error(`dropBelow is not a full 40-char sha: "${dropBelow}"`);
     }
     if (head === base) throw new Error(`refusing to push the base branch "${base}"`);
     const defaultBranch = await git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).then(
@@ -536,7 +549,7 @@ export class WorkspaceService {
     }
     const commits = async (range: string): Promise<string[]> =>
       (await git(["rev-list", "--reverse", "--no-merges", range])).split("\n").filter(Boolean);
-    const mergeBase = await git(["merge-base", expectedSha, `origin/${base}`]);
+    const mergeBase = dropBelow ?? (await git(["merge-base", expectedSha, `origin/${base}`]));
     const oldCommits = await commits(`${mergeBase}..${expectedSha}`);
     if (oldCommits.length === 0) {
       throw new Error(`the PR has no commits of its own beyond ${base}; nothing to rebase`);

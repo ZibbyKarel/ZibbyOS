@@ -537,6 +537,15 @@ falls back to the `pr-rebase` workflow below → 201 `{ taskId }`; the brief fol
 method is stored on `prRebase.method`. A merge result is a fast-forward of the clicked head, so
 `pushRebased` accepts it unchanged.
 
+Stacked PRs: before the GitHub update, `start` looks for the newest commit of the PR branch
+(`GET pulls/{n}/commits`, up to 250) that is the `head.sha` of an already-merged PR into the same
+base (`GET pulls?state=closed&base=…`, the 100 most recently updated). If found, the PR was stacked
+on a parent that was squash-merged, so a merge or plain rebase would replay the parent's commits as
+phantom conflicts. `start` then skips GitHub's update, forces the rebase brief
+(`git rebase --onto origin/<base> <boundary>`, squash counted from `<boundary>`) and stores
+`prRebase.stackBoundary` / `stackParent`; `pushRebased` gets `dropBelow: stackBoundary` so the
+commit-preservation check compares `<boundary>..<clicked sha>`. Any API failure means no boundary.
+
 todo-11. Body `{ projectId, repo, number, title? }` (strict) → 201 `{ taskId }`; 404 unknown
 project; 422 no GitHub link / repo not the project's / fork head / closed PR / head is the
 base or default branch / a rebase of the same PR already `running` or `awaiting-approval`

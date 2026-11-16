@@ -569,6 +569,32 @@ describe("WorkspaceService.pushRebased (todo-11)", () => {
     expect(await remoteFeat()).toBe(sha);
   });
 
+  it("stacked PR: pushes a clean rebase --onto the merged parent's head (parent commits dropped)", async () => {
+    // feat = base + parent commit + own commit; main squashes the parent.
+    await git(op, "checkout", "-b", "stacked", "main~1");
+    const parentSha = await commit(op, "parent.txt", "parent\n");
+    const ownSha = await commit(op, "own.txt", "own\n");
+    await git(op, "push", "origin", "stacked");
+    await git(op, "checkout", "main");
+    await commit(op, "parent.txt", "parent\n"); // the squash
+    await git(op, "push", "origin", "main");
+    await git(wt, "fetch", "origin");
+    await git(wt, "checkout", "--detach", ownSha);
+    await git(wt, "rebase", "--onto", "origin/main", parentSha);
+    // Without the boundary the parent's commit counts as lost.
+    await expect(
+      svc.pushRebased({ cwd: wt, head: "stacked", base: "main", expectedSha: ownSha }),
+    ).rejects.toThrow(/did not preserve/);
+    const sha = await svc.pushRebased({
+      cwd: wt,
+      head: "stacked",
+      base: "main",
+      expectedSha: ownSha,
+      dropBelow: parentSha,
+    });
+    expect(await git(origin, "rev-parse", "refs/heads/stacked")).toBe(sha);
+  });
+
   it("never overwrites a push made after the click (lease)", async () => {
     await git(wt, "rebase", "origin/main");
     await git(op, "checkout", "feat");

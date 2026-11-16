@@ -5,7 +5,7 @@ import type { Integration, Project } from "@zibby/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
-import { InboxRebaseService, PrRefusedError } from "./inbox-rebase.service";
+import { InboxRebaseService, PrRefusedError, findStackBoundary } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
 const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
@@ -158,6 +158,79 @@ describe("InboxRebaseService", () => {
       conflictAtStart: false,
       method: "rebase",
       state: "running",
+    });
+  });
+
+  describe("stacked PR (rebase --onto the merged parent's head)", () => {
+    const own = "c".repeat(40);
+    const parent = "a".repeat(40);
+    let commitsRes: { status: number; body: unknown };
+    let closedRes: { status: number; body: unknown };
+    beforeEach(() => {
+      commitsRes = { status: 200, body: [{ sha: parent }, { sha: "b".repeat(40) }, { sha: own }] };
+      closedRes = {
+        status: 200,
+        body: [{ number: 5, merged_at: "2026-01-01T00:00:00Z", head: { sha: parent } }],
+      };
+      const prev = fetchImpl.getMockImplementation();
+      fetchImpl.mockImplementation(async (url: string) => {
+        if (url.includes("/pulls/7/commits")) {
+          return new Response(JSON.stringify(commitsRes.body), { status: commitsRes.status });
+        }
+        if (url.includes("/pulls?state=closed")) {
+          return new Response(JSON.stringify(closedRes.body), { status: closedRes.status });
+        }
+        return (prev as (u: string) => Promise<Response>)(url);
+      });
+    });
+
+    it("skips GitHub's update, briefs rebase --onto and stamps the boundary", async () => {
+      expect(await start()).toEqual({ taskId: "task_b1" }); // merge requested, rebase used
+      expect(fetchImpl.mock.calls.some(([u]) => String(u).endsWith("/graphql"))).toBe(false);
+      const text: string = createTask.mock.calls[0]?.[0].text ?? "";
+      expect(text).toContain(`rebase --onto origin/main ${parent}`);
+      expect(text).toContain(`git rev-list --count --no-merges ${parent}..HEAD`);
+      expect(text).toContain(`git reset --soft ${parent} && git commit`);
+      expect(text).toContain("already-merged parent PR #5");
+      expect(text).not.toContain("git merge --no-ff");
+      const rec = (await storage.get("task_b1")).prRebase;
+      expect(rec).toMatchObject({ method: "rebase", stackBoundary: parent, stackParent: 5 });
+    });
+
+    it("an API failure on the pulls list behaves exactly like before", async () => {
+      closedRes = { status: 500, body: {} };
+      expect(await start()).toEqual({ taskId: "task_b1" });
+      expect(fetchImpl.mock.calls.some(([u]) => String(u).endsWith("/graphql"))).toBe(true);
+      expect(createTask.mock.calls[0]?.[0].text).toContain("git merge --no-ff origin/main");
+      const rec = (await storage.get("task_b1")).prRebase;
+      expect(rec?.method).toBe("merge");
+      expect(rec).not.toHaveProperty("stackBoundary");
+    });
+  });
+
+  describe("findStackBoundary", () => {
+    const sha = (c: string) => c.repeat(40);
+    const commits = [sha("a"), sha("b"), sha("c"), sha("d")];
+    it("no candidates", () => {
+      expect(findStackBoundary(commits, [])).toBeNull();
+      expect(findStackBoundary(commits, [{ number: 1, headSha: sha("z") }])).toBeNull();
+    });
+    it("one parent", () => {
+      expect(findStackBoundary(commits, [{ number: 1, headSha: sha("b") }])).toEqual({
+        sha: sha("b"),
+        parent: 1,
+      });
+    });
+    it("two stacked parents: picks the later one in the commit list", () => {
+      const pulls = [
+        { number: 1, headSha: sha("a") },
+        { number: 2, headSha: sha("c") },
+      ];
+      expect(findStackBoundary(commits, pulls)).toEqual({ sha: sha("c"), parent: 2 });
+      expect(findStackBoundary(commits, pulls.reverse())).toEqual({ sha: sha("c"), parent: 2 });
+    });
+    it("ignores a candidate equal to the PR head", () => {
+      expect(findStackBoundary(commits, [{ number: 1, headSha: sha("d") }])).toBeNull();
     });
   });
 
