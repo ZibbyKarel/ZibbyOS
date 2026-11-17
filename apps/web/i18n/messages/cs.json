@@ -2342,7 +2342,11 @@
       "cron": "Plán",
       "manual": "Ručně",
       "signal": "Signál"
-    }
+    },
+    "runDialogTitle": "Spustit automatizaci",
+    "runPromptLabel": "Doplňující prompt (volitelný)",
+    "runPromptPlaceholder": "např. chci projít včerejšek",
+    "runPromptHint": "Odešle se jen s tímto během; automatizace se nemění."
   },
   "hooks": {
     "title": "Hooky",

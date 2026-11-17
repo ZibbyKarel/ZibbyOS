@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DeleteResponseSchema, EmptyBodySchema } from "../common.schema";
-import { AutomationSchema, UpdateAutomationSchema, automationsContract } from "../index";
+import { DeleteResponseSchema } from "../common.schema";
+import {
+  AutomationSchema,
+  TriggerAutomationSchema,
+  UpdateAutomationSchema,
+  automationTakesPrompt,
+  automationsContract,
+} from "../index";
 
 describe("automationsContract", () => {
   it("exposes CRUD + trigger under /api/automations", () => {
@@ -13,8 +19,20 @@ describe("automationsContract", () => {
     expect(automationsContract.deleteAutomation.responses[200]).toBe(DeleteResponseSchema);
   });
 
-  it("triggerAutomation's empty body IS the shared EmptyBodySchema (T11 dedup, finding #37)", () => {
-    expect(automationsContract.triggerAutomation.body).toBe(EmptyBodySchema);
+  it("triggerAutomation takes an optional one-off prompt (body may be absent or empty)", () => {
+    expect(automationsContract.triggerAutomation.body).toBe(TriggerAutomationSchema);
+    expect(TriggerAutomationSchema.parse(undefined)).toBeUndefined();
+    expect(TriggerAutomationSchema.parse({})).toEqual({});
+    expect(TriggerAutomationSchema.parse({ prompt: "  chci projít včerejšek " })).toEqual({
+      prompt: "chci projít včerejšek",
+    });
+    expect(TriggerAutomationSchema.safeParse({ prompt: "x".repeat(2001) }).success).toBe(false);
+  });
+
+  it("only free-text targets take a trigger prompt", () => {
+    expect(automationTakesPrompt({ type: "slack-digest" })).toBe(true);
+    expect(automationTakesPrompt({ type: "briefing" })).toBe(true);
+    expect(automationTakesPrompt({ type: "vault-lint" })).toBe(false);
   });
 
   it("exposes a search route declared before the `:id` route", () => {

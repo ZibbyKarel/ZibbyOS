@@ -142,6 +142,30 @@ export const TargetSchema = z.discriminatedUnion("type", [
 export type Target = z.infer<typeof TargetSchema>;
 
 /**
+ * Targets whose run consumes free text — the automation's `prompt` and the operator's
+ * one-off `prompt` on a manual trigger (`TriggerAutomationSchema`). The other targets are
+ * deterministic and ignore it, so the UI offers the field only for these.
+ */
+export const AUTOMATION_PROMPT_TARGETS = [
+  "agent",
+  "workflow",
+  "briefing",
+  "task",
+  "slack-digest",
+] as const satisfies readonly Target["type"][];
+
+export function automationTakesPrompt(target: Target): boolean {
+  return (AUTOMATION_PROMPT_TARGETS as readonly string[]).includes(target.type);
+}
+
+/** Manual-trigger body: an optional one-off prompt appended to this fire only. */
+export const TRIGGER_PROMPT_MAX = 2000;
+export const TriggerAutomationSchema = z
+  .object({ prompt: z.string().trim().max(TRIGGER_PROMPT_MAX).optional() })
+  .optional();
+export type TriggerAutomation = z.infer<typeof TriggerAutomationSchema>;
+
+/**
  * A scheduled/triggered run. The daemon fires these without prompting — autonomy
  * of *planning*, not of destructive action: any external-effect action a triggered
  * run takes still queues through the approval gate (Phase 3/3.5).

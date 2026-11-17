@@ -122,7 +122,7 @@ export class SlackDigestService {
   }
 
   /** Never throws; returns the scheduler ref. */
-  async run(date: string = pragueDate()): Promise<string> {
+  async run(requestedDate: string = pragueDate(), operatorPrompt?: string): Promise<string> {
     try {
       // The skill ships in the operator's marketplace plugin (`zibby:slack-daily-digest`);
       // a same-id own/external skill is the fallback.
@@ -135,7 +135,10 @@ export class SlackDigestService {
       }
       let out: string;
       try {
-        out = (await this.spawn(buildArgs(`${instructions}\n\nDate: ${date}`))).trim();
+        const prompt = operatorPrompt
+          ? `${instructions}\n\nDate: ${requestedDate} (today, Europe/Prague)\n\nOperator's request for this run (may name a different day — then digest THAT day and put its date in the heading): ${operatorPrompt}`
+          : `${instructions}\n\nDate: ${requestedDate}`;
+        out = (await this.spawn(buildArgs(prompt))).trim();
       } catch (error) {
         this.log.warn("slack digest turn failed", { error: String(error) });
         return "slack-digest:error";
@@ -145,6 +148,8 @@ export class SlackDigestService {
         this.log.warn("slack digest output rejected", { head: out.slice(0, 80) });
         return "slack-digest:error";
       }
+      // The model may have digested another day (operator prompt): its heading wins.
+      const date = /^# Slack [—-] (\d{4}-\d{2}-\d{2})/.exec(out)?.[1] ?? requestedDate;
       const id = `slack-${date}`;
       const body = `${out}\n`;
       let created = true;

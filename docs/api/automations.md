@@ -244,11 +244,19 @@ GET    /api/automations/search?q= search by id or name
 GET    /api/automations/:id       get one
 PATCH  /api/automations/:id       update (enable/disable, retarget; system: reschedule/toggle only, else 409)
 DELETE /api/automations/:id       delete (409 for a system automation)
-POST   /api/automations/:id/trigger  fire now (returns runRef)
+POST   /api/automations/:id/trigger  fire now (body { prompt? }; returns runRef)
 GET    /api/automations/:id/fires     fire history, newest first (404 unknown automation)
 GET    /api/automations/:id/fires/:fireId/logs?offset=  fire log chunk (RunLogChunk; 404 unknown fire)
 GET    /api/automations/:id/fires/:fireId/logs/stream   SSE tail of the same log (outside ts-rest)
 ```
+
+The trigger body's optional `prompt` (trimmed, max `TRIGGER_PROMPT_MAX` = 2000) is a
+one-off addition for that fire only — appended after the automation's own `prompt` and
+never saved. Only targets in `AUTOMATION_PROMPT_TARGETS` (`agent`, `workflow`,
+`briefing`, `task`, `slack-digest`) consume it; the UI asks for it in a run dialog just
+for those (`automationTakesPrompt`). The Slack digest receives it as the operator's
+request for that run (e.g. "chci projít včerejšek") and stores the note under the date
+in the model's `# Slack — YYYY-MM-DD` heading.
 
 `GET /api/automations` and `GET /api/automations/:id` return `AutomationView` — the
 automation plus `lastFire?: AutomationFire` (its newest fire). `lastFire` is

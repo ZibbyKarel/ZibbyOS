@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Automation } from "@zibby/contracts";
 import userEvent from "@testing-library/user-event";
+import { RunAutomationDialogTestId } from "./components/RunAutomationDialog";
 import { renderWithProviders as render, screen } from "../../test/render";
 import { AutomationFiresTestId } from "./components/AutomationFires";
 import { AutomationDetailScreenTestId, DetailScreen } from "./DetailScreen";
@@ -94,7 +95,11 @@ describe("automations DetailScreen (N4f grammar)", () => {
   it("Run now fires the trigger mutation from the top-right", async () => {
     render(<DetailScreen automationId="on-file" />);
     await userEvent.click(screen.getByTestId(AutomationDetailScreenTestId.Run));
-    expect(hooks.trigger).toHaveBeenCalledWith({ params: { id: "on-file" }, body: {} });
+    await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
+    expect(hooks.trigger).toHaveBeenCalledWith(
+      { params: { id: "on-file" }, body: {} },
+      expect.anything(),
+    );
   });
 
   it("Delete asks in a CONFIRM dialog, then deletes and navigates back to /automations", async () => {

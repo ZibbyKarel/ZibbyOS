@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Automation } from "@zibby/contracts";
 import userEvent from "@testing-library/user-event";
+import { RunAutomationDialogTestId } from "./components/RunAutomationDialog";
 import { fireEvent, renderWithProviders as render, screen } from "../../test/render";
 import { GridTestId } from "@zibby/design-system";
 import { Screen } from "./Screen";
@@ -119,10 +120,14 @@ describe("Automations Screen", () => {
     expect(screen.queryByText("0 7 * * *")).not.toBeInTheDocument();
   });
 
-  it("runs an automation now via the trigger mutation", () => {
+  it("runs an automation now via the run dialog", async () => {
     render(<Screen />);
     fireEvent.click(screen.getByTestId(AutomationCardTestId.Run));
-    expect(trigger).toHaveBeenCalledWith({ params: { id: "morning-standup" }, body: {} });
+    await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
+    expect(trigger).toHaveBeenCalledWith(
+      { params: { id: "morning-standup" }, body: {} },
+      expect.anything(),
+    );
   });
 
   it("toggles enabled via the update mutation", () => {

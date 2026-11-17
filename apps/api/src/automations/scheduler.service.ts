@@ -149,9 +149,9 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
   }
 
   /** Fire an automation now (manual/event path); returns a run reference. */
-  async trigger(id: string): Promise<string> {
+  async trigger(id: string, extraPrompt?: string): Promise<string> {
     const automation = await this.storage.get(id);
-    const ref = await this.recordFire(automation, "manual");
+    const ref = await this.recordFire(automation, "manual", undefined, extraPrompt);
     await this.storage.markFired(id, new Date().toISOString());
     return ref;
   }
@@ -172,6 +172,7 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
     automation: Automation,
     source: AutomationFire["source"],
     signal?: Signal,
+    extraPrompt?: string,
   ): Promise<string> {
     const { id } = automation;
     const warn = (error: unknown) =>
@@ -185,10 +186,10 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
     };
     const startedAt = Date.now();
     await note(
-      `start target=${automation.target.type} prompt=${(automation.prompt ?? "").slice(0, 200)}`,
+      `start target=${automation.target.type} prompt=${(automation.prompt ?? "").slice(0, 200)}${extraPrompt ? ` extra=${extraPrompt.slice(0, 200)}` : ""}`,
     );
     try {
-      const { ref, runRef } = await this.dispatch(automation, signal);
+      const { ref, runRef } = await this.dispatch(automation, signal, extraPrompt);
       await note(`done in ${Date.now() - startedAt} ms: ${ref}`);
       await end({ status: "done", result: ref, ...(runRef ? { runRef } : {}) });
       return ref;
@@ -211,12 +212,15 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
    * `signal` (signal-trigger path) appends its title+body to the run's text/prompt
    * and attributes a `task` target to the signal's project.
    */
-  private async dispatch(automation: Automation, signal?: Signal): Promise<DispatchResult> {
+  private async dispatch(
+    automation: Automation,
+    signal?: Signal,
+    extraPrompt?: string,
+  ): Promise<DispatchResult> {
     const { target } = automation;
     const signalText = signal ? `${signal.title}\n\n${signal.body}` : undefined;
-    const prompt = signalText
-      ? [automation.prompt, signalText].filter(Boolean).join("\n\n")
-      : automation.prompt;
+    const prompt =
+      [automation.prompt, extraPrompt, signalText].filter(Boolean).join("\n\n") || undefined;
     this.log.info("dispatching automation", { id: automation.id, target: target.type });
     // Per-automation engine override: rides the task to an agent target's run, where it
     // wins over the agent's own engine (workflow stages keep their own engines).
@@ -298,7 +302,7 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
         // task classifier/orchestrator-fallback decides at fire time.
         const result = await this.taskScheduler.createTask(
           {
-            text: signalText ? `${target.text}\n\n${signalText}` : target.text,
+            text: [target.text, extraPrompt, signalText].filter(Boolean).join("\n\n"),
             ...(signal ? { title: signal.title.slice(0, 200) } : {}),
             target: target.target,
             attachmentSetId: target.attachmentSetId,
@@ -347,7 +351,7 @@ export class SchedulerService extends TickingWatcherBase implements OnModuleInit
         // Evening read-only claude turn over the day's Slack → vault `slack-<date>`.
         // Fail-open: `run` never throws; the guard is for a vault/DI surprise.
         try {
-          return { ref: await this.slackDigest.run() };
+          return { ref: await this.slackDigest.run(undefined, extraPrompt) };
         } catch (error) {
           this.log.warn("slack digest failed", { error: String(error) });
           return { ref: "slack-digest:error" };

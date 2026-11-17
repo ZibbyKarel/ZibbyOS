@@ -2,10 +2,11 @@ import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { RunLogChunkSchema } from "../agents/agent-run.schema";
-import { DeleteResponseSchema, EmptyBodySchema, ErrorSchema } from "../common.schema";
+import { DeleteResponseSchema, ErrorSchema } from "../common.schema";
 import {
   AutomationSchema,
   CreateAutomationSchema,
+  TriggerAutomationSchema,
   UpdateAutomationSchema,
 } from "./automation.schema";
 import { AutomationFireSchema, AutomationViewSchema } from "./automation-fire.schema";
@@ -70,9 +71,10 @@ export const automationsContract = c.router(
       method: "POST",
       path: "/automations/:id/trigger",
       pathParams: IdParam,
-      body: EmptyBodySchema,
+      body: TriggerAutomationSchema,
       responses: { 200: z.object({ runRef: z.string() }), 404: ErrorSchema },
-      summary: "Fire an automation now (runs its target, returns a run reference)",
+      summary:
+        "Fire an automation now (runs its target, returns a run reference); `prompt` is a one-off addition for this fire",
     },
     listAutomationFires: {
       method: "GET",

@@ -104,6 +104,17 @@ describe("SlackDigestService", () => {
     expect(SLACK_DIGEST_DENIED_TOOLS.filter((t) => allowed.includes(t))).toEqual([]);
   });
 
+  it("an operator prompt reaches the spawn and the heading's date names the note", async () => {
+    svc.next = "# Slack — 2026-11-10\n\n## Přehled\nKlid.\n";
+    expect(await svc.run("2026-11-12", "chci projít včerejšek")).toBe(
+      "slack-digest:slack-2026-11-10",
+    );
+    expect(svc.calls[0]?.[1]).toContain("chci projít včerejšek");
+    expect(svc.calls[0]?.[1]).toContain("Date: 2026-11-12 (today, Europe/Prague)");
+    expect((await vault.note("slack-index")).body).toContain("[[slack-2026-11-10]]");
+    await expect(vault.note("slack-2026-11-12")).rejects.toThrow();
+  });
+
   it("NO_ACTIVITY writes nothing", async () => {
     svc.next = "  NO_ACTIVITY\n";
     expect(await svc.run("2026-11-12")).toBe("slack-digest:empty");

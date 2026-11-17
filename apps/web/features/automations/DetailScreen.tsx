@@ -21,7 +21,7 @@ import {
 } from "@zibby/design-system";
 import { PageBreadcrumb } from "../../components/layout/PageBreadcrumb";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
-import type { AiEngine, Automation } from "@zibby/contracts";
+import { type AiEngine, type Automation, automationTakesPrompt } from "@zibby/contracts";
 import { QueryError } from "../../components/LoadError/QueryError";
 import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
@@ -29,6 +29,7 @@ import { AutomationFormFields, useAutomationFormState } from "./components/Autom
 import { AutomationEngineFields } from "./components/AutomationEngineFields";
 import { TriggerFields } from "./components/TriggerFields";
 import { AutomationFires } from "./components/AutomationFires";
+import { RunAutomationDialog } from "./components/RunAutomationDialog";
 import {
   useDeleteAutomationMutation,
   useTriggerAutomationMutation,
@@ -85,6 +86,7 @@ function AutomationEditor({ automation }: { automation: Automation }) {
   const deleteAutomation = useDeleteAutomationMutation();
   const triggerAutomation = useTriggerAutomationMutation();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [runDialog, setRunDialog] = useState(false);
   const quickActions = useQuickActionsQuery().data;
   const { update: updateQuickActions, pending: pinPending } = useUpdateQuickActions(
     quickActions ?? [],
@@ -188,7 +190,9 @@ function AutomationEditor({ automation }: { automation: Automation }) {
                 intent="ghost"
                 loading={triggerAutomation.isPending}
                 onClick={() =>
-                  triggerAutomation.mutate({ params: { id: automation.id }, body: {} })
+                  automationTakesPrompt(automation.target)
+                    ? setRunDialog(true)
+                    : triggerAutomation.mutate({ params: { id: automation.id }, body: {} })
                 }
                 size="sm"
               >
@@ -299,6 +303,9 @@ function AutomationEditor({ automation }: { automation: Automation }) {
         </Stack>
       </PageContainer>
 
+      {runDialog && (
+        <RunAutomationDialog automationId={automation.id} onClose={() => setRunDialog(false)} />
+      )}
       {confirmDelete && (
         <ConfirmDeleteDialog
           body={t("deleteBody", { name })}

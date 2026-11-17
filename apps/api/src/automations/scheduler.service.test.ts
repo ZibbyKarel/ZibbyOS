@@ -214,6 +214,24 @@ describe("SchedulerService — dispatch (agent / workflow targets ride the task 
     expect(ref).toBe("release_1");
   });
 
+  it("a manual trigger's one-off prompt is merged after the automation prompt", async () => {
+    const createTask = dispatched("release_3");
+    const { service } = makeService({
+      automation: { ...workflowAutomation(), prompt: "base" },
+      taskScheduler: { createTask },
+    });
+
+    await service.trigger("nightly-workflow", "extra");
+
+    expect(createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "base\n\nextra" }),
+      expect.any(Number),
+      undefined,
+      { kind: "workflow", id: "release", name: "release" },
+      false,
+    );
+  });
+
   it("an empty prompt becomes empty task text (no behaviour change for prompt-less automations)", async () => {
     const createTask = dispatched("release_2");
     const { service } = makeService({

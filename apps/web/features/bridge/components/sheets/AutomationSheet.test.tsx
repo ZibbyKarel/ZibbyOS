@@ -2,6 +2,7 @@ import type { AutomationView } from "@zibby/contracts";
 import { AnchoredSheetTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { RunAutomationDialogTestId } from "../../../automations/components/RunAutomationDialog";
 import { renderWithProviders, screen, within } from "../../../../test/render";
 import { AutomationFiresTestId } from "../../../automations/components/AutomationFires";
 import { AutomationSheet, AutomationSheetTestId } from "./AutomationSheet";
@@ -63,7 +64,11 @@ describe("AutomationSheet", () => {
       "Review yesterday's PRs",
     );
     await userEvent.click(screen.getByTestId(AutomationSheetTestId.RunNow));
-    expect(d.trigger).toHaveBeenCalledWith({ params: { id: "nightly" }, body: {} });
+    await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
+    expect(d.trigger).toHaveBeenCalledWith(
+      { params: { id: "nightly" }, body: {} },
+      expect.anything(),
+    );
   });
 
   it("the title opens the automation detail page", async () => {

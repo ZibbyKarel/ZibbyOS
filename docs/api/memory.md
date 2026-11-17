@@ -214,7 +214,11 @@ The `slack-digest` system automation (22:00, see `docs/api/automations.md`) stor
 note per day, id `slack-YYYY-MM-DD` (tag `slack`): a Czech digest of the operator's
 Slack day — per conversation who, where, when, the Slack permalink, what was agreed,
 next steps and deadlines. `slack-index` is the MOC, one line per day. The digest prompt is the
-`zibby:slack-daily-digest` marketplace skill.
+`zibby:slack-daily-digest` marketplace skill. A cron fire digests today (Europe/Prague);
+a manual run can carry a one-off prompt ("chci projít včerejšek") that picks another day —
+the note is then stored under the date in the output's `# Slack — YYYY-MM-DD` heading, not
+under today. An empty day (`NO_ACTIVITY`) stores nothing; the fire result is
+`slack-digest:empty`.
 
 Retention is two-stage:
 

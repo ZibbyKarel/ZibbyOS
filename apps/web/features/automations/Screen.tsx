@@ -1,6 +1,6 @@
 "use client";
 
-import type { Automation } from "@zibby/contracts";
+import { type Automation, automationTakesPrompt } from "@zibby/contracts";
 import {
   Button,
   Container,
@@ -24,6 +24,7 @@ import { useAgentsQuery } from "../agents/queries";
 import { useWorkflowsQuery } from "../workflows/queries";
 import { AutomationCard } from "./components/AutomationCard";
 import { AutomationFormDialog } from "./components/AutomationFormDialog";
+import { RunAutomationDialog } from "./components/RunAutomationDialog";
 import {
   useCreateAutomationMutation,
   useTriggerAutomationMutation,
@@ -46,6 +47,13 @@ export function Screen() {
   const update = useUpdateAutomationMutation();
   const trigger = useTriggerAutomationMutation();
   const [creating, setCreating] = useState(false);
+  const [runningId, setRunningId] = useState<string | null>(null);
+
+  /** Prompt-taking targets ask for an optional one-off prompt first; the rest fire at once. */
+  const runAutomation = (automation: Automation) =>
+    automationTakesPrompt(automation.target)
+      ? setRunningId(automation.id)
+      : trigger.mutate({ params: { id: automation.id }, body: {} });
 
   /** Resolve a target id to its display name + glyph for the card. */
   const resolveTarget = (automation: Automation): { name?: string; glyph?: IconName } => {
@@ -96,7 +104,7 @@ export function Screen() {
         onToggle={() =>
           update.mutate({ params: { id: automation.id }, body: { enabled: !automation.enabled } })
         }
-        onTrigger={() => trigger.mutate({ params: { id: automation.id }, body: {} })}
+        onTrigger={() => runAutomation(automation)}
         targetGlyph={glyph}
         targetName={name}
         triggering={trigger.isPending}
@@ -186,7 +194,7 @@ export function Screen() {
                           body: { enabled: !automation.enabled },
                         })
                       }
-                      onTrigger={() => trigger.mutate({ params: { id: automation.id }, body: {} })}
+                      onTrigger={() => runAutomation(automation)}
                       triggering={trigger.isPending}
                     />
                   ))}
@@ -215,6 +223,9 @@ export function Screen() {
       </PageContainer>
 
       {creating && <AutomationFormDialog onClose={() => setCreating(false)} onCreate={onCreate} />}
+      {runningId && (
+        <RunAutomationDialog automationId={runningId} onClose={() => setRunningId(null)} />
+      )}
     </Container>
   );
 }

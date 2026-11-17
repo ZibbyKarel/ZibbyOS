@@ -103,8 +103,8 @@ export class AutomationsController {
           system409,
         ),
 
-      triggerAutomation: ({ params: { id } }) =>
-        errors.or404(id, async () => ({ runRef: await this.scheduler.trigger(id) })),
+      triggerAutomation: ({ params: { id }, body }) =>
+        errors.or404(id, async () => ({ runRef: await this.scheduler.trigger(id, body?.prompt) })),
 
       listAutomationFires: ({ params: { id } }) =>
         errors.or404(id, async () => {

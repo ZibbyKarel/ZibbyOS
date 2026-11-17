@@ -2342,7 +2342,11 @@
       "cron": "Schedule",
       "manual": "Manual",
       "signal": "Signal"
-    }
+    },
+    "runDialogTitle": "Run automation",
+    "runPromptLabel": "Additional prompt (optional)",
+    "runPromptPlaceholder": "e.g. I want to go through yesterday",
+    "runPromptHint": "Sent only with this run; the automation itself is unchanged."
   },
   "hooks": {
     "title": "Hooks",
