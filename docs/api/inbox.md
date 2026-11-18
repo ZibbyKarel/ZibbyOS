@@ -269,7 +269,9 @@ mismatch guard (`ReviewRepoMismatchError`) applies. Posting (`post`): every inli
 (`POST discussions`) with `position { position_type: "text", base_sha, start_sha, head_sha (from the MR's diff_refs),
 new_path, old_path, new_line }` plus `old_line` for an unchanged line; a finding whose line is not on the new side of the
 diff, a head that moved since the review started, or a 400 on the position folds into the summary note (the review `note`
-says why). The summary is one `POST notes`. The verdict is applied before any discussion or note (so a refusal leaves nothing behind), and an `APPROVE` on a head that moved since the review started fails up front. `APPROVE` -> `POST approve` pinned to the reviewed `sha`; `REQUEST_CHANGES` -> the
+says why). The summary is one `POST notes`. The verdict is applied before any discussion or note (so a refusal leaves
+nothing behind), and an `APPROVE` on a head that moved since the review started fails up
+front. `APPROVE` -> `POST approve` pinned to the reviewed `sha`; `REQUEST_CHANGES` -> the
 note, plus `POST unapprove` when the operator had approved (404 ignored); `COMMENT` -> notes only. Nothing else is
 swallowed: a failure marks the review `failed` with what was already posted (the calls are not atomic).
 

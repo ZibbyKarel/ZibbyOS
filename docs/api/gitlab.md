@@ -36,8 +36,8 @@ writes are denied, `glab mr create` notifies, other writes ask) and the `git-hos
 
 ## Agent runs
 
-Recipes live outside the repo and say `gh`. For a GitLab project the grounding block gets one
-injected note (both engines, `gitlab-host-note.ts`): the project is on GitLab at `<host>`
+Recipes live outside the repo and say `gh`. For a GitLab project one note is appended after the
+budgeted grounding block (both engines, `gitlab-host-note.ts`; see `memory.md`): the project is on GitLab at `<host>`
 (`<path>`), use `glab` where instructions say `gh`, "PR" means merge request, pass host and path
 to `-R`, and merging stays with the operator. GitHub projects, projects without a remote and runs
 without a project get no note (the prompt is byte-identical).
@@ -54,7 +54,9 @@ without a project get no note (the prompt is byte-identical).
 - Threads have no `isOutdated` / `diffHunk` (GitLab exposes neither on a discussion).
 - Review posting is not atomic: a mid-way failure leaves earlier discussions live and a retry can
   duplicate them.
-- Lists take the first 100 entries.
+- Inbox lists take the first 100 entries, the CI monitor the first 50.
+- Chat turns and the direct spawners that do not use grounding (`phase-advisor`, orchestrator
+  agent, slack digest, dictation) get no GitLab host note; only agent runs and workflow stages do.
 - The legacy parked-approval PR path still calls `gh`.
 - Gate wrapper gap shared with `gh`: `rtk`, `env`, `sudo`, `command` and full-path invocations
   (`/opt/homebrew/bin/glab`) are not classified.

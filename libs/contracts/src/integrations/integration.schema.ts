@@ -118,7 +118,7 @@ export const GitLabConfigSchema = z
       .regex(/^[a-z0-9.-]+(:\d+)?$/i, "host must be a hostname, e.g. gitlab.example.com"),
     repo: z
       .string()
-      .regex(/^[^/]+(\/[^/]+)+$/, "repo must be a full path like 'group/name'")
+      .regex(/^[\w.-]+(\/[\w.-]+)+$/, "repo must be a full path like 'group/name'")
       .optional(),
     streams: z.array(z.enum(["issues", "pulls", "ci"])).default(["issues", "pulls"]),
     username: z.string().min(1),

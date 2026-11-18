@@ -813,4 +813,36 @@ describe("GroundingService git host note", () => {
       expect(withRef).toBe(without);
     }
   });
+
+  it("survives a full-budget block (appended after truncation)", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "grounding-"));
+    const vault = new VaultService(dir);
+    await vault.onModuleInit();
+    const big = "x".repeat(2500);
+    for (const rel of ["north-star.md", "knowledge/self-knowledge.md", "projects/p1.md"]) {
+      await fs.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
+      await fs.writeFile(path.join(dir, rel), `---\ntitle: ${rel}\n---\n${big}`);
+    }
+    await fs.writeFile(path.join(dir, "review-rules.md"), `---\ntitle: Rules\n---\n${big}`);
+    const ref = { get: () => ({ gitlabLinkFor: async () => gitlab }) } as unknown as ModuleRef;
+    const out = await new GroundingService(vault, ref).compose({ task: "x", projectId: "p1" });
+    expect(out).toContain("…(truncated)");
+    expect(out).toContain("## Git host (GitLab)");
+  });
+
+  it("is fail-open when the link lookup throws", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "grounding-"));
+    const vault = new VaultService(dir);
+    await vault.onModuleInit();
+    const ref = {
+      get: () => ({
+        gitlabLinkFor: async () => {
+          throw new Error("boom");
+        },
+      }),
+    } as unknown as ModuleRef;
+    const withRef = await new GroundingService(vault, ref).compose({ task: "x", projectId: "p1" });
+    const without = await new GroundingService(vault).compose({ task: "x", projectId: "p1" });
+    expect(withRef).toBe(without);
+  });
 });

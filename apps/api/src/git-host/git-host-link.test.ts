@@ -60,4 +60,17 @@ describe("resolveGitHostLink", () => {
     await expect(link([])).resolves.toBeNull();
     await expect(link([github], null)).resolves.toBeNull();
   });
+
+  it("yields no gitlab link for a repo or host of an unexpected shape", async () => {
+    for (const repo of ["g/my app", "g/a`b", "g/a\nb", "g/<x>"]) {
+      const odd = { ...gitlab, config: { ...gitlab.config, repo } } as Integration;
+      await expect(link([odd], null)).resolves.toBeNull();
+    }
+    const badHost = { ...gitlab, config: { ...gitlab.config, host: "x y" } } as Integration;
+    await expect(link([badHost], null)).resolves.toBeNull();
+    const nested = { ...gitlab, config: { ...gitlab.config, repo: "group/sub/project" } };
+    await expect(link([nested as Integration])).resolves.toMatchObject({
+      repo: "group/sub/project",
+    });
+  });
 });
