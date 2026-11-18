@@ -8,7 +8,7 @@ import type {
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { type GitHostLink, resolveGitHostLink } from "../git-host/git-host-link";
-import { GitlabClient } from "../git-host/gitlab-client";
+import { GitlabApiError, GitlabClient } from "../git-host/gitlab-client";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { resolveGithubToken } from "../projects/project-pr.service";
 import { NoGithubLinkError } from "../projects/projects.errors";
@@ -310,7 +310,12 @@ export class InboxPrThreadsService {
     number: number,
     login: string,
   ): Promise<InboxPrReviewers> {
-    await requestGitlabReview(this.gitlab, link, number, login);
+    if (!(await requestGitlabReview(this.gitlab, link, number, login))) {
+      throw new GitlabApiError(
+        `${login} is already a reviewer, not re-requested (GitLab cannot re-request a review)`,
+        422,
+      );
+    }
     void this.activity?.record({
       kind: "channel-reply", // closest existing kind for an operator GitLab action
       summary: `requested review from ${login} on ${link.repo}!${number}`,

@@ -243,6 +243,33 @@ describe("postGitlabReview", () => {
     expect(writes(notApproved.exec).map((c) => c.path.split("/").pop())).toEqual(["notes"]);
   });
 
+  it("REQUEST_CHANGES with no summary and no comments is refused (422), nothing posted", async () => {
+    const { client, exec } = fakeGlab(routes());
+    await expect(
+      postGitlabReview(client, link, 3, { ...input, event: "REQUEST_CHANGES", summary: " " }),
+    ).rejects.toMatchObject({ status: 422 });
+    expect(writes(exec)).toEqual([]);
+  });
+
+  it("REQUEST_CHANGES when glab names no logged-in user is a 422, nothing posted", async () => {
+    const { client, exec } = fakeGlab(routes([[/^user$/, {}]]));
+    await expect(
+      postGitlabReview(client, { host: link.host, repo: link.repo }, 3, {
+        ...input,
+        event: "REQUEST_CHANGES",
+      }),
+    ).rejects.toMatchObject({ status: 422 });
+    expect(writes(exec)).toEqual([]);
+  });
+
+  it("an unapprove 403 surfaces with its status (only 404 means nothing to undo)", async () => {
+    const { client, exec } = fakeGlab(routes([[/unapprove$/, { status: 403 }]]));
+    await expect(
+      postGitlabReview(client, link, 3, { ...input, event: "REQUEST_CHANGES" }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(writes(exec).map((c) => c.path.split("/").pop())).toEqual(["unapprove"]);
+  });
+
   it("an unapprove failure other than 404 propagates; COMMENT never approves", async () => {
     const { client } = fakeGlab(routes([[/unapprove$/, { status: 500 }]]));
     await expect(
@@ -364,7 +391,7 @@ describe("InboxReviewService on a GitLab project", () => {
       [{ filename: "a.ts", additions: 1, deletions: 1 }],
     );
     const [task] = createTask.mock.calls[0] ?? [];
-    expect(task.title).toBe("Code review: grp/app#3 Fix");
+    expect(task.title).toBe("Code review: grp/app!3 Fix");
     expect(task.text).toContain("Code review of GitLab merge request grp/app!3");
     expect(task.text).toContain(`Review exactly commit \`${HEAD}\``);
     expect((await storage.get("task_g1")).prReview).toEqual({

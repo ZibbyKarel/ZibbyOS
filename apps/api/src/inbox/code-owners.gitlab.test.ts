@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fakeGlab } from "../../test/gitlab-fake";
 import { CodeOwnersService } from "./code-owners.service";
-import { gitlabCodeOwnersOf } from "./code-owners.gitlab";
+import { gitlabCodeOwnersOf, gitlabReviewScope } from "./code-owners.gitlab";
 
 const link = { host: "gl.example.com", repo: "grp/app", username: "karel.zibar" };
 const files = ["docs/a.md", "src/b.ts", "README.md"].map((filename) => ({ filename }));
@@ -121,6 +121,17 @@ describe("CodeOwnersService.reviewScopeGitlab", () => {
       files,
     );
     expect(scope).toMatchObject({ kind: "all", reason: expect.stringContaining("unavailable") });
+  });
+
+  it("no logged-in glab user is a 422 (the service then fails open with it)", async () => {
+    const { client } = routes([[/^user$/, {}]]);
+    const unlinked = { host: link.host, repo: link.repo };
+    await expect(
+      gitlabReviewScope(client, (_key, load) => load(), unlinked, "main", files),
+    ).rejects.toMatchObject({ status: 422, message: "gitlab: no logged-in user" });
+    await expect(
+      new CodeOwnersService(undefined, client).reviewScopeGitlab(unlinked, "main", files),
+    ).resolves.toMatchObject({ kind: "all", reason: expect.stringContaining("no logged-in") });
   });
 
   it("without an integration username asks glab who is logged in", async () => {

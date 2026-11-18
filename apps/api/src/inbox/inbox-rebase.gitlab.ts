@@ -12,11 +12,16 @@ export const realDelay: Delay = (ms) => new Promise((resolve) => setTimeout(reso
 
 /**
  * `readPushablePr` for a GitLab MR: the pushable refs (`readGitlabPushableMr`, same guards) plus
- * `mergeable` = `has_conflicts` read from the MR (null when GitLab does not say).
+ * `mergeable` = `has_conflicts` read from the MR (null when GitLab does not say). An MR GitLab
+ * reports 0 commits behind its target is refused up front: there is nothing to update, and a
+ * server-side rebase of it would end on the same sha (where a stale `merge_error` reads as failure).
  */
 export async function readGitlabRebaseRefs(client: GitlabClient, link: GitlabLink, iid: number) {
   const refs = await readGitlabPushableMr(client, link, iid);
   const mr = await readGitlabMr(client, link, iid);
+  if (mr.diverged_commits_count === 0) {
+    throw new PrRefusedError(`${link.repo}!${iid} is already up to date with its target branch`);
+  }
   const mergeable = mr.has_conflicts === undefined ? null : !mr.has_conflicts;
   return { ...refs, mergeable };
 }

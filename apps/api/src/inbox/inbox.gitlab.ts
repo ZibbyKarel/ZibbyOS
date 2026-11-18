@@ -1,5 +1,5 @@
 import type { InboxPr, InboxPrCi, InboxPrReview, Project } from "@zibby/contracts";
-import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
+import { GITLAB_DRAFT_PREFIX, GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
 import { blockerOf, capDescription, ciDetails, ciState, sectionOf } from "./inbox.service";
 
 /** The GitLab project a link points at (host + full path). */
@@ -45,7 +45,7 @@ export interface GitlabApprovals {
 
 export interface GitlabReviewer {
   user?: { id?: number; username?: string };
-  state?: string; // unreviewed | review_started | approved | requested_changes
+  state?: string; // unreviewed | review_started | reviewed | approved | requested_changes
 }
 
 export interface GitlabNote {
@@ -200,10 +200,10 @@ export function gitlabCiFields(
   return { ci: ciState(runs, ignored), ...ciDetails(runs, ignored) };
 }
 
-/** `mergeable` from `detailed_merge_status` (`has_conflicts` also reads as a conflict). */
+/** `mergeable` from `detailed_merge_status` (`has_conflicts` also reads as a conflict; `need_rebase` is unknown, not a conflict). */
 export function gitlabMergeable(mr: Pick<GitlabMr, "detailed_merge_status" | "has_conflicts">) {
   const status = mr.detailed_merge_status;
-  if (status === "conflict" || status === "need_rebase" || mr.has_conflicts) return false;
+  if (status === "conflict" || mr.has_conflicts) return false;
   return status === "mergeable" ? true : null;
 }
 
@@ -224,14 +224,14 @@ export function gitlabMyVerdict(
   approvals: GitlabApprovals | null,
   reviewers: readonly GitlabReviewer[],
   me: string | undefined,
-): "approved" | "changes-requested" | undefined {
+): "approved" | "changes-requested" | "commented" | undefined {
   if (!me) return undefined;
   const mine = reviewers.find((r) => r.user?.username === me)?.state;
   if (mine === "requested_changes") return "changes-requested";
   if (mine === "approved" || approvals?.approved_by?.some((a) => a.user?.username === me)) {
     return "approved";
   }
-  return undefined;
+  return mine === "reviewed" ? "commented" : undefined;
 }
 
 type Bucket = Pick<InboxPr, "bucket" | "reviewReason">;
@@ -284,7 +284,7 @@ async function listIids(client: GitlabClient, link: GitlabLink, query: string): 
 /**
  * The operator's open MRs of one GitLab project as `InboxPr`s: authored (`mine`), assigned to the
  * operator (`mine`), review requested (`to-review`, or `reviewed` once the operator's reviewer
- * state is approved / requested_changes). One MR that fails to load is skipped only when the failure
+ * state is approved / requested_changes / reviewed). One MR that fails to load is skipped only when the failure
  * is a 403/404 on an optional endpoint (see `unavailable`); any other failure, and a failed list,
  * surfaces as an `InboxSourceError`.
  */
@@ -313,7 +313,7 @@ export async function listGitlabInboxPrs(
       readGitlabReviewers(client, link, iid).catch(unavailable([])),
       readGitlabMrJobs(client, link, mr).catch(unavailable(null)),
       bucket.bucket === "mine"
-        ? readGitlabDiscussions(client, link, iid).catch(() => null)
+        ? readGitlabDiscussions(client, link, iid).catch(unavailable(null))
         : Promise.resolve(null),
     ]);
     const author = mr.author?.username ?? "";
@@ -330,7 +330,7 @@ export async function listGitlabInboxPrs(
     return {
       source: "gitlab",
       number: iid,
-      title: mr.title ?? "",
+      title: (mr.title ?? "").replace(GITLAB_DRAFT_PREFIX, ""),
       ...description,
       url: mr.web_url ?? `https://${link.host}/${link.repo}/-/merge_requests/${iid}`,
       repo: link.repo,

@@ -157,15 +157,16 @@ A project whose git host is GitLab (`resolveGitHostLink`) lists the operator's o
 `InboxPr { source: "gitlab" }` (`inbox.gitlab.ts`; `number` = iid, `repo` = full path, `url` =
 `web_url`). Lists per project: `scope=created_by_me` and `scope=assigned_to_me` -> `mine`;
 `reviewer_username=<operator>` -> `to-review` (`reviewReason: "direct"`), or `reviewed` with
-`myReview` once the operator's reviewer state is `approved` / `requested_changes` (GitLab keeps the
-reviewer on the MR). The operator is the integration's `username`, else `glab api user`. Per MR:
+`myReview` once the operator's reviewer state is `approved` / `requested_changes` / `reviewed`
+(`approved` / `changes-requested` / `commented`; GitLab keeps the reviewer on the MR). `title` has any
+leading `Draft:` / `[Draft]` / `(Draft)` markers stripped; `draft` carries the state. The operator is the integration's `username`, else `glab api user`. Per MR:
 CI from the head pipeline's jobs (`jobAsCheckRun` feeds the same `ciState`/`ciDetails` as check-runs,
 so `ciIgnoredChecks` applies to job names; `allow_failure` and `manual` jobs never fail CI);
 `review` = `changes-requested` when any other reviewer's state is `requested_changes`, else
 `approved` when `approvals.approved`; `mergeable` false on `detailed_merge_status`
-`conflict`/`need_rebase` (or `has_conflicts`), true on `mergeable`, else null; `behind` when
+`conflict` (or `has_conflicts`), true on `mergeable`, else null (`need_rebase` is unknown, not a conflict); `behind` when
 `diverged_commits_count > 0`; `unresolvedThreads` (own MRs) counts resolvable discussions with an
-unresolved note. A failing project becomes an `errors[]` entry with `source: "gitlab"`. Within an MR
+unresolved note (discussions 403/404 degrade to no count, any other failure rejects the MR). A failing project becomes an `errors[]` entry with `source: "gitlab"`. Within an MR
 only a 403/404 on an optional endpoint (e.g. approvals on a tier without them) degrades; any other
 per-MR failure surfaces as an `InboxSourceError`, it is not skipped. One git host per project: a
 project whose link is GitLab does not list GitHub PRs. Teams, `authorTeams` and stacked drafts are
@@ -190,7 +191,7 @@ PR url is derived from repo + number, never taken from the client. It then:
    (code-reviewer) merges the reviewers' findings into `review.md`; the last phase,
    `comment` (`github-commenter`, whose agent prompt holds the posting style), turns
    it into `zibby-pr-review.md` and has `approval: ask`. `trustedProjectId = projectId`, title
-   `Code review[ (<level>)]: <repo>#<n> <title>`. The text tells the agents to read the PR (`gh pr view` /
+   `Code review[ (<level>)]: <repo>#<n> <title>` (`<repo>!<n>` for a GitLab MR). The text tells the agents to read the PR (`gh pr view` /
    `gh pr diff --repo`) and **not** post to GitHub, commit or push. The PR title is
    quoted as untrusted data. For a GitLab project the commands come from `host-cli.ts`
    (`glab mr view|diff|checkout … -R <host>/<path>`; the GitHub strings are unchanged) and the
@@ -272,7 +273,9 @@ diff, a head that moved since the review started, or a 400 on the position folds
 says why). The summary is one `POST notes`. The verdict is applied before any discussion or note (so a refusal leaves
 nothing behind), and an `APPROVE` on a head that moved since the review started fails up
 front. `APPROVE` -> `POST approve` pinned to the reviewed `sha`; `REQUEST_CHANGES` -> the
-note, plus `POST unapprove` when the operator had approved (404 ignored); `COMMENT` -> notes only. Nothing else is
+note, plus `POST unapprove` when the operator had approved (only a 404 is ignored; a 403 surfaces); `COMMENT` -> notes only.
+A `REQUEST_CHANGES` with an empty summary and no inline comments is refused with 422 before any write (GitLab has no
+request-changes state, so it would only unapprove), and an operator glab cannot name is a 422 too. Nothing else is
 swallowed: a failure marks the review `failed` with what was already posted (the calls are not atomic).
 
 **Inline comments (todo-22).** `zibby-pr-review.md` is one readable document the operator
@@ -319,6 +322,8 @@ the `@group/sub` CODEOWNERS owners of the changed files (`codeOwner: true`, neve
 are members (`groups/:id/members/all`; an inaccessible group has no members). A failed read rejects (502); only 403/404
 on `approvals` or a group's members degrade. `POST …/reviewers/request` resolves `login` through `users?username=` (exact match; unknown -> 422) and PUTs
 `merge_requests/:iid` `reviewer_ids` = the current reviewers' ids + the new one (existing reviewers are preserved).
+Someone already on the list is a 422 "already a reviewer, not re-requested" with no PUT and no activity: GitLab's REST API
+cannot re-request a review. A reviewer state `reviewed` (commented, no verdict) reads as `commented`.
 
 ## Review threads (`GET /api/inbox/prs/:projectId/:number/threads`)
 
@@ -339,7 +344,8 @@ discussion).
 MR's threads first (not one of them -> 422), then `PUT discussions/:id?resolved=true` when `resolve` is set and, after it,
 `POST discussions/:id/notes` when `body` is set (same resolve-first order as GitHub). Submit review posts the body (if any)
 as one MR note, then the verdict: `APPROVE` -> `POST merge_requests/:iid/approve`; `REQUEST_CHANGES` -> the note, plus
-`POST …/unapprove` when the operator had approved (a 404 there is ignored); `COMMENT` -> the note only. The result `id` is
+`POST …/unapprove` when the operator had approved (only a 404 there is ignored); `COMMENT` -> the note only. An empty
+`REQUEST_CHANGES` body is a 422 before any write. The result `id` is
 the note id (the MR number for a bare approve). A failed read or write is never swallowed: GitLab 404 -> 404,
 401/403/422 -> 422, anything else 502.
 
@@ -539,10 +545,14 @@ auto-started).
 **GitLab project** (`inbox-address-comments.gitlab.ts`): `start` reads the MR and the project's default branch
 (`readGitlabPushableMr`; unreadable, closed, fork source, non-plain ref, source = target/default branch -> 422) and the
 brief uses `glab` (read the discussions with a GET `glab api`, `thread: <id>` = the 40-hex discussion id; every write —
-`glab mr note`, `glab mr approve`, `glab mr merge`, mutating `glab api` — is forbidden in every phase). `postFollowUp`
+`glab mr note|approve|merge|update|close|create`, `glab ci retry|run|cancel`, mutating `glab api` (`glabWrites` in
+`host-cli.ts`) — is forbidden in every phase). `postFollowUp`
 (`gitlabFollowUp`) replies with `POST discussions/:id/notes` on discussions GitLab reports unresolved right now, applies the
-description with `PUT merge_requests/:iid` `{ title, description }`, resolves with `PUT discussions/:id?resolved=true` and
-re-requests review by setting `reviewer_ids` (existing + the commenter / requester, `requestGitlabReview`). Failures are
+description with `PUT merge_requests/:iid` `{ title, description }` (a new title on a draft MR gets a `Draft: ` prefix
+unless it already has a draft marker, since the prefix IS the draft state; a ready MR never gains one; the MR read
+before it failing lands in `descriptionNote`), resolves with `PUT discussions/:id?resolved=true` and
+re-requests review by setting `reviewer_ids` (existing + the commenter / requester, `requestGitlabReview`); a login
+that already is a reviewer is not put in `reviewersRequested` but noted "already a reviewer, not re-requested". Failures are
 returned as `repliesNote` / `descriptionNote` / `followUpNote`, never dropped. The task-schema thread id accepts a
 GitLab discussion id (40 hex) next to a GitHub `PRRT_` node id.
 
@@ -642,11 +652,12 @@ commit-preservation check compares `<boundary>..<clicked sha>`. Any API failure 
 
 **GitLab project** (`inbox-rebase.gitlab.ts`): the refs come from `readGitlabPushableMr` (open, same
 source and target project, plain refs, source not the target or default branch; a fork MR is refused)
-plus `has_conflicts` for `conflictAtStart`. GitLab has no "merge the base into the branch" call, so
+plus `has_conflicts` for `conflictAtStart`; an MR GitLab reports 0 commits behind (`diverged_commits_count`) is refused
+up front (422 "already up to date"), for either method. GitLab has no "merge the base into the branch" call, so
 only `method: "rebase"` on an MR without conflicts is done server-side: `PUT merge_requests/:iid/rebase`,
 then `GET merge_requests/:iid?include_rebase_in_progress=true` until `rebase_in_progress` is false
 (10 reads, 2 s apart) → 201 `{ updated: true }`, no task. A `merge_error` on the unchanged head sha fails the call with GitLab's
-message (a new head sha means success; a stale `merge_error` is ignored), a rebase still running after the last read fails the call (422, `PrRefusedError`), and a failed
+message (a new head sha means success; a stale `merge_error` is then ignored), a rebase still running after the last read fails the call (422, `PrRefusedError`), and a failed
 PUT or read propagates as a `GitlabApiError` (404 → 404, 401/403/422 → 422, else 502) — never a silent
 fallback. `method: "merge"` (the default) or a conflicted MR starts the `pr-rebase` workflow with the
 same git-based brief, written with `glab` (`host-cli.ts`) and forbidding every `glab` write. There is no

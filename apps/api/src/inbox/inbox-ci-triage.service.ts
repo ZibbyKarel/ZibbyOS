@@ -309,7 +309,7 @@ export class InboxCiTriageService {
       const link = project
         ? await resolveGitHostLink(this.resolvedProjects, this.credentials, project)
         : null;
-      if (!link) return await settleFailed("no GitHub link for the project");
+      if (!link) return await settleFailed("no git host link for the project");
       if (link.kind === "gitlab") {
         await retryGitlabHeadPipeline(this.gitlab, link, triage.number, triage.headSha);
       } else {

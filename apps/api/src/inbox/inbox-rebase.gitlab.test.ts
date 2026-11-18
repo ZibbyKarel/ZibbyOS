@@ -61,6 +61,13 @@ describe("readGitlabRebaseRefs", () => {
     await expect(read({ has_conflicts: undefined })).resolves.toMatchObject({ mergeable: null });
   });
 
+  it("an MR 0 commits behind its target is refused up front as already up to date", async () => {
+    await expect(read({ diverged_commits_count: 0 })).rejects.toThrow(
+      new PrRefusedError("grp/app!3 is already up to date with its target branch"),
+    );
+    await expect(read({ diverged_commits_count: 2 })).resolves.toMatchObject({ head: "feat" });
+  });
+
   it("a fork MR is not pushable", async () => {
     await expect(read({ source_project_id: 2 })).rejects.toThrow(PrRefusedError);
     await expect(read({ source_project_id: 2 })).rejects.toThrow(/comes from a fork/);

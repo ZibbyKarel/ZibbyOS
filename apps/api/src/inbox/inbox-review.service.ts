@@ -49,7 +49,7 @@ const REVIEW_TARGETS: Record<PrReviewLevel, TaskTarget> = {
 /** The PR's repo is not the project's resolved GitHub repo (→ 422). */
 export class ReviewRepoMismatchError extends Error {
   constructor(projectId: string, repo: string) {
-    super(`Repo "${repo}" is not the GitHub repo of project "${projectId}"`);
+    super(`Repo "${repo}" is not the git host repo of project "${projectId}"`);
     this.name = "ReviewRepoMismatchError";
   }
 }
@@ -259,7 +259,11 @@ export class InboxReviewService implements OnModuleInit {
       throw new ReviewOutOfScopeError(link.repo, input.number, scope);
     const result = await this.scheduler.createTask(
       {
-        title: `${label}: ${link.repo}#${input.number}${title ? ` ${title}` : ""}`.slice(0, 200),
+        title:
+          `${label}: ${link.repo}${link.kind === "gitlab" ? "!" : "#"}${input.number}${title ? ` ${title}` : ""}`.slice(
+            0,
+            200,
+          ),
         text: reviewTaskText(
           link.repo,
           input.number,

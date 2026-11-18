@@ -225,6 +225,52 @@ describe("gitlabFollowUp", () => {
     const out = await gitlabFollowUp(client, link, { number: 3, report }, [], new Set(), true);
     expect(out.followUpNote).toMatch(/^re-request review: .*502/);
   });
+
+  const titlePut = (exec: ReturnType<typeof fakeGlab>["exec"]) =>
+    writes(exec).find((c) => c.body && "description" in c.body)?.body?.title;
+
+  it.each([
+    ["a draft MR keeps its draft prefix on a new title", true, "New title", "Draft: New title"],
+    ["an existing [Draft] marker is not doubled", true, "[draft] New title", "[draft] New title"],
+    ["a ready MR never gains a prefix", false, "New title", "New title"],
+  ])("%s", async (_label, draft, title, sent) => {
+    const { client, exec } = fakeGlab(routes([[/merge_requests\/3(\?|$)/, { ...MR, draft }]]));
+    await gitlabFollowUp(
+      client,
+      link,
+      { number: 3, report, description: { title, body: "b" } },
+      [],
+      new Set(),
+      true,
+    );
+    expect(titlePut(exec)).toBe(sent);
+  });
+
+  it("a failed MR read before the title update skips the PUT and lands in descriptionNote", async () => {
+    const { client, exec } = fakeGlab(
+      routes([[/merge_requests\/3\?include_diverged/, { status: 503 }]]),
+    );
+    const out = await gitlabFollowUp(
+      client,
+      link,
+      { number: 3, report, description: { title: "t", body: "b" } },
+      [],
+      new Set(),
+      true,
+    );
+    expect(out.descriptionNote).toContain("503");
+    expect(titlePut(exec)).toBeUndefined();
+  });
+
+  it("a login already among the reviewers is not claimed as re-requested", async () => {
+    const { client, exec } = fakeGlab(
+      routes([[/^users\?username=alice/, [{ id: 5, username: "alice" }]]]),
+    );
+    const out = await gitlabFollowUp(client, link, { number: 3, report }, [], new Set(), true);
+    expect(out.reviewersRequested).toEqual(["carol", "dave"]);
+    expect(out.followUpNote).toBe("alice: already a reviewer, not re-requested");
+    expect(writes(exec).filter((c) => c.body && "reviewer_ids" in c.body)).toHaveLength(2);
+  });
 });
 
 describe("addressCommentsTaskText for GitLab", () => {
@@ -250,7 +296,7 @@ describe("addressCommentsTaskText for GitLab", () => {
     expect(text).toContain("`thread: <id>` (the discussion id, 40 hexadecimal characters)");
     expect(text).toContain('"threadId": "<discussion id>"');
     const writeBan =
-      "any `glab` write: `glab mr note|approve|merge|update|close|create`, mutating `glab api`";
+      "any `glab` write: `glab mr note|approve|merge|update|close|create`, `glab ci retry|run|cancel`, mutating `glab api`";
     expect(text).toContain(`do not open, merge or comment on merge requests (${writeBan})`);
     expect(text.split(writeBan)).toHaveLength(4); // address, reply and describe phases
     expect(text).toContain("`glab mr view 3 -R gl.example.com/grp/app --output json`");

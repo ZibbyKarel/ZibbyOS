@@ -117,8 +117,9 @@ export async function applyGitlabVerdict(
   } else if (event === "REQUEST_CHANGES") {
     const me = (link.username ?? (await readGitlabViewer(client, link.host)) ?? "").toLowerCase();
     if (!me)
-      throw new Error(
+      throw new GitlabApiError(
         "cannot tell which GitLab user is the operator, so the approval was not checked",
+        422,
       );
     const approvals = await readGitlabApprovals(client, link, iid).catch(
       unavailable<GitlabApprovals>({}),
@@ -126,8 +127,21 @@ export async function applyGitlabVerdict(
     if ((approvals.approved_by ?? []).some((a) => a.user?.username?.toLowerCase() === me)) {
       await client
         .api(link.host, `${base}/unapprove`, { method: "POST" })
-        .catch(unavailable(undefined));
+        .catch((error: unknown) => {
+          // 404 = nothing to undo; a 403 (no permission) must surface.
+          if (!(error instanceof GitlabApiError && error.status === 404)) throw error;
+        });
     }
+  }
+}
+
+/** GitLab has no request-changes state: without a note it would only unapprove, so it is refused. */
+export function refuseEmptyRequestChanges(event: PrReviewEvent, body = "", comments = 0): void {
+  if (event === "REQUEST_CHANGES" && !body.trim() && !comments) {
+    throw new GitlabApiError(
+      "a GitLab request-changes review needs a summary or a comment; nothing was posted",
+      422,
+    );
   }
 }
 
@@ -148,6 +162,7 @@ export async function postGitlabReview(
     headSha?: string;
   },
 ): Promise<{ note?: string; inline: number }> {
+  refuseEmptyRequestChanges(input.event, input.summary, input.comments.length);
   const [mr, files] = await Promise.all([
     readGitlabMr(client, link, iid),
     readGitlabMrDiffs(client, link, iid),
@@ -217,7 +232,10 @@ export async function postGitlabReview(
   } catch (error) {
     const done = posted.length ? ` (already posted: ${posted.join(", ")})` : "";
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${message}${done}`);
+    // Keep GitLab's status (a 403/422 must not read as a 500 upstream).
+    throw error instanceof GitlabApiError
+      ? new GitlabApiError(`${message}${done}`, error.status)
+      : new Error(`${message}${done}`);
   }
   const reasons = [
     ...(moved ? ["the MR head moved since the review started"] : []),

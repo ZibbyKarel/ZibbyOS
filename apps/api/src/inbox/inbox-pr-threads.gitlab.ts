@@ -14,7 +14,11 @@ import {
   readGitlabGroupMembers,
 } from "./code-owners.gitlab";
 import { readGitlabMrDiffs } from "./inbox-pr-diff.gitlab";
-import { applyGitlabVerdict, postGitlabNote } from "./inbox-review.gitlab";
+import {
+  applyGitlabVerdict,
+  postGitlabNote,
+  refuseEmptyRequestChanges,
+} from "./inbox-review.gitlab";
 import {
   type GitlabApprovals,
   type GitlabLink,
@@ -146,7 +150,9 @@ export async function gitlabReviewers(
         ? "approved"
         : r.state === "requested_changes"
           ? "changesRequested"
-          : "pending",
+          : r.state === "reviewed"
+            ? "commented"
+            : "pending",
     );
   }
   for (const a of approvals.approved_by ?? []) add(a.user?.username ?? "", "approved");
@@ -168,14 +174,15 @@ export async function gitlabReviewers(
 
 /**
  * Adds `username` to the MR's reviewers. `reviewer_ids` replaces the whole list, so the current
- * reviewers' ids are sent along; one without an id aborts rather than being dropped.
+ * reviewers' ids are sent along; one without an id aborts rather than being dropped. Returns
+ * false (no PUT) when the user already is a reviewer: GitLab's REST API cannot re-request them.
  */
 export async function requestGitlabReview(
   client: GitlabClient,
   link: GitlabLink,
   iid: number,
   username: string,
-): Promise<void> {
+): Promise<boolean> {
   const [id, current] = await Promise.all([
     resolveGitlabUserId(client, link.host, username),
     readGitlabReviewers(client, link, iid),
@@ -185,10 +192,12 @@ export async function requestGitlabReview(
       throw new GitlabApiError(`reviewer ${r.user?.username ?? "?"} has no id`, 422);
     return r.user.id;
   });
+  if (ids.includes(id)) return false;
   await client.api(link.host, `${client.projectPath(link.repo)}/merge_requests/${iid}`, {
     method: "PUT",
-    body: { reviewer_ids: [...new Set([...ids, id])] },
+    body: { reviewer_ids: [...ids, id] },
   });
+  return true;
 }
 
 const discussionPath = (client: GitlabClient, link: GitlabLink, iid: number, id: string) =>
@@ -230,6 +239,7 @@ export async function submitGitlabReview(
   iid: number,
   input: SubmitInboxPrReviewInput,
 ): Promise<SubmitInboxPrReviewResult> {
+  refuseEmptyRequestChanges(input.event, input.body);
   // Verdict first: a refusal then leaves no note behind for a retry to duplicate.
   await applyGitlabVerdict(client, link, iid, input.event);
   const noteId = input.body ? await postGitlabNote(client, link, iid, input.body) : undefined;

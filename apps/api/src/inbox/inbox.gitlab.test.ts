@@ -26,6 +26,8 @@ interface MrFixture {
   approvalsStatus?: number;
   reviewers?: unknown[];
   discussions?: GitlabDiscussion[];
+  /** The discussions call fails with this HTTP status. */
+  discussionsStatus?: number;
 }
 
 /** A fake glab: lists by query, one fixture per iid, everything else 404s. */
@@ -50,6 +52,11 @@ function fakeGlab(
       if (m[2] === "/approvals" && f.approvalsStatus) {
         throw Object.assign(new Error("x"), {
           stderr: `glab: ${f.approvalsStatus} Error (HTTP ${f.approvalsStatus})`,
+        });
+      }
+      if (m[2] === "/discussions" && f.discussionsStatus) {
+        throw Object.assign(new Error("x"), {
+          stderr: `glab: ${f.discussionsStatus} Error (HTTP ${f.discussionsStatus})`,
         });
       }
       if (m[2] === "/approvals") return out(f.approvals ?? { approved: false, approved_by: [] });
@@ -194,7 +201,7 @@ describe("listGitlabInboxPrs mapping", () => {
     });
   });
 
-  it("conflict and need_rebase read mergeable=false; behind from diverged_commits_count", async () => {
+  it("conflict reads mergeable=false, need_rebase unknown (null); behind from diverged_commits_count", async () => {
     const prs = await run(
       {
         1: { mr: { detailed_merge_status: "conflict" } },
@@ -204,7 +211,7 @@ describe("listGitlabInboxPrs mapping", () => {
       { authored: [1, 2, 3] },
     );
     expect(prs[1]).toMatchObject({ mergeable: false, blocker: "merge-conflict" });
-    expect(prs[2]).toMatchObject({ mergeable: false, behind: true });
+    expect(prs[2]).toMatchObject({ mergeable: null, behind: true });
     expect(prs[3]).toMatchObject({ mergeable: null, behind: true });
   });
 
@@ -237,6 +244,30 @@ describe("listGitlabInboxPrs mapping", () => {
     });
     expect(prs[3]).toMatchObject({ bucket: "reviewed", myReview: "changes-requested" });
     expect(prs[4]).toMatchObject({ bucket: "mine" });
+  });
+
+  it("my reviewer state reviewed (comments only) reads as myReview commented", async () => {
+    const prs = await run(
+      {
+        1: {
+          mr: { author: { username: "bob" } },
+          reviewers: [{ user: { username: "karel.zibar" }, state: "reviewed" }],
+        },
+      },
+      { requested: [1] },
+    );
+    expect(prs[1]).toMatchObject({ bucket: "reviewed", myReview: "commented" });
+  });
+
+  it("the displayed title drops draft markers; the draft flag carries the state", async () => {
+    const prs = await run({ 1: { mr: { title: "Draft: [Draft] Fix it", draft: true } } });
+    expect(prs[1]).toMatchObject({ title: "Fix it", draft: true });
+  });
+
+  it("discussions 403/404 degrade to no thread count; a 500 rejects the MR", async () => {
+    const ok = await run({ 1: { discussionsStatus: 403 } });
+    expect(ok[1]?.unresolvedThreads).toBeUndefined();
+    await expect(run({ 1: { discussionsStatus: 500 } })).rejects.toThrow(/500/);
   });
 
   it("a partial per-MR failure keeps the loaded MRs and reports a note", async () => {

@@ -1,5 +1,5 @@
 import type { ScheduledTask } from "@zibby/contracts";
-import type { GitlabClient } from "../git-host/gitlab-client";
+import { GITLAB_DRAFT_PREFIX, type GitlabClient } from "../git-host/gitlab-client";
 import {
   gitlabThreads,
   replyGitlabDiscussion,
@@ -110,10 +110,15 @@ export async function gitlabFollowUp(
   const notes: string[] = [];
   if (fix.description) {
     try {
+      // GitLab's draft state IS the title prefix: a new title without it would mark the MR ready.
+      let title = fix.description.title;
+      if (title && (await readGitlabMr(client, link, fix.number)).draft === true) {
+        if (!GITLAB_DRAFT_PREFIX.test(title)) title = `Draft: ${title}`;
+      }
       await client.api(link.host, `${client.projectPath(link.repo)}/merge_requests/${fix.number}`, {
         method: "PUT",
         body: {
-          ...(fix.description.title ? { title: fix.description.title } : {}),
+          ...(title ? { title } : {}),
           description: fix.description.body,
         },
       });
@@ -169,8 +174,11 @@ export async function gitlabFollowUp(
     ];
     for (const login of logins) {
       try {
-        await requestGitlabReview(client, link, fix.number, login);
-        out.reviewersRequested.push(login);
+        if (await requestGitlabReview(client, link, fix.number, login)) {
+          out.reviewersRequested.push(login);
+        } else {
+          notes.push(`${login}: already a reviewer, not re-requested`);
+        }
       } catch (error) {
         notes.push(`re-request review from ${login}: ${errMsg(error)}`);
       }

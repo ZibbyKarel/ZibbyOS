@@ -197,6 +197,16 @@ describe("gitlabReviewers", () => {
     ]);
   });
 
+  it("a reviewer GitLab marks reviewed (comments, no verdict) reads as commented", async () => {
+    const { client } = routes({
+      reviewers: [{ user: { id: 1, username: "alice" }, state: "reviewed" }],
+      approvals: {},
+    });
+    expect((await gitlabReviewers(client, link, 3)).users).toEqual([
+      { login: "alice", state: "commented", commented: false },
+    ]);
+  });
+
   it("approvals 404 (not on this tier) degrade; a 500 rejects", async () => {
     const ok = routes({ extra: [[/approvals/, { status: 404 }]] });
     expect((await gitlabReviewers(ok.client, link, 3)).users.map((u) => u.login)).toEqual([
@@ -260,13 +270,11 @@ describe("requestGitlabReview", () => {
     expect(JSON.parse(input)).toEqual({ reviewer_ids: [1, 2, 7] });
   });
 
-  it("does not duplicate a reviewer already on the MR", async () => {
+  it("does not claim a re-request for a reviewer already on the MR (no PUT)", async () => {
     put.mockClear();
     const { client } = setup([{ user: { id: 7, username: "zed" } }]);
-    await requestGitlabReview(client, link, 3, "zed");
-    expect(JSON.parse((put.mock.calls[0] as [string[], string])[1])).toEqual({
-      reviewer_ids: [7],
-    });
+    await expect(requestGitlabReview(client, link, 3, "zed")).resolves.toBe(false);
+    expect(put).not.toHaveBeenCalled();
   });
 
   it("refuses to write when an existing reviewer has no id (it would be dropped)", async () => {
@@ -345,6 +353,19 @@ describe("InboxPrThreadsService on a GitLab project", () => {
   it("reviewers rejects when a read fails", async () => {
     const { client } = fakeGlab([[/merge_requests\/3/, { status: 500 }]]);
     await expect(make(client).service.reviewers("app", 3)).rejects.toMatchObject({ status: 500 });
+  });
+
+  it("requestReview of someone already reviewing is a 422, with no PUT and no activity", async () => {
+    const { client, exec } = routes({
+      extra: [[/^users\?username=alice/, [{ id: 1, username: "alice" }]]],
+    });
+    const { service, record } = make(client);
+    await expect(service.requestReview("app", 3, "alice")).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("already a reviewer, not re-requested"),
+    });
+    expect(exec.mock.calls.some(([, args]) => args.includes("-X"))).toBe(false);
+    expect(record).not.toHaveBeenCalled();
   });
 
   describe("reply, resolve and submit review", () => {
@@ -458,6 +479,29 @@ describe("InboxPrThreadsService on a GitLab project", () => {
       await expect(
         make(client).service.submitReview("app", 3, { event: "APPROVE" }),
       ).rejects.toMatchObject({ status: 401 });
+    });
+
+    it("submitReview: an empty REQUEST_CHANGES is refused (422) before any write", async () => {
+      const { client, exec } = fakeGlab(reviewRoutes());
+      await expect(
+        make(client).service.submitReview("app", 3, { event: "REQUEST_CHANGES", body: "  " }),
+      ).rejects.toMatchObject({ status: 422 });
+      expect(writes(exec)).toEqual([]);
+    });
+
+    it("submitReview: unapprove 404 is nothing to undo; a 403 surfaces and posts no note", async () => {
+      const gone = fakeGlab([[/unapprove$/, { status: 404 }], ...reviewRoutes()]);
+      await expect(
+        make(gone.client).service.submitReview("app", 3, { event: "REQUEST_CHANGES", body: "x" }),
+      ).resolves.toEqual({ id: 77 });
+      const denied = fakeGlab([[/unapprove$/, { status: 403 }], ...reviewRoutes()]);
+      await expect(
+        make(denied.client).service.submitReview("app", 3, {
+          event: "REQUEST_CHANGES",
+          body: "x",
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(writes(denied.exec).map((w) => w.path.split("/").pop())).toEqual(["unapprove"]);
     });
   });
 });

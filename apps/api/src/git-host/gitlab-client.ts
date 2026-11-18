@@ -2,6 +2,9 @@ import { execFile } from "node:child_process";
 import { Injectable, Optional } from "@nestjs/common";
 import { agentBaseEnv } from "../shared/agent-env";
 
+/** One or more leading GitLab draft markers (`Draft:`, `[Draft]`, `(Draft)`, any case). */
+export const GITLAB_DRAFT_PREFIX = /^\s*(?:(?:\[draft\]|\(draft\)|draft:)\s*)+/i;
+
 /** A failed `glab api` call. `status` is the HTTP status parsed from glab's stderr (absent for a missing binary / network error). */
 export class GitlabApiError extends Error {
   constructor(

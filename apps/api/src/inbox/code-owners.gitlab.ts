@@ -116,7 +116,7 @@ export async function gitlabReviewScope(
   );
   if (!file) return { kind: "all", reason: `no CODEOWNERS in ${at}` };
   const me = (link.username ?? (await readGitlabViewer(client, link.host)))?.toLowerCase();
-  if (!me) throw new Error("gitlab: no logged-in user");
+  if (!me) throw new GitlabApiError("gitlab: no logged-in user", 422);
   const ownersOf = (f: { filename: string; previousFilename?: string }) =>
     [f.filename, f.previousFilename].flatMap((p) => (p ? gitlabCodeOwnersOf(file.text, p) : []));
   const groups = new Set(files.flatMap(ownersOf).filter(isGroupOwner));

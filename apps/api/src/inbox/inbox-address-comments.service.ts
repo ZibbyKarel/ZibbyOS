@@ -26,7 +26,7 @@ import {
 import { TaskSchedulerService } from "../tasks/task-scheduler.service";
 import { WorkspaceService } from "../workspace/workspace.service";
 import { gitlabFollowUp, readGitlabPushableMr } from "./inbox-address-comments.gitlab";
-import { type HostCliLink, hostCli } from "./host-cli";
+import { type HostCliLink, glabWrites, hostCli } from "./host-cli";
 import { InboxService, isDeadTask } from "./inbox.service";
 import { PrRefusedError, type RebaseBrief, errMsg, readPushablePr } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError, githubReason } from "./inbox-review.service";
@@ -51,8 +51,6 @@ export function addressCommentsTaskText(
   const [owner, name] = p.repo.split("/");
   const cli = hostCli(host);
   const gitlab = host.kind === "gitlab";
-  const glabWrites =
-    "any `glab` write: `glab mr note|approve|merge|update|close|create`, mutating `glab api`";
   const readThreads = gitlab
     ? `2. Read the unresolved review threads (GitLab discussions, read only): \`glab api "projects/${encodeURIComponent(p.repo)}/merge_requests/${p.number}/discussions?per_page=100" --hostname ${host.host} --paginate\`. A thread is a discussion whose first note is \`resolvable\`; it is unresolved while a resolvable note has \`resolved: false\`; \`position\` gives path and line. The merge request itself: \`${cli.prView(p.number)}\`. Skip resolved threads.`
     : `2. Read the unresolved review threads: \`gh api graphql -f query='query{repository(owner:"${owner}",name:"${name}"){pullRequest(number:${p.number}){reviewThreads(first:100){nodes{id isResolved isOutdated path line comments(first:30){nodes{author{login} body}}}}}}}'\`, plus the review summaries: \`gh pr view ${p.number} --repo ${p.repo} --json reviews\`. Skip resolved threads.`;
