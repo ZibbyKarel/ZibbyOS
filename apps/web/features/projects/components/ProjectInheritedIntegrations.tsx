@@ -9,6 +9,7 @@ import {
   type IntegrationKind,
   type IntegrationRoutingRule,
   type RoutingMatch,
+  gitlabRepoFor,
   repoFromGitRemote,
 } from "@zibby/contracts";
 import { useUpdateProjectMutation } from "../mutations";
@@ -22,6 +23,7 @@ export enum ProjectInheritedIntegrationsTestId {
   CompanyLink = "project-inherited-company-link",
   Override = "project-inherited-override",
   GithubRemote = "project-inherited-github-remote",
+  GitlabRemote = "project-inherited-gitlab-remote",
 }
 
 export interface ProjectInheritedIntegrationsProps {
@@ -77,6 +79,7 @@ export function ProjectInheritedIntegrations({
       {inherited.map((integration) => {
         const rule = routing.find((r) => r.integrationId === integration.id);
         const repo = repoFromGitRemote(gitRemote);
+        const gitlabRepo = gitlabRepoFor(integration, { gitRemote });
         return (
           <Stack
             data-testid={`${ProjectInheritedIntegrationsTestId.Row}-${integration.id}`}
@@ -130,6 +133,19 @@ export function ProjectInheritedIntegrations({
                 {repo ? t("githubRoutedBy", { repo }) : t("githubNoRemote")}
               </Typography>
             )}
+
+            {integration.config.kind === "gitlab" && (
+              <Typography
+                data-testid={ProjectInheritedIntegrationsTestId.GitlabRemote}
+                size="xs"
+                type="note"
+                variant="tertiary"
+              >
+                {gitlabRepo
+                  ? t("gitlabRoutedBy", { repo: gitlabRepo })
+                  : t("gitlabNoRemote", { host: integration.config.host })}
+              </Typography>
+            )}
           </Stack>
         );
       })}
@@ -143,6 +159,7 @@ const KIND_LABEL_KEY = {
   email: "integrations.kindEmail",
   jira: "integrations.kindJira",
   github: "integrations.kindGithub",
+  gitlab: "integrations.kindGitlab",
   calendar: "integrations.kindCalendar",
   sentry: "integrations.kindSentry",
 } as const satisfies Record<IntegrationKind, string>;

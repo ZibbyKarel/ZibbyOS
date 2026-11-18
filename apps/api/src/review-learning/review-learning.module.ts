@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ApprovalsModule } from "../approvals/approvals.module";
 import { ArtifactsModule } from "../artifacts/artifacts.module";
+import { GitHostModule } from "../git-host/git-host.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { VAULT_DIR } from "../memory/vault.service";
 import { ProjectsModule } from "../projects/projects.module";
@@ -40,6 +41,7 @@ export function resolveReviewRulesDir(): string {
  */
 @Module({
   imports: [
+    GitHostModule,
     ProjectsModule,
     ResolvedProjectModule,
     IntegrationsModule,

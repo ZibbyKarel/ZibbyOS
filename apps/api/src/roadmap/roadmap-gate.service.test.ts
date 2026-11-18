@@ -1239,6 +1239,12 @@ describe("parsePrNumberFromUrl", () => {
     expect(parsePrNumberFromUrl("https://github.com/acme/app/pull/42")).toBe(42);
   });
 
+  it("parses the MR number out of a gitlab merge request url", () => {
+    expect(
+      parsePrNumberFromUrl("https://gl.example.com/grp/sub/app/-/merge_requests/7#note_1"),
+    ).toBe(7);
+  });
+
   it("returns undefined for a url with no /pull/<n> segment", () => {
     expect(parsePrNumberFromUrl("https://github.com/acme/app")).toBeUndefined();
   });

@@ -1,9 +1,12 @@
 import { Module } from "@nestjs/common";
+import { GitHostModule } from "../git-host/git-host.module";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
 import { dataDir } from "../shared/data-dir";
 import { TasksModule } from "../tasks/tasks.module";
 import { GithubCiMonitor } from "./github-ci.monitor";
+import { GitlabCiMonitor } from "./gitlab-ci.monitor";
 import { MonitorAdapterRegistry } from "./monitor-adapter";
 import { MONITOR_EVENTS_DIR, MonitorEventStore } from "./monitor-event.store";
 import { MonitorWatcherService } from "./monitor-watcher.service";
@@ -23,16 +26,18 @@ export function resolveMonitorEventsDir(): string {
  * task scheduler (an alert's investigation dispatches like any other task).
  */
 @Module({
-  imports: [IntegrationsModule, ResolvedProjectModule, TasksModule],
+  imports: [GitHostModule, IntegrationsModule, ResolvedProjectModule, TasksModule],
   controllers: [MonitorsController],
   providers: [
     { provide: MONITOR_EVENTS_DIR, useFactory: resolveMonitorEventsDir },
     MonitorEventStore,
     {
       provide: MonitorAdapterRegistry,
-      useFactory: () => {
+      inject: [GitlabClient],
+      useFactory: (gitlab: GitlabClient) => {
         const registry = new MonitorAdapterRegistry();
         registry.register(new GithubCiMonitor());
+        registry.register(new GitlabCiMonitor(gitlab));
         registry.register(new SentryMonitor()); // NS2 F7a — the second monitor
         return registry;
       },

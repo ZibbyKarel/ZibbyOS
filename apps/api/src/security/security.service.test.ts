@@ -287,6 +287,25 @@ describe("SecurityService.scan", () => {
   });
 });
 
+describe("SecurityService.scan — gitlab project", () => {
+  it("has no GitLab alert source: no findings, no GitHub call, no error", async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const gitlab = {
+      id: "gl",
+      kind: "gitlab",
+      projectId: "sec",
+      enabled: true,
+      status: "connected",
+      hasCredentials: false,
+      config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+    } as unknown as Integration;
+    const { service } = await build({ fetchImpl, integrations: [gitlab, GITHUB_INTEGRATION] });
+    const { findings } = await service.scan(new Date("2026-07-17T00:00:00.000Z"));
+    expect(findings).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
 describe("SecurityService.readFindings", () => {
   it("reads the checkbox bullet lines back out of the vault note for the briefing", async () => {
     const body =

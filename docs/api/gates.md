@@ -46,6 +46,42 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   inline (an `--input` body stays `gh.api_write`). Every review POST (`/pulls/<n>/reviews`)
   and every other write stays `gh.api_write`. `gh.pr_comment` is a subclass of
   `gh.api_write`: any rule matching action `gh.api_write` also matches a comment.
+- GitLab (`glab`): the hook classifies `glab` like `gh`, onto the same actions, so every
+  rule above applies unchanged. Global `-R/--repo` is skipped. `glab mr create|new|for` →
+  `pr.open`; `glab mr merge|accept` and a write on `…/merge_requests/<iid>/merge` →
+  `pr.merge`; `glab mr note|comment`, `glab issue note|comment` and a write on `…/notes`,
+  `…/discussions…` → `gh.pr_comment`; approvals (`glab mr approve|revoke|unapprove`, a write
+  on `…/approve|unapprove`) carry a verdict like a GitHub review and stay `gh.api_write`.
+  `glab mr create|update --auto-merge` (other than `=false`) → `pr.merge`. A value-taking
+  flag before the group/verb (`glab -m x mr merge 1`) makes the parse ambiguous: every later
+  word (and every `api` word) is checked and the highest-ranked match wins; the only read it
+  can return is a clean `glab api <path>` GET. `--hostname v` and `-R/--repo` are skipped as
+  known value flags. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
+  field flag `-f/-F/--field/--raw-field/--form/--input` implying POST) → `gh.api_write`;
+  `glab api graphql` is a write with any field flag (like gh), a bare one is a read.
+  Every other glab verb is **fail-closed**: only the read-only verbs stay ungated —
+  `mr view|show|list|ls|diff|checkout|approvers|issues`, `issue view|show|list|ls`,
+  `ci status|view|trace|list|ls|get|lint|config|artifact`, `release list|view|download`,
+  `repo view|clone|list|search|contributors`, `variable get|list|export`, `auth status`,
+  `config get|path`, `alias list`, a bare group with no verb (`glab mr`), the verb-less
+  `version|check-update|whatsnew|completion|help`, and `-h/--help` before any other flag.
+  The aliases `merge-request` (= `mr`), `incident|issues` (= `issue`) and `pipe|pipeline`
+  (= `ci`) map onto the same lists. Two reads that print a credential are writes:
+  `glab auth status -t/--show-token` and `glab config get` of any key containing `token` →
+  `gh.api_write`. Update/close/reopen/rebase/delete, `ci run|retry|cancel|delete`,
+  `release create|delete`, `repo delete|archive|fork|create`, `variable set|update|delete`
+  and any unknown command or group (e.g. `glab label list`) raise `gh.api_write`. The chat
+  gate refuses all of them.
+- Git push options (GitLab reads them as instructions): `git push -o <opt>`,
+  `--push-option <opt>`, `--push-option=<opt>`, `-o<opt>`, abbreviated `--push-o…` and bundled `-uo <opt>` forms, and `git -c push.pushOption=<opt>
+… push` (key case-insensitive) are collected. `merge_request.merge_when_pipeline_succeeds`
+  or `merge_request.auto_merge` (bare or with any value other than `=false`) → `pr.merge`,
+  and so does `git --config-env=push.pushOption=<ENV> push` (the value is hidden). Any other
+  push option keeps `git.push`/`git.force_push` but leaves `branch`/`branches` unset, so a
+  branch-scoped allow rule (autopilot's own-branch push included) can never cover it.
+  `git config … push.pushOption …` that writes (set/add/unset, any scope, also
+  `git config set`) → `gh.api_write`; reads (`--get*`, `get`, `--list`/`-l`, `list`) stay
+  ungated. A push option hand-written into `.git/config` is not seen.
 - MCP / connector calls in runs (A28): `floor-mcp.read` (**notify**) covers the hook's
   `mcp.read` (a read-only tool name) and `floor-mcp.write` (**ask**) its `mcp.write` (every
   other MCP tool outside ZibbyOS's own servers and the run's registry servers, and any MCP

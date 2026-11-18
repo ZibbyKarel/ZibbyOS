@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { credentialMatchesKind, operatorTokenMatchesKind } from "./credential-kind";
+import {
+  credentialMatchesKind,
+  needsStoredCredential,
+  operatorTokenMatchesKind,
+} from "./credential-kind";
 
 describe("credentialMatchesKind", () => {
   it("email requires a password (matches the email adapter's passwordOf)", () => {
@@ -12,6 +16,20 @@ describe("credentialMatchesKind", () => {
       expect(credentialMatchesKind(kind, { token: "t" })).toBe(true);
       expect(credentialMatchesKind(kind, { password: "p" })).toBe(false);
     }
+  });
+});
+
+describe("needsStoredCredential", () => {
+  it("every kind but gitlab (glab holds the login) stores a credential", () => {
+    expect(needsStoredCredential("gitlab")).toBe(false);
+    for (const kind of ["slack", "email", "jira", "github", "calendar", "sentry"] as const) {
+      expect(needsStoredCredential(kind)).toBe(true);
+    }
+  });
+
+  it("a gitlab integration refuses any stored credential", () => {
+    expect(credentialMatchesKind("gitlab", { token: "t" })).toBe(false);
+    expect(credentialMatchesKind("gitlab", { password: "p" })).toBe(false);
   });
 });
 

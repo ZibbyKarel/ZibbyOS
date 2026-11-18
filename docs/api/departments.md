@@ -266,3 +266,5 @@ model, per the design doc).
 <!-- Last reviewed 2026-10-23: still accurate after the verify-phase / project-checks removal (D-024). -->
 
 <!-- Last reviewed 2026-11-09: still accurate; the security findings note id is now flat (`security-findings`). -->
+
+Security alerts and the release merge queue have no GitLab source yet: a GitLab project reads exactly as a project with no GitHub link (no findings / empty queue, no error).

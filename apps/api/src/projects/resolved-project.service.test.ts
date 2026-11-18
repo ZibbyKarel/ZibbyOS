@@ -272,6 +272,42 @@ describe("ResolvedProjectService", () => {
       ]);
     });
 
+    it("gitlabRepoTargets: repos of the inheriting projects on the integration's host", async () => {
+      const companyGitlab = integration({
+        id: "co-gitlab",
+        kind: "gitlab",
+        companyId: "co",
+        config: { kind: "gitlab", host: "gitlab.example.com", streams: ["pulls"], username: "me" },
+      });
+      const service = build({
+        companies: [{ id: "co", name: "Co" }],
+        integrations: [companyGitlab],
+        projects: [
+          project({
+            id: "a",
+            companyId: "co",
+            gitRemote: "git@gitlab.example.com:grp/sub/web.git",
+          }),
+          project({
+            id: "b",
+            companyId: "co",
+            gitRemote: "https://gitlab.example.com/grp/sub/web",
+          }),
+          project({ id: "other-host", companyId: "co", gitRemote: "git@github.com:co/web.git" }),
+          project({ id: "no-remote", companyId: "co" }),
+          project({
+            id: "bad-path",
+            companyId: "co",
+            gitRemote: "git@gitlab.example.com:g/$(id)/w.git",
+          }),
+        ],
+      });
+
+      expect([...(await service.gitlabRepoTargets(companyGitlab))]).toEqual([
+        ["grp/sub/web", ["a", "b"]],
+      ]);
+    });
+
     it("inheritingProjects: a project-owned integration feeds no other project", async () => {
       const service = build({
         companies: [{ id: "co", name: "Co" }],

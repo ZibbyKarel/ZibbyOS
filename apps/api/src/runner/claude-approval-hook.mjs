@@ -26,6 +26,8 @@
 //          flag implying POST) → `pr.merge`/`pr.open` when the path matches, a POST
 //          of a PR/issue comment, review comment, reply or COMMENT review →
 //          `gh.pr_comment` (Phase 4), else the generic `gh.api_write`;
+//        - `glab` (GitLab CLI) → the same actions as `gh` (see `classifyGlab`); unknown glab
+//          verbs fail closed to `gh.api_write`;
 //        - EVERY `Task` call (an orchestrator delegating to a subagent) → `agent.delegate`
 //          (Fáze 2a). Delegation happens entirely inside this one `claude -p` process, so
 //          this hook is the only realtime signal the backend gets of a handoff — there is
@@ -224,32 +226,82 @@ function normalizeSegment(segment) {
   return segment.replace(/\$\(|[`()]/g, " ").trim();
 }
 
-/** Classify a `git …` segment as a push (with branch) / force-push, or null. */
+/** `push.pushOption` (git config keys are case-insensitive). */
+const PUSH_OPTION_KEY = /^push\.pushoption$/i;
+/** A GitLab push option that merges the MR on its own (`=false` switches it off). */
+const AUTO_MERGE_PUSH_OPTION =
+  /^merge_request\.(?:merge_when_pipeline_succeeds|auto_merge)(?:=(?!false$).*)?$/i;
+/** `git config` forms that only read. */
+const GIT_CONFIG_READS = new Set([
+  "get",
+  "list",
+  "--get",
+  "--get-all",
+  "--get-regexp",
+  "--get-urlmatch",
+  "--list",
+  "-l",
+]);
+
+/**
+ * Classify a `git …` segment as a push (with branch) / force-push, or null. A push option
+ * (`-o`, `--push-option`, `-c push.pushOption=…`) reaches the remote as an instruction: a
+ * GitLab auto-merge option is a merge (`pr.merge`), any other one keeps the push but drops
+ * `branch`/`branches`, so a branch-scoped allow rule can never cover it. `git config` that
+ * sets `push.pushOption` (every later push carries it) is `gh.api_write`.
+ */
 function classifyGit(tokens) {
   if (tokens[0] !== "git") return null;
+  const pushOptions = [];
+  let hiddenPushOption = false; // `--config-env=push.pushOption=<ENV>`: value unknown
   let i = 1;
   // Skip git's global options (some take a separate value).
   while (i < tokens.length) {
     const t = tokens[i];
     if (t === "-C" || t === "-c") {
+      const value = tokens[i + 1] ?? "";
+      if (t === "-c") {
+        const eq = value.indexOf("=");
+        const key = eq === -1 ? value : value.slice(0, eq);
+        if (PUSH_OPTION_KEY.test(key)) pushOptions.push(eq === -1 ? "" : value.slice(eq + 1));
+      }
       i += 2;
       continue;
     }
-    if (/^--(git-dir|work-tree|namespace)=/.test(t)) {
+    if (/^--config-env=push\.pushoption=/i.test(t)) hiddenPushOption = true;
+    if (/^--(git-dir|work-tree|namespace|config-env)=/.test(t)) {
       i += 1;
       continue;
     }
     break;
   }
+  if (tokens[i] === "config") return classifyGitConfig(tokens.slice(i + 1));
   if (tokens[i] !== "push") return null;
-  const rest = tokens.slice(i + 1);
+  const rest = [];
+  for (let j = i + 1; j < tokens.length; j++) {
+    const t = tokens[j];
+    // git accepts abbreviated long options (`--push-o`, `--push-opt=…`) and bundled short
+    // flags (`-uo X`, `-fo X`, `-uoX`), so match those too.
+    const long = /^--push-o[a-z]*(?:=(.*))?$/.exec(t);
+    const short = /^-([a-zA-Z0-9]*?)o(.*)$/.exec(t);
+    if (long) {
+      pushOptions.push(long[1] ?? tokens[++j] ?? "");
+    } else if (short && !t.startsWith("--")) {
+      pushOptions.push(short[2] || (tokens[++j] ?? ""));
+      if (short[1]) rest.push(`-${short[1]}`);
+    } else rest.push(t);
+  }
   const isForce = rest.some((t) => t === "-f" || t.startsWith("--force") || t.startsWith("+"));
+  if (hiddenPushOption || pushOptions.some((o) => AUTO_MERGE_PUSH_OPTION.test(o))) {
+    return { action: "pr.merge" };
+  }
+  if (pushOptions.length) return { action: isForce ? "git.force_push" : "git.push" };
   // Positional args after `push` are `[remote?, refspec…]` (`--repo=` names the remote,
   // so then every positional is a refspec). `branches` is every destination ref (the part
   // after `:`, `+` and `refs/heads/` stripped) so a branch rule (`gr-push-main`) sees all
   // of them. `branch` — the one autopilot may cover — is set only for exactly one plain
   // refspec and no flag that changes what gets pushed (`--all`/`--mirror`/`--tags`/
-  // `--delete`, push options, a `:dst` delete); anything else leaves it unset (fails closed).
+  // `--delete`, a `:dst` delete); anything else leaves it unset (fails closed).
   const positionals = rest.filter((t) => !t.startsWith("-"));
   const refspecs = rest.some((t) => t.startsWith("--repo")) ? positionals : positionals.slice(1);
   const branches = refspecs
@@ -267,6 +319,13 @@ function classifyGit(tokens) {
     branch,
     ...(branch === undefined && branches.length ? { branches } : {}),
   };
+}
+
+/** `git config …` (args after `config`): writing `push.pushOption` → `gh.api_write`, else null. */
+function classifyGitConfig(args) {
+  if (!args.some((t) => PUSH_OPTION_KEY.test(t))) return null;
+  if (args.some((t) => GIT_CONFIG_READS.has(t))) return null;
+  return { action: "gh.api_write" };
 }
 
 /**
@@ -387,6 +446,183 @@ function classifyGh(tokens) {
   }
   if (sub === "api") return classifyGhApi(tokens, i + 1);
   return null;
+}
+
+// ── GitLab CLI (`glab`) — mapped onto the same actions as `gh` ───────────────
+//
+// Fails CLOSED: a glab subcommand that is not on the read-only lists below is a
+// write (`gh.api_write`), so an unknown or future command never passes ungated.
+// glab accepts value-taking flags before the group/verb (`glab -m x mr merge 1`), so
+// whenever a flag precedes the word taken as group or verb the parse is "ambiguous"
+// and fails UPWARD: every later word is checked and the highest-ranked match wins.
+
+/** glab flags that consume the next token (adds to the `gh api` set). */
+const GLAB_API_VALUE_FLAGS = new Set([...GH_API_VALUE_FLAGS, "--placeholder", "--output"]);
+const GLAB_API_FIELD_FLAGS = new Set([...GH_API_FIELD_FLAGS, "--form"]);
+
+/** Notes and discussions on an MR/issue → the comment class (approvals carry a verdict: api_write). */
+const GLAB_COMMENT_PATH =
+  /(?:^|\/)(?:merge_requests|issues)\/[^/]+\/(?:notes(?:\/[^/]+)?|discussions(?:\/[^/]+(?:\/notes(?:\/[^/]+)?)?)?)$/;
+const GLAB_MERGE_PATH = /(?:^|\/)merge_requests\/[^/]+\/merge$/;
+
+/**
+ * Classify a `glab api <path> …` call. `tokens` is the whole segment and `apiIdx` the
+ * index of the `api` token: method/field flags count wherever they sit (also before
+ * `api`), the path is the first non-flag token after it.
+ */
+function classifyGlabApi(tokens, apiIdx) {
+  let method;
+  let hasFieldFlag = false;
+  let pathArg;
+  for (let j = 1; j < tokens.length; j++) {
+    const t = tokens[j];
+    if (t === undefined || j === apiIdx) continue;
+    const eq = /^(?:-X|--method=)(.+)$/.exec(t);
+    if (eq) {
+      method = eq[1].replace(/^=/, "");
+      continue;
+    }
+    if (t === "-X" || t === "--method") {
+      method = tokens[j + 1];
+      j += 1;
+      continue;
+    }
+    if (GLAB_API_FIELD_FLAGS.has(t)) {
+      hasFieldFlag = true;
+      j += 1;
+      continue;
+    }
+    if (/^--(field|raw-field|input|form)=/.test(t) || /^-[fF]./.test(t)) {
+      hasFieldFlag = true; // `--flag=value` and glued `-fkey=value`
+      continue;
+    }
+    if (GLAB_API_VALUE_FLAGS.has(t)) {
+      j += 1;
+      continue;
+    }
+    if (t.startsWith("-")) continue;
+    if (j > apiIdx && pathArg === undefined) pathArg = t;
+  }
+  const path = (pathArg ?? "").replace(/\?.*$/, "").replace(/\/$/, "");
+  const effectiveMethod = method ?? (hasFieldFlag ? "POST" : "GET");
+  const readMethod = /^(GET|HEAD|OPTIONS)$/i.test(effectiveMethod);
+  // graphql is always a POST; a query/mutation lives in a field (or a body we can't
+  // read, e.g. multi-line or `$(cat …)`), so any field flag is a write, like gh.
+  if (path === "graphql") return hasFieldFlag || !readMethod ? { action: "gh.api_write" } : null;
+  if (readMethod) return null;
+  if (GLAB_MERGE_PATH.test(path)) return { action: "pr.merge" };
+  if (GLAB_COMMENT_PATH.test(path)) return { action: "gh.pr_comment" };
+  return { action: "gh.api_write" };
+}
+
+/** Verbs that only read, per `glab` command group (aliases included). Anything else writes. */
+const GLAB_READ_VERBS = {
+  mr: ["view", "show", "list", "ls", "diff", "checkout", "approvers", "issues"],
+  issue: ["view", "show", "list", "ls"],
+  // `ci view` is interactive (can retry/cancel jobs) but needs a TTY, which Bash has none.
+  ci: ["status", "view", "trace", "list", "ls", "get", "lint", "config", "artifact"],
+  release: ["list", "view", "download"],
+  repo: ["view", "clone", "list", "search", "contributors"],
+  variable: ["get", "list", "export"],
+  auth: ["status"],
+  config: ["get", "path"],
+  alias: ["list"],
+};
+const GLAB_GROUP = {
+  "merge-request": "mr",
+  incident: "issue",
+  issues: "issue",
+  pipe: "ci",
+  pipeline: "ci",
+};
+/** Top-level commands with no verb that never touch GitLab state. */
+const GLAB_NO_VERB_READS = new Set(["version", "check-update", "whatsnew", "completion", "help"]);
+
+/** The action a group + verb maps to (or null: read / unknown — the caller decides). */
+function glabVerbAction(group, verb, tokens) {
+  if (group === "mr") {
+    if (/^(create|new|for|update)$/.test(verb)) {
+      // `--auto-merge` makes the MR merge itself once checks pass: a merge.
+      const auto = tokens.some((t) => t === "--auto-merge" || /^--auto-merge=(?!false$)/i.test(t));
+      if (auto) return { action: "pr.merge" };
+      if (verb !== "update") return { action: "pr.open" };
+    }
+    if (verb === "merge" || verb === "accept") return { action: "pr.merge" };
+    if (/^(note|comment)$/.test(verb)) return { action: "gh.pr_comment" };
+    // approve/revoke/unapprove carry a verdict, like a GitHub review → gh.api_write
+  }
+  if (group === "issue" && /^(note|comment)$/.test(verb)) return { action: "gh.pr_comment" };
+  // A read that prints the stored token hands out a credential: gate it like a write.
+  if (group === "auth" && tokens.some((t) => t === "-t" || t === "--show-token")) {
+    return { action: "gh.api_write" };
+  }
+  if (group === "config" && verb === "get" && tokens.some((t) => /token/i.test(t))) {
+    return { action: "gh.api_write" };
+  }
+  return GLAB_READ_VERBS[group]?.includes(verb) ? null : { action: "gh.api_write" };
+}
+
+/**
+ * Classify a `glab …` segment like `classifyGh`: `api` goes through {@link classifyGlabApi},
+ * MR/issue verbs map onto `pr.open`/`pr.merge`/`gh.pr_comment`, and every command group's
+ * non-read verb (or any unknown command) is `gh.api_write`. Help (`-h`/`--help` before any
+ * other flag, so no flag can swallow it as its value) and {@link GLAB_NO_VERB_READS} stay
+ * ungated. `-R/--repo <v>`, `--repo=v`, `-Rv`, `--hostname <v>` and `--hostname=v` are known
+ * and skipped. Reads that print a credential (`auth status -t/--show-token`, `config get`
+ * of any key containing `token`) are `gh.api_write`.
+ */
+function classifyGlab(tokens) {
+  if (tokens[0] !== "glab") return null;
+  const words = []; // non-flag tokens after `glab`
+  const wordIdx = []; // their index in `tokens`
+  let flagAt; // number of words seen when the first unknown flag appeared
+  for (let i = 1; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === undefined) continue;
+    if (t === "-R" || t === "--repo" || t === "--hostname") i += 1;
+    else if (/^(--repo=|--hostname=|-R.)/.test(t)) continue;
+    else if (t.startsWith("-")) {
+      if ((t === "-h" || t === "--help") && flagAt === undefined) return null;
+      flagAt ??= words.length;
+    } else {
+      words.push(t);
+      wordIdx.push(i);
+    }
+  }
+  if (words.length === 0) return null;
+  const top = words[0];
+  // A flag before the group, or between group and verb (when the group has verbs), may
+  // have swallowed the real group/verb as its value → fail upward over every word.
+  const ambiguous =
+    flagAt !== undefined &&
+    (flagAt === 0 || (flagAt === 1 && top !== "api" && !GLAB_NO_VERB_READS.has(top)));
+  if (!ambiguous) {
+    if (GLAB_NO_VERB_READS.has(top)) return null;
+    if (top === "api") return classifyGlabApi(tokens, wordIdx[0]);
+    const group = GLAB_GROUP[top] ?? top;
+    const verb = words[1];
+    if (verb === undefined) return GLAB_READ_VERBS[group] ? null : { action: "gh.api_write" };
+    return glabVerbAction(group, verb, tokens);
+  }
+  let best = { action: "gh.api_write" };
+  const consider = (c) => {
+    if (c && ACTION_RANK[c.action] > ACTION_RANK[best.action]) best = c;
+  };
+  for (const w of words) {
+    consider(glabVerbAction("mr", w, tokens));
+    consider(glabVerbAction("issue", w, tokens));
+  }
+  // Every `api` word may be the real one (a flag can take the first as its value).
+  const apiPositions = words.flatMap((w, k) => (w === "api" ? [k] : []));
+  let readApi = false;
+  for (const apiPos of apiPositions) {
+    const api = classifyGlabApi(tokens, wordIdx[apiPos]);
+    consider(api);
+    // A clean `api <path>` GET (api + one word) with no stronger match is a read.
+    if (api === null && words.length - apiPos <= 2) readApi = true;
+  }
+  if (readApi && best.action === "gh.api_write") return null;
+  return best;
 }
 
 /**
@@ -563,6 +799,8 @@ function classifySegment(segment, fullCommand) {
   }
   const gh = classifyGh(tokens);
   if (gh) return enrich(gh.action, { command: fullCommand });
+  const glab = classifyGlab(tokens);
+  if (glab) return enrich(glab.action, { command: fullCommand });
   if (isPublish(tokens)) return enrich("deploy", { command: fullCommand, meta: "publish" });
   if (isJiraCreate(tokens)) return enrich("jira.create_issue", { command: fullCommand });
   if (isRemoteDestroy(tokens)) return enrich("delete", { command: fullCommand, remote: true });

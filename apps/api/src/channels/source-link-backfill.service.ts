@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import type { ChannelItem } from "@zibby/contracts";
+import { type ChannelItem, isGitlabShape } from "@zibby/contracts";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { issueWebUrl, prWebUrl } from "../git-host/git-host-url";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { ChannelItemStore } from "./channel-item.store";
 import { isPrimaryInstance } from "../shared/instance-role";
@@ -51,7 +52,7 @@ export class SourceLinkBackfillService implements OnModuleInit {
   }
 
   private async deriveUrl(item: ChannelItem): Promise<string | undefined> {
-    if (item.kind !== "jira" && item.kind !== "github") return undefined;
+    if (item.kind !== "jira" && item.kind !== "github" && item.kind !== "gitlab") return undefined;
     const integration = await this.integrations.get(item.integrationId).catch(() => null);
     if (!integration) return undefined;
     if (item.kind === "jira" && integration.config.kind === "jira") {
@@ -62,6 +63,15 @@ export class SourceLinkBackfillService implements OnModuleInit {
       // uniform "issues" URL is correct without re-deriving the PR/issue split.
       const repo = integration.config.repo ?? item.externalRef.channel;
       return repo ? `https://github.com/${repo}/issues/${item.externalRef.messageId}` : undefined;
+    }
+    if (item.kind === "gitlab" && integration.config.kind === "gitlab") {
+      const repo = integration.config.repo ?? item.externalRef.channel;
+      // The path ends up in a link the operator clicks; files on disk can be edited.
+      if (!isGitlabShape(integration.config.host, repo)) return undefined;
+      // Issue and MR iids are separate sequences; the adapter's deterministic id says which.
+      const link = { kind: "gitlab" as const, host: integration.config.host, repo };
+      const n = Number(item.externalRef.messageId);
+      return /-mr-\d+$/.test(item.id) ? prWebUrl(link, n) : issueWebUrl(link, n);
     }
     return undefined;
   }

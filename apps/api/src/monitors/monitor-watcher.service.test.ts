@@ -1,3 +1,4 @@
+import { NO_CREDENTIALS } from "../integrations/credential-kind";
 import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -158,6 +159,33 @@ describe("MonitorWatcherService", () => {
     expect((await store.get("ci-co-api-42-1")).projectId).toBe("api");
     const statuses = await store.listStatuses();
     expect(statuses.map((st) => st.projectId).sort()).toEqual(["api", "web"]);
+  });
+
+  it("a gitlab integration is polled without a stored credential, repo-less company ones per inheriting repo", async () => {
+    const company: Integration = {
+      ...GH,
+      id: "co-gitlab",
+      kind: "gitlab",
+      projectId: undefined,
+      companyId: "co",
+      config: { kind: "gitlab", host: "gl.example.com", streams: ["ci"], username: "karel.zibar" },
+    };
+    integrations.list.mockResolvedValue([company]);
+    credentials.read.mockResolvedValue(null); // gitlab keeps none — must not be skipped
+    const seen: Array<{ repo?: string; creds: unknown }> = [];
+    const adapter = fakeAdapter("gitlab-ci", () => true);
+    adapter.poll.mockImplementation(async (i: Integration, creds: unknown) => {
+      seen.push({ ...(i.config.kind === "gitlab" ? { repo: i.config.repo } : {}), creds });
+      return { events: [], cursor: "C" };
+    });
+    registry.register(adapter);
+    const resolved = { gitlabRepoTargets: async () => new Map([["grp/sub/web", ["web"]]]) };
+
+    await makeWatcher(resolved).tick();
+
+    expect(credentials.read).not.toHaveBeenCalled();
+    expect(seen).toEqual([{ repo: "grp/sub/web", creds: NO_CREDENTIALS }]);
+    expect(await store.readCursor("co-gitlab--grp-sub-web", "gitlab-ci")).toBe("C");
   });
 
   it("a re-poll of the same alert is a dedup no-op (no second task, no second record)", async () => {

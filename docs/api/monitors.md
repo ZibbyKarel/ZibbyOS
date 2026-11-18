@@ -30,6 +30,21 @@ its runtime.
   (a re-poll is a dedup no-op; a workflow retry is a new occurrence). Green or
   in-progress runs are a no-op.
 
+## GitLab CI (`gitlab-ci`)
+
+- Opt-in: a `gitlab` integration whose `config.streams` contains `"ci"`. No stored credential — the
+  watcher hands the adapter `NO_CREDENTIALS` and all access goes through `GitlabClient` (`glab api`).
+- Repo handling is the GitHub one: `config.repo`, or per inheriting project repo
+  (`ResolvedProjectService.gitlabRepoTargets`) with the same `<integrationId>--<path-with-dashes>` keys.
+- One poll reads the default branch, the operator's open MRs (`author_username=config.username`) and
+  `pipelines?order_by=updated_at&sort=desc`; cursor = newest `updated_at`, so a pipeline that finishes
+  red after an earlier poll still surfaces.
+- A `failed` pipeline on the default branch, or on one of those MRs (`refs/merge-requests/<iid>/head`,
+  the merged-results `refs/merge-requests/<iid>/merge`, or the MR's source branch) → event
+  `ci-run-failed`, id `ci-<repo, / as ->-<pipelineId>-<updated_at digits>`: a re-poll is a dedup hit,
+  a retried pipeline that fails again (same id, newer `updated_at`) alerts again, like GitHub's
+  `run_attempt`. Other pipelines are ignored. The status snapshot is the default branch's failed/success streak.
+
 ## Handling (tier path)
 
 A new alert → a JSON file in `MONITOR_EVENTS_DIR` (default

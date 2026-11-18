@@ -13,8 +13,10 @@ import {
   type RoadmapItemLifecycle,
   type RoadmapLinkedPr,
   type RoadmapTaskOverride,
+  gitlabRepoFor,
   roadmapItemIdForSource,
 } from "@zibby/contracts";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { type JiraIssue, jiraAuthHeader, searchJira, tokenOf } from "../integrations/jira-client";
 import { resolveGithubToken } from "../projects/project-pr.service";
@@ -25,6 +27,7 @@ import { RoadmapGateService } from "../roadmap/roadmap-gate.service";
 import { RoadmapItemConflictError } from "../roadmap/roadmap.errors";
 import { RoadmapStore } from "../roadmap/roadmap.store";
 import { InboxStateStore } from "./inbox-state.store";
+import { listGitlabAssignedIssues } from "./inbox.gitlab";
 
 const GITHUB_API = "https://api.github.com";
 const ISSUES_TTL_MS = 60_000;
@@ -101,6 +104,7 @@ function ownerOf(key: string, integration: JiraIntegration, projects: readonly P
 @Injectable()
 export class InboxIssuesService {
   private readonly fetchImpl: typeof fetch;
+  private readonly gitlab: GitlabClient;
   private cache: { at: number; value: Promise<LiveList> } | null = null;
 
   constructor(
@@ -111,8 +115,10 @@ export class InboxIssuesService {
     private readonly state: InboxStateStore,
     private readonly gate: RoadmapGateService,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlabClient?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlabClient ?? new GitlabClient();
   }
 
   dropCache(): void {
@@ -209,9 +215,19 @@ export class InboxIssuesService {
     const syncProjectIds: string[] = [];
     const jira = new Map<string, { integration: JiraIntegration; projects: Project[] }>();
     const repos = new Map<string, { project: Project; integrationId: string; token: string }>();
+    // GitLab keeps its login in `glab`, so there is no stored credential to read or to skip on.
+    const gitlabRepos = new Map<
+      string,
+      { project: Project; integrationId: string; host: string; repo: string; username?: string }
+    >();
     for (const project of projects) {
       const integrations = await this.resolvedProjects.resolveIntegrations(project);
-      if (integrations.some((i) => i.config.kind === "jira" || i.config.kind === "github")) {
+      if (
+        integrations.some(
+          (i) =>
+            i.config.kind === "jira" || i.config.kind === "github" || i.config.kind === "gitlab",
+        )
+      ) {
         syncProjectIds.push(project.id);
       }
       for (const integration of integrations) {
@@ -224,6 +240,19 @@ export class InboxIssuesService {
               projects: [project],
             });
         }
+      }
+      for (const integration of integrations) {
+        if (integration.config.kind !== "gitlab") continue;
+        const repo = gitlabRepoFor(integration, project);
+        const key = repo && `${integration.config.host.toLowerCase()}/${repo.toLowerCase()}`;
+        if (!repo || !key || gitlabRepos.has(key)) continue;
+        gitlabRepos.set(key, {
+          project,
+          integrationId: integration.id,
+          host: integration.config.host,
+          repo,
+          ...(integration.config.username ? { username: integration.config.username } : {}),
+        });
       }
       const github = integrations.find((i) => i.config.kind === "github");
       const link = github
@@ -391,6 +420,39 @@ export class InboxIssuesService {
           projectId: project.id,
           source: "github",
           message: `${repo}: ${(error as Error).message || "unknown error"}`,
+        });
+      }
+    }
+
+    for (const { project, integrationId, ...link } of gitlabRepos.values()) {
+      try {
+        for (const issue of await listGitlabAssignedIssues(this.gitlab, link)) {
+          if (issue.iid === undefined) continue;
+          const externalId = `issue:${issue.iid}`;
+          await push(project, {
+            id: roadmapItemIdForSource(integrationId, externalId),
+            projectId: project.id,
+            level: "task",
+            name: (issue.title ?? `#${issue.iid}`).slice(0, 512),
+            description: issue.description ?? "",
+            source: {
+              kind: "gitlab",
+              integrationId,
+              externalId,
+              externalKey: `#${issue.iid}`,
+              ...(issue.web_url ? { url: issue.web_url } : {}),
+            },
+            lifecycle: "todo",
+            sourceStatus: { name: "open", done: false },
+            scopeReasons: ["assigned"],
+            ...(issue.updated_at ? { updatedAt: new Date(issue.updated_at).toISOString() } : {}),
+          });
+        }
+      } catch (error) {
+        errors.push({
+          projectId: project.id,
+          source: "gitlab",
+          message: `${link.repo}: ${(error as Error).message || "unknown error"}`,
         });
       }
     }

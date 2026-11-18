@@ -6,6 +6,7 @@ import {
   PrUpdateRefusedError,
   ProjectNotFoundError,
 } from "./projects.errors";
+import { fakeGlab } from "../../test/gitlab-fake";
 import { ProjectPrService } from "./project-pr.service";
 
 const PROJECT: Project = { id: "acme", name: "acme", path: "~/Projects/acme" };
@@ -596,5 +597,91 @@ describe("ProjectPrService", () => {
       });
       await expect(failing.setDraft("acme", 42, true)).rejects.toThrow(/not allowed/);
     });
+  });
+});
+
+describe("ProjectPrService — gitlab project", () => {
+  const GITLAB_INTEGRATION: Integration = {
+    id: "acme-gitlab",
+    kind: "gitlab",
+    projectId: "acme",
+    enabled: true,
+    status: "connected",
+    hasCredentials: false,
+    config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+  } as Integration;
+
+  function gitlabService(routes: [RegExp, unknown][]) {
+    const glab = fakeGlab(routes);
+    const fetchImpl = vi.fn();
+    const record = vi.fn(async () => {});
+    const onMerge = vi.fn(async () => {});
+    const projectsStore = { get: async () => PROJECT };
+    const svc = new ProjectPrService(
+      projectsStore as never,
+      { resolveIntegrations: async () => [GITLAB_INTEGRATION, GITHUB_INTEGRATION] } as never,
+      { read: async () => ({ token: "ghp_x" }) } as never,
+      { record } as never,
+      { onMerge } as never,
+      fetchImpl as never,
+      glab.client,
+    );
+    return { svc, glab, fetchImpl, record, onMerge };
+  }
+
+  it("merges through glab only, records the merge and never touches GitHub", async () => {
+    const { svc, glab, fetchImpl, record, onMerge } = gitlabService([
+      [
+        /merge_requests\/3\/merge/,
+        {
+          state: "merged",
+          merge_commit_sha: "abcdef0123",
+          should_remove_source_branch: true,
+          web_url: "u",
+        },
+      ],
+    ]);
+    const changed = vi.fn();
+    svc.onPrChanged(changed);
+    const result = await svc.merge("acme", 3, "squash", true);
+    expect(result).toEqual({ merged: true, url: "u", sha: "abcdef0123", branchDeleted: true });
+    expect(glab.paths()[0]).toContain("squash=true");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: "merge-completed" }));
+    expect(onMerge).toHaveBeenCalledWith("acme", 3);
+    expect(changed).toHaveBeenCalledWith("grp/app", 3);
+  });
+
+  it("maps a refused GitLab merge to PrNotMergeableError", async () => {
+    const { svc } = gitlabService([[/merge(\?|$)/, { status: 405 }]]);
+    await expect(svc.merge("acme", 3)).rejects.toBeInstanceOf(PrNotMergeableError);
+  });
+
+  it("getPr, close and setDraft use the MR endpoints", async () => {
+    const { svc, record } = gitlabService([
+      [
+        /merge_requests\/3$/,
+        (args: string[]) =>
+          args.includes("PUT")
+            ? { state: "closed", web_url: "u" }
+            : { iid: 3, state: "opened", title: "T", web_url: "u" },
+      ],
+    ]);
+    expect(await svc.getPr("acme", 3)).toEqual({ number: 3, merged: false, state: "open" });
+    expect(await svc.close("acme", 3)).toEqual({ url: "u", state: "closed", draft: false });
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: "pr-closed" }));
+    const drafted = gitlabService([
+      [
+        /merge_requests\/3$/,
+        (args: string[]) =>
+          args.includes("PUT")
+            ? { draft: true, web_url: "u" }
+            : { iid: 3, state: "opened", title: "T", web_url: "u" },
+      ],
+    ]);
+    await drafted.svc.setDraft("acme", 3, true);
+    expect(drafted.record).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "pr-draft-changed" }),
+    );
   });
 });

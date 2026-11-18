@@ -59,21 +59,23 @@ describe("MentionsWidget", () => {
       item("jira", { kind: "jira", receivedAt: ago(3) }),
       item("slack", { kind: "slack", receivedAt: ago(1) }),
       item("github", { kind: "github", receivedAt: ago(2) }),
+      item("gitlab", { kind: "gitlab", receivedAt: ago(2.5) }),
       item("email", { kind: "email", receivedAt: ago(4) }),
       item("calendar", { kind: "calendar", receivedAt: ago(0.5) }),
       item("sentry", { kind: "sentry", receivedAt: ago(0.2) }),
     ];
     const props = setup();
     renderWithProviders(<MentionsWidget {...props} />);
-    expect(screen.getAllByTestId(FeedRowTestId.Root)).toHaveLength(4);
+    expect(screen.getAllByTestId(FeedRowTestId.Root)).toHaveLength(5);
     expect(screen.getAllByTestId(FeedRowTestId.Text).map((e) => e.textContent)).toEqual([
       "text slack",
       "text github",
+      "text gitlab",
       "text jira",
       "text email",
     ]);
     expect(props.onCountChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ count: 4, you: 0 }),
+      expect.objectContaining({ count: 5, you: 0 }),
     );
   });
 

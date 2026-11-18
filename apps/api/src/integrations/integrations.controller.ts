@@ -6,7 +6,7 @@ import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { makeErrorMapper } from "../shared/http/error-mapping";
 import { CONNECTION_TESTER, type ConnectionTester } from "./connection-tester";
-import { credentialMatchesKind } from "./credential-kind";
+import { NO_CREDENTIALS, credentialMatchesKind, needsStoredCredential } from "./credential-kind";
 import { CredentialsStore } from "./credentials.store";
 import {
   IntegrationConflictError,
@@ -40,7 +40,10 @@ export class IntegrationsController {
 
   /** Layer the read-time `hasCredentials` onto an entity for the wire. */
   private async withCredentialState(integration: Integration): Promise<Integration> {
-    return { ...integration, hasCredentials: await this.credentials.has(integration.id) };
+    // A kind with no stored secret (gitlab: the glab login) is always "credentialled".
+    const hasCredentials =
+      !needsStoredCredential(integration.kind) || (await this.credentials.has(integration.id));
+    return { ...integration, hasCredentials };
   }
 
   /** FK integrity: an integration must belong to an existing project (else 422). */
@@ -103,19 +106,23 @@ export class IntegrationsController {
               throw new ImmutableKindViolation();
             }
             if (body.projectId) await this.assertProjectExists(body.projectId);
-            // Phase 129 (G1): the patch must not leave a project-owned github integration repo-less.
+            // Phase 129 (G1): the patch must not leave a project-owned github/gitlab integration repo-less.
             const config = body.config ?? existing.config;
             const projectId = "projectId" in body ? body.projectId : existing.projectId;
-            if (projectId && config.kind === "github" && !config.repo) {
-              throw new MissingGithubRepoViolation();
+            if (
+              projectId &&
+              (config.kind === "github" || config.kind === "gitlab") &&
+              !config.repo
+            ) {
+              throw new MissingRepoViolation(config.kind);
             }
             return this.withCredentialState(await this.storage.update(id, body));
           },
           (error) =>
             error instanceof ImmutableKindViolation
               ? unprocessable("kind is immutable")
-              : error instanceof MissingGithubRepoViolation
-                ? unprocessable("a project-owned github integration needs a repo")
+              : error instanceof MissingRepoViolation
+                ? unprocessable(`a project-owned ${error.kind} integration needs a repo`)
                 : error instanceof UnknownProjectViolation
                   ? unprocessable("unknown project")
                   : undefined,
@@ -158,7 +165,9 @@ export class IntegrationsController {
           id,
           async () => {
             const integration = await this.storage.get(id);
-            const creds = await this.credentials.read(id);
+            const creds = needsStoredCredential(integration.kind)
+              ? await this.credentials.read(id)
+              : NO_CREDENTIALS;
             if (!creds) throw new NoCredentialsViolation();
             const result = await this.tester.test(integration, creds);
             await this.storage.markSync(
@@ -185,7 +194,11 @@ export class IntegrationsController {
 
 /** Internal control-flow markers mapped to 422/409 by the handler's `extra` callbacks. */
 class ImmutableKindViolation extends Error {}
-class MissingGithubRepoViolation extends Error {}
+class MissingRepoViolation extends Error {
+  constructor(readonly kind: string) {
+    super(`a project-owned ${kind} integration needs a repo`);
+  }
+}
 class CredentialKindViolation extends Error {}
 class NoCredentialsViolation extends Error {}
 class UnknownProjectViolation extends Error {}

@@ -13,6 +13,7 @@ import {
   repoFromGitRemote,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
+import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
@@ -160,7 +161,9 @@ export class ChannelWatcherService
 
     for (const integration of await this.integrations.list()) {
       if (!integration.enabled) continue;
-      const creds = await this.credentials.read(integration.id);
+      const creds = needsStoredCredential(integration.kind)
+        ? await this.credentials.read(integration.id)
+        : NO_CREDENTIALS;
       if (!creds) continue;
       // Each integration's poll runs in its own trace scope + try/catch.
       await this.trace.run({ traceId: randomUUID() }, async () => {
@@ -296,14 +299,19 @@ export class ChannelWatcherService
    * integration polls exactly as before.
    */
   private async pollOne(integration: Integration, creds: CredentialsInput): Promise<string[]> {
-    if (integration.config.kind !== "github" || integration.config.repo) {
+    const { config } = integration;
+    if ((config.kind !== "github" && config.kind !== "gitlab") || config.repo) {
       return this.pollTarget(integration, creds);
     }
     const resolved = await this.resolvedProjects();
+    const targets =
+      config.kind === "github"
+        ? await resolved.githubRepoTargets(integration)
+        : await resolved.gitlabRepoTargets(integration);
     const ingested: string[] = [];
     let failure: unknown;
-    for (const [repo, projectIds] of await resolved.githubRepoTargets(integration)) {
-      const scoped: Integration = { ...integration, config: { ...integration.config, repo } };
+    for (const [repo, projectIds] of targets) {
+      const scoped: Integration = { ...integration, config: { ...config, repo } };
       try {
         ingested.push(...(await this.pollTarget(scoped, creds, { repo, projectIds })));
       } catch (err) {

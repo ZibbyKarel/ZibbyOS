@@ -227,6 +227,59 @@ describe("ChannelWatcherService", () => {
     expect((await store.list()).length).toBe(0);
   });
 
+  it("polls a gitlab integration with no stored credential", async () => {
+    await integrations.create({
+      id: "gl",
+      kind: "gitlab",
+      projectId: "acme-app",
+      config: {
+        kind: "gitlab",
+        host: "gitlab.example.com",
+        repo: "acme/platform/app",
+        streams: ["issues", "pulls"],
+        username: "karel.zibar",
+      },
+    });
+    const calls: Array<{ integrationId: string; ctx: PollContext | undefined }> = [];
+    await makeWatcher(spyRegistry(calls)).tick();
+    expect(calls.map((c) => c.integrationId)).toEqual(["gl"]);
+  });
+
+  it("a repo-less company gitlab integration polls each inheriting repo", async () => {
+    await integrations.create({
+      id: "co-gl",
+      kind: "gitlab",
+      companyId: "co",
+      config: {
+        kind: "gitlab",
+        host: "gitlab.example.com",
+        streams: ["issues", "pulls"],
+        username: "karel.zibar",
+      },
+    });
+    const repos: Array<string | undefined> = [];
+    const adapter: ChannelAdapter = {
+      kind: "fake",
+      test: async () => ({ ok: true, detail: "spy" }),
+      poll: (integration: Integration): Promise<PollResult> => {
+        repos.push(integration.config.kind === "gitlab" ? integration.config.repo : undefined);
+        return Promise.resolve({ items: [], cursor: undefined });
+      },
+      send: async () => {},
+    };
+    const moduleRef = {
+      get: () => ({
+        gitlabRepoTargets: async () =>
+          new Map([
+            ["acme/platform/app", ["a"]],
+            ["acme/other", ["b"]],
+          ]),
+      }),
+    } as unknown as ModuleRef;
+    await makeWatcher({ resolve: () => adapter } as unknown as AdapterRegistry, moduleRef).tick();
+    expect(repos).toEqual(["acme/platform/app", "acme/other"]);
+  });
+
   it("isolates a failing integration: it stamps lastError and the others still ingest", async () => {
     await integrations.create(slack("bad"));
     await credentials.write("bad", { token: "xoxb-1" });

@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   type RoutableProject,
   RoutingMatchSchema,
+  gitRemoteInfo,
   githubRepoFor,
+  gitlabRepoFor,
   matchRouting,
   repoFromGitRemote,
 } from "./integration-routing";
+import { isGitlabShape } from "./integration.schema";
 
 describe("RoutingMatchSchema", () => {
   it("requires jql or projectKey for jira", () => {
@@ -109,5 +112,107 @@ describe("githubRepoFor", () => {
   });
   it("null for a non-github integration", () => {
     expect(githubRepoFor({ projectId: "p", config: { kind: "jira" } }, remote)).toBeNull();
+  });
+});
+
+describe("githubRepoFor host guard", () => {
+  it("does not mistake a two-segment GitLab remote for a GitHub repo", () => {
+    const config = { kind: "github", username: "me" };
+    expect(
+      githubRepoFor({ config }, { gitRemote: "git@gitlab.example.com:acme/web.git" }),
+    ).toBeNull();
+    expect(githubRepoFor({ config }, { gitRemote: "https://github.com/Acme/Web" })).toBe(
+      "acme/web",
+    );
+  });
+});
+
+describe("gitRemoteInfo", () => {
+  it.each([
+    ["git@github.com:Acme/Web.git", { host: "github.com", path: "Acme/Web" }],
+    ["https://github.com/acme/web", { host: "github.com", path: "acme/web" }],
+    [
+      "https://user@GitLab.Group.Team.Blue/a/b/c.git/",
+      { host: "gitlab.group.team.blue", path: "a/b/c" },
+    ],
+    [
+      "ssh://git@gitlab.example.com:2222/g/sub/name.git",
+      { host: "gitlab.example.com", path: "g/sub/name" },
+    ],
+    [
+      "git@gitlab.example.com:g/sub/deep/name.git",
+      { host: "gitlab.example.com", path: "g/sub/deep/name" },
+    ],
+    ["https://host.io/onlyone", null],
+    ["not a remote", null],
+    ["", null],
+    [undefined, null],
+  ])("%s", (remote, expected) => {
+    expect(gitRemoteInfo(remote)).toEqual(expected);
+  });
+});
+
+describe("isGitlabShape", () => {
+  it("accepts a hostname and a nested path, rejects anything else", () => {
+    expect(isGitlabShape("gitlab.example.com", "group/sub/project")).toBe(true);
+    expect(isGitlabShape("gitlab.example.com:8443", "g/p")).toBe(true);
+    for (const [host, repo] of [
+      ["gitlab.example.com", "single"],
+      ["gitlab.example.com", "g/$(id)/p"],
+      ["gitlab.example.com", "g/p; rm -rf"],
+      ["gitlab.example.com", undefined],
+      ["https://gitlab.example.com", "g/p"],
+      ["gitlab.example.com/evil", "g/p"],
+      [undefined, "g/p"],
+    ] as const) {
+      expect(isGitlabShape(host, repo), `${host} ${repo}`).toBe(false);
+    }
+  });
+});
+
+describe("gitlabRepoFor", () => {
+  const remote = { gitRemote: "git@gitlab.group.team.blue:shoptet/projects/app.git" };
+  const gl = (repo?: string) => ({
+    kind: "gitlab",
+    host: "gitlab.group.team.blue",
+    ...(repo ? { repo } : {}),
+  });
+  it("null for a host or path that fails the shape check (every producer inherits it)", () => {
+    expect(gitlabRepoFor({ projectId: "p", config: gl("a/$(id)/c") }, remote)).toBeNull();
+    expect(gitlabRepoFor({ companyId: "c", config: gl("a b/c") }, remote)).toBeNull();
+    expect(
+      gitlabRepoFor(
+        { companyId: "c", config: gl() },
+        { gitRemote: "git@gitlab.group.team.blue:a/`x`/c.git" },
+      ),
+    ).toBeNull();
+    expect(
+      gitlabRepoFor({ projectId: "p", config: { ...gl("a/b"), host: "h/evil" } }, remote),
+    ).toBeNull();
+  });
+  it("project-owned: config.repo only", () => {
+    expect(gitlabRepoFor({ projectId: "p", config: gl("a/b/c") }, remote)).toBe("a/b/c");
+    expect(gitlabRepoFor({ projectId: "p", config: gl() }, remote)).toBeNull();
+  });
+  it("company-owned: override, else the remote path when the host matches", () => {
+    expect(gitlabRepoFor({ companyId: "c", config: gl("a/b") }, remote)).toBe("a/b");
+    expect(gitlabRepoFor({ companyId: "c", config: gl() }, remote)).toBe("shoptet/projects/app");
+    expect(
+      gitlabRepoFor(
+        { companyId: "c", config: { ...gl(), host: "GitLab.Group.Team.Blue" } },
+        remote,
+      ),
+    ).toBe("shoptet/projects/app");
+  });
+  it("company-owned: host mismatch or no remote -> null", () => {
+    expect(
+      gitlabRepoFor({ companyId: "c", config: gl() }, { gitRemote: "git@github.com:a/b.git" }),
+    ).toBeNull();
+    expect(gitlabRepoFor({ companyId: "c", config: gl() }, {})).toBeNull();
+  });
+  it("null for a non-gitlab integration", () => {
+    expect(
+      gitlabRepoFor({ projectId: "p", config: { kind: "github", repo: "a/b" } }, remote),
+    ).toBeNull();
   });
 });

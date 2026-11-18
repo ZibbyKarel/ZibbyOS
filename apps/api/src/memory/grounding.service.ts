@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
+import { gitlabHostNote } from "./gitlab-host-note";
 import { composeTeamKbSection } from "./team-kb-grounding";
 import type { DepartmentId, IndexEntry, Note, NoteDomain } from "@zibby/contracts";
 import { tokenize } from "../tasks/keyword-scorer";
@@ -236,11 +237,29 @@ export class GroundingService {
         if (this.renderUntruncated(withKb).length <= BLOCK_BUDGET) sections.push(withKb.at(-1)!);
       }
 
-      if (sections.length === 0) return "";
-      return this.render(sections);
+      // Outside the block budget: a tail cut must never drop the host note.
+      const hostNote = await this.gitHostNote(input);
+      const grounded = sections.length === 0 ? "" : this.render(sections);
+      return hostNote ? (grounded ? `${grounded}\n\n${hostNote}` : hostNote) : grounded;
     } catch (error) {
       this.logger.warn(`grounding compose failed, continuing without it: ${String(error)}`);
       return "";
+    }
+  }
+
+  /**
+   * The "this project is on GitLab, use glab" note — recipes (outside the repo) say `gh`.
+   * Both engines get it: grounding rides the system prompt of either. `null` (so the prompt
+   * stays byte-identical) for no project, a personal run, GitHub, or no remote; fail-open.
+   */
+  private async gitHostNote(input: GroundingInput): Promise<string | null> {
+    if (!input.projectId || input.domain === "personal" || !this.moduleRef) return null;
+    try {
+      const resolved = this.moduleRef.get(ResolvedProjectService, { strict: false });
+      const link = await resolved.gitlabLinkFor(input.projectId);
+      return link ? gitlabHostNote(link) : null;
+    } catch {
+      return null;
     }
   }
 

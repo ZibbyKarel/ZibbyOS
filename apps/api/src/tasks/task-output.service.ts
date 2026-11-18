@@ -10,6 +10,7 @@ import {
   type PrThreadOutcome,
   type PrThreadReply,
   PrThreadReplySchema,
+  type Project,
   type ScheduledTask,
   type TaskOutput,
 } from "@zibby/contracts";
@@ -24,7 +25,9 @@ import {
 } from "../autopilot/autopilot.service";
 import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { DuplicateNoteError, VaultService } from "../memory/vault.service";
+import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
+import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
 import { WorkspaceService } from "../workspace/workspace.service";
@@ -235,6 +238,8 @@ export class TaskOutputService implements OnModuleInit {
     @Optional() private readonly gates?: GateEvaluatorService,
     @Optional() private readonly agents?: AgentsStorageService,
     @Optional() private readonly workflows?: WorkflowsStorageService,
+    // Resolves the project's GitLab link so the PR is opened as a merge request.
+    @Optional() private readonly resolvedProjects?: ResolvedProjectService,
   ) {
     this.log = logger.child(TaskOutputService.name);
   }
@@ -883,6 +888,7 @@ export class TaskOutputService implements OnModuleInit {
       body: summary.trim(),
       // NS2 F0b — per-project draft PR mode; absent/`"ready"` keeps today's behavior.
       draft: project?.prOpenMode === "draft",
+      ...(await this.gitlabOpt(project)),
     });
     if (!result) {
       this.log.warn("pr output push failed (soft) — work is committed on the branch and safe", {
@@ -901,6 +907,15 @@ export class TaskOutputService implements OnModuleInit {
         ...(stats.files ? { files: stats.files } : {}),
       },
     };
+  }
+
+  /** `{ gitlab }` when the project's host is GitLab (so `openPr` runs `glab mr create`), else `{}`. */
+  private async gitlabOpt(
+    project: Project | null,
+  ): Promise<{ gitlab?: { host: string; repo: string } }> {
+    if (!project || !this.resolvedProjects) return {};
+    const link = await resolveGitlabLink(this.resolvedProjects, project).catch(() => null);
+    return link ? { gitlab: { host: link.host, repo: link.repo } } : {};
   }
 
   /**

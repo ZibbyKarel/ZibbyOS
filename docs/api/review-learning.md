@@ -592,3 +592,7 @@ both routes over HTTP through supertest — the only suite that actually exercis
 registration, both invisible to the unit tests. It isolates a temp
 `REVIEW_RULES_DIR`/`VAULT_DIR` per file and asserts on the rendered vault note
 contents on disk, not just the HTTP response.
+
+### GitLab projects
+
+A project with a GitLab link learns from merge-request discussions: `ReviewCommentFetcher.fetchNewGitlab` reads `merge_requests/:iid/discussions` (`review-comment.gitlab.ts`) for each ZIBBY-opened MR, keeping human notes (system notes dropped) newer than the cursor. Records have the same shape: `commentId` `dn-<noteId>`, `commentUrl` `…/-/merge_requests/N#note_<id>`. A failed MR read is a `failedEndpoints` entry, so the cursor is held. `ZibbyPrLocator` reads MR URLs too.

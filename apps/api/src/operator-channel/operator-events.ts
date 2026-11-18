@@ -5,6 +5,7 @@ import type {
   ScheduledTask,
   WorkflowRun,
 } from "@zibby/contracts";
+import { parsePrUrl } from "../git-host/git-host-url";
 
 /** The approval action a budget-held task's approval carries (task-scheduler's `SPEND_PAST_CAP`). */
 const SPEND_PAST_CAP = "spend-past-cap";
@@ -53,8 +54,11 @@ const event = (e: Omit<OperatorEvent, "tier">): OperatorEvent => ({
   tier: TIER_3.has(e.kind) ? 3 : 2,
 });
 
-const isPrUrl = (url: string | undefined): url is string =>
-  !!url && /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(url);
+const isPrUrl = (url: string | undefined): url is string => {
+  if (!url?.startsWith("https://")) return false;
+  const pr = parsePrUrl(url);
+  return pr !== null && (pr.kind === "gitlab" || pr.host === "github.com");
+};
 
 /** PR-inbox tasks report through their own approvals, not a "run completed" line. */
 const isPrInboxTask = (t: ScheduledTask): boolean =>
@@ -192,7 +196,16 @@ export async function toOperatorEvent(
     case "pr-ci-autofix-parked": {
       // CI auto-fix gave up on a PR: a human has to look (no approval behind it).
       const m = /^(.+)#(\d+)$/.exec(refs.itemId ?? "");
-      const prUrl = m ? `https://github.com/${m[1]}/pull/${m[2]}` : undefined;
+      // `repo#n` carries no host, so the task's recorded triage URL (GitHub or GitLab) wins. Every
+      // entry the triage service writes names its task; when that task cannot be read the host is
+      // unknown, so no github.com URL is guessed. Only a task-less (pre-GitLab) entry is rebuilt.
+      const task = refs.taskId ? await lookups.task(refs.taskId).catch(() => null) : null;
+      const triageUrl = task?.prCiTriage?.url;
+      const prUrl = isPrUrl(triageUrl)
+        ? triageUrl
+        : m && !refs.taskId
+          ? `https://github.com/${m[1]}/pull/${m[2]}`
+          : undefined;
       return event({
         kind: "run-parked",
         target: refs.itemId ?? entry.id,

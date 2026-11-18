@@ -1,6 +1,7 @@
 import { Controller, UseGuards } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { inboxContract } from "@zibby/contracts";
+import { GitlabApiError } from "../git-host/gitlab-client";
 import { OperatorTokenGuard } from "../approvals/operator-token.guard";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { InboxAddressCommentsService } from "./inbox-address-comments.service";
@@ -76,6 +77,8 @@ export class InboxController {
           if (error instanceof NoGithubLinkError || error instanceof ReviewRepoMismatchError) {
             return { status: 422 as const, body: { message: error.message } };
           }
+          const gitlab = mapGitlabError(error);
+          if (gitlab) return gitlab;
           throw error;
         }
       },
@@ -93,6 +96,8 @@ export class InboxController {
           ) {
             return { status: 422 as const, body: { message: error.message } };
           }
+          const gitlab = mapGitlabError(error);
+          if (gitlab) return gitlab;
           throw error;
         }
       },
@@ -110,6 +115,8 @@ export class InboxController {
           ) {
             return { status: 422 as const, body: { message: error.message } };
           }
+          const gitlab = mapGitlabError(error);
+          if (gitlab) return gitlab;
           throw error;
         }
       },
@@ -127,6 +134,8 @@ export class InboxController {
           ) {
             return { status: 422 as const, body: { message: error.message } };
           }
+          const gitlab = mapGitlabError(error);
+          if (gitlab) return gitlab;
           throw error;
         }
       },
@@ -151,6 +160,8 @@ export class InboxController {
             }
             return { status: 502 as const, body: { message: error.message } };
           }
+          const gitlab = mapGitlabError(error);
+          if (gitlab) return gitlab;
           throw error;
         }
       },
@@ -227,5 +238,17 @@ function mapThreadsError(error: unknown) {
     }
     return { status: 502 as const, body: { message: error.message } };
   }
+  const gitlab = mapGitlabError(error);
+  if (gitlab) return gitlab;
   throw error;
+}
+
+/** GitLab 404 -> 404, a refusal (401/403/422, e.g. an unknown reviewer or a rejected rebase) -> 422, else 502; `null` for other errors. */
+function mapGitlabError(error: unknown) {
+  if (!(error instanceof GitlabApiError)) return null;
+  const { status } = error;
+  const body = { message: error.message };
+  if (status === 404) return { status: 404 as const, body };
+  if (status === 401 || status === 403 || status === 422) return { status: 422 as const, body };
+  return { status: 502 as const, body };
 }

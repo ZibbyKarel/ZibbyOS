@@ -10,6 +10,7 @@ import type {
   TaskTarget,
 } from "@zibby/contracts";
 import { isBlocked } from "@zibby/contracts";
+import { parsePrNumber } from "../git-host/git-host-url";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { ProjectLocalService } from "../projects/project-local.service";
@@ -44,12 +45,9 @@ import { RoutingProposalStore } from "./routing-proposal.store";
  */
 export const DEFAULT_ROADMAP_DEPARTMENT: DepartmentId = "dev";
 
-/** Parse a PR number out of a GitHub PR url (`.../pull/123`); `undefined` if it doesn't match. */
+/** Parse a PR number out of a GitHub (`.../pull/123`) or GitLab (`.../-/merge_requests/123`) url; `undefined` if it doesn't match. */
 export function parsePrNumberFromUrl(url: string): number | undefined {
-  const match = /\/pull\/(\d+)(?:[/?#]|$)/.exec(url);
-  if (!match) return undefined;
-  const n = Number(match[1]);
-  return Number.isFinite(n) ? n : undefined;
+  return parsePrNumber(url) ?? undefined;
 }
 
 /**

@@ -19,6 +19,11 @@ describe("prNumberFromUrl", () => {
     expect(prNumberFromUrl("https://github.com/acme/app/pull/42")).toBe(42);
   });
 
+  it("reads the number out of a gitlab merge request url", () => {
+    expect(prNumberFromUrl("https://gl.example.com/grp/sub/app/-/merge_requests/9")).toBe(9);
+    expect(prNumberFromUrl("https://gl.example.com/grp/app/-/issues/9")).toBeNull();
+  });
+
   it("returns null for anything else", () => {
     expect(prNumberFromUrl("https://github.com/acme/app/issues/42")).toBeNull();
     expect(prNumberFromUrl("nonsense")).toBeNull();

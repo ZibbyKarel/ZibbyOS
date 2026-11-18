@@ -273,6 +273,29 @@ describe("ReleaseService.queue", () => {
   });
 });
 
+describe("ReleaseService.queue — gitlab project", () => {
+  it("has no GitLab merge queue source: empty queue, no listOpen, no GitHub call", async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const gitlab = {
+      id: "gl",
+      kind: "gitlab",
+      projectId: "acme",
+      enabled: true,
+      status: "connected",
+      hasCredentials: false,
+      config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+    } as unknown as Integration;
+    const { service, projectPr } = build({
+      fetchImpl,
+      integrationsByProject: { acme: [gitlab, githubIntegration("acme", "acme/app")] },
+    });
+    const { entries } = await service.queue({}, new Date("2026-07-17T06:00:00.000Z"));
+    expect(entries).toEqual([]);
+    expect(projectPr.listOpen).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
 describe("ReleaseService.summaryLines", () => {
   it("summarizes one line per project with open PRs", async () => {
     const { service } = build({ fetchImpl: routedFetch(readyRoutes()) });

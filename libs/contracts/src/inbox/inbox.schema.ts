@@ -47,7 +47,7 @@ export type InboxEpic = z.infer<typeof InboxEpicSchema>;
 /** A non-blocking per-integration failure surfaced as a banner above the list. */
 export const InboxSourceErrorSchema = z.object({
   projectId: z.string().min(1),
-  source: z.enum(["jira", "github"]),
+  source: z.enum(["jira", "github", "gitlab"]),
   message: z.string().min(1),
 });
 export type InboxSourceError = z.infer<typeof InboxSourceErrorSchema>;
@@ -138,8 +138,7 @@ export const InboxPrRunSchema = z.object({
 export type InboxPrRun = z.infer<typeof InboxPrRunSchema>;
 
 export const InboxPrSchema = z.object({
-  /** Only GitHub today; the field keeps the list open for another source. */
-  source: z.literal("github"),
+  source: z.enum(["github", "gitlab"]),
   number: z.number().int().positive(),
   title: z.string(),
   /** todo-15 — the PR description (GitHub markdown); absent when empty. */
@@ -281,7 +280,7 @@ export type PrReviewLevel = z.infer<typeof PrReviewLevelSchema>;
 export const ReviewInboxPrInputSchema = z
   .object({
     projectId: z.string().min(1),
-    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
+    repo: z.string().regex(/^[\w.-]+(\/[\w.-]+)+$/),
     number: z.number().int().positive(),
     /** Display only (the task title); the PR url is derived server-side from repo + number. */
     title: z.string().max(300).optional(),
@@ -298,7 +297,7 @@ export type ReviewInboxPrResult = z.infer<typeof ReviewInboxPrResultSchema>;
 const PrActionBaseSchema = z
   .object({
     projectId: z.string().min(1),
-    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
+    repo: z.string().regex(/^[\w.-]+(\/[\w.-]+)+$/),
     number: z.number().int().positive(),
     /** Display only (the task title). */
     title: z.string().max(300).optional(),
@@ -345,9 +344,9 @@ export const InboxPrThreadCommentSchema = z.object({
 });
 export type InboxPrThreadComment = z.infer<typeof InboxPrThreadCommentSchema>;
 
-/** One GitHub review thread (GraphQL node id `PRRT_…`). */
+/** One review thread: a GitHub GraphQL node id (`PRRT_…`) or a GitLab discussion id (40 hex). */
 export const InboxPrThreadSchema = z.object({
-  id: z.string().regex(/^PRRT_[\w-]+$/),
+  id: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
   isResolved: z.boolean(),
   isOutdated: z.boolean(),
   path: z.string(),
@@ -383,12 +382,13 @@ export const SubmitInboxPrReviewInputSchema = z
     path: ["body"],
   });
 export type SubmitInboxPrReviewInput = z.infer<typeof SubmitInboxPrReviewInputSchema>;
-/** GitHub's review id. */
+/** GitHub's review id; on GitLab the note id (the MR number for a bare approve). */
 export const SubmitInboxPrReviewResultSchema = z.object({ id: z.number().int() });
 export type SubmitInboxPrReviewResult = z.infer<typeof SubmitInboxPrReviewResultSchema>;
 
 /** GitHub login (user, not team). */
-const GithubLoginSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
+/** A GitHub login or a GitLab username (dots/underscores allowed, up to 255 chars). */
+const GithubLoginSchema = z.string().regex(/^[A-Za-z0-9][\w.-]{0,254}$/);
 
 /**
  * One person in a PR's reviewers tree. `state` = their latest verdict; `pending` = their review is

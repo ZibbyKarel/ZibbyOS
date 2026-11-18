@@ -1,4 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
+import { GitlabClient } from "../git-host/gitlab-client";
+import { gitlabReviewScope } from "./code-owners.gitlab";
+import type { GitlabLink } from "./inbox.gitlab";
 import { codeOwnersOf } from "./pr-reviewers";
 
 /** The operator as CODEOWNERS sees them: their login and their teams as `org/slug`. */
@@ -46,8 +49,39 @@ export class CodeOwnersService {
     { at: number; file?: { path: string; text: string } }
   >();
 
-  constructor(@Optional() fetchImpl?: typeof fetch) {
+  private readonly gitlab: GitlabClient;
+  private readonly memos = new Map<string, { at: number; value: unknown }>();
+
+  constructor(@Optional() fetchImpl?: typeof fetch, @Optional() gitlab?: GitlabClient) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlab ?? new GitlabClient();
+  }
+
+  /**
+   * `reviewScope` for a GitLab MR: CODEOWNERS (GitLab sections, `@group/sub` owners expanded to
+   * group members) read through `glab`. Never throws, same fail-open as the GitHub path.
+   * ponytail: in-memory TTL cache of the file and group members, lost on restart.
+   */
+  async reviewScopeGitlab(
+    link: GitlabLink,
+    baseRef: string | undefined,
+    files: readonly { filename: string; previousFilename?: string }[],
+  ): Promise<ReviewScope> {
+    const memo = async <T>(key: string, load: () => Promise<T>): Promise<T> => {
+      const hit = this.memos.get(key);
+      if (hit && Date.now() - hit.at < CODEOWNERS_TTL_MS) return hit.value as T;
+      const value = await load();
+      this.memos.set(key, { at: Date.now(), value });
+      return value;
+    };
+    try {
+      return await gitlabReviewScope(this.gitlab, memo, link, baseRef, files);
+    } catch (error) {
+      return {
+        kind: "all",
+        reason: `code owners unavailable (${error instanceof Error ? error.message : String(error)})`,
+      };
+    }
   }
 
   /** Never throws: any lookup failure reads `all` with the reason. `baseRef` absent → default branch. */

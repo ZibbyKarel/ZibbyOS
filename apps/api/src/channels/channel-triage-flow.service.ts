@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit, Optional } from "@nestjs/common";
+import { parsePrUrl } from "../git-host/git-host-url";
 import { ModuleRef } from "@nestjs/core";
 import {
   type Approval,
@@ -11,6 +12,7 @@ import {
   type Project,
   type RoutingItem,
   type TriageVerdict,
+  gitRemoteInfo,
   matchRouting,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
@@ -19,6 +21,7 @@ import { type AutopilotLocation, AutopilotService } from "../autopilot/autopilot
 import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { GateRulesStorageService } from "../gate-rules/gate-rules.storage.service";
 import { CommsService } from "../comms/comms.service";
+import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { MandateStorageService } from "../mandate/mandate.storage.service";
@@ -46,9 +49,11 @@ const CHANNEL_REPLY_ACTION = "channel-reply";
 /** Strength ordering, mirroring the gate evaluator — a higher rank is stricter. */
 const DECISION_RANK: Record<Decision, number> = { allow: 0, notify: 1, ask: 2, deny: 3 };
 
-/** A GitHub pull request (the adapter stamps PRs with a `/pull/<n>` url). */
+/** A GitHub pull request (`/pull/<n>`) or GitLab merge request (`/-/merge_requests/<n>`) — the adapters stamp it on the url. */
 function isPullRequest(item: ChannelItem): boolean {
-  return item.kind === "github" && /\/pull\/\d+$/.test(item.url ?? "");
+  if (item.kind !== "github" && item.kind !== "gitlab") return false;
+  const pr = parsePrUrl(item.url ?? "");
+  return pr?.kind === item.kind && new URL(item.url ?? "").pathname.endsWith(`/${pr.number}`);
 }
 
 /** The routing descriptor of an inbound item (D10), or `null` when it carries too little to route. */
@@ -338,6 +343,20 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
     const hasRules = inheriting.some((p) =>
       (p.integrationRouting ?? []).some((r) => r.integrationId === integration.id),
     );
+    // GitLab routes implicitly by gitRemote host + full (possibly nested) path; no match falls back
+    // to the text matcher like any rule-less integration (RoutingMatch has no gitlab kind).
+    if (integration.kind === "gitlab" && integration.config.kind === "gitlab") {
+      const channel = item.externalRef.channel?.toLowerCase();
+      const host = integration.config.host.toLowerCase();
+      const ids = channel
+        ? inheriting.filter((p) => {
+            const remote = gitRemoteInfo(p.gitRemote);
+            return remote?.host === host && remote.path.toLowerCase() === channel;
+          })
+        : [];
+      if (ids.length === 0) return undefined;
+      return ids.length === 1 ? (ids[0] ?? null) : null;
+    }
     // GitHub routes implicitly by gitRemote (D3), so it never falls back to the text matcher.
     if (!hasRules && integration.kind !== "github") return undefined;
     const routingItem = routingItemOf(item);
@@ -798,7 +817,9 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
 
   private async sendReply(item: ChannelItem, text: string): Promise<ChannelItem> {
     const integration = await this.integrations.get(item.integrationId);
-    const creds = await this.credentials.read(item.integrationId);
+    const creds = needsStoredCredential(integration.kind)
+      ? await this.credentials.read(item.integrationId)
+      : NO_CREDENTIALS;
     if (!creds) throw new Error(`no credentials for ${item.integrationId}`);
     const adapter = this.registry.resolve(integration.kind);
     await adapter.send(integration, creds, item, text);

@@ -1555,3 +1555,265 @@ describe("classify — publish / remote-destroy / jira CLIs", () => {
     }
   });
 });
+
+describe("claude approval hook — classify (glab, mapped onto the gh actions)", () => {
+  const act = (cmd: string) => classify(cmd)?.action ?? null;
+
+  it.each([
+    ["glab mr create --fill", "pr.open"],
+    ["glab mr new --fill", "pr.open"],
+    ["glab mr for 12", "pr.open"],
+    ["glab -R g/s/r mr create -t x", "pr.open"],
+    ["glab --repo g/s/r mr merge 5 --squash", "pr.merge"],
+    ["glab mr merge 5", "pr.merge"],
+    ["glab mr accept 5", "pr.merge"],
+    ["glab mr --squash merge 5", "pr.merge"],
+    ["glab merge-request merge 5", "pr.merge"],
+    ["glab mr note -m hi 5", "gh.pr_comment"],
+    ["glab mr comment 5 -m hi", "gh.pr_comment"],
+    ["glab mr approve 5", "gh.api_write"],
+    ["glab mr revoke 5", "gh.api_write"],
+    ["glab mr unapprove 5", "gh.api_write"],
+    ["glab issue note 3 -m hi", "gh.pr_comment"],
+    ["glab issue comment 3 -m hi", "gh.pr_comment"],
+    ["glab mr update 5 --title x", "gh.api_write"],
+    ["glab mr close 5", "gh.api_write"],
+    ["glab mr reopen 5", "gh.api_write"],
+    ["glab mr rebase 5", "gh.api_write"],
+    ["glab mr delete 5", "gh.api_write"],
+    ["glab issue create -t x", "gh.api_write"],
+    ["glab issue update 3 -l bug", "gh.api_write"],
+    ["glab issue close 3", "gh.api_write"],
+    ["glab issue delete 3", "gh.api_write"],
+    ["glab ci run", "gh.api_write"],
+    ["glab ci retry 9", "gh.api_write"],
+    ["glab pipeline cancel pipeline 9", "gh.api_write"],
+    ["glab pipe delete 9", "gh.api_write"],
+    ["glab release create v1", "gh.api_write"],
+    ["glab release delete v1", "gh.api_write"],
+    ["glab repo delete g/r", "gh.api_write"],
+    ["glab repo archive", "gh.api_write"],
+    ["glab repo fork g/r", "gh.api_write"],
+    ["glab repo create r", "gh.api_write"],
+    ["glab variable set K V", "gh.api_write"],
+    ["glab variable update K V", "gh.api_write"],
+    ["glab variable delete K", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it.each([
+    ["glab api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab api projects/1/merge_requests/5/merge --method=put --hostname h", "pr.merge"],
+    ["glab api projects/1/merge_requests/5/merge -XPUT", "pr.merge"],
+    ["glab api projects/1/merge_requests/5/merge -F sha=abc", "pr.merge"],
+    ["glab api projects/1/merge_requests/5/notes -f body=hi", "gh.pr_comment"],
+    ["glab api projects/1/merge_requests/5/notes/9 -X PUT -f body=x", "gh.pr_comment"],
+    ["glab api projects/1/merge_requests/5/discussions/abc/notes -F body=x", "gh.pr_comment"],
+    [
+      "glab api projects/1/merge_requests/5/discussions/abc -X PUT -f resolved=true",
+      "gh.pr_comment",
+    ],
+    ["glab api projects/1/merge_requests/5/approve -X POST", "gh.api_write"],
+    ["glab api projects/1/merge_requests/5/unapprove -X POST", "gh.api_write"],
+    ["glab api projects/1/issues/3/notes -X POST --input b.json", "gh.pr_comment"],
+    ["glab api projects/1/merge_requests -X POST -f title=x", "gh.api_write"],
+    ["glab api projects/1/merge_requests/5 -X PUT -f state_event=close", "gh.api_write"],
+    ["glab api projects/1 -X DELETE", "gh.api_write"],
+    ["glab api projects/1/variables -X POST -f key=a -f value=b", "gh.api_write"],
+    ["glab api projects/1/pipelines/9/retry -X POST", "gh.api_write"],
+    ["glab api projects/1/issues --raw-field title=x", "gh.api_write"],
+    ["glab api projects/1/issues --field=title=x", "gh.api_write"],
+    ["glab api projects/1/issues -ftitle=x", "gh.api_write"],
+    ["glab api projects/1/issues --input b.json", "gh.api_write"],
+    ["glab api projects/1/issues -X FOO", "gh.api_write"],
+    ["glab api graphql -f query='mutation { x }'", "gh.api_write"],
+    ["glab api graphql -f query='query {\nviewer { id } }'", "gh.api_write"],
+    ['glab api graphql -f query="$(cat q.graphql)"', "gh.api_write"],
+    ["glab api graphql -f query=$Q", "gh.api_write"],
+    ["glab api graphql -F query=@q.graphql --hostname h", "gh.api_write"],
+    ["glab api graphql -X POST", "gh.api_write"],
+    ["glab api graphql -f query=@q.graphql", "gh.api_write"],
+    ["glab api graphql --input q.json", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it.each([
+    // a value-taking flag before the group or verb must not hide the real command
+    ["glab -m version mr merge 1 -y", "pr.merge"],
+    ["glab mr -m view merge 1 -y", "pr.merge"],
+    ["glab mr -m list accept 1", "pr.merge"],
+    ["glab -m help mr merge 1", "pr.merge"],
+    ["glab -m completion mr merge 1", "pr.merge"],
+    ["glab -m x mr merge 1", "pr.merge"],
+    ["glab mr -m x merge 1", "pr.merge"],
+    ["glab mr --squash merge 1", "pr.merge"],
+    ["glab mr --some-bool-flag merge 1", "pr.merge"],
+    ["glab -m x mr create -t y", "gh.api_write"], // ambiguous parse: ranks api_write over open,
+    ["glab -m x mr note 1", "gh.api_write"],
+    ["glab mr merge 1 -- --help", "pr.merge"],
+    ["glab mr merge -m --help 1", "pr.merge"],
+    ["glab -m x frobnicate", "gh.api_write"],
+    // `api` behind global flags: the method/field flags still count
+    ["glab --hostname h api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -X PUT api projects/1/merge_requests/5/merge", "pr.merge"],
+    ["glab --repo=g/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -Rg/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -R g/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab --hostname version api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -m version api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab --hostname h api projects/1/issues -f title=x", "gh.api_write"],
+    ["glab -X api api projects/1/merge_requests/1/merge -X PUT", "pr.merge"],
+    ["glab --hostname api api projects/1/merge_requests/1/merge -X PUT", "pr.merge"],
+    ["glab --hostname=h api projects/1/merge_requests/1/merge -X PUT", "pr.merge"],
+    ["glab --hostname h api projects/1/merge_requests/1/merge -X PUT", "pr.merge"],
+    // --auto-merge turns a create/update into a merge
+    ["glab mr create -t x --auto-merge", "pr.merge"],
+    ["glab mr create -t x --auto-merge=true", "pr.merge"],
+    ["glab mr new --auto-merge", "pr.merge"],
+    ["glab mr for 3 --auto-merge", "pr.merge"],
+    ["glab mr update 5 --auto-merge", "pr.merge"],
+    ["glab mr create -t x --auto-merge=false", "pr.open"],
+    ["glab mr update 5 --auto-merge=false", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it("keeps the read-only commands ungated", () => {
+    for (const cmd of [
+      "glab mr view 5",
+      "glab mr list",
+      "glab mr diff 5",
+      "glab mr checkout 5",
+      "glab -R g/s/r mr view 5 --comments",
+      "glab ci status",
+      "glab ci view",
+      "glab ci trace 9",
+      "glab ci list",
+      "glab pipeline list",
+      "glab issue view 3",
+      "glab issue list",
+      "glab repo view",
+      "glab repo clone g/r",
+      "glab release list",
+      "glab variable get K",
+      "glab auth status",
+      "glab config get host",
+      "glab version",
+      "glab --version",
+      "glab api projects/1/merge_requests/5",
+      "glab api projects/1/merge_requests/5 --paginate --hostname h",
+      "glab api -X GET projects/1/issues -F state=opened",
+      "glab api graphql",
+      "glab --hostname h api projects/1/merge_requests/5",
+      "glab --hostname h api projects/1 -X GET",
+      "glab --hostname h api projects/1 -H x",
+      "glab --hostname=h api projects/1",
+      "glab mr",
+      "glab mr merge 1 --help",
+      "glab -h mr merge 1",
+      "glab --help",
+      "glab mr --help",
+      "glab mr merge --help",
+      "glab api --help",
+      "glab -R g/r mr merge -h",
+    ]) {
+      expect(act(cmd), cmd).toBeNull();
+    }
+  });
+
+  it("fails closed on an unknown subcommand or a flag that could swallow --help", () => {
+    expect(act("glab frobnicate")).toBe("gh.api_write");
+    expect(act("glab mr frobnicate 5")).toBe("gh.api_write");
+    expect(act("glab label list")).toBe("gh.api_write"); // not on the read-only list
+    expect(act("glab mr note -m --help 5")).toBe("gh.pr_comment");
+    expect(act("glab mr merge --squash --help")).toBe("pr.merge"); // a flag precedes --help
+  });
+
+  it("follows the gh precedence rules across chained segments", () => {
+    expect(act("git push origin feat && glab mr merge 5")).toBe("pr.merge");
+    expect(act("git push origin feat && glab mr create -t x")).toBe("pr.open");
+    expect(act("glab mr create -t x && glab mr note -m hi")).toBe("gh.pr_comment"); // existing rank: comment > open
+    expect(act("glab mr note -m hi && glab ci retry 9")).toBe("gh.api_write");
+    expect(act("glab mr view 5 && glab mr note -m hi")).toBe("gh.pr_comment");
+    expect(act("glab mr view 5 | cat")).toBeNull();
+    expect(act("glab ci retry 9; glab mr merge 5")).toBe("pr.merge");
+  });
+
+  it.each([
+    // GitLab auto-merge push options merge the MR on their own
+    ["git push -o merge_request.merge_when_pipeline_succeeds origin zibby/x", "pr.merge"],
+    ["git push -o merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -o merge_request.auto_merge=true origin zibby/x", "pr.merge"],
+    ["git push --push-option merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push --push-option=merge_request.merge_when_pipeline_succeeds origin x", "pr.merge"],
+    ["git push -omerge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -f -o merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -uo merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -fo merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -uomerge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push --push-opt=merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push --push-o merge_request.merge_when_pipeline_succeeds origin zibby/x", "pr.merge"],
+    ["git -c push.pushOption=merge_request.auto_merge push origin zibby/x", "pr.merge"],
+    ["git -c PUSH.PUSHOPTION=merge_request.merge_when_pipeline_succeeds push", "pr.merge"],
+    ["git --config-env=push.pushOption=OPT push origin zibby/x", "pr.merge"],
+    // `=false` switches it off: still a push option → plain push, branch dropped
+    ["git push -o merge_request.auto_merge=false origin zibby/x", "git.push"],
+    ["git push -o ci.skip origin zibby/x", "git.push"],
+    ["git push --force -o ci.skip origin zibby/x", "git.force_push"],
+    ["git -c push.pushOption=ci.skip push origin zibby/x", "git.push"],
+    // persisting a push option for every later push
+    ["git config push.pushOption merge_request.auto_merge", "gh.api_write"],
+    ["git config --global push.pushoption ci.skip", "gh.api_write"],
+    ["git config --local --add push.pushOption x", "gh.api_write"],
+    ["git config set push.pushoption x", "gh.api_write"],
+    ["git -C repo config PUSH.pushOption x", "gh.api_write"],
+    // credential-printing glab reads
+    ["glab auth status --show-token", "gh.api_write"],
+    ["glab auth status -t", "gh.api_write"],
+    ["glab auth status --hostname h -t", "gh.api_write"],
+    ["glab config get token", "gh.api_write"],
+    ["glab config get --host h token", "gh.api_write"],
+    ["glab config get gitlab_token", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it("drops branch/branches whenever a push option is present", () => {
+    for (const cmd of [
+      "git push -o ci.skip origin zibby/x",
+      "git push --push-option=ci.skip origin zibby/x",
+      "git -c push.pushOption=ci.skip push origin zibby/x",
+      "git push -o merge_request.auto_merge=false origin zibby/x",
+    ]) {
+      const c = classify(cmd);
+      expect(c?.branch, cmd).toBeUndefined();
+      expect(c?.branches, cmd).toBeUndefined();
+    }
+    expect(classify("git push origin zibby/x")).toMatchObject({
+      action: "git.push",
+      branch: "zibby/x",
+    });
+    expect(classify("git -c user.name=x push origin zibby/x")).toMatchObject({
+      action: "git.push",
+      branch: "zibby/x",
+    });
+  });
+
+  it("keeps reading a push option and non-push config ungated", () => {
+    for (const cmd of [
+      "git config --get push.pushOption",
+      "git config --get-all push.pushoption",
+      "git config get push.pushOption",
+      "git config --list",
+      "git config -l",
+      "git config user.name x",
+      "git -c push.pushOption=merge_request.auto_merge status",
+      "glab auth status",
+      "glab config get host",
+    ]) {
+      expect(act(cmd), cmd).toBeNull();
+    }
+  });
+});

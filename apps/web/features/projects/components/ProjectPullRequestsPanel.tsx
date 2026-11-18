@@ -75,7 +75,10 @@ export function ProjectPullRequestsPanel({ projectId }: ProjectPullRequestsPanel
   const [confirming, setConfirming] = useState<ProjectPr | null>(null);
 
   const prs = prsQuery.data ?? [];
-  const hasGithubLink = (resolvedQuery.data?.integrations ?? []).some((i) => i.kind === "github");
+  // Either git host lists PRs/MRs here; the key keeps its name for the GitHub-era callers.
+  const hasGithubLink = (resolvedQuery.data?.integrations ?? []).some(
+    (i) => i.kind === "github" || i.kind === "gitlab",
+  );
 
   return (
     <Panel header={t("title")} padding="200">

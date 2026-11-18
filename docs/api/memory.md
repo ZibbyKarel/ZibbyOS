@@ -160,7 +160,14 @@ Called at the start of every run (fail-open — a vault outage never blocks a ru
    to use `search_team_kb` / `read_team_kb_note`. Added last and only if it fits the
    block budget whole, so truncation never cuts an envelope open
    (`team-kb-grounding.ts`)
-8. Returns the combined markdown context → passed to the agent as `--append-system-prompt`
+8. Git host note: for a project whose link is GitLab, a `## Git host (GitLab)` note (host, path,
+   `glab` in place of `gh`, never merge) is appended after the budgeted block, so truncation never
+   drops it. No note (byte-identical grounding) for no project, a personal run, GitHub or no remote
+   (`gitlab-host-note.ts`, `ResolvedProjectService.gitlabLinkFor`). Only agent runs and workflow
+   stages ground; chat turns and direct spawners (`phase-advisor`, orchestrator agent, slack
+   digest, dictation) get no note. `resolveGitlabLink` yields no link for a repo/host of an
+   unexpected shape
+9. Returns the combined markdown context → passed to the agent as `--append-system-prompt`
 
 Budgets: each note's body is truncated at `NOTE_BUDGET` (2000 chars) and the whole
 block at `BLOCK_BUDGET` (8000) — both cut the tail, which is why the order above is

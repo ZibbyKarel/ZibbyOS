@@ -66,7 +66,9 @@ export class ProjectLocalUnresolvedError extends Error {
  */
 export class NoGithubLinkError extends Error {
   constructor(public readonly id: string) {
-    super(`Project "${id}" has no github integration + token configured`);
+    super(
+      `Project "${id}" has no git host link (github integration + token, or gitlab integration)`,
+    );
     this.name = "NoGithubLinkError";
   }
 }

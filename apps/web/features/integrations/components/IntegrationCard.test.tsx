@@ -32,6 +32,7 @@ const CONFIG_BY_KIND: Record<IntegrationKind, Integration["config"]> = {
   jira: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "bot@example.com" },
   github: { kind: "github", repo: "acme/repo", streams: ["issues", "pulls"], username: "octocat" },
   calendar: { kind: "calendar", calendarId: "primary", lookaheadDays: 14 },
+  gitlab: { kind: "gitlab", host: "gitlab.example.com", streams: [], username: "me" },
   sentry: { kind: "sentry", org: "acme", project: "backend", minLevel: "error" },
 };
 

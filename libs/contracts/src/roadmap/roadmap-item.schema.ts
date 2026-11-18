@@ -56,7 +56,7 @@ export const RoadmapItemLevelSchema = z.enum(["epic", "task"]);
 export type RoadmapItemLevel = z.infer<typeof RoadmapItemLevelSchema>;
 
 /** Where an item came from. `manual` items have no `integrationId`/`externalId`. */
-export const RoadmapSourceKindSchema = z.enum(["jira", "github", "manual"]);
+export const RoadmapSourceKindSchema = z.enum(["jira", "github", "gitlab", "manual"]);
 export type RoadmapSourceKind = z.infer<typeof RoadmapSourceKindSchema>;
 
 /**

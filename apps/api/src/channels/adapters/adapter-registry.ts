@@ -1,12 +1,14 @@
 import { Injectable, Optional } from "@nestjs/common";
 import type { CredentialsInput, Integration, TestResult } from "@zibby/contracts";
 import type { ConnectionTester } from "../../integrations/connection-tester";
+import { GitlabClient } from "../../git-host/gitlab-client";
 import { OperatorChannelStore } from "../../operator-channel/operator-channel.store";
 import type { ChannelAdapter } from "./adapter";
 import { CalendarChannelAdapter } from "./calendar.adapter";
 import { EmailChannelAdapter } from "./email.adapter";
 import { FakeChannelAdapter } from "./fake.adapter";
 import { GitHubChannelAdapter } from "./github.adapter";
+import { GitlabChannelAdapter } from "./gitlab.adapter";
 import { JiraChannelAdapter } from "./jira.adapter";
 import { SentryChannelAdapter } from "./sentry.adapter";
 import { SlackChannelAdapter } from "./slack.adapter";
@@ -25,6 +27,7 @@ export class AdapterRegistry implements ConnectionTester {
   private readonly email = new EmailChannelAdapter();
   private readonly jira = new JiraChannelAdapter();
   private readonly github = new GitHubChannelAdapter();
+  private readonly gitlab = new GitlabChannelAdapter(new GitlabClient());
   private readonly calendar = new CalendarChannelAdapter();
   private readonly sentry = new SentryChannelAdapter();
   private readonly fake = new FakeChannelAdapter();
@@ -54,6 +57,8 @@ export class AdapterRegistry implements ConnectionTester {
         return this.jira;
       case "github":
         return this.github;
+      case "gitlab":
+        return this.gitlab;
       case "calendar":
         return this.calendar;
       case "sentry":

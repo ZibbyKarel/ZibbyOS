@@ -10,7 +10,7 @@ Contract: `libs/contracts/src/project-ci/` (`projectCiContract`). Implementation
 
 | field         | meaning                                                                                                                                                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider`    | `github` (read), `gitlab` (recognised from `gitRemote`, **not read yet — deferred**, no GitLab adapter exists), `none` (no GitHub link/token)                                               |
+| `provider`    | `github` (read), `gitlab` (read through `glab` when a gitlab integration resolves a repo; a bare `gitRemote` is only recognised, `state: "none"`), `none` (no GitHub link/token)            |
 | `repoUrl`     | repo root on GitHub / GitLab (the sheet title links here)                                                                                                                                   |
 | `branch`      | the base branch = the GitHub repo's `default_branch` (the branch `gh pr create` targets)                                                                                                    |
 | `headSha`     | newest commit on the branch that has workflow runs                                                                                                                                          |
@@ -21,6 +21,15 @@ GitHub reads: `GET /repos/{repo}` → `GET /repos/{repo}/actions/runs?branch=…
 `GET /repos/{repo}/actions/runs/{id}/jobs` per workflow. State mapping: `in_progress` → running,
 other non-completed → pending; `success` → passing; `failure` / `timed_out` / `startup_failure` →
 failing; `cancelled` → cancelled; any other conclusion (skipped, neutral, …) → skipped.
+
+GitLab reads (`project-ci.gitlab.ts`, via `GitlabClient`): `projects/:id` (default branch) →
+`pipelines?ref=<branch>` → `pipelines/:id/jobs` for every pipeline on the newest commit; each
+pipeline is a `workflows[]` entry (`Pipeline #<id>`), its jobs carry `steps: []`. Status mapping:
+`success` → passing, `failed` → failing, `running` → running, `canceled`/`canceling` → cancelled,
+`skipped`/`manual` → skipped, anything else (created, pending, waiting_for_resource, …) → pending.
+A read failure is `state: "error"` with `provider: "gitlab"`. The fix brief uses
+`glab ci status --branch <branch>` / `glab ci trace <job-id-or-name> --branch <branch>` (both
+non-interactive) instead of `gh run view`.
 
 The result is **polled state**: cached in memory per project for 60 s (`PROJECT_CI_CACHE_MS`),
 and the web polls every 60 s. The jobs of a **completed** run are immutable and fetched once; only
@@ -42,8 +51,9 @@ The task is stamped `ScheduledTask.baseFixCi = { projectId, headSha }`. Clicks o
 serialised by an in-memory per-project lock, so a double click creates one task.
 
 - `409` — the branch is not `failing`, or an open task (no outcome, not dead) with `baseFixCi` for
-  this project and `headSha` exists.
-- `422` — no GitHub link / token.
+  this project and `headSha` exists. A GitLab project recognised only from its `gitRemote` (no
+  gitlab integration) reads `provider: "gitlab"`, `state: "none"`, so it is a 409 too, not a 422.
+- `422` — no GitHub / GitLab link (`provider: "none"`).
 - `404` — unknown project.
 
 The PR-level "Fix CI" (`POST /api/inbox/prs/fix-ci`, `pr-fix-ci` workflow) fast-forwards an

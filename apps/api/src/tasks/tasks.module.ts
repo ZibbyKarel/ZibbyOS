@@ -9,6 +9,7 @@ import { LimitsModule } from "../limits/limits.module";
 import { MemoryModule } from "../memory/memory.module";
 import { WorkflowsModule } from "../workflows/workflows.module";
 import { ProjectsModule } from "../projects/projects.module";
+import { ResolvedProjectModule } from "../projects/resolved-project.module";
 import { TodoModule } from "../todo/todo.module";
 import { WorkspaceModule } from "../workspace/workspace.module";
 import { AttachmentStorageService } from "./attachment-storage.service";
@@ -43,6 +44,7 @@ import { TasksController } from "./tasks.controller";
     WorkflowsModule,
     GoalsModule,
     ProjectsModule,
+    ResolvedProjectModule,
     BudgetModule,
     ApprovalsModule,
     GatesModule,

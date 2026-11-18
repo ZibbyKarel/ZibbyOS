@@ -8,6 +8,7 @@ import {
   type ProjectPerson,
   type Team,
   githubRepoFor,
+  gitlabRepoFor,
 } from "@zibby/contracts";
 import { CompaniesStorageService } from "../companies/companies.storage.service";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
@@ -21,6 +22,7 @@ import {
   resolveEffectiveCompanyId,
   resolveKnowledgeBase,
 } from "./resolved-project.helpers";
+import { type GitlabLink, resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "./projects.storage.service";
 
 /**
@@ -131,6 +133,17 @@ export class ResolvedProjectService {
     return targets;
   }
 
+  /** {@link githubRepoTargets} for a GitLab integration: repo path → inheriting project ids. */
+  async gitlabRepoTargets(integration: Integration): Promise<Map<string, string[]>> {
+    const targets = new Map<string, string[]>();
+    for (const project of await this.inheritingProjects(integration)) {
+      const repo = gitlabRepoFor(integration, project);
+      if (!repo) continue;
+      targets.set(repo, [...(targets.get(repo) ?? []), project.id]);
+    }
+    return targets;
+  }
+
   /**
    * The linked company's `id`/`name` — `undefined` for "no company" (absent
    * `companyId`, or a dangling one whose company was deleted). Only for the wire
@@ -141,6 +154,13 @@ export class ResolvedProjectService {
   async resolveCompanyRef(project: Project): Promise<{ id: string; name: string } | undefined> {
     const company = await this.findCompany(await this.effectiveCompanyId(project));
     return company ? { id: company.id, name: company.name } : undefined;
+  }
+
+  /** The project's GitLab link (host + path), `null` for a GitHub / remote-less / unknown project. */
+  async gitlabLinkFor(projectId: string): Promise<GitlabLink | null> {
+    if (!this.projects) return null;
+    const project = await this.projects.get(projectId).catch(() => null);
+    return project ? resolveGitlabLink(this, project) : null;
   }
 
   /** The knowledge base a run on this project may read. `null` when there is none. */

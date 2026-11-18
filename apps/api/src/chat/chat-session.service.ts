@@ -27,8 +27,10 @@ import {
   type SendChatMessageBody,
   type SendChatMessageResult,
   type TaskTarget,
+  gitRemoteInfo,
   repoFromGitRemote,
 } from "@zibby/contracts";
+import { parsePrUrl } from "../git-host/git-host-url";
 import { AgentsStorageService } from "../agents/agents.storage.service";
 import { assertOpencodeReady, opencodeBin, resolveRunEngine } from "../runner/ai-engine";
 import { CompaniesStorageService } from "../companies/companies.storage.service";
@@ -310,11 +312,22 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     about: ChatAbout | undefined,
   ): Promise<ChatTurnTags["project"]> {
     const aboutRepo = /github\.com\/([^/]+\/[^/]+)/i.exec(about?.href ?? "")?.[1]?.toLowerCase();
+    // A GitLab MR url names host + full path; match it against the projects' remotes.
+    const aboutMr = parsePrUrl(about?.href ?? "");
+    const gitlabMr = aboutMr?.kind === "gitlab" ? aboutMr : undefined;
+    const matchesRemote = (p: Project): boolean => {
+      if (gitlabMr) {
+        const remote = gitRemoteInfo(p.gitRemote);
+        return (
+          remote?.host === gitlabMr.host &&
+          remote.path.toLowerCase() === gitlabMr.repo.toLowerCase()
+        );
+      }
+      return repoFromGitRemote(p.gitRemote) === aboutRepo;
+    };
     const target =
       project ??
-      (aboutRepo
-        ? (await this.projects.list()).find((p) => repoFromGitRemote(p.gitRemote) === aboutRepo)
-        : undefined);
+      (aboutRepo || gitlabMr ? (await this.projects.list()).find(matchesRemote) : undefined);
     if (!target) return undefined;
     const local = await this.projectLocal?.resolve(target).catch(() => undefined);
     const dir = local?.resolvedPath ?? target.path;

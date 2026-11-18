@@ -8,6 +8,10 @@ describe("sourceIcon", () => {
     expect(sourceIcon("manual")).toEqual({ glyph: "edit" });
   });
 
+  it("gitlab gets the DS gitlab glyph", () => {
+    expect(sourceIcon("gitlab")).toEqual({ glyph: "gitlab" });
+  });
+
   it("covers the channel kinds", () => {
     expect(sourceIcon("slack")).toEqual({ glyph: "plug" });
     expect(sourceIcon("email")).toEqual({ glyph: "server" });

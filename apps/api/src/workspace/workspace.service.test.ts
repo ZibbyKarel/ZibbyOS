@@ -521,6 +521,82 @@ describe("WorkspaceService.openPr — draft mode (NS2 F0b)", () => {
   });
 });
 
+describe("WorkspaceService.openPr — GitLab merge request", () => {
+  let origin: string;
+  let repo: string;
+  let glabArgs: string[] | null;
+  let glabOut: string;
+
+  beforeEach(async () => {
+    origin = await fs.mkdtemp(path.join(os.tmpdir(), "ws-openmr-origin-"));
+    repo = await fs.mkdtemp(path.join(os.tmpdir(), "ws-openmr-repo-"));
+    await initBareOrigin(origin);
+    await cloneAndCommit(origin, repo, "initial");
+    glabArgs = null;
+    glabOut = "Creating merge request...\nhttps://gl.example.com/grp/sub/app/-/merge_requests/12\n";
+    vi.spyOn(gitExec, "exec").mockImplementation((async (
+      cmd: string,
+      args: readonly string[],
+      opts: never,
+    ) => {
+      if (cmd === "glab") {
+        glabArgs = [...args];
+        return { stdout: glabOut, stderr: "" };
+      }
+      if (cmd === "gh") throw new Error("gh must not run for a gitlab project");
+      return exec(cmd, args as string[], opts);
+    }) as typeof gitExec.exec);
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await fs.rm(origin, { recursive: true, force: true });
+    await fs.rm(repo, { recursive: true, force: true });
+  });
+
+  const gitlab = { host: "gl.example.com", repo: "grp/sub/app" };
+
+  it("runs glab mr create with argv values and parses the MR url", async () => {
+    const svc = new WorkspaceService(fakeLogger as never);
+    const result = await svc.openPr({
+      cwd: repo,
+      branch: "main",
+      title: "Fix; rm -rf /",
+      body: "body $(x)",
+      gitlab,
+    });
+    expect(result).toEqual({ url: "https://gl.example.com/grp/sub/app/-/merge_requests/12" });
+    expect(glabArgs).toEqual([
+      "mr",
+      "create",
+      "--title",
+      "Fix; rm -rf /",
+      "--description",
+      "body $(x)",
+      "--source-branch",
+      "main",
+      "--yes",
+      "-R",
+      "gl.example.com/grp/sub/app",
+    ]);
+  });
+
+  it("adds --draft in draft mode and never an auto-merge flag", async () => {
+    const svc = new WorkspaceService(fakeLogger as never);
+    await svc.openPr({ cwd: repo, branch: "main", title: "t", body: "b", draft: true, gitlab });
+    expect(glabArgs).toContain("--draft");
+    expect(glabArgs?.join(" ")).not.toMatch(/auto-merge|remove-source-branch|squash|target-branch/);
+  });
+
+  it("soft-fails to null when glab prints no MR url", async () => {
+    glabOut = "something went wrong\n";
+    const svc = new WorkspaceService(fakeLogger as never);
+    expect(
+      await svc.openPr({ cwd: repo, branch: "main", title: "t", body: "b", gitlab }),
+    ).toBeNull();
+  });
+});
+
 describe("WorkspaceService.pushRebased (todo-11)", () => {
   let root: string;
   let origin: string;

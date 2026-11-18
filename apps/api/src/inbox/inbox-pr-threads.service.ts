@@ -7,6 +7,8 @@ import type {
   SubmitInboxPrReviewResult,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
+import { type GitHostLink, resolveGitHostLink } from "../git-host/git-host-link";
+import { GitlabApiError, GitlabClient } from "../git-host/gitlab-client";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { resolveGithubToken } from "../projects/project-pr.service";
 import { NoGithubLinkError } from "../projects/projects.errors";
@@ -14,6 +16,14 @@ import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { githubReason } from "./inbox-review.service";
+import {
+  gitlabReviewers,
+  gitlabThreads,
+  replyGitlabDiscussion,
+  requestGitlabReview,
+  resolveGitlabDiscussion,
+  submitGitlabReview,
+} from "./inbox-pr-threads.gitlab";
 import { InboxService } from "./inbox.service";
 import { type BuildReviewersInput, buildReviewers } from "./pr-reviewers";
 
@@ -105,6 +115,7 @@ interface ThreadNode {
 export class InboxPrThreadsService {
   private readonly fetchImpl: typeof fetch;
   private readonly log?: ScopedLogger;
+  private readonly gitlab: GitlabClient;
 
   constructor(
     private readonly projects: ProjectsStorageService,
@@ -114,12 +125,16 @@ export class InboxPrThreadsService {
     @Optional() logger?: LoggerService,
     @Optional() private readonly activity?: ActivityLogService,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlabClient?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlabClient ?? new GitlabClient();
     this.log = logger?.child(InboxPrThreadsService.name);
   }
 
   async list(projectId: string, number: number): Promise<InboxPrThread[]> {
+    const host = await this.hostLink(projectId);
+    if (host.kind === "gitlab") return gitlabThreads(this.gitlab, host, number);
     const { gql, repo } = await this.open(projectId);
     return this.read(gql, repo, number);
   }
@@ -130,6 +145,8 @@ export class InboxPrThreadsService {
     threadId: string,
     input: ReplyInboxPrThreadInput,
   ): Promise<InboxPrThread> {
+    const host = await this.hostLink(projectId);
+    if (host.kind === "gitlab") return this.replyGitlab(projectId, host, number, threadId, input);
     const { gql, repo } = await this.open(projectId);
     const before = await this.read(gql, repo, number);
     if (!before.some((t) => t.id === threadId))
@@ -161,6 +178,18 @@ export class InboxPrThreadsService {
     number: number,
     input: SubmitInboxPrReviewInput,
   ): Promise<SubmitInboxPrReviewResult> {
+    const host = await this.hostLink(projectId);
+    if (host.kind === "gitlab") {
+      const result = await submitGitlabReview(this.gitlab, host, number, input);
+      void this.activity?.record({
+        kind: "channel-reply",
+        summary: `reviewed ${host.repo}!${number} (${input.event})`,
+        refs: { projectId },
+      });
+      this.log?.info(`reviewed ${host.repo}!${number}`, { event: input.event });
+      this.inbox.dropPrsCache();
+      return result;
+    }
     const { repo, token } = await this.open(projectId);
     const res = await this.fetchImpl(
       `https://api.github.com/repos/${repo}/pulls/${number}/reviews`,
@@ -197,12 +226,16 @@ export class InboxPrThreadsService {
 
   /** The PR's reviewers tree (teams with CODEOWNER flag + their reviewing members, then people). */
   async reviewers(projectId: string, number: number): Promise<InboxPrReviewers> {
+    const host = await this.hostLink(projectId);
+    if (host.kind === "gitlab") return gitlabReviewers(this.gitlab, host, number);
     const { gql, repo } = await this.open(projectId);
     return this.readReviewers(gql, repo, number);
   }
 
   /** Re-requests one person's review (operator click) and returns the updated tree. */
   async requestReview(projectId: string, number: number, login: string): Promise<InboxPrReviewers> {
+    const host = await this.hostLink(projectId);
+    if (host.kind === "gitlab") return this.requestGitlabReview(projectId, host, number, login);
     const { gql, repo, token } = await this.open(projectId);
     const res = await this.fetchImpl(
       `https://api.github.com/repos/${repo}/pulls/${number}/requested_reviewers`,
@@ -239,6 +272,74 @@ export class InboxPrThreadsService {
       this.log?.warn(`reviewers re-read failed on ${repo}#${number}`, { error: String(error) });
       return { teams: [], users: [{ login, state: "pending", commented: false }] };
     }
+  }
+
+  private async replyGitlab(
+    projectId: string,
+    link: Extract<GitHostLink, { kind: "gitlab" }>,
+    number: number,
+    threadId: string,
+    input: ReplyInboxPrThreadInput,
+  ): Promise<InboxPrThread> {
+    const ref = `${link.repo}!${number}`;
+    const before = await gitlabThreads(this.gitlab, link, number);
+    if (!before.some((t) => t.id === threadId))
+      throw new ThreadNotOnPrError(threadId, link.repo, number);
+    // Resolve first (idempotent), like GitHub: if it fails nothing was posted, so a retry cannot duplicate the reply.
+    if (input.resolve) await resolveGitlabDiscussion(this.gitlab, link, number, threadId);
+    if (input.body) await replyGitlabDiscussion(this.gitlab, link, number, threadId, input.body);
+    this.inbox.dropPrsCache();
+    void this.activity?.record({
+      kind: "channel-reply", // closest existing kind for an operator GitLab reply
+      summary: `replied on ${ref}`,
+      refs: { projectId, itemId: threadId },
+    });
+    this.log?.info(`replied on ${ref}`, {
+      threadId,
+      replied: Boolean(input.body),
+      resolved: Boolean(input.resolve),
+    });
+    const after = (await gitlabThreads(this.gitlab, link, number)).find((t) => t.id === threadId);
+    if (!after) throw new ThreadNotOnPrError(threadId, link.repo, number);
+    return after;
+  }
+
+  private async requestGitlabReview(
+    projectId: string,
+    link: Extract<GitHostLink, { kind: "gitlab" }>,
+    number: number,
+    login: string,
+  ): Promise<InboxPrReviewers> {
+    if (!(await requestGitlabReview(this.gitlab, link, number, login))) {
+      throw new GitlabApiError(
+        `${login} is already a reviewer, not re-requested (GitLab cannot re-request a review)`,
+        422,
+      );
+    }
+    void this.activity?.record({
+      kind: "channel-reply", // closest existing kind for an operator GitLab action
+      summary: `requested review from ${login} on ${link.repo}!${number}`,
+      refs: { projectId },
+    });
+    this.log?.info(`requested review on ${link.repo}!${number}`, { login });
+    this.inbox.dropPrsCache();
+    try {
+      return await gitlabReviewers(this.gitlab, link, number);
+    } catch (error) {
+      // The request is live — don't 502 it; show the person as pending until the next read.
+      this.log?.warn(`reviewers re-read failed on ${link.repo}!${number}`, {
+        error: String(error),
+      });
+      return { teams: [], users: [{ login, state: "pending", commented: false }] };
+    }
+  }
+
+  /** The project's git host (GitHub or GitLab). */
+  private async hostLink(projectId: string): Promise<GitHostLink> {
+    const project = await this.projects.get(projectId); // ProjectNotFoundError → 404
+    const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (!link) throw new NoGithubLinkError(project.id);
+    return link;
   }
 
   private async readReviewers(gql: Gql, repo: string, number: number): Promise<InboxPrReviewers> {

@@ -29,6 +29,7 @@ const KIND_LABEL_KEY = {
   email: "integrations.kindEmail",
   jira: "integrations.kindJira",
   github: "integrations.kindGithub",
+  gitlab: "integrations.kindGitlab",
   calendar: "integrations.kindCalendar",
   sentry: "integrations.kindSentry",
 } as const satisfies Record<Integration["kind"], string>;

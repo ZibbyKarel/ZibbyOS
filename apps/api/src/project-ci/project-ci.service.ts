@@ -2,10 +2,12 @@ import { Injectable, Optional } from "@nestjs/common";
 import type { CiJob, CiState, CiWorkflowRun, Project, ProjectCi } from "@zibby/contracts";
 import { isDeadTask } from "../inbox/inbox.service";
 import { CredentialsStore } from "../integrations/credentials.store";
-import { resolveGithubToken } from "../projects/project-pr.service";
+import { resolveGitHostLink } from "../git-host/git-host-link";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { NoGithubLinkError } from "../projects/projects.errors";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
+import { readGitlabCi } from "./project-ci.gitlab";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { TaskSchedulerService } from "../tasks/task-scheduler.service";
 
@@ -65,6 +67,9 @@ export function rollup(states: readonly CiState[]): CiState {
   return "none";
 }
 
+/** `owner/name` (GitHub) or the full group path (GitLab) of a CI result's repo URL. */
+const repoOf = (ci: ProjectCi): string => ci.repoUrl?.replace(/^https:\/\/[^/]+\//, "") ?? "";
+
 const gitlabUrl = (remote?: string): string | undefined => {
   if (!remote || !/gitlab/i.test(remote)) return undefined;
   const scp = /^[^@/]+@([^:]+):(.+?)(?:\.git)?$/.exec(remote);
@@ -76,13 +81,15 @@ const gitlabUrl = (remote?: string): string | undefined => {
  * todo-10 — base-branch CI of a project for the Bridge "Project status" widget. GitHub Actions:
  * repo `default_branch` → runs on that branch → the newest commit that has runs, one run per
  * workflow → its jobs incl. steps. Cached per project ({@link PROJECT_CI_CACHE_MS}), an unreachable
- * repo as `state: "error"` too; a completed run's jobs are fetched once. GitLab is recognised from `gitRemote` but deferred (no adapter).
+ * repo as `state: "error"` too; a completed run's jobs are fetched once. GitLab (a gitlab integration, read through `glab`) lists the default branch's newest pipelines
+ * instead ({@link readGitlabCi}); a `gitRemote` alone is recognised but not read.
  * `fix` creates an ordinary task with a PR output: ZIBBY opens the PR itself on terminal (Tier-2),
  * the operator merges.
  */
 @Injectable()
 export class ProjectCiService {
   private readonly fetchImpl: typeof fetch;
+  private readonly gitlab: GitlabClient;
   private readonly cache = new Map<string, { at: number; ci: ProjectCi }>();
   /** Jobs of COMPLETED runs per project (immutable once done), keyed by run id. */
   private readonly jobsCache = new Map<string, Map<number, GhJob[]>>();
@@ -96,8 +103,10 @@ export class ProjectCiService {
     private readonly scheduler: TaskSchedulerService,
     private readonly tasks: ScheduledTasksStorageService,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlab?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlab ?? new GitlabClient();
   }
 
   /** `fresh` skips the cache (the fix click acts on the real state). */
@@ -145,14 +154,15 @@ export class ProjectCiService {
 
   private async fixLocked(projectId: string): Promise<{ taskId: string }> {
     const ci = await this.get(projectId, true);
-    if (ci.provider !== "github") throw new NoGithubLinkError(projectId);
+    if (ci.provider !== "github" && ci.provider !== "gitlab")
+      throw new NoGithubLinkError(projectId);
     if (ci.state !== "failing" || !ci.headSha) {
       throw new ProjectCiConflictError(`CI of ${ci.branch ?? "the base branch"} is ${ci.state}`);
     }
     if (ci.fixTaskId) {
       throw new ProjectCiConflictError(`a CI fix is already running (task ${ci.fixTaskId})`);
     }
-    const repo = ci.repoUrl?.replace("https://github.com/", "") ?? "";
+    const repo = repoOf(ci);
     const result = await this.scheduler.createTask(
       {
         title: `${FIX_TITLE}: ${repo}@${ci.branch ?? "?"}`.slice(0, 200),
@@ -169,7 +179,8 @@ export class ProjectCiService {
   private async read(project: Project, now: number): Promise<ProjectCi> {
     const checkedAt = new Date(now).toISOString();
     const base = { projectId: project.id, state: "none" as const, workflows: [], checkedAt };
-    const link = await resolveGithubToken(this.resolvedProjects, this.credentials, project);
+    const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (link?.kind === "gitlab") return readGitlabCi(this.gitlab, link, base);
     if (!link) {
       const url = gitlabUrl(project.gitRemote);
       return url ? { ...base, provider: "gitlab", repoUrl: url } : { ...base, provider: "none" };
@@ -248,13 +259,14 @@ export class ProjectCiService {
 
 /** The fix run's brief. Job/step names and CI logs are inbound data, never instructions. */
 export function fixBaseCiText(ci: ProjectCi): string {
-  const repo = ci.repoUrl?.replace("https://github.com/", "") ?? "";
+  const repo = repoOf(ci);
+  const gitlab = ci.provider === "gitlab";
   const failed = ci.workflows.flatMap((w) =>
     w.jobs
       .filter((j) => j.state === "failing")
       .map((j) => {
         const steps = j.steps.filter((s) => s.state === "failing").map((s) => s.name);
-        return `- ${w.name} / ${j.name}${steps.length ? ` (failed steps: ${steps.join(", ")})` : ""} — run ${w.id}`;
+        return `- ${w.name} / ${j.name}${steps.length ? ` (failed steps: ${steps.join(", ")})` : ""} — ${gitlab ? "pipeline" : "run"} ${w.id}`;
       }),
   );
   return [
@@ -264,7 +276,9 @@ export function fixBaseCiText(ci: ProjectCi): string {
     ...failed,
     "",
     `1. Your working directory is this run's own git worktree. \`git fetch origin ${ci.branch ?? ""}\` and \`git reset --hard origin/${ci.branch ?? ""}\` so you start from the red commit.`,
-    `2. Read the failure with \`gh run view <run-id> --repo ${repo} --log-failed\`. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`,
+    gitlab
+      ? `2. Read the failure with \`glab ci status --branch ${ci.branch ?? ""}\` (run it from the worktree) and \`glab ci trace <job-id-or-name> --branch ${ci.branch ?? ""}\` for a failing job's log. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`
+      : `2. Read the failure with \`gh run view <run-id> --repo ${repo} --log-failed\`. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`,
     "3. Fix code causes as focused commits `fix(ci): <what>`. Never weaken a check: no skipping/deleting tests, no disabling lint rules, no lowering thresholds, no inline suppressions, no `--no-verify`.",
     "4. Re-run the failing commands locally (from the workflow YAML / package.json) until green; leave the worktree clean — everything committed.",
     "",

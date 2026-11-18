@@ -275,6 +275,41 @@ describe("Integrations API (e2e)", () => {
     expect(got.body.status).toBe("connected");
   });
 
+  it("gitlab needs no stored credential: hasCredentials is true, a credential is refused, the test runs without one", async () => {
+    const created = await request(app.getHttpServer())
+      .post("/api/integrations")
+      .send({
+        id: "acme-gitlab",
+        kind: "gitlab",
+        projectId: "acme-app",
+        config: {
+          kind: "gitlab",
+          host: "gitlab.example.com",
+          repo: "acme/platform/app",
+          username: "karel.zibar",
+        },
+      })
+      .expect(201);
+    expect(created.body.hasCredentials).toBe(true);
+    await request(app.getHttpServer())
+      .put("/api/integrations/acme-gitlab/credentials")
+      .send({ token: "nope" })
+      .expect(422);
+    // not 409 "no credentials configured" (fake mode answers ok)
+    await request(app.getHttpServer())
+      .post("/api/integrations/acme-gitlab/test")
+      .send({})
+      .expect(200);
+  });
+
+  it("a PATCH cannot leave a project-owned gitlab integration repo-less (422, kind-aware)", async () => {
+    const res = await request(app.getHttpServer())
+      .patch("/api/integrations/acme-gitlab")
+      .send({ config: { kind: "gitlab", host: "gitlab.example.com", username: "karel.zibar" } })
+      .expect(422);
+    expect(JSON.stringify(res.body)).toContain("a project-owned gitlab integration needs a repo");
+  });
+
   it("update cannot change kind (config of a different kind → 422)", async () => {
     await request(app.getHttpServer())
       .patch("/api/integrations/team-slack")

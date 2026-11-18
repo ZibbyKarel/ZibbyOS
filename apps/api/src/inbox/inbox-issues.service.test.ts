@@ -1,5 +1,6 @@
 import type { InboxPrsResponse, Integration, Project, RoadmapItem } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { RoadmapItemConflictError, RoadmapItemNotFoundError } from "../roadmap/roadmap.errors";
 import { InboxIssuesService, InboxItemNotFoundError } from "./inbox-issues.service";
 import { InboxService } from "./inbox.service";
@@ -72,6 +73,11 @@ interface Opts {
 
 function build(opts: Opts = {}) {
   const calls: string[] = [];
+  const glabPaths: string[] = [];
+  const gitlab = new GitlabClient(async (_file, args) => {
+    glabPaths.push(args[1] ?? "");
+    return { stdout: args[1] === "user" ? '{"id":1,"username":"me"}' : "[]", stderr: "" };
+  });
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
   const fetchImpl = (async (url: string | URL) => {
     const u = new URL(String(url));
@@ -124,11 +130,29 @@ function build(opts: Opts = {}) {
     { read: async () => ({ hidden: opts.hidden ?? [] }) } as never,
     gate as never,
     fetchImpl,
+    gitlab,
   );
-  return { service, calls, roadmap, gate, getPrs };
+  return { service, calls, roadmap, gate, getPrs, glabPaths };
 }
 
 describe("InboxIssuesService.list", () => {
+  it("never builds a GitLab target from a bad host or path", async () => {
+    const gl = (id: string, host: string, repo: string) =>
+      ({
+        id,
+        projectId: "acme",
+        config: { kind: "gitlab", host, repo, username: "me", streams: ["issues"] },
+      }) as unknown as Integration;
+    const bad = build({
+      integrations: [gl("g1", "gitlab.example.com", "g/$(id)/p"), gl("g2", "h/evil", "g/p")],
+    });
+    await bad.service.list(false, async () => ({ prs: [], errors: [] }));
+    expect(bad.glabPaths).toEqual([]);
+    const good = build({ integrations: [gl("g3", "gitlab.example.com", "group/sub/project")] });
+    await good.service.list(false, async () => ({ prs: [], errors: [] }));
+    expect(good.glabPaths.some((p) => p.includes("group%2Fsub%2Fproject"))).toBe(true);
+  });
+
   it("maps Jira issues, groups by epic with done/total, and queries once for both projects", async () => {
     const { service, calls } = build({
       jiraIssues: [

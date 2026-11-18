@@ -116,7 +116,7 @@ the raw manifest from before this externalization existed.
 | `ProjectNoRemoteError`        | 422  | `clone` with no `gitRemote`                                                                           |
 | `ProjectAlreadyClonedError`   | 409  | `clone` when already present on this machine                                                          |
 | `ProjectLocalUnresolvedError` | —    | `resolveForRun`: no local clone, no remote — dispatch fails clearly rather than spawning into nothing |
-| `NoGithubLinkError`           | 422  | `merge`: no resolved github integration + token                                                       |
+| `NoGithubLinkError`           | 422  | `merge`: no resolved git host link (github integration + token, or gitlab integration)                |
 | `PrNotMergeableError`         | 409  | GitHub reports 405/409 on the merge attempt                                                           |
 | `PrUpdateRefusedError`        | 409  | `close` / `setDraft`: GitHub refused the change (PR not open, 403/409/422, GraphQL error)             |
 
@@ -147,7 +147,9 @@ side effect only.
 Reuses the CI monitor's GitHub-REST posture (`Bearer` token, 429/403 →
 rate-limit error, injectable `fetchImpl` for tests).
 
-- `listOpen(projectId)` — resolves the project's **effective** (company-merged)
+- `listOpen(projectId)` — for a GitLab link lists open merge requests through `glab` instead
+  (`project-pr.gitlab.ts`: number = iid, url = web_url, author username, source branch, draft);
+  otherwise resolves the project's **effective** (company-merged)
   github integration + stored token via `ResolvedProjectService.resolveIntegrations`;
   returns `[]` (never an error) when there's no link/token — a missing
   integration reads as "nothing to show". A real GitHub failure still throws.
@@ -342,3 +344,15 @@ without pulling in the whole projects module.
   resolves to none at read time" posture as `companies`.
 - `ProjectPrService.merge` is intentionally reachable from exactly one route.
   Do not add a second call site — it would violate the Law "Never: Auto-merge".
+
+### GitLab merge-request actions (Task 9)
+
+For a GitLab-linked project `getPr`, `merge`, `close` and `setDraft` branch to `project-pr.gitlab.ts`
+(a project has one host: GitLab wins and the GitHub path is not tried). Read = `merge_requests/:iid`;
+merge = `PUT …/merge` (an explicit method always sends `squash=true|false`, and `should_remove_source_branch=<deleteBranch>`
+is always sent, so the operator's choice wins over the MR / project defaults;
+`rebase` has no merge-time equivalent and is refused with `PrNotMergeableError`, no glab call; `branchDeleted` is reported only when GitLab's response confirms the source-branch removal; `getPr` surfaces 429 as a rate-limit error); close = `PUT` with
+`state_event=close`; draft toggle = `PUT` with the title gaining/losing `Draft: ` (repeated markers are stripped; `changed` and `draft` come
+from the PUT response, so a toggle GitLab did not apply is not reported as done). GitLab 405/406/409/422 on
+merge is a `PrNotMergeableError` (409), 403/404/405/409/422 on close/draft a `PrUpdateRefusedError`. Same
+operator-only gates as GitHub: no new caller, no automation, no auto-merge.

@@ -47,8 +47,8 @@ export type CiWorkflowRun = z.infer<typeof CiWorkflowRunSchema>;
 
 /**
  * Base-branch CI of a project (`GET /api/project-ci/:projectId`). `provider: "none"` = no
- * GitHub link; `gitlab` is recognised from `gitRemote` but not read yet (deferred) — both
- * come back with `state: "none"` and no workflows, never an error.
+ * GitHub link; `gitlab` is read through the `glab` CLI (one workflow per pipeline) when a gitlab integration
+ * resolves; a bare `gitRemote` only yields `state: "none"` — never an HTTP error.
  */
 export const ProjectCiSchema = z.object({
   projectId: ProjectIdSchema,

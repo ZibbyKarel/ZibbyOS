@@ -7,7 +7,7 @@ import { CredentialsStore } from "../integrations/credentials.store";
 import { SignalBusService } from "../automations/signal-bus.service";
 import { departmentShelfId } from "../memory/department-shelf";
 import { VaultService } from "../memory/vault.service";
-import { resolveGithubToken } from "../projects/project-pr.service";
+import { resolveGitHostLink } from "../git-host/git-host-link";
 import { ProjectLocalService } from "../projects/project-local.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
@@ -284,7 +284,9 @@ export class SecurityService {
   }
 
   private async scanDependabot(project: Project): Promise<SecurityFinding[]> {
-    const link = await resolveGithubToken(this.resolvedProjects, this.credentials, project);
+    // ponytail: GitLab has no dependency-alert source wired yet — a GitLab project reads as "no link" (no findings, no error). Add GitLab vulnerability findings when needed.
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    const link = host?.kind === "github" ? host : null;
     if (!link) return [];
 
     let res: Response;

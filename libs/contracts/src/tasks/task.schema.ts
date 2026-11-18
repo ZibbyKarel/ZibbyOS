@@ -580,10 +580,10 @@ export type PrCiTriageState = z.infer<typeof PrCiTriageStateSchema>;
 export const PrCiTriageVerdictSchema = z.enum(["flaky", "infra", "code", "unclear"]);
 export type PrCiTriageVerdict = z.infer<typeof PrCiTriageVerdictSchema>;
 
-/** One reply ZIBBY posts on a review thread after the fixes are pushed (GraphQL thread node id + body). */
+/** One reply ZIBBY posts on a review thread after the fixes are pushed (GraphQL thread node id or GitLab discussion id + body). */
 export const PrThreadReplySchema = z
   .object({
-    threadId: z.string().regex(/^PRRT_[\w-]+$/),
+    threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
     body: z.string().trim().max(500),
     /** Only for a thread the `address` phase marked `done in <sha>`: ZIBBY resolves it after the reply. */
     resolve: z.boolean().optional(),
@@ -594,7 +594,7 @@ export type PrThreadReply = z.infer<typeof PrThreadReplySchema>;
 /** A reply the operator approved (possibly edited) for one review thread; empty body = resolve only. */
 export const OperatorThreadReplySchema = z
   .object({
-    threadId: z.string().regex(/^PRRT_[\w-]+$/),
+    threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
     body: z.string().trim().max(65536),
     resolve: z.boolean(),
   })
@@ -603,7 +603,7 @@ export type OperatorThreadReply = z.infer<typeof OperatorThreadReplySchema>;
 
 /** What the address phase did with one review thread. */
 export const PrThreadOutcomeSchema = z.object({
-  threadId: z.string().regex(/^PRRT_[\w-]+$/),
+  threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
   kind: z.enum(["done", "skipped", "question"]),
   note: z.string().max(500),
 });
