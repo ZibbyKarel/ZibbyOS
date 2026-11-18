@@ -88,6 +88,22 @@ describe("buildStageRail", () => {
     ]);
   });
 
+  it("a skipped phase is a muted skipped row", () => {
+    const skipped = run({
+      currentStage: "p3",
+      stageRuns: [
+        { phaseId: "p1", runId: "r1", attempt: 1, status: "done" },
+        { phaseId: "p2", runId: "r2", attempt: 1, status: "skipped" },
+      ],
+    });
+    const rail = buildStageRail(skipped, "running", PHASES, NOW);
+    expect(rail.map((r) => [r.phaseId, r.stateKey, r.state])).toEqual([
+      ["p1", "done", "done"],
+      ["p2", "skipped", "idle"],
+      ["p3", "running", "working"],
+    ]);
+  });
+
   it("an agent run is one row timed from startedAt", () => {
     const rail = buildStageRail(
       run({ kind: "agent", processor: { kind: "agent", id: "a", name: "Kodér" } }),

@@ -6,6 +6,7 @@ import type {
   DepartmentId,
   OpenAiTextModel,
   PhaseAdvisor,
+  PhaseWhen,
   SkillSource,
   WorkflowComplexity,
 } from "@zibby/contracts";
@@ -90,6 +91,8 @@ export interface WorkflowPhase {
   loop?: PhaseLoop;
   /** P1-02: park for the operator's review once this phase finishes. */
   approval?: "ask";
+  /** Run the phase only when this holds, else skip it (carried verbatim through an editor round-trip). */
+  when?: PhaseWhen;
   /** Agent phase: parse a verdict from `produces`; carried so an edit round-trip keeps it. */
   qualify?: boolean;
   /** Agent phase: the operator's custom prompt (may contain a `/skill` token). */

@@ -55,7 +55,8 @@ export function runsOf(pr: InboxPr): Run[] {
   if (pr.codeReview) runs.push({ kind: "review", ...pr.codeReview });
   return runs;
 }
-export const inFlight = (r: Run) => r.state === "running" || r.state === "awaiting-approval";
+export const inFlight = (r: Run) =>
+  r.state === "running" || r.state === "awaiting-approval" || r.state === "approved";
 
 /** Whether `PrActions` renders anything for this PR. */
 export const hasPrActions = (pr: InboxPr) =>

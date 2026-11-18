@@ -73,7 +73,14 @@ export const MODE_TONE: Record<RunMode, StateTone> = {
   done: "done",
 };
 
-export type StageStateKey = "done" | "running" | "waiting" | "parked" | "queued" | "stopped";
+export type StageStateKey =
+  | "done"
+  | "running"
+  | "waiting"
+  | "parked"
+  | "queued"
+  | "stopped"
+  | "skipped";
 
 /** One execution of a phase, numbered by execution order. `stageRunId` is "" for the live row. */
 export interface StageRound {
@@ -116,6 +123,7 @@ const STAGE_TONE: Record<StageRunStatus, StateTone> = {
   error: "error",
   interrupted: "idle",
   "paused-limit": "idle",
+  skipped: "idle",
 };
 
 const STAGE_KEY: Record<StageRunStatus, StageStateKey> = {
@@ -125,6 +133,7 @@ const STAGE_KEY: Record<StageRunStatus, StageStateKey> = {
   error: "stopped",
   interrupted: "stopped",
   "paused-limit": "waiting",
+  skipped: "skipped",
 };
 
 /** Row state for the run's current phase when no attempt is recorded for it yet. */

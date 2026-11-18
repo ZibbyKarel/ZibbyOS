@@ -495,6 +495,45 @@ meaning fully autonomous. Once the phase lands green (`produces` written):
    writes `zibby-pr-rebase.md` and the task output parks a `pr-rebase` approval instead
    (see `./inbox.md`); the agent never pushes.
 
+#### Gate presenter seam
+
+`WorkflowRunnerService.setGatePresenter(fn: GatePresenter)` (type exported from
+`workflows/workflow-runner.service.ts`; single registrant) lets a domain present a
+`gate`-reason park itself. `parkAtGate` calls it after the parked aggregate is persisted
+with `{ run, workflow, phaseId, cursor }`: `"default"` raises the generic `workflow-gate`
+approval; `"handled"` means the presenter raised its own approval and will call
+`decideGate(workflowRunId, "approved" | "rejected")` (it may do so synchronously — the
+run is already parked); `"fail"` ends the run exactly like a rejected gate. A throwing
+presenter is logged and treated as `"default"`. Budget parks never go through it.
+`replaceArtifact(workflowRunId, name, content)` rewrites the latest finished stage copy of
+a produced file (chmod 644, write, back to 444) so an operator edit at the gate is what
+later phases and their `when` see.
+
+### Conditional phases (`when`)
+
+A phase may carry `when: { phase, exists?, match?, verdict?, negate? }`. Whenever the
+cursor reaches the phase (after the operator-pause check, before the usage-window and
+budget checks) the runner reads the latest output of the EARLIER phase `phase` (its
+`produces`; a missing or skipped phase reads as empty): `exists` (default true) tests
+non-blank, `exists: false` tests blank, `match` is a JS regex (flag `m`) on the text,
+`verdict` compares its `<verdict>` token, `negate` flips the result. False means the phase
+is **skipped**: no stage spawns, a `StageRun` with `status: "skipped"` (no `dir`, no cost)
+is recorded, an activity record `stage-skipped` is written, `handoffSource` is untouched
+and the cursor moves to the next phase — a skipped `approval: ask` phase does not park, and
+a skipped last phase just lets the run finish. "A or B" is two consecutive phases with
+mutually exclusive `when`s (one with `negate`). The contract rejects (`refineWorkflow`) a
+`when.phase` that is not earlier or has no `produces`, an invalid `match` regex, `match`
+together with `verdict`, and `match`/`verdict` with `exists: false`. `skipped` exists on
+`StageRunStatus` only, not on the shared `RunStatus`.
+
+### `consumes` resolves by name
+
+When advancing forward (after a green phase or a skip) — and in `recomputeHandoff` on a
+limit/park resume — the next phase's handoff is the latest output of the nearest earlier
+phase whose `produces` equals the next phase's `consumes` and that has a `done` stage;
+without such a phase it falls back to the last produced output. Back-edges still pass
+the failure context.
+
 ### Budget (`budget`)
 
 An optional per-run spend cap: `budget: { maxCostUsd, warnAtPct }` (`maxCostUsd > 0`,

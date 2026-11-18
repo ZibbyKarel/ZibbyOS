@@ -315,7 +315,7 @@ describe("WorkflowRunnerService — autopilot pr-review gate (Phase 4)", () => {
     Object.assign(h.approvals, { approve });
     Object.assign(h.gates, { autopilotDecides });
     Object.assign(h.service as object, {
-      autopilot: { coversApproval: autopilotCoversApproval },
+      autopilot: { coversApproval: autopilotCoversApproval, isOn: () => true },
       tasks: {
         get: async (id: string) => {
           const t = tasks[id];
@@ -3055,5 +3055,208 @@ describe("operator messages (D-MSG)", () => {
       to: "all",
       deliveredPhaseId: "phase2",
     });
+  });
+});
+
+describe("workflow branching (when / consumes-by-name / gate presenter)", () => {
+  let dir: string;
+  let h: Harness;
+
+  const phase = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    type: "agent",
+    agent: "writer",
+    consumes: "in.md",
+    produces: `${id}.md`,
+    model: "sonnet",
+    thinking: "medium",
+    ...extra,
+  });
+  const wf = (phases: unknown[]) => ({ id: "release", phases, instructions: "ship" });
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "pipe-runner-branch-"));
+    h = await makeHarness(dir);
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  const svc = () =>
+    h.service as unknown as {
+      runStage: unknown;
+      drive(r: WorkflowRun, w: unknown): Promise<void>;
+      workflows: { get: ReturnType<typeof vi.fn> };
+    };
+  const runOf = (): WorkflowRun => {
+    const run = h.runs.get(WORKFLOW_RUN_ID);
+    if (!run) throw new Error("missing run");
+    return run;
+  };
+
+  /** runStage double: each phase writes `outputs[id]` (default "out") into its produces file. */
+  function script(
+    outputs: Record<string, string>,
+    executed: string[],
+    consumed: Record<string, string> = {},
+  ): void {
+    svc().runStage = vi.fn(async (_r: unknown, p: WorkflowPhase, cwd: string, attempt: number) => {
+      executed.push(p.id);
+      if (p.consumes)
+        consumed[p.id] = await fs.readFile(path.join(cwd, p.consumes), "utf8").catch(() => "");
+      if (p.produces) await fs.writeFile(path.join(cwd, p.produces), outputs[p.id] ?? "out");
+      return {
+        phaseId: p.id,
+        runId: `${WORKFLOW_RUN_ID}.${p.id}_${executed.length}`,
+        attempt,
+        dir: path.basename(cwd),
+        status: "done" as const,
+      };
+    });
+  }
+
+  it("skips a phase whose `when.exists` is false and records a skipped stage", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    script({ a: "" }, executed);
+    const w = wf([phase("a"), phase("b", { when: { phase: "a" } }), phase("c")]);
+    await svc().drive(run, w);
+    expect(executed).toEqual(["a", "c"]);
+    expect(run.stageRuns.map((s) => [s.phaseId, s.status])).toEqual([
+      ["a", "done"],
+      ["b", "skipped"],
+      ["c", "done"],
+    ]);
+    expect(run.status).toBe("done");
+  });
+
+  it("a skipped last phase ends the run normally, and a skipped `ask` phase does not park", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    script({ a: "" }, executed);
+    await svc().drive(run, wf([phase("a"), phase("b", { approval: "ask", when: { phase: "a" } })]));
+    expect(run.status).toBe("done");
+    expect(h.approvals.requestApproval).not.toHaveBeenCalled();
+  });
+
+  it("A/B branch: match + negate run exactly one of the two", async () => {
+    for (const [route, expected] of [
+      ["route: a", ["route", "build-a", "after"]],
+      ["route: b", ["route", "build-b", "after"]],
+    ] as const) {
+      const cwd = path.join(dir, `iter-${route.slice(-1)}`);
+      await fs.mkdir(cwd, { recursive: true });
+      const run = { ...runOf(), cwd, stageRuns: [], status: "running" as const };
+      const executed: string[] = [];
+      script({ route }, executed);
+      await svc().drive(
+        run,
+        wf([
+          phase("route"),
+          phase("build-a", { when: { phase: "route", match: "^route: a$" } }),
+          phase("build-b", { when: { phase: "route", match: "^route: a$", negate: true } }),
+          phase("after"),
+        ]),
+      );
+      expect(executed).toEqual(expected);
+    }
+  });
+
+  it("verdict condition", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    script({ a: "x <verdict>gap</verdict>" }, executed);
+    await svc().drive(
+      run,
+      wf([
+        phase("a"),
+        phase("b", { when: { phase: "a", verdict: "pass" } }),
+        phase("c", { when: { phase: "a", verdict: "gap" } }),
+      ]),
+    );
+    expect(executed).toEqual(["a", "c"]);
+  });
+
+  it("consumes resolves by name, not by the last produced file", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    const consumed: Record<string, string> = {};
+    script({ a: "report", b: "replies" }, executed, consumed);
+    await svc().drive(
+      run,
+      wf([phase("a"), phase("b", { consumes: "a.md" }), phase("c", { consumes: "a.md" })]),
+    );
+    expect(consumed.c).toBe("report");
+  });
+
+  it("gate presenter: handled raises no workflow-gate; decideGate(approved) continues", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    script({}, executed);
+    const presenter = vi.fn(async () => "handled" as const);
+    h.service.setGatePresenter(presenter);
+    const w = wf([phase("a", { approval: "ask" }), phase("b")]);
+    svc().workflows.get.mockResolvedValue(w);
+    await svc().drive(run, w);
+    expect(presenter).toHaveBeenCalledWith(expect.objectContaining({ phaseId: "a", cursor: "b" }));
+    expect(run.status).toBe("parked");
+    expect(h.approvals.requestApproval).not.toHaveBeenCalled();
+    await h.service.decideGate(WORKFLOW_RUN_ID, "approved");
+    await vi.waitFor(() => expect(run.status).toBe("done"));
+    expect(executed).toEqual(["a", "b"]);
+  });
+
+  it("gate presenter may decide synchronously (re-entrant decideGate)", async () => {
+    const run = runOf();
+    const executed: string[] = [];
+    script({}, executed);
+    h.service.setGatePresenter(async () => {
+      await h.service.decideGate(WORKFLOW_RUN_ID, "approved");
+      return "handled";
+    });
+    const w = wf([phase("a", { approval: "ask" }), phase("b")]);
+    svc().workflows.get.mockResolvedValue(w);
+    await svc().drive(run, w);
+    await vi.waitFor(() => expect(run.status).toBe("done"));
+    expect(executed).toEqual(["a", "b"]);
+  });
+
+  it("gate presenter fail ends the run like a rejected gate", async () => {
+    const run = runOf();
+    script({}, []);
+    h.service.setGatePresenter(async () => "fail");
+    const w = wf([phase("a", { approval: "ask" }), phase("b")]);
+    svc().workflows.get.mockResolvedValue(w);
+    await svc().drive(run, w);
+    expect(run.status).toBe("failed");
+    expect(h.approvals.requestApproval).not.toHaveBeenCalled();
+  });
+
+  it("a throwing presenter falls back to the default workflow-gate", async () => {
+    const run = runOf();
+    script({}, []);
+    h.service.setGatePresenter(async () => {
+      throw new Error("boom");
+    });
+    const w = wf([phase("a", { approval: "ask" }), phase("b")]);
+    svc().workflows.get.mockResolvedValue(w);
+    await svc().drive(run, w);
+    expect(run.status).toBe("parked");
+    expect(h.approvals.requestApproval).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "workflow-gate" }),
+    );
+  });
+
+  it("replaceArtifact rewrites the latest stage copy and keeps it read-only", async () => {
+    const run = runOf();
+    script({ a: "old" }, []);
+    const w = wf([phase("a")]);
+    svc().workflows.get.mockResolvedValue(w);
+    await svc().drive(run, w);
+    await h.service.replaceArtifact(WORKFLOW_RUN_ID, "a.md", "new");
+    const dirName = run.stageRuns[0]?.dir ?? "a";
+    const file = path.join(run.cwd, dirName, "a.md");
+    expect(await fs.readFile(file, "utf8")).toBe("new");
+    expect((await fs.stat(file)).mode & 0o777).toBe(0o444);
   });
 });

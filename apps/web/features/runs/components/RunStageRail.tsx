@@ -53,7 +53,11 @@ export interface RunStageRailProps {
 
 /** done → past (check), queued → future (dashed), anything else is happening now. */
 function tenseOf(row: StageRailRow): RailItemTense {
-  return row.stateKey === "done" ? "past" : row.stateKey === "queued" ? "future" : "present";
+  return row.stateKey === "done" || row.stateKey === "skipped"
+    ? "past"
+    : row.stateKey === "queued"
+      ? "future"
+      : "present";
 }
 
 /** `SWITCHBOARD → {dept} → {unit} · {pct}%` — the switchboard's routing trace, or null when the run was never classified. */

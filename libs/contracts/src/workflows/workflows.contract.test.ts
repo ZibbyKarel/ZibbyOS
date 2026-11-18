@@ -389,8 +389,8 @@ describe("T11 finding #29 — WorkflowRunArtifactSchema is the shared RunArtifac
 });
 
 describe("T11 finding #28 — StageRunStatusSchema derives from RunStatusSchema.options", () => {
-  it("accepts exactly the shared RunStatus values, nothing more", () => {
-    expect(StageRunStatusSchema.options).toEqual(RunStatusSchema.options);
+  it("accepts exactly the shared RunStatus values plus the stage-only `skipped`", () => {
+    expect(StageRunStatusSchema.options).toEqual([...RunStatusSchema.options, "skipped"]);
   });
 
   it("rejects a task-run-only status (scheduled/parked/held/queued/pending) that isn't a run status", () => {
@@ -641,5 +641,65 @@ describe("per-step engine + model (A21)", () => {
       engine: "claude",
     };
     expect(msgs(wf([sub]))).toContain('a workflow phase must not set "engine"');
+  });
+});
+
+describe("phase `when`", () => {
+  const base = {
+    id: "w",
+    instructions: "x",
+    phases: [] as unknown[],
+  };
+  const ph = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    type: "agent",
+    agent: "a",
+    model: "sonnet",
+    thinking: "low",
+    consumes: "in.md",
+    produces: `${id}.md`,
+    ...extra,
+  });
+  const parse = (phases: unknown[]) => WorkflowSchema.safeParse({ ...base, phases });
+  const messages = (phases: unknown[]) => {
+    const r = parse(phases);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+
+  it("accepts a valid condition and round-trips it", () => {
+    const r = parse([ph("a"), ph("b", { when: { phase: "a", match: "^x$", negate: true } })]);
+    expect(r.success && r.data.phases[1]?.when).toEqual({
+      phase: "a",
+      match: "^x$",
+      negate: true,
+    });
+  });
+
+  it("rejects a non-earlier or unknown phase", () => {
+    expect(messages([ph("a", { when: { phase: "b" } }), ph("b")])).toContain(
+      'when.phase "b" must be an earlier phase',
+    );
+    expect(messages([ph("a"), ph("b", { when: { phase: "zzz" } })])).toContain(
+      'when.phase "zzz" must be an earlier phase',
+    );
+  });
+
+  it("rejects a referenced phase without produces", () => {
+    const tool = { id: "t", type: "tool", commands: ["true"], produces: undefined };
+    expect(messages([{ ...tool, consumes: "in.md" }, ph("b", { when: { phase: "t" } })])).toEqual(
+      expect.arrayContaining([expect.stringContaining('has no "produces"')]),
+    );
+  });
+
+  it("rejects a bad regex, match+verdict, and exists:false with match", () => {
+    expect(messages([ph("a"), ph("b", { when: { phase: "a", match: "(" } })])).toContain(
+      "when.match is not a valid regular expression",
+    );
+    expect(
+      messages([ph("a"), ph("b", { when: { phase: "a", match: "x", verdict: "pass" } })]),
+    ).toContain("when.match and when.verdict are mutually exclusive");
+    expect(
+      messages([ph("a"), ph("b", { when: { phase: "a", match: "x", exists: false } })]),
+    ).toContain("when.match / when.verdict need exists !== false");
   });
 });

@@ -18,6 +18,7 @@ import {
   type IntendedAction,
   OPENAI_TEXT_MODELS,
   type PhaseEscalation,
+  type PhaseWhen,
   type PrReviewEvent,
   type Project,
   type RunFiles,
@@ -92,6 +93,19 @@ import { isPrimaryInstance } from "../shared/instance-role";
 
 /** DI token carrying the absolute path of the directory that holds workflow run artifacts. */
 export const WORKFLOW_RUNS_DIR = "WORKFLOW_RUNS_DIR";
+
+/**
+ * Lets a domain present an `approval: "ask"` gate itself (own approval kind and card).
+ * "handled": it raised its own approval and will call `decideGate`; "fail": end the run
+ * like a rejected gate; "default": the generic `workflow-gate` approval. May call
+ * `decideGate` synchronously (the run is already parked when it is invoked).
+ */
+export type GatePresenter = (ctx: {
+  run: WorkflowRun;
+  workflow: Workflow;
+  phaseId: string;
+  cursor: string | null;
+}) => Promise<"handled" | "fail" | "default">;
 
 const RETENTION_MS = 30 * 60 * 1000;
 const OPENAI_STAGE_SCRIPT = path.resolve(__dirname, "openai-stage.mjs");
@@ -304,6 +318,9 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
    * notifies the `/api/events` SSE channel, replacing the FE's 1s aggregate poll.
    */
   private readonly events = new EventEmitter();
+
+  /** Single registrant that may present an `approval: "ask"` gate itself (see {@link setGatePresenter}). */
+  private gatePresenter: GatePresenter | null = null;
 
   constructor(
     @Inject(WORKFLOW_RUNS_DIR) dir: string,
@@ -987,6 +1004,87 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Register the (single) presenter that may take over an `approval: "ask"` gate:
+   * "handled" = it raised its own approval and will call {@link decideGate};
+   * "fail" = end the run like a rejected gate; "default" = the generic `workflow-gate`.
+   */
+  setGatePresenter(fn: GatePresenter): void {
+    this.gatePresenter = fn;
+  }
+
+  /** Approve (continue) or reject (fail) a run parked at a gate; a no-op when it isn't gate-parked. */
+  async decideGate(workflowRunId: string, decision: "approved" | "rejected"): Promise<void> {
+    await this.resumeGate(workflowRunId, decision);
+  }
+
+  /**
+   * Rewrite the latest stage copy of the produced file `name` (an operator edit at a gate).
+   * The phase left it read-only (444): lift, write, restore.
+   */
+  async replaceArtifact(workflowRunId: string, name: string, content: string): Promise<void> {
+    const run = this.runs.get(workflowRunId) ?? (await this.readAggregate(workflowRunId));
+    if (!run) throw new Error(`workflow run ${workflowRunId} not found`);
+    const workflow = await this.workflows.get(run.workflowId);
+    const producers = new Set(workflow.phases.filter((p) => p.produces === name).map((p) => p.id));
+    const stage = [...run.stageRuns]
+      .reverse()
+      .find((s) => producers.has(s.phaseId) && s.status === "done");
+    if (!stage) throw new Error(`no finished stage produced "${name}"`);
+    const file = path.join(run.cwd, this.latestStageDir(run, stage.phaseId), name);
+    await fs.chmod(file, 0o644).catch(() => {});
+    await fs.writeFile(file, content, "utf8");
+    await fs.chmod(file, 0o444).catch(() => {});
+  }
+
+  /**
+   * `consumes` resolves by name: the latest output of the nearest EARLIER phase that
+   * `produces` what `next` consumes and has a done stage; otherwise `fallback` (the last
+   * produced output — the old behaviour).
+   */
+  private consumedHandoff(
+    run: WorkflowRun,
+    order: Workflow["phases"],
+    next: Workflow["phases"][number],
+    fallback: string | null,
+    ran?: { phaseId: string; dir: string },
+  ): string | null {
+    const want = next.consumes;
+    if (!want) return fallback;
+    for (let i = order.findIndex((p) => p.id === next.id) - 1; i >= 0; i--) {
+      const ph = order[i];
+      if (
+        ph?.produces === want &&
+        run.stageRuns.some((s) => s.phaseId === ph.id && s.status === "done")
+      )
+        return path.join(
+          ran?.phaseId === ph.id ? ran.dir : path.join(run.cwd, this.latestStageDir(run, ph.id)),
+          want,
+        );
+    }
+    return fallback;
+  }
+
+  /** Evaluate a phase's `when` against the latest output of the phase it names. */
+  private async evaluateWhen(
+    run: WorkflowRun,
+    order: Workflow["phases"],
+    when: PhaseWhen,
+  ): Promise<boolean> {
+    const ref = order.find((p) => p.id === when.phase);
+    const latest = [...run.stageRuns].reverse().find((s) => s.phaseId === when.phase);
+    const text =
+      ref?.produces && latest && latest.status !== "skipped"
+        ? await fs
+            .readFile(path.join(run.cwd, this.latestStageDir(run, ref.id), ref.produces), "utf8")
+            .catch(() => "")
+        : "";
+    let ok = when.exists === false ? text.trim() === "" : text.trim() !== "";
+    if (ok && when.match !== undefined) ok = new RegExp(when.match, "m").test(text);
+    if (ok && when.verdict !== undefined) ok = parseStageVerdict(text) === when.verdict;
+    return when.negate ? !ok : ok;
+  }
+
+  /**
    * Phase 9: the absolute handoff a re-driven phase should consume — the `produces`
    * file of the nearest *upstream* phase that emits one. Used by limit-resume and the
    * limit-parking resume, which re-enter mid-workflow without the original drive's
@@ -995,13 +1093,13 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
   private recomputeHandoff(run: WorkflowRun, workflow: Workflow, cursor: string): string | null {
     const order = workflow.phases;
     const idx = order.findIndex((p) => p.id === cursor);
-    for (let i = idx - 1; i >= 0; i--) {
+    let last: string | null = null;
+    for (let i = idx - 1; i >= 0 && last === null; i--) {
       const ph = order[i];
-      if (ph?.produces) {
-        return path.join(run.cwd, this.latestStageDir(run, ph.id), ph.produces);
-      }
+      if (ph?.produces) last = path.join(run.cwd, this.latestStageDir(run, ph.id), ph.produces);
     }
-    return null;
+    const next = order[idx];
+    return next ? this.consumedHandoff(run, order, next, last) : last;
   }
 
   list(): WorkflowRun[] {
@@ -1538,6 +1636,31 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // `when`: a false condition skips the phase — no stage, a `skipped` record, the
+      // handoff untouched (bar consumes-by-name), the cursor on to the next phase.
+      if (!settled && phase.when && !(await this.evaluateWhen(run, order, phase.when))) {
+        const now = new Date().toISOString();
+        run.stageRuns.push({
+          phaseId: phase.id,
+          runId: `${run.workflowRunId}.${phase.id}.skipped`,
+          attempt: (retries.get(phase.id) ?? 0) + 1,
+          status: "skipped",
+          startedAt: now,
+          finishedAt: now,
+        });
+        await this.activity.record({
+          kind: "stage-skipped",
+          summary: `phase "${phase.id}" skipped (when ${phase.when.phase} not met)`,
+          refs: { workflowId: run.workflowId, status: "skipped" },
+        });
+        const next = order[order.findIndex((p) => p.id === phase.id) + 1];
+        cursor = next?.id ?? null;
+        if (next) handoffSource = this.consumedHandoff(run, order, next, handoffSource);
+        await this.writeAggregate(run);
+        await this.writeProgress(run, phaseIds);
+        continue;
+      }
+
       // Phase 9 (boundary pause, decision 3b): before spending a stage, halt if the
       // usage window is exhausted — persist the aggregate `paused-limit` with the
       // earliest reset as `resumeAt` and return without spawning. Auto-resume re-drives
@@ -1567,6 +1690,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       if (!settled && run.budget && run.budget.spentUsd > run.budget.maxCostUsd) {
         const lastPhaseId = run.stageRuns[run.stageRuns.length - 1]?.phaseId ?? phase.id;
         await this.parkAtGate(run, "budget", {
+          workflow,
           phaseId: lastPhaseId,
           cursor: phase.id,
           handoffSource,
@@ -1758,7 +1882,13 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
         // phase consumes the last *producing* phase's output.
         if (phase.produces) handoffSource = path.join(stageCwd, phase.produces);
         const idx = order.findIndex((p) => p.id === phase.id);
-        cursor = order[idx + 1]?.id ?? null;
+        const nextPhase = order[idx + 1];
+        cursor = nextPhase?.id ?? null;
+        if (nextPhase)
+          handoffSource = this.consumedHandoff(run, order, nextPhase, handoffSource, {
+            phaseId: phase.id,
+            dir: stageCwd,
+          });
         await this.writeProgress(run, phaseIds);
         // P1-02: an operator checkpoint after this phase — park on the finished
         // artifact; approve re-enters at `cursor` (or delivers the outputs).
@@ -1768,6 +1898,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
           // the review off — preselect the GitHub event from its findings.
           const prReviewGate = cursor === null && phase.produces === PR_REVIEW_ARTIFACT;
           await this.parkAtGate(run, "gate", {
+            workflow,
             phaseId: phase.id,
             cursor,
             handoffSource,
@@ -2221,6 +2352,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     run: WorkflowRun,
     reason: "gate" | "budget",
     at: {
+      workflow: Workflow;
       phaseId: string;
       cursor: string | null;
       handoffSource: string | null;
@@ -2243,6 +2375,33 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     run.retries = Object.fromEntries(at.retries);
     await this.writeAggregate(run);
     await this.writeProgress(run, at.phaseIds);
+    if (reason === "gate" && this.gatePresenter) {
+      let outcome: Awaited<ReturnType<GatePresenter>> = "default";
+      try {
+        outcome = await this.gatePresenter({
+          run,
+          workflow: at.workflow,
+          phaseId: at.phaseId,
+          cursor: at.cursor,
+        });
+      } catch (error) {
+        this.log.warn("gate presenter failed — using the default gate", {
+          workflowRunId: run.workflowRunId,
+          err: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (outcome === "handled") {
+        this.log.info("workflow run parked at a gate (presented)", {
+          workflowRunId: run.workflowRunId,
+          phase: at.phaseId,
+        });
+        return;
+      }
+      if (outcome === "fail") {
+        await this.resumeGate(run.workflowRunId, "rejected");
+        return;
+      }
+    }
     const { department, ...approval } = at.approval;
     const parked = await this.approvals.requestApproval({
       runId: run.workflowRunId,

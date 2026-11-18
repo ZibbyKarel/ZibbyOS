@@ -1482,7 +1482,8 @@
       "interrupted": "interrupted",
       "parked": "parked",
       "paused": "paused",
-      "paused-limit": "paused (limit)"
+      "paused-limit": "paused (limit)",
+      "skipped": "skipped"
     },
     "kind": {
       "agent": "skill",
@@ -1609,7 +1610,8 @@
         "waiting": "Waiting",
         "parked": "Parked",
         "queued": "Queued",
-        "stopped": "Stopped"
+        "stopped": "Stopped",
+        "skipped": "Skipped"
       },
       "rail": {
         "title": "Stages · {n}",
@@ -1767,6 +1769,7 @@
         "parked": "Parked",
         "running": "Running",
         "awaiting-approval": "Awaiting approval",
+        "approved": "Approved",
         "posted": "Posted",
         "pushed": "Pushed",
         "discarded": "Discarded",
@@ -3515,6 +3518,7 @@
         "addressState": {
           "running": "Agent addressing comments",
           "awaiting-approval": "Fixes awaiting approval",
+          "approved": "Approved, finishing the run",
           "pushed": "Fixes pushed",
           "discarded": "Fixes discarded",
           "failed": "Addressing comments failed"

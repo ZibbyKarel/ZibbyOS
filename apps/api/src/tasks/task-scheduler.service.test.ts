@@ -75,6 +75,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     readArtifact: ReturnType<typeof vi.fn>;
+    setGatePresenter: ReturnType<typeof vi.fn>;
   };
   let taskOutput: {
     handleTerminal: () => Promise<null>;
@@ -160,6 +161,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
       }),
       get: vi.fn(() => workflowRun({})),
       readArtifact: vi.fn(async () => null),
+      setGatePresenter: vi.fn(),
     };
     workflowsStore = { list: vi.fn(async () => []) };
     agentsStore = { listActive: vi.fn(async () => []) };
@@ -1935,6 +1937,104 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
     });
   });
 
+  describe("address-comments gate (workflow-branching)", () => {
+    const seed = async (state: "running" | "approved" | "discarded"): Promise<string> => {
+      const id = storage.newId();
+      await storage.createDispatched(
+        id,
+        { text: "address" },
+        "pr-address-comments_1",
+        { kind: "workflow", id: "pr-address-comments", name: "pr-address-comments" },
+        Date.now(),
+        "alpha",
+      );
+      await storage.setPrAddressComments(id, () => ({
+        repo: "acme/app",
+        number: 7,
+        url: "https://github.com/acme/app/pull/7",
+        head: "feat",
+        base: "main",
+        headSha: "abc",
+        state,
+      }));
+      return id;
+    };
+    const gateRun = (taskId: string, status: WorkflowRun["status"]) =>
+      workflowRun({
+        workflowRunId: "pr-address-comments_1",
+        workflowId: "pr-address-comments",
+        status,
+        taskId,
+        workspace: { branch: "zibby/pr-address-comments_1", path: "/wt", baseRef: "main" },
+      });
+    const presenter = () =>
+      workflowRunner.setGatePresenter.mock.calls[0]?.[0] as (ctx: {
+        run: WorkflowRun;
+      }) => Promise<string>;
+    const finalizer = vi.fn(async () => undefined);
+
+    beforeEach(() => {
+      finalizer.mockClear();
+      service.setPrAddressFinalizer(finalizer);
+    });
+
+    it("registers a gate presenter that parks the approval with the gate run id", async () => {
+      const id = await seed("running");
+      workflowRunner.readArtifact.mockImplementation(async (_r: string, name: string) => ({
+        name,
+        content: name === PR_REPLIES_ARTIFACT ? "[]" : "Addressed: all",
+      }));
+      taskOutput.parkPrAddressComments.mockImplementationOnce(async () => ({}));
+      expect(await presenter()({ run: gateRun(id, "parked") })).toBe("handled");
+      expect(taskOutput.parkPrAddressComments).toHaveBeenCalledWith(
+        expect.objectContaining({ id }),
+        "Addressed: all",
+        "/wt",
+        "[]",
+        expect.anything(),
+        "pr-address-comments_1",
+      );
+    });
+
+    it("the presenter fails the run when nothing can be parked, defaults for other tasks", async () => {
+      const id = await seed("running");
+      taskOutput.parkPrAddressComments.mockImplementationOnce(async () => {
+        await storage.setPrAddressComments(id, (c) => (c ? { ...c, state: "failed" } : c));
+        return {};
+      });
+      expect(await presenter()({ run: gateRun(id, "parked") })).toBe("fail");
+      expect(await presenter()({ run: gateRun("task_other", "parked") })).toBe("default");
+      expect(await presenter()({ run: gateRun(id, "parked") })).toBe("default");
+    });
+
+    it.each(["done", "failed", "interrupted"] as const)(
+      "a %s run in state approved calls the finalizer with the follow-ups artifact",
+      async (status) => {
+        const id = await seed("approved");
+        workflowRunner.readArtifact.mockImplementation(async (_r: string, name: string) =>
+          name === "zibby-pr-followups.json" ? { name, content: "[]" } : null,
+        );
+        workflowListener?.(gateRun(id, status));
+        await vi.waitFor(() =>
+          expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ id }), "[]"),
+        );
+        expect(taskOutput.parkPrAddressComments).not.toHaveBeenCalled();
+      },
+    );
+
+    it("a skipped file phase passes null; a discarded or running(legacy) run never finalizes", async () => {
+      const approved = await seed("approved");
+      workflowListener?.(gateRun(approved, "done"));
+      await vi.waitFor(() => expect(finalizer).toHaveBeenCalledWith(expect.anything(), null));
+      finalizer.mockClear();
+      const discarded = await seed("discarded");
+      workflowListener?.(gateRun(discarded, "failed"));
+      await vi.waitFor(async () => expect((await storage.get(discarded)).outcome).toBeDefined());
+      expect(finalizer).not.toHaveBeenCalled();
+      expect((await storage.get(discarded)).prAddressComments?.state).toBe("discarded");
+    });
+  });
+
   describe("PR-inbox fix-ci run", () => {
     async function seedCi(): Promise<string> {
       const id = storage.newId();
@@ -2236,6 +2336,7 @@ describe("Task 3b — concurrent terminal handlers must not double-open a PR (fi
       })),
     };
     const workflowRunner = {
+      setGatePresenter: vi.fn(),
       start: vi.fn(async () => workflowRun({})),
       onRunStatus: vi.fn(() => () => {}),
       get: vi.fn(() => workflowRun({})),
@@ -2402,6 +2503,7 @@ describe("Task 3c — project-capacity lock closes the budget check→record rac
     onRunStatusListener: () => ((run: AgentRun) => void) | undefined;
   } {
     const workflowRunner = {
+      setGatePresenter: vi.fn(),
       start: vi.fn(async () => workflowRun({})),
       onRunStatus: vi.fn(() => () => {}),
       get: vi.fn(() => workflowRun({})),
@@ -2797,6 +2899,7 @@ describe("run slots (global + per-project cap)", () => {
   let workflowRunner: {
     start: ReturnType<typeof vi.fn>;
     continueFailed: ReturnType<typeof vi.fn>;
+    setGatePresenter: ReturnType<typeof vi.fn>;
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
   };
@@ -2836,6 +2939,7 @@ describe("run slots (global + per-project cap)", () => {
       rerun: vi.fn(async () => agentRun({ runId: "koder_rerun", agentId: "koder" })),
     };
     workflowRunner = {
+      setGatePresenter: vi.fn(),
       start: vi.fn(async () => workflowRun({ workflowRunId: `release_${++runSeq}` })),
       continueFailed: vi.fn(async (runRef: string) => workflowRun({ workflowRunId: runRef })),
       onRunStatus: vi.fn((l: (run: WorkflowRun) => void) => {

@@ -9,7 +9,6 @@ import { threadsMarkedDone } from "../tasks/task-output.service";
 import {
   InboxAddressCommentsService,
   addressCommentsTaskText,
-  fileFollowUpsTaskText,
 } from "./inbox-address-comments.service";
 import { PrRefusedError } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
@@ -38,7 +37,9 @@ describe("InboxAddressCommentsService", () => {
   let requestStatus: number;
   let integrations: Integration[];
   let service: InboxAddressCommentsService;
-  let handler: (filer: ScheduledTask, raw: string) => Promise<void>;
+  let finalizer: (task: ScheduledTask, followUps: string | null) => Promise<void>;
+  let replaceArtifact: ReturnType<typeof vi.fn>;
+  let decideGate: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(tmpdir(), "zibby-inbox-address-"));
@@ -70,6 +71,8 @@ describe("InboxAddressCommentsService", () => {
       ),
     }));
     register = vi.fn();
+    replaceArtifact = vi.fn(async () => undefined);
+    decideGate = vi.fn(async () => undefined);
     dropPrsCache = vi.fn();
     pushFastForward = vi.fn(async () => "newsha");
     graphql = [];
@@ -165,9 +168,10 @@ describe("InboxAddressCommentsService", () => {
       { read: async () => ({ token: "tok" }) } as never,
       {
         createTask,
-        setPrFollowUpsHandler: (fn: typeof handler) => {
-          handler = fn;
+        setPrAddressFinalizer: (fn: typeof finalizer) => {
+          finalizer = fn;
         },
+        runner: { replaceArtifact, decideGate },
       } as never,
       storage,
       { register } as never,
@@ -563,84 +567,123 @@ describe("InboxAddressCommentsService", () => {
       );
       return taskId;
     }
-    const filerOf = async (taskId: string) =>
-      storage.get((await storage.get(taskId)).prAddressComments?.followUps?.taskId ?? "");
     const posted = () => graphql.filter((b) => b.includes("addPullRequestReviewThreadReply"));
-
-    it("push starts the filer instead of posting replies", async () => {
+    /** Park through the gate (what the presenter does), approve → state `approved`. */
+    async function approvedGate(replies = [FOLLOW, OTHER]): Promise<string> {
       const taskId = await parkedWithFollowUp();
-      await service.push(
+      await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, gateRunId: "wr_1" } : c));
+      await service.approve(
         taskId,
-        [FOLLOW, OTHER].map((r) => ({ ...r, resolve: !!r.resolve })),
+        replies.map((r) => ({ ...r, resolve: !!r.resolve })),
       );
-      const [input, , projectId, target] = createTask.mock.calls[1] ?? [];
-      expect(target).toMatchObject({ kind: "workflow", id: "pr-file-followups" });
-      expect(projectId).toBe("acme");
-      expect(input.text).toContain("zibby-pr-followups.json");
-      expect(input.text).toContain("do X");
-      expect(input.text).not.toContain("Fixed.");
-      expect(posted()).toHaveLength(0);
-      const fix = (await storage.get(taskId)).prAddressComments;
-      expect(fix?.followUps).toMatchObject({ state: "filing" });
-      expect(fix?.finishedAt).toBeUndefined();
-      expect((await filerOf(taskId)).prFileFollowUps).toEqual({
-        parentTaskId: taskId,
-        state: "running",
-      });
-    });
+      return taskId;
+    }
+    const finalize = async (taskId: string, followUps: string | null) =>
+      finalizer(await storage.get(taskId), followUps);
 
-    it("without follow-ups push is unchanged (no filer, replies post)", async () => {
-      const taskId = await parkedWithFollowUp();
-      await service.push(taskId, [{ ...OTHER, resolve: false }]);
-      expect(createTask).toHaveBeenCalledTimes(1);
-      expect(posted()).toHaveLength(1);
-      expect((await storage.get(taskId)).prAddressComments?.finishedAt).toBeDefined();
-    });
-
-    it("completeFollowUps files a GitHub issue, substitutes the placeholder and posts", async () => {
+    it("legacy push (no gate) cannot file: placeholder replies are dropped with a note", async () => {
       const taskId = await parkedWithFollowUp();
       await service.push(taskId, [
         { ...FOLLOW, resolve: true },
         { ...OTHER, resolve: false },
       ]);
-      const filer = await filerOf(taskId);
-      await handler(
-        filer,
+      expect(createTask).toHaveBeenCalledTimes(1);
+      expect(posted()).toHaveLength(1);
+      expect(posted()[0]).toContain("Fixed.");
+      expect((await storage.get(taskId)).prAddressComments?.followUps).toMatchObject({
+        state: "failed",
+      });
+    });
+
+    it("gate approve stores replies, rewrites the artifact, releases the gate and does not push", async () => {
+      const taskId = await approvedGate();
+      expect(pushFastForward).not.toHaveBeenCalled();
+      expect(posted()).toHaveLength(0);
+      expect((await storage.get(taskId)).prAddressComments).toMatchObject({
+        state: "approved",
+        replies: [expect.objectContaining({ followUp: "do X" }), expect.anything()],
+      });
+      expect(replaceArtifact).toHaveBeenCalledWith(
+        "wr_1",
+        "zibby-pr-replies.json",
+        expect.any(String),
+      );
+      const written = JSON.parse(replaceArtifact.mock.calls[0]?.[2] as string);
+      expect(written[0]).toMatchObject({ threadId: "PRRT_a", followUp: "do X" });
+      expect(written[1]).not.toHaveProperty("followUp");
+      expect(decideGate).toHaveBeenCalledWith("wr_1", "approved");
+    });
+
+    it("a second gate approve does nothing", async () => {
+      const taskId = await approvedGate();
+      await service.approve(taskId);
+      expect(decideGate).toHaveBeenCalledOnce();
+    });
+
+    it("gate reject discards and rejects the gate", async () => {
+      const taskId = await parkedWithFollowUp();
+      await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, gateRunId: "wr_1" } : c));
+      await service.discard(taskId);
+      expect((await storage.get(taskId)).prAddressComments?.state).toBe("discarded");
+      expect(decideGate).toHaveBeenCalledWith("wr_1", "rejected");
+    });
+
+    it("finalize pushes, files a GitHub issue, substitutes the placeholder and posts", async () => {
+      const taskId = await approvedGate();
+      await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, fixedSha: B } : c));
+      await finalize(
+        taskId,
         JSON.stringify([
           { threadId: "PRRT_a", tracker: "git-host", title: "T", body: "B", assignee: "operator" },
           { threadId: "PRRT_zzz", title: "bogus", body: "x" },
         ]),
       );
+      expect(pushFastForward).toHaveBeenCalledOnce();
       const issue = rest.find((r) => r.url.endsWith("/issues"));
       expect(JSON.parse(issue?.body ?? "{}")).toMatchObject({ title: "T", assignees: ["me"] });
       expect(posted()).toHaveLength(2);
       expect(posted()[0]).toContain("[#42](https://github.com/acme/app/issues/42)");
       expect(posted().join("")).not.toContain("{{ISSUE}}");
       const fix = (await storage.get(taskId)).prAddressComments;
+      expect(fix).toMatchObject({ state: "pushed", resolved: 1, finishedAt: expect.any(String) });
       expect(fix?.followUps).toMatchObject({
         state: "done",
         created: [{ threadId: "PRRT_a", key: "#42" }],
       });
-      expect(fix?.resolved).toBe(1);
-      expect(fix?.finishedAt).toBeDefined();
-      expect((await filerOf(taskId)).prFileFollowUps?.state).toBe("done");
       expect(dropPrsCache).toHaveBeenCalled();
     });
 
-    it("an issue that could not be created drops its reply and resolve; others still post", async () => {
-      const taskId = await parkedWithFollowUp();
-      await service.push(taskId, [
-        { ...FOLLOW, resolve: true },
-        { ...OTHER, resolve: false },
-      ]);
-      await handler(await filerOf(taskId), "");
+    it("a missing follow-ups file drops the placeholder reply and its resolve; others still post", async () => {
+      const taskId = await approvedGate();
+      await finalize(taskId, null);
       expect(posted()).toHaveLength(1);
       expect(posted()[0]).toContain("Fixed.");
       expect(graphql.filter((b) => b.includes("resolveReviewThread"))).toHaveLength(0);
       const fix = (await storage.get(taskId)).prAddressComments;
-      expect(fix?.followUps?.state).toBe("failed");
+      expect(fix?.followUps).toMatchObject({
+        state: "failed",
+        note: expect.stringMatching(/no issue/),
+      });
       expect(fix?.replies?.map((r) => r.threadId)).toEqual(["PRRT_b"]);
-      expect((await filerOf(taskId)).prFileFollowUps?.state).toBe("failed");
+    });
+
+    it("finalize with no follow-up briefs just pushes and posts", async () => {
+      const taskId = await approvedGate([OTHER, { ...OTHER, threadId: "PRRT_a" }]);
+      await finalize(taskId, null);
+      expect(posted()).toHaveLength(2);
+      expect((await storage.get(taskId)).prAddressComments?.followUps).toBeUndefined();
+    });
+
+    it("a refused push in finalize fails the task and posts nothing", async () => {
+      pushFastForward.mockRejectedValue(new Error("non-fast-forward"));
+      const taskId = await approvedGate();
+      await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, fixedSha: B } : c));
+      await finalize(taskId, null);
+      expect((await storage.get(taskId)).prAddressComments).toMatchObject({
+        state: "failed",
+        note: "non-fast-forward",
+      });
+      expect(posted()).toHaveLength(0);
     });
 
     it("files in Jira when the project has a Jira integration", async () => {
@@ -651,32 +694,23 @@ describe("InboxAddressCommentsService", () => {
           config: { kind: "jira", baseUrl: "https://j.example", email: "a@b.c", projectKey: "ABC" },
         } as unknown as Integration,
       ];
-      const taskId = await parkedWithFollowUp();
-      await service.push(taskId, [{ ...FOLLOW, resolve: true }]);
-      await handler(
-        await filerOf(taskId),
-        JSON.stringify([{ threadId: "PRRT_a", title: "T", body: "B" }]),
-      );
+      const taskId = await approvedGate([FOLLOW]);
+      await finalize(taskId, JSON.stringify([{ threadId: "PRRT_a", title: "T", body: "B" }]));
       const body = JSON.parse(rest.find((r) => r.url.includes("j.example"))?.body ?? "{}");
       expect(body.fields).toMatchObject({ project: { key: "ABC" }, summary: "T" });
       expect(posted()[0]).toContain("[ABC-7](https://j.example/browse/ABC-7)");
     });
 
-    it("a second completion is ignored", async () => {
-      const taskId = await parkedWithFollowUp();
-      await service.push(taskId, [
-        { ...OTHER, resolve: false },
-        { ...FOLLOW, resolve: true },
-      ]);
-      const filer = await filerOf(taskId);
-      await handler(filer, "");
+    it("a second finalize is ignored", async () => {
+      const taskId = await approvedGate();
+      await finalize(taskId, null);
       const before = graphql.length;
-      await handler(filer, "");
+      await finalize(taskId, null);
       expect(graphql.length).toBe(before);
     });
   });
 
-  it("task texts describe the followup outcome and the filer", () => {
+  it("task text describes the followup outcome", () => {
     const p = {
       repo: "acme/app",
       number: 7,
@@ -695,9 +729,6 @@ describe("InboxAddressCommentsService", () => {
       expect(text).toContain("{{ISSUE}}");
       expect(text).toContain('"followUp"');
     }
-    const filer = fileFollowUpsTaskText(p, [{ threadId: "PRRT_a", body: "b", followUp: "do X" }]);
-    expect(filer).toContain("NEVER create issues");
-    expect(filer).toContain("do X");
   });
 });
 

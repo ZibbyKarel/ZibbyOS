@@ -251,14 +251,27 @@ export class TaskSchedulerService
     this.log = logger.child(TaskSchedulerService.name);
   }
 
-  private prFollowUpsHandler?: (filerTask: ScheduledTask, raw: string) => Promise<void>;
+  private prAddressFinalizer?: (task: ScheduledTask, followUps: string | null) => Promise<void>;
 
-  /** Registered by `InboxAddressCommentsService` (no DI cycle): files the follow-up issues of a finished filer run. */
-  setPrFollowUpsHandler(fn: (filerTask: ScheduledTask, raw: string) => Promise<void>): void {
-    this.prFollowUpsHandler = fn;
+  /**
+   * Registered by `InboxAddressCommentsService` (no DI cycle): after the in-run gate was approved
+   * and the run ended (done / failed / interrupted) it pushes, files the issues in `followUps`
+   * (`zibby-pr-followups.json`, null when the `file` phase was skipped or produced nothing) and
+   * posts the replies.
+   */
+  setPrAddressFinalizer(
+    fn: (task: ScheduledTask, followUps: string | null) => Promise<void>,
+  ): void {
+    this.prAddressFinalizer = fn;
+  }
+
+  /** The workflow runner, for `InboxAddressCommentsService` (it cannot inject it without a module cycle). */
+  get runner(): WorkflowRunnerService {
+    return this.workflowRunner;
   }
 
   onModuleInit(): void {
+    this.workflowRunner.setGatePresenter((ctx) => this.presentAddressCommentsGate(ctx));
     // Fast path of the outcome write-back + the concurrency-queue drain: a terminal
     // run carrying a taskId writes its verdict onto the task record, and ANY terminal
     // run frees a slot that a queued task for the same engagement can take.
@@ -2014,7 +2027,7 @@ export class TaskSchedulerService
         stopped?.prAddressComments?.state !== "running" &&
         stopped?.prFixCi?.state !== "running" &&
         stopped?.prCiTriage?.state !== "running" &&
-        stopped?.prFileFollowUps?.state !== "running"
+        stopped?.prAddressComments?.state !== "approved"
       ) {
         return;
       }
@@ -2135,12 +2148,9 @@ export class TaskSchedulerService
               });
             if (delivery?.summary) outcome.summary = delivery.summary;
           }
-          // Follow-up issue filing: hand the agent's specs to the registered handler (never throws).
-          if (existing.prFileFollowUps?.state === "running") {
-            const artifact = await this.workflowRunner
-              .readArtifact(run.workflowRunId, PR_FOLLOWUPS_ARTIFACT)
-              .catch(() => null);
-            await this.runPrFollowUpsHandler(existing, artifact?.content ?? "");
+          // The in-run gate was approved: push, file the issues, post (never throws).
+          if (existing.prAddressComments?.state === "approved") {
+            await this.finalizeAddressComments(existing, run.workflowRunId);
           }
           // "Fix CI": park (or, `Fixed: all` on the operator's own PR, push) the fix.
           if (existing.prFixCi?.state === "running") {
@@ -2186,9 +2196,9 @@ export class TaskSchedulerService
           }
         } else {
           const failed = await this.storage.get(taskId).catch(() => null);
-          // A failed / interrupted filer run: no issues, the other replies still post.
-          if (failed?.prFileFollowUps?.state === "running") {
-            await this.runPrFollowUpsHandler(failed, "");
+          // Failed / interrupted AFTER the gate: the approved fixes still go out; no issues, replies with a placeholder drop.
+          if (failed?.prAddressComments?.state === "approved") {
+            await this.finalizeAddressComments(failed, run.workflowRunId);
           }
           if (run.status === "failed") {
             // A failed triage run must not stay `running`: the heartbeat would wait on it forever.
@@ -2237,15 +2247,58 @@ export class TaskSchedulerService
     });
   }
 
-  private async runPrFollowUpsHandler(task: ScheduledTask, raw: string): Promise<void> {
+  private async finalizeAddressComments(task: ScheduledTask, workflowRunId: string): Promise<void> {
     try {
-      await this.prFollowUpsHandler?.(task, raw);
+      const followUps = await this.workflowRunner
+        .readArtifact(workflowRunId, PR_FOLLOWUPS_ARTIFACT)
+        .catch(() => null);
+      await this.prAddressFinalizer?.(task, followUps?.content ?? null);
     } catch (error) {
-      this.log.warn("pr follow-ups handler failed (soft)", {
+      this.log.warn("pr address-comments finalize failed (soft)", {
         taskId: task.id,
         err: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  /**
+   * Gate presenter (docs/plans/workflow-branching.md §3): a `pr-address-comments` run parked at its
+   * `describe` gate gets the address-comments approval + card instead of the generic
+   * `workflow-gate` one. Any other run falls through to the default gate.
+   */
+  private async presentAddressCommentsGate(ctx: {
+    run: WorkflowRun;
+    workflow: Workflow;
+  }): Promise<"handled" | "fail" | "default"> {
+    const { run } = ctx;
+    if (!run.taskId) return "default";
+    const task = await this.storage.get(run.taskId).catch(() => null);
+    if (task?.prAddressComments?.state !== "running") return "default";
+    const read = async (name: string) =>
+      (await this.workflowRunner.readArtifact(run.workflowRunId, name).catch(() => null))?.content;
+    try {
+      await this.taskOutput.parkPrAddressComments(
+        task,
+        (await read(PR_ADDRESS_COMMENTS_ARTIFACT)) ?? "",
+        run.workspace?.path,
+        await read(PR_REPLIES_ARTIFACT),
+        await read(PR_DESCRIPTION_ARTIFACT),
+        run.workflowRunId,
+      );
+    } catch (error) {
+      this.log.warn("pr address-comments gate park failed (soft)", {
+        taskId: task.id,
+        err: error instanceof Error ? error.message : String(error),
+      });
+      await this.storage
+        .setPrAddressComments(task.id, (c) =>
+          c ? { ...c, state: "failed", note: "park failed" } : c,
+        )
+        .catch(() => undefined);
+      return "fail";
+    }
+    const after = await this.storage.get(task.id).catch(() => null);
+    return after?.prAddressComments?.state === "failed" ? "fail" : "handled";
   }
 
   private async writeGoalOutcome(taskId: string, run: GoalRun): Promise<void> {

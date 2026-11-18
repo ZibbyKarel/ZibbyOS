@@ -17,7 +17,7 @@ import { StageVerdictSchema } from "./stage-verdict.schema";
  * `awaiting-approval` (a stage paused on an approval — Phase 3, which maps the
  * workflow to `parked`). Unifies with the shared `RunStatus` in Phase 3-1.
  */
-export const StageRunStatusSchema = z.enum(RunStatusSchema.options);
+export const StageRunStatusSchema = z.enum([...RunStatusSchema.options, "skipped"]);
 export type StageRunStatus = z.infer<typeof StageRunStatusSchema>;
 
 /**

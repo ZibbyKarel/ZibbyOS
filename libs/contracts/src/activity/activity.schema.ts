@@ -24,6 +24,8 @@ export const ActivityKindSchema = z.enum([
   // parsed verdict (pass/gap/drift): pass advances, gap/drift loop the work back. The
   // briefing reads the eventual run finish; the verdict surfaces on the stage timeline.
   "stage-verdict",
+  // A phase whose `when` was false: no stage ran, a `skipped` StageRun records it.
+  "stage-skipped",
   // Phase 9 (limit resilience, Tier 1 — silent + recorded). A run halted on the
   // subscription usage limit, auto-resumed when the window reset, or a task was
   // re-deferred because the window was exhausted at dispatch. None notify; the

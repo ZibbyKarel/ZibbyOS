@@ -697,6 +697,37 @@ describe("TaskOutputService", () => {
       const delivered = await service.parkPrAddressComments(task, "Addressed: all", "/wt");
       expect(delivered.summary).toMatch(/push selhal/);
     });
+
+    it("gate mode records gateRunId on the parked state; an auto-approved gate only releases the run", async () => {
+      const task = await seed();
+      const delivered = await service.parkPrAddressComments(
+        task,
+        "Addressed: all",
+        "/wt",
+        undefined,
+        undefined,
+        "wr_gate",
+      );
+      expect((await storage.get("t_fix")).prAddressComments).toMatchObject({
+        state: "awaiting-approval",
+        gateRunId: "wr_gate",
+      });
+      expect(delivered.summary).toMatch(/run pokračuje/);
+    });
+
+    it("a gate with nothing to approve (no new commits, no replies) fails", async () => {
+      workspace.rebaseFacts.mockResolvedValue({ sha: A, log: "", stat: "" });
+      const task = await seed();
+      await service.parkPrAddressComments(
+        task,
+        "Addressed: partial",
+        "/wt",
+        undefined,
+        undefined,
+        "wr_gate",
+      );
+      expect((await storage.get("t_fix")).prAddressComments?.state).toBe("failed");
+    });
   });
 
   describe("pr fix ci", () => {

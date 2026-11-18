@@ -357,7 +357,7 @@ const prKey = (pr: { repo: string; number: number }): string =>
 /** Address-comments in flight on the PR: its push and a CI fix would race for the same branch. */
 function addressingInFlight(pr: InboxPr, runs: Map<string, PrRun[]>): boolean {
   return (runs.get(prKey(pr)) ?? []).some(
-    (r) => r.state === "running" || r.state === "awaiting-approval",
+    (r) => r.state === "running" || r.state === "awaiting-approval" || r.state === "approved",
   );
 }
 
@@ -448,6 +448,7 @@ function isFresh(pr: InboxPr, runs: Map<string, PrRun[]>): boolean {
       // next tick would re-run on its own output.
       (r.fixedSha !== undefined && r.fixedSha === pr.headSha) ||
       r.state === "running" ||
-      r.state === "awaiting-approval",
+      r.state === "awaiting-approval" ||
+      r.state === "approved",
   );
 }

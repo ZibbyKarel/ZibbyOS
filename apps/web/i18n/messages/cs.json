@@ -1482,7 +1482,8 @@
       "interrupted": "přerušeno",
       "parked": "zaparkováno",
       "paused": "pozastaveno",
-      "paused-limit": "pauza na limitu"
+      "paused-limit": "pauza na limitu",
+      "skipped": "přeskočeno"
     },
     "kind": {
       "agent": "skill",
@@ -1609,7 +1610,8 @@
         "waiting": "Čeká",
         "parked": "Zaparkováno",
         "queued": "Ve frontě",
-        "stopped": "Zastaveno"
+        "stopped": "Zastaveno",
+        "skipped": "Přeskočeno"
       },
       "rail": {
         "title": "Fáze · {n}",
@@ -1767,6 +1769,7 @@
         "parked": "Zaparkováno",
         "running": "Běží",
         "awaiting-approval": "Čeká na schválení",
+        "approved": "Schváleno",
         "posted": "Odesláno",
         "pushed": "Pushnuto",
         "discarded": "Zahozeno",
@@ -3515,6 +3518,7 @@
         "addressState": {
           "running": "Agent zapracovává komentáře",
           "awaiting-approval": "Opravy čekají na schválení",
+          "approved": "Schváleno, běh se dokončuje",
           "pushed": "Opravy pushnuty",
           "discarded": "Opravy zahozeny",
           "failed": "Zapracování komentářů selhalo"

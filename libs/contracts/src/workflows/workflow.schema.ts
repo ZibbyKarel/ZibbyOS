@@ -4,6 +4,7 @@ import { AiEngineSchema, OpenAiTextModelSchema } from "../ai-providers/ai-provid
 import { AvatarSchema } from "../common.schema";
 import { DepartmentIdSchema } from "../departments/department.schema";
 import { SkillIdSchema } from "../skills/skill.schema";
+import { StageVerdictSchema } from "./stage-verdict.schema";
 
 /**
  * A workflow's `id` — same restrictive filename-safe shape as `AgentIdSchema`
@@ -74,6 +75,27 @@ export interface ResolvedPhaseAdvisor {
   /** Explicit source phase; absent = derive it from the consumed handoff. */
   from?: string;
 }
+
+/**
+ * A phase's optional condition. Evaluated when the cursor reaches the phase; false
+ * means the phase is skipped (no stage, a `skipped` StageRun). `phase` names an
+ * EARLIER phase with `produces`; its latest output is the input. Branching "A or B"
+ * is two consecutive phases with mutually exclusive `when`s (use `negate`).
+ */
+export const PhaseWhenSchema = z
+  .object({
+    phase: z.string().min(1),
+    /** Default true: the output exists and is non-blank. false: missing or blank. */
+    exists: z.boolean().optional(),
+    /** JS regex (flag "m") that must match the output text. Needs exists !== false. */
+    match: z.string().min(1).max(500).optional(),
+    /** The output's <verdict> token must equal this. Needs exists !== false. */
+    verdict: StageVerdictSchema.optional(),
+    /** Flip the result (the "else" branch). */
+    negate: z.boolean().optional(),
+  })
+  .strict();
+export type PhaseWhen = z.infer<typeof PhaseWhenSchema>;
 
 /**
  * What a phase executes. `agent` (the default, so every committed `.workflow.md`
@@ -160,6 +182,8 @@ export const WorkflowPhaseSchema = z.object({
    * reject fails the run. Absent (the default) = fully autonomous.
    */
   approval: z.enum(["ask"]).optional(),
+  /** Run the phase only when this holds; otherwise it is skipped (see `PhaseWhenSchema`). */
+  when: PhaseWhenSchema.optional(),
   /** Agent phase only: override the workflow's `advisor` field by field, or `false` to turn it off. */
   advisor: z.union([z.literal(false), PhaseAdvisorSchema]).optional(),
 });
@@ -450,6 +474,45 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
           code: z.ZodIssueCode.custom,
           message: "a qualify phase requires a loop",
           path: ["phases", i, "qualify"],
+        });
+    }
+    if (ph.when) {
+      const w = ph.when;
+      const ref = p.phases.findIndex((x) => x.id === w.phase);
+      if (ref < 0 || ref >= i)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `when.phase "${w.phase}" must be an earlier phase`,
+          path: ["phases", i, "when", "phase"],
+        });
+      else if (!p.phases[ref]?.produces)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `when.phase "${w.phase}" has no "produces" to test`,
+          path: ["phases", i, "when", "phase"],
+        });
+      if (w.match !== undefined) {
+        try {
+          new RegExp(w.match, "m");
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "when.match is not a valid regular expression",
+            path: ["phases", i, "when", "match"],
+          });
+        }
+      }
+      if (w.match !== undefined && w.verdict !== undefined)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "when.match and when.verdict are mutually exclusive",
+          path: ["phases", i, "when", "verdict"],
+        });
+      if (w.exists === false && (w.match !== undefined || w.verdict !== undefined))
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "when.match / when.verdict need exists !== false",
+          path: ["phases", i, "when", "exists"],
         });
     }
     if (ph.loop?.driftTo && !idSet.has(ph.loop.driftTo))

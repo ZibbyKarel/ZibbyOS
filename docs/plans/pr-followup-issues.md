@@ -2,6 +2,8 @@
 
 Status: implementing (2026-11-18). Branch `feat/pr-followup-issues`.
 
+> Superseded by `docs/plans/workflow-branching.md` (§4): filing is a conditional `file` phase inside `pr-address-comments`, not a separate filer task.
+
 ## Problem
 
 In the `pr-address-comments` workflow a reviewer often asks for a follow-up ("let's do that in a

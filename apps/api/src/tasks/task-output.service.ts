@@ -544,6 +544,8 @@ export class TaskOutputService implements OnModuleInit {
     worktree?: string,
     rawReplies?: string,
     rawDescription?: string,
+    /** Set when the run is parked at its `describe` gate: approving then continues the run instead of pushing (see InboxAddressCommentsService.approve). */
+    gateRunId?: string,
   ): Promise<TaskTerminalDelivery> {
     const fix = task.prAddressComments;
     if (!fix) return {};
@@ -597,6 +599,7 @@ export class TaskOutputService implements OnModuleInit {
               report,
               worktree,
               approvalId: approval.id,
+              ...(gateRunId ? { gateRunId } : {}),
               replies,
               ...(outcomes.length ? { outcomes } : {}),
             }
@@ -617,7 +620,7 @@ export class TaskOutputService implements OnModuleInit {
           },
         );
         return {
-          summary: `Review komentáře ${ref}: ${posted ? "odpovědi odeslány (autopilot)" : "odeslání odpovědí selhalo"}`,
+          summary: `Review komentáře ${ref}: ${posted ? (gateRunId ? "schváleno (autopilot), run pokračuje" : "odpovědi odeslány (autopilot)") : "odeslání odpovědí selhalo"}`,
         };
       }
       return { summary: `Review komentáře ${ref}: odpovědi čekají na schválení` };
@@ -674,6 +677,7 @@ export class TaskOutputService implements OnModuleInit {
             worktree,
             fixedSha: facts.sha,
             approvalId: approval.id,
+            ...(gateRunId ? { gateRunId } : {}),
             ...(replies.length ? { replies } : {}),
             ...(outcomes.length ? { outcomes } : {}),
             ...(description ? { description } : {}),
@@ -704,6 +708,8 @@ export class TaskOutputService implements OnModuleInit {
       },
     );
     if (!pushed) return { summary: `Review komentáře ${ref}: push selhal` };
+    // Gate mode: approving only released the run; the terminal hook pushes and posts.
+    if (gateRunId) return { summary: `Review komentáře ${ref}: schváleno, run pokračuje` };
     // The runner posted replies / resolved threads / re-requested review right after the push.
     const after = await this.storage
       .get(task.id)

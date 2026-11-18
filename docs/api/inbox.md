@@ -440,17 +440,31 @@ required when the operator sent no replies (a thread whose reply failed stays op
 `reviewersRequested` and `followUpNote` record the rest. A follow-up failure leaves the push
 `pushed`, a push failure does nothing. A missing reply file never blocks the push.
 
-**Follow-up issues** (`docs/plans/pr-followup-issues.md`). A thread where the reviewer asks for (or
+**Follow-up issues** (`docs/plans/workflow-branching.md`, which supersedes `docs/plans/pr-followup-issues.md`). A thread where the reviewer asks for (or
 the author agreed to) a separate ticket gets the `followup: <what + what was agreed>` outcome
 (`PrThreadOutcome.kind = "followup"`); its reply draft carries `{{ISSUE}}` in the body plus
 `followUp: "<issue brief>"` (also on `OperatorThreadReply`, editable on the approval card; clearing
 it = no issue, and a body that still holds `{{ISSUE}}` is never posted). Any follow-up keeps the
-push gate (like `question`: no auto-push, no autopilot). After the push, `push()` starts a
-`pr-file-followups` task (`startFollowUps`, one read-only agent phase) and stops; the filer's
-`zibby-pr-followups.json` is turned into issues by `completeFollowUps` (Jira when the project has a
+push gate (like `question`: no auto-push, no autopilot). Filing is the recipe's conditional `file` phase
+(`when` on `zibby-pr-replies.json` holding a non-empty `"followUp"`), which runs after the in-run gate
+below and writes `zibby-pr-followups.json`; the finalizer (`InboxAddressCommentsService.fileFollowUps`) turns it into issues (Jira when the project has a
 Jira integration, else GitHub `POST /repos/{repo}/issues` / GitLab `POST projects/:id/issues`),
-`{{ISSUE}}` becomes `[KEY](url)`, a reply whose issue failed is dropped with its resolve, and then
-`postFollowUp` runs without a second approval. Progress is `prAddressComments.followUps`. The third phase
+`{{ISSUE}}` becomes `[KEY](url)`, a reply whose issue failed (or whose file was never produced) is dropped with its resolve, and then
+`postFollowUp` runs without a second approval. Progress is `prAddressComments.followUps`. A legacy run without the gate cannot file: its
+placeholder replies are dropped and `followUps.note` says so.
+
+**In-run gate and lifecycle** (recipe `describe` phase has `approval: ask`). The workflow runner's gate presenter
+(`TaskSchedulerService.presentAddressCommentsGate`, registered with `WorkflowRunnerService.setGatePresenter`) handles a parked run whose task has
+`prAddressComments.state === "running"`: it runs `parkPrAddressComments` with the live run's report / replies / description and records the same
+`pr-address-comments` approval and card (same autoPush / autopilot rules) plus `prAddressComments.gateRunId`. No report, no worktree or nothing
+to approve → `failed` → the presenter answers `fail` and the run fails. Approve (`InboxAddressCommentsService.approve`) claims
+`awaiting-approval` → `approved` atomically with the operator's replies, rewrites `zibby-pr-replies.json` in the run
+(`replaceArtifact`, so the `file` phase and its `when` see the edits) and calls `decideGate(approved)`; nothing is pushed yet.
+Reject → `discarded` + `decideGate(rejected)`. When the run ends (done, failed or interrupted) the scheduler's terminal hook sees
+`approved` and calls the finalizer registered through `TaskSchedulerService.setPrAddressFinalizer`
+(`InboxAddressCommentsService.finalize`): claim `approved` → `running`, `pushFastForward`, `fileFollowUps`, `postFollowUp`, `finishedAt`.
+A refused push → `failed`, nothing posted. Without `gateRunId` (a recipe without the gate) the legacy post-run park + `push()` path is unchanged.
+The third phase
 `describe` (`documentation-engineer`) may write `zibby-pr-description.md` (`# title` + body, parsed by
 `parsePrDescription`) with the PR description refreshed for the fixes; it is stored as
 `prAddressComments.description`, shown in the approval `detail`, and applied with

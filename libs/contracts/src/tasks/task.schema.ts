@@ -554,10 +554,19 @@ export type PrRebaseState = z.infer<typeof PrRebaseStateSchema>;
  * same states as a rebase. `running` → the agent commits fixes in the run's worktree;
  * `awaiting-approval` → its report is parked as a `pr-address-comments` push approval (approved
  * on the spot for `Addressed: all` on a clicked run; never for an auto-started one, todo-16); `pushed` → fast-forwarded onto the PR head; `discarded`;
- * `failed` → errored, no report, no new commits, or the push was refused.
+ * `failed` → errored, no report, no new commits, or the push was refused. With the in-run gate
+ * (docs/plans/workflow-branching.md) approval lands on `approved`; the finished run then pushes.
  */
-export const PrAddressCommentsStateSchema = PrRebaseStateSchema;
-export type PrAddressCommentsState = PrRebaseState;
+export const PrAddressCommentsStateSchema = z.enum([
+  "running",
+  "awaiting-approval",
+  /** The operator approved the in-run gate; the run continues (file phase), then the terminal hook pushes + posts. */
+  "approved",
+  "pushed",
+  "discarded",
+  "failed",
+]);
+export type PrAddressCommentsState = z.infer<typeof PrAddressCommentsStateSchema>;
 
 /** "Fix CI" (`ScheduledTask.prFixCi`): same lifecycle as a rebase / address-comments. */
 export const PrFixCiStateSchema = PrRebaseStateSchema;
@@ -895,6 +904,8 @@ export const ScheduledTaskSchema = z.object({
         .regex(/^[0-9a-f]{40}$/)
         .optional(),
       approvalId: z.string().optional(),
+      /** The workflow run parked at its `describe` gate (set when the gate presented the approval); absent = legacy post-run park. */
+      gateRunId: z.string().optional(),
       note: z.string().optional(),
       /** Thread replies `github-commenter` drafted (validated at park time); posted only after the push. */
       outcomes: z.array(PrThreadOutcomeSchema).max(100).optional(),
@@ -917,11 +928,10 @@ export const ScheduledTaskSchema = z.object({
       reviewersRequested: z.array(z.string()).optional(),
       /** Why resolving or re-requesting review (partly) failed. */
       followUpNote: z.string().optional(),
-      /** The follow-up issue filing that runs between the push and the replies (docs/plans/pr-followup-issues.md). */
+      /** The follow-up issue filing that runs between the push and the replies (the recipe's `file` phase, docs/plans/workflow-branching.md). */
       followUps: z
         .object({
           state: z.enum(["filing", "done", "failed"]),
-          taskId: z.string().optional(),
           created: z
             .array(z.object({ threadId: z.string(), key: z.string(), url: z.string() }))
             .optional(),
@@ -936,13 +946,6 @@ export const ScheduledTaskSchema = z.object({
       auto: z.literal(true).optional(),
       /** Where the PR sits in the autopilot tree (its teams, or its company): the autopilot push/replies resolve here. */
       autopilotAt: z.array(AutopilotLocationSchema).max(50).optional(),
-    })
-    .optional(),
-  /** Set on a `pr-file-followups` task: the address run whose follow-up issues it drafts. Server-written. */
-  prFileFollowUps: z
-    .object({
-      parentTaskId: z.string().min(1),
-      state: z.enum(["running", "done", "failed"]),
     })
     .optional(),
   /**

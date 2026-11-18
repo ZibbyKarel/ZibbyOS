@@ -274,7 +274,10 @@ export function WorkflowStageTimeline({
             const isPlaceholder = node.main === null;
             // A not-yet-reached phase reads as `scheduled`'s matte/idle dot+badge —
             // reusing the shared map (never forking it), just with its own label.
-            const displayStatus: FeedStatus = node.main?.status ?? "scheduled";
+            // A skipped phase (its `when` was false) reads muted, like an unreached one.
+            const skipped = node.main?.status === "skipped";
+            const displayStatus: FeedStatus =
+              node.main && node.main.status !== "skipped" ? node.main.status : "scheduled";
             const meta = RUN_STATE[displayStatus];
             const phaseDef = phaseById.get(node.phaseId);
             const agentId = phaseDef?.agent;
@@ -375,9 +378,13 @@ export function WorkflowStageTimeline({
                               </Tag>
                             )}
                             <RunStateBadge
-                              canonTitle={isPlaceholder ? undefined : displayStatus}
+                              canonTitle={isPlaceholder || skipped ? undefined : displayStatus}
                               label={
-                                isPlaceholder ? t("stageWaitingLabel") : t(`state.${displayStatus}`)
+                                skipped
+                                  ? t("state.skipped")
+                                  : isPlaceholder
+                                    ? t("stageWaitingLabel")
+                                    : t(`state.${displayStatus}`)
                               }
                               status={displayStatus}
                             />

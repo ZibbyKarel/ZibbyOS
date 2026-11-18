@@ -47,6 +47,7 @@ export const ACTIVITY_GROUP_OF: Record<ActivityKind, ActivityGroup> = {
   "workflow-finished": "workflows",
   "workflow-parked": "workflows",
   "stage-verdict": "workflows",
+  "stage-skipped": "workflows",
   "goal-dispatched": "goals",
   "goal-verdict": "goals",
   "goal-parked": "goals",

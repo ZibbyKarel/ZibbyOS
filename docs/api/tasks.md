@@ -142,7 +142,7 @@ head, base, headSha, state: "running"`), written to `awaiting-approval` by
 pushes; no report / no worktree / no new commits → `failed` + `note`), and to
 `pushed`/`discarded`/`failed` by the `pr-address-comments` approval runner, which pushes only
 from `awaiting-approval`, fast-forward only. An interrupted run with `state === "running"` gets an
-error outcome. `replies` / `replied` / `repliesNote` record the thread replies, `resolved` / `reviewersRequested` / `followUpNote` the thread resolving and the review re-request (`reviewersRequested` = authors of the addressed threads plus users with changes requested; see
+error outcome (so does one in `approved`, via the finalizer). `replies` / `replied` / `repliesNote` record the thread replies, `resolved` / `reviewersRequested` / `followUpNote` the thread resolving and the review re-request (`reviewersRequested` = authors of the addressed threads plus users with changes requested; see
 `docs/api/inbox.md`). `auto: true` (todo-16, server-written by `PrAutomationService` only) marks
 a heartbeat-started run: its push is never approved on the spot, even after `Addressed: all`.
 `prReview.auto: true` marks a heartbeat-started review the same way (posting is gated as always).
@@ -629,17 +629,17 @@ The daemon watches the run's terminal state:
   (a failed run's `summary` is its `failedReason` when set, else `<n> stages, failed`)
 - `summary` is truncated to `SUMMARY_MAX_CHARS = 200` characters
 
-### PR follow-up filing (`prFileFollowUps`)
+### Address-comments gate and follow-up filing
 
-A `pr-address-comments` approval whose replies carry `followUp` briefs makes
-`InboxAddressCommentsService.push` create a `pr-file-followups` workflow task and stamp
-`ScheduledTask.prFileFollowUps { parentTaskId, state: running | done | failed }` on it and
-`prAddressComments.followUps { state: filing | done | failed, taskId?, created?, note? }` on the
-parent. `writeWorkflowOutcome` has a terminal hook for it, gated on `running` like the `park*`
-branches: on `done` it reads `zibby-pr-followups.json` (`PR_FOLLOWUPS_ARTIFACT`), on a failed or
-interrupted run it passes an empty string, and either way calls the handler registered through
-`TaskSchedulerService.setPrFollowUpsHandler` (no DI cycle). The handler files the issues, posts the
-replies and never throws.
+`prAddressComments.state` also has `approved` (the in-run gate was approved, the run continues) and
+`gateRunId` (the workflow run parked at the `describe` gate; absent = legacy post-run park).
+`TaskSchedulerService` registers the workflow runner's gate presenter (`presentAddressCommentsGate`: a `running`
+address-comments task gets its `pr-address-comments` approval from `parkPrAddressComments`, else the default gate).
+`writeWorkflowOutcome` has a terminal hook gated on `approved` for a done, failed or interrupted run: it reads
+`zibby-pr-followups.json` (`PR_FOLLOWUPS_ARTIFACT`, null when the conditional `file` phase was skipped) and calls the finalizer
+registered through `TaskSchedulerService.setPrAddressFinalizer` (no DI cycle) which pushes, files the issues, posts the
+replies and never throws. `prAddressComments.followUps { state: filing | done | failed, created?, note? }` records the filing; the old
+`prFileFollowUps` filer task is gone (see `docs/plans/workflow-branching.md`).
 
 ## API endpoints
 
