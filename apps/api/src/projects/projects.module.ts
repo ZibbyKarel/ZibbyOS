@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { dataDir, resolveVaultDir } from "../shared/data-dir";
+import { GitHostModule } from "../git-host/git-host.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { MachineConfigModule } from "../machine/machine-config.module";
 import { MemoryModule } from "../memory/memory.module";
@@ -43,6 +44,7 @@ export function resolveProjectSecretsDir(): string {
   // symmetric, same fix as the Phase 72 triangle above) so `ProjectPrService`
   // can inject `CredentialsStore` to read a resolved github integration's token.
   imports: [
+    GitHostModule,
     MemoryModule,
     forwardRef(() => ResolvedProjectModule),
     forwardRef(() => IntegrationsModule),

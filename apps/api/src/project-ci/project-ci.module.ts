@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { GitHostModule } from "../git-host/git-host.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -8,7 +9,7 @@ import { ProjectCiService } from "./project-ci.service";
 
 /** todo-10 — base-branch CI per project (Bridge "Project status" widget). */
 @Module({
-  imports: [ProjectsModule, ResolvedProjectModule, IntegrationsModule, TasksModule],
+  imports: [GitHostModule, ProjectsModule, ResolvedProjectModule, IntegrationsModule, TasksModule],
   controllers: [ProjectCiController],
   providers: [ProjectCiService],
 })

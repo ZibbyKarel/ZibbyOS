@@ -9,6 +9,8 @@ import {
   githubRepoFor,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
+import { resolveGitHostLink } from "../git-host/git-host-link";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { CredentialsStore } from "../integrations/credentials.store";
 // 125e — the roadmap gate's eager merge signal (see `recordMerge` below). This
 // closes a genuine circular provider dependency with `RoadmapGateService`
@@ -18,6 +20,7 @@ import { CredentialsStore } from "../integrations/credentials.store";
 // constructor injection, exactly like the pre-existing `ResolvedProjectModule` <->
 // `IntegrationsModule` <-> `ProjectsModule` triangle.
 import { RoadmapGateService } from "../roadmap/roadmap-gate.service";
+import { listOpenGitlabMrs } from "./project-pr.gitlab";
 import { NoGithubLinkError, PrNotMergeableError, PrUpdateRefusedError } from "./projects.errors";
 import { ProjectsStorageService } from "./projects.storage.service";
 import { ResolvedProjectService } from "./resolved-project.service";
@@ -100,6 +103,7 @@ function toProjectPr(pull: GitHubPull): ProjectPr | null {
 @Injectable()
 export class ProjectPrService {
   private readonly fetchImpl: typeof fetch;
+  private readonly gitlab: GitlabClient;
   /** Phase 129 P3 — PR change listeners (the PR inbox drops its cache); registered at startup. */
   private readonly changedListeners: ((repo: string, number: number) => void)[] = [];
 
@@ -114,8 +118,10 @@ export class ProjectPrService {
     // production defaults to the global `fetch`; tests inject a stub (mirrors
     // `JiraIssueFlowService`'s `@Optional() adapter?` seam).
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlab?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlab ?? new GitlabClient();
   }
 
   /** Register a callback fired after every successful merge / close / draft toggle (no module cycle). */
@@ -149,7 +155,8 @@ export class ProjectPrService {
    */
   async listOpen(projectId: string): Promise<ProjectPr[]> {
     const project = await this.projects.get(projectId); // 404 before anything else
-    const link = await this.resolveGithubLink(project);
+    const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (link?.kind === "gitlab") return listOpenGitlabMrs(this.gitlab, link);
     if (!link) return [];
 
     const res = await this.fetchImpl(

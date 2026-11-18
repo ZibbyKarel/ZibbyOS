@@ -7,6 +7,7 @@ import type {
   MonitorEventKind,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
+import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
@@ -103,7 +104,9 @@ export class MonitorWatcherService
       if (!integration.enabled) continue;
       const adapters = this.registry.forIntegration(integration);
       if (adapters.length === 0) continue;
-      const creds = await this.credentials.read(integration.id);
+      const creds = needsStoredCredential(integration.kind)
+        ? await this.credentials.read(integration.id)
+        : NO_CREDENTIALS;
       if (!creds) continue;
       for (const adapter of adapters) {
         await this.trace.run({ traceId: randomUUID() }, async () => {
@@ -136,14 +139,18 @@ export class MonitorWatcherService
     creds: CredentialsInput,
     adapter: MonitorAdapter,
   ): Promise<string[]> {
-    if (integration.config.kind !== "github" || integration.config.repo) {
+    const { config } = integration;
+    if ((config.kind !== "github" && config.kind !== "gitlab") || config.repo) {
       return this.pollTarget(integration, creds, adapter);
     }
-    const targets = (await this.resolvedProjects?.githubRepoTargets(integration)) ?? new Map();
+    const targets =
+      (config.kind === "github"
+        ? await this.resolvedProjects?.githubRepoTargets(integration)
+        : await this.resolvedProjects?.gitlabRepoTargets(integration)) ?? new Map();
     const ingested: string[] = [];
     let failure: unknown;
     for (const [repo, projectIds] of targets) {
-      const scoped: Integration = { ...integration, config: { ...integration.config, repo } };
+      const scoped: Integration = { ...integration, config: { ...config, repo } };
       const target = {
         key: `${integration.id}--${repo.replace(/[^a-zA-Z0-9._-]/g, "-")}`,
         ...(projectIds[0] ? { projectId: projectIds[0] } : {}),

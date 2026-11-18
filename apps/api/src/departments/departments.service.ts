@@ -242,7 +242,7 @@ export class DepartmentsService {
    * watcher) sees every integration, comms (the outward voice) sees the
    * reply-enabled ones (`mandate.reply`, per-channel override over the default),
    * every other department sees none. `monitors` is the subset of that set that
-   * are GitHub integrations with a `ci` stream — there is no standalone monitor
+   * are GitHub/GitLab integrations with a `ci` stream — there is no standalone monitor
    * entity. Throws `DepartmentNotFoundError` for an unknown id, same as
    * {@link get}. Workflows are deliberately excluded — the roster tab's canvas
    * already sources those client-side.
@@ -262,7 +262,9 @@ export class DepartmentsService {
           ? integrations.filter((i) => mandate.channels[i.id]?.reply ?? mandate.defaults.reply)
           : [];
     const monitors = rosterIntegrations.filter(
-      (i) => i.config.kind === "github" && i.config.streams.includes("ci"),
+      (i) =>
+        (i.config.kind === "github" || i.config.kind === "gitlab") &&
+        i.config.streams.includes("ci"),
     );
     return {
       agents: ownedAgents.map((a) => ({ id: a.id, name: a.name })),

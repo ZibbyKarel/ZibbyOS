@@ -147,7 +147,9 @@ side effect only.
 Reuses the CI monitor's GitHub-REST posture (`Bearer` token, 429/403 →
 rate-limit error, injectable `fetchImpl` for tests).
 
-- `listOpen(projectId)` — resolves the project's **effective** (company-merged)
+- `listOpen(projectId)` — for a GitLab link lists open merge requests through `glab` instead
+  (`project-pr.gitlab.ts`: number = iid, url = web_url, author username, source branch, draft);
+  otherwise resolves the project's **effective** (company-merged)
   github integration + stored token via `ResolvedProjectService.resolveIntegrations`;
   returns `[]` (never an error) when there's no link/token — a missing
   integration reads as "nothing to show". A real GitHub failure still throws.
