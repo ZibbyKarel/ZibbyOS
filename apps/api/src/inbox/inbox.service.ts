@@ -470,7 +470,12 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     }
     for (const { project, ...link } of gitlabRepos.values()) {
       try {
-        prs.push(...(await listGitlabInboxPrs(this.gitlab, link, project)));
+        const notes: string[] = [];
+        prs.push(...(await listGitlabInboxPrs(this.gitlab, link, project, undefined, notes)));
+        for (const message of notes) {
+          if (!errors.some((e) => e.message === message))
+            errors.push({ projectId: project.id, source: "gitlab", message });
+        }
       } catch (error) {
         errors.push({
           projectId: project.id,

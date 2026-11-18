@@ -22,6 +22,8 @@ interface MrFixture {
   mr?: Partial<GitlabMr>;
   jobs?: GitlabJob[];
   approvals?: unknown;
+  /** The approvals call fails with this HTTP status. */
+  approvalsStatus?: number;
   reviewers?: unknown[];
   discussions?: GitlabDiscussion[];
 }
@@ -45,6 +47,11 @@ function fakeGlab(
     const m = /merge_requests\/(\d+)(\/approvals|\/reviewers|\/discussions)?/.exec(path);
     const f = m?.[1] ? fx[Number(m[1])] : undefined;
     if (m && f) {
+      if (m[2] === "/approvals" && f.approvalsStatus) {
+        throw Object.assign(new Error("x"), {
+          stderr: `glab: ${f.approvalsStatus} Error (HTTP ${f.approvalsStatus})`,
+        });
+      }
       if (m[2] === "/approvals") return out(f.approvals ?? { approved: false, approved_by: [] });
       if (m[2] === "/reviewers") return out(f.reviewers ?? []);
       if (m[2] === "/discussions") return out(f.discussions ?? []);
@@ -232,9 +239,49 @@ describe("listGitlabInboxPrs mapping", () => {
     expect(prs[4]).toMatchObject({ bucket: "mine" });
   });
 
-  it("an MR that fails to load is skipped, not thrown", async () => {
-    const prs = await run({ 1: {} }, { authored: [1, 2] });
-    expect(Object.keys(prs)).toEqual(["1"]);
+  it("a partial per-MR failure keeps the loaded MRs and reports a note", async () => {
+    const { client } = fakeGlab({ authored: [1, 2] }, { 1: {} });
+    const notes: string[] = [];
+    const prs = await listGitlabInboxPrs(client, link, project, undefined, notes);
+    expect(prs.map((p) => p.number)).toEqual([1]);
+    expect(notes).toEqual([expect.stringContaining("grp/sub/app: 1 merge request(s) failed")]);
+  });
+
+  it("every MR failing rejects, so the caller records a source error", async () => {
+    const { client } = fakeGlab({ authored: [1, 2] }, {});
+    await expect(listGitlabInboxPrs(client, link, project)).rejects.toThrow(/404/);
+  });
+
+  it("an approvals failure is not read as neutral: it rejects the MR load", async () => {
+    const { client } = fakeGlab({ authored: [1, 2] }, { 1: { approvalsStatus: 500 }, 2: {} });
+    const notes: string[] = [];
+    const prs = await listGitlabInboxPrs(client, link, project, undefined, notes);
+    expect(prs.map((p) => p.number)).toEqual([2]);
+    expect(notes[0]).toContain("500");
+  });
+
+  it("a 404 on approvals (endpoint not available) degrades to review none", async () => {
+    const prs = await run({ 1: { approvalsStatus: 404 } });
+    expect(prs[1]).toMatchObject({ review: "none" });
+  });
+
+  it("loads at most 4 MRs at once", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const inner = fakeGlab(
+      { authored: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+      Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, {}])),
+    ).exec;
+    const client = new GitlabClient(async (file, args, opts) => {
+      const isMr = /merge_requests\/\d+\?/.test(decodeURIComponent(args[1] ?? ""));
+      if (isMr) peak = Math.max(peak, ++inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      if (isMr) inFlight--;
+      return inner(file, args, opts);
+    });
+    const prs = await listGitlabInboxPrs(client, link, project);
+    expect(prs).toHaveLength(9);
+    expect(peak).toBeLessThanOrEqual(4);
   });
 
   it("job status table", () => {
@@ -277,6 +324,17 @@ describe("InboxService with a GitLab project", () => {
     const { prs, errors } = await build(client).listPrs();
     expect(errors).toEqual([]);
     expect(prs.map((p) => `${p.source}:${p.number}`)).toEqual(["gitlab:1"]);
+  });
+
+  it("MR loads failing after a good list surface a gitlab source error", async () => {
+    const { client } = fakeGlab({ authored: [1, 2] }, { 1: {} });
+    const { prs, errors } = await build(client).listPrs();
+    expect(prs.map((p) => p.number)).toEqual([1]);
+    expect(errors).toEqual([
+      { projectId: "app", source: "gitlab", message: expect.stringContaining("failed to load") },
+    ]);
+    const all = fakeGlab({ authored: [1] }, {});
+    expect((await build(all.client).listPrs()).errors[0]).toMatchObject({ source: "gitlab" });
   });
 
   it("a failing project becomes a gitlab source error", async () => {

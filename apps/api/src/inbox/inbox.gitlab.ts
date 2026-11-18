@@ -1,5 +1,5 @@
 import type { InboxPr, InboxPrCi, InboxPrReview, Project } from "@zibby/contracts";
-import type { GitlabClient } from "../git-host/gitlab-client";
+import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
 import { blockerOf, capDescription, ciDetails, ciState, sectionOf } from "./inbox.service";
 
 /** The GitLab project a link points at (host + full path). */
@@ -214,6 +214,40 @@ export function gitlabMyVerdict(
 
 type Bucket = Pick<InboxPr, "bucket" | "reviewReason">;
 
+/** At most this many MRs load at once (each costs 4-5 `glab` calls). */
+const LOAD_CONCURRENCY = 4;
+
+/** `Promise.allSettled` over `items` with a bounded number in flight. */
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const out = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      const item = items[i] as T;
+      out[i] = await fn(item).then(
+        (value) => ({ status: "fulfilled" as const, value }),
+        (reason: unknown) => ({ status: "rejected" as const, reason }),
+      );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/** Only an endpoint that legitimately may not exist (403/404, e.g. approvals on a tier without them) degrades; anything else rejects the MR load. */
+const unavailable =
+  <T>(fallback: T) =>
+  (error: unknown): T => {
+    if (error instanceof GitlabApiError && (error.status === 403 || error.status === 404)) {
+      return fallback;
+    }
+    throw error;
+  };
+
 const OPENED = "state=opened&per_page=100";
 
 async function listIids(client: GitlabClient, link: GitlabLink, query: string): Promise<number[]> {
@@ -235,6 +269,7 @@ export async function listGitlabInboxPrs(
   link: GitlabLink,
   project: Project,
   viewer?: string,
+  notes: string[] = [],
 ): Promise<InboxPr[]> {
   const me = link.username ?? viewer ?? (await readGitlabViewer(client, link.host));
   const [authored, assigned, requested] = await Promise.all([
@@ -250,9 +285,9 @@ export async function listGitlabInboxPrs(
   const load = async (iid: number, bucket: Bucket): Promise<InboxPr> => {
     const mr = await readGitlabMr(client, link, iid);
     const [approvals, reviewers, jobs, discussions] = await Promise.all([
-      readGitlabApprovals(client, link, iid).catch(() => null),
-      readGitlabReviewers(client, link, iid).catch(() => []),
-      readGitlabMrJobs(client, link, mr).catch(() => null),
+      readGitlabApprovals(client, link, iid).catch(unavailable(null)),
+      readGitlabReviewers(client, link, iid).catch(unavailable([])),
+      readGitlabMrJobs(client, link, mr).catch(unavailable(null)),
       bucket.bucket === "mine"
         ? readGitlabDiscussions(client, link, iid).catch(() => null)
         : Promise.resolve(null),
@@ -307,9 +342,23 @@ export async function listGitlabInboxPrs(
     };
   };
 
-  return (await Promise.allSettled([...buckets].map(([iid, bucket]) => load(iid, bucket)))).flatMap(
-    (r) => (r.status === "fulfilled" ? [r.value] : []),
+  const results = await mapLimit([...buckets], LOAD_CONCURRENCY, ([iid, bucket]) =>
+    load(iid, bucket),
   );
+  const prs: InboxPr[] = [];
+  const failures: unknown[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") prs.push(r.value);
+    else failures.push(r.reason);
+  }
+  // Every MR failing is a broken project (auth, network): throw so the caller records a source error.
+  if (failures.length > 0 && prs.length === 0) throw failures[0];
+  // Partial failure keeps the MRs that loaded and reports the rest (like GitHub's `notes`).
+  if (failures.length > 0) {
+    const reason = (failures[0] as Error).message || "unknown error";
+    notes.push(`${link.repo}: ${failures.length} merge request(s) failed to load (${reason})`);
+  }
+  return prs;
 }
 
 /** Open issues assigned to the operator in one GitLab project (first 100). */
