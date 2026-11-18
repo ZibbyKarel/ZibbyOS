@@ -49,7 +49,14 @@ without a project get no note (the prompt is byte-identical).
 - The default `merge` update of a branch always goes through an agent run; the API rebase
   (`PUT …/rebase`) is used only for an explicit `rebase` on a conflict-free MR.
 - The `rebase` merge method is refused on GitLab (no merge-time equivalent).
-- `REQUEST_CHANGES` = a summary note plus `unapprove` (no stable REST for "changes requested").
+- `REQUEST_CHANGES` = a summary note plus `unapprove` (no stable REST for "changes requested"); it
+  shows as `changes-requested` only if GitLab itself reports that reviewer state. An empty one is
+  refused (422).
+- Re-requesting a review from someone who already is a reviewer is not possible through REST: it
+  is reported as "already a reviewer, not re-requested", never as done.
+- No team / CODEOWNERS-group review bucket: group owners are shown as teams of the people already
+  on the MR, but there is no "requested from a group" state.
+- People who only commented (never added as reviewer, never approved) are not listed as reviewers.
 - No stacked-MR detection; no stacked-draft following.
 - Threads have no `isOutdated` / `diffHunk` (GitLab exposes neither on a discussion).
 - Review posting is not atomic: a mid-way failure leaves earlier discussions live and a retry can
@@ -58,6 +65,21 @@ without a project get no note (the prompt is byte-identical).
 - Chat turns and the direct spawners that do not use grounding (`phase-advisor`, orchestrator
   agent, slack digest, dictation) get no GitLab host note; only agent runs and workflow stages do.
 - The legacy parked-approval PR path still calls `gh`.
-- Gate wrapper gap shared with `gh`: `rtk`, `env`, `sudo`, `command` and full-path invocations
-  (`/opt/homebrew/bin/glab`) are not classified.
+- Gate wrapper / obfuscation gap shared with `gh`: `rtk`, `sudo`, `command`, `xargs`, `bash -c`,
+  `sh -c`, `eval`, a `VAR=…` prefix, `env`, `time`, `nohup`, `exec`, `timeout`, adjacent-quote
+  splitting (`gl""ab`), full-path invocations (`/opt/homebrew/bin/glab`) and shell aliases are not
+  classified.
+- A GraphQL merge mutation through `glab api graphql` is `ask` (an API write), not `deny` — the
+  same as `gh api graphql`.
+- A push option written by hand into `.git/config` (`push.pushOption`) is not seen by the gate;
+  only the command line (`-o`, `--push-option`, `-c`, `--config-env`, `git config …`) is.
+- `glab mr create --fill` / `--push` pushes the branch but is classified as opening an MR (notify
+  tier), not as a `git push`.
+- An older released ZibbyOS build skips `gitlab` integration rows and reads a `graduations.json`
+  that contains a `kind: "gitlab"` row as empty (and may rewrite it). Run only the updated app
+  against data that has GitLab integrations.
+- Ids derived from a repo path (e.g. the CI monitor alert id) flatten `/` to `-`, so `a/b-c` and
+  `a-b/c` collide.
+- A `host:port` integration host never matches a git remote (the remote's host carries no port),
+  so a company-owned integration on such a host needs each project's `repo` set explicitly.
 - Recipes outside the repo still say `gh` (hence the injected note).
