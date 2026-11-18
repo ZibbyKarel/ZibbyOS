@@ -1,4 +1,10 @@
-import type { InboxPrReviewer, InboxPrReviewers, InboxPrThread } from "@zibby/contracts";
+import type {
+  InboxPrReviewer,
+  InboxPrReviewers,
+  InboxPrThread,
+  SubmitInboxPrReviewInput,
+  SubmitInboxPrReviewResult,
+} from "@zibby/contracts";
 import { prWebUrl } from "../git-host/git-host-url";
 import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
 import {
@@ -8,6 +14,7 @@ import {
   readGitlabGroupMembers,
 } from "./code-owners.gitlab";
 import { readGitlabMrDiffs } from "./inbox-pr-diff.gitlab";
+import { applyGitlabVerdict, postGitlabNote } from "./inbox-review.gitlab";
 import {
   type GitlabApprovals,
   type GitlabLink,
@@ -182,4 +189,48 @@ export async function requestGitlabReview(
     method: "PUT",
     body: { reviewer_ids: [...new Set([...ids, id])] },
   });
+}
+
+const discussionPath = (client: GitlabClient, link: GitlabLink, iid: number, id: string) =>
+  `${client.projectPath(link.repo)}/merge_requests/${iid}/discussions/${encodeURIComponent(id)}`;
+
+/** `PUT discussions/:id?resolved=true` (idempotent). */
+export async function resolveGitlabDiscussion(
+  client: GitlabClient,
+  link: GitlabLink,
+  iid: number,
+  id: string,
+): Promise<void> {
+  await client.api(link.host, `${discussionPath(client, link, iid, id)}?resolved=true`, {
+    method: "PUT",
+  });
+}
+
+/** `POST discussions/:id/notes`. */
+export async function replyGitlabDiscussion(
+  client: GitlabClient,
+  link: GitlabLink,
+  iid: number,
+  id: string,
+  body: string,
+): Promise<void> {
+  await client.api(link.host, `${discussionPath(client, link, iid, id)}/notes`, {
+    method: "POST",
+    body: { body },
+  });
+}
+
+/**
+ * The operator's own review: the body (when given) as one MR note, then the verdict. The
+ * contract's `id` is GitHub's review id; here it is the note id, or the MR number for a bare approve.
+ */
+export async function submitGitlabReview(
+  client: GitlabClient,
+  link: GitlabLink,
+  iid: number,
+  input: SubmitInboxPrReviewInput,
+): Promise<SubmitInboxPrReviewResult> {
+  const noteId = input.body ? await postGitlabNote(client, link, iid, input.body) : undefined;
+  await applyGitlabVerdict(client, link, iid, input.event);
+  return { id: noteId ?? iid };
 }

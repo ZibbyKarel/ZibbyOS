@@ -382,7 +382,7 @@ export const SubmitInboxPrReviewInputSchema = z
     path: ["body"],
   });
 export type SubmitInboxPrReviewInput = z.infer<typeof SubmitInboxPrReviewInputSchema>;
-/** GitHub's review id. */
+/** GitHub's review id; on GitLab the note id (the MR number for a bare approve). */
 export const SubmitInboxPrReviewResultSchema = z.object({ id: z.number().int() });
 export type SubmitInboxPrReviewResult = z.infer<typeof SubmitInboxPrReviewResultSchema>;
 

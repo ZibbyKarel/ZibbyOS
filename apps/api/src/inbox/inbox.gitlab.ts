@@ -28,6 +28,7 @@ export interface GitlabMr {
   has_conflicts?: boolean;
   diverged_commits_count?: number | null;
   head_pipeline?: { id?: number; status?: string } | null;
+  diff_refs?: { base_sha?: string; start_sha?: string; head_sha?: string } | null;
 }
 
 export interface GitlabJob {
@@ -52,7 +53,7 @@ export interface GitlabNote {
   system?: boolean;
   body?: string;
   created_at?: string;
-  author?: { username?: string; avatar_url?: string | null } | null;
+  author?: { username?: string; avatar_url?: string | null; bot?: boolean } | null;
   resolvable?: boolean;
   resolved?: boolean;
   /** Present on diff notes (inline code comments). */

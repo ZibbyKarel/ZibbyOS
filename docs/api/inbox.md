@@ -29,7 +29,7 @@ squash-and-merge through the projects merge route. UI spec: `docs/plans/inbox-ui
 | ------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/roadmap/items`                                        | —                                                                                                                                  | `InboxItemsResponse`                                                                                                                                                  |
 | GET    | `/api/inbox/prs`                                            | —                                                                                                                                  | `InboxPrsResponse`                                                                                                                                                    |
-| POST   | `/api/inbox/prs/review`                                     | `{ projectId, repo, number, title?, level? }` (strict; `level` = `quick` \| `thorough` \| `tested` \| `browser`, absent = `quick`) | 201 `{ taskId }`; 404 project; 422 no GitHub link / repo not the project's                                                                                            |
+| POST   | `/api/inbox/prs/review`                                     | `{ projectId, repo, number, title?, level? }` (strict; `level` = `quick` \| `thorough` \| `tested` \| `browser`, absent = `quick`) | 201 `{ taskId }`; 404 project; 422 no GitHub/GitLab link / repo not the project's; 502 GitLab read failed                                                             |
 | POST   | `/api/inbox/prs/rebase`                                     | `{ projectId, repo, number, title?, method? }` (strict; `method` merge (default) / rebase)                                         | 201 `{ updated: true }` or `{ taskId }`; 404 project; 422 no GitHub link / not the project's repo / fork / closed / head is base or default                           |
 | POST   | `/api/inbox/prs/address-comments`                           | `{ projectId, repo, number, title? }` (strict; same body as rebase)                                                                | 201 `{ taskId }`; 404 project; 422 no GitHub link / foreign repo / fork / closed / head is base or default / run in flight                                            |
 | POST   | `/api/inbox/prs/fix-ci`                                     | `{ projectId, repo, number, title? }` (strict; same body as rebase)                                                                | 201 `{ taskId }`; 404 project; 422 no GitHub link / foreign repo / fork / closed / head is base or default / run in flight                                            |
@@ -189,7 +189,9 @@ PR url is derived from repo + number, never taken from the client. It then:
    it into `zibby-pr-review.md` and has `approval: ask`. `trustedProjectId = projectId`, title
    `Code review[ (<level>)]: <repo>#<n> <title>`. The text tells the agents to read the PR (`gh pr view` /
    `gh pr diff --repo`) and **not** post to GitHub, commit or push. The PR title is
-   quoted as untrusted data.
+   quoted as untrusted data. For a GitLab project the commands come from `host-cli.ts`
+   (`glab mr view|diff|checkout … -R <host>/<path>`; the GitHub strings are unchanged) and the
+   prohibition names `glab mr note`, `glab mr approve`, `glab mr merge` and any mutating `glab api`.
 2. Stamps `ScheduledTask.prReview = { repo, number, url, state: "running", headSha? }`. `headSha`
    is the PR head read from `GET /repos/{repo}/pulls/{n}` right before the task is created; the
    brief tells every phase to review exactly that commit (`git checkout --detach <sha>`) and the
@@ -204,7 +206,7 @@ and the operator's identity from the project token (`GET /user` login + `GET /us
 `@<my login>` or `@<org>/<team>` of a team I am in (email owners never count; a file no rule
 matches is out of scope; a renamed file is in scope when its old or new path is). Then:
 
-GitLab scope (`CodeOwnersService.reviewScopeGitlab`, parsing in `code-owners.gitlab.ts`; not yet called by `start`): the
+GitLab scope (`CodeOwnersService.reviewScopeGitlab`, parsing in `code-owners.gitlab.ts`; called by `start` for a GitLab project): the
 file is read at the MR's target branch from `CODEOWNERS`, `docs/CODEOWNERS`, `.gitlab/CODEOWNERS` (a 404 on all = no
 CODEOWNERS, not an error; no ref = the project's default branch). GitLab sections are supported: `[Section]`,
 `^[Optional]`, `[Section][2]`, same-name sections merge, a section's default owners (`[Docs] @alice`) apply to entries
@@ -257,6 +259,17 @@ same path (gate → artifact → `pr-review` approval → this runner) and repla
 entirely; a blank text is allowed only with `APPROVE` and posts `{ event: "APPROVE" }` with no
 body — "approve without comment".
 
+**GitLab project** (`inbox-review.gitlab.ts`): `start` pins `sha` and `target_branch` from `GET merge_requests/:iid`
+(a failed read rejects: 404 -> 404, 401/403 -> 422, else 502 — no unpinned fallback), takes the changed files from
+`merge_requests/:iid/diffs` and scopes them with `reviewScopeGitlab` (fail-open with a reason, as above). The repo
+mismatch guard (`ReviewRepoMismatchError`) applies. Posting (`post`): every inline finding is its own discussion
+(`POST discussions`) with `position { position_type: "text", base_sha, start_sha, head_sha (from the MR's diff_refs),
+new_path, old_path, new_line }` plus `old_line` for an unchanged line; a finding whose line is not on the new side of the
+diff, a head that moved since the review started, or a 400 on the position folds into the summary note (the review `note`
+says why). The summary is one `POST notes`. `APPROVE` -> `POST approve` pinned to the reviewed `sha`; `REQUEST_CHANGES` -> the
+note, plus `POST unapprove` when the operator had approved (404 ignored); `COMMENT` -> notes only. Nothing else is
+swallowed: a failure marks the review `failed` with what was already posted (the calls are not atomic).
+
 **Inline comments (todo-22).** `zibby-pr-review.md` is one readable document the operator
 approves as is: a short summary on top, then one `### <path>:<line> (Critical|Important|Minor)`
 block (or `<path>:<start>-<end>`) per finding. `parsePrReviewDoc` (`pr-review-doc.ts`) splits
@@ -290,7 +303,7 @@ a patch GitLab withheld (`too_large`/`collapsed`) sets `truncated: true`. Same 5
 
 ## Reviewers (`GET /api/inbox/prs/:projectId/:number/reviewers`)
 
-todo-5. One GraphQL read of the PR (`reviewRequests`, the newest 100 `reviews` with `onBehalfOf` + comment count, first 100 `files`, base-branch CODEOWNERS from `.github/`, root or `docs/`) plus a best-effort `organization.teams(userLogins:…)` read (needs `read:org`; on failure people nest only by `onBehalfOf`). Without `read:org` GitHub nulls the team fields of the main read with `INSUFFICIENT_SCOPES` errors — that partial data is kept, so the tree degrades to people + CODEOWNER teams instead of failing. Teams = requested ∪ reviewed-on-behalf-of ∪ `@<owner>/<slug>` CODEOWNERS of a changed file (last matching rule wins); `codeOwner` marks the latter. A person sits under every listed team they belong to; others are top-level `users`. `state`: `pending` while (re-)requested, else the latest APPROVED / CHANGES_REQUESTED (DISMISSED clears it), else `commented`; `commented` = any COMMENTED review or review comment. The PR author's own reviews are skipped. GitHub only — a GitLab project has no GitHub link → 422.
+todo-5. One GraphQL read of the PR (`reviewRequests`, the newest 100 `reviews` with `onBehalfOf` + comment count, first 100 `files`, base-branch CODEOWNERS from `.github/`, root or `docs/`) plus a best-effort `organization.teams(userLogins:…)` read (needs `read:org`; on failure people nest only by `onBehalfOf`). Without `read:org` GitHub nulls the team fields of the main read with `INSUFFICIENT_SCOPES` errors — that partial data is kept, so the tree degrades to people + CODEOWNER teams instead of failing. Teams = requested ∪ reviewed-on-behalf-of ∪ `@<owner>/<slug>` CODEOWNERS of a changed file (last matching rule wins); `codeOwner` marks the latter. A person sits under every listed team they belong to; others are top-level `users`. `state`: `pending` while (re-)requested, else the latest APPROVED / CHANGES_REQUESTED (DISMISSED clears it), else `commented`; `commented` = any COMMENTED review or review comment. The PR author's own reviews are skipped. A GitLab project: see below.
 
 `POST …/reviewers/request` is the operator's click on the refresh icon next to a changes-requested reviewer: `POST /repos/{repo}/pulls/{n}/requested_reviewers` `{ reviewers: [login] }` behind `OperatorTokenGuard` (same tier as replying to a thread — the operator acting, no approval), records a `channel-reply` activity and drops the PR cache. If the re-read after a successful request fails, it returns just that person as `pending` (201) rather than a 502.
 
@@ -315,7 +328,15 @@ inbound data, rendered escaped.
 and system notes are not threads). `id` = discussion id (40 hex), `isResolved` = every resolvable note resolved,
 `path`/`line` from the first note's `position` (`new_path`/`new_line`, else `old_*`; `startLine` from `line_range`),
 `url` = `<mr url>#note_<first note id>`. `isOutdated` is always false and `diffHunk` empty (GitLab exposes neither on a
-discussion). Reply / resolve / submit-review are not wired for GitLab yet.
+discussion).
+
+**GitLab reply / resolve / submit review** (`inbox-pr-threads.gitlab.ts`): reply checks the discussion id against the
+MR's threads first (not one of them -> 422), then `PUT discussions/:id?resolved=true` when `resolve` is set and, after it,
+`POST discussions/:id/notes` when `body` is set (same resolve-first order as GitHub). Submit review posts the body (if any)
+as one MR note, then the verdict: `APPROVE` -> `POST merge_requests/:iid/approve`; `REQUEST_CHANGES` -> the note, plus
+`POST …/unapprove` when the operator had approved (a 404 there is ignored); `COMMENT` -> the note only. The result `id` is
+the note id (the MR number for a bare approve). A failed read or write is never swallowed: GitLab 404 -> 404,
+401/403/422 -> 422, anything else 502.
 
 `POST …/threads/:threadId/reply` is the operator's own reply typed in the PR detail
 (operator token required, no approval — like clicking "Comment" on GitHub; ZIBBY never
@@ -509,6 +530,16 @@ nothing and records `pr-review-skipped` (summary `auto review skipped <repo>#<n>
 `GET /api/inbox/prs` rows carry `headSha` (40-hex, from the pull fetch; absent when GitHub did not
 report a valid one) and `codeReview.auto` / `addressComments.auto` (`true` when the latest task was
 auto-started).
+
+**GitLab project** (`inbox-address-comments.gitlab.ts`): `start` reads the MR and the project's default branch
+(`readGitlabPushableMr`; unreadable, closed, fork source, non-plain ref, source = target/default branch -> 422) and the
+brief uses `glab` (read the discussions with a GET `glab api`, `thread: <id>` = the 40-hex discussion id; every write —
+`glab mr note`, `glab mr approve`, `glab mr merge`, mutating `glab api` — is forbidden in every phase). `postFollowUp`
+(`gitlabFollowUp`) replies with `POST discussions/:id/notes` on discussions GitLab reports unresolved right now, applies the
+description with `PUT merge_requests/:iid` `{ title, description }`, resolves with `PUT discussions/:id?resolved=true` and
+re-requests review by setting `reviewer_ids` (existing + the commenter / requester, `requestGitlabReview`). Failures are
+returned as `repliesNote` / `descriptionNote` / `followUpNote`, never dropped. The task-schema thread id accepts a
+GitLab discussion id (40 hex) next to a GitHub `PRRT_` node id.
 
 ## Fix CI (`POST /api/inbox/prs/fix-ci`)
 

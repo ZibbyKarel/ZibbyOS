@@ -74,6 +74,8 @@ export const inboxContract = c.router(
         404: ErrorSchema,
         // 422: the project has no GitHub link, or `repo` is not the project's repo.
         422: ErrorSchema,
+        // 502: GitLab refused or failed the merge request read (GitLab projects only).
+        502: ErrorSchema,
       },
       summary:
         "Start a code review task for one PR (level quick = code-reviewer agent, thorough/tested = pr-review-* workflow); the finished review is parked as a Tier-3 approval to post it as a COMMENT",
@@ -157,7 +159,7 @@ export const inboxContract = c.router(
       pathParams: z.object({
         projectId: z.string().min(1),
         number: z.coerce.number().int().positive(),
-        threadId: z.string().regex(/^PRRT_[\w-]+$/),
+        threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
       }),
       body: ReplyInboxPrThreadInputSchema,
       responses: { 200: InboxPrThreadSchema, 404: ErrorSchema, 422: ErrorSchema, 502: ErrorSchema },

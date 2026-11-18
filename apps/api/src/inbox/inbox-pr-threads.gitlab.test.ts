@@ -346,4 +346,110 @@ describe("InboxPrThreadsService on a GitLab project", () => {
     const { client } = fakeGlab([[/merge_requests\/3/, { status: 500 }]]);
     await expect(make(client).service.reviewers("app", 3)).rejects.toMatchObject({ status: 500 });
   });
+
+  describe("reply, resolve and submit review", () => {
+    const discussions = [
+      [
+        /merge_requests\/3\/discussions\?/,
+        [{ id: D1, notes: [note({ position: { new_path: "a.ts", new_line: 1 } })] }],
+      ],
+    ] as [RegExp, unknown][];
+    const writes = (exec: ReturnType<typeof fakeGlab>["exec"]) =>
+      exec.mock.calls
+        .filter(([, args]) => args.includes("-X"))
+        .map(([, args, opts]) => ({
+          method: args[args.indexOf("-X") + 1],
+          path: decodeURIComponent(args[1] ?? ""),
+          ...(opts.input ? { body: JSON.parse(opts.input) as unknown } : {}),
+        }));
+    const replyRoutes = (): [RegExp, unknown][] => [
+      ...discussions,
+      [/discussions\/[0-9a-f]{40}\/notes$/, { id: 9 }],
+      [/discussions\/[0-9a-f]{40}\?resolved=true$/, {}],
+    ];
+
+    it("reply resolves first, then posts the note, drops the cache and records activity", async () => {
+      const { client, exec } = fakeGlab(replyRoutes());
+      const { service, dropPrsCache, record } = make(client);
+      const thread = await service.reply("app", 3, D1, { body: "Done.", resolve: true });
+      expect(thread.id).toBe(D1);
+      expect(writes(exec)).toEqual([
+        {
+          method: "PUT",
+          path: `projects/grp/app/merge_requests/3/discussions/${D1}?resolved=true`,
+        },
+        {
+          method: "POST",
+          path: `projects/grp/app/merge_requests/3/discussions/${D1}/notes`,
+          body: { body: "Done." },
+        },
+      ]);
+      expect(dropPrsCache).toHaveBeenCalled();
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: "replied on grp/app!3",
+          refs: { projectId: "app", itemId: D1 },
+        }),
+      );
+    });
+
+    it("reply refuses a discussion that is not a thread of this MR, without writing", async () => {
+      const { client, exec } = fakeGlab(replyRoutes());
+      await expect(make(client).service.reply("app", 3, D2, { body: "x" })).rejects.toThrow(
+        /is not on grp\/app#3/,
+      );
+      expect(writes(exec)).toEqual([]);
+    });
+
+    it("a failed resolve or reply propagates (the reply is not posted after a failed resolve)", async () => {
+      const resolveFails = fakeGlab([[/\?resolved=true$/, { status: 500 }], ...replyRoutes()]);
+      await expect(
+        make(resolveFails.client).service.reply("app", 3, D1, { body: "x", resolve: true }),
+      ).rejects.toMatchObject({ status: 500 });
+      expect(writes(resolveFails.exec).map((w) => w.method)).toEqual(["PUT"]);
+
+      const replyFails = fakeGlab([[/\/notes$/, { status: 403 }], ...replyRoutes()]);
+      await expect(
+        make(replyFails.client).service.reply("app", 3, D1, { body: "x" }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+
+    const reviewRoutes = (): [RegExp, unknown][] => [
+      [/merge_requests\/3\/notes$/, { id: 77 }],
+      [/merge_requests\/3\/approve$/, {}],
+      [/merge_requests\/3\/unapprove$/, {}],
+      [/merge_requests\/3\/approvals$/, { approved_by: [{ user: { username: "me" } }] }],
+      [/^user$/, { username: "me" }],
+    ];
+
+    it("submitReview: note then verdict; the id is the note id", async () => {
+      const { client, exec } = fakeGlab(reviewRoutes());
+      const { service, dropPrsCache } = make(client);
+      await expect(
+        service.submitReview("app", 3, { event: "REQUEST_CHANGES", body: "Needs work." }),
+      ).resolves.toEqual({ id: 77 });
+      expect(writes(exec).map((w) => [w.method, w.path.split("/").pop()])).toEqual([
+        ["POST", "notes"],
+        ["POST", "unapprove"],
+      ]);
+      expect(dropPrsCache).toHaveBeenCalled();
+    });
+
+    it("submitReview: a bare approve posts no note and returns the MR number", async () => {
+      const { client, exec } = fakeGlab(reviewRoutes());
+      await expect(
+        make(client).service.submitReview("app", 3, { event: "APPROVE" }),
+      ).resolves.toEqual({
+        id: 3,
+      });
+      expect(writes(exec).map((w) => w.path.split("/").pop())).toEqual(["approve"]);
+    });
+
+    it("submitReview: GitLab's refusal propagates", async () => {
+      const { client } = fakeGlab([[/approve$/, { status: 401 }], ...reviewRoutes()]);
+      await expect(
+        make(client).service.submitReview("app", 3, { event: "APPROVE" }),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+  });
 });

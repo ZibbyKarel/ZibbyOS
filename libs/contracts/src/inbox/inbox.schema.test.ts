@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PrThreadReplySchema } from "../tasks/task.schema";
+import {
+  OperatorThreadReplySchema,
+  PrThreadOutcomeSchema,
+  PrThreadReplySchema,
+} from "../tasks/task.schema";
 import { inboxContract } from "./inbox.contract";
 import {
   AddressInboxPrCommentsInputSchema,
@@ -118,6 +122,18 @@ describe("address review comments (PR inbox redesign)", () => {
     const ok = { threadId: "PRRT_kwDOabc", body: "Good catch, fixed in abc1234." };
     expect(PrThreadReplySchema.safeParse(ok).success).toBe(true);
     expect(PrThreadReplySchema.safeParse({ ...ok, threadId: "IC_123" }).success).toBe(false);
+    // A GitLab discussion id (40 hex) is a thread id too — in the reply, the operator reply and the outcome.
+    const discussion = "a".repeat(40);
+    expect(PrThreadReplySchema.safeParse({ ...ok, threadId: discussion }).success).toBe(true);
+    expect(
+      OperatorThreadReplySchema.safeParse({ threadId: discussion, body: "x", resolve: true })
+        .success,
+    ).toBe(true);
+    expect(
+      PrThreadOutcomeSchema.safeParse({ threadId: discussion, kind: "done", note: "abc1234" })
+        .success,
+    ).toBe(true);
+    expect(PrThreadReplySchema.safeParse({ ...ok, threadId: "a".repeat(39) }).success).toBe(false);
     expect(PrThreadReplySchema.safeParse({ ...ok, body: "  " }).success).toBe(true);
     expect(PrThreadReplySchema.safeParse({ ...ok, body: "x".repeat(501) }).success).toBe(false);
   });

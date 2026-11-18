@@ -77,6 +77,14 @@ export class InboxController {
           if (error instanceof NoGithubLinkError || error instanceof ReviewRepoMismatchError) {
             return { status: 422 as const, body: { message: error.message } };
           }
+          if (error instanceof GitlabApiError) {
+            const { status } = error;
+            if (status === 404) return { status: 404 as const, body: { message: error.message } };
+            if (status === 401 || status === 403) {
+              return { status: 422 as const, body: { message: error.message } };
+            }
+            return { status: 502 as const, body: { message: error.message } };
+          }
           throw error;
         }
       },
