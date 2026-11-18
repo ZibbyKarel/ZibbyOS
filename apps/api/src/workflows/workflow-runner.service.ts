@@ -74,7 +74,7 @@ import { AiProvidersStore } from "../ai-providers/ai-providers.store";
 import { ProjectSecretsStore } from "../projects/project-secrets.store";
 import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
-import type { ResolvedProjectService } from "../projects/resolved-project.service";
+import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { writeFileAtomic } from "../shared/file-storage/file-utils";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { PR_REVIEW_ARTIFACT, suggestReviewEvent } from "../tasks/task-output.service";

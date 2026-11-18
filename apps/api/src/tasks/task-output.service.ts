@@ -27,7 +27,7 @@ import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { DuplicateNoteError, VaultService } from "../memory/vault.service";
 import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
-import type { ResolvedProjectService } from "../projects/resolved-project.service";
+import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
 import { WorkspaceService } from "../workspace/workspace.service";
