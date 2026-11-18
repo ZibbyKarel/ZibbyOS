@@ -204,6 +204,14 @@ and the operator's identity from the project token (`GET /user` login + `GET /us
 `@<my login>` or `@<org>/<team>` of a team I am in (email owners never count; a file no rule
 matches is out of scope; a renamed file is in scope when its old or new path is). Then:
 
+GitLab scope (`CodeOwnersService.reviewScopeGitlab`, parsing in `code-owners.gitlab.ts`; not yet called by `start`): the
+file is read at the MR's target branch from `CODEOWNERS`, `docs/CODEOWNERS`, `.gitlab/CODEOWNERS` (a 404 on all = no
+CODEOWNERS, not an error; no ref = the project's default branch). GitLab sections are supported: `[Section]`,
+`^[Optional]`, `[Section][2]`, same-name sections merge, a section's default owners (`[Docs] @alice`) apply to entries
+that list none; inside a section the last match wins and owners of all sections add up. `@group/sub` owners expand
+through `groups/:id/members/all`; the operator is the integration `username`, else `glab api user`. A bare `@name` is a
+user (a top-level group owner reads as one). Fail-open as above.
+
 - no CODEOWNERS, every file in scope, or any lookup failure (e.g. `/user/teams` 403 without
   `read:org`) → the whole PR is reviewed (fail open), as before. Same when CODEOWNERS names
   `@<org>/…` teams but `/user/teams` shows none in the repo's org (a token not authorized for a
@@ -265,7 +273,7 @@ the diff), the review is retried once with every comment folded into the body
 ## PR diff (`GET /api/inbox/prs/:projectId/:number/diff`)
 
 Read-only (Tier 1). `number` is a positive integer; the repo is derived from the
-project's GitHub link, never taken from the client. Fetches
+project's GitHub link, never taken from the client (a GitLab project: see below). Fetches
 `GET /repos/{repo}/pulls/{n}` with `Accept: application/vnd.github.diff` using the
 project's resolved token and returns `{ diff, truncated }`. GitHub `406` (diff too
 large for GitHub) → `{ diff: "", truncated: true }`. A diff over 500,000 chars
@@ -275,11 +283,26 @@ the cap and returned with `truncated: true` (the capping is the shared `capUnifi
 `GithubDiffError` carrying the upstream status): 404 unknown project or GitHub 404, 422 project has no
 GitHub link or GitHub 401/403, 502 any other GitHub failure.
 
+**GitLab project** (`inbox-pr-diff.gitlab.ts`): `merge_requests/:iid/raw_diffs`; only a 404 there (GitLab older than 16.2)
+falls back to composing `git diff` text from `merge_requests/:iid/diffs` (header, mode/rename lines, `---`/`+++`, hunks);
+a patch GitLab withheld (`too_large`/`collapsed`) sets `truncated: true`. Same 500,000-char cap. Other failures: a
+`GitlabApiError` maps 404 -> 404, 401/403 -> 422, anything else -> 502.
+
 ## Reviewers (`GET /api/inbox/prs/:projectId/:number/reviewers`)
 
 todo-5. One GraphQL read of the PR (`reviewRequests`, the newest 100 `reviews` with `onBehalfOf` + comment count, first 100 `files`, base-branch CODEOWNERS from `.github/`, root or `docs/`) plus a best-effort `organization.teams(userLogins:…)` read (needs `read:org`; on failure people nest only by `onBehalfOf`). Without `read:org` GitHub nulls the team fields of the main read with `INSUFFICIENT_SCOPES` errors — that partial data is kept, so the tree degrades to people + CODEOWNER teams instead of failing. Teams = requested ∪ reviewed-on-behalf-of ∪ `@<owner>/<slug>` CODEOWNERS of a changed file (last matching rule wins); `codeOwner` marks the latter. A person sits under every listed team they belong to; others are top-level `users`. `state`: `pending` while (re-)requested, else the latest APPROVED / CHANGES_REQUESTED (DISMISSED clears it), else `commented`; `commented` = any COMMENTED review or review comment. The PR author's own reviews are skipped. GitHub only — a GitLab project has no GitHub link → 422.
 
 `POST …/reviewers/request` is the operator's click on the refresh icon next to a changes-requested reviewer: `POST /repos/{repo}/pulls/{n}/requested_reviewers` `{ reviewers: [login] }` behind `OperatorTokenGuard` (same tier as replying to a thread — the operator acting, no approval), records a `channel-reply` activity and drops the PR cache. If the re-read after a successful request fails, it returns just that person as `pending` (201) rather than a 502.
+
+**GitLab project** (`inbox-pr-threads.gitlab.ts`): `users` = the MR's reviewers (`merge_requests/:iid/reviewers`;
+`approved` / `requested_changes` map to `approved` / `changesRequested`, `unreviewed` / `review_started` to `pending`) plus
+anyone in `approvals.approved_by`, the author excluded; `commented` = a non-system note in the MR's discussions. `teams` =
+the `@group/sub` CODEOWNERS owners of the changed files (`codeOwner: true`, never `requested`), with the reviewers who
+are members (`groups/:id/members/all`; an inaccessible group has no members). A failed read rejects (502); only 403/404
+on `approvals` or a group's members degrade. `gitlabReviewerCandidates` lists who could be asked: project members
+(`members/all`) with access level >= 30, active, minus the author, CODEOWNERS first (not exposed by an endpoint yet).
+`POST …/reviewers/request` resolves `login` through `users?username=` (exact match; unknown -> 422) and PUTs
+`merge_requests/:iid` `reviewer_ids` = the current reviewers' ids + the new one (existing reviewers are preserved).
 
 ## Review threads (`GET /api/inbox/prs/:projectId/:number/threads`)
 
@@ -289,6 +312,12 @@ Each thread is `{ id, isResolved, isOutdated, path, line, startLine, diffHunk, u
 `diffHunk` is the first comment's hunk (it ends at the commented line), a comment is
 `{ id, author: { login, avatarUrl } | null, createdAt, body }`. Comment bodies are
 inbound data, rendered escaped.
+
+**GitLab project** (`gitlabThreads`): the resolvable discussions of `merge_requests/:iid/discussions` (plain comments
+and system notes are not threads). `id` = discussion id (40 hex), `isResolved` = every resolvable note resolved,
+`path`/`line` from the first note's `position` (`new_path`/`new_line`, else `old_*`; `startLine` from `line_range`),
+`url` = `<mr url>#note_<first note id>`. `isOutdated` is always false and `diffHunk` empty (GitLab exposes neither on a
+discussion). Reply / resolve / submit-review are not wired for GitLab yet.
 
 `POST …/threads/:threadId/reply` is the operator's own reply typed in the PR detail
 (operator token required, no approval — like clicking "Comment" on GitHub; ZIBBY never

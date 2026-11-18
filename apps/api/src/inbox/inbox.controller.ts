@@ -1,6 +1,7 @@
 import { Controller, UseGuards } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { inboxContract } from "@zibby/contracts";
+import { GitlabApiError } from "../git-host/gitlab-client";
 import { OperatorTokenGuard } from "../approvals/operator-token.guard";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { InboxAddressCommentsService } from "./inbox-address-comments.service";
@@ -151,6 +152,14 @@ export class InboxController {
             }
             return { status: 502 as const, body: { message: error.message } };
           }
+          if (error instanceof GitlabApiError) {
+            const { status } = error;
+            if (status === 404) return { status: 404 as const, body: { message: error.message } };
+            if (status === 401 || status === 403) {
+              return { status: 422 as const, body: { message: error.message } };
+            }
+            return { status: 502 as const, body: { message: error.message } };
+          }
           throw error;
         }
       },
@@ -222,6 +231,15 @@ function mapThreadsError(error: unknown) {
     const { status } = error;
     if (status === 404) return { status: 404 as const, body: { message: error.message } };
     // 422 = GitHub's validation refusal (e.g. approving your own PR)
+    if (status === 401 || status === 403 || status === 422) {
+      return { status: 422 as const, body: { message: error.message } };
+    }
+    return { status: 502 as const, body: { message: error.message } };
+  }
+  if (error instanceof GitlabApiError) {
+    const { status } = error;
+    if (status === 404) return { status: 404 as const, body: { message: error.message } };
+    // 422 = GitLab's validation refusal (e.g. an unknown reviewer)
     if (status === 401 || status === 403 || status === 422) {
       return { status: 422 as const, body: { message: error.message } };
     }

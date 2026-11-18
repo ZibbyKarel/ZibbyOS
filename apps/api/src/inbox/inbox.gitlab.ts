@@ -43,12 +43,33 @@ export interface GitlabApprovals {
 }
 
 export interface GitlabReviewer {
-  user?: { username?: string };
+  user?: { id?: number; username?: string };
   state?: string; // unreviewed | review_started | approved | requested_changes
 }
 
+export interface GitlabNote {
+  id?: number;
+  system?: boolean;
+  body?: string;
+  created_at?: string;
+  author?: { username?: string; avatar_url?: string | null } | null;
+  resolvable?: boolean;
+  resolved?: boolean;
+  /** Present on diff notes (inline code comments). */
+  position?: {
+    new_path?: string | null;
+    old_path?: string | null;
+    new_line?: number | null;
+    old_line?: number | null;
+    line_range?: {
+      start?: { new_line?: number | null; old_line?: number | null };
+    } | null;
+  } | null;
+}
+
 export interface GitlabDiscussion {
-  notes?: { resolvable?: boolean; resolved?: boolean }[];
+  id?: string;
+  notes?: GitlabNote[];
 }
 
 export interface GitlabIssue {
@@ -239,7 +260,7 @@ async function mapLimit<T, R>(
 }
 
 /** Only an endpoint that legitimately may not exist (403/404, e.g. approvals on a tier without them) degrades; anything else rejects the MR load. */
-const unavailable =
+export const unavailable =
   <T>(fallback: T) =>
   (error: unknown): T => {
     if (error instanceof GitlabApiError && (error.status === 403 || error.status === 404)) {

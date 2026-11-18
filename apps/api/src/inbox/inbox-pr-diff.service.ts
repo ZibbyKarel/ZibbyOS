@@ -1,8 +1,10 @@
 import { Injectable, Optional } from "@nestjs/common";
 import type { InboxPrDiff } from "@zibby/contracts";
 import { MAX_DIFF_BYTES, capUnifiedDiff } from "../shared/cap-unified-diff";
+import { resolveGitHostLink } from "../git-host/git-host-link";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { CredentialsStore } from "../integrations/credentials.store";
-import { resolveGithubToken } from "../projects/project-pr.service";
+import { readGitlabMrDiff } from "./inbox-pr-diff.gitlab";
 import { NoGithubLinkError } from "../projects/projects.errors";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
@@ -29,20 +31,25 @@ export class GithubDiffError extends Error {
 @Injectable()
 export class InboxPrDiffService {
   private readonly fetchImpl: typeof fetch;
+  private readonly gitlab: GitlabClient;
 
   constructor(
     private readonly projects: ProjectsStorageService,
     private readonly resolvedProjects: ResolvedProjectService,
     private readonly credentials: CredentialsStore,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlabClient?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlabClient ?? new GitlabClient();
   }
 
   async getDiff(projectId: string, number: number): Promise<InboxPrDiff> {
     const project = await this.projects.get(projectId); // ProjectNotFoundError → 404
-    const link = await resolveGithubToken(this.resolvedProjects, this.credentials, project);
-    if (!link) throw new NoGithubLinkError(project.id);
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (!host) throw new NoGithubLinkError(project.id);
+    if (host.kind === "gitlab") return readGitlabMrDiff(this.gitlab, host, number);
+    const link = host;
     const res = await this.fetchImpl(`${GITHUB_API}/repos/${link.repo}/pulls/${number}`, {
       headers: {
         accept: "application/vnd.github.diff",
