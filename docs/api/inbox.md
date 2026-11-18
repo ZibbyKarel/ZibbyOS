@@ -681,4 +681,4 @@ They also carry `headRef` / `baseRef` (todo-13, from the same `GET /pulls/<n>`; 
 Rows of my own PRs (`mine`) also carry `unresolvedThreads` (todo-21; GraphQL `reviewThreads.isResolved`, first 100 threads, omitted when the read fails or the PR isn't `mine`). The web offers the address-comments button when it is `> 0`.
 Others' PRs carry `myReview` + `myReviewSha` whenever I gave a verdict (latest APPROVED/CHANGES_REQUESTED of mine and its `commit_id`; also on `to-review`, so a re-request or a team request after my review keeps it) — the Bridge PR widget treats an approval as stale once `headSha` moves past `myReviewSha`. Every row carries `authorAvatarUrl` (`user.avatar_url`) and, when the profile has one, `authorName` (`GET /users/<login>`, cached per login for the API's lifetime; a failed read just omits it).
 
-A parked GitLab CI auto-fix writes the MR URL (not `repo#n`) as the activity `itemId`, since `repo#n` carries no host.
+A parked GitLab CI auto-fix keeps `repo#n` as the activity `itemId` like every other inbox service; operator events take the link from the task's `prCiTriage.url`.

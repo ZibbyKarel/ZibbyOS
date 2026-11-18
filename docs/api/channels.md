@@ -604,4 +604,4 @@ only the computed `hasCredentials` flag.
 | `channel-needs-attention`     | A notify-only item (email) surfaced for the operator       |
 | `integration-retry-exhausted` | An integration's poll failed after exhausting its retries  |
 
-A GitLab item (`…/-/merge_requests/N`) is noted without triage exactly like a GitHub pull request, and GitLab items use the same implicit `gitRemote` routing context as GitHub.
+A GitLab item (`…/-/merge_requests/N`) is noted without triage exactly like a GitHub pull request, and company-owned GitLab items route implicitly by the projects' `gitRemote` host (the integration's host) plus full, possibly nested, path; no match falls back to the text matcher.

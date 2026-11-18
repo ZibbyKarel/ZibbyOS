@@ -350,7 +350,7 @@ without pulling in the whole projects module.
 For a GitLab-linked project `getPr`, `merge`, `close` and `setDraft` branch to `project-pr.gitlab.ts`
 (a project has one host: GitLab wins and the GitHub path is not tried). Read = `merge_requests/:iid`;
 merge = `PUT …/merge` (`squash` -> `squash=true`, `deleteBranch` -> `should_remove_source_branch=true`;
-`rebase` has no merge-time equivalent and merges like the project default); close = `PUT` with
+`rebase` has no merge-time equivalent and is refused with `PrNotMergeableError`, no glab call; `branchDeleted` is reported only when GitLab's response confirms the source-branch removal; `getPr` surfaces 429 as a rate-limit error); close = `PUT` with
 `state_event=close`; draft toggle = `PUT` with the title gaining/losing `Draft: `. GitLab 405/406/409/422 on
 merge is a `PrNotMergeableError` (409), 403/404/405/409/422 on close/draft a `PrUpdateRefusedError`. Same
 operator-only gates as GitHub: no new caller, no automation, no auto-merge.
