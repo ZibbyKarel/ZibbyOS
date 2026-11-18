@@ -22,6 +22,7 @@ import {
   resolveEffectiveCompanyId,
   resolveKnowledgeBase,
 } from "./resolved-project.helpers";
+import { type GitlabLink, resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "./projects.storage.service";
 
 /**
@@ -153,6 +154,13 @@ export class ResolvedProjectService {
   async resolveCompanyRef(project: Project): Promise<{ id: string; name: string } | undefined> {
     const company = await this.findCompany(await this.effectiveCompanyId(project));
     return company ? { id: company.id, name: company.name } : undefined;
+  }
+
+  /** The project's GitLab link (host + path), `null` for a GitHub / remote-less / unknown project. */
+  async gitlabLinkFor(projectId: string): Promise<GitlabLink | null> {
+    if (!this.projects) return null;
+    const project = await this.projects.get(projectId).catch(() => null);
+    return project ? resolveGitlabLink(this, project) : null;
   }
 
   /** The knowledge base a run on this project may read. `null` when there is none. */

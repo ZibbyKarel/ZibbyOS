@@ -783,3 +783,34 @@ describe("GroundingService — team knowledge base", () => {
     expect((out.match(/<<<zibby-data-[0-9a-f]+>>>/g) ?? []).length % 2).toBe(0);
   });
 });
+
+describe("GroundingService git host note", () => {
+  const gitlab = { kind: "gitlab", host: "gitlab.example.com", repo: "group/sub/project" };
+  async function compose(link: unknown, input: { projectId?: string; domain?: "personal" }) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "grounding-"));
+    const vault = new VaultService(dir);
+    await vault.onModuleInit();
+    const ref = { get: () => ({ gitlabLinkFor: async () => link }) } as unknown as ModuleRef;
+    const withRef = await new GroundingService(vault, ref).compose({ task: "x", ...input });
+    const without = await new GroundingService(vault).compose({ task: "x", ...input });
+    return { withRef, without };
+  }
+
+  it("adds the glab note for a GitLab project", async () => {
+    const { withRef } = await compose(gitlab, { projectId: "p1" });
+    expect(withRef).toContain("gitlab.example.com (group/sub/project)");
+    expect(withRef).toContain("glab mr view 1 -R gitlab.example.com/group/sub/project");
+    expect(withRef).toContain("merging stays with the operator");
+  });
+
+  it("leaves the prompt byte-identical for GitHub / no remote, no project, personal", async () => {
+    for (const [link, input] of [
+      [null, { projectId: "p1" }],
+      [gitlab, {}],
+      [gitlab, { projectId: "p1", domain: "personal" as const }],
+    ] as const) {
+      const { withRef, without } = await compose(link, input);
+      expect(withRef).toBe(without);
+    }
+  });
+});
