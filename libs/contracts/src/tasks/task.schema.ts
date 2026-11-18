@@ -587,6 +587,8 @@ export const PrThreadReplySchema = z
     body: z.string().trim().max(500),
     /** Only for a thread the `address` phase marked `done in <sha>`: ZIBBY resolves it after the reply. */
     resolve: z.boolean().optional(),
+    /** Brief for a follow-up issue (what, why, agreed assignee/team/labels); the body then holds `{{ISSUE}}`. */
+    followUp: z.string().trim().max(4000).optional(),
   })
   .strict();
 export type PrThreadReply = z.infer<typeof PrThreadReplySchema>;
@@ -597,6 +599,8 @@ export const OperatorThreadReplySchema = z
     threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
     body: z.string().trim().max(65536),
     resolve: z.boolean(),
+    /** Brief for a follow-up issue ZIBBY files before posting; empty / absent = no issue. */
+    followUp: z.string().trim().max(4000).optional(),
   })
   .strict();
 export type OperatorThreadReply = z.infer<typeof OperatorThreadReplySchema>;
@@ -604,7 +608,7 @@ export type OperatorThreadReply = z.infer<typeof OperatorThreadReplySchema>;
 /** What the address phase did with one review thread. */
 export const PrThreadOutcomeSchema = z.object({
   threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
-  kind: z.enum(["done", "skipped", "question"]),
+  kind: z.enum(["done", "skipped", "question", "followup"]),
   note: z.string().max(500),
 });
 export type PrThreadOutcome = z.infer<typeof PrThreadOutcomeSchema>;
@@ -913,6 +917,17 @@ export const ScheduledTaskSchema = z.object({
       reviewersRequested: z.array(z.string()).optional(),
       /** Why resolving or re-requesting review (partly) failed. */
       followUpNote: z.string().optional(),
+      /** The follow-up issue filing that runs between the push and the replies (docs/plans/pr-followup-issues.md). */
+      followUps: z
+        .object({
+          state: z.enum(["filing", "done", "failed"]),
+          taskId: z.string().optional(),
+          created: z
+            .array(z.object({ threadId: z.string(), key: z.string(), url: z.string() }))
+            .optional(),
+          note: z.string().optional(),
+        })
+        .optional(),
       /**
        * todo-16 — started by the PR automation heartbeat (`autoAddressComments`), not an operator
        * click. Server-written only. Such a run never auto-pushes: even `Addressed: all` parks the
@@ -921,6 +936,13 @@ export const ScheduledTaskSchema = z.object({
       auto: z.literal(true).optional(),
       /** Where the PR sits in the autopilot tree (its teams, or its company): the autopilot push/replies resolve here. */
       autopilotAt: z.array(AutopilotLocationSchema).max(50).optional(),
+    })
+    .optional(),
+  /** Set on a `pr-file-followups` task: the address run whose follow-up issues it drafts. Server-written. */
+  prFileFollowUps: z
+    .object({
+      parentTaskId: z.string().min(1),
+      state: z.enum(["running", "done", "failed"]),
     })
     .optional(),
   /**

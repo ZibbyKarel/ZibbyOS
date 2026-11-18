@@ -34,7 +34,7 @@ export interface MergedReviewThread {
   outcome?: PrThreadOutcome;
   isNew: boolean;
   /** `null` = already resolved on GitHub, nothing to send. */
-  draft: { body: string; resolve: boolean } | null;
+  draft: { body: string; resolve: boolean; followUp?: string } | null;
 }
 
 /**
@@ -44,13 +44,17 @@ export interface MergedReviewThread {
 export function mergeReviewThreads(
   threads: InboxPrThread[],
   outcomes: PrThreadOutcome[],
-  drafts: { threadId: string; body: string; resolve?: boolean }[],
+  drafts: { threadId: string; body: string; resolve?: boolean; followUp?: string }[],
 ): MergedReviewThread[] {
   const byId = new Map(threads.map((t) => [t.id, t]));
   const draftOf = (thread: InboxPrThread) => {
     if (thread.isResolved) return null;
     const d = drafts.find((x) => x.threadId === thread.id);
-    return { body: d?.body ?? "", resolve: d?.resolve ?? false };
+    return {
+      body: d?.body ?? "",
+      resolve: d?.resolve ?? false,
+      ...(d?.followUp !== undefined ? { followUp: d.followUp } : {}),
+    };
   };
   const seen = new Set<string>();
   const rows: MergedReviewThread[] = [];
@@ -70,7 +74,16 @@ export function mergeReviewThreads(
 /** The operator-shape replies for every shown open thread (resolved-on-GitHub rows excluded). */
 export function repliesOf(rows: MergedReviewThread[]): OperatorThreadReply[] {
   return rows.flatMap((r) =>
-    r.draft ? [{ threadId: r.thread.id, body: r.draft.body, resolve: r.draft.resolve }] : [],
+    r.draft
+      ? [
+          {
+            threadId: r.thread.id,
+            body: r.draft.body,
+            resolve: r.draft.resolve,
+            ...(r.draft.followUp !== undefined ? { followUp: r.draft.followUp } : {}),
+          },
+        ]
+      : [],
   );
 }
 
@@ -80,6 +93,7 @@ export function draftRepliesOf(addr: AddressComments): OperatorThreadReply[] {
     threadId: r.threadId,
     body: r.body,
     resolve: r.resolve ?? false,
+    ...(r.followUp !== undefined ? { followUp: r.followUp } : {}),
   }));
 }
 
@@ -153,7 +167,7 @@ export function AddressCommentsReview({
   );
   const resolved = shown?.filter((r) => !r.draft) ?? [];
 
-  const change = (threadId: string, next: { body: string; resolve: boolean }) =>
+  const change = (threadId: string, next: Partial<OperatorThreadReply>) =>
     onRepliesChange(replies.map((r) => (r.threadId === threadId ? { ...r, ...next } : r)));
 
   return (
@@ -197,6 +211,14 @@ export function AddressCommentsReview({
             body: draft?.body ?? "",
             resolve: draft?.resolve ?? false,
             onChange: (next) => change(thread.id, next),
+            ...(draft?.followUp !== undefined
+              ? {
+                  followUp: {
+                    value: draft.followUp,
+                    onChange: (followUp: string) => change(thread.id, { followUp }),
+                  },
+                }
+              : {}),
           }}
           thread={thread}
         />

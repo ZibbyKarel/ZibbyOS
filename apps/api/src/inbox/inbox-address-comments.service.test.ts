@@ -1,12 +1,16 @@
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Integration, Project } from "@zibby/contracts";
+import type { Integration, Project, ScheduledTask } from "@zibby/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { threadsMarkedDone } from "../tasks/task-output.service";
-import { InboxAddressCommentsService } from "./inbox-address-comments.service";
+import {
+  InboxAddressCommentsService,
+  addressCommentsTaskText,
+  fileFollowUpsTaskText,
+} from "./inbox-address-comments.service";
 import { PrRefusedError } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
@@ -34,6 +38,7 @@ describe("InboxAddressCommentsService", () => {
   let requestStatus: number;
   let integrations: Integration[];
   let service: InboxAddressCommentsService;
+  let handler: (filer: ScheduledTask, raw: string) => Promise<void>;
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(tmpdir(), "zibby-inbox-address-"));
@@ -132,6 +137,17 @@ describe("InboxAddressCommentsService", () => {
           { status: 200 },
         );
       }
+      if (url.endsWith("/issues") && init?.method === "POST") {
+        rest.push({ url, body: String(init.body) });
+        return new Response(
+          JSON.stringify({ number: 42, html_url: "https://github.com/acme/app/issues/42" }),
+          { status: 201 },
+        );
+      }
+      if (url === "https://j.example/rest/api/3/issue" && init?.method === "POST") {
+        rest.push({ url, body: String(init.body) });
+        return new Response(JSON.stringify({ key: "ABC-7" }), { status: 201 });
+      }
       if (url.endsWith("/requested_reviewers") && init?.method === "POST") {
         rest.push({ url, body: String(init.body) });
         return new Response("{}", { status: requestStatus });
@@ -147,7 +163,12 @@ describe("InboxAddressCommentsService", () => {
       } as never,
       { resolveIntegrations: async () => integrations } as never,
       { read: async () => ({ token: "tok" }) } as never,
-      { createTask } as never,
+      {
+        createTask,
+        setPrFollowUpsHandler: (fn: typeof handler) => {
+          handler = fn;
+        },
+      } as never,
       storage,
       { register } as never,
       { dropPrsCache } as never,
@@ -520,6 +541,163 @@ describe("InboxAddressCommentsService", () => {
       expect(graphql.some((b) => b.includes("resolveReviewThread"))).toBe(false);
       expect((await storage.get(taskId)).prAddressComments).toMatchObject({ replied: 0 });
     });
+  });
+  describe("follow-up issues", () => {
+    const FOLLOW = { threadId: "PRRT_a", body: "Sure: {{ISSUE}}", resolve: true, followUp: "do X" };
+    const OTHER = { threadId: "PRRT_b", body: "Fixed.", resolve: false };
+    async function parkedWithFollowUp(): Promise<string> {
+      threads = [
+        { id: "PRRT_a", isResolved: false },
+        { id: "PRRT_b", isResolved: false },
+      ];
+      const taskId = await parked();
+      await storage.setPrAddressComments(taskId, (c) =>
+        c
+          ? {
+              ...c,
+              fixedSha: undefined,
+              report: "Addressed: partial\nthread: PRRT_a followup: do X",
+              replies: [FOLLOW, OTHER],
+            }
+          : c,
+      );
+      return taskId;
+    }
+    const filerOf = async (taskId: string) =>
+      storage.get((await storage.get(taskId)).prAddressComments?.followUps?.taskId ?? "");
+    const posted = () => graphql.filter((b) => b.includes("addPullRequestReviewThreadReply"));
+
+    it("push starts the filer instead of posting replies", async () => {
+      const taskId = await parkedWithFollowUp();
+      await service.push(
+        taskId,
+        [FOLLOW, OTHER].map((r) => ({ ...r, resolve: !!r.resolve })),
+      );
+      const [input, , projectId, target] = createTask.mock.calls[1] ?? [];
+      expect(target).toMatchObject({ kind: "workflow", id: "pr-file-followups" });
+      expect(projectId).toBe("acme");
+      expect(input.text).toContain("zibby-pr-followups.json");
+      expect(input.text).toContain("do X");
+      expect(input.text).not.toContain("Fixed.");
+      expect(posted()).toHaveLength(0);
+      const fix = (await storage.get(taskId)).prAddressComments;
+      expect(fix?.followUps).toMatchObject({ state: "filing" });
+      expect(fix?.finishedAt).toBeUndefined();
+      expect((await filerOf(taskId)).prFileFollowUps).toEqual({
+        parentTaskId: taskId,
+        state: "running",
+      });
+    });
+
+    it("without follow-ups push is unchanged (no filer, replies post)", async () => {
+      const taskId = await parkedWithFollowUp();
+      await service.push(taskId, [{ ...OTHER, resolve: false }]);
+      expect(createTask).toHaveBeenCalledTimes(1);
+      expect(posted()).toHaveLength(1);
+      expect((await storage.get(taskId)).prAddressComments?.finishedAt).toBeDefined();
+    });
+
+    it("completeFollowUps files a GitHub issue, substitutes the placeholder and posts", async () => {
+      const taskId = await parkedWithFollowUp();
+      await service.push(taskId, [
+        { ...FOLLOW, resolve: true },
+        { ...OTHER, resolve: false },
+      ]);
+      const filer = await filerOf(taskId);
+      await handler(
+        filer,
+        JSON.stringify([
+          { threadId: "PRRT_a", tracker: "git-host", title: "T", body: "B", assignee: "operator" },
+          { threadId: "PRRT_zzz", title: "bogus", body: "x" },
+        ]),
+      );
+      const issue = rest.find((r) => r.url.endsWith("/issues"));
+      expect(JSON.parse(issue?.body ?? "{}")).toMatchObject({ title: "T", assignees: ["me"] });
+      expect(posted()).toHaveLength(2);
+      expect(posted()[0]).toContain("[#42](https://github.com/acme/app/issues/42)");
+      expect(posted().join("")).not.toContain("{{ISSUE}}");
+      const fix = (await storage.get(taskId)).prAddressComments;
+      expect(fix?.followUps).toMatchObject({
+        state: "done",
+        created: [{ threadId: "PRRT_a", key: "#42" }],
+      });
+      expect(fix?.resolved).toBe(1);
+      expect(fix?.finishedAt).toBeDefined();
+      expect((await filerOf(taskId)).prFileFollowUps?.state).toBe("done");
+      expect(dropPrsCache).toHaveBeenCalled();
+    });
+
+    it("an issue that could not be created drops its reply and resolve; others still post", async () => {
+      const taskId = await parkedWithFollowUp();
+      await service.push(taskId, [
+        { ...FOLLOW, resolve: true },
+        { ...OTHER, resolve: false },
+      ]);
+      await handler(await filerOf(taskId), "");
+      expect(posted()).toHaveLength(1);
+      expect(posted()[0]).toContain("Fixed.");
+      expect(graphql.filter((b) => b.includes("resolveReviewThread"))).toHaveLength(0);
+      const fix = (await storage.get(taskId)).prAddressComments;
+      expect(fix?.followUps?.state).toBe("failed");
+      expect(fix?.replies?.map((r) => r.threadId)).toEqual(["PRRT_b"]);
+      expect((await filerOf(taskId)).prFileFollowUps?.state).toBe("failed");
+    });
+
+    it("files in Jira when the project has a Jira integration", async () => {
+      integrations = [
+        GITHUB,
+        {
+          id: "jr",
+          config: { kind: "jira", baseUrl: "https://j.example", email: "a@b.c", projectKey: "ABC" },
+        } as unknown as Integration,
+      ];
+      const taskId = await parkedWithFollowUp();
+      await service.push(taskId, [{ ...FOLLOW, resolve: true }]);
+      await handler(
+        await filerOf(taskId),
+        JSON.stringify([{ threadId: "PRRT_a", title: "T", body: "B" }]),
+      );
+      const body = JSON.parse(rest.find((r) => r.url.includes("j.example"))?.body ?? "{}");
+      expect(body.fields).toMatchObject({ project: { key: "ABC" }, summary: "T" });
+      expect(posted()[0]).toContain("[ABC-7](https://j.example/browse/ABC-7)");
+    });
+
+    it("a second completion is ignored", async () => {
+      const taskId = await parkedWithFollowUp();
+      await service.push(taskId, [
+        { ...OTHER, resolve: false },
+        { ...FOLLOW, resolve: true },
+      ]);
+      const filer = await filerOf(taskId);
+      await handler(filer, "");
+      const before = graphql.length;
+      await handler(filer, "");
+      expect(graphql.length).toBe(before);
+    });
+  });
+
+  it("task texts describe the followup outcome and the filer", () => {
+    const p = {
+      repo: "acme/app",
+      number: 7,
+      url: "u",
+      title: "t",
+      head: "h",
+      base: "main",
+      headSha: "s",
+    };
+    for (const host of [
+      { kind: "github", repo: "acme/app" },
+      { kind: "gitlab", host: "gl.example", repo: "acme/app" },
+    ] as const) {
+      const text = addressCommentsTaskText(p, false, host);
+      expect(text).toContain("followup: <what is to be done");
+      expect(text).toContain("{{ISSUE}}");
+      expect(text).toContain('"followUp"');
+    }
+    const filer = fileFollowUpsTaskText(p, [{ threadId: "PRRT_a", body: "b", followUp: "do X" }]);
+    expect(filer).toContain("NEVER create issues");
+    expect(filer).toContain("do X");
   });
 });
 

@@ -21,6 +21,7 @@ import {
   parseThreadOutcomes,
   parseThreadReplies,
   suggestReviewEvent,
+  threadsMarkedDone,
 } from "./task-output.service";
 
 /**
@@ -406,6 +407,21 @@ describe("TaskOutputService", () => {
         state: "failed",
         note,
       });
+    });
+
+    it("recognises followup outcomes and keeps followUp on replies", () => {
+      const report =
+        "Addressed: partial\nthread: PRRT_a\nfollowup: ticket for X, PR author takes it\nthread: PRRT_b\ndone in abc1234";
+      expect(parseThreadOutcomes(report)).toEqual([
+        { threadId: "PRRT_a", kind: "followup", note: "ticket for X, PR author takes it" },
+        { threadId: "PRRT_b", kind: "done", note: "abc1234" },
+      ]);
+      expect(threadsMarkedDone(report)).toEqual(new Set(["PRRT_a", "PRRT_b"]));
+      expect(
+        parseThreadReplies(
+          JSON.stringify([{ threadId: "PRRT_a", body: "ok {{ISSUE}}", followUp: " brief " }]),
+        ),
+      ).toEqual([{ threadId: "PRRT_a", body: "ok {{ISSUE}}", followUp: "brief" }]);
     });
 
     it("parses the reply file leniently: drops malformed entries, keeps the rest, caps at 50", () => {

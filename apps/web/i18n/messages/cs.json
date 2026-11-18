@@ -3269,8 +3269,12 @@
       "outcome": {
         "done": "opraveno v {note}",
         "skipped": "přeskočeno",
-        "question": "otázka · čeká na tebe"
+        "question": "otázka · čeká na tebe",
+        "followup": "follow-up issue"
       },
+      "followUpTag": "Follow-up issue se založí",
+      "followUpPlaceholderHint": "'{{ISSUE}}' se nahradí odkazem na issue",
+      "followUpBrief": "Zadání follow-up issue (prázdné = žádné issue)",
       "outdated": "zastaralé",
       "new": "nový od běhu",
       "openOnGithub": "Otevřít thread na GitHubu",

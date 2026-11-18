@@ -82,3 +82,86 @@ export async function searchJira(
   }
   return out;
 }
+
+export interface JiraIssueSpec {
+  projectKey: string;
+  issueType?: string;
+  title: string;
+  /** Markdown-ish text: rendered as one ADF paragraph per blank-line block. */
+  body: string;
+  labels?: string[];
+  /** `"operator"` = the token's own account; anything else is a Jira accountId. */
+  assignee?: string;
+  parent?: string;
+  /** Extra fields by Jira field id (team, components, …); dropped on a 400 retry. */
+  fields?: Record<string, unknown>;
+}
+
+const adfDoc = (text: string) => ({
+  type: "doc",
+  version: 1,
+  content: text
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => ({ type: "paragraph", content: [{ type: "text", text: block }] })),
+});
+
+/**
+ * Creates one Jira issue (`POST /rest/api/3/issue`). Extra `fields` from the filer agent are
+ * best-effort: on a 400 the create is retried once without them and `note` says so.
+ */
+export async function createJiraIssue(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  authHeader: string,
+  spec: JiraIssueSpec,
+): Promise<{ key: string; url: string; note?: string }> {
+  const headers = {
+    authorization: authHeader,
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+  let accountId = spec.assignee;
+  if (spec.assignee === "operator") {
+    const res = await fetchImpl(`${baseUrl}/rest/api/3/myself`, { headers });
+    if (!res.ok) throw new Error(`jira myself: HTTP ${res.status}`);
+    accountId = ((await res.json()) as { accountId?: string }).accountId;
+  }
+  const base = {
+    project: { key: spec.projectKey },
+    issuetype: { name: spec.issueType ?? "Task" },
+    summary: spec.title,
+    description: adfDoc(spec.body),
+    ...(spec.labels?.length ? { labels: spec.labels } : {}),
+    ...(accountId ? { assignee: { accountId } } : {}),
+    ...(spec.parent ? { parent: { key: spec.parent } } : {}),
+  };
+  const post = (fields: Record<string, unknown>) =>
+    fetchImpl(`${baseUrl}/rest/api/3/issue`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ fields }),
+    });
+  const extra = spec.fields && Object.keys(spec.fields).length > 0 ? spec.fields : undefined;
+  let res = await post({ ...(extra ?? {}), ...base });
+  let note: string | undefined;
+  if (res.status === 400 && extra) {
+    res = await post(base);
+    note = "extra fields rejected by Jira (400), created without them";
+  }
+  const json = (await res.json().catch(() => ({}))) as {
+    key?: string;
+    errorMessages?: string[];
+    errors?: Record<string, string>;
+  };
+  if (!res.ok || !json.key) {
+    const why = [...(json.errorMessages ?? []), ...Object.values(json.errors ?? {})].join("; ");
+    throw new Error(`jira create issue: HTTP ${res.status}${why ? ` ${why}` : ""}`);
+  }
+  return {
+    key: json.key,
+    url: `${baseUrl.replace(/\/+$/, "")}/browse/${json.key}`,
+    ...(note ? { note } : {}),
+  };
+}

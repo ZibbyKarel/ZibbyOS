@@ -38,6 +38,9 @@ export enum ReviewThreadTestId {
   ReplyInput = "review-thread-reply-input",
   Resolve = "review-thread-resolve",
   Send = "review-thread-send",
+  FollowUpTag = "review-thread-followup-tag",
+  FollowUpInput = "review-thread-followup-input",
+  FollowUpHint = "review-thread-followup-hint",
 }
 
 export interface ReviewThreadReply {
@@ -46,6 +49,8 @@ export interface ReviewThreadReply {
   onChange(next: { body: string; resolve: boolean }): void;
   onSend?(): void;
   sending?: boolean;
+  /** A follow-up issue ZIBBY files after approval: the editable brief. Emptied = no issue. */
+  followUp?: { value: string; onChange(next: string): void };
 }
 
 export interface ReviewThreadProps {
@@ -139,7 +144,12 @@ function ThreadFile({ label, url }: { label: string; url?: string }) {
 export function ReviewThread({ thread, outcome, isNew, reply, now, prRef }: ReviewThreadProps) {
   const t = useTranslations("inboxPage.threads");
   const elapsed = useElapsedLabel();
-  const outcomeTone = { done: "done", skipped: "neutral", question: "blocked" } as const;
+  const outcomeTone = {
+    done: "done",
+    skipped: "neutral",
+    question: "blocked",
+    followup: "thinking",
+  } as const;
   const outcomeLabel = outcome
     ? outcome.kind === "done"
       ? t("outcome.done", { note: outcome.note })
@@ -208,6 +218,40 @@ export function ReviewThread({ thread, outcome, isNew, reply, now, prRef }: Revi
                   />
                 </Container>
               </InputFrame>
+            ) : null}
+            {reply?.followUp ? (
+              <Stack gap="50">
+                <Row gap="100">
+                  <Tag data-testid={ReviewThreadTestId.FollowUpTag} tone="thinking">
+                    {t("followUpTag")}
+                  </Tag>
+                  {reply.body.includes("{{ISSUE}}") ? (
+                    <Typography
+                      data-testid={ReviewThreadTestId.FollowUpHint}
+                      type="note"
+                      variant="tertiary"
+                    >
+                      {t("followUpPlaceholderHint")}
+                    </Typography>
+                  ) : null}
+                </Row>
+                <InputFrame>
+                  <Container padding={THREAD_PADDING}>
+                    <HighlightTextAreaField
+                      frameless
+                      hideLabel
+                      data-testid={ReviewThreadTestId.FollowUpInput}
+                      highlights={[]}
+                      label={t("followUpBrief")}
+                      maxRows={8}
+                      onChange={(e) => reply.followUp?.onChange(e.target.value)}
+                      placeholder={t("followUpBrief")}
+                      rows={2}
+                      value={reply.followUp.value}
+                    />
+                  </Container>
+                </InputFrame>
+              </Stack>
             ) : null}
             <Row gap="150" justify="between">
               <ChatAboutButton about={threadChatAbout(thread, { pr: prRef, outcome })} />

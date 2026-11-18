@@ -59,6 +59,16 @@ carry a `token` (for Jira this is a Basic `email:token` pair; for Calendar it's
 the service-account JSON key). `setCredentials` rejects a mismatched shape
 with `422` before it ever reaches the store.
 
+### Creating a Jira issue (`createJiraIssue`)
+
+`apps/api/src/integrations/jira-client.ts` also writes: `createJiraIssue(fetch, baseUrl, auth, spec)`
+does `POST /rest/api/3/issue` with `project.key`, `issuetype.name` (default `Task`), `summary`, a
+minimal ADF `description` (one paragraph per blank-line block), optional `labels` / `parent` /
+`assignee`. `assignee: "operator"` resolves to the token's own account via `GET /rest/api/3/myself`;
+any other value is an accountId. Extra `fields` (team, components, …) are merged in; on a `400` the
+create is retried once without them and the result carries a `note`. Used by the PR follow-up filer
+(`InboxAddressCommentsService.completeFollowUps`, see `./inbox.md`).
+
 `kind` itself is immutable after creation — `config` is a
 `z.discriminatedUnion("kind", …)`, so changing kind without a matching config
 rewrite would desync the two; `updateIntegration` returns `422` if a patch's

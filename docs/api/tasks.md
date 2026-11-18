@@ -629,6 +629,18 @@ The daemon watches the run's terminal state:
   (a failed run's `summary` is its `failedReason` when set, else `<n> stages, failed`)
 - `summary` is truncated to `SUMMARY_MAX_CHARS = 200` characters
 
+### PR follow-up filing (`prFileFollowUps`)
+
+A `pr-address-comments` approval whose replies carry `followUp` briefs makes
+`InboxAddressCommentsService.push` create a `pr-file-followups` workflow task and stamp
+`ScheduledTask.prFileFollowUps { parentTaskId, state: running | done | failed }` on it and
+`prAddressComments.followUps { state: filing | done | failed, taskId?, created?, note? }` on the
+parent. `writeWorkflowOutcome` has a terminal hook for it, gated on `running` like the `park*`
+branches: on `done` it reads `zibby-pr-followups.json` (`PR_FOLLOWUPS_ARTIFACT`), on a failed or
+interrupted run it passes an empty string, and either way calls the handler registered through
+`TaskSchedulerService.setPrFollowUpsHandler` (no DI cycle). The handler files the issues, posts the
+replies and never throws.
+
 ## API endpoints
 
 ```

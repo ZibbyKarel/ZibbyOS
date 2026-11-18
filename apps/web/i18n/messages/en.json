@@ -3269,8 +3269,12 @@
       "outcome": {
         "done": "fixed in {note}",
         "skipped": "skipped",
-        "question": "question · waiting on you"
+        "question": "question · waiting on you",
+        "followup": "follow-up issue"
       },
+      "followUpTag": "Follow-up issue will be created",
+      "followUpPlaceholderHint": "'{{ISSUE}}' will be replaced by the issue link",
+      "followUpBrief": "Follow-up issue brief (empty = no issue)",
       "outdated": "outdated",
       "new": "new since the run",
       "openOnGithub": "Open thread on GitHub",

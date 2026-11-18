@@ -438,7 +438,19 @@ required when the operator sent no replies (a thread whose reply failed stays op
 (`latestOpinionatedReviews`) is `CHANGES_REQUESTED`, deduplicated, excluding the PR author and bots.
 `replied` / `repliesNote` record what was posted and why the rest was skipped; `resolved`,
 `reviewersRequested` and `followUpNote` record the rest. A follow-up failure leaves the push
-`pushed`, a push failure does nothing. A missing reply file never blocks the push. The third phase
+`pushed`, a push failure does nothing. A missing reply file never blocks the push.
+
+**Follow-up issues** (`docs/plans/pr-followup-issues.md`). A thread where the reviewer asks for (or
+the author agreed to) a separate ticket gets the `followup: <what + what was agreed>` outcome
+(`PrThreadOutcome.kind = "followup"`); its reply draft carries `{{ISSUE}}` in the body plus
+`followUp: "<issue brief>"` (also on `OperatorThreadReply`, editable on the approval card; clearing
+it = no issue, and a body that still holds `{{ISSUE}}` is never posted). Any follow-up keeps the
+push gate (like `question`: no auto-push, no autopilot). After the push, `push()` starts a
+`pr-file-followups` task (`startFollowUps`, one read-only agent phase) and stops; the filer's
+`zibby-pr-followups.json` is turned into issues by `completeFollowUps` (Jira when the project has a
+Jira integration, else GitHub `POST /repos/{repo}/issues` / GitLab `POST projects/:id/issues`),
+`{{ISSUE}}` becomes `[KEY](url)`, a reply whose issue failed is dropped with its resolve, and then
+`postFollowUp` runs without a second approval. Progress is `prAddressComments.followUps`. The third phase
 `describe` (`documentation-engineer`) may write `zibby-pr-description.md` (`# title` + body, parsed by
 `parsePrDescription`) with the PR description refreshed for the fixes; it is stored as
 `prAddressComments.description`, shown in the approval `detail`, and applied with

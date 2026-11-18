@@ -51,6 +51,8 @@ export const PR_FIX_CI_ARTIFACT = "zibby-pr-fix-ci.md";
 export const PR_CI_TRIAGE_ARTIFACT = "zibby-pr-ci-triage.md";
 /** PR inbox redesign — `github-commenter`'s thread replies (`PrThreadReply[]` JSON), posted by ZIBBY after the push. */
 export const PR_REPLIES_ARTIFACT = "zibby-pr-replies.json";
+/** The follow-up filer's issue specs (`zibby-pr-followups.json`) — ZIBBY files the issues from it. */
+export const PR_FOLLOWUPS_ARTIFACT = "zibby-pr-followups.json";
 /** The documentation agent's refreshed PR description (`# title` + body) — applied by ZIBBY after the push. */
 export const PR_DESCRIPTION_ARTIFACT = "zibby-pr-description.md";
 /** The only conflict-free first line of a rebase report. */
@@ -95,22 +97,28 @@ export function isAutoPushFixCi(report: string): boolean {
 
 /**
  * Thread ids the parked `address` report marks fixed: the text from a `thread: <id>` line up to
- * the next `thread:` (or the end) contains `done in`. The reply agent's `resolve` flag alone is
- * never enough to resolve a thread.
+ * the next `thread:` (or the end) contains `done in` — or is a `followup:` outcome (its issue is
+ * filed before the reply posts; a reply whose issue failed is dropped, so never resolves). The
+ * reply agent's `resolve` flag alone is never enough to resolve a thread.
  */
 export function threadsMarkedDone(report: string | undefined): Set<string> {
   const done = new Set<string>();
   const matches = [...(report ?? "").matchAll(/thread:\s*`?([A-Za-z0-9_-]+)`?/g)];
   matches.forEach((m, i) => {
     const block = (report ?? "").slice(m.index, matches[i + 1]?.index);
-    if (m[1] && /done in/i.test(block)) done.add(m[1]);
+    if (
+      m[1] &&
+      (/done in/i.test(block) || /^[\s>*_-]*(?:outcome[*_]*:[*_\s]*)?followup:/im.test(block))
+    ) {
+      done.add(m[1]);
+    }
   });
   return done;
 }
 
 /**
  * Per-thread outcome of the address report: each `thread: <id>` block is `done in <shas>`,
- * `skipped: <why>`, `question: <what>` — or, when none matches, an unreadable `skipped`.
+ * `skipped: <why>`, `question: <what>`, `followup: <what>` — or, when none matches, an unreadable `skipped`.
  */
 export function parseThreadOutcomes(report: string | undefined): PrThreadOutcome[] {
   const text = report ?? "";
@@ -126,13 +134,16 @@ export function parseThreadOutcomes(report: string | undefined): PrThreadOutcome
     ).exec(block);
     const skipped = new RegExp(`${lead}skipped:\\s*(.+)`, "im").exec(block);
     const question = new RegExp(`${lead}question:\\s*(.+)`, "im").exec(block);
+    const followup = new RegExp(`${lead}followup:\\s*(.+)`, "im").exec(block);
     const [kind, note] = done
       ? (["done", done[1]] as const)
-      : skipped
-        ? (["skipped", skipped[1]] as const)
-        : question
-          ? (["question", question[1]] as const)
-          : (["skipped", "unreadable report line"] as const);
+      : followup
+        ? (["followup", followup[1]] as const)
+        : skipped
+          ? (["skipped", skipped[1]] as const)
+          : question
+            ? (["question", question[1]] as const)
+            : (["skipped", "unreadable report line"] as const);
     // ponytail: 100 = contract cap on `outcomes`; threads beyond it get no outcome row.
     if (m[1] && out.length < 100) {
       out.push({ threadId: m[1], kind, note: (note ?? "").trim().slice(0, 500) });
@@ -567,7 +578,14 @@ export class TaskOutputService implements OnModuleInit {
         detail: `Post review replies — ${ref}\n\n${report}\n\n## Replies ZIBBY will post\n\n${replies
           .filter((r) => r.body.trim())
           .map((r) => `${r.threadId}: ${r.body}`)
-          .join("\n")}`,
+          .join("\n")}${
+          replies.some((r) => r.followUp?.trim())
+            ? `\n\n## Follow-up issues ZIBBY will file after the push\n\n${replies
+                .filter((r) => r.followUp?.trim())
+                .map((r) => `${r.threadId}: ${r.followUp}`)
+                .join("\n")}`
+            : ""
+        }`,
         risk: "high",
         sourceUrl: fix.url,
       });
@@ -584,7 +602,10 @@ export class TaskOutputService implements OnModuleInit {
             }
           : c,
       );
-      if (await this.autopilotApproves(task, approval)) {
+      // A follow-up issue is a new outward write the operator did not clear — it keeps the gate.
+      const filesIssues =
+        replies.some((r) => r.followUp?.trim()) || outcomes.some((o) => o.kind === "followup");
+      if (!filesIssues && (await this.autopilotApproves(task, approval))) {
         const posted = await this.approvals.approve(approval.id, { decidedBy: "autopilot" }).then(
           () => true,
           (error: unknown) => {
@@ -606,7 +627,8 @@ export class TaskOutputService implements OnModuleInit {
     const autoPush =
       !fix.auto &&
       isAutoPushAddressComments(report) &&
-      !outcomes.some((o) => o.kind === "question");
+      !replies.some((r) => r.followUp?.trim()) &&
+      !outcomes.some((o) => o.kind === "question" || o.kind === "followup");
     const done = threadsMarkedDone(report);
     const repliesBlock = replies.length
       ? `\n\n## Replies ZIBBY will post after the push\n\n${replies
@@ -621,7 +643,13 @@ export class TaskOutputService implements OnModuleInit {
     const descriptionBlock = description
       ? `\n\n## PR description ZIBBY will update after the push\n\n# ${description.title}\n\n${description.body}`
       : "";
-    const followUpBlock = `${repliesBlock}${descriptionBlock}\n\nThen ${resolving ? "resolves the threads marked (resolve) and " : ""}re-requests review from the authors of the addressed comments and everyone whose latest review is "Changes requested".`;
+    const filing = replies.filter((r) => r.followUp?.trim());
+    const filingBlock = filing.length
+      ? `\n\n## Follow-up issues ZIBBY will file after the push\n\n${filing
+          .map((r) => `${r.threadId}: ${r.followUp}`)
+          .join("\n")}`
+      : "";
+    const followUpBlock = `${repliesBlock}${filingBlock}${descriptionBlock}\n\nThen ${resolving ? "resolves the threads marked (resolve) and " : ""}re-requests review from the authors of the addressed comments and everyone whose latest review is "Changes requested".`;
     const approval = await this.approvals.requestApproval({
       runId: task.id,
       kind: "pr-address-comments",
@@ -655,7 +683,7 @@ export class TaskOutputService implements OnModuleInit {
     // Phase 4 — autopilot pushes onto ZIBBY's `zibby/*` head or the operator's own PR; a `question` still waits.
     const byAutopilot =
       !autoPush &&
-      !outcomes.some((o) => o.kind === "question") &&
+      !outcomes.some((o) => o.kind === "question" || o.kind === "followup") &&
       (await this.autopilotApproves(task, approval, fix.head, fix.ownPr));
     if (!autoPush && !byAutopilot) {
       return { summary: `Review komentáře ${ref}: push oprav čeká na schválení` };

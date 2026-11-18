@@ -109,6 +109,48 @@ describe("AddressCommentsReview", () => {
   });
 });
 
+describe("follow-up replies", () => {
+  beforeEach(() => {
+    hooks.threads = { data: [A, B, C], isError: false };
+  });
+  const followReplies = [
+    { threadId: "PRRT_c", body: "Done: {{ISSUE}}", resolve: false, followUp: "do X" },
+    { threadId: "PRRT_a", body: "", resolve: false },
+  ];
+
+  it("highlights only replies with a followUp and edits the brief", () => {
+    const onRepliesChange = vi.fn();
+    renderWithProviders(
+      <AddressCommentsReview
+        now={NOW}
+        onRepliesChange={onRepliesChange}
+        replies={followReplies}
+        task={task}
+      />,
+    );
+    expect(screen.getAllByTestId(ReviewThreadTestId.FollowUpTag)).toHaveLength(1);
+    expect(screen.getByTestId(ReviewThreadTestId.FollowUpHint)).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId(ReviewThreadTestId.FollowUpInput), {
+      target: { value: "" },
+    });
+    expect(onRepliesChange).toHaveBeenCalledWith([
+      { threadId: "PRRT_c", body: "Done: {{ISSUE}}", resolve: false, followUp: "" },
+      followReplies[1],
+    ]);
+  });
+
+  it("carries followUp into the approve replies", () => {
+    const address = {
+      number: 7,
+      outcomes,
+      replies: [{ threadId: "PRRT_c", body: "x {{ISSUE}}", followUp: "brief" }],
+    } as unknown as NonNullable<ScheduledTask["prAddressComments"]>;
+    expect(addressApproveReplies(address, [C], {})).toEqual([
+      { threadId: "PRRT_c", body: "x {{ISSUE}}", resolve: false, followUp: "brief" },
+    ]);
+  });
+});
+
 describe("approve payload", () => {
   const address = {
     number: 7,

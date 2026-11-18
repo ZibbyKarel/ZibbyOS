@@ -65,6 +65,7 @@ import {
   PR_CI_TRIAGE_ARTIFACT,
   PR_DESCRIPTION_ARTIFACT,
   PR_FIX_CI_ARTIFACT,
+  PR_FOLLOWUPS_ARTIFACT,
   PR_REBASE_ARTIFACT,
   PR_REPLIES_ARTIFACT,
   PR_REVIEW_ARTIFACT,
@@ -248,6 +249,13 @@ export class TaskSchedulerService
   ) {
     super();
     this.log = logger.child(TaskSchedulerService.name);
+  }
+
+  private prFollowUpsHandler?: (filerTask: ScheduledTask, raw: string) => Promise<void>;
+
+  /** Registered by `InboxAddressCommentsService` (no DI cycle): files the follow-up issues of a finished filer run. */
+  setPrFollowUpsHandler(fn: (filerTask: ScheduledTask, raw: string) => Promise<void>): void {
+    this.prFollowUpsHandler = fn;
   }
 
   onModuleInit(): void {
@@ -2005,7 +2013,8 @@ export class TaskSchedulerService
         stopped?.prRebase?.state !== "running" &&
         stopped?.prAddressComments?.state !== "running" &&
         stopped?.prFixCi?.state !== "running" &&
-        stopped?.prCiTriage?.state !== "running"
+        stopped?.prCiTriage?.state !== "running" &&
+        stopped?.prFileFollowUps?.state !== "running"
       ) {
         return;
       }
@@ -2126,6 +2135,13 @@ export class TaskSchedulerService
               });
             if (delivery?.summary) outcome.summary = delivery.summary;
           }
+          // Follow-up issue filing: hand the agent's specs to the registered handler (never throws).
+          if (existing.prFileFollowUps?.state === "running") {
+            const artifact = await this.workflowRunner
+              .readArtifact(run.workflowRunId, PR_FOLLOWUPS_ARTIFACT)
+              .catch(() => null);
+            await this.runPrFollowUpsHandler(existing, artifact?.content ?? "");
+          }
           // "Fix CI": park (or, `Fixed: all` on the operator's own PR, push) the fix.
           if (existing.prFixCi?.state === "running") {
             const artifact = await this.workflowRunner
@@ -2168,15 +2184,26 @@ export class TaskSchedulerService
               });
             if (delivery?.summary) outcome.summary = delivery.summary;
           }
-        } else if (run.status === "failed") {
-          // A failed triage run must not stay `running`: the heartbeat would wait on it forever.
-          await this.storage
-            .setPrCiTriage(taskId, (c) =>
-              c?.state === "running"
-                ? { ...c, state: "failed", note: (run.failedReason ?? "run failed").slice(0, 300) }
-                : c,
-            )
-            .catch(() => undefined);
+        } else {
+          const failed = await this.storage.get(taskId).catch(() => null);
+          // A failed / interrupted filer run: no issues, the other replies still post.
+          if (failed?.prFileFollowUps?.state === "running") {
+            await this.runPrFollowUpsHandler(failed, "");
+          }
+          if (run.status === "failed") {
+            // A failed triage run must not stay `running`: the heartbeat would wait on it forever.
+            await this.storage
+              .setPrCiTriage(taskId, (c) =>
+                c?.state === "running"
+                  ? {
+                      ...c,
+                      state: "failed",
+                      note: (run.failedReason ?? "run failed").slice(0, 300),
+                    }
+                  : c,
+              )
+              .catch(() => undefined);
+          }
         }
         const task = await this.storage.writeOutcome(taskId, outcome);
         this.log.info("task outcome written", {
@@ -2208,6 +2235,17 @@ export class TaskSchedulerService
         });
       }
     });
+  }
+
+  private async runPrFollowUpsHandler(task: ScheduledTask, raw: string): Promise<void> {
+    try {
+      await this.prFollowUpsHandler?.(task, raw);
+    } catch (error) {
+      this.log.warn("pr follow-ups handler failed (soft)", {
+        taskId: task.id,
+        err: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private async writeGoalOutcome(taskId: string, run: GoalRun): Promise<void> {

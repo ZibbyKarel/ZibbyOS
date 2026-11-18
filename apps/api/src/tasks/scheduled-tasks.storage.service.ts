@@ -277,6 +277,17 @@ export class ScheduledTasksStorageService extends EntityFileStore<ScheduledTask>
     }));
   }
 
+  /** Follow-up issue filing — patch the filer task's provenance (`prFileFollowUps`). Server-only. */
+  async setPrFileFollowUps(
+    id: string,
+    patch: (current: ScheduledTask["prFileFollowUps"]) => ScheduledTask["prFileFollowUps"],
+  ): Promise<ScheduledTask> {
+    return this.updateEntity(id, (existing) => ({
+      ...existing,
+      prFileFollowUps: patch(existing.prFileFollowUps),
+    }));
+  }
+
   /** "Fix CI" — patch the fix-ci provenance (`prFixCi`). Server-only. */
   async setPrFixCi(
     id: string,
