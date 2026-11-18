@@ -422,15 +422,15 @@ describe("InboxPrThreadsService on a GitLab project", () => {
       [/^user$/, { username: "me" }],
     ];
 
-    it("submitReview: note then verdict; the id is the note id", async () => {
+    it("submitReview: verdict then note; the id is the note id", async () => {
       const { client, exec } = fakeGlab(reviewRoutes());
       const { service, dropPrsCache } = make(client);
       await expect(
         service.submitReview("app", 3, { event: "REQUEST_CHANGES", body: "Needs work." }),
       ).resolves.toEqual({ id: 77 });
       expect(writes(exec).map((w) => [w.method, w.path.split("/").pop()])).toEqual([
-        ["POST", "notes"],
         ["POST", "unapprove"],
+        ["POST", "notes"],
       ]);
       expect(dropPrsCache).toHaveBeenCalled();
     });
@@ -442,6 +442,14 @@ describe("InboxPrThreadsService on a GitLab project", () => {
       ).resolves.toEqual({
         id: 3,
       });
+      expect(writes(exec).map((w) => w.path.split("/").pop())).toEqual(["approve"]);
+    });
+
+    it("submitReview: a refused verdict leaves no note behind", async () => {
+      const { client, exec } = fakeGlab([[/approve$/, { status: 403 }], ...reviewRoutes()]);
+      await expect(
+        make(client).service.submitReview("app", 3, { event: "APPROVE", body: "LGTM" }),
+      ).rejects.toMatchObject({ status: 403 });
       expect(writes(exec).map((w) => w.path.split("/").pop())).toEqual(["approve"]);
     });
 

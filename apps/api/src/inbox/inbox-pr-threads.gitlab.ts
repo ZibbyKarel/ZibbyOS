@@ -230,7 +230,8 @@ export async function submitGitlabReview(
   iid: number,
   input: SubmitInboxPrReviewInput,
 ): Promise<SubmitInboxPrReviewResult> {
-  const noteId = input.body ? await postGitlabNote(client, link, iid, input.body) : undefined;
+  // Verdict first: a refusal then leaves no note behind for a retry to duplicate.
   await applyGitlabVerdict(client, link, iid, input.event);
+  const noteId = input.body ? await postGitlabNote(client, link, iid, input.body) : undefined;
   return { id: noteId ?? iid };
 }

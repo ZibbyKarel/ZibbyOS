@@ -250,7 +250,7 @@ describe("addressCommentsTaskText for GitLab", () => {
     expect(text).toContain("`thread: <id>` (the discussion id, 40 hexadecimal characters)");
     expect(text).toContain('"threadId": "<discussion id>"');
     const writeBan =
-      "no `glab mr note`, `glab mr approve`, `glab mr merge`, no mutating `glab api`";
+      "any `glab` write: `glab mr note|approve|merge|update|close|create`, mutating `glab api`";
     expect(text).toContain(`do not open, merge or comment on merge requests (${writeBan})`);
     expect(text.split(writeBan)).toHaveLength(4); // address, reply and describe phases
     expect(text).toContain("`glab mr view 3 -R gl.example.com/grp/app --output json`");

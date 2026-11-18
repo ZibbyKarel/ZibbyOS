@@ -112,7 +112,10 @@ export async function gitlabFollowUp(
     try {
       await client.api(link.host, `${client.projectPath(link.repo)}/merge_requests/${fix.number}`, {
         method: "PUT",
-        body: { title: fix.description.title, description: fix.description.body },
+        body: {
+          ...(fix.description.title ? { title: fix.description.title } : {}),
+          description: fix.description.body,
+        },
       });
     } catch (error) {
       notes.push(`MR description: ${errMsg(error)}`);

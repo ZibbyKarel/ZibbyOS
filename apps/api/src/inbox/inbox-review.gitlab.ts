@@ -116,10 +116,14 @@ export async function applyGitlabVerdict(
     });
   } else if (event === "REQUEST_CHANGES") {
     const me = (link.username ?? (await readGitlabViewer(client, link.host)) ?? "").toLowerCase();
+    if (!me)
+      throw new Error(
+        "cannot tell which GitLab user is the operator, so the approval was not checked",
+      );
     const approvals = await readGitlabApprovals(client, link, iid).catch(
       unavailable<GitlabApprovals>({}),
     );
-    if (me && (approvals.approved_by ?? []).some((a) => a.user?.username?.toLowerCase() === me)) {
+    if ((approvals.approved_by ?? []).some((a) => a.user?.username?.toLowerCase() === me)) {
       await client
         .api(link.host, `${base}/unapprove`, { method: "POST" })
         .catch(unavailable(undefined));
@@ -130,7 +134,7 @@ export async function applyGitlabVerdict(
 /**
  * Posts a parked review: every inline finding as its own discussion with a text `position`
  * (a finding whose line is not in the diff, or that GitLab rejects with a 400, is folded into
- * the summary), the summary as one MR note, then the verdict. Anything else GitLab answers
+ * the summary), the summary as one MR note. The verdict is applied first, so a refusal leaves nothing behind. Anything else GitLab answers
  * propagates — with what was already posted in the message, as nothing here is atomic.
  */
 export async function postGitlabReview(
@@ -151,6 +155,11 @@ export async function postGitlabReview(
   const refs = mr.diff_refs;
   const moved = input.headSha !== undefined && refs?.head_sha !== input.headSha;
   const positioned = !moved && refs?.base_sha && refs.start_sha && refs.head_sha ? refs : null;
+  if (moved && input.event === "APPROVE") {
+    throw new Error(
+      "the MR head changed since the review started, so it cannot be approved; nothing was posted",
+    );
+  }
   const byPath = new Map(files.map((f) => [f.new_path ?? f.old_path ?? "", f]));
   const folded: PrReviewInlineComment[] = [];
   const posted: string[] = [];
@@ -158,6 +167,10 @@ export async function postGitlabReview(
   let notInDiff = 0;
   let inline = 0;
   try {
+    // The verdict goes first: when GitLab refuses it nothing else has been posted yet.
+    await applyGitlabVerdict(client, link, iid, input.event, input.headSha);
+    if (input.event !== "COMMENT")
+      posted.push(input.event === "APPROVE" ? "approval" : "unapproval");
     for (const c of input.comments) {
       const file = byPath.get(c.path);
       const lines = file ? commentableLines(file.diff) : undefined;
@@ -201,7 +214,6 @@ export async function postGitlabReview(
       await postGitlabNote(client, link, iid, body);
       posted.push("summary note");
     }
-    await applyGitlabVerdict(client, link, iid, input.event, input.headSha);
   } catch (error) {
     const done = posted.length ? ` (already posted: ${posted.join(", ")})` : "";
     const message = error instanceof Error ? error.message : String(error);

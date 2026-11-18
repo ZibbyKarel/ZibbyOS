@@ -179,24 +179,60 @@ describe("postGitlabReview", () => {
     expect(writes(exec).map((c) => c.path)).toEqual(["projects/grp/app/merge_requests/3/notes"]);
   });
 
-  it("APPROVE: note, then approve pinned to the reviewed sha; no summary → bare approve", async () => {
+  it("APPROVE: approve pinned to the reviewed sha; no summary → bare approve", async () => {
     const { client, exec } = fakeGlab(routes());
     await postGitlabReview(client, link, 3, { ...input, event: "APPROVE" });
     expect(writes(exec).map((c) => [c.path.split("/").pop(), c.body])).toEqual([
-      ["notes", { body: "Overall fine." }],
       ["approve", { sha: HEAD }],
+      ["notes", { body: "Overall fine." }],
     ]);
     const bare = fakeGlab(routes());
     await postGitlabReview(bare.client, link, 3, { ...input, event: "APPROVE", summary: "" });
     expect(writes(bare.exec).map((c) => c.path.split("/").pop())).toEqual(["approve"]);
   });
 
+  it("APPROVE on a head that moved fails up front and posts nothing", async () => {
+    const moved = {
+      ...MR,
+      sha: "e".repeat(40),
+      diff_refs: { ...MR.diff_refs, head_sha: "e".repeat(40) },
+    };
+    const { client, exec } = fakeGlab(routes([[/merge_requests\/3(\?|$)/, moved]]));
+    await expect(postGitlabReview(client, link, 3, { ...input, event: "APPROVE" })).rejects.toThrow(
+      /head changed.*nothing was posted/,
+    );
+    expect(writes(exec)).toEqual([]);
+  });
+
+  it("a refused approve leaves no inline discussion or note behind", async () => {
+    const { client, exec } = fakeGlab(routes([[/approve$/, { status: 403 }]]));
+    await expect(
+      postGitlabReview(client, link, 3, {
+        ...input,
+        event: "APPROVE",
+        comments: [{ path: "a.ts", line: 2, body: "x" }],
+      }),
+    ).rejects.toBeInstanceOf(Error);
+    expect(writes(exec).map((c) => c.path.split("/").pop())).toEqual(["approve"]);
+  });
+
+  it("REQUEST_CHANGES with an unresolvable viewer propagates instead of skipping the unapprove", async () => {
+    const { client, exec } = fakeGlab(routes([[/^user$/, { status: 500 }]]));
+    await expect(
+      postGitlabReview(client, { host: link.host, repo: link.repo }, 3, {
+        ...input,
+        event: "REQUEST_CHANGES",
+      }),
+    ).rejects.toBeInstanceOf(Error);
+    expect(writes(exec)).toEqual([]);
+  });
+
   it("REQUEST_CHANGES: summary note only; unapproves when the operator had approved (404 ignored)", async () => {
     const approved = fakeGlab(routes());
     await postGitlabReview(approved.client, link, 3, { ...input, event: "REQUEST_CHANGES" });
     expect(writes(approved.exec).map((c) => c.path.split("/").pop())).toEqual([
-      "notes",
       "unapprove",
+      "notes",
     ]);
 
     const gone = fakeGlab(routes([[/unapprove$/, { status: 404 }]]));
@@ -373,9 +409,9 @@ describe("InboxReviewService on a GitLab project", () => {
     exec.mockClear();
     await service.post("task_g1", "APPROVE");
     expect(writes(exec).map((c) => c.path.split("/").pop())).toEqual([
+      "approve",
       "discussions",
       "notes",
-      "approve",
     ]);
     expect((await storage.get("task_g1")).prReview).toMatchObject({
       state: "posted",

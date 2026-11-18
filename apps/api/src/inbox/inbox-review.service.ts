@@ -413,7 +413,11 @@ export class InboxReviewService implements OnModuleInit {
       ? await resolveGitHostLink(this.resolvedProjects, this.credentials, project)
       : null;
     if (!link || link.repo.toLowerCase() !== review.repo.toLowerCase()) {
-      return fail(`no GitHub token for ${review.repo}`);
+      return fail(
+        link?.kind === "gitlab"
+          ? `the project's GitLab link (glab) does not point at ${review.repo}`
+          : `no GitHub token for ${review.repo}`,
+      );
     }
     const { summary, comments } = parsePrReviewDoc(ownReview ?? review.body);
     if (link.kind === "gitlab") {

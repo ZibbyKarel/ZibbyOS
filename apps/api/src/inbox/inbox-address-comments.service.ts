@@ -52,7 +52,7 @@ export function addressCommentsTaskText(
   const cli = hostCli(host);
   const gitlab = host.kind === "gitlab";
   const glabWrites =
-    "no `glab mr note`, `glab mr approve`, `glab mr merge`, no mutating `glab api`";
+    "any `glab` write: `glab mr note|approve|merge|update|close|create`, mutating `glab api`";
   const readThreads = gitlab
     ? `2. Read the unresolved review threads (GitLab discussions, read only): \`glab api "projects/${encodeURIComponent(p.repo)}/merge_requests/${p.number}/discussions?per_page=100" --hostname ${host.host} --paginate\`. A thread is a discussion whose first note is \`resolvable\`; it is unresolved while a resolvable note has \`resolved: false\`; \`position\` gives path and line. The merge request itself: \`${cli.prView(p.number)}\`. Skip resolved threads.`
     : `2. Read the unresolved review threads: \`gh api graphql -f query='query{repository(owner:"${owner}",name:"${name}"){pullRequest(number:${p.number}){reviewThreads(first:100){nodes{id isResolved isOutdated path line comments(first:30){nodes{author{login} body}}}}}}}'\`, plus the review summaries: \`gh pr view ${p.number} --repo ${p.repo} --json reviews\`. Skip resolved threads.`;
@@ -289,11 +289,13 @@ export class InboxAddressCommentsService implements OnModuleInit {
       ? await resolveGitHostLink(this.resolvedProjects, this.credentials, project).catch(() => null)
       : null;
     if (!link || link.repo.toLowerCase() !== fix.repo.toLowerCase()) {
+      const missing =
+        link?.kind === "gitlab"
+          ? `the project's GitLab link (glab) does not point at ${fix.repo}`
+          : `no GitHub token for ${fix.repo}`;
       await patch({
-        ...(replies.length
-          ? { replied: 0, repliesNote: `no GitHub token for ${fix.repo}; no replies posted` }
-          : {}),
-        followUpNote: `no GitHub token for ${fix.repo}; review not re-requested`,
+        ...(replies.length ? { replied: 0, repliesNote: `${missing}; no replies posted` } : {}),
+        followUpNote: `${missing}; review not re-requested`,
       });
       return;
     }
