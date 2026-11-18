@@ -299,7 +299,7 @@ GitHub link or GitHub 401/403, 502 any other GitHub failure.
 **GitLab project** (`inbox-pr-diff.gitlab.ts`): `merge_requests/:iid/raw_diffs`; only a 404 there (GitLab older than 16.2)
 falls back to composing `git diff` text from `merge_requests/:iid/diffs` (header, mode/rename lines, `---`/`+++`, hunks);
 a patch GitLab withheld (`too_large`/`collapsed`) sets `truncated: true`. Same 500,000-char cap. Other failures: a
-`GitlabApiError` maps 404 -> 404, 401/403 -> 422, anything else -> 502.
+`GitlabApiError` maps 404 -> 404, 401/403/422 -> 422, anything else -> 502.
 
 ## Reviewers (`GET /api/inbox/prs/:projectId/:number/reviewers`)
 
@@ -602,7 +602,7 @@ autopilotAt? }`. It refuses (`PrRefusedError`) when the head moved off the `head
    `docs/api/approvals.md`) and the state is `awaiting-approval`. A rerun lists
    `GET /repos/{repo}/actions/runs?head_sha=<headSha>` and POSTs `.../rerun-failed-jobs` for every
    completed run that failed, timed out, was cancelled or failed to start -> `rerun` (+ `rerunAt`,
-   activity `pr-automation-started` "auto CI rerun", PR cache dropped). No failed run, or every POST
+   activity `pr-automation-started` "auto CI rerun" (summary text `repo!n` on GitLab, `itemId` keeps `repo#n`), PR cache dropped). No failed run, or every POST
    rejected -> `failed` with the HTTP status (a 403 means the token lacks Actions write). A rerun is not a
    fix attempt. Approve claims `awaiting-approval` atomically; reject -> `discarded`.
 3. **code / unclear -> fix.** The heartbeat starts `pr-fix-ci` through `InboxFixCiService.start(input,
@@ -640,9 +640,9 @@ source and target project, plain refs, source not the target or default branch; 
 plus `has_conflicts` for `conflictAtStart`. GitLab has no "merge the base into the branch" call, so
 only `method: "rebase"` on an MR without conflicts is done server-side: `PUT merge_requests/:iid/rebase`,
 then `GET merge_requests/:iid?include_rebase_in_progress=true` until `rebase_in_progress` is false
-(10 reads, 2 s apart) → 201 `{ updated: true }`, no task. A `merge_error` fails the call with GitLab's
-message, a rebase still running after the last read fails the call (422, `PrRefusedError`), and a failed
-PUT or read propagates as a `GitlabApiError` (404 → 404, 401/403 → 422, else 502) — never a silent
+(10 reads, 2 s apart) → 201 `{ updated: true }`, no task. A `merge_error` on the unchanged head sha fails the call with GitLab's
+message (a new head sha means success; a stale `merge_error` is ignored), a rebase still running after the last read fails the call (422, `PrRefusedError`), and a failed
+PUT or read propagates as a `GitlabApiError` (404 → 404, 401/403/422 → 422, else 502) — never a silent
 fallback. `method: "merge"` (the default) or a conflicted MR starts the `pr-rebase` workflow with the
 same git-based brief, written with `glab` (`host-cli.ts`) and forbidding every `glab` write. There is no
 stacked-MR boundary detection on GitLab yet.

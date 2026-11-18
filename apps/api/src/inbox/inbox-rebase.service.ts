@@ -300,7 +300,7 @@ export class InboxRebaseService implements OnModuleInit {
     }
     // GitLab only has a server-side rebase (no "merge base into branch"), and it refuses a conflicted MR.
     if (link.kind === "gitlab" && method === "rebase" && mergeable === true) {
-      await rebaseGitlabMr(this.gitlab, link, input.number, this.delay);
+      await rebaseGitlabMr(this.gitlab, link, input.number, headSha, this.delay);
       this.inbox.dropPrsCache();
       this.log?.info("mr branch rebased by gitlab", { repo: link.repo, number: input.number });
       return { updated: true };

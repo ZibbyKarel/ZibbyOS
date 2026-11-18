@@ -43,7 +43,7 @@ export function fixCiTaskText(
   const cli = hostCli(host);
   const gitlab = host.kind === "gitlab";
   const readFailures = gitlab
-    ? `\`${cli.checks(p.number, p.head)}\` lists the pipeline's jobs; the failed ones are the failing checks. For each failed job run \`${cli.failedLog}\` (the job id is in the job's link) to read its log.`
+    ? `\`${cli.checks(p.number, p.head)}\` lists the pipeline's jobs; the failed ones are the failing checks. For each failed job run \`${cli.failedLog}\` (\`<job-id>\` is a job id or the job's name as \`glab ci status\` prints it; add \`--branch ${p.head}\`) to read its log.`
     : `\`${cli.checks(p.number)}\` lists the failing checks. For a GitHub Actions check, run \`${cli.failedLog}\` (the run id comes from the check's link). For any other check, read the check run's output via \`gh api repos/${p.repo}/commits/${p.headSha}/check-runs\`.`;
   const ciConfig = gitlab ? "`.gitlab-ci.yml` or `.gitlab/`" : "`.github/`";
   const noReplay = gitlab

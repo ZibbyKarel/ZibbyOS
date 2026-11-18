@@ -264,7 +264,7 @@ describe("CI services on a GitLab project", () => {
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "pr-automation-started",
-        summary: "auto CI rerun grp/app#3",
+        summary: "auto CI rerun grp/app!3",
       }),
     );
   });

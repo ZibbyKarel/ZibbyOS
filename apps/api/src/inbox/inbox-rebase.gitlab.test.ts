@@ -82,7 +82,7 @@ describe("rebaseGitlabMr", () => {
       [mrPath, () => polls.shift()],
     ]);
     const delay = vi.fn(async () => {});
-    await rebaseGitlabMr(client, link, 3, delay);
+    await rebaseGitlabMr(client, link, 3, SHA, delay);
     expect(calls(exec).map((c) => `${c.method} ${c.path}`)).toEqual([
       "PUT projects/grp/app/merge_requests/3/rebase",
       "GET projects/grp/app/merge_requests/3?include_rebase_in_progress=true",
@@ -99,7 +99,7 @@ describe("rebaseGitlabMr", () => {
       [mrPath, { rebase_in_progress: true }],
     ]);
     const delay = vi.fn(async () => {});
-    await expect(rebaseGitlabMr(client, link, 3, delay)).rejects.toThrow(
+    await expect(rebaseGitlabMr(client, link, 3, SHA, delay)).rejects.toThrow(
       /GitLab is still rebasing grp\/app!3 after 20 s/,
     );
     expect(calls(exec).filter((c) => c.method === "GET")).toHaveLength(REBASE_POLL_TRIES);
@@ -111,21 +111,38 @@ describe("rebaseGitlabMr", () => {
       [rebasePath, { rebase_in_progress: true }],
       [mrPath, { rebase_in_progress: false, merge_error: "Rebase failed: conflict in a.ts" }],
     ]);
-    await expect(rebaseGitlabMr(client, link, 3, async () => {})).rejects.toThrow(
+    await expect(rebaseGitlabMr(client, link, 3, SHA, async () => {})).rejects.toThrow(
       "GitLab could not rebase grp/app!3: Rebase failed: conflict in a.ts",
+    );
+  });
+
+  it("a stale merge_error is ignored once the head sha changed; a missing flag on the old sha is not done", async () => {
+    const moved = fakeGlab([
+      [rebasePath, { rebase_in_progress: true }],
+      [mrPath, { sha: "e".repeat(40), rebase_in_progress: false, merge_error: "old failure" }],
+    ]);
+    await expect(
+      rebaseGitlabMr(moved.client, link, 3, SHA, async () => {}),
+    ).resolves.toBeUndefined();
+    const flagless = fakeGlab([
+      [rebasePath, { rebase_in_progress: true }],
+      [mrPath, { sha: SHA }],
+    ]);
+    await expect(rebaseGitlabMr(flagless.client, link, 3, SHA, async () => {})).rejects.toThrow(
+      /still rebasing/,
     );
   });
 
   it("a failed PUT or a failed poll read propagates", async () => {
     const put = fakeGlab([[rebasePath, { status: 403 }]]);
-    await expect(rebaseGitlabMr(put.client, link, 3, async () => {})).rejects.toMatchObject({
+    await expect(rebaseGitlabMr(put.client, link, 3, SHA, async () => {})).rejects.toMatchObject({
       status: 403,
     });
     const poll = fakeGlab([
       [rebasePath, { rebase_in_progress: true }],
       [mrPath, { status: 502 }],
     ]);
-    await expect(rebaseGitlabMr(poll.client, link, 3, async () => {})).rejects.toMatchObject({
+    await expect(rebaseGitlabMr(poll.client, link, 3, SHA, async () => {})).rejects.toMatchObject({
       status: 502,
     });
   });
@@ -209,7 +226,10 @@ describe("InboxRebaseService on a GitLab project", () => {
 
   it("a rebase GitLab refuses (merge_error) fails the call, no task, no fallback", async () => {
     const { client } = fakeGlab([
-      [/merge_requests\/3\?include_rebase_in_progress=true$/, { merge_error: "nope" }],
+      [
+        /merge_requests\/3\?include_rebase_in_progress=true$/,
+        { rebase_in_progress: false, merge_error: "nope" },
+      ],
       ...routes(),
     ]);
     await expect(make(client).start({ ...input, method: "rebase" })).rejects.toThrow(/nope/);
