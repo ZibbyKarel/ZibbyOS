@@ -27,7 +27,8 @@ import {
 } from "@zibby/contracts";
 import * as swaggerUi from "swagger-ui-express";
 import { AppModule } from "./app.module";
-import { resolveDataRoot } from "./shared/data-dir";
+import { resolveDataRoot, resolveRecipesRoot, resolveVaultDir } from "./shared/data-dir";
+import { hydrateDirs } from "./shared/icloud-hydrate";
 import { initInstanceRole } from "./shared/instance-role";
 import { LoggerService } from "./shared/logging/logger.service";
 import { migrateWorkflowRename } from "./shared/migrations/workflow-rename";
@@ -74,6 +75,17 @@ async function bootstrap(): Promise<void> {
       (err: unknown) =>
         new Logger("Migration").error(`workflow-rename migration failed: ${String(err)}`),
     );
+
+  // iCloud may have evicted recipes/vault files; the first read then fails with ETIMEDOUT
+  // and a store's onModuleInit would reject. Materialise them first (never throws).
+  const hydrated = await hydrateDirs([resolveRecipesRoot(), resolveVaultDir()], {
+    onProgress: (done, total) => {
+      if (done === total || done % 50 === 0)
+        Logger.log(`iCloud hydrate ${done}/${total} files`, "Bootstrap");
+    },
+  });
+  if (hydrated.failed.length > 0)
+    Logger.warn(`iCloud hydrate: ${hydrated.failed.length} file(s) unreadable`, "Bootstrap");
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
