@@ -84,11 +84,12 @@ _Generated: 2026-11-12T21:56:10.837Z_
 
 <!-- AUTO:CHANNELS:START -->
 
-## Channels (6)
+## Channels (7)
 
 - calendar
 - email
 - github
+- gitlab
 - jira
 - sentry
 - slack
