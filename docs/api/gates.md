@@ -46,6 +46,21 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   inline (an `--input` body stays `gh.api_write`). Every review POST (`/pulls/<n>/reviews`)
   and every other write stays `gh.api_write`. `gh.pr_comment` is a subclass of
   `gh.api_write`: any rule matching action `gh.api_write` also matches a comment.
+- GitLab (`glab`): the hook classifies `glab` like `gh`, onto the same actions, so every
+  rule above applies unchanged. Global `-R/--repo` is skipped. `glab mr create|new|for` →
+  `pr.open`; `glab mr merge|accept` and a write on `…/merge_requests/<iid>/merge` →
+  `pr.merge`; `glab mr note|comment|approve|revoke|unapprove`, `glab issue note|comment`
+  and a write on `…/notes`, `…/discussions…`, `…/approve`, `…/unapprove` →
+  `gh.pr_comment`. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
+  field flag `-f/-F/--field/--raw-field/--form/--input` implying POST) → `gh.api_write`;
+  `glab api graphql` is a write only with a `mutation` (or a body the hook can't read).
+  Every other glab verb is **fail-closed**: only the read-only verbs (`mr view|list|diff|
+checkout`, `issue view|list`, `ci status|view|trace|list|get|lint|config|artifact`,
+  `release list|view|download`, `repo view|clone|list|search`, `variable get|list|export`,
+  `auth status`, `config get|path`, `version`, and `--help`) stay ungated; update/close/
+  reopen/rebase/delete, `ci run|retry|cancel|delete`, `release create|delete`,
+  `repo delete|archive|fork|create`, `variable set|update|delete` and any unknown command
+  or group (e.g. `glab label list`) raise `gh.api_write`. The chat gate refuses all of them.
 - MCP / connector calls in runs (A28): `floor-mcp.read` (**notify**) covers the hook's
   `mcp.read` (a read-only tool name) and `floor-mcp.write` (**ask**) its `mcp.write` (every
   other MCP tool outside ZibbyOS's own servers and the run's registry servers, and any MCP
