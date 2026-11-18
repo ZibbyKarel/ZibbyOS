@@ -72,7 +72,9 @@ import { ProjectLocalService } from "../projects/project-local.service";
 import { ProjectLocalUnresolvedError } from "../projects/projects.errors";
 import { AiProvidersStore } from "../ai-providers/ai-providers.store";
 import { ProjectSecretsStore } from "../projects/project-secrets.store";
+import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
+import type { ResolvedProjectService } from "../projects/resolved-project.service";
 import { writeFileAtomic } from "../shared/file-storage/file-utils";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { PR_REVIEW_ARTIFACT, suggestReviewEvent } from "../tasks/task-output.service";
@@ -333,6 +335,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly tasks?: ScheduledTasksStorageService,
     // Global AI provider keys (OPENAI_API_KEY), lowest-precedence stage env.
     @Optional() private readonly aiProviders?: AiProvidersStore,
+    // Resolves the project's GitLab link so the PR is opened as a merge request.
+    @Optional() private readonly resolvedProjects?: ResolvedProjectService,
   ) {
     this.dir = path.resolve(dir);
     this.log = logger.child(WorkflowRunnerService.name);
@@ -2502,6 +2506,15 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** `{ gitlab }` when the project's host is GitLab (so `openPr` runs `glab mr create`), else `{}`. */
+  private async gitlabOpt(
+    project: Project | null,
+  ): Promise<{ gitlab?: { host: string; repo: string } }> {
+    if (!project || !this.resolvedProjects) return {};
+    const link = await resolveGitlabLink(this.resolvedProjects, project).catch(() => null);
+    return link ? { gitlab: { host: link.host, repo: link.repo } } : {};
+  }
+
   /**
    * Execute an approved `pr` output: write the PR draft and run the gated push.
    */
@@ -2532,6 +2545,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       title: title || run.workflowId,
       bodyFile,
       draft: project?.prOpenMode === "draft",
+      ...(await this.gitlabOpt(project)),
     });
     if (result) {
       const stats = await this.workspace

@@ -20,7 +20,13 @@ import { CredentialsStore } from "../integrations/credentials.store";
 // constructor injection, exactly like the pre-existing `ResolvedProjectModule` <->
 // `IntegrationsModule` <-> `ProjectsModule` triangle.
 import { RoadmapGateService } from "../roadmap/roadmap-gate.service";
-import { listOpenGitlabMrs } from "./project-pr.gitlab";
+import {
+  closeGitlabMr,
+  getGitlabMr,
+  listOpenGitlabMrs,
+  mergeGitlabMr,
+  setGitlabMrDraft,
+} from "./project-pr.gitlab";
 import { NoGithubLinkError, PrNotMergeableError, PrUpdateRefusedError } from "./projects.errors";
 import { ProjectsStorageService } from "./projects.storage.service";
 import { ResolvedProjectService } from "./resolved-project.service";
@@ -192,6 +198,8 @@ export class ProjectPrService {
     number: number,
   ): Promise<{ number: number; merged: boolean; state: "open" | "closed" } | null> {
     const project = await this.projects.get(projectId); // 404 before anything else
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (host?.kind === "gitlab") return getGitlabMr(this.gitlab, host, number);
     const link = await this.resolveGithubLink(project);
     if (!link) return null;
 
@@ -244,6 +252,23 @@ export class ProjectPrService {
     deleteBranch = false,
   ): Promise<MergeProjectPrResult> {
     const project = await this.projects.get(projectId); // 404 before anything else
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (host?.kind === "gitlab") {
+      const result = await mergeGitlabMr(
+        this.gitlab,
+        host,
+        projectId,
+        number,
+        method,
+        deleteBranch,
+      );
+      if (result.merged) {
+        await this.recordMerge(projectId, host.repo, number, result.sha).catch(() => {});
+        this.notifyChanged(host.repo, number);
+        if (deleteBranch) result.branchDeleted = true;
+      }
+      return result;
+    }
     const link = await this.resolveGithubLink(project);
     if (!link) throw new NoGithubLinkError(projectId);
 
@@ -290,6 +315,19 @@ export class ProjectPrService {
    * first) and denied to the chat self-API; no scheduler, monitor or runner calls it.
    */
   async close(projectId: string, number: number): Promise<ProjectPrUpdateResult> {
+    const gl = await this.gitlabLink(projectId);
+    if (gl) {
+      const { result, changed } = await closeGitlabMr(this.gitlab, gl, projectId, number);
+      if (changed) {
+        void this.activity.record({
+          kind: "pr-closed",
+          summary: `Closed PR #${number} in ${gl.repo} without merging`,
+          refs: { projectId, itemId: `pr-${number}` },
+        });
+        this.notifyChanged(gl.repo, number);
+      }
+      return result;
+    }
     const link = await this.requireLink(projectId);
     const headers = this.ghHeaders(link.token);
     const read = await this.fetchImpl(`${GITHUB_API}/repos/${link.repo}/pulls/${number}`, {
@@ -340,6 +378,21 @@ export class ProjectPrService {
     number: number,
     draft: boolean,
   ): Promise<ProjectPrUpdateResult> {
+    const gl = await this.gitlabLink(projectId);
+    if (gl) {
+      const { result, changed } = await setGitlabMrDraft(this.gitlab, gl, projectId, number, draft);
+      if (changed) {
+        void this.activity.record({
+          kind: "pr-draft-changed",
+          summary: draft
+            ? `Converted PR #${number} in ${gl.repo} to draft`
+            : `Marked PR #${number} in ${gl.repo} ready for review`,
+          refs: { projectId, itemId: `pr-${number}` },
+        });
+        this.notifyChanged(gl.repo, number);
+      }
+      return result;
+    }
     const link = await this.requireLink(projectId);
     const headers = this.ghHeaders(link.token);
     const read = await this.fetchImpl(`${GITHUB_API}/repos/${link.repo}/pulls/${number}`, {
@@ -382,6 +435,13 @@ export class ProjectPrService {
     });
     this.notifyChanged(link.repo, number);
     return { url, state: "open", draft };
+  }
+
+  /** The project's GitLab link, or `null` (a project has one host: GitLab wins, the GitHub path is then skipped). */
+  private async gitlabLink(projectId: string): Promise<{ host: string; repo: string } | null> {
+    const project = await this.projects.get(projectId); // 404 before anything else
+    const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    return link?.kind === "gitlab" ? link : null;
   }
 
   private async requireLink(projectId: string): Promise<{ repo: string; token: string }> {

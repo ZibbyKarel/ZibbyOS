@@ -921,3 +921,5 @@ the honest signal that something is broken rather than merely absent.
 The asymmetry is intentional — asking for one item by id should tell you the
 truth about it, while rendering a board should degrade rather than fail. Both
 halves are covered by tests in `roadmap.store.test.ts`.
+
+`parsePrNumberFromUrl` accepts GitLab `…/-/merge_requests/N` URLs as well as GitHub `/pull/N` (via `git-host/git-host-url.ts`).

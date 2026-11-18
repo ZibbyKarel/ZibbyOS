@@ -10,7 +10,8 @@ import type {
   ProjectPr,
 } from "@zibby/contracts";
 import { CredentialsStore } from "../integrations/credentials.store";
-import { ProjectPrService, resolveGithubToken } from "../projects/project-pr.service";
+import { resolveGitHostLink } from "../git-host/git-host-link";
+import { ProjectPrService } from "../projects/project-pr.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
@@ -176,7 +177,9 @@ export class ReleaseService {
   }
 
   private async queueForProject(project: Project, now: Date): Promise<MergeQueueEntry[]> {
-    const link = await resolveGithubToken(this.resolvedProjects, this.credentials, project);
+    // ponytail: the release/merge queue has no GitLab source yet — a GitLab project reads as "no link" (empty queue, no error). Enrich MRs (pipeline, approvals, mergeability) when needed.
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    const link = host?.kind === "github" ? host : null;
     if (!link) return [];
 
     const prs = await this.projectPr.listOpen(project.id).catch((err) => {

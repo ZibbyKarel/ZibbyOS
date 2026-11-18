@@ -603,3 +603,5 @@ only the computed `hasCredentials` flag.
 | `channel-noted`               | A read-only adapter's item was recorded (no reply surface) |
 | `channel-needs-attention`     | A notify-only item (email) surfaced for the operator       |
 | `integration-retry-exhausted` | An integration's poll failed after exhausting its retries  |
+
+A GitLab item (`…/-/merge_requests/N`) is noted without triage exactly like a GitHub pull request, and GitLab items use the same implicit `gitRemote` routing context as GitHub.

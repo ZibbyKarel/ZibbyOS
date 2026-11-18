@@ -1,5 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
+import { GitlabClient } from "../git-host/gitlab-client";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
+import { fetchGitlabMrComments } from "./review-comment.gitlab";
 import { ZibbyPrLocator } from "./zibby-pr.locator";
 
 const GITHUB_API = "https://api.github.com";
@@ -95,13 +97,16 @@ interface RawComment {
 export class ReviewCommentFetcher {
   private readonly fetchImpl: typeof fetch;
   private readonly log: ScopedLogger;
+  private readonly gitlab: GitlabClient;
 
   constructor(
     private readonly locator: ZibbyPrLocator,
     logger: LoggerService,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlab?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlab ?? new GitlabClient();
     this.log = logger.child(ReviewCommentFetcher.name);
   }
 
@@ -174,6 +179,37 @@ export class ReviewCommentFetcher {
         kept: MAX_COMMENTS_PER_PASS,
       });
     }
+    return { comments: collected.slice(0, MAX_COMMENTS_PER_PASS), failedEndpoints };
+  }
+
+  /**
+   * GitLab twin of {@link fetchNew}: the discussions of each ZIBBY-opened MR (bounded by
+   * {@link MAX_REVIEW_PRS}). Same fail-soft contract — a failed MR read is a `failedEndpoints` entry.
+   */
+  async fetchNewGitlab(input: {
+    projectId: string;
+    host: string;
+    repo: string;
+    cursor?: string;
+  }): Promise<FetchNewResult> {
+    const numbers = await this.locator.numbersFor(input.projectId);
+    const collected: FetchedComment[] = [];
+    const failedEndpoints: string[] = [];
+    for (const number of numbers.slice(0, MAX_REVIEW_PRS)) {
+      try {
+        collected.push(...(await fetchGitlabMrComments(this.gitlab, input, number, input.cursor)));
+      } catch (err) {
+        failedEndpoints.push(`merge_requests/${number}/discussions`);
+        this.log.warn("gitlab review comment fetch failed", {
+          projectId: input.projectId,
+          number,
+          error: String(err),
+        });
+      }
+    }
+    collected.sort((a, b) =>
+      a.at === b.at ? a.commentId.localeCompare(b.commentId) : a.at.localeCompare(b.at),
+    );
     return { comments: collected.slice(0, MAX_COMMENTS_PER_PASS), failedEndpoints };
   }
 

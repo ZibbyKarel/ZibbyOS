@@ -5,6 +5,7 @@ import type {
   ScheduledTask,
   WorkflowRun,
 } from "@zibby/contracts";
+import { parsePrUrl } from "../git-host/git-host-url";
 
 /** The approval action a budget-held task's approval carries (task-scheduler's `SPEND_PAST_CAP`). */
 const SPEND_PAST_CAP = "spend-past-cap";
@@ -54,7 +55,7 @@ const event = (e: Omit<OperatorEvent, "tier">): OperatorEvent => ({
 });
 
 const isPrUrl = (url: string | undefined): url is string =>
-  !!url && /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(url);
+  !!url && url.startsWith("https://") && parsePrUrl(url) !== null;
 
 /** PR-inbox tasks report through their own approvals, not a "run completed" line. */
 const isPrInboxTask = (t: ScheduledTask): boolean =>
@@ -192,7 +193,11 @@ export async function toOperatorEvent(
     case "pr-ci-autofix-parked": {
       // CI auto-fix gave up on a PR: a human has to look (no approval behind it).
       const m = /^(.+)#(\d+)$/.exec(refs.itemId ?? "");
-      const prUrl = m ? `https://github.com/${m[1]}/pull/${m[2]}` : undefined;
+      const prUrl = isPrUrl(refs.itemId)
+        ? refs.itemId
+        : m
+          ? `https://github.com/${m[1]}/pull/${m[2]}`
+          : undefined;
       return event({
         kind: "run-parked",
         target: refs.itemId ?? entry.id,

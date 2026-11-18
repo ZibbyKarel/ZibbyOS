@@ -269,6 +269,21 @@ describe("ChannelTriageFlowService", () => {
     expect(jiraPropose).not.toHaveBeenCalled();
   });
 
+  it("notes a GitLab merge request without triage too", async () => {
+    const flow = makeFlow({ verdict: bug });
+    const mr = item({
+      id: "gl-grp-app-mr-7",
+      kind: "gitlab",
+      externalRef: { channel: "grp/sub/app", messageId: "7" },
+      url: "https://gl.example.com/grp/sub/app/-/merge_requests/7",
+      text: "!7 Fix Exception in login",
+    });
+    const out = await flow.handle(mr);
+    expect(out.state).toBe("handled");
+    expect(out.triage).toBeUndefined();
+    expect(createTask).not.toHaveBeenCalled();
+  });
+
   it("does not file a Jira issue for a non-bug verdict", async () => {
     const jiraPropose = vi.fn(async () => ({ id: "x" }));
     const flow = makeFlow({

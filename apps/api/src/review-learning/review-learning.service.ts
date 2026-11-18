@@ -1,5 +1,6 @@
 import { Injectable, Optional } from "@nestjs/common";
 import type { Project } from "@zibby/contracts";
+import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { resolveGithubToken } from "../projects/project-pr.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -90,8 +91,12 @@ export class ReviewLearningService {
     project: Project,
     now: Date,
   ): Promise<{ observations: number; proposed: number }> {
-    const link = await this.resolveLink(this.resolvedProjects, this.credentials, project);
-    if (!link) {
+    const gitlab = await resolveGitlabLink(this.resolvedProjects, project);
+    // A project has one host: GitLab wins, the GitHub path is then not tried.
+    const link = gitlab
+      ? null
+      : await this.resolveLink(this.resolvedProjects, this.credentials, project);
+    if (!gitlab && !link) {
       // Ordinary — most projects have no GitHub link at all — but it is also the
       // first thing an operator needs to rule out when a pass reports 0/0, so it
       // must not be completely silent. `debug`, and named, so `LOG_LEVEL=debug`
@@ -108,12 +113,21 @@ export class ReviewLearningService {
     // operator's own GitHub token, so ZIBBY's author identity IS the operator's
     // login. Passing `selfLogin` here would filter out the operator's own review
     // comments — precisely the feedback this feature exists to learn from.
-    const { comments, failedEndpoints } = await this.fetcher.fetchNew({
-      projectId: project.id,
-      repo: link.repo,
-      token: link.token,
-      ...(cursor ? { cursor } : {}),
-    });
+    const { comments, failedEndpoints } = gitlab
+      ? await this.fetcher.fetchNewGitlab({
+          projectId: project.id,
+          host: gitlab.host,
+          repo: gitlab.repo,
+          ...(cursor ? { cursor } : {}),
+        })
+      : link
+        ? await this.fetcher.fetchNew({
+            projectId: project.id,
+            repo: link.repo,
+            token: link.token,
+            ...(cursor ? { cursor } : {}),
+          })
+        : { comments: [], failedEndpoints: [] };
     if (comments.length === 0) return { observations: 0, proposed: 0 };
 
     const { observations, proposed, complete } = await this.ingest(project.id, comments, now);

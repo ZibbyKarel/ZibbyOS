@@ -1,7 +1,8 @@
-import { type Project, gitlabRepoFor } from "@zibby/contracts";
+import type { Project } from "@zibby/contracts";
 import type { CredentialsStore } from "../integrations/credentials.store";
 import { resolveGithubToken } from "../projects/project-pr.service";
 import type { ResolvedProjectService } from "../projects/resolved-project.service";
+import { resolveGitlabLink } from "./gitlab-link";
 
 /** Where a project's code lives: GitHub (PAT) or GitLab (via the `glab` CLI, no token). */
 export type GitHostLink =
@@ -17,14 +18,8 @@ export async function resolveGitHostLink(
   credentials: CredentialsStore,
   project: Project,
 ): Promise<GitHostLink | null> {
-  const integrations = await resolvedProjects.resolveIntegrations(project);
-  for (const integration of integrations) {
-    if (integration.config.kind !== "gitlab") continue;
-    const repo = gitlabRepoFor(integration, project);
-    if (!repo) continue;
-    const { host, username } = integration.config;
-    return { kind: "gitlab", host, repo, ...(username ? { username } : {}) };
-  }
+  const gitlab = await resolveGitlabLink(resolvedProjects, project);
+  if (gitlab) return gitlab;
   const github = await resolveGithubToken(resolvedProjects, credentials, project);
   return github ? { kind: "github", ...github } : null;
 }

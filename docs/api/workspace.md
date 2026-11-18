@@ -129,3 +129,7 @@ method above is called in-process by the runners.
   (gate approval) → `openPr` is documented in `./tasks.md` and `./workflows.md`.
 
 <!-- Last reviewed 2026-10-23: still accurate after the verify-phase / project-checks removal (D-024). -->
+
+### GitLab merge requests
+
+`openPr({ gitlab: { host, repo } })` runs `glab mr create --title <t> --description <body> --target-branch <origin default> --source-branch <head> --yes [--draft] -R <host>/<repo>` through the same shared exec as `gh pr create` (argv only, never a shell; no auto-merge, remove-source-branch or squash flags). The MR URL is parsed from stdout; no URL -> soft `null`, like the gh path. `git push` is unchanged. Callers (`TaskOutputService`, `WorkflowRunnerService`) pass `gitlab` when the project resolves to a GitLab link; the legacy parked-approval path has no project and stays on `gh`.

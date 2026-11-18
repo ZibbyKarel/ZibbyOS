@@ -9,6 +9,7 @@ import {
   exec,
   isGitRepo as isGitRepoAt,
 } from "../shared/git-exec";
+import { parsePrUrl } from "../git-host/git-host-url";
 import { capUnifiedDiff } from "../shared/cap-unified-diff";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 
@@ -390,6 +391,8 @@ export class WorkspaceService {
     bodyFile?: string;
     body?: string;
     draft?: boolean;
+    /** The project's GitLab link: open a merge request with `glab mr create` instead of `gh pr create`. */
+    gitlab?: { host: string; repo: string };
   }): Promise<{ url: string } | null> {
     const marker = await fs.stat(path.join(opts.cwd, ".git")).catch(() => null);
     if (!marker) {
@@ -410,6 +413,7 @@ export class WorkspaceService {
         cwd: opts.cwd,
         timeout: GIT_TIMEOUT_MS,
       });
+      if (opts.gitlab) return await this.openMr(opts, opts.gitlab, branch);
       const bodyArgs =
         opts.bodyFile !== undefined ? ["--body-file", opts.bodyFile] : ["--body", opts.body ?? ""];
       const created = await exec(
@@ -436,6 +440,56 @@ export class WorkspaceService {
       });
       return null;
     }
+  }
+
+  /**
+   * GitLab twin of the `gh pr create` step: `glab mr create` in the worktree. Title and body go
+   * through argv (never a shell); no auto-merge / remove-source-branch / squash flags. The target
+   * is the remote default branch. Throws (caught by `openPr` → soft null) when stdout has no MR URL.
+   */
+  private async openMr(
+    opts: { cwd: string; title: string; bodyFile?: string; body?: string; draft?: boolean },
+    gitlab: { host: string; repo: string },
+    branch: string,
+  ): Promise<{ url: string }> {
+    const description =
+      opts.bodyFile !== undefined ? await fs.readFile(opts.bodyFile, "utf8") : (opts.body ?? "");
+    const base = await this.remoteDefaultBranch(opts.cwd);
+    const created = await exec(
+      "glab",
+      [
+        "mr",
+        "create",
+        "--title",
+        opts.title,
+        "--description",
+        description,
+        "--target-branch",
+        base,
+        "--source-branch",
+        branch,
+        "--yes",
+        ...(opts.draft ? ["--draft"] : []),
+        "-R",
+        `${gitlab.host}/${gitlab.repo}`,
+      ],
+      { cwd: opts.cwd, timeout: GIT_TIMEOUT_MS },
+    );
+    const url = created.stdout.split(/\s+/).find((token) => parsePrUrl(token)?.kind === "gitlab");
+    if (!url) throw new Error("glab mr create printed no merge request URL");
+    this.log?.info("MR opened", { cwd: opts.cwd, branch, url });
+    return { url };
+  }
+
+  /** `origin`'s default branch (`refs/remotes/origin/HEAD`), `main` when unset. */
+  private async remoteDefaultBranch(cwd: string): Promise<string> {
+    const ref = await exec("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
+      cwd,
+      timeout: GIT_TIMEOUT_MS,
+    })
+      .then((r) => r.stdout.trim())
+      .catch(() => "");
+    return ref.replace(/^origin\//, "") || "main";
   }
 
   /**

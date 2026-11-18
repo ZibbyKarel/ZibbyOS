@@ -1,5 +1,13 @@
-import type { ProjectPr } from "@zibby/contracts";
-import type { GitlabClient } from "../git-host/gitlab-client";
+import type {
+  MergeMethod,
+  MergeProjectPrResult,
+  ProjectPr,
+  ProjectPrUpdateResult,
+} from "@zibby/contracts";
+import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
+import { PrNotMergeableError, PrUpdateRefusedError } from "./projects.errors";
+
+type GitlabLink = { host: string; repo: string };
 
 interface GitlabMr {
   iid?: number;
@@ -35,4 +43,161 @@ export async function listOpenGitlabMrs(
     });
   }
   return prs;
+}
+
+interface GitlabMrState {
+  iid?: number;
+  web_url?: string;
+  title?: string;
+  state?: string;
+  draft?: boolean;
+  merge_commit_sha?: string | null;
+  squash_commit_sha?: string | null;
+}
+
+const mrPath = (client: GitlabClient, link: GitlabLink, number: number) =>
+  `${client.projectPath(link.repo)}/merge_requests/${number}`;
+
+/** One MR's minimal live state (`merge_requests/:iid`); `null` when it is gone (404). */
+export async function getGitlabMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  number: number,
+): Promise<{ number: number; merged: boolean; state: "open" | "closed" } | null> {
+  try {
+    const mr = await client.api<GitlabMrState>(link.host, mrPath(client, link, number));
+    return {
+      number: mr?.iid ?? number,
+      merged: mr?.state === "merged",
+      state: mr?.state === "opened" ? "open" : "closed",
+    };
+  } catch (error) {
+    if (error instanceof GitlabApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/**
+ * Operator-triggered merge (`PUT merge_requests/:iid/merge`). Same contract as the GitHub path:
+ * 405/406/409/422 is a refusal (`PrNotMergeableError`). `rebase` has no merge-time equivalent on
+ * GitLab (it is a project setting), so it merges like the project default.
+ */
+export async function mergeGitlabMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  projectId: string,
+  number: number,
+  method: MergeMethod | undefined,
+  deleteBranch: boolean,
+): Promise<MergeProjectPrResult> {
+  const params = new URLSearchParams();
+  if (method === "squash") params.set("squash", "true");
+  if (deleteBranch) params.set("should_remove_source_branch", "true");
+  const qs = params.size ? `?${params}` : "";
+  try {
+    const mr = await client.api<GitlabMrState>(
+      link.host,
+      `${mrPath(client, link, number)}/merge${qs}`,
+      { method: "PUT" },
+    );
+    const sha = mr?.merge_commit_sha ?? mr?.squash_commit_sha ?? undefined;
+    return {
+      // ponytail: "merged" only once GitLab says so; a merge-when-pipeline-succeeds MR reports not merged yet.
+      merged: mr?.state === "merged",
+      url: mr?.web_url ?? `https://${link.host}/${link.repo}/-/merge_requests/${number}`,
+      ...(sha ? { sha } : {}),
+    };
+  } catch (error) {
+    if (error instanceof GitlabApiError && [405, 406, 409, 422].includes(error.status ?? 0)) {
+      throw new PrNotMergeableError(projectId, number, error.message);
+    }
+    throw error;
+  }
+}
+
+async function readOpenMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  projectId: string,
+  number: number,
+): Promise<GitlabMrState> {
+  try {
+    return (await client.api<GitlabMrState>(link.host, mrPath(client, link, number))) ?? {};
+  } catch (error) {
+    if (error instanceof GitlabApiError && error.status === 404) {
+      throw new PrUpdateRefusedError(projectId, number, "PR not found");
+    }
+    throw error;
+  }
+}
+
+async function putMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  projectId: string,
+  number: number,
+  body: Record<string, string>,
+): Promise<GitlabMrState> {
+  try {
+    return (
+      (await client.api<GitlabMrState>(link.host, mrPath(client, link, number), {
+        method: "PUT",
+        body,
+      })) ?? {}
+    );
+  } catch (error) {
+    if (error instanceof GitlabApiError && [403, 404, 405, 409, 422].includes(error.status ?? 0)) {
+      throw new PrUpdateRefusedError(projectId, number, error.message);
+    }
+    throw error;
+  }
+}
+
+/** Close without merging (`PUT merge_requests/:iid` `state_event=close`); `changed` is false when already closed. */
+export async function closeGitlabMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  projectId: string,
+  number: number,
+): Promise<{ result: ProjectPrUpdateResult; changed: boolean }> {
+  const url = `https://${link.host}/${link.repo}/-/merge_requests/${number}`;
+  const current = await readOpenMr(client, link, projectId, number);
+  if (current.state !== "opened") {
+    return {
+      result: { url: current.web_url ?? url, state: "closed", draft: current.draft === true },
+      changed: false,
+    };
+  }
+  const mr = await putMr(client, link, projectId, number, { state_event: "close" });
+  return {
+    result: {
+      url: mr.web_url ?? current.web_url ?? url,
+      state: mr.state === "opened" ? "open" : "closed",
+      draft: (mr.draft ?? current.draft) === true,
+    },
+    changed: true,
+  };
+}
+
+const DRAFT_PREFIX = /^\s*(?:\[draft\]|\(draft\)|draft:)\s*/i;
+
+/** Draft toggle: the title gains/loses the `Draft: ` prefix. `changed` is false for a no-op. */
+export async function setGitlabMrDraft(
+  client: GitlabClient,
+  link: GitlabLink,
+  projectId: string,
+  number: number,
+  draft: boolean,
+): Promise<{ result: ProjectPrUpdateResult; changed: boolean }> {
+  const current = await readOpenMr(client, link, projectId, number);
+  const url = current.web_url ?? `https://${link.host}/${link.repo}/-/merge_requests/${number}`;
+  if (current.state !== "opened") {
+    throw new PrUpdateRefusedError(projectId, number, "the PR is not open");
+  }
+  if ((current.draft === true) === draft) {
+    return { result: { url, state: "open", draft }, changed: false };
+  }
+  const bare = (current.title ?? "").replace(DRAFT_PREFIX, "");
+  await putMr(client, link, projectId, number, { title: draft ? `Draft: ${bare}` : bare });
+  return { result: { url, state: "open", draft }, changed: true };
 }

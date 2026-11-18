@@ -254,7 +254,8 @@ export class InboxCiTriageService {
       summary: `CI auto-fix gave up on ${displayRef(triage)}: ${note}`.slice(0, 300),
       refs: {
         ...(task.projectId ? { projectId: task.projectId } : {}),
-        itemId: `${triage.repo}#${triage.number}`,
+        // A GitLab MR has no host in `repo#n`, so its itemId is the MR URL (operator-events reads it back).
+        itemId: isGitlabUrl(triage.url) ? triage.url : `${triage.repo}#${triage.number}`,
         taskId,
       },
     });

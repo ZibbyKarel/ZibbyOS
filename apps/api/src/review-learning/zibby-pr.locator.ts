@@ -1,13 +1,12 @@
 import { Injectable } from "@nestjs/common";
+import { parsePrNumber } from "../git-host/git-host-url";
 import { ArtifactsStorageService } from "../artifacts/artifacts.storage.service";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 
-/** `https://github.com/<owner>/<repo>/pull/<n>` → `n`, else null. */
+/** A GitHub `/pull/<n>` or GitLab `/-/merge_requests/<n>` URL → `n`, else null. */
 export function prNumberFromUrl(url: string): number | null {
-  const match = /\/pull\/(\d+)(?:$|[/?#])/.exec(url);
-  if (!match?.[1]) return null;
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isSafeInteger(parsed) ? parsed : null;
+  const n = parsePrNumber(url);
+  return n !== null && Number.isSafeInteger(n) ? n : null;
 }
 
 /**

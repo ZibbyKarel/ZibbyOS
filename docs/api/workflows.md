@@ -753,3 +753,5 @@ run is simply re-run. The old env names (`PIPELINES_DIR`, `PIPELINE_RUNS_DIR`,
 `artifactPath(runId, name)` is `readArtifact`'s lookup without the read (same allowlist and
 candidate dirs, absolute path of the first existing file, else `null`) — the same route's
 `{ artifact }` body opens that file.
+
+The terminal `pr` output of a GitLab-linked project opens a merge request via `glab mr create` (see `workspace.md`).

@@ -7,6 +7,7 @@ import { GatesModule } from "../gates/gates.module";
 import { LimitsModule } from "../limits/limits.module";
 import { MemoryModule } from "../memory/memory.module";
 import { ProjectsModule } from "../projects/projects.module";
+import { ResolvedProjectModule } from "../projects/resolved-project.module";
 import { ClaudeRunModule } from "../runner/claude-run.module";
 import { PHASE_ADVISOR } from "../runner/run-mcp.controller";
 import { SkillsModule } from "../skills/skills.module";
@@ -49,6 +50,7 @@ export function resolveWorkflowRunsDir(): string {
     LimitsModule,
     MemoryModule,
     ProjectsModule,
+    ResolvedProjectModule,
     SignalBusModule,
     SkillsModule,
     WorkspaceModule,

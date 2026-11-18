@@ -314,3 +314,5 @@ network. Tests:
   reply, a redelivery is processed once, and the transcript shows up in the web chat.
 
 `FakeOperatorChannel.receive(event)` plays an inbound event as if Slack had delivered it.
+
+Operator events accept GitLab MR URLs as `prUrl` (`git-host/git-host-url.ts`); a GitLab CI auto-fix park carries the MR URL as its activity `itemId`.

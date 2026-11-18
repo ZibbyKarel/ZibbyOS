@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit, Optional } from "@nestjs/common";
+import { parsePrUrl } from "../git-host/git-host-url";
 import { ModuleRef } from "@nestjs/core";
 import {
   type Approval,
@@ -47,9 +48,11 @@ const CHANNEL_REPLY_ACTION = "channel-reply";
 /** Strength ordering, mirroring the gate evaluator — a higher rank is stricter. */
 const DECISION_RANK: Record<Decision, number> = { allow: 0, notify: 1, ask: 2, deny: 3 };
 
-/** A GitHub pull request (the adapter stamps PRs with a `/pull/<n>` url). */
+/** A GitHub pull request (`/pull/<n>`) or GitLab merge request (`/-/merge_requests/<n>`) — the adapters stamp it on the url. */
 function isPullRequest(item: ChannelItem): boolean {
-  return item.kind === "github" && /\/pull\/\d+$/.test(item.url ?? "");
+  if (item.kind !== "github" && item.kind !== "gitlab") return false;
+  const pr = parsePrUrl(item.url ?? "");
+  return pr?.kind === item.kind && new URL(item.url ?? "").pathname.endsWith(`/${pr.number}`);
 }
 
 /** The routing descriptor of an inbound item (D10), or `null` when it carries too little to route. */
@@ -58,7 +61,8 @@ function routingItemOf(item: ChannelItem): RoutingItem | null {
   if (item.kind === "slack" && channel) {
     return { integrationId: item.integrationId, kind: "slack", slack: { channel } };
   }
-  if (item.kind === "github" && channel) {
+  // GitLab implicit routing rides the same gitRemote match as GitHub (2-segment paths only).
+  if ((item.kind === "github" || item.kind === "gitlab") && channel) {
     return { integrationId: item.integrationId, kind: "github", github: { repo: channel } };
   }
   const key = item.externalRef.messageId;
@@ -340,7 +344,8 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
       (p.integrationRouting ?? []).some((r) => r.integrationId === integration.id),
     );
     // GitHub routes implicitly by gitRemote (D3), so it never falls back to the text matcher.
-    if (!hasRules && integration.kind !== "github") return undefined;
+    if (!hasRules && integration.kind !== "github" && integration.kind !== "gitlab")
+      return undefined;
     const routingItem = routingItemOf(item);
     if (!routingItem) return null;
     const triageable = inheriting.map((p) => ({

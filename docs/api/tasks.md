@@ -1003,3 +1003,5 @@ ignores them):
 | `task-outcome`    | A run finished, outcome written back                                                                                                                                            |
 
 <!-- Last reviewed 2026-11-16: CreateTaskInput/ScheduledTask gained engine/engineModel (automation override, agent targets). -->
+
+PR output for a GitLab-linked project opens a merge request via `glab mr create` (see `workspace.md`).
