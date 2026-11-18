@@ -82,13 +82,19 @@ describe("gitlab MR actions", () => {
     const ok = fakeGlab([
       [
         /merge_requests\/3\/merge/,
-        { state: "merged", merge_commit_sha: "abc", web_url: "https://x/-/merge_requests/3" },
+        {
+          state: "merged",
+          merge_commit_sha: "abc",
+          should_remove_source_branch: true,
+          web_url: "https://x/-/merge_requests/3",
+        },
       ],
     ]);
     expect(await mergeGitlabMr(ok.client, link, "p", 3, "squash", true)).toEqual({
       merged: true,
       url: "https://x/-/merge_requests/3",
       sha: "abc",
+      branchDeleted: true,
     });
     expect(ok.paths()[0]).toBe(
       "projects/grp/app/merge_requests/3/merge?squash=true&should_remove_source_branch=true",
@@ -104,6 +110,34 @@ describe("gitlab MR actions", () => {
     await expect(
       mergeGitlabMr(boom.client, link, "p", 3, undefined, false),
     ).rejects.not.toBeInstanceOf(PrNotMergeableError);
+  });
+
+  it("merge: rebase is refused before any glab call; unconfirmed branch removal is not claimed", async () => {
+    const f = fakeGlab([[/merge/, { state: "merged", web_url: "u" }]]);
+    await expect(mergeGitlabMr(f.client, link, "p", 3, "rebase", false)).rejects.toThrow(
+      /rebase merge is not available on GitLab/,
+    );
+    expect(f.exec).not.toHaveBeenCalled();
+    const r = await mergeGitlabMr(f.client, link, "p", 3, undefined, true);
+    expect(r).toMatchObject({ merged: true, branchDeleted: false });
+  });
+
+  it("getGitlabMr surfaces a rate limit; close only reports a change when the MR ended up closed", async () => {
+    await expect(getGitlabMr(fakeGlab([[MR, { status: 429 }]]).client, link, 3)).rejects.toThrow(
+      /gitlab rate limited \(HTTP 429\)/,
+    );
+    const stuck = fakeGlab([
+      [
+        MR,
+        (args: string[]) =>
+          args.includes("PUT")
+            ? { state: "opened", web_url: "u" }
+            : { state: "opened", web_url: "u" },
+      ],
+    ]);
+    const r = await closeGitlabMr(stuck.client, link, "p", 3);
+    expect(r.changed).toBe(false);
+    expect(r.result.state).toBe("open");
   });
 
   it("close: PUTs state_event=close; already closed is a no-op", async () => {

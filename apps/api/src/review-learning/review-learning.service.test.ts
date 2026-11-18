@@ -61,6 +61,8 @@ describe("ReviewLearningService", () => {
     reworkComments?: FetchedComment[];
     reworkThrows?: boolean;
     reworkIncomplete?: boolean;
+    /** A gitlab integration on the project: the GitLab fetcher runs, the GitHub resolver does not. */
+    gitlab?: boolean;
   }) {
     const log = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
     const logger = { child: () => log };
@@ -69,7 +71,19 @@ describe("ReviewLearningService", () => {
         comments: opts.comments,
         failedEndpoints: opts.failedEndpoints ?? [],
       })),
+      fetchNewGitlab: vi.fn(async () => ({
+        comments: opts.comments,
+        failedEndpoints: opts.failedEndpoints ?? [],
+      })),
     };
+    const resolveLink = vi.fn(
+      async (_resolved: unknown, _credentials: unknown, forProject: Project) => {
+        if (opts.rejectProjectId && forProject.id === opts.rejectProjectId) {
+          throw new Error(`resolveLink boom: ${forProject.id}`);
+        }
+        return opts.token === undefined ? { repo: "acme/app", token: "ghp_x" } : opts.token;
+      },
+    );
     const reworkFetcher = {
       fetchNew: vi.fn(async () => {
         if (opts.reworkThrows) throw new Error("rework boom");
@@ -83,7 +97,18 @@ describe("ReviewLearningService", () => {
     const flow = { propose: vi.fn(async (_projectId: string, _rule: unknown) => {}) };
     const service = new ReviewLearningService(
       { list: async () => opts.projects ?? [project] } as never,
-      { resolveIntegrations: async () => [] } as never,
+      {
+        resolveIntegrations: async () =>
+          opts.gitlab
+            ? [
+                {
+                  id: "gl",
+                  kind: "gitlab",
+                  config: { kind: "gitlab", host: "gl.example.com", repo: "grp/sub/app" },
+                },
+              ]
+            : [],
+      } as never,
       { read: async () => ({ token: "ghp_x" }) } as never,
       fetcher as never,
       reworkFetcher as never,
@@ -91,15 +116,34 @@ describe("ReviewLearningService", () => {
       store,
       flow as never,
       logger as never,
-      async (_resolved: unknown, _credentials: unknown, forProject: Project) => {
-        if (opts.rejectProjectId && forProject.id === opts.rejectProjectId) {
-          throw new Error(`resolveLink boom: ${forProject.id}`);
-        }
-        return opts.token === undefined ? { repo: "acme/app", token: "ghp_x" } : opts.token;
-      },
+      resolveLink,
     );
-    return { service, fetcher, reworkFetcher, distiller, flow, log };
+    return { service, fetcher, reworkFetcher, distiller, flow, log, resolveLink };
   }
+
+  it("a GitLab project reads MR discussions and never tries the GitHub path", async () => {
+    const { service, fetcher, resolveLink } = makeService({
+      gitlab: true,
+      comments: [comment({ commentId: "dn-1" })],
+      observations: [
+        {
+          commentId: "dn-1",
+          slug: "no-local-primitives",
+          rule: "Ber primitivy z DS.",
+          scopeHint: "project",
+        },
+      ],
+    });
+    const result = await service.learn(NOW);
+    expect(result.observations).toBe(1);
+    expect(fetcher.fetchNewGitlab).toHaveBeenCalledWith({
+      projectId: "acme",
+      host: "gl.example.com",
+      repo: "grp/sub/app",
+    });
+    expect(fetcher.fetchNew).not.toHaveBeenCalled();
+    expect(resolveLink).not.toHaveBeenCalled();
+  });
 
   it("files an observation and advances the cursor to the newest comment", async () => {
     const { service } = makeService({

@@ -54,8 +54,11 @@ const event = (e: Omit<OperatorEvent, "tier">): OperatorEvent => ({
   tier: TIER_3.has(e.kind) ? 3 : 2,
 });
 
-const isPrUrl = (url: string | undefined): url is string =>
-  !!url && url.startsWith("https://") && parsePrUrl(url) !== null;
+const isPrUrl = (url: string | undefined): url is string => {
+  if (!url?.startsWith("https://")) return false;
+  const pr = parsePrUrl(url);
+  return pr !== null && (pr.kind === "gitlab" || pr.host === "github.com");
+};
 
 /** PR-inbox tasks report through their own approvals, not a "run completed" line. */
 const isPrInboxTask = (t: ScheduledTask): boolean =>
@@ -193,8 +196,11 @@ export async function toOperatorEvent(
     case "pr-ci-autofix-parked": {
       // CI auto-fix gave up on a PR: a human has to look (no approval behind it).
       const m = /^(.+)#(\d+)$/.exec(refs.itemId ?? "");
-      const prUrl = isPrUrl(refs.itemId)
-        ? refs.itemId
+      // `repo#n` carries no host, so the task's recorded triage URL (GitHub or GitLab) wins.
+      const task = refs.taskId ? await lookups.task(refs.taskId).catch(() => null) : null;
+      const triageUrl = task?.prCiTriage?.url;
+      const prUrl = isPrUrl(triageUrl)
+        ? triageUrl
         : m
           ? `https://github.com/${m[1]}/pull/${m[2]}`
           : undefined;

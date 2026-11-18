@@ -265,7 +265,6 @@ export class ProjectPrService {
       if (result.merged) {
         await this.recordMerge(projectId, host.repo, number, result.sha).catch(() => {});
         this.notifyChanged(host.repo, number);
-        if (deleteBranch) result.branchDeleted = true;
       }
       return result;
     }

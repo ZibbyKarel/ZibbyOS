@@ -633,7 +633,12 @@ describe("ProjectPrService — gitlab project", () => {
     const { svc, glab, fetchImpl, record, onMerge } = gitlabService([
       [
         /merge_requests\/3\/merge/,
-        { state: "merged", merge_commit_sha: "abcdef0123", web_url: "u" },
+        {
+          state: "merged",
+          merge_commit_sha: "abcdef0123",
+          should_remove_source_branch: true,
+          web_url: "u",
+        },
       ],
     ]);
     const changed = vi.fn();

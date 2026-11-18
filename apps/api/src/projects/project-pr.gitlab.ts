@@ -51,6 +51,8 @@ interface GitlabMrState {
   title?: string;
   state?: string;
   draft?: boolean;
+  should_remove_source_branch?: boolean | null;
+  force_remove_source_branch?: boolean | null;
   merge_commit_sha?: string | null;
   squash_commit_sha?: string | null;
 }
@@ -73,6 +75,12 @@ export async function getGitlabMr(
     };
   } catch (error) {
     if (error instanceof GitlabApiError && error.status === 404) return null;
+    if (
+      error instanceof GitlabApiError &&
+      (error.status === 429 || (error.status === 403 && /rate.?limit/i.test(error.message)))
+    ) {
+      throw new Error(`gitlab rate limited (HTTP ${error.status})`);
+    }
     throw error;
   }
 }
@@ -80,7 +88,8 @@ export async function getGitlabMr(
 /**
  * Operator-triggered merge (`PUT merge_requests/:iid/merge`). Same contract as the GitHub path:
  * 405/406/409/422 is a refusal (`PrNotMergeableError`). `rebase` has no merge-time equivalent on
- * GitLab (it is a project setting), so it merges like the project default.
+ * GitLab (it is a project setting), so it is refused up front rather than merged differently.
+ * `branchDeleted` is reported only when the response confirms the source branch is flagged for removal.
  */
 export async function mergeGitlabMr(
   client: GitlabClient,
@@ -90,6 +99,9 @@ export async function mergeGitlabMr(
   method: MergeMethod | undefined,
   deleteBranch: boolean,
 ): Promise<MergeProjectPrResult> {
+  if (method === "rebase") {
+    throw new PrNotMergeableError(projectId, number, "rebase merge is not available on GitLab");
+  }
   const params = new URLSearchParams();
   if (method === "squash") params.set("squash", "true");
   if (deleteBranch) params.set("should_remove_source_branch", "true");
@@ -101,11 +113,22 @@ export async function mergeGitlabMr(
       { method: "PUT" },
     );
     const sha = mr?.merge_commit_sha ?? mr?.squash_commit_sha ?? undefined;
+    const merged = mr?.state === "merged";
+    const removing =
+      mr?.should_remove_source_branch === true || mr?.force_remove_source_branch === true;
     return {
       // ponytail: "merged" only once GitLab says so; a merge-when-pipeline-succeeds MR reports not merged yet.
-      merged: mr?.state === "merged",
+      merged,
       url: mr?.web_url ?? `https://${link.host}/${link.repo}/-/merge_requests/${number}`,
       ...(sha ? { sha } : {}),
+      ...(merged && deleteBranch
+        ? removing
+          ? { branchDeleted: true }
+          : {
+              branchDeleted: false,
+              note: "merged, but GitLab did not confirm the source branch removal",
+            }
+        : {}),
     };
   } catch (error) {
     if (error instanceof GitlabApiError && [405, 406, 409, 422].includes(error.status ?? 0)) {
@@ -172,10 +195,10 @@ export async function closeGitlabMr(
   return {
     result: {
       url: mr.web_url ?? current.web_url ?? url,
-      state: mr.state === "opened" ? "open" : "closed",
+      state: mr.state === "closed" ? "closed" : "open",
       draft: (mr.draft ?? current.draft) === true,
     },
-    changed: true,
+    changed: mr.state === "closed",
   };
 }
 

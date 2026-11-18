@@ -414,6 +414,66 @@ describe("ChannelTriageFlowService", () => {
       expect((await miss.handle(issue)).projectId).toBeUndefined();
     });
 
+    it("gitlab: routes a nested path by remote host + full path; other hosts never match; no match falls back", async () => {
+      const companyGitlab: Integration = {
+        ...integration,
+        kind: "gitlab",
+        projectId: undefined,
+        companyId: "co",
+        config: { kind: "gitlab", host: "gl.example.com" },
+      } as Integration;
+      const proj = (id: string, gitRemote: string): Project => ({
+        id,
+        name: id,
+        path: `/work/${id}`,
+        gitRemote,
+      });
+      const issue = item({
+        kind: "gitlab",
+        externalRef: { channel: "grp/sub/app", messageId: "7" },
+        url: "https://gl.example.com/grp/sub/app/-/issues/7",
+        text: "unrelated words",
+      });
+      const hit = makeFlow({
+        verdict: bug,
+        integration: companyGitlab,
+        inheriting: [
+          proj("nested", "git@gl.example.com:Grp/Sub/App.git"),
+          proj("other", "https://gl.example.com/grp/other"),
+        ],
+      });
+      expect((await hit.handle(issue)).projectId).toBe("nested");
+
+      // a GitHub-hosted project with the same two-segment path must not match
+      const twoSeg = item({
+        kind: "gitlab",
+        externalRef: { channel: "acme/app", messageId: "8" },
+        url: "https://gl.example.com/acme/app/-/issues/8",
+        text: "unrelated words",
+      });
+      const wrongHost = makeFlow({
+        verdict: bug,
+        integration: companyGitlab,
+        inheriting: [proj("gh", "https://github.com/acme/app")],
+      });
+      expect((await wrongHost.handle(twoSeg)).projectId).toBeUndefined();
+
+      // no match keeps the text-matcher fallback
+      const fallback = makeFlow({
+        verdict: bug,
+        integration: companyGitlab,
+        inheriting: [proj("other", "https://gl.example.com/grp/other")],
+        projects: [{ id: "alpha", name: "Alpha", path: "/work/alpha" }],
+      });
+      const byText = item({
+        kind: "gitlab",
+        externalRef: { channel: "grp/sub/app", messageId: "9" },
+        url: "https://gl.example.com/grp/sub/app/-/issues/9",
+        text: "the Alpha login is broken",
+      });
+      expect((await fallback.handle(byText)).projectId).toBe("alpha");
+    });
+
     it("jira: matches on projectKey/labels from the item; a jql-only rule never matches in triage", async () => {
       const companyJira: Integration = {
         ...integration,

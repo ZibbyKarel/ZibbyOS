@@ -12,6 +12,7 @@ import {
   type Project,
   type RoutingItem,
   type TriageVerdict,
+  gitRemoteInfo,
   matchRouting,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
@@ -61,8 +62,7 @@ function routingItemOf(item: ChannelItem): RoutingItem | null {
   if (item.kind === "slack" && channel) {
     return { integrationId: item.integrationId, kind: "slack", slack: { channel } };
   }
-  // GitLab implicit routing rides the same gitRemote match as GitHub (2-segment paths only).
-  if ((item.kind === "github" || item.kind === "gitlab") && channel) {
+  if (item.kind === "github" && channel) {
     return { integrationId: item.integrationId, kind: "github", github: { repo: channel } };
   }
   const key = item.externalRef.messageId;
@@ -343,9 +343,22 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
     const hasRules = inheriting.some((p) =>
       (p.integrationRouting ?? []).some((r) => r.integrationId === integration.id),
     );
+    // GitLab routes implicitly by gitRemote host + full (possibly nested) path; no match falls back
+    // to the text matcher like any rule-less integration (RoutingMatch has no gitlab kind).
+    if (integration.kind === "gitlab" && integration.config.kind === "gitlab") {
+      const channel = item.externalRef.channel?.toLowerCase();
+      const host = integration.config.host.toLowerCase();
+      const ids = channel
+        ? inheriting.filter((p) => {
+            const remote = gitRemoteInfo(p.gitRemote);
+            return remote?.host === host && remote.path.toLowerCase() === channel;
+          })
+        : [];
+      if (ids.length === 0) return undefined;
+      return ids.length === 1 ? (ids[0] ?? null) : null;
+    }
     // GitHub routes implicitly by gitRemote (D3), so it never falls back to the text matcher.
-    if (!hasRules && integration.kind !== "github" && integration.kind !== "gitlab")
-      return undefined;
+    if (!hasRules && integration.kind !== "github") return undefined;
     const routingItem = routingItemOf(item);
     if (!routingItem) return null;
     const triageable = inheriting.map((p) => ({

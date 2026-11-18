@@ -2,28 +2,44 @@ import type { ActivityEntry } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import { toOperatorEvent } from "./operator-events";
 
-const lookups = { task: async () => null, approval: async () => null, workflowRun: () => null };
-const parked = (itemId: string) =>
+const lookupsFor = (url?: string) => ({
+  task: async () => (url ? ({ prCiTriage: { url } } as never) : null),
+  approval: async () => null,
+  workflowRun: () => null,
+});
+const parked = (itemId: string, taskId?: string) =>
   ({
     id: "a1",
     kind: "pr-ci-autofix-parked",
     summary: "gave up",
-    refs: { itemId },
+    refs: { itemId, ...(taskId ? { taskId } : {}) },
   }) as unknown as ActivityEntry;
 
 describe("toOperatorEvent pr-ci-autofix-parked prUrl", () => {
-  it.each([
-    ["acme/app#5", "https://github.com/acme/app/pull/5"],
-    [
-      "https://gl.example.com/grp/sub/app/-/merge_requests/5",
-      "https://gl.example.com/grp/sub/app/-/merge_requests/5",
-    ],
-  ])("%s", async (itemId, prUrl) => {
-    expect(await toOperatorEvent(parked(itemId), lookups)).toMatchObject({ prUrl });
+  it("rebuilds a github url from repo#n when the task has none", async () => {
+    expect(await toOperatorEvent(parked("acme/app#5"), lookupsFor())).toMatchObject({
+      prUrl: "https://github.com/acme/app/pull/5",
+    });
+  });
+
+  it("prefers the task's recorded triage url (GitLab MR) over a rebuilt github one", async () => {
+    const url = "https://gl.example.com/acme/app/-/merge_requests/5";
+    expect(await toOperatorEvent(parked("acme/app#5", "t1"), lookupsFor(url))).toMatchObject({
+      prUrl: url,
+      target: "acme/app#5",
+    });
+  });
+
+  it("ignores a github-shaped url on a non-github host", async () => {
+    const event = await toOperatorEvent(
+      parked("grp/sub/app#5", "t1"),
+      lookupsFor("https://evil.example.com/o/r/pull/5"),
+    );
+    expect(event).not.toHaveProperty("prUrl");
   });
 
   it("drops a nested non-url ref it cannot rebuild", async () => {
-    const event = await toOperatorEvent(parked("grp/sub/app#5"), lookups);
+    const event = await toOperatorEvent(parked("grp/sub/app#5"), lookupsFor());
     expect(event).not.toHaveProperty("prUrl");
   });
 });
