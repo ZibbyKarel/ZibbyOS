@@ -48,6 +48,7 @@ const rowKey = (widgetId: string, id: string) => `${widgetId}:${id}`;
 const SOURCE_NAME: Record<RoadmapSourceKind, string> = {
   jira: "Jira",
   github: "GitHub",
+  gitlab: "GitLab",
   manual: "Manual",
 };
 

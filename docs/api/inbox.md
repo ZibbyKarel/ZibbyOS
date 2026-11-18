@@ -69,6 +69,11 @@ ignored. `linkedPr` is matched from the cached PR list by issue key.
 - `errors` — per project and source failure of this fetch; one failing integration does not
   fail the list.
 
+**GitLab** (`source: "gitlab"`, via `glab`, no stored credential): open issues of the project's
+linked repo (`issues?state=opened&scope=assigned_to_me`, first 100) map to items with
+`source.kind: "gitlab"`, `externalId: "issue:<iid>"`, `externalKey: "#<iid>"`. A failed project is an
+`errors[]` entry with `source: "gitlab"`.
+
 ## Process (`POST /api/inbox/items/process`)
 
 Body `{projectId, itemId}`. Finds the item in the live list (404 when absent), writes a minimal
@@ -145,6 +150,23 @@ when the run succeeded (`posted` / `pushed` + follow-up). The UI hides "Review" 
 review comments" while `updatedAt <= finishedAt + 60 s` (the slack absorbs ZIBBY's own
 writes and clock skew): the PR's GitHub state alone (team review request, changes
 requested, unresolved threads) doesn't re-offer an action already handled.
+
+### GitLab merge requests
+
+A project whose git host is GitLab (`resolveGitHostLink`) lists the operator's open MRs as
+`InboxPr { source: "gitlab" }` (`inbox.gitlab.ts`; `number` = iid, `repo` = full path, `url` =
+`web_url`). Lists per project: `scope=created_by_me` and `scope=assigned_to_me` -> `mine`;
+`reviewer_username=<operator>` -> `to-review` (`reviewReason: "direct"`), or `reviewed` with
+`myReview` once the operator's reviewer state is `approved` / `requested_changes` (GitLab keeps the
+reviewer on the MR). The operator is the integration's `username`, else `glab api user`. Per MR:
+CI from the head pipeline's jobs (`jobAsCheckRun` feeds the same `ciState`/`ciDetails` as check-runs,
+so `ciIgnoredChecks` applies to job names; `allow_failure` and `manual` jobs never fail CI);
+`review` = `changes-requested` when any other reviewer's state is `requested_changes`, else
+`approved` when `approvals.approved`; `mergeable` false on `detailed_merge_status`
+`conflict`/`need_rebase` (or `has_conflicts`), true on `mergeable`, else null; `behind` when
+`diverged_commits_count > 0`; `unresolvedThreads` (own MRs) counts resolvable discussions with an
+unresolved note. A failing project becomes an `errors[]` entry with `source: "gitlab"`; one MR that
+fails to load is skipped. Teams, `authorTeams` and stacked drafts are GitHub-only.
 
 ## Code review (`POST /api/inbox/prs/review`)
 

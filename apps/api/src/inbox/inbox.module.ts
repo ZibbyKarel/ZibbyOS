@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ApprovalsModule } from "../approvals/approvals.module";
+import { GitHostModule } from "../git-host/git-host.module";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -32,6 +33,7 @@ export function resolveInboxStateFile(): string {
     ProjectsModule,
     ResolvedProjectModule,
     IntegrationsModule,
+    GitHostModule,
     TasksModule,
     ApprovalsModule,
     WorkspaceModule,

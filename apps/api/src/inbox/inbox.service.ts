@@ -19,15 +19,18 @@ import type {
   SetInboxHidden,
 } from "@zibby/contracts";
 import { ActivityEventsService } from "../activity/activity-events.service";
+import { GitlabClient } from "../git-host/gitlab-client";
+import { resolveGitHostLink } from "../git-host/git-host-link";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { isIgnoredCheck } from "./ci-checks";
-import { ProjectPrService, resolveGithubToken } from "../projects/project-pr.service";
+import { ProjectPrService } from "../projects/project-pr.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { TeamsStorageService } from "../teams/teams.storage.service";
 import { InboxIssuesService, InboxItemNotFoundError } from "./inbox-issues.service";
 import { InboxStateStore } from "./inbox-state.store";
+import { listGitlabInboxPrs } from "./inbox.gitlab";
 
 const GITHUB_API = "https://api.github.com";
 // ponytail: whole-result in-memory cache, 30 s ceiling (web polls every 15 min + refetches
@@ -202,6 +205,7 @@ function orgOf(project: Project): { companyId?: string; teamId?: string } {
 @Injectable()
 export class InboxService implements OnModuleInit, OnModuleDestroy {
   private readonly fetchImpl: typeof fetch;
+  private readonly gitlab: GitlabClient;
   private activitySub?: Subscription;
   private prsCache: { at: number; value: Promise<InboxPrsResponse> } | null = null;
 
@@ -216,8 +220,10 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     private readonly activityEvents: ActivityEventsService,
     private readonly teamsStorage: TeamsStorageService,
     @Optional() fetchImpl?: typeof fetch,
+    @Optional() gitlabClient?: GitlabClient,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
+    this.gitlab = gitlabClient ?? new GitlabClient();
   }
 
   onModuleInit(): void {
@@ -387,9 +393,25 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
 
   private async fetchPrs(): Promise<InboxPrsResponse> {
     const repos = new Map<string, { project: Project; token: string }>();
+    const gitlabRepos = new Map<
+      string,
+      { project: Project; host: string; repo: string; username?: string }
+    >();
     for (const project of await this.projects.list()) {
-      const link = await resolveGithubToken(this.resolvedProjects, this.credentials, project);
-      if (link && !repos.has(link.repo)) repos.set(link.repo, { project, token: link.token });
+      const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+      if (link?.kind === "gitlab") {
+        const key = `${link.host.toLowerCase()}/${link.repo.toLowerCase()}`;
+        if (!gitlabRepos.has(key)) {
+          gitlabRepos.set(key, {
+            project,
+            host: link.host,
+            repo: link.repo,
+            ...(link.username ? { username: link.username } : {}),
+          });
+        }
+      } else if (link && !repos.has(link.repo)) {
+        repos.set(link.repo, { project, token: link.token });
+      }
     }
 
     // Teams with a configured code owner id: searched in addition to the user's memberships.
@@ -443,6 +465,17 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
           projectId: project.id,
           source: "github",
           message: `${repo}: ${(error as Error).message || "unknown error"}`,
+        });
+      }
+    }
+    for (const { project, ...link } of gitlabRepos.values()) {
+      try {
+        prs.push(...(await listGitlabInboxPrs(this.gitlab, link, project)));
+      } catch (error) {
+        errors.push({
+          projectId: project.id,
+          source: "gitlab",
+          message: `${link.repo}: ${(error as Error).message || "unknown error"}`,
         });
       }
     }
@@ -734,7 +767,7 @@ export function isDeadTask(task: ScheduledTask): boolean {
 
 /** todo-15 — PR descriptions ride the list payload, so a huge one is capped (the UI links out). */
 const DESCRIPTION_CAP = 20_000;
-function capDescription(body: string): { body: string; descriptionTruncated?: true } {
+export function capDescription(body: string): { body: string; descriptionTruncated?: true } {
   if (body.length <= DESCRIPTION_CAP) return { body };
   let end = DESCRIPTION_CAP;
   // Never split a surrogate pair: drop a dangling high surrogate.
