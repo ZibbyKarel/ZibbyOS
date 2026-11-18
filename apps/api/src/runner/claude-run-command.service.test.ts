@@ -180,7 +180,7 @@ describe("ClaudeRunCommandService.buildClaudeCommand", () => {
 
   it("inserts grounding between the operating contract and the agent body, in order", async () => {
     const svc = makeService([CODER], []);
-    const grounding = "## Grounding (vault)\n\n### North Star\nMission text.";
+    const grounding = "## Grounding (mozek)\n\n### North Star\nMission text.";
     const { args } = await svc.buildClaudeCommand({
       instructions: CODER.instructions,
       task: "x",

@@ -35,7 +35,7 @@
         "channels": "Kanály"
       },
       "knowledge": {
-        "vault": "Trezor",
+        "vault": "Mozek",
         "graph": "Graf",
         "distill": "Destilace"
       },
@@ -90,7 +90,7 @@
     "noteBacklinks": "Odkazuje sem",
     "save": "Uložit",
     "idLabel": "Id",
-    "idHint": "Unikátní v rámci vaultu; doplní se z názvu.",
+    "idHint": "Unikátní v rámci mozku; doplní se z názvu.",
     "titleLabel": "Název",
     "bodyLabel": "Obsah",
     "tierLabel": "Vrstva",
@@ -101,14 +101,14 @@
       "knowledge": "Znalosti"
     },
     "emptyTitle": "Paměť je prázdná",
-    "emptyDescription": "Ve vaultu zatím nejsou žádné poznámky. Objeví se tu, jak do něj zapisují běhy — nebo vytvoř první.",
+    "emptyDescription": "V mozku zatím nejsou žádné poznámky. Objeví se tu, jak do něj zapisují běhy — nebo vytvoř první.",
     "untriaged": "Netříděno",
     "departmentBadge": "Polička oddělení",
     "noteDock": {
       "placeholder": "Napiš nebo nadiktuj poznámku (Markdown)…",
       "editorLabel": "Poznámka",
       "target": "Uložit do",
-      "vault": "Vault",
+      "vault": "Mozek",
       "save": "Uložit",
       "close": "Zavřít",
       "saved": "Poznámka uložena",
@@ -143,7 +143,7 @@
       "emptyDescription": "Tento zdroj zatím nemá žádné propojené poznámky."
     },
     "vault": {
-      "title": "Trezor",
+      "title": "Mozek",
       "shelfGeneral": "Obecné",
       "usedBy": "Odkazuje sem",
       "usedByEmpty": "Žádná poznámka sem neodkazuje.",
@@ -256,7 +256,7 @@
       "void": "Bez výstupu",
       "destLabel": "Kam",
       "destProject": "Do projektu",
-      "destVault": "Do vaultu (druhý mozek)",
+      "destVault": "Do mozku",
       "toLabel": "Název souboru",
       "toPlaceholder": "report.md"
     },
@@ -477,7 +477,7 @@
     "daemonReady": "· démon připraven · žádné běhy",
     "apiUnreachable": "· api nedostupné",
     "departmentBackend": "backend",
-    "departmentVault": "vault",
+    "departmentVault": "mozek",
     "departmentIntegrations": "integrace",
     "departmentScheduler": "plánovač",
     "claudeUnavailable": "· claude cli nedostupné · běhy se odmítají",
@@ -1208,8 +1208,8 @@
     "automations": {
       "desc": {
         "briefing": "Sestaví ranní briefing z aktivit, běhů a paměti a doručí ho do sekce Tasky.",
-        "memory-distill": "Noční průchod dokončenými běhy — levný model vydestiluje trvalé poznatky do vaultu.",
-        "pattern-extract": "Prohledá 30 dní schvalovacích rozhodnutí a navrhne pravidla do vaultu pro briefing.",
+        "memory-distill": "Noční průchod dokončenými běhy — levný model vydestiluje trvalé poznatky do mozku.",
+        "pattern-extract": "Prohledá 30 dní schvalovacích rozhodnutí a navrhne pravidla do mozku pro briefing.",
         "gap-detect": "Sleduje opakovaně vytvářené ruční tasky a navrhuje, co by šlo automatizovat.",
         "agent-factory": "Sleduje opakované orchestrator-fallback běhy a navrhne chybějícího specialistu (čeká na schválení)."
       }
@@ -1306,7 +1306,7 @@
     },
     "selfKnowledge": {
       "title": "Self-Knowledge",
-      "hint": "Strojově generovaná poznámka o tom, co ZIBBY o sobě ví — agenti, workflow, gate pravidla, kanály. Vytváří se příkazem `pnpm self-knowledge:generate`; tady je jen náhled pro čtení. Stejná poznámka je vidět i v Paměti jako běžná vault poznámka.",
+      "hint": "Strojově generovaná poznámka o tom, co ZIBBY o sobě ví — agenti, workflow, gate pravidla, kanály. Vytváří se příkazem `pnpm self-knowledge:generate`; tady je jen náhled pro čtení. Stejná poznámka je vidět i v Paměti jako běžná poznámka v mozku.",
       "upToDate": "Aktuální",
       "drift": "Neaktuální — spusť pnpm self-knowledge:generate",
       "generatedAt": "Vygenerováno: {time}",
@@ -2283,7 +2283,7 @@
     "targetGapDetect": "Detekce mezer",
     "targetAgentFactory": "Továrna agentů",
     "targetSelfKnowledge": "Obnova sebeznalosti",
-    "targetVaultLint": "Lint vaultu",
+    "targetVaultLint": "Lint mozku",
     "targetSlackDigest": "Souhrn Slacku",
     "targetSentinelScan": "Bezpečnostní hlídka",
     "targetLoomAudit": "Audit kvality",
@@ -3161,7 +3161,7 @@
       "workflows": "Workflow",
       "registries": "Registry",
       "automations": "Automatizace",
-      "vault": "Trezor",
+      "vault": "Mozek",
       "settings": "Nastavení",
       "gates": "Brány"
     },

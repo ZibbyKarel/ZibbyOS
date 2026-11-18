@@ -70,6 +70,14 @@ describe("KbReaderService", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
+  it("orders by the entry's own root/context instead of the wiki/INDEX.md defaults", async () => {
+    // Same text as wiki/INDEX.md, so only the index rank breaks the tie.
+    await fs.writeFile(path.join(root, "HOME.md"), "---\ntitle: Home\n---\nEntry point.\n", "utf8");
+    expect((await reader.search(source, "entry point"))[0]?.path).toBe("wiki/INDEX.md");
+    const own = await reader.search({ ...source, root: "HOME.md" }, "entry point");
+    expect(own[0]?.path).toBe("HOME.md");
+  });
+
   it("finds a note by title and returns a repo-relative path", async () => {
     const hits = await reader.search(source, "partner portal");
     expect(hits[0]?.path).toBe("wiki/notes/partner-portal.md");

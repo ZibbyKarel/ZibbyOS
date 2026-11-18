@@ -145,10 +145,13 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "capture_note",
       "create_task",
       "get_status",
+      "list_knowledge_bases",
       "machine_rename",
       "open_folder",
       "open_maps",
+      "read_knowledge_base_note",
       "recall_memory",
+      "search_knowledge_base",
       "show_widget",
     ]);
 

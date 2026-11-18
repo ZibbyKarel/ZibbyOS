@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { KbAnswerService } from "../kb/kb-answer.service";
 import { KbReaderService } from "../kb/kb-reader.service";
+import { MemoryModule } from "../memory/memory.module";
 import { recipesDir } from "../shared/data-dir";
 import { TeamKbSyncService } from "./team-kb-sync.service";
 import { TeamsController } from "./teams.controller";
@@ -17,6 +18,7 @@ export function resolveTeamsDir(): string {
 }
 
 @Module({
+  imports: [MemoryModule], // KbRegistryService: team KBs live in the mozek registry
   controllers: [TeamsController],
   providers: [
     { provide: TEAMS_DIR, useFactory: resolveTeamsDir },

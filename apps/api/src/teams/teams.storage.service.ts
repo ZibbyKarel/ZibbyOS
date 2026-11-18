@@ -1,12 +1,18 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   type CreateTeamInput,
+  DEFAULT_KB_CONTEXT,
+  DEFAULT_KB_ROOT,
+  type KnowledgeBaseEntry,
+  type KnowledgeBaseSource,
+  KnowledgeBaseSourceSchema,
   type Team,
   TeamSchema,
   type UpdateTeamInput,
 } from "@zibby/contracts";
+import { KbRegistryService } from "../memory/kb-registry.service";
 import { ensureDir, safeJson, searchByText, writeFileAtomic } from "../shared/file-storage";
 import { TeamConflictError, TeamNotFoundError } from "./teams.errors";
 
@@ -28,13 +34,50 @@ const MANIFEST_FILE = "_teams.json";
  * Phase 69/70 decision).
  */
 @Injectable()
-export class TeamsStorageService {
+export class TeamsStorageService implements OnModuleInit {
   private readonly dir: string;
   private readonly file: string;
+  private readonly logger = new Logger(TeamsStorageService.name);
 
-  constructor(@Inject(TEAMS_DIR) dir: string) {
+  constructor(
+    @Inject(TEAMS_DIR) dir: string,
+    private readonly kbRegistry: KbRegistryService,
+  ) {
     this.dir = path.resolve(dir);
     this.file = path.join(this.dir, MANIFEST_FILE);
+  }
+
+  /** Boot migration (M5): never fatal — the manifest keeps its `knowledgeBase` until the move succeeds. */
+  async onModuleInit(): Promise<void> {
+    await this.migrateKnowledgeBases().catch((e: unknown) =>
+      this.logger.warn(`team knowledgeBase migration failed: ${String(e)}`),
+    );
+  }
+
+  /**
+   * Move `knowledgeBase` out of `_teams.json` into the mozek registry, then strip it from
+   * the manifest. Idempotent: a team that already has a registry entry just gets stripped.
+   */
+  async migrateKnowledgeBases(): Promise<void> {
+    const raw = await fs.readFile(this.file, "utf8").catch(() => null);
+    const manifest = raw === null ? null : safeJson(raw);
+    if (!Array.isArray(manifest)) return;
+    let changed = false;
+    for (const entry of manifest as Record<string, unknown>[]) {
+      if (!entry || typeof entry !== "object" || !("knowledgeBase" in entry)) continue;
+      const source = KnowledgeBaseSourceSchema.safeParse(entry.knowledgeBase);
+      const team = TeamSchema.omit({ knowledgeBase: true }).safeParse(entry);
+      if (!source.success || !team.success) continue; // leave unparseable data untouched
+      if (!(await this.kbRegistry.forTeam(team.data.id))) {
+        await this.bindKb(team.data, source.data);
+      }
+      delete entry.knowledgeBase;
+      changed = true;
+    }
+    if (changed)
+      await ensureDir(this.dir).then(() =>
+        writeFileAtomic(this.file, `${JSON.stringify(manifest, null, 2)}\n`),
+      );
   }
 
   async list(): Promise<Team[]> {
@@ -42,14 +85,49 @@ export class TeamsStorageService {
     if (raw === null) return [];
     const parsed = safeJson(raw);
     if (!Array.isArray(parsed)) return [];
+    const kbs = await this.kbRegistry.list();
     // Drop entries that no longer match the schema rather than failing the whole
     // listing (mirrors how the entity/category listings skip corrupt records).
     return parsed
       .flatMap((entry) => {
         const result = TeamSchema.safeParse(entry);
-        return result.success ? [result.data] : [];
+        if (!result.success) return [];
+        // `knowledgeBase` is derived from the registry; a legacy manifest value is ignored.
+        const team = withoutKb(result.data);
+        const kb = kbs.find((k) => k.teamId === team.id);
+        return [kb ? { ...team, knowledgeBase: entryToSource(kb) } : team];
       })
       .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  /** Upsert the registry entry of `team` from a `knowledgeBase` source, keeping curated fields. */
+  private async bindKb(
+    team: Pick<Team, "id" | "name" | "desc" | "companyId">,
+    source: KnowledgeBaseSource,
+  ): Promise<void> {
+    const byTeam = await this.kbRegistry.forTeam(team.id);
+    const sameId = byTeam ? undefined : await this.kbRegistry.get(team.id);
+    // Adopt a hand-written entry named after the team; never steal one bound to another team.
+    const existing = byTeam ?? (sameId?.teamId === undefined ? sameId : undefined);
+    const id = existing?.id ?? (sameId ? `${team.id}-kb` : team.id);
+    // Optional keys are spread, not set to `undefined` (YAML cannot dump undefined).
+    const kept: Partial<KnowledgeBaseEntry> = { ...existing };
+    delete kept.gitRemote;
+    delete kept.companyId;
+    await this.kbRegistry.upsert({
+      domain: "work",
+      description: team.desc ?? "",
+      ...kept,
+      id,
+      name: existing?.name ?? team.name,
+      path: source.path,
+      ...(source.gitRemote ? { gitRemote: source.gitRemote } : {}),
+      readOnly: true,
+      root: source.root ?? existing?.root ?? DEFAULT_KB_ROOT,
+      context: source.context ?? existing?.context ?? DEFAULT_KB_CONTEXT,
+      teamId: team.id,
+      ...(team.companyId ? { companyId: team.companyId } : {}),
+    });
   }
 
   async get(id: string): Promise<Team> {
@@ -69,8 +147,9 @@ export class TeamsStorageService {
       throw new TeamConflictError(input.id);
     }
     const team = TeamSchema.parse(input);
+    if (team.knowledgeBase) await this.bindKb(team, team.knowledgeBase);
     await this.writeAtomic([...teams, team]);
-    return team;
+    return this.get(team.id);
   }
 
   async update(id: string, patch: UpdateTeamInput): Promise<Team> {
@@ -105,8 +184,12 @@ export class TeamsStorageService {
         : {}),
       id: existing.id,
     });
+    if (hasKnowledgeBase) {
+      if (merged.knowledgeBase) await this.bindKb(merged, merged.knowledgeBase);
+      else await this.kbRegistry.removeForTeam(id);
+    }
     await this.writeAtomic(teams.map((t) => (t.id === id ? merged : t)));
-    return merged;
+    return this.get(id);
   }
 
   async delete(id: string): Promise<void> {
@@ -114,12 +197,33 @@ export class TeamsStorageService {
     if (!teams.some((t) => t.id === id)) {
       throw new TeamNotFoundError(id);
     }
+    await this.kbRegistry.removeForTeam(id);
     await this.writeAtomic(teams.filter((t) => t.id !== id));
   }
 
   /** Write via a temp file + atomic rename so a crash can't leave a torn manifest. */
   private async writeAtomic(teams: Team[]): Promise<void> {
     await ensureDir(this.dir);
-    await writeFileAtomic(this.file, `${JSON.stringify(teams, null, 2)}\n`);
+    // `knowledgeBase` lives in the mozek registry, never in the manifest.
+    const stripped = teams.map(withoutKb);
+    await writeFileAtomic(this.file, `${JSON.stringify(stripped, null, 2)}\n`);
   }
+}
+
+function withoutKb(team: Team): Team {
+  const copy = { ...team };
+  delete copy.knowledgeBase;
+  return copy;
+}
+
+/** Registry entry → the API's `Team.knowledgeBase`; `root`/`context` shown only when non-default. */
+function entryToSource(kb: KnowledgeBaseEntry): KnowledgeBaseSource {
+  return {
+    kind: "vault",
+    path: kb.path,
+    ...(kb.gitRemote ? { gitRemote: kb.gitRemote } : {}),
+    readOnly: true,
+    ...(kb.root !== DEFAULT_KB_ROOT ? { root: kb.root } : {}),
+    ...(kb.context !== DEFAULT_KB_CONTEXT ? { context: kb.context } : {}),
+  };
 }

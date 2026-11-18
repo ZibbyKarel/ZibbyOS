@@ -224,7 +224,7 @@ describe("GroundingService.compose", () => {
     const made = await makeVault(seedFull);
     dir = made.dir;
     const block = await made.grounding.compose({ task: "rohlik delivery question" });
-    expect(block).toContain("## Grounding (vault)");
+    expect(block).toContain("## Grounding (mozek)");
     const nsAt = block.indexOf("North Star");
     const rohlikAt = block.indexOf("Rohlik Delivery");
     expect(nsAt).toBeGreaterThan(-1);
@@ -542,7 +542,7 @@ describe("GroundingService.compose", () => {
     const made = await makeVault(seedFull);
     dir = made.dir;
     const block = await made.grounding.compose({ task: "rohlik delivery question" });
-    expect(block).toContain("## Grounding (vault)");
+    expect(block).toContain("## Grounding (mozek)");
     expect(block).toContain("North Star");
     expect(block).not.toContain("polička");
   });
@@ -844,5 +844,44 @@ describe("GroundingService git host note", () => {
     const withRef = await new GroundingService(vault, ref).compose({ task: "x", projectId: "p1" });
     const without = await new GroundingService(vault).compose({ task: "x", projectId: "p1" });
     expect(withRef).toBe(without);
+  });
+});
+
+describe("GroundingService — Mozek → knowledge bases", () => {
+  const kb = (id: string, domain: "work" | "personal") => ({
+    id,
+    name: `KB ${id}`,
+    path: "/kb",
+    readOnly: true as const,
+    root: "wiki/INDEX.md",
+    context: "team-context.md",
+    domain,
+    description: `about ${id}`,
+  });
+  const registry = { list: async () => [kb("devrel", "work"), kb("diary", "personal")] };
+
+  async function compose(domain?: "personal", list = registry): Promise<string> {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "grounding-"));
+    const vault = new VaultService(dir);
+    await vault.onModuleInit();
+    await vault.createNote({ id: "north-star", tier: "knowledge", title: "North Star", body: "m" });
+    const g = new GroundingService(vault, undefined, list as never);
+    const out = await g.compose({ task: "x", ...(domain ? { domain } : {}) });
+    await fs.rm(dir, { recursive: true, force: true });
+    return out;
+  }
+
+  it("work run lists only work KBs", async () => {
+    const out = await compose();
+    expect(out).toContain("### Mozek → knowledge bases");
+    expect(out).toContain("- KB devrel (devrel) — about devrel · root: wiki/INDEX.md");
+    expect(out).not.toContain("diary");
+  });
+
+  it("personal run lists only personal KBs; empty registry skips the section", async () => {
+    const out = await compose("personal");
+    expect(out).toContain("(diary)");
+    expect(out).not.toContain("(devrel)");
+    expect(await compose(undefined, { list: async () => [] })).not.toContain("Mozek →");
   });
 });

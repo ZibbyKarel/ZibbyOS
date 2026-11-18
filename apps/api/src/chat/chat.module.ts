@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { MachineModule } from "../machine/machine.module";
 import { BriefingModule } from "../briefing/briefing.module";
 import { CompaniesModule } from "../companies/companies.module";
+import { KbReaderService } from "../kb/kb-reader.service";
 import { KbModule } from "../kb/kb.module";
 import { MemoryModule } from "../memory/memory.module";
 import { DepartmentsModule } from "../departments/departments.module";
@@ -76,6 +77,7 @@ export function resolveChatDir(): string {
     ChatSessionService,
     ChatHandoffService,
     ChatToolsService,
+    KbReaderService, // stateless; KbModule does not export it
     ChatToolResultRegistry,
     // Single source of truth for the per-boot MCP bearer token — injected into both
     // the guard (verifies) and ChatSessionService (propagates to the spawned CLI).

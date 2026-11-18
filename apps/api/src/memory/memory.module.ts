@@ -19,6 +19,7 @@ import { SkillsModule } from "../skills/skills.module";
 import { ClaudeCliDistiller } from "./claude-cli-distiller";
 import { EntityMcpController } from "./entity-mcp.controller";
 import { GroundingService } from "./grounding.service";
+import { KbRegistryService } from "./kb-registry.service";
 import { MemoryController } from "./memory.controller";
 import { MemoryImportService } from "./memory-import.service";
 import { VaultSeedService } from "./vault-seed.service";
@@ -56,6 +57,7 @@ export { resolveVaultDir };
     { provide: VAULT_DIR, useFactory: resolveVaultDir },
     VaultService,
     VaultLintService,
+    KbRegistryService,
     // Stateless; re-provided here (MemoryDistillerModule imports this module) for lint compaction.
     ClaudeCliDistiller,
     MemoryImportService,
@@ -81,6 +83,12 @@ export { resolveVaultDir };
     },
     AutomationsStorageService,
   ],
-  exports: [VaultService, VaultLintService, MemoryImportService, GroundingService],
+  exports: [
+    VaultService,
+    VaultLintService,
+    KbRegistryService,
+    MemoryImportService,
+    GroundingService,
+  ],
 })
 export class MemoryModule {}

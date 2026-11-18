@@ -7,6 +7,7 @@ import type { DepartmentId, IndexEntry, Note, NoteDomain } from "@zibby/contract
 import { tokenize } from "../tasks/keyword-scorer";
 import { GLOBAL_REVIEW_RULES_ID, reviewRulesIdFor } from "./review-rules-note";
 import { departmentShelfId } from "./department-shelf";
+import { KbRegistryService } from "./kb-registry.service";
 import { VaultService } from "./vault.service";
 
 /** Fixed id of the operator's mission note — always grounded first when present. */
@@ -151,7 +152,7 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * Composes the `## Grounding (vault)` block prepended to a run's system prompt
+ * Composes the `## Grounding (mozek)` block prepended to a run's system prompt
  * (Phase 4): the North Star, the top term-matched MOCs, and the project note —
  * each as `### <title>` + a budgeted body excerpt. Fail-open by design: any error
  * or an empty vault yields `""` so a memory hiccup never blocks a run.
@@ -167,6 +168,7 @@ export class GroundingService {
   constructor(
     private readonly vault: VaultService,
     @Optional() private readonly moduleRef?: ModuleRef,
+    @Optional() private readonly kbRegistry?: KbRegistryService,
   ) {}
 
   async compose(input: GroundingInput): Promise<string> {
@@ -229,6 +231,12 @@ export class GroundingService {
       // project note (index-first — no vectors, reuses the same scan cache).
       for (const id of selectLinkedNotes(terms, mocs, visible, seen)) await add(id);
       if (input.projectId) await add(input.projectId);
+      const kbList = await this.kbListSection(input.domain);
+      if (kbList) {
+        const withList = [...sections, { ...kbList, raw: true }];
+        if (this.renderUntruncated(withList).length <= BLOCK_BUDGET)
+          sections.push(withList.at(-1)!);
+      }
       // Last, and only when it fits whole: a tail-truncated KB section would cut its
       // untrusted-data envelope open (Law 4). North-star etc. keep priority.
       const kb = await this.teamKbSection(input);
@@ -263,6 +271,20 @@ export class GroundingService {
     }
   }
 
+  /** `### Mozek → knowledge bases`: registry KBs in the run's domain (personal sees only personal). */
+  private async kbListSection(
+    domain: NoteDomain | undefined,
+  ): Promise<{ title: string; body: string } | null> {
+    if (!this.kbRegistry) return null;
+    const want = domain === "personal" ? "personal" : "work";
+    const kbs = (await this.kbRegistry.list()).filter((k) => k.domain === want);
+    if (kbs.length === 0) return null;
+    return {
+      title: "Mozek → knowledge bases",
+      body: kbs.map((k) => `- ${k.name} (${k.id}) — ${k.description} · root: ${k.root}`).join("\n"),
+    };
+  }
+
   /** Team KB section for a work run on a team-linked project; fail-open `null`. */
   private async teamKbSection(
     input: GroundingInput,
@@ -280,7 +302,7 @@ export class GroundingService {
   private renderUntruncated(
     sections: Array<{ title: string; body: string; raw?: boolean }>,
   ): string {
-    const parts = ["## Grounding (vault)", ""];
+    const parts = ["## Grounding (mozek)", ""];
     for (const s of sections) {
       parts.push(
         `### ${s.title}`,

@@ -28,6 +28,8 @@ ships them as a plugin.
 
 ## MCP servers (`/api/mcp-servers`)
 
+<!-- 2026-11-17: built-in server descriptions now call the vault "mozek" (the operator's brain); no API change. -->
+
 Connected MCP servers injected into **every** run (except `grantOnly` servers, which ride only runs that grant them; the root `.mcp.json` is NOT
 wired in).
 

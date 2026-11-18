@@ -70,6 +70,11 @@ translated to `undefined` before the merge).
 
 ## Storage
 
+> **Update (mozek KB registry):** a team's KB config no longer lives in `_teams.json`. It is
+> stored in the `knowledge-bases` registry note in mozek (`knowledge/knowledge-bases.md`,
+> entry matched by `teamId`) and `Team.knowledgeBase` is derived from it; updating a team's
+> `knowledgeBase` writes or clears that entry. See `docs/plans/mozek-kb-registry.md` (M4, M5).
+
 `TeamsStorageService` is a byte-for-byte mirror of `CompaniesStorageService`,
 minus the person-roster backfill: a single JSON manifest (`_teams.json`) in a
 configurable directory (`TEAMS_DIR`, default `apps/api/data/teams`), sorted by

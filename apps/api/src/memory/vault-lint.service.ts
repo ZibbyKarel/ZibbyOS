@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from "@nestjs/common";
-import type { Note } from "@zibby/contracts";
+import { KnowledgeBaseRegistrySchema, type Note } from "@zibby/contracts";
 import { envelopeInbound } from "../shared/text/untrusted-envelope";
 import { ClaudeCliDistiller } from "./claude-cli-distiller";
 import { VaultService, localDate } from "./vault.service";
@@ -15,7 +15,8 @@ const COMPACT_MAX_PER_RUN = 5;
 const COMPACT_MIN_BODY = 600;
 const SLACK_DIGEST = /^slack-(\d{4}-\d{2}-\d{2})$/;
 /** Notes that are legitimately unlinked, or are machine-written. */
-const NOT_ORPHAN = /^(north-star|self-knowledge|vault-log|vault-lint)/i;
+const NOT_ORPHAN =
+  /^(north-star|self-knowledge|vault-log|vault-lint|INDEX|AGENTS|CLAUDE|knowledge-bases)/i;
 const MOC = /(^|[-_ ])(index|moc)$/i;
 
 export interface VaultLintResult {
@@ -145,6 +146,7 @@ interface Report {
   stale: string[];
   missing: string[];
   tagBloat: string[];
+  registry: string[];
 }
 
 /** Pure lint over a note set (exported for tests). */
@@ -155,7 +157,13 @@ export function lint(notes: Note[], now: Date): Report {
     for (const t of n.links) if (t !== n.id) inbound.add(t);
   }
   const cutoff = localDate(new Date(now.getTime() - STALE_DAYS * 86_400_000));
-  const r: Report = { broken: [], orphans: [], stale: [], missing: [], tagBloat: [] };
+  const r: Report = { broken: [], orphans: [], stale: [], missing: [], tagBloat: [], registry: [] };
+  const kbNote = notes.find((n) => n.id === "knowledge-bases");
+  if (kbNote && !KnowledgeBaseRegistrySchema.safeParse(kbNote.frontmatter).success) {
+    r.registry.push(
+      "- [[knowledge-bases]] frontmatter `kbs:` is invalid; connected KBs are ignored",
+    );
+  }
   for (const n of notes) {
     for (const t of n.links) if (!ids.has(t)) r.broken.push(`- [[${n.id}]] → \`${t}\``);
     if (n.tier !== "daily" && !NOT_ORPHAN.test(n.id) && !MOC.test(n.id) && !inbound.has(n.id)) {
@@ -194,5 +202,6 @@ function render(r: Report, date: string, compacted: string[]): string {
     `## Compacted Slack digests (${compacted.length})`,
     list(compacted.map((id) => `- [[${id}]]`)),
     "",
+    ...(r.registry.length ? ["## Invalid KB registry", ...r.registry, ""] : []),
   ].join("\n");
 }

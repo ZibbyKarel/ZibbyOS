@@ -5,13 +5,17 @@ import type {
   DepartmentId,
   DepartmentState,
   DepartmentWithStatus,
+  KnowledgeBaseSource,
   TaskTarget,
 } from "@zibby/contracts";
 import { NoteIdSchema } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { BriefingService } from "../briefing/briefing.service";
 import { MachineActionRejectedError, MachineService } from "../machine/machine.service";
+import { KbReaderService } from "../kb/kb-reader.service";
+import { KbRegistryService } from "../memory/kb-registry.service";
 import { recallMemory as recallMemoryFromVault } from "../memory/recall.helper";
+import { envelopeInbound } from "../shared/text/untrusted-envelope";
 import { DuplicateNoteError, VaultService } from "../memory/vault.service";
 import { DepartmentsService } from "../departments/departments.service";
 import { TaskSchedulerService } from "../tasks/task-scheduler.service";
@@ -27,6 +31,9 @@ export interface ChatCreateTaskOutcome {
 
 /** Cap on how many "needs you" / "watching" lines the status summary lists. */
 const MAX_STATUS_LINES = 5;
+
+/** Max hits `search_knowledge_base` returns. */
+const KB_SEARCH_LIMIT = 8;
 
 /** F8 — how many `-N` suffixes {@link ChatToolsService.capturePersonalNote} tries
  * before giving up on an id collision. */
@@ -85,6 +92,9 @@ export class ChatToolsService {
     // ActivityLogService comes from the @Global activity module).
     private readonly departments: DepartmentsService,
     private readonly activity: ActivityLogService,
+    // Mozek KB tools (operator chat is unscoped, like recall_memory).
+    private readonly kbRegistry: KbRegistryService,
+    private readonly kbReader: KbReaderService,
   ) {}
 
   /**
@@ -142,6 +152,50 @@ export class ChatToolsService {
   /** Search the Obsidian vault and return the top few hits compactly (title + snippet). */
   async recallMemory(query: string): Promise<string> {
     return recallMemoryFromVault(this.vault, query);
+  }
+
+  /** The mozek's connected knowledge bases (registry), one line each. */
+  async listKnowledgeBases(): Promise<string> {
+    const kbs = await this.kbRegistry.list();
+    if (kbs.length === 0) return "No knowledge base is connected in the mozek.";
+    return kbs
+      .map((k) => `- ${k.id} — ${k.name} [${k.domain}] ${k.description} (root: ${k.root})`)
+      .join("\n");
+  }
+
+  /** Search one registry KB; hits are KB-authored, so they ride the untrusted envelope (Law 4). */
+  async searchKnowledgeBase(kbId: string, query: string): Promise<string> {
+    const source = await this.kbSource(kbId);
+    if (typeof source === "string") return source;
+    const hits = await this.kbReader.search(source, query, KB_SEARCH_LIMIT);
+    if (hits.length === 0) return `No results for "${query}" in knowledge base ${kbId}.`;
+    return hits
+      .map((h) => `- [${kbId}]\n${envelopeInbound(`${h.path} — ${h.title}\n${h.snippet}`)}`)
+      .join("\n\n");
+  }
+
+  /** Read one note of a registry KB (path as cited by search, or a bare note id). */
+  async readKnowledgeBaseNote(kbId: string, notePath: string): Promise<string> {
+    const source = await this.kbSource(kbId);
+    if (typeof source === "string") return source;
+    const note = await this.kbReader.read(source, notePath);
+    if (!note) return `No note "${notePath}" found in knowledge base ${kbId}.`;
+    return `[${kbId}]\n${envelopeInbound(`${note.path} — ${note.title}\n\n${note.body}`)}`;
+  }
+
+  /** The reader source for a registry entry, or an error string for an unknown id. */
+  private async kbSource(kbId: string): Promise<KnowledgeBaseSource | string> {
+    const entry = await this.kbRegistry.get(kbId);
+    if (!entry) {
+      return `Unknown knowledge base "${kbId}". Call list_knowledge_bases for the available ids.`;
+    }
+    return {
+      kind: "vault",
+      path: entry.path,
+      readOnly: true,
+      root: entry.root,
+      context: entry.context,
+    };
   }
 
   /**

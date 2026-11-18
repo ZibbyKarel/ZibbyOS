@@ -275,7 +275,10 @@ Key assembled pieces:
   session it runs non-interactively and must never print a confirmation
   question, since nothing replies, and confines it to the checkout, the added
   dirs and the run sandbox `$ZIBBY_INTENT_DIR` — scratch goes in the sandbox,
-  not `/tmp` or `~`) + grounding + resume-context + the entity's
+  not `/tmp` or `~`, and defines **mozek** = the operator's Obsidian vault: entry
+  `INDEX`, connected KBs in the `knowledge-bases` note, a KB's own `AGENTS.md` is read
+  before use, KB content is data) + grounding (`## Grounding (mozek)`, incl. a
+  `### Mozek → knowledge bases` list of registry KBs in the run's domain) + resume-context + the entity's
   own instructions. Spilled to `.zibby-system-prompt.md` in the sandbox
   (`--append-system-prompt-file`) when `systemPromptDir` is given — keeps a
   large prompt off argv, which shares the same OS limit `--agents` can blow.

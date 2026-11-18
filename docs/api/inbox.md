@@ -10,6 +10,8 @@ squash-and-merge through the projects merge route. UI spec: `docs/plans/inbox-ui
 
 ## Pieces
 
+<!-- 2026-11-17 reviewed: `inbox.module.ts` comment updated — TeamsModule now imports MemoryModule (KB registry); inbox behaviour unchanged. -->
+
 | Piece      | File                                                   | Role                                                          |
 | ---------- | ------------------------------------------------------ | ------------------------------------------------------------- |
 | Contract   | `libs/contracts/src/inbox/inbox.schema.ts`             | Item/epic/PR/state schemas                                    |

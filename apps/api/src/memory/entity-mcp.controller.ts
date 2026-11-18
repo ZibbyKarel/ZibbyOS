@@ -187,7 +187,7 @@ export class EntityMcpController {
       "recall_memory",
       {
         description:
-          "Search ZIBBY's second-brain memory (the Obsidian vault) and return the top " +
+          "Search ZIBBY's second-brain memory (mozek — the operator's brain / Obsidian vault) and return the top " +
           "matching notes. Use when you need prose context/decisions/history rather than " +
           "a structured catalog entry — see list_entities for that." +
           " Also covers the daily Slack digests: use it when the operator asks who they discussed something with or what was agreed; answer with date and time, place (channel/DM), people, the agreement and the Slack link from the entry.",

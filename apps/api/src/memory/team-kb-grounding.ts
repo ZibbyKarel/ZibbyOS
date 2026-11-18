@@ -1,11 +1,10 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import type { KnowledgeBaseSource } from "@zibby/contracts";
+import { DEFAULT_KB_CONTEXT, DEFAULT_KB_ROOT, type KnowledgeBaseSource } from "@zibby/contracts";
 import { envelopeInbound } from "../shared/text/untrusted-envelope";
 
 /** Per-file char cap — the grounding block rides argv and is tail-truncated at 8000. */
 const FILE_CAP = 1500;
-const KB_FILES = ["team-context.md", path.join("wiki", "INDEX.md")];
 
 /**
  * Read `rel` under `root` without ever following a symlink (any path component) or
@@ -42,7 +41,9 @@ export async function composeTeamKbSection(
   try {
     const root = path.resolve(source.path);
     const parts: string[] = [];
-    for (const rel of KB_FILES) {
+    // The KB's own entry files (registry `context` / `root`), as OS-native relative paths.
+    const files = [source.context ?? DEFAULT_KB_CONTEXT, source.root ?? DEFAULT_KB_ROOT];
+    for (const rel of files.map((f) => path.join(...f.split("/")))) {
       const text = await readSafe(root, rel).catch(() => null);
       if (!text || !hasContent(text)) continue;
       parts.push(

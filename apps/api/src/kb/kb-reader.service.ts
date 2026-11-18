@@ -1,11 +1,13 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Injectable } from "@nestjs/common";
-import type {
-  KnowledgeBaseSource,
-  MemoryGraph,
-  TeamKbDigest,
-  TeamKbDigestItem,
+import {
+  DEFAULT_KB_CONTEXT,
+  DEFAULT_KB_ROOT,
+  type KnowledgeBaseSource,
+  type MemoryGraph,
+  type TeamKbDigest,
+  type TeamKbDigestItem,
 } from "@zibby/contracts";
 import matter from "gray-matter";
 import { tokenize } from "../tasks/keyword-scorer";
@@ -57,9 +59,6 @@ export const KB_GRAPH_LABEL_MAX_CHARS = 120;
 /** Appended to a body truncated at {@link KB_BODY_MAX_CHARS} — a visible marker. */
 const TRUNCATION_MARKER = "\n\n…[truncated]";
 
-const WIKI_DIR = "wiki";
-const WIKI_INDEX_REL = "wiki/INDEX.md";
-const TEAM_CONTEXT_REL = "team-context.md";
 const WIKILINK = /\[\[([^\]]+)\]\]/g;
 
 /** Default `limit` for `search()` when the caller doesn't pass one. */
@@ -515,17 +514,21 @@ export class KbReaderService {
         links: extractLinks(parsed.content),
       });
     }
-    return this.orderIndexFirst(notes);
+    return this.orderIndexFirst(notes, source);
   }
 
-  private orderIndexFirst(notes: ScannedNote[]): ScannedNote[] {
-    const wikiIndex = notes.find((n) => n.relPath === WIKI_INDEX_REL);
+  private orderIndexFirst(notes: ScannedNote[], source: KnowledgeBaseSource): ScannedNote[] {
+    // Each KB declares its own entry files (registry `root` / `context`).
+    const indexRel = source.root ?? DEFAULT_KB_ROOT;
+    const contextRel = source.context ?? DEFAULT_KB_CONTEXT;
+    const wikiDir = path.posix.dirname(indexRel);
+    const wikiIndex = notes.find((n) => n.relPath === indexRel);
     const linkedIds = new Set(wikiIndex?.links ?? []);
     const rankOf = (n: ScannedNote): number => {
-      if (n.relPath === TEAM_CONTEXT_REL) return 0;
-      if (n.relPath === WIKI_INDEX_REL) return 1;
+      if (n.relPath === contextRel) return 0;
+      if (n.relPath === indexRel) return 1;
       if (linkedIds.has(n.id)) return 2;
-      if (n.relPath.startsWith(`${WIKI_DIR}/`)) return 3;
+      if (wikiDir !== "." && n.relPath.startsWith(`${wikiDir}/`)) return 3;
       return 4;
     };
     return [...notes].sort((a, b) => rankOf(a) - rankOf(b) || a.relPath.localeCompare(b.relPath));

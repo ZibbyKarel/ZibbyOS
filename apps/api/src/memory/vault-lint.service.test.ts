@@ -71,6 +71,8 @@ describe("vault change log + updated stamp + lint", () => {
     );
     await writeRaw("daily/2020-01-01.md", "- old entry [[nowhere]]\n");
     await writeRaw("north-star.md", "---\nupdated: 2026-10-01\n---\ngoals\n");
+    await writeRaw("INDEX.md", "---\nupdated: 2026-10-01\n---\nentry\n");
+    await writeRaw("AGENTS.md", "---\nupdated: 2026-10-01\n---\nrules\n");
     const before = await fs.readFile(path.join(dir, "knowledge", "old.md"), "utf8");
 
     const res = await new VaultLintService(vault).run(new Date(2026, 9, 9));
@@ -87,7 +89,10 @@ describe("vault change log + updated stamp + lint", () => {
     expect(orphanSection).not.toContain("[[linked]]");
     expect(orphanSection).not.toContain("[[lonely]]");
     expect(orphanSection).not.toContain("north-star");
+    expect(orphanSection).not.toContain("[[INDEX]]");
+    expect(orphanSection).not.toContain("[[AGENTS]]");
     expect(orphanSection).not.toContain("hub-index");
+    expect(report).not.toContain("Invalid KB registry");
     expect(await fs.readFile(path.join(dir, "knowledge", "old.md"), "utf8")).toBe(before);
 
     // second run overwrites, and the lint/log notes never log themselves or become orphans
@@ -96,6 +101,16 @@ describe("vault change log + updated stamp + lint", () => {
       .readFile(path.join(dir, "knowledge", "vault-log.md"), "utf8")
       .catch(() => "");
     expect(log).not.toContain("[[vault-lint]]");
+  });
+
+  it("flags an invalid knowledge-bases registry", async () => {
+    await writeRaw(
+      "knowledge/knowledge-bases.md",
+      "---\nupdated: 2026-10-01\nkbs:\n  - id: x\n---\nbroken\n",
+    );
+    await new VaultLintService(vault).run(new Date(2026, 9, 9));
+    const report = await fs.readFile(path.join(dir, "knowledge", "vault-lint.md"), "utf8");
+    expect(report).toContain("## Invalid KB registry");
   });
 });
 

@@ -13,7 +13,7 @@ export const TeamIdSchema = AgentIdSchema;
  * deliberately permissive about which OS: the operator configures this host
  * path directly, and the API process may run on either.
  */
-function isAbsoluteHostPath(p: string): boolean {
+export function isAbsoluteHostPath(p: string): boolean {
   return p.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith("\\\\");
 }
 
@@ -30,6 +30,14 @@ function isAbsoluteHostPath(p: string): boolean {
  * operator-triggered: `kb/sync` (ff pull) and `kb/questions/resolve` (one new file in the
  * gitignored `inbox/`).
  */
+/** KB-relative file: forward slashes, no leading `/`, no `..` segment (stays inside the KB). */
+export const KbRelPathSchema = z
+  .string()
+  .min(1)
+  .refine((p) => !p.startsWith("/") && !p.includes("\\") && !p.split("/").includes(".."), {
+    message: "must be a path inside the knowledge base",
+  });
+
 export const KnowledgeBaseSourceSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -44,6 +52,10 @@ export const KnowledgeBaseSourceSchema = z.discriminatedUnion("kind", [
         .refine(isValidGitRemote, { message: "unsupported git remote" })
         .optional(),
       readOnly: z.literal(true),
+      /** Entry index inside the KB (registry `root`); absent = `wiki/INDEX.md`. */
+      root: KbRelPathSchema.optional(),
+      /** Team-context file inside the KB (registry `context`); absent = `team-context.md`. */
+      context: KbRelPathSchema.optional(),
     })
     .strict(),
 ]);

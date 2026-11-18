@@ -9,6 +9,28 @@ MOC files + descriptive filenames.
 Default location: `.zibby/data/vault/`
 Overridable via the `VAULT_DIR` env var.
 
+## Mozek layout
+
+The vault is called **mozek** (the brain) in prose, prompts and the cs UI; code identifiers
+(`VaultService`, `VAULT_DIR`, `dest: vault`) keep the old name. Brain root (default
+`~/Documents/AI/Vault`):
+
+- `AGENTS.md` — operating schema for any agent in mozek (folder roles, access rules,
+  machine-generated notes, how to find things); `CLAUDE.md` is a one-line shim to it.
+- `INDEX.md` — entry MOC: north-star, `knowledge-bases`, `zibby-index`, `slack-index`,
+  department MOCs, projects.
+- `knowledge/knowledge-bases.md` — the connected-KB registry (below).
+- `projects/ZibbyOS/features/` — future-idea notes (moved from the top-level `features/`;
+  its MOC is `features-index`, renamed so note ids stay unique).
+
+### Knowledge-base registry
+
+Connected team KBs are registered in one note, `knowledge/knowledge-bases.md`: the `kbs:`
+frontmatter is the machine truth, the body is a generated table. Teams derive their
+`knowledgeBase` from it, and KB readers/grounding take `root`/`context` from the entry.
+Retrieval is brain index -> registry -> KB root index -> article (decisions M2-M8 in
+`docs/plans/mozek-kb-registry.md`).
+
 ## Three tiers
 
 | Tier        | Folder                                                    | Purpose                                               |

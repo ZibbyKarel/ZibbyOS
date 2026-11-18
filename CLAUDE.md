@@ -23,8 +23,10 @@ tokens and stays in the loop only where their judgment is actually needed.
 ## Second brain
 
 ZIBBY isn't only an executor — it accumulates durable memory in the background, so
-every session builds on the last and nothing has to be re-explained. Memory lives in
-an Obsidian vault as plain markdown: a **North Star** (goals and focus), **Memories**
+every session builds on the last and nothing has to be re-explained. The brain is called
+**mozek** (= the Obsidian vault at `~/Documents/AI/Vault`); its entry point is `INDEX`, and
+connected team knowledge bases are listed in the `knowledge-bases` registry note. Memory
+lives in mozek as plain markdown: a **North Star** (goals and focus), **Memories**
 (knowledge that persists across sessions), and **indexes / Maps of Content** as entry
 points — notes joined by wikilinks into a graph that compounds over time. This spans
 work _and_ personal life; over time ZIBBY knows your projects, decisions, patterns,

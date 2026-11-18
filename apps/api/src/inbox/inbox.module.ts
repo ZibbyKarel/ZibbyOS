@@ -37,7 +37,7 @@ export function resolveInboxStateFile(): string {
     TasksModule,
     ApprovalsModule,
     WorkspaceModule,
-    TeamsModule, // configured team slugs for the team-review search; TeamsModule imports nothing here
+    TeamsModule, // configured team slugs for the team-review search; TeamsModule imports MemoryModule (KB registry)
   ],
   controllers: [InboxController],
   providers: [

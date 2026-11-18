@@ -103,14 +103,14 @@ describe("NoteDock", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("offers only Vault when no team has a KB", async () => {
+  it("offers only Mozek when no team has a KB", async () => {
     teams = [{ id: "a", name: "A" }];
     render(<NoteDock open onClose={vi.fn()} />);
     await userEvent.click(
       within(screen.getByTestId(NoteDockTestId.Target)).getByTestId(DropdownTestId.Trigger),
     );
     expect(screen.getAllByTestId(DropdownTestId.Option).map((o) => o.textContent)).toEqual([
-      "Vault",
+      "Mozek",
     ]);
   });
 
