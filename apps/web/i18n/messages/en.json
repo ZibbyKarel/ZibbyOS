@@ -1910,7 +1910,7 @@
     "prs": {
       "title": "Open PRs",
       "empty": "No open PRs.",
-      "noGithub": "Project has no linked GitHub repo.",
+      "noGithub": "Project has no linked GitHub or GitLab repo.",
       "mergeButton": "Merge",
       "mergeConfirmTitle": "Merge PR #{number}?",
       "mergeConfirmBody": "Merges PR #{number} into the main branch. This is not easily undone.",
@@ -1941,7 +1941,9 @@
         "openCompany": "Open company",
         "override": "Override with own integration",
         "githubRoutedBy": "Routed by git remote {repo}",
-        "githubNoRemote": "Set a git remote on this project to route GitHub items to it."
+        "githubNoRemote": "Set a git remote on this project to route GitHub items to it.",
+        "gitlabRoutedBy": "Routed by git remote {repo}",
+        "gitlabNoRemote": "Set a git remote on {host} for this project to route GitLab items to it."
       },
       "routing": {
         "projectKey": "Project key",
@@ -3039,6 +3041,8 @@
         "sourceLink": {
           "github-pr": "GitHub PR",
           "github-issue": "GitHub issue",
+          "gitlab-mr": "GitLab MR",
+          "gitlab-issue": "GitLab issue",
           "jira": "Jira issue",
           "slack": "Slack message",
           "link": "Open source"

@@ -103,6 +103,22 @@ export const GitHubConfigSchema = z
   .strict();
 export type GitHubConfig = z.infer<typeof GitHubConfigSchema>;
 
+/** A GitLab hostname (optionally `:port`). */
+export const GITLAB_HOST_SHAPE = /^[a-z0-9.-]+(:\d+)?$/i;
+/** A GitLab project's full path, any nesting depth (`group/sub/name`). */
+export const GITLAB_REPO_SHAPE = /^[\w.-]+(\/[\w.-]+)+$/;
+
+/**
+ * Whether `host` + `repo` are safe to build a GitLab link/target from — the path ends up in
+ * prompts, `-R` arguments and URLs, and files on disk can be edited past the schema.
+ */
+export function isGitlabShape(
+  host: string | undefined,
+  repo: string | null | undefined,
+): repo is string {
+  return !!host && !!repo && GITLAB_HOST_SHAPE.test(host) && GITLAB_REPO_SHAPE.test(repo);
+}
+
 /**
  * GitLab config (via the `glab` CLI, which holds the auth — no token here). `host` is
  * the hostname only; `repo` is the full project path (any nesting depth) and, as with
@@ -113,12 +129,10 @@ export type GitHubConfig = z.infer<typeof GitHubConfigSchema>;
 export const GitLabConfigSchema = z
   .object({
     kind: z.literal("gitlab"),
-    host: z
-      .string()
-      .regex(/^[a-z0-9.-]+(:\d+)?$/i, "host must be a hostname, e.g. gitlab.example.com"),
+    host: z.string().regex(GITLAB_HOST_SHAPE, "host must be a hostname, e.g. gitlab.example.com"),
     repo: z
       .string()
-      .regex(/^[\w.-]+(\/[\w.-]+)+$/, "repo must be a full path like 'group/name'")
+      .regex(GITLAB_REPO_SHAPE, "repo must be a full path like 'group/name'")
       .optional(),
     streams: z.array(z.enum(["issues", "pulls", "ci"])).default(["issues", "pulls"]),
     username: z.string().min(1),

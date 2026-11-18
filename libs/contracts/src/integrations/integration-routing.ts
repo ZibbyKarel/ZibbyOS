@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isGitlabShape } from "./integration.schema";
 
 /**
  * Phase 128 (D3) — per-project routing rule for a company-owned integration. The
@@ -104,7 +105,8 @@ export function githubRepoFor(
 /**
  * The project path a GitLab integration covers for `project`: project-owned → its
  * `config.repo`; company-owned → `config.repo`, else the `gitRemote` path when the
- * remote's host equals `config.host`. `null` otherwise (or when not GitLab).
+ * remote's host equals `config.host`. `null` otherwise (or when not GitLab), and also when
+ * the host or path fails {@link isGitlabShape} — every producer of a GitLab link inherits it.
  */
 export function gitlabRepoFor(
   integration: {
@@ -116,10 +118,12 @@ export function gitlabRepoFor(
 ): string | null {
   const { config } = integration;
   if (config.kind !== "gitlab") return null;
-  if (integration.projectId !== undefined) return config.repo ?? null;
-  if (config.repo) return config.repo;
+  const shaped = (repo: string | null | undefined) =>
+    repo && isGitlabShape(config.host, repo) ? repo : null;
+  if (integration.projectId !== undefined) return shaped(config.repo);
+  if (config.repo) return shaped(config.repo);
   const info = gitRemoteInfo(project.gitRemote);
-  return info && config.host && info.host === config.host.toLowerCase() ? info.path : null;
+  return info && config.host && info.host === config.host.toLowerCase() ? shaped(info.path) : null;
 }
 
 const ci = (s: string) => s.trim().toLowerCase();

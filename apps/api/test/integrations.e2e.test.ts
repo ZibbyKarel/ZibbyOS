@@ -302,6 +302,14 @@ describe("Integrations API (e2e)", () => {
       .expect(200);
   });
 
+  it("a PATCH cannot leave a project-owned gitlab integration repo-less (422, kind-aware)", async () => {
+    const res = await request(app.getHttpServer())
+      .patch("/api/integrations/acme-gitlab")
+      .send({ config: { kind: "gitlab", host: "gitlab.example.com", username: "karel.zibar" } })
+      .expect(422);
+    expect(JSON.stringify(res.body)).toContain("a project-owned gitlab integration needs a repo");
+  });
+
   it("update cannot change kind (config of a different kind → 422)", async () => {
     await request(app.getHttpServer())
       .patch("/api/integrations/team-slack")

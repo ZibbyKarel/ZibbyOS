@@ -295,6 +295,11 @@ describe("ResolvedProjectService", () => {
           }),
           project({ id: "other-host", companyId: "co", gitRemote: "git@github.com:co/web.git" }),
           project({ id: "no-remote", companyId: "co" }),
+          project({
+            id: "bad-path",
+            companyId: "co",
+            gitRemote: "git@gitlab.example.com:g/$(id)/w.git",
+          }),
         ],
       });
 

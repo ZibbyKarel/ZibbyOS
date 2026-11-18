@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import type { ChannelItem } from "@zibby/contracts";
+import { type ChannelItem, isGitlabShape } from "@zibby/contracts";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { issueWebUrl, prWebUrl } from "../git-host/git-host-url";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
@@ -66,7 +66,8 @@ export class SourceLinkBackfillService implements OnModuleInit {
     }
     if (item.kind === "gitlab" && integration.config.kind === "gitlab") {
       const repo = integration.config.repo ?? item.externalRef.channel;
-      if (!repo) return undefined;
+      // The path ends up in a link the operator clicks; files on disk can be edited.
+      if (!isGitlabShape(integration.config.host, repo)) return undefined;
       // Issue and MR iids are separate sequences; the adapter's deterministic id says which.
       const link = { kind: "gitlab" as const, host: integration.config.host, repo };
       const n = Number(item.externalRef.messageId);

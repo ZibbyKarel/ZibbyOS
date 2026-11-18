@@ -75,7 +75,7 @@ describe("GitlabCiMonitor", () => {
     const { events, cursor } = await monitor.poll(INTEGRATION, CREDS, undefined);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
-      id: "ci-grp-sub-app-7",
+      id: "ci-grp-sub-app-7-20260702081200",
       kind: "ci-run-failed",
       url: "https://gl.example.com/grp/sub/app/-/pipelines/7",
       occurredAt: "2026-07-02T08:12:00.000Z",
@@ -91,11 +91,22 @@ describe("GitlabCiMonitor", () => {
         pipeline({ id: 1, ref: "refs/merge-requests/5/head" }),
         pipeline({ id: 2, ref: "feat/x" }),
         pipeline({ id: 3, ref: "refs/merge-requests/6/head" }),
+        pipeline({ id: 4, ref: "refs/merge-requests/5/merge" }),
+        pipeline({ id: 5, ref: "refs/merge-requests/6/merge" }),
       ],
       [{ iid: 5, source_branch: "feat/x" }],
     );
     const { events } = await monitor.poll(INTEGRATION, CREDS, undefined);
-    expect(events.map((e) => e.id)).toEqual(["ci-grp-sub-app-1", "ci-grp-sub-app-2"]);
+    expect(events.map((e) => e.id.split("-")[4])).toEqual(["1", "2", "4"]);
+  });
+
+  it("a retried pipeline that fails again alerts again (id carries updated_at)", async () => {
+    const { monitor: m1 } = monitorWith([pipeline({ updated_at: "2026-07-02T08:12:00Z" })]);
+    const first = await m1.poll(INTEGRATION, CREDS, undefined);
+    const { monitor: m2 } = monitorWith([pipeline({ updated_at: "2026-07-02T09:30:00Z" })]);
+    const second = await m2.poll(INTEGRATION, CREDS, first.cursor);
+    expect(second.events).toHaveLength(1);
+    expect(second.events[0]?.id).not.toBe(first.events[0]?.id);
   });
 
   it("is replay-safe: the same page again, with the advanced cursor, yields nothing new", async () => {

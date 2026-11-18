@@ -39,9 +39,11 @@ its runtime.
 - One poll reads the default branch, the operator's open MRs (`author_username=config.username`) and
   `pipelines?order_by=updated_at&sort=desc`; cursor = newest `updated_at`, so a pipeline that finishes
   red after an earlier poll still surfaces.
-- A `failed` pipeline on the default branch, or on one of those MRs (`refs/merge-requests/<iid>/head`
-  or the MR's source branch) → event `ci-run-failed`, id `ci-<repo, / as ->-<pipelineId>`. Other
-  pipelines are ignored. The status snapshot is the default branch's failed/success streak.
+- A `failed` pipeline on the default branch, or on one of those MRs (`refs/merge-requests/<iid>/head`,
+  the merged-results `refs/merge-requests/<iid>/merge`, or the MR's source branch) → event
+  `ci-run-failed`, id `ci-<repo, / as ->-<pipelineId>-<updated_at digits>`: a re-poll is a dedup hit,
+  a retried pipeline that fails again (same id, newer `updated_at`) alerts again, like GitHub's
+  `run_attempt`. Other pipelines are ignored. The status snapshot is the default branch's failed/success streak.
 
 ## Handling (tier path)
 

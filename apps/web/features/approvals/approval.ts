@@ -309,9 +309,12 @@ export function approvalOrigin(
 /** Link label for an external source url (`policy.approvals.sheet.sourceLink.*`). */
 export function sourceLinkKind(
   url: string,
-): "github-pr" | "github-issue" | "jira" | "slack" | "link" {
+): "github-pr" | "github-issue" | "gitlab-mr" | "gitlab-issue" | "jira" | "slack" | "link" {
   if (/github\.com\/.+\/pull\/\d+/.test(url)) return "github-pr";
   if (/github\.com\/.+\/issues\/\d+/.test(url)) return "github-issue";
+  // GitLab (any host): `/-/merge_requests/<iid>` and `/-/issues/<iid>`.
+  if (/\/-\/merge_requests\/\d+/.test(url)) return "gitlab-mr";
+  if (/\/-\/issues\/\d+/.test(url)) return "gitlab-issue";
   if (/atlassian\.net|\/browse\/[A-Z][A-Z0-9]+-\d+/.test(url)) return "jira";
   if (/slack\.com/.test(url)) return "slack";
   return "link";

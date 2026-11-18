@@ -5,7 +5,12 @@ import type {
   Integration,
   TestResult,
 } from "@zibby/contracts";
-import { GitlabApiError, type GitlabClient, projectPath } from "../../git-host/gitlab-client";
+import {
+  GitlabApiError,
+  type GitlabClient,
+  glabLoginHint as loginHint,
+  projectPath,
+} from "../../git-host/gitlab-client";
 import type { ChannelAdapter, InboundMessage, PollResult } from "./adapter";
 
 /** An issue or merge request as `glab api` returns it (only the fields read here). */
@@ -26,8 +31,6 @@ interface GitLabTodo {
 }
 
 const MENTION_ACTIONS = ["mentioned", "directly_addressed"] as const;
-
-const loginHint = (host: string) => `run \`glab auth login --hostname ${host}\``;
 
 /**
  * GitLab adapter over the `glab` CLI ({@link GitlabClient}) — no stored credential, the
@@ -61,7 +64,9 @@ export class GitlabChannelAdapter implements ChannelAdapter {
       return { ok: true, detail: `authenticated as ${me.username} on ${host}` };
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      return { ok: false, detail: `glab cannot reach ${host} (${reason}) — ${loginHint(host)}` };
+      // A 401 already carries the hint (GitlabClient); every other failure (404 included) gets it here.
+      const hint = reason.includes(loginHint(host)) ? "" : ` — ${loginHint(host)}`;
+      return { ok: false, detail: `glab cannot reach ${host} (${reason})${hint}` };
     }
   }
 
@@ -89,7 +94,10 @@ export class GitlabChannelAdapter implements ChannelAdapter {
         updated_after: cursor,
         ...filter,
       });
-      return this.client.api<GitLabItem[]>(host, `${base}/${resource}?${params}`);
+      // Bounded by `updated_after`; paginate so a full page never hides the rest.
+      return this.client.api<GitLabItem[]>(host, `${base}/${resource}?${params}`, {
+        paginate: true,
+      });
     };
 
     const issues = new Map<number, GitLabItem>();
@@ -159,7 +167,10 @@ export class GitlabChannelAdapter implements ChannelAdapter {
     const todos: GitLabTodo[] = [];
     for (const action of MENTION_ACTIONS) {
       const params = new URLSearchParams({ state: "pending", action, per_page: "100" });
-      todos.push(...((await this.client.api<GitLabTodo[]>(host, `todos?${params}`)) ?? []));
+      const page = await this.client.api<GitLabTodo[]>(host, `todos?${params}`, {
+        paginate: true,
+      });
+      todos.push(...(page ?? []));
     }
     return todos;
   }

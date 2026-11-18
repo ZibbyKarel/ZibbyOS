@@ -8,6 +8,7 @@ import {
   matchRouting,
   repoFromGitRemote,
 } from "./integration-routing";
+import { isGitlabShape } from "./integration.schema";
 
 describe("RoutingMatchSchema", () => {
   it("requires jql or projectKey for jira", () => {
@@ -151,12 +152,43 @@ describe("gitRemoteInfo", () => {
   });
 });
 
+describe("isGitlabShape", () => {
+  it("accepts a hostname and a nested path, rejects anything else", () => {
+    expect(isGitlabShape("gitlab.example.com", "group/sub/project")).toBe(true);
+    expect(isGitlabShape("gitlab.example.com:8443", "g/p")).toBe(true);
+    for (const [host, repo] of [
+      ["gitlab.example.com", "single"],
+      ["gitlab.example.com", "g/$(id)/p"],
+      ["gitlab.example.com", "g/p; rm -rf"],
+      ["gitlab.example.com", undefined],
+      ["https://gitlab.example.com", "g/p"],
+      ["gitlab.example.com/evil", "g/p"],
+      [undefined, "g/p"],
+    ] as const) {
+      expect(isGitlabShape(host, repo), `${host} ${repo}`).toBe(false);
+    }
+  });
+});
+
 describe("gitlabRepoFor", () => {
   const remote = { gitRemote: "git@gitlab.group.team.blue:shoptet/projects/app.git" };
   const gl = (repo?: string) => ({
     kind: "gitlab",
     host: "gitlab.group.team.blue",
     ...(repo ? { repo } : {}),
+  });
+  it("null for a host or path that fails the shape check (every producer inherits it)", () => {
+    expect(gitlabRepoFor({ projectId: "p", config: gl("a/$(id)/c") }, remote)).toBeNull();
+    expect(gitlabRepoFor({ companyId: "c", config: gl("a b/c") }, remote)).toBeNull();
+    expect(
+      gitlabRepoFor(
+        { companyId: "c", config: gl() },
+        { gitRemote: "git@gitlab.group.team.blue:a/`x`/c.git" },
+      ),
+    ).toBeNull();
+    expect(
+      gitlabRepoFor({ projectId: "p", config: { ...gl("a/b"), host: "h/evil" } }, remote),
+    ).toBeNull();
   });
   it("project-owned: config.repo only", () => {
     expect(gitlabRepoFor({ projectId: "p", config: gl("a/b/c") }, remote)).toBe("a/b/c");

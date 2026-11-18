@@ -1,9 +1,6 @@
 import { type Project, gitlabRepoFor } from "@zibby/contracts";
 import type { ResolvedProjectService } from "../projects/resolved-project.service";
 
-const REPO_SHAPE = /^[\w.-]+(\/[\w.-]+)+$/;
-const HOST_SHAPE = /^[a-z0-9.-]+(:\d+)?$/i;
-
 /** A project's GitLab link: `repo` = full path "group/sub/name". */
 export type GitlabLink = { kind: "gitlab"; host: string; repo: string; username?: string };
 
@@ -21,8 +18,8 @@ export async function resolveGitlabLink(
     if (integration.config.kind !== "gitlab") continue;
     const repo = gitlabRepoFor(integration, project);
     const { host, username } = integration.config;
-    // The path ends up in prompts and `-R` arguments; checks on write are not enough (files can be edited).
-    if (!repo || !REPO_SHAPE.test(repo) || !HOST_SHAPE.test(host)) continue;
+    // `gitlabRepoFor` already enforces `isGitlabShape` (host + path) — null on a bad shape.
+    if (!repo) continue;
     return { kind: "gitlab", host, repo, ...(username ? { username } : {}) };
   }
   return null;

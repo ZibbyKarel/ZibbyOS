@@ -1910,7 +1910,7 @@
     "prs": {
       "title": "Otevřené PR",
       "empty": "Žádné otevřené PR.",
-      "noGithub": "Projekt nemá napojený GitHub.",
+      "noGithub": "Projekt nemá napojený GitHub ani GitLab.",
       "mergeButton": "Sloučit",
       "mergeConfirmTitle": "Sloučit PR #{number}?",
       "mergeConfirmBody": "Sloučí PR #{number} do hlavní větve. Tuto akci nelze snadno vrátit.",
@@ -1941,7 +1941,9 @@
         "openCompany": "Otevřít firmu",
         "override": "Přebít vlastní integrací",
         "githubRoutedBy": "Směrováno podle git remote {repo}",
-        "githubNoRemote": "Nastav projektu git remote, aby se mu položky z GitHubu mohly přiřazovat."
+        "githubNoRemote": "Nastav projektu git remote, aby se mu položky z GitHubu mohly přiřazovat.",
+        "gitlabRoutedBy": "Směrováno podle git remote {repo}",
+        "gitlabNoRemote": "Nastav projektu git remote na {host}, aby se mu položky z GitLabu mohly přiřazovat."
       },
       "routing": {
         "projectKey": "Klíč projektu",
@@ -3039,6 +3041,8 @@
         "sourceLink": {
           "github-pr": "GitHub PR",
           "github-issue": "GitHub issue",
+          "gitlab-mr": "GitLab MR",
+          "gitlab-issue": "GitLab issue",
           "jira": "Jira issue",
           "slack": "Zpráva ve Slacku",
           "link": "Otevřít zdroj"

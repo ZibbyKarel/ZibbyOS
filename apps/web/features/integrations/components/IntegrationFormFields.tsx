@@ -17,7 +17,7 @@ import type {
   SentryConfig,
   UpdateIntegrationInput,
 } from "@zibby/contracts";
-import { IntegrationIdSchema } from "@zibby/contracts";
+import { GITLAB_HOST_SHAPE, GITLAB_REPO_SHAPE, IntegrationIdSchema } from "@zibby/contracts";
 
 type SentryMinLevel = SentryConfig["minLevel"];
 
@@ -274,8 +274,8 @@ export function useIntegrationFormState(
     switch (kind) {
       case "gitlab":
         return (
-          /^[a-z0-9.-]+(:\d+)?$/i.test(gitlabHost.trim()) &&
-          (companyOwned && repo.trim() === "" ? true : /^[^/]+(\/[^/]+)+$/.test(repo.trim())) &&
+          GITLAB_HOST_SHAPE.test(gitlabHost.trim()) &&
+          (companyOwned && repo.trim() === "" ? true : GITLAB_REPO_SHAPE.test(repo.trim())) &&
           gitlabUsername.trim().length > 0
         );
       case "slack":

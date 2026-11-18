@@ -68,6 +68,17 @@ const fails = (stderr: string) => () => {
 };
 
 describe("GitlabChannelAdapter.poll", () => {
+  it("paginates every list call (bounded by updated_after)", async () => {
+    const argvs: string[][] = [];
+    const exec: GitlabExecImpl = async (_file, args) => {
+      argvs.push(args);
+      return { stdout: "[]", stderr: "" };
+    };
+    await new GitlabChannelAdapter(new GitlabClient(exec)).poll(gl, NO_CREDS, CURSOR);
+    expect(argvs.length).toBeGreaterThan(0);
+    for (const args of argvs) expect(args, args[1]).toContain("--paginate");
+  });
+
   it("first poll seeds the cursor to now and calls glab never", async () => {
     const { adapter, calls } = adapterFor({});
     const res = await adapter.poll(gl, NO_CREDS, undefined);
@@ -223,13 +234,23 @@ describe("GitlabChannelAdapter.test", () => {
     expect(res.detail).toContain(`glab auth login --hostname ${HOST}`);
   });
 
+  it("the 401 login hint appears once; a 404 also gets it", async () => {
+    const hint = `glab auth login --hostname ${HOST}`;
+    const unauthorized = await adapterFor({
+      user: fails("glab: 401 Unauthorized (HTTP 401)"),
+    }).adapter.test(gl);
+    expect(unauthorized.detail.split(hint)).toHaveLength(2);
+    const notFound = await adapterFor({ user: fails("glab: HTTP 404\n") }).adapter.test(gl);
+    expect(notFound.detail).toContain(hint);
+  });
+
   it("glab missing -> failed test with the same login hint", async () => {
     const exec: GitlabExecImpl = async () => {
       throw Object.assign(new Error("spawn glab ENOENT"), { code: "ENOENT" });
     };
     const res = await new GitlabChannelAdapter(new GitlabClient(exec)).test(gl);
     expect(res.ok).toBe(false);
-    expect(res.detail).toContain("glab CLI not found");
+    expect(res.detail).toContain("glab is not installed or not on PATH");
     expect(res.detail).toContain(`glab auth login --hostname ${HOST}`);
   });
 });

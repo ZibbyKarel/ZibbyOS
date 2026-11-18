@@ -78,13 +78,24 @@ that already owns a GitHub integration is skipped. Tokens are compared, never pr
 ## GitLab (`gitlab` kind)
 
 Config: `{ kind: "gitlab", host, repo?, streams, username }`. `host` is a bare hostname
-(`gitlab.group.team.blue`, optional `:port`); `repo` is the full project path at any nesting
+(`gitlab.example.com`, optional `:port`); `repo` is the full project path at any nesting
 depth (`group/sub/name`). There is no token: all GitLab access goes through the `glab` CLI
 (`GitlabClient` in `apps/api/src/git-host`, `glab api <path> --hostname <host>`), which holds
 the auth. A project-owned gitlab integration must name its `repo`; a company-owned one may omit
 it, then `gitlabRepoFor` takes the project's `gitRemote` path, but only when the remote's host
 equals `config.host`. `githubRepoFor` likewise only derives from a `github.com` remote.
-`resolveGitHostLink` picks the gitlab link first, else the GitHub token link.
+`resolveGitHostLink` picks the gitlab link first, else the GitHub token link. A PATCH that would
+leave a project-owned github **or** gitlab integration without `repo` is 422
+(`a project-owned <kind> integration needs a repo`).
+
+**Shape validation.** `isGitlabShape(host, repo)` (`@zibby/contracts`, next to
+`GITLAB_HOST_SHAPE` / `GITLAB_REPO_SHAPE`, the regexes the schema and the web form use) is the
+single check that a host is a bare hostname (optional `:port`) and a path is
+`segment(/segment)+` of `[\w.-]`. `gitlabRepoFor` returns `null` for anything that fails it, so
+every producer of a GitLab link or poll target inherits the check (`resolveGitlabLink`,
+`gitlabRepoTargets` → channel and monitor watchers, the inbox's assigned-issues list); the
+source-link backfill checks the item's own channel path the same way. Files on disk can be
+edited past the schema, and the path ends up in prompts, `-R` arguments and URLs.
 
 **No stored credential.** `needsStoredCredential(kind)` (`integrations/credential-kind.ts`)
 is the single check for "this kind keeps a secret": false only for `gitlab`. For it
@@ -94,8 +105,15 @@ handed `NO_CREDENTIALS`, which it ignores), and the web form has no secret field
 
 **Connection test.** `GET /user` through `GitlabClient` on `config.host`: ok when the
 returned `username` is present and equals `config.username` (case-insensitive); a different
-login is a failed test naming both; glab missing, not logged in or the host unreachable is a
-failed test naming the host and `glab auth login --hostname <host>`.
+login is a failed test naming both; glab missing, not logged in (401), a 404 or the host
+unreachable is a failed test naming the host and `glab auth login --hostname <host>` (once — a
+401 already carries the hint from `GitlabClient`).
+
+**glab errors.** `GitlabClient` reads the HTTP status from glab's stderr, which comes in two
+formats: `glab: 404 Project Not Found (HTTP 404)` and, for an `{"error":…}` body, just
+`glab: HTTP 404`. A 401 message gets ` — run \`glab auth login --hostname <host>\``; a missing
+binary is `glab is not installed or not on PATH`; a killed/timed-out call is
+`glab timed out after 60 s`; exit 0 with non-JSON stdout is `glab returned non-JSON output`(all`GitlabApiError`). `--paginate` prints one merged array; nothing rewrites JSON text.
 
 **`git-host/` module** (`apps/api/src/git-host/`, `GitHostModule`): `GitlabClient` (`api`, `raw`,
 `projectPath`; every GitLab call is a `glab api` through an injectable exec), `resolveGitHostLink`

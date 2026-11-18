@@ -27,8 +27,11 @@ interface GitlabMr {
  * One poll reads the project's default branch, the operator's open MRs and the newest
  * pipelines (by `updated_at`, so a pipeline that FINISHES red after an earlier poll still
  * surfaces). An alert is a `failed` pipeline on the default branch or on one of those MRs
- * (merge-request pipeline `refs/merge-requests/<iid>/head`, or a branch pipeline of an MR
- * source branch) — id `ci-<repo>-<pipelineId>`, so a re-poll is a pure dedup hit.
+ * (merge-request pipeline `refs/merge-requests/<iid>/head`, a merged-results pipeline
+ * `refs/merge-requests/<iid>/merge`, or a branch pipeline of an MR source branch) — id
+ * `ci-<repo>-<pipelineId>-<updated_at digits>`: a re-poll is a pure dedup hit, while a retried
+ * pipeline that fails again (same id, newer `updated_at`) alerts again, like GitHub's
+ * `run_attempt`.
  * The operator's login is the MR author for ZIBBY's MRs too (it pushes with that login).
  */
 export class GitlabCiMonitor implements MonitorAdapter {
@@ -65,7 +68,10 @@ export class GitlabCiMonitor implements MonitorAdapter {
     ]);
     const mine = new Set<string>();
     for (const mr of mrs ?? []) {
-      if (mr.iid !== undefined) mine.add(`refs/merge-requests/${mr.iid}/head`);
+      if (mr.iid !== undefined) {
+        mine.add(`refs/merge-requests/${mr.iid}/head`);
+        mine.add(`refs/merge-requests/${mr.iid}/merge`);
+      }
       if (mr.source_branch) mine.add(mr.source_branch);
     }
     const list = Array.isArray(pipelines) ? pipelines : [];
@@ -79,7 +85,7 @@ export class GitlabCiMonitor implements MonitorAdapter {
       if (p.id === undefined || p.status !== "failed") continue;
       if (p.ref !== defaultBranch && !(p.ref && mine.has(p.ref))) continue;
       events.push({
-        id: `ci-${repo.replace(/\//g, "-")}-${p.id}`,
+        id: `ci-${repo.replace(/\//g, "-")}-${p.id}-${updated.replace(/\D/g, "")}`,
         kind: "ci-run-failed",
         title: `CI red: pipeline ${p.id} failed on ${p.ref ?? "?"}`,
         detail: [

@@ -13,14 +13,16 @@ import { useWidgetReport } from "./useWidgetReport";
 export const MENTION_KINDS = [
   "jira",
   "github",
+  "gitlab",
   "slack",
   "email",
 ] as const satisfies readonly IntegrationKind[];
 export const MENTIONS_LIMIT = 50;
 
-/** The feed's source glyphs (GH, JI, #, @); the data carries no unread flag, so no row is bold. */
+/** The feed's source glyphs (GH, GL, JI, #, @); the data carries no unread flag, so no row is bold. */
 const GLYPH: Partial<Record<IntegrationKind, string>> = {
   github: "GH",
+  gitlab: "GL",
   jira: "JI",
   slack: "#",
   email: "@",
@@ -39,7 +41,7 @@ export function mentionItems(items: readonly ChannelItem[]): ChannelItem[] {
 
 /**
  * Mentions: a read-only list of channel items (already "mine and mentions" by ingest) from Jira,
- * GitHub, Slack and email. List only — a row opens its source in a new tab; reply comes later.
+ * GitHub, GitLab, Slack and email. List only — a row opens its source in a new tab; reply comes later.
  */
 export function MentionsWidget({ widget, onEmptyChange, onCountChange }: BridgeWidgetProps) {
   const now = useNow(60_000);

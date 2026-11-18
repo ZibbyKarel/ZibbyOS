@@ -19,6 +19,22 @@ const GITHUB_INTEGRATION: Integration = {
   config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "alice" },
 };
 
+const GITLAB_INTEGRATION: Integration = {
+  id: "acme-gitlab",
+  kind: "gitlab",
+  projectId: "acme",
+  enabled: true,
+  status: "connected",
+  hasCredentials: true,
+  config: {
+    kind: "gitlab",
+    host: "gitlab.example.com",
+    repo: "group/sub/project",
+    streams: ["pulls"],
+    username: "alice",
+  },
+};
+
 const pr = (over: Partial<ProjectPr> = {}): ProjectPr => ({
   number: 42,
   title: "Fix flaky test",
@@ -57,7 +73,16 @@ describe("ProjectPullRequestsPanel", () => {
     resolvedData = { people: [], integrations: [] };
     render(<ProjectPullRequestsPanel projectId="acme" />);
     expect(screen.getByTestId(ProjectPullRequestsPanelTestId.Empty)).toHaveTextContent(
-      "Projekt nemá napojený GitHub.",
+      "Projekt nemá napojený GitHub ani GitLab.",
+    );
+  });
+
+  it("a gitlab link counts as linked (empty state, not the no-link state)", () => {
+    prsData = [];
+    resolvedData = { people: [], integrations: [GITLAB_INTEGRATION] };
+    render(<ProjectPullRequestsPanel projectId="acme" />);
+    expect(screen.getByTestId(ProjectPullRequestsPanelTestId.Empty)).toHaveTextContent(
+      "Žádné otevřené PR.",
     );
   });
 

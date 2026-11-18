@@ -58,9 +58,12 @@ export function projectPath(repo: string): string {
   return `projects/${encodeURIComponent(repo)}`;
 }
 
-/** glab prints e.g. `glab: 404 Project Not Found (HTTP 404)` on stderr. */
+/**
+ * glab prints `glab: 404 Project Not Found (HTTP 404)` on stderr, or just `glab: HTTP 404`
+ * when the body is `{"error":…}`.
+ */
 function statusOf(stderr: string): number | undefined {
-  const m = /\(HTTP (\d{3})\)/.exec(stderr) ?? /^glab: (\d{3})\b/m.exec(stderr);
+  const m = /\bHTTP (\d{3})\b/.exec(stderr) ?? /^glab: (\d{3})\b/m.exec(stderr);
   return m?.[1] ? Number(m[1]) : undefined;
 }
 
@@ -103,28 +106,38 @@ export class GitlabClient {
       });
       return stdout;
     } catch (err) {
-      throw toApiError(err);
+      throw toApiError(err, host);
     }
   }
 }
 
-function toApiError(err: unknown): GitlabApiError {
+/** The fix for a missing/expired glab login, appended to auth failures. */
+export const glabLoginHint = (host: string) => `run \`glab auth login --hostname ${host}\``;
+
+function toApiError(err: unknown, host: string): GitlabApiError {
   if (err instanceof GitlabApiError) return err;
-  const e = err as { code?: unknown; stderr?: unknown; message?: unknown };
-  if (e.code === "ENOENT") return new GitlabApiError("glab CLI not found");
+  const e = err as { code?: unknown; killed?: unknown; stderr?: unknown; message?: unknown };
+  if (e.code === "ENOENT") return new GitlabApiError("glab is not installed or not on PATH");
+  if (e.killed === true || e.code === "ETIMEDOUT") {
+    return new GitlabApiError(`glab timed out after ${GLAB_TIMEOUT_MS / 1000} s`);
+  }
   const stderr = typeof e.stderr === "string" ? e.stderr : "";
   const detail = (stderr.trim() || String(e.message ?? "glab failed")).split("\n")[0] ?? "";
-  return new GitlabApiError(detail.slice(0, 300), statusOf(stderr));
+  const status = statusOf(stderr);
+  const message = detail.slice(0, 300);
+  return new GitlabApiError(
+    status === 401 ? `${message} — ${glabLoginHint(host)}` : message,
+    status,
+  );
 }
 
-/** `--paginate` may print one array per page (`[..][..]`); merge those. */
+/** glab `--paginate` prints one merged array; anything that is not JSON is an error, never a guess. */
 function parseJson(stdout: string): unknown {
   const text = stdout.trim();
   if (!text) return undefined;
   try {
     return JSON.parse(text);
   } catch {
-    // ponytail: textual merge of concatenated pages; breaks only if a string value contains "][" across a page edge.
-    return JSON.parse(text.replace(/\]\s*\[/g, ","));
+    throw new GitlabApiError("glab returned non-JSON output");
   }
 }

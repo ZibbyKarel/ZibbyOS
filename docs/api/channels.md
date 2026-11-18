@@ -238,8 +238,8 @@ for storage itself.
 
 `gitlab.adapter.ts`, over the `glab` CLI via `GitlabClient` (no stored credential). Same
 contract as the GitHub adapter: a first poll seeds the cursor to now and ingests nothing;
-later polls fetch what changed (`updated_after`), the cursor advances to the newest
-`updated_at`. A company-owned integration without `repo` is polled once per distinct repo of
+later polls fetch what changed (`updated_after`, every list call `--paginate`d so a full page
+never hides the rest), the cursor advances to the newest `updated_at`. A company-owned integration without `repo` is polled once per distinct repo of
 its inheriting projects (`ResolvedProjectService.gitlabRepoTargets`, the sibling of
 `githubRepoTargets`: the project's `gitRemote` path, only when its host equals `config.host`),
 each with its own cursor. Scope is "mine and mentions" for `config.username`:
@@ -310,7 +310,7 @@ that closes the gap for the two kinds where the URL is cheaply re-derivable afte
    call. GitHub always uses `/issues/<n>` (GitHub redirects to `/pull/<n>` when it's
    actually a PR), since the stored item doesn't retain the `isPr` distinction the adapter
    had at ingest time. GitLab uses `/-/issues/<n>` or `/-/merge_requests/<n>`, told apart by
-   the adapter's `-issue-`/`-mr-` id suffix.
+   the adapter's `-issue-`/`-mr-` id suffix; a host or path failing `isGitlabShape` gets no url.
 2. **Approvals**: every still-`pending`, `kind: "channel"` approval missing `sourceUrl` is
    resolved back to its item via the `<integrationId>/<itemId>` `runId` convention (the
    same split `ChannelTriageFlowService.itemFromRef` uses) and, if that item now has a

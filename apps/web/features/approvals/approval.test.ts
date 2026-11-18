@@ -144,6 +144,10 @@ describe("sourceLinkKind", () => {
   it("names GitHub PRs/issues, Jira and Slack links", () => {
     expect(sourceLinkKind("https://github.com/o/r/pull/12")).toBe("github-pr");
     expect(sourceLinkKind("https://github.com/o/r/issues/3")).toBe("github-issue");
+    expect(sourceLinkKind("https://gitlab.example.com/g/sub/p/-/merge_requests/7")).toBe(
+      "gitlab-mr",
+    );
+    expect(sourceLinkKind("https://gitlab.example.com/g/sub/p/-/issues/3")).toBe("gitlab-issue");
     expect(sourceLinkKind("https://x.atlassian.net/browse/AB-1")).toBe("jira");
     expect(sourceLinkKind("https://team.slack.com/archives/C1/p1")).toBe("slack");
     expect(sourceLinkKind("https://example.com")).toBe("link");

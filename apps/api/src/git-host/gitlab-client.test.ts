@@ -41,9 +41,39 @@ describe("GitlabClient", () => {
     expect(opts?.input).toBe('{"a":"x y"}');
   });
 
-  it("empty stdout is undefined; concatenated pages are merged", async () => {
+  it("empty stdout is undefined; non-JSON stdout is a GitlabApiError, never a guess", async () => {
     await expect(client(ok("  \n")).gl.api("h", "p")).resolves.toBeUndefined();
-    await expect(client(ok("[1,2]\n[3]")).gl.api("h", "p")).resolves.toEqual([1, 2, 3]);
+    for (const out of ["[1,2]\n[3]", "<html>oops</html>"]) {
+      const err = await client(ok(out))
+        .gl.api("h", "p")
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(GitlabApiError);
+      expect(err).toMatchObject({ message: "glab returned non-JSON output" });
+    }
+  });
+
+  it("reads the status from the bare `glab: HTTP 404` form", async () => {
+    const { gl } = client(fail({ stderr: "glab: HTTP 404\n" }));
+    await expect(gl.api("h", "p")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("a 401 carries the login hint for the host", async () => {
+    const { gl } = client(fail({ stderr: "glab: 401 Unauthorized (HTTP 401)\n" }));
+    await expect(gl.api("gitlab.example.com", "user")).rejects.toMatchObject({
+      status: 401,
+      message:
+        "glab: 401 Unauthorized (HTTP 401) — run `glab auth login --hostname gitlab.example.com`",
+    });
+  });
+
+  it("a killed / timed-out call says so", async () => {
+    for (const props of [{ killed: true, signal: "SIGTERM" }, { code: "ETIMEDOUT" }]) {
+      const { gl } = client(fail(props));
+      await expect(gl.api("h", "p")).rejects.toMatchObject({
+        status: undefined,
+        message: "glab timed out after 60 s",
+      });
+    }
   });
 
   it("raw returns the text untouched", async () => {
@@ -65,7 +95,10 @@ describe("GitlabClient", () => {
     const { gl } = client(fail({ code: "ENOENT" }));
     const err = await gl.raw("h", "p").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(GitlabApiError);
-    expect(err).toMatchObject({ status: undefined, message: "glab CLI not found" });
+    expect(err).toMatchObject({
+      status: undefined,
+      message: "glab is not installed or not on PATH",
+    });
   });
 
   it("a network failure has no status", async () => {

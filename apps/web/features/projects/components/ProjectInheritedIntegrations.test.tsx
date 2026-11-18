@@ -37,6 +37,15 @@ const github: Integration = {
   hasCredentials: true,
   config: { kind: "github", repo: "shoptet/cli", streams: ["issues"], username: "me" },
 } as Integration;
+const gitlab: Integration = {
+  id: "gl-shoptet",
+  kind: "gitlab",
+  companyId: "shoptet",
+  enabled: true,
+  status: "connected",
+  hasCredentials: true,
+  config: { kind: "gitlab", host: "gitlab.example.com", streams: ["pulls"], username: "me" },
+} as Integration;
 const own: Integration = {
   ...jira,
   id: "own",
@@ -150,5 +159,34 @@ describe("ProjectInheritedIntegrations", () => {
     render(<ProjectInheritedIntegrations onOverride={vi.fn()} projectId="p1" routing={[]} />);
 
     expect(screen.getByTestId(TestId.GithubRemote)).toHaveTextContent(/git remote/i);
+  });
+
+  it("gitlab shows the repo routed by a git remote on its host", () => {
+    resolved([gitlab]);
+    render(
+      <ProjectInheritedIntegrations
+        gitRemote="git@gitlab.example.com:group/sub/project.git"
+        onOverride={vi.fn()}
+        projectId="p1"
+        routing={[]}
+      />,
+    );
+
+    expect(screen.getByTestId(TestId.GitlabRemote)).toHaveTextContent("group/sub/project");
+    expect(screen.queryByTestId(TestId.GithubRemote)).not.toBeInTheDocument();
+  });
+
+  it("gitlab with a remote on another host names the host it needs", () => {
+    resolved([gitlab]);
+    render(
+      <ProjectInheritedIntegrations
+        gitRemote="git@github.com:Shoptet/cli.git"
+        onOverride={vi.fn()}
+        projectId="p1"
+        routing={[]}
+      />,
+    );
+
+    expect(screen.getByTestId(TestId.GitlabRemote)).toHaveTextContent("gitlab.example.com");
   });
 });
