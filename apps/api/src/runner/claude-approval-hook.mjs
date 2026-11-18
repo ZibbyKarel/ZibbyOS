@@ -513,8 +513,8 @@ function classifyGlab(tokens) {
   for (let i = 1; i < tokens.length; i++) {
     const t = tokens[i];
     if (t === undefined) continue;
-    if (t === "-R" || t === "--repo") i += 1;
-    else if (/^(--repo=|-R.)/.test(t)) continue;
+    if (t === "-R" || t === "--repo" || t === "--hostname") i += 1;
+    else if (/^(--repo=|--hostname=|-R.)/.test(t)) continue;
     else if (t.startsWith("-")) {
       if ((t === "-h" || t === "--help") && flagAt === undefined) return null;
       flagAt ??= words.length;
@@ -546,13 +546,16 @@ function classifyGlab(tokens) {
     consider(glabVerbAction("mr", w, tokens));
     consider(glabVerbAction("issue", w, tokens));
   }
-  const apiPos = words.indexOf("api");
-  if (apiPos !== -1) {
+  // Every `api` word may be the real one (a flag can take the first as its value).
+  const apiPositions = words.flatMap((w, k) => (w === "api" ? [k] : []));
+  let readApi = false;
+  for (const apiPos of apiPositions) {
     const api = classifyGlabApi(tokens, wordIdx[apiPos]);
     consider(api);
     // A clean `api <path>` GET (api + one word) with no stronger match is a read.
-    if (api === null && words.length - apiPos <= 2 && best.action === "gh.api_write") return null;
+    if (api === null && words.length - apiPos <= 2) readApi = true;
   }
+  if (readApi && best.action === "gh.api_write") return null;
   return best;
 }
 

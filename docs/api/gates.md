@@ -54,7 +54,9 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   on `…/approve|unapprove`) carry a verdict like a GitHub review and stay `gh.api_write`.
   `glab mr create|update --auto-merge` (other than `=false`) → `pr.merge`. A value-taking
   flag before the group/verb (`glab -m x mr merge 1`) makes the parse ambiguous: every later
-  word is checked and the highest-ranked match wins, never a read. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
+  word (and every `api` word) is checked and the highest-ranked match wins; the only read it
+  can return is a clean `glab api <path>` GET. `--hostname v` and `-R/--repo` are skipped as
+  known value flags. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
   field flag `-f/-F/--field/--raw-field/--form/--input` implying POST) → `gh.api_write`;
   `glab api graphql` is a write with any field flag (like gh), a bare one is a read.
   Every other glab verb is **fail-closed**: only the read-only verbs (`mr view|list|diff|
