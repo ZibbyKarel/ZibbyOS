@@ -33,12 +33,27 @@ describe("GitlabClient", () => {
       "-X",
       "POST",
       "--paginate",
+      "--output",
+      "ndjson",
       "--input",
       "-",
       "-H",
       "Content-Type: application/json",
     ]);
     expect(opts?.input).toBe('{"a":"x y"}');
+  });
+
+  it("paginate reads ndjson: one item per line across pages, empty output is an empty list", async () => {
+    const paged = client(ok('{"a":1}\n{"a":2}\n\n{"a":3}\n'));
+    await expect(paged.gl.api("h", "p", { paginate: true })).resolves.toEqual([
+      { a: 1 },
+      { a: 2 },
+      { a: 3 },
+    ]);
+    await expect(client(ok("")).gl.api("h", "p", { paginate: true })).resolves.toEqual([]);
+    await expect(client(ok("[1][2]")).gl.api("h", "p", { paginate: true })).rejects.toBeInstanceOf(
+      GitlabApiError,
+    );
   });
 
   it("empty stdout is undefined; non-JSON stdout is a GitlabApiError, never a guess", async () => {

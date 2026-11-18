@@ -280,12 +280,16 @@ function classifyGit(tokens) {
   const rest = [];
   for (let j = i + 1; j < tokens.length; j++) {
     const t = tokens[j];
-    if (t === "-o" || t === "--push-option") {
-      pushOptions.push(tokens[j + 1] ?? "");
-      j += 1;
-    } else if (t.startsWith("--push-option=")) pushOptions.push(t.slice("--push-option=".length));
-    else if (/^-o./.test(t)) pushOptions.push(t.slice(2));
-    else rest.push(t);
+    // git accepts abbreviated long options (`--push-o`, `--push-opt=…`) and bundled short
+    // flags (`-uo X`, `-fo X`, `-uoX`), so match those too.
+    const long = /^--push-o[a-z]*(?:=(.*))?$/.exec(t);
+    const short = /^-([a-zA-Z0-9]*?)o(.*)$/.exec(t);
+    if (long) {
+      pushOptions.push(long[1] ?? tokens[++j] ?? "");
+    } else if (short && !t.startsWith("--")) {
+      pushOptions.push(short[2] || (tokens[++j] ?? ""));
+      if (short[1]) rest.push(`-${short[1]}`);
+    } else rest.push(t);
   }
   const isForce = rest.some((t) => t === "-f" || t.startsWith("--force") || t.startsWith("+"));
   if (hiddenPushOption || pushOptions.some((o) => AUTO_MERGE_PUSH_OPTION.test(o))) {

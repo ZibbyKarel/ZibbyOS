@@ -114,7 +114,8 @@ formats: `glab: 404 Project Not Found (HTTP 404)` and, for an `{"error":…}` bo
 `glab: HTTP 404`. A 401 message gets the login hint appended (run `glab auth login --hostname <host>`);
 a missing binary is `glab is not installed or not on PATH`; a killed/timed-out call is
 `glab timed out after 60 s`; exit 0 with non-JSON stdout is `glab returned non-JSON output` (all
-`GitlabApiError`). `--paginate` prints one merged array; nothing rewrites JSON text.
+`GitlabApiError`). Paginated calls run `--paginate --output ndjson` (one item per line across all pages; plain
+`--paginate` prints one array per page back to back, which is not JSON); nothing rewrites JSON text.
 
 **`git-host/` module** (`apps/api/src/git-host/`, `GitHostModule`): `GitlabClient` (`api`, `raw`,
 `projectPath`; every GitLab call is a `glab api` through an injectable exec), `resolveGitHostLink`

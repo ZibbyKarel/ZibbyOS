@@ -73,7 +73,7 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   and any unknown command or group (e.g. `glab label list`) raise `gh.api_write`. The chat
   gate refuses all of them.
 - Git push options (GitLab reads them as instructions): `git push -o <opt>`,
-  `--push-option <opt>`, `--push-option=<opt>`, `-o<opt>` and `git -c push.pushOption=<opt>
+  `--push-option <opt>`, `--push-option=<opt>`, `-o<opt>`, abbreviated `--push-o…` and bundled `-uo <opt>` forms, and `git -c push.pushOption=<opt>
 … push` (key case-insensitive) are collected. `merge_request.merge_when_pipeline_succeeds`
   or `merge_request.auto_merge` (bare or with any value other than `=false`) → `pr.merge`,
   and so does `git --config-env=push.pushOption=<ENV> push` (the value is hidden). Any other

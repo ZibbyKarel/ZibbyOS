@@ -85,7 +85,7 @@ export class GitlabClient {
   /** JSON call; empty stdout resolves to `undefined`. */
   async api<T = unknown>(host: string, path: string, opts: GitlabApiOptions = {}): Promise<T> {
     const stdout = await this.run(host, path, opts);
-    return parseJson(stdout) as T;
+    return (opts.paginate ? parseNdjson(stdout) : parseJson(stdout)) as T;
   }
 
   /** Non-JSON body (job trace, raw file, raw diff). */
@@ -98,7 +98,8 @@ export class GitlabClient {
   private async run(host: string, path: string, opts: GitlabApiOptions): Promise<string> {
     const args = ["api", path, "--hostname", host];
     if (opts.method) args.push("-X", opts.method);
-    if (opts.paginate) args.push("--paginate");
+    // Plain `--paginate` prints one array per page back to back (`[…][…]`), which is not JSON.
+    if (opts.paginate) args.push("--paginate", "--output", "ndjson");
     const input = opts.body === undefined ? undefined : JSON.stringify(opts.body);
     if (input !== undefined) args.push("--input", "-", "-H", "Content-Type: application/json");
     try {
@@ -134,7 +135,15 @@ function toApiError(err: unknown, host: string): GitlabApiError {
   );
 }
 
-/** glab `--paginate` prints one merged array; anything that is not JSON is an error, never a guess. */
+/** `--paginate --output ndjson`: one item per line, all pages; an empty list is no output. */
+function parseNdjson(stdout: string): unknown[] {
+  return stdout
+    .split("\n")
+    .filter((line) => line.trim())
+    .flatMap((line) => parseJson(line) as unknown);
+}
+
+/** Anything that is not JSON is an error, never a guess. */
 function parseJson(stdout: string): unknown {
   const text = stdout.trim();
   if (!text) return undefined;
