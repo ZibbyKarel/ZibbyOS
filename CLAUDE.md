@@ -171,6 +171,7 @@ Applies to every phase, feature, and PR:
   real answer can be produced, no reply approval is created; the item surfaces as
   notify-only for the operator.
 - **Index-first memory** — MOC files and descriptive filenames, no vector store.
+- **Git hosts** — GitLab (via the `glab` CLI, no stored token) is a supported git host alongside GitHub; see `docs/api/gitlab.md`.
 
 🎩 _ZIBBY at your service._
 

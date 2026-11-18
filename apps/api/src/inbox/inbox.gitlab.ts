@@ -284,7 +284,9 @@ async function listIids(client: GitlabClient, link: GitlabLink, query: string): 
 /**
  * The operator's open MRs of one GitLab project as `InboxPr`s: authored (`mine`), assigned to the
  * operator (`mine`), review requested (`to-review`, or `reviewed` once the operator's reviewer
- * state is approved / requested_changes). One MR that fails to load is skipped; a failed list throws.
+ * state is approved / requested_changes). One MR that fails to load is skipped only when the failure
+ * is a 403/404 on an optional endpoint (see `unavailable`); any other failure, and a failed list,
+ * surfaces as an `InboxSourceError`.
  */
 export async function listGitlabInboxPrs(
   client: GitlabClient,

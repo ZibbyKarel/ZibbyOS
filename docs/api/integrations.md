@@ -97,6 +97,12 @@ returned `username` is present and equals `config.username` (case-insensitive); 
 login is a failed test naming both; glab missing, not logged in or the host unreachable is a
 failed test naming the host and `glab auth login --hostname <host>`.
 
+**`git-host/` module** (`apps/api/src/git-host/`, `GitHostModule`): `GitlabClient` (`api`, `raw`,
+`projectPath`; every GitLab call is a `glab api` through an injectable exec), `resolveGitHostLink`
+(project -> `{ kind: "github" | "gitlab", repo, … }`, gitlab first) and `git-host-url.ts`
+(`prWebUrl`, `issueWebUrl`, `parsePrUrl`, `parsePrNumber`). The `gitlab` kind is the only
+credential-less integration kind. One git host per project. See `gitlab.md` for setup and gaps.
+
 ## Connection testing
 
 `POST /integrations/:id/test` calls the `ConnectionTester` seam (bound to the
