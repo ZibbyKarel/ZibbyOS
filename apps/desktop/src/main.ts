@@ -26,10 +26,34 @@ app.setName("ZibbyOS");
 let apiChild: ChildProcess | undefined;
 let webChild: ChildProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
+let splashWindow: BrowserWindow | undefined;
 let findInWindow: ((command: FindCommand) => void) | undefined;
 let quitting = false;
 
 const WEB_ORIGIN = `http://localhost:${WEB_PORT}`;
+
+/** The API may wait on iCloud to re-download evicted recipes/vault files before it listens. */
+const API_STARTUP_TIMEOUT_MS = 600_000;
+const WEB_STARTUP_TIMEOUT_MS = 30_000;
+
+const SPLASH_HTML = `<body style="margin:0;height:100vh;display:grid;place-items:center;background:#111;color:#ddd;font:15px -apple-system,sans-serif">ZibbyOS startuje…</body>`;
+
+function showSplash(): void {
+  splashWindow = new BrowserWindow({
+    width: 360,
+    height: 160,
+    frame: false,
+    resizable: false,
+    show: true,
+    backgroundColor: "#111111",
+  });
+  void splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`);
+}
+
+function closeSplash(): void {
+  splashWindow?.close();
+  splashWindow = undefined;
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -79,6 +103,7 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  showSplash();
   const loginShellPath = await resolveLoginShellPath();
   const { sourceRoot } = readBuildInfo();
 
@@ -105,18 +130,25 @@ async function bootstrap(): Promise<void> {
   });
   pipeChildLogs(webChild, "web");
 
-  const apiReady = await waitForHealthy(API_HEALTH_URL, { timeoutMs: 30_000, intervalMs: 500 });
+  const apiReady = await waitForHealthy(API_HEALTH_URL, {
+    timeoutMs: API_STARTUP_TIMEOUT_MS,
+    intervalMs: 500,
+  });
   if (!apiReady) {
     onStartupTimeout("API", API_PORT);
     return;
   }
 
-  const webReady = await waitForHealthy(WEB_HEALTH_URL, { timeoutMs: 30_000, intervalMs: 500 });
+  const webReady = await waitForHealthy(WEB_HEALTH_URL, {
+    timeoutMs: WEB_STARTUP_TIMEOUT_MS,
+    intervalMs: 500,
+  });
   if (!webReady) {
     onStartupTimeout("web app", WEB_PORT);
     return;
   }
 
+  closeSplash();
   createWindow();
   startUpdateChecks({ apiBaseUrl: API_BASE_URL });
 }
@@ -178,6 +210,7 @@ function fatal(title: string, message: string): void {
 }
 
 function onStartupTimeout(what: string, port: number): void {
+  closeSplash();
   dialog.showErrorBox(
     "ZibbyOS couldn't start",
     `The ${what} didn't come up on port ${port} in time. Check ${logDir()} for details and try again.`,
@@ -186,6 +219,7 @@ function onStartupTimeout(what: string, port: number): void {
 }
 
 function onFatalStartupError(err: unknown): void {
+  closeSplash();
   dialog.showErrorBox("ZibbyOS failed to start", err instanceof Error ? err.message : String(err));
   app.quit();
 }
