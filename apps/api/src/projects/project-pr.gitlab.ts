@@ -4,7 +4,7 @@ import type {
   ProjectPr,
   ProjectPrUpdateResult,
 } from "@zibby/contracts";
-import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
+import { GITLAB_DRAFT_PREFIX, GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
 import { PrNotMergeableError, PrUpdateRefusedError } from "./projects.errors";
 
 type GitlabLink = { host: string; repo: string };
@@ -103,9 +103,10 @@ export async function mergeGitlabMr(
     throw new PrNotMergeableError(projectId, number, "rebase merge is not available on GitLab");
   }
   const params = new URLSearchParams();
-  if (method === "squash") params.set("squash", "true");
-  if (deleteBranch) params.set("should_remove_source_branch", "true");
-  const qs = params.size ? `?${params}` : "";
+  // Explicit values, so the operator's choice wins over the MR / project defaults.
+  if (method) params.set("squash", String(method === "squash"));
+  params.set("should_remove_source_branch", String(deleteBranch));
+  const qs = `?${params}`;
   try {
     const mr = await client.api<GitlabMrState>(
       link.host,
@@ -202,9 +203,10 @@ export async function closeGitlabMr(
   };
 }
 
-const DRAFT_PREFIX = /^\s*(?:\[draft\]|\(draft\)|draft:)\s*/i;
-
-/** Draft toggle: the title gains/loses the `Draft: ` prefix. `changed` is false for a no-op. */
+/**
+ * Draft toggle: the title gains/loses the `Draft: ` prefix (every repeated marker is stripped first).
+ * `changed` / `draft` come from GitLab's PUT response, not from what was asked.
+ */
 export async function setGitlabMrDraft(
   client: GitlabClient,
   link: GitlabLink,
@@ -220,7 +222,13 @@ export async function setGitlabMrDraft(
   if ((current.draft === true) === draft) {
     return { result: { url, state: "open", draft }, changed: false };
   }
-  const bare = (current.title ?? "").replace(DRAFT_PREFIX, "");
-  await putMr(client, link, projectId, number, { title: draft ? `Draft: ${bare}` : bare });
-  return { result: { url, state: "open", draft }, changed: true };
+  const bare = (current.title ?? "").replace(GITLAB_DRAFT_PREFIX, "");
+  const mr = await putMr(client, link, projectId, number, {
+    title: draft ? `Draft: ${bare}` : bare,
+  });
+  const now = mr.draft === true;
+  return {
+    result: { url: mr.web_url ?? url, state: "open", draft: now },
+    changed: now !== (current.draft === true),
+  };
 }

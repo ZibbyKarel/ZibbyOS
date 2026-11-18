@@ -315,4 +315,4 @@ network. Tests:
 
 `FakeOperatorChannel.receive(event)` plays an inbound event as if Slack had delivered it.
 
-Operator events accept GitLab MR URLs as `prUrl` (`git-host/git-host-url.ts`); a GitLab CI auto-fix park keeps the shared `repo#n` `itemId` and its `prUrl` comes from the task's recorded triage URL. The GitHub shape (`/o/r/pull/N`) is only accepted on github.com.
+Operator events accept GitLab MR URLs as `prUrl` (`git-host/git-host-url.ts`); a GitLab CI auto-fix park keeps the shared `repo#n` `itemId` and its `prUrl` comes from the task's recorded triage URL. When that task cannot be read the host is unknown, so no `github.com` URL is rebuilt and `prUrl` is omitted (only a task-less entry still gets the GitHub rebuild). The GitHub shape (`/o/r/pull/N`) is only accepted on github.com.

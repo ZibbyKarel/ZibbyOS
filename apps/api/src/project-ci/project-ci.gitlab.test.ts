@@ -83,8 +83,9 @@ describe("readGitlabCi", () => {
   it("the fix brief uses glab wording for a GitLab link", async () => {
     const text = fixBaseCiText(await readGitlabCi(clientWith(routes), LINK, BASE));
     expect(text).toContain("grp/sub/app at new");
-    expect(text).toContain("glab ci view main");
-    expect(text).toContain("glab ci trace <job>");
+    expect(text).toContain("glab ci status --branch main");
+    expect(text).toContain("glab ci trace <job-id-or-name> --branch main");
+    expect(text).not.toContain("glab ci view");
     expect(text).toContain("pipeline 12");
     expect(text).not.toContain("gh run view");
   });

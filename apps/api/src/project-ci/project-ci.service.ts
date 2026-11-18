@@ -277,7 +277,7 @@ export function fixBaseCiText(ci: ProjectCi): string {
     "",
     `1. Your working directory is this run's own git worktree. \`git fetch origin ${ci.branch ?? ""}\` and \`git reset --hard origin/${ci.branch ?? ""}\` so you start from the red commit.`,
     gitlab
-      ? `2. Read the failure with \`glab ci view ${ci.branch ?? ""}\` (run it from the worktree) and \`glab ci trace <job>\` for a failing job's log. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`
+      ? `2. Read the failure with \`glab ci status --branch ${ci.branch ?? ""}\` (run it from the worktree) and \`glab ci trace <job-id-or-name> --branch ${ci.branch ?? ""}\` for a failing job's log. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`
       : `2. Read the failure with \`gh run view <run-id> --repo ${repo} --log-failed\`. Find the first real error, not the cascade. A flaky test, runner/infra, secrets or quota failure is not code: change nothing and say so.`,
     "3. Fix code causes as focused commits `fix(ci): <what>`. Never weaken a check: no skipping/deleting tests, no disabling lint rules, no lowering thresholds, no inline suppressions, no `--no-verify`.",
     "4. Re-run the failing commands locally (from the workflow YAML / package.json) until green; leave the worktree clean — everything committed.",

@@ -100,13 +100,22 @@ describe("gitlab MR actions", () => {
       "projects/grp/app/merge_requests/3/merge?squash=true&should_remove_source_branch=true",
     );
     expect(ok.exec.mock.calls[0]?.[1]).toContain("PUT");
+    // An explicit merge / keep-branch choice is sent, so it wins over the MR / project defaults.
+    await mergeGitlabMr(ok.client, link, "p", 3, "merge", false);
+    expect(ok.paths()[1]).toBe(
+      "projects/grp/app/merge_requests/3/merge?squash=false&should_remove_source_branch=false",
+    );
+    await mergeGitlabMr(ok.client, link, "p", 3, undefined, false);
+    expect(ok.paths()[2]).toBe(
+      "projects/grp/app/merge_requests/3/merge?should_remove_source_branch=false",
+    );
     for (const status of [405, 406, 409, 422]) {
-      const bad = fakeGlab([[/merge$/, { status }]]);
+      const bad = fakeGlab([[/merge(\?|$)/, { status }]]);
       await expect(
         mergeGitlabMr(bad.client, link, "p", 3, undefined, false),
       ).rejects.toBeInstanceOf(PrNotMergeableError);
     }
-    const boom = fakeGlab([[/merge$/, { status: 500 }]]);
+    const boom = fakeGlab([[/merge(\?|$)/, { status: 500 }]]);
     await expect(
       mergeGitlabMr(boom.client, link, "p", 3, undefined, false),
     ).rejects.not.toBeInstanceOf(PrNotMergeableError);
@@ -167,12 +176,12 @@ describe("gitlab MR actions", () => {
         MR,
         (args: string[]) =>
           args.includes("PUT")
-            ? {}
-            : { state: "opened", title: "Draft: Fix it", draft: true, web_url: "u" },
+            ? { draft: false }
+            : { state: "opened", title: "Draft: [Draft] Fix it", draft: true, web_url: "u" },
       ],
     ]);
     const ready = await setGitlabMrDraft(f.client, link, "p", 3, false);
-    expect(ready.result.draft).toBe(false);
+    expect(ready).toMatchObject({ changed: true, result: { draft: false } });
     expect(f.exec.mock.calls.find(([, a]) => a.includes("PUT"))?.[2].input).toBe(
       JSON.stringify({ title: "Fix it" }),
     );
@@ -183,14 +192,31 @@ describe("gitlab MR actions", () => {
         MR,
         (args: string[]) =>
           args.includes("PUT")
-            ? {}
+            ? { draft: true }
             : { state: "opened", title: "Fix it", draft: false, web_url: "u" },
       ],
     ]);
-    await setGitlabMrDraft(plain.client, link, "p", 3, true);
+    expect(await setGitlabMrDraft(plain.client, link, "p", 3, true)).toMatchObject({
+      changed: true,
+      result: { draft: true },
+    });
     expect(plain.exec.mock.calls.find(([, a]) => a.includes("PUT"))?.[2].input).toBe(
       JSON.stringify({ title: "Draft: Fix it" }),
     );
+    // GitLab answering with the old state is not reported as a change.
+    const ignored = fakeGlab([
+      [
+        MR,
+        (args: string[]) =>
+          args.includes("PUT")
+            ? { draft: false }
+            : { state: "opened", title: "Fix it", draft: false, web_url: "u" },
+      ],
+    ]);
+    expect(await setGitlabMrDraft(ignored.client, link, "p", 3, true)).toMatchObject({
+      changed: false,
+      result: { draft: false },
+    });
     const closed = fakeGlab([[MR, { state: "closed", title: "x", web_url: "u" }]]);
     await expect(setGitlabMrDraft(closed.client, link, "p", 3, true)).rejects.toBeInstanceOf(
       PrUpdateRefusedError,

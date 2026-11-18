@@ -653,7 +653,7 @@ describe("ProjectPrService — gitlab project", () => {
   });
 
   it("maps a refused GitLab merge to PrNotMergeableError", async () => {
-    const { svc } = gitlabService([[/merge$/, { status: 405 }]]);
+    const { svc } = gitlabService([[/merge(\?|$)/, { status: 405 }]]);
     await expect(svc.merge("acme", 3)).rejects.toBeInstanceOf(PrNotMergeableError);
   });
 
@@ -670,7 +670,18 @@ describe("ProjectPrService — gitlab project", () => {
     expect(await svc.getPr("acme", 3)).toEqual({ number: 3, merged: false, state: "open" });
     expect(await svc.close("acme", 3)).toEqual({ url: "u", state: "closed", draft: false });
     expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: "pr-closed" }));
-    await svc.setDraft("acme", 3, true);
-    expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: "pr-draft-changed" }));
+    const drafted = gitlabService([
+      [
+        /merge_requests\/3$/,
+        (args: string[]) =>
+          args.includes("PUT")
+            ? { draft: true, web_url: "u" }
+            : { iid: 3, state: "opened", title: "T", web_url: "u" },
+      ],
+    ]);
+    await drafted.svc.setDraft("acme", 3, true);
+    expect(drafted.record).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "pr-draft-changed" }),
+    );
   });
 });

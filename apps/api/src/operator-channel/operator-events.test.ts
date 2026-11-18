@@ -38,6 +38,18 @@ describe("toOperatorEvent pr-ci-autofix-parked prUrl", () => {
     expect(event).not.toHaveProperty("prUrl");
   });
 
+  it("a task that cannot be read (host unknown) gets no guessed github url", async () => {
+    const missing = await toOperatorEvent(parked("grp/app#5", "t1"), lookupsFor());
+    expect(missing).not.toHaveProperty("prUrl");
+    const failing = await toOperatorEvent(parked("grp/app#5", "t1"), {
+      ...lookupsFor(),
+      task: async () => {
+        throw new Error("gone");
+      },
+    });
+    expect(failing).not.toHaveProperty("prUrl");
+  });
+
   it("drops a nested non-url ref it cannot rebuild", async () => {
     const event = await toOperatorEvent(parked("grp/sub/app#5"), lookupsFor());
     expect(event).not.toHaveProperty("prUrl");

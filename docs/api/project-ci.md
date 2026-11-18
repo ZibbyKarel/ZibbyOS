@@ -28,7 +28,8 @@ pipeline is a `workflows[]` entry (`Pipeline #<id>`), its jobs carry `steps: []`
 `success` → passing, `failed` → failing, `running` → running, `canceled`/`canceling` → cancelled,
 `skipped`/`manual` → skipped, anything else (created, pending, waiting_for_resource, …) → pending.
 A read failure is `state: "error"` with `provider: "gitlab"`. The fix brief uses
-`glab ci view` / `glab ci trace <job>` instead of `gh run view`.
+`glab ci status --branch <branch>` / `glab ci trace <job-id-or-name> --branch <branch>` (both
+non-interactive) instead of `gh run view`.
 
 The result is **polled state**: cached in memory per project for 60 s (`PROJECT_CI_CACHE_MS`),
 and the web polls every 60 s. The jobs of a **completed** run are immutable and fetched once; only
@@ -50,8 +51,9 @@ The task is stamped `ScheduledTask.baseFixCi = { projectId, headSha }`. Clicks o
 serialised by an in-memory per-project lock, so a double click creates one task.
 
 - `409` — the branch is not `failing`, or an open task (no outcome, not dead) with `baseFixCi` for
-  this project and `headSha` exists.
-- `422` — no GitHub / GitLab link.
+  this project and `headSha` exists. A GitLab project recognised only from its `gitRemote` (no
+  gitlab integration) reads `provider: "gitlab"`, `state: "none"`, so it is a 409 too, not a 422.
+- `422` — no GitHub / GitLab link (`provider: "none"`).
 - `404` — unknown project.
 
 The PR-level "Fix CI" (`POST /api/inbox/prs/fix-ci`, `pr-fix-ci` workflow) fast-forwards an

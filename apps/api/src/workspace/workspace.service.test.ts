@@ -573,8 +573,6 @@ describe("WorkspaceService.openPr — GitLab merge request", () => {
       "Fix; rm -rf /",
       "--description",
       "body $(x)",
-      "--target-branch",
-      expect.any(String),
       "--source-branch",
       "main",
       "--yes",
@@ -587,7 +585,7 @@ describe("WorkspaceService.openPr — GitLab merge request", () => {
     const svc = new WorkspaceService(fakeLogger as never);
     await svc.openPr({ cwd: repo, branch: "main", title: "t", body: "b", draft: true, gitlab });
     expect(glabArgs).toContain("--draft");
-    expect(glabArgs?.join(" ")).not.toMatch(/auto-merge|remove-source-branch|squash/);
+    expect(glabArgs?.join(" ")).not.toMatch(/auto-merge|remove-source-branch|squash|target-branch/);
   });
 
   it("soft-fails to null when glab prints no MR url", async () => {
