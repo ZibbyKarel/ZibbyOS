@@ -447,7 +447,7 @@ the author agreed to) a separate ticket gets the `followup: <what + what was agr
 it = no issue, and a body that still holds `{{ISSUE}}` is never posted). Any follow-up keeps the
 push gate (like `question`: no auto-push, no autopilot). Filing is the recipe's conditional `file` phase
 (`when` on `zibby-pr-replies.json` holding a non-empty `"followUp"`), which runs after the in-run gate
-below and writes `zibby-pr-followups.json`; the finalizer (`InboxAddressCommentsService.fileFollowUps`) turns it into issues (Jira when the project has a
+below and writes `zibby-pr-followups.json`; the `deliver` phase (`InboxAddressCommentsService.fileFollowUps`) turns it into issues (Jira when the project has a
 Jira integration, else GitHub `POST /repos/{repo}/issues` / GitLab `POST projects/:id/issues`),
 `{{ISSUE}}` becomes `[KEY](url)`, a reply whose issue failed (or whose file was never produced) is dropped with its resolve, and then
 `postFollowUp` runs without a second approval. Progress is `prAddressComments.followUps`. A legacy run without the gate cannot file: its
@@ -460,10 +460,13 @@ placeholder replies are dropped and `followUps.note` says so.
 to approve → `failed` → the presenter answers `fail` and the run fails. Approve (`InboxAddressCommentsService.approve`) claims
 `awaiting-approval` → `approved` atomically with the operator's replies, rewrites `zibby-pr-replies.json` in the run
 (`replaceArtifact`, so the `file` phase and its `when` see the edits) and calls `decideGate(approved)`; nothing is pushed yet.
-Reject → `discarded` + `decideGate(rejected)`. When the run ends (done, failed or interrupted) the scheduler's terminal hook sees
-`approved` and calls the finalizer registered through `TaskSchedulerService.setPrAddressFinalizer`
-(`InboxAddressCommentsService.finalize`): claim `approved` → `running`, `pushFastForward`, `fileFollowUps`, `postFollowUp`, `finishedAt`.
-A refused push → `failed`, nothing posted. Without `gateRunId` (a recipe without the gate) the legacy post-run park + `push()` path is unchanged.
+Reject → `discarded` + `decideGate(rejected)`. After `file` (run or skipped) the recipe's `deliver` phase (`type: system`,
+`action: pr-address-comments.deliver`, `produces: zibby-pr-delivery.md`) runs `InboxAddressCommentsService.deliver`: it requires
+`approved` (otherwise `ok: false`, nothing pushed), claims `approved` → `running`, `pushFastForward`, reads `zibby-pr-followups.json`
+from the same run (null when `file` was skipped or failed), `fileFollowUps`, `postFollowUp`, `finishedAt`, and returns a markdown
+delivery report. `file` carries `loop: { to: fail, maxRetries: 0, escalate: false, then: deliver }`, so a failed `file` still reaches
+`deliver`. A refused push → `failed`, nothing posted, `ok: false`. A run that ends while still `approved` (deliver never ran) is marked
+`failed` (`run ended before delivery`) by the scheduler's terminal hook. Without `gateRunId` (a recipe without the gate) the legacy post-run park + `push()` path is unchanged.
 The third phase
 `describe` (`documentation-engineer`) may write `zibby-pr-description.md` (`# title` + body, parsed by
 `parsePrDescription`) with the PR description refreshed for the fixes; it is stored as

@@ -31,6 +31,7 @@ phases:
     produces: zibby-pr-followups.json
     model: sonnet
     thinking: medium
+    loop: { to: fail, maxRetries: 0, escalate: false, then: deliver }
     prompt: |-
       Navrhni follow-up issues pro tuto PR (GitHub) / MR (GitLab) — jen specifikace, nic nezakládej.
 
@@ -45,6 +46,10 @@ phases:
       Zapiš POUZE `zibby-pr-followups.json`: JSON pole `[{ "threadId": "…", "tracker": "jira" | "git-host", "title": "…", "body": "…", "issueType": "…", "projectKey": "…", "labels": ["…"], "assignee": "operator" | "<accountId nebo login>", "parent": "<KEY>", "fields": { "<id pole v Jiře>": <hodnota> } }]`. `threadId` přesně jako ve vstupu; `tracker` je "jira", když konvence repa říkají, že tickety žijí v Jiře, jinak "git-host"; každý klíč kromě threadId, title a body je volitelný.
 
       NIKDY nezakládej issues, komentáře ani jiný zápis — ani přes `gh`, `glab`, Jira API nebo MCP nástroj; issues založí ZIBBY z tvého souboru. Čtecí dotazy (např. Jira accountId nebo id pole) jsou v pořádku.
+  - id: deliver
+    type: system
+    action: pr-address-comments.deliver
+    produces: zibby-pr-delivery.md
 desc: >-
   Interní linka PR inboxu — spouští ji jen tlačítko „Address review comments" u
   konkrétního GitHub PR. Nesměruj sem běžné úkoly: opravy kódu dělá `patch` nebo
@@ -91,12 +96,15 @@ tracker, assignee, labely). Sama nic nezakládá.
 
 ## Push a odpovědi
 
-Po skončení běhu (hotový, selhaný i přerušený — pokud byla brána schválena) ZIBBY **jen
+Pátá fáze **deliver** (`type: system`, akce `pr-address-comments.deliver`, bez agenta a bez tokenů) běží po
+**file** (ať proběhla, byla přeskočena, nebo selhala — `file` má `loop.then: deliver`) a jen pokud byla brána
+schválena (stav úkolu `approved`, jinak akce selže a nic nepushne). ZIBBY **jen
 fast-forward, nikdy force** pushne (`git push origin <sha>:refs/heads/<head>`), ze
 `zibby-pr-followups.json` založí issues (Jira, GitHub nebo GitLab), nahradí `{{ISSUE}}` v
 odpovědích odkazem, postne odpovědi do nevyřešených vláken tohoto PR, resolvne opravená
 vlákna, upraví popis PR a znovu vyžádá review od těch, kdo požadovali změny. Druhé
-schválení už není. Chybí-li `zibby-pr-followups.json` (fáze file přeskočena nebo selhala),
+schválení už není. Výsledek zapíše do `zibby-pr-delivery.md` (push, odpovědi, issues). Skončí-li běh dřív, než
+`deliver` proběhne (např. zrušený), úkol je `failed` s poznámkou „run ended before delivery". Chybí-li `zibby-pr-followups.json` (fáze file přeskočena nebo selhala),
 odpovědi se zástupcem `{{ISSUE}}` se nepostnou a úkol to poznamená. Selže-li push, nic se
 nepostne a úkol je `failed`.
 

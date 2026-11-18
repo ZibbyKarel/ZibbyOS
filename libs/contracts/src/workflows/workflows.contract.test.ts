@@ -703,3 +703,39 @@ describe("phase `when`", () => {
     ).toContain("when.match / when.verdict need exists !== false");
   });
 });
+
+describe("workflow phase type `system` (in-process action)", () => {
+  const sys = (extra: Record<string, unknown> = {}) => ({
+    id: "deliver",
+    type: "system",
+    action: "pr-address-comments.deliver",
+    produces: "report.md",
+    ...extra,
+  });
+  const parse = (ph: Record<string, unknown>) =>
+    WorkflowSchema.safeParse({ id: "w", phases: [ph], instructions: "x" });
+  const msgs = (ph: Record<string, unknown>) => {
+    const r = parse(ph);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+
+  it("accepts an action with and without produces", () => {
+    expect(parse(sys()).success).toBe(true);
+    expect(parse({ id: "d", type: "system", action: "x.y" }).success).toBe(true);
+  });
+
+  it("requires an action", () => {
+    expect(msgs({ id: "d", type: "system" })).toContain('a system phase requires "action"');
+  });
+
+  it("forbids agent-shaped fields", () => {
+    expect(msgs(sys({ agent: "writer" }))).toContain('a system phase must not set "agent"');
+    expect(msgs(sys({ prompt: "p" }))).toContain('a system phase must not set "prompt"');
+    expect(msgs(sys({ commands: ["x"] }))).toContain('a system phase must not set "commands"');
+  });
+
+  it("rejects action on a non-system phase", () => {
+    const ph = { id: "t", type: "tool", commands: ["x"], produces: "r.md", action: "a" };
+    expect(msgs(ph)).toContain("action is for system phases only");
+  });
+});

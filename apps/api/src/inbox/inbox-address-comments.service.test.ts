@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Integration, Project, ScheduledTask } from "@zibby/contracts";
+import type { Integration, Project } from "@zibby/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
@@ -37,11 +37,15 @@ describe("InboxAddressCommentsService", () => {
   let requestStatus: number;
   let integrations: Integration[];
   let service: InboxAddressCommentsService;
-  let finalizer: (task: ScheduledTask, followUps: string | null) => Promise<void>;
+  let deliverAction: (ctx: {
+    run: { workflowRunId: string; taskId?: string };
+  }) => Promise<{ ok: true; output?: string } | { ok: false; error: string }>;
+  let followUpsArtifact: string | null;
   let replaceArtifact: ReturnType<typeof vi.fn>;
   let decideGate: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    followUpsArtifact = null;
     dir = await fs.mkdtemp(path.join(tmpdir(), "zibby-inbox-address-"));
     storage = new ScheduledTasksStorageService(path.join(dir, "tasks"));
     await storage.onModuleInit();
@@ -168,10 +172,17 @@ describe("InboxAddressCommentsService", () => {
       { read: async () => ({ token: "tok" }) } as never,
       {
         createTask,
-        setPrAddressFinalizer: (fn: typeof finalizer) => {
-          finalizer = fn;
+        runner: {
+          replaceArtifact,
+          decideGate,
+          registerSystemAction: (_id: string, fn: typeof deliverAction) => {
+            deliverAction = fn;
+          },
+          readArtifact: async (_run: string, name: string) =>
+            followUpsArtifact !== null && name === "zibby-pr-followups.json"
+              ? { name, content: followUpsArtifact }
+              : null,
         },
-        runner: { replaceArtifact, decideGate },
       } as never,
       storage,
       { register } as never,
@@ -578,8 +589,10 @@ describe("InboxAddressCommentsService", () => {
       );
       return taskId;
     }
-    const finalize = async (taskId: string, followUps: string | null) =>
-      finalizer(await storage.get(taskId), followUps);
+    const finalize = async (taskId: string, followUps: string | null) => {
+      followUpsArtifact = followUps;
+      return deliverAction({ run: { workflowRunId: "wr_1", taskId } });
+    };
 
     it("legacy push (no gate) cannot file: placeholder replies are dropped with a note", async () => {
       const taskId = await parkedWithFollowUp();
@@ -678,7 +691,7 @@ describe("InboxAddressCommentsService", () => {
       pushFastForward.mockRejectedValue(new Error("non-fast-forward"));
       const taskId = await approvedGate();
       await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, fixedSha: B } : c));
-      await finalize(taskId, null);
+      expect(await finalize(taskId, null)).toMatchObject({ ok: false });
       expect((await storage.get(taskId)).prAddressComments).toMatchObject({
         state: "failed",
         note: "non-fast-forward",
@@ -701,12 +714,38 @@ describe("InboxAddressCommentsService", () => {
       expect(posted()[0]).toContain("[ABC-7](https://j.example/browse/ABC-7)");
     });
 
-    it("a second finalize is ignored", async () => {
+    it("a second deliver is refused and does nothing", async () => {
       const taskId = await approvedGate();
-      await finalize(taskId, null);
+      expect((await finalize(taskId, null)).ok).toBe(true);
       const before = graphql.length;
-      await finalize(taskId, null);
+      expect((await finalize(taskId, null)).ok).toBe(false);
       expect(graphql.length).toBe(before);
+    });
+
+    it("deliver returns a markdown report with the pushed sha and created issues", async () => {
+      const taskId = await approvedGate();
+      await storage.setPrAddressComments(taskId, (c) => (c ? { ...c, fixedSha: B } : c));
+      const res = await finalize(
+        taskId,
+        JSON.stringify([{ threadId: "PRRT_a", tracker: "git-host", title: "T", body: "B" }]),
+      );
+      expect(res.ok).toBe(true);
+      const out = res.ok ? (res.output ?? "") : "";
+      expect(out).toContain("# Delivery report");
+      expect(out).toContain("[#42]");
+      expect(out).toContain("Pushed:");
+    });
+
+    it("deliver on a task that was not approved is ok:false and never pushes", async () => {
+      const taskId = await parkedWithFollowUp();
+      const res = await finalize(taskId, null);
+      expect(res.ok).toBe(false);
+      expect(pushFastForward).not.toHaveBeenCalled();
+      expect(posted()).toHaveLength(0);
+    });
+
+    it("deliver without a task id is ok:false", async () => {
+      expect((await deliverAction({ run: { workflowRunId: "wr_1" } })).ok).toBe(false);
     });
   });
 

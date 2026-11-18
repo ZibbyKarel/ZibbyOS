@@ -284,7 +284,11 @@ export function WorkflowStageTimeline({
             const agent = agentId ? agentsById.get(agentId) : undefined;
             const glyph: IconName =
               (agent?.glyph as IconName | undefined) ??
-              (phaseDef?.type === "tool" ? "gear" : phaseDef?.type === "workflow" ? "flow" : "bot");
+              (phaseDef?.type === "tool" || phaseDef?.type === "system"
+                ? "gear"
+                : phaseDef?.type === "workflow"
+                  ? "flow"
+                  : "bot");
             const agentName = agent?.name ?? agentId ?? phaseDef?.workflow ?? node.phaseId;
             const running = displayStatus === "running";
 

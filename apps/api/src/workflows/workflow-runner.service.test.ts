@@ -3260,3 +3260,81 @@ describe("workflow branching (when / consumes-by-name / gate presenter)", () => 
     expect((await fs.stat(file)).mode & 0o777).toBe(0o444);
   });
 });
+
+describe("system phases (in-process actions)", () => {
+  let dir: string;
+  let h: Harness;
+  const sys = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    type: "system",
+    action: `act.${id}`,
+    ...extra,
+  });
+  const wf = (phases: unknown[]) => ({ id: "release", phases, instructions: "ship" });
+  const drive = (r: WorkflowRun, w: unknown) =>
+    (h.service as unknown as { drive(r: WorkflowRun, w: unknown): Promise<void> }).drive(r, w);
+  const runOf = (): WorkflowRun => {
+    const run = h.runs.get(WORKFLOW_RUN_ID);
+    if (!run) throw new Error("missing run");
+    return run;
+  };
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "pipe-runner-system-"));
+    h = await makeHarness(dir);
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("runs the action in-process, writes produces read-only and continues", async () => {
+    const run = runOf();
+    const fn = vi.fn(async () => ({ ok: true as const, output: "# delivered" }));
+    h.service.registerSystemAction("act.a", fn);
+    await drive(run, wf([sys("a", { produces: "report.md" })]));
+    expect(fn).toHaveBeenCalledWith(expect.objectContaining({ phase: expect.anything() }));
+    expect(run.status).toBe("done");
+    const st = run.stageRuns[0];
+    expect(st?.status).toBe("done");
+    const file = path.join(run.cwd, st?.dir ?? "", "report.md");
+    expect(await fs.readFile(file, "utf8")).toBe("# delivered");
+    expect((await fs.stat(file)).mode & 0o777).toBe(0o444);
+  });
+
+  it("{ ok: false } takes loop.then and hands over the error as failure context", async () => {
+    const run = runOf();
+    h.service.registerSystemAction("act.a", async () => ({ ok: false as const, error: "nope" }));
+    const second = vi.fn(async () => ({ ok: true as const }));
+    h.service.registerSystemAction("act.b", second);
+    await drive(
+      run,
+      wf([sys("a", { loop: { to: "a", maxRetries: 0, escalate: false, then: "b" } }), sys("b")]),
+    );
+    expect(second).toHaveBeenCalled();
+    expect(run.stageRuns.map((s) => [s.phaseId, s.status])).toEqual([
+      ["a", "error"],
+      ["b", "done"],
+    ]);
+    expect(await fs.readFile(path.join(run.cwd, "a.failure.txt"), "utf8")).toContain("nope");
+    expect(run.status).toBe("done");
+  });
+
+  it("a thrown error fails the run when there is no loop", async () => {
+    const run = runOf();
+    h.service.registerSystemAction("act.a", async () => {
+      throw new Error("kaboom");
+    });
+    await drive(run, wf([sys("a")]));
+    expect(run.status).toBe("failed");
+    expect(run.stageRuns[0]?.status).toBe("error");
+  });
+
+  it("an unknown action errors the stage", async () => {
+    const run = runOf();
+    await drive(run, wf([sys("zzz")]));
+    expect(run.status).toBe("failed");
+    expect(run.stageRuns[0]?.status).toBe("error");
+    const err = path.join(run.cwd, run.stageRuns[0]?.dir ?? "", "system.error.txt");
+    expect(await fs.readFile(err, "utf8")).toContain("unknown system action");
+  });
+});

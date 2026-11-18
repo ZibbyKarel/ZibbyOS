@@ -87,7 +87,7 @@ latest stage copy of a produced file (chmod writable → write → back to 444).
 Recipe `pr-address-comments`:
 
 ```
-address → reply → describe (approval: ask) → file (when: { phase: reply, match: "\"followUp\"\\s*:\\s*\"[^\"\\s]" })
+address → reply → describe (approval: ask) → file (when: { phase: reply, match: "\"followUp\"\\s*:\\s*\"[^\"\\s]" }) → deliver (system)
 ```
 
 `file`: agent `github-commenter`, sonnet/medium, `consumes: zibby-pr-replies.json`,
@@ -103,11 +103,13 @@ Lifecycle (`prAddressComments.state` gains `approved`):
 2. Approve → store the operator's replies on the task, `replaceArtifact(zibby-pr-replies.json)`
    so the `file` phase and its `when` see the edits (deleting every brief skips `file`),
    state `approved`, `decideGate(approved)`. Reject → `discarded`, `decideGate(rejected)`.
-3. The run continues: `file` runs or is skipped; the run ends.
-4. Terminal hook, state `approved` (run done OR failed after the gate): push (fast-forward),
-   file issues from `zibby-pr-followups.json` if present, substitute `{{ISSUE}}`, post replies,
-   resolve, update description, re-request review — no second approval. A missing or failed
-   `file` output drops the placeholder replies, with a note.
+3. The run continues: `file` runs or is skipped (a failed `file` falls through via `loop.then: deliver`).
+4. `deliver` (a `system` phase, action `pr-address-comments.deliver`, see `docs/api/workflows.md`): requires
+   state `approved`, then push (fast-forward), file issues from `zibby-pr-followups.json` if present, substitute
+   `{{ISSUE}}`, post replies, resolve, update description, re-request review — no second approval. A missing or
+   failed `file` output drops the placeholder replies, with a note. It writes `zibby-pr-delivery.md`; a refused
+   push is `failed` and fails the stage. A run that ends while still `approved` (cancelled before `deliver`) is
+   marked `failed` ("run ended before delivery") by the terminal hook.
 5. Terminal hook, state `running` (a recipe without the gate): the legacy post-run park,
    unchanged.
 

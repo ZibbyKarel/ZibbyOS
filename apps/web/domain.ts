@@ -78,7 +78,9 @@ export interface WorkflowPhase {
   /** Phase id from the definition (loop targets reference it); editing needs it. */
   id?: string;
   /** What the phase executes: an agent session, a sub-workflow, or a sandbox tool. */
-  type: "agent" | "tool" | "workflow";
+  type: "agent" | "tool" | "workflow" | "system";
+  /** `system` phase: the registered in-process action it runs. */
+  action?: string;
   /** `workflow` phase: the id of the child workflow run as a sub-run. */
   workflow?: string;
   agent?: string;
@@ -195,7 +197,7 @@ export function glyphForAgent(name: string | undefined, agents: Agent[]): IconNa
 
 /** Glyph for a workflow phase: tool → gear, agents their glyph. */
 export function glyphForPhase(phase: WorkflowPhase, agents: Agent[]): IconName {
-  if (phase.type === "tool") return "gear";
+  if (phase.type === "tool" || phase.type === "system") return "gear";
   if (phase.type === "workflow") return "flow";
   return glyphForAgent(phase.agent, agents);
 }

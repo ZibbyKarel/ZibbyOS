@@ -270,6 +270,17 @@ export class StageBuildError extends Error {
   }
 }
 
+/**
+ * An in-process step of a `system` phase (no child process, no tokens). `output` is written
+ * to the phase's `produces`; `{ ok: false }` (or a throw) fails the stage like any other.
+ */
+export type SystemAction = (ctx: {
+  run: WorkflowRun;
+  workflow: Workflow;
+  phase: WorkflowPhase;
+  stageDir: string;
+}) => Promise<{ ok: true; output?: string } | { ok: false; error: string }>;
+
 /** Only an agent phase reads the resume-context channel messages ride on. */
 function readsStageContext(phase: WorkflowPhase): boolean {
   return phase.type === "agent";
@@ -321,6 +332,9 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
 
   /** Single registrant that may present an `approval: "ask"` gate itself (see {@link setGatePresenter}). */
   private gatePresenter: GatePresenter | null = null;
+  private readonly systemActions = new Map<string, SystemAction>();
+  /** Failure text of system stages (they have no core log), by stage runId. */
+  private readonly systemErrors = new Map<string, string>();
 
   constructor(
     @Inject(WORKFLOW_RUNS_DIR) dir: string,
@@ -1012,6 +1026,11 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     this.gatePresenter = fn;
   }
 
+  /** Register an in-process action a `system` phase can name (`phase.action`). */
+  registerSystemAction(id: string, fn: SystemAction): void {
+    this.systemActions.set(id, fn);
+  }
+
   /** Approve (continue) or reject (fail) a run parked at a gate; a no-op when it isn't gate-parked. */
   async decideGate(workflowRunId: string, decision: "approved" | "rejected"): Promise<void> {
     await this.resumeGate(workflowRunId, decision);
@@ -1687,7 +1706,12 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
 
       // P1-03: the spend cap is checked at the boundary too — after the stage that
       // crossed it, before the next one spends more. Parks durably on a gate approval.
-      if (!settled && run.budget && run.budget.spentUsd > run.budget.maxCostUsd) {
+      if (
+        !settled &&
+        phase.type !== "system" &&
+        run.budget &&
+        run.budget.spentUsd > run.budget.maxCostUsd
+      ) {
         const lastPhaseId = run.stageRuns[run.stageRuns.length - 1]?.phaseId ?? phase.id;
         await this.parkAtGate(run, "budget", {
           workflow,
@@ -1751,6 +1775,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
           ));
         if (!refused) return;
         stageRun = refused;
+      } else if (phase.type === "system") {
+        stageRun = await this.runSystemStage(run, workflow, phase, stageCwd, attempt);
       } else {
         // No per-stage slot: the whole run holds one run slot, taken at dispatch.
         try {
@@ -2768,9 +2794,64 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       });
   }
 
+  /**
+   * Run a `system` phase in-process: no child, no tokens. The stage is recorded like any
+   * other (running → done / error); a failure's text is kept where the loop machinery's
+   * failure-context readers look (`systemErrors`, plus `system.error.txt` in the stage dir).
+   */
+  private async runSystemStage(
+    run: WorkflowRun,
+    workflow: Workflow,
+    phase: WorkflowPhase,
+    stageCwd: string,
+    attempt: number,
+  ): Promise<StageRun> {
+    const runId = `${run.workflowRunId}.${phase.id}.system.${attempt}`;
+    const startedAt = new Date().toISOString();
+    run.currentStageStartedAt = startedAt;
+    await this.writeAggregate(run);
+    let error: string | null = null;
+    const action = phase.action ? this.systemActions.get(phase.action) : undefined;
+    if (!action) {
+      error = `unknown system action "${phase.action ?? ""}"`;
+    } else {
+      try {
+        const res = await action({ run, workflow, phase, stageDir: stageCwd });
+        if (res.ok) {
+          if (phase.produces && res.output !== undefined) {
+            const dest = this.resolveInside(stageCwd, phase.produces);
+            if (!dest) error = `produces "${phase.produces}" escapes the stage dir`;
+            else {
+              await fs.mkdir(path.dirname(dest), { recursive: true });
+              await fs.writeFile(dest, res.output, "utf8");
+            }
+          }
+        } else error = res.error;
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+    }
+    if (error !== null) {
+      this.systemErrors.set(runId, error);
+      await fs.writeFile(path.join(stageCwd, "system.error.txt"), error, "utf8").catch(() => {});
+      this.log.warn("system phase failed", { phase: phase.id, action: phase.action, err: error });
+    }
+    return {
+      phaseId: phase.id,
+      runId,
+      attempt,
+      status: error === null ? "done" : "error",
+      dir: path.basename(stageCwd),
+      startedAt,
+      finishedAt: new Date().toISOString(),
+    };
+  }
+
   /** The tail of a stage's log (the failure context the resume-context summarizes). */
   private async tailLog(stageRunId: string, maxChars = 2000): Promise<string> {
-    const log = await this.core.readLog(stageRunId, 0).catch(() => null);
+    const log = this.systemErrors.has(stageRunId)
+      ? { content: this.systemErrors.get(stageRunId) }
+      : await this.core.readLog(stageRunId, 0).catch(() => null);
     const content = log?.content ?? "";
     return content.length > maxChars ? content.slice(content.length - maxChars) : content;
   }
@@ -3128,6 +3209,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
    * except an agent that resolves to a non-`claude-agent/*` opencode model (A16/A18).
    */
   private async phaseSpendsClaude(phase: WorkflowPhase): Promise<boolean> {
+    if (phase.type === "system") return false;
     if (!phase.agent) return true;
     const agent = await this.agents.get(phase.agent).catch(() => null);
     if (!agent) return true;
@@ -3347,7 +3429,11 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     stageRun: StageRun,
   ): Promise<string> {
     const file = path.join(run.cwd, `${phase.id}.failure.txt`);
-    const log = await this.core.readLog(stageRun.runId, 0).catch(() => null);
+    const sysErr = this.systemErrors.get(stageRun.runId);
+    const log =
+      sysErr !== undefined
+        ? { content: sysErr }
+        : await this.core.readLog(stageRun.runId, 0).catch(() => null);
     const body = `Phase "${phase.id}" failed (attempt ${stageRun.attempt}).\n\n${log?.content ?? ""}`;
     await fs.writeFile(file, body, "utf8").catch(() => {});
     return file;

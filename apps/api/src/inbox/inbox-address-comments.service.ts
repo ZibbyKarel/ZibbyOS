@@ -24,6 +24,7 @@ import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.s
 import {
   PR_ADDRESS_COMMENTS_ARTIFACT,
   PR_DESCRIPTION_ARTIFACT,
+  PR_FOLLOWUPS_ARTIFACT,
   PR_REPLIES_ARTIFACT,
   threadsMarkedDone,
 } from "../tasks/task-output.service";
@@ -136,7 +137,9 @@ export class InboxAddressCommentsService implements OnModuleInit {
   }
 
   onModuleInit(): void {
-    this.scheduler.setPrAddressFinalizer((task, followUps) => this.finalize(task, followUps));
+    this.scheduler.runner.registerSystemAction("pr-address-comments.deliver", (ctx) =>
+      this.deliver(ctx.run.workflowRunId, ctx.run.taskId),
+    );
     this.approvals.register("pr-address-comments", {
       resume: (taskId, approval) => this.approve(taskId, approval?.replies),
       cancel: (taskId) => this.discard(taskId),
@@ -169,7 +172,11 @@ export class InboxAddressCommentsService implements OnModuleInit {
       .pop();
     const state = latest?.prAddressComments?.state;
     // ponytail: check-then-create like the rebase flow; the fast-forward-only push lets only one land.
-    if (latest && (state === "running" || state === "awaiting-approval") && !isDeadTask(latest)) {
+    if (
+      latest &&
+      (state === "running" || state === "awaiting-approval" || state === "approved") &&
+      !isDeadTask(latest)
+    ) {
       throw new PrRefusedError(
         `addressing review comments on ${ref} is already ${state} (task ${latest.id})`,
       );
@@ -316,7 +323,7 @@ export class InboxAddressCommentsService implements OnModuleInit {
   private async pushFixes(
     taskId: string,
     fix: NonNullable<ScheduledTask["prAddressComments"]>,
-  ): Promise<void> {
+  ): Promise<string> {
     const settle = (patch: { state: "pushed" | "failed"; note: string }) =>
       this.tasks.setPrAddressComments(taskId, (c) =>
         c?.state === "running" ? { ...c, ...patch } : c,
@@ -331,6 +338,7 @@ export class InboxAddressCommentsService implements OnModuleInit {
           })
         : "replies only";
       await settle({ state: "pushed", note: sha });
+      return sha;
     } catch (error) {
       const note = errMsg(error).slice(0, 300);
       await settle({ state: "failed", note });
@@ -339,35 +347,71 @@ export class InboxAddressCommentsService implements OnModuleInit {
   }
 
   /**
-   * Terminal hook, state `approved` (the in-run gate was approved; the run is over): claim
-   * (→ `running`), push, file the issues from `followUps` when the `file` phase produced them,
-   * post the replies. Nothing is posted when the push fails. Never throws.
+   * The `deliver` system phase (after the approved in-run gate): claim `approved` → `running`, push
+   * (fast-forward), file the issues from the run's `zibby-pr-followups.json` when the `file` phase
+   * produced it, post the replies. Nothing is posted when the push fails; never pushes unless the
+   * gate was approved. Never throws.
    */
-  async finalize(task: ScheduledTask, followUps: string | null): Promise<void> {
-    const taskId = task.id;
-    let claimed: ScheduledTask["prAddressComments"];
-    await this.tasks
-      .setPrAddressComments(taskId, (c) => {
+  async deliver(
+    workflowRunId: string,
+    taskId: string | undefined,
+  ): Promise<{ ok: true; output: string } | { ok: false; error: string }> {
+    if (!taskId) return { ok: false, error: "run has no task" };
+    try {
+      let claimed: ScheduledTask["prAddressComments"];
+      await this.tasks.setPrAddressComments(taskId, (c) => {
         if (c?.state !== "approved") return c;
         claimed = c;
         return { ...c, state: "running" };
-      })
-      .catch(() => undefined);
-    if (!claimed) return;
-    const fix = claimed;
-    try {
-      await this.pushFixes(taskId, fix);
+      });
+      if (!claimed)
+        return { ok: false, error: "the push was not approved (state is not approved)" };
+      const fix: NonNullable<ScheduledTask["prAddressComments"]> = claimed;
+      let sha: string;
+      try {
+        sha = await this.pushFixes(taskId, fix);
+      } catch (error) {
+        this.log?.warn("pr address-comments deliver: push failed", { taskId, err: errMsg(error) });
+        return { ok: false, error: `push refused: ${errMsg(error)}` };
+      }
+      const followUps = await this.scheduler.runner
+        .readArtifact(workflowRunId, PR_FOLLOWUPS_ARTIFACT)
+        .catch(() => null);
+      await this.fileFollowUps(taskId, followUps?.content ?? null);
+      await this.postFollowUp(taskId, true);
+      await this.tasks.setPrAddressComments(taskId, (c) =>
+        c ? { ...c, finishedAt: new Date().toISOString() } : c,
+      );
+      this.inbox.dropPrsCache();
+      this.log?.info("pr review fixes pushed", { taskId, repo: fix.repo, number: fix.number });
+      const after = (await this.tasks.get(taskId)).prAddressComments;
+      const created = after?.followUps?.created ?? [];
+      return {
+        ok: true,
+        output: [
+          "# Delivery report",
+          "",
+          `- Pushed: ${sha}`,
+          `- Replies posted: ${after?.replied ?? 0}${after?.resolved ? `, threads resolved: ${after.resolved}` : ""}`,
+          `- Issues created: ${created.length ? created.map((c) => `[${c.key}](${c.url})`).join(", ") : "none"}`,
+          ...(after?.followUps?.note ? [`- Follow-up notes: ${after.followUps.note}`] : []),
+          ...(after?.repliesNote ? [`- Reply notes: ${after.repliesNote}`] : []),
+          ...(after?.followUpNote ? [`- Review notes: ${after.followUpNote}`] : []),
+          "",
+        ].join("\n"),
+      };
     } catch (error) {
-      this.log?.warn("pr address-comments finalize: push failed", { taskId, err: errMsg(error) });
-      return;
+      const note = errMsg(error).slice(0, 300);
+      this.log?.warn("pr address-comments deliver failed", { taskId, err: note });
+      await this.tasks
+        .setPrAddressComments(taskId, (c) =>
+          c && (c.state === "running" || c.state === "approved")
+            ? { ...c, state: "failed", note }
+            : c,
+        )
+        .catch(() => undefined);
+      return { ok: false, error: note };
     }
-    await this.fileFollowUps(taskId, followUps);
-    await this.postFollowUp(taskId, true);
-    await this.tasks
-      .setPrAddressComments(taskId, (c) => (c ? { ...c, finishedAt: new Date().toISOString() } : c))
-      .catch(() => undefined);
-    this.inbox.dropPrsCache();
-    this.log?.info("pr review fixes pushed", { taskId, repo: fix.repo, number: fix.number });
   }
 
   /** The task's project git host link, `null` when unresolved. */

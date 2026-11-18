@@ -907,6 +907,7 @@
         "workflow": "vyberte workflow pro každý krok workflow"
       },
       "typeTool": "tool (skript)",
+      "typeSystem": "system (vestavěná akce)",
       "addTool": "Přidat nástroj",
       "typeWorkflow": "workflow (podběh)",
       "addWorkflow": "Přidat workflow",

@@ -907,6 +907,7 @@
         "workflow": "pick a workflow for every workflow step"
       },
       "typeTool": "tool (script)",
+      "typeSystem": "system (built-in action)",
       "addTool": "Add tool",
       "typeWorkflow": "workflow (sub-run)",
       "addWorkflow": "Add workflow",

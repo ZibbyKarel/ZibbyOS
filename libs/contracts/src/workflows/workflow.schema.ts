@@ -102,9 +102,10 @@ export type PhaseWhen = z.infer<typeof PhaseWhenSchema>;
  * parses unchanged) spawns the phase agent; `tool` runs deterministic shell `commands` IN THE STAGE
  * SANDBOX (consumes → commands → produces) — a transform step between agents;
  * `workflow` runs another workflow as a child run (sub-run): `consumes` is its input,
- * its latest produced file comes back as `produces`.
+ * its latest produced file comes back as `produces`; `system` runs a registered in-process
+ * `action` (no child process, no tokens) and writes its report to `produces`.
  */
-export const WorkflowPhaseTypeSchema = z.enum(["agent", "tool", "workflow"]);
+export const WorkflowPhaseTypeSchema = z.enum(["agent", "tool", "workflow", "system"]);
 export type WorkflowPhaseType = z.infer<typeof WorkflowPhaseTypeSchema>;
 
 /**
@@ -124,6 +125,8 @@ export const WorkflowPhaseSchema = z.object({
   id: z.string().min(1),
   type: WorkflowPhaseTypeSchema.default("agent"),
   agent: AgentIdSchema.optional(),
+  /** `system` phase only: the id of a registered in-process action (e.g. "pr-address-comments.deliver"). */
+  action: z.string().min(1).optional(),
   /** `workflow` phase only: the id of the workflow run as the sub-run. */
   workflow: z.string().min(1).optional(),
   consumes: z.string().min(1).optional(),
@@ -402,6 +405,35 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
             path: ["phases", i, key],
           });
       }
+    } else if (ph.type === "system") {
+      // system: an in-process registered action — nothing model- or shell-shaped applies.
+      if (!ph.action)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'a system phase requires "action"',
+          path: ["phases", i, "action"],
+        });
+      for (const key of [
+        "agent",
+        "model",
+        "thinking",
+        "commands",
+        "prompt",
+        "skill",
+        "engine",
+        "engineModel",
+        "openaiModel",
+        "include",
+        "qualify",
+        "workflow",
+      ] as const) {
+        if (ph[key] !== undefined)
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `a system phase must not set "${key}"`,
+            path: ["phases", i, key],
+          });
+      }
     } else {
       // workflow: a sub-run — it names the child, hands it a file and takes one back.
       for (const key of ["workflow", "consumes", "produces"] as const) {
@@ -436,6 +468,12 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
           path: ["phases", i, "workflow"],
         });
     }
+    if (ph.action !== undefined && ph.type !== "system")
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "action is for system phases only",
+        path: ["phases", i, "action"],
+      });
     // A qualify gate is meaningless without a back-edge to take, makes no sense on a
     // deterministic phase, and its drift target must resolve like to/then.
     if (ph.openaiModel && ph.type !== "agent")

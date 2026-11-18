@@ -86,9 +86,11 @@ names none (an automation, a manual start); the runner resolves
 example which image provider a `tool` phase uses) and its checkout as the agent cwd.
 An explicit project on the start request still wins.
 
-**Phase types.** `type` is `agent` (default) or `tool`. Schema rules: an
+**Phase types.** `type` is `agent` (default), `tool`, `workflow` or `system`. Schema rules: an
 `agent` phase requires `agent`/`model`/`thinking`/`consumes`/`produces`; a `tool` phase requires `commands` and `produces` and must
-not set `agent`/`model`/`thinking`.
+not set `agent`/`model`/`thinking`; a `system` phase requires `action` and must not set
+`agent`/`model`/`thinking`/`commands`/`prompt`/`skill`/`engine`/`engineModel`/`openaiModel`/`include`/`qualify`/`workflow`
+(`action` is forbidden on every other type).
 
 ### Ownership (`department`) and the ladder rung (`complexity`)
 
@@ -448,6 +450,29 @@ lives in its repo (CLAUDE.md / AGENTS.md / README / package scripts), not in ZIB
   appended **last**, so a project checkout's own toolchain is never shadowed.
 - A tool that pays for something outside the model (a cloud image API) appends
   `{"costUsd": n}` lines to `<stageDir>/costs.jsonl`; see _Budget_.
+
+### Phase: system (in-process action)
+
+A `system` phase runs a registered **action** inside the API process — no child process, no tokens,
+no usage-window or budget check (it spends nothing). Fields: `action` (required, e.g.
+`pr-address-comments.deliver`), optional `produces` (the action's `output`, written read-only 444 like
+any produces), and `consumes` / `when` / `loop` / `approval` as for other phases.
+
+```ts
+// WorkflowRunnerService
+registerSystemAction(id: string, fn: SystemAction): void;
+type SystemAction = (ctx: { run: WorkflowRun; workflow: Workflow; phase: WorkflowPhase; stageDir: string }) =>
+  Promise<{ ok: true; output?: string } | { ok: false; error: string }>;
+```
+
+Execution (`runSystemStage`): after the `when` / pause checks and before the usage-window and budget
+checks, the stage dir is prepared like a tool phase's (so `consumes` is readable in `stageDir`), the
+action runs, and a `StageRun` is recorded (`runId` `<run>.<phase>.system.<attempt>`, `done` / `error`,
+`startedAt` / `finishedAt`). `{ ok: false }`, a throw, or an unknown action id (`unknown system action "x"`)
+make the stage `error`: the message is saved to `<stageDir>/system.error.txt` and is what
+`<phase>.failure.txt` / the resume-context carry, so `loop` (`to`, `maxRetries`, `then`, `park`) behaves
+exactly as for a failed tool or agent stage. A system stage has no core log, so the run detail's log
+view for it is empty; its report is the `produces` file.
 
 ### Phase: workflow (sub-run)
 

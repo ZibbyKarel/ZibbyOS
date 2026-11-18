@@ -44,6 +44,7 @@ const EDITED_PHASE_KEYS = [
   "id",
   "type",
   "workflow",
+  "action",
   "agent",
   "consumes",
   "produces",
@@ -72,7 +73,9 @@ function extraOf(ph: WorkflowPhase): PhaseExtra | undefined {
 export interface GraphNode {
   /** Durable phase id — loop targets reference it; an edited workflow keeps it. */
   id: string;
-  type: "agent" | "tool" | "workflow";
+  type: "agent" | "tool" | "workflow" | "system";
+  /** `system` step: the registered action id (preserved on round-trip, not editable here). */
+  action?: string;
   /** `workflow` step: the child workflow id this step runs as a sub-run ("" = not chosen yet). */
   workflow?: string;
   /** Agent id (empty for tool/workflow phases). */
@@ -207,6 +210,7 @@ export function phasesToGraph(initial: Workflow | undefined, agents: Agent[]): W
     id: ph.id ?? `phase-${i + 1}`,
     type: ph.type,
     ...(ph.type === "workflow" ? { workflow: ph.workflow ?? "" } : {}),
+    ...(ph.type === "system" ? { action: ph.action ?? "" } : {}),
     agent: ph.type === "agent" ? (ph.agent ?? agents[0]?.id ?? "") : "",
     produces: ph.produces ?? defaultProduces(ph.agent ?? "output", i + 1),
     commands: (ph.commands ?? []).join("\n"),
@@ -341,6 +345,18 @@ export function graphToPhases(graph: WorkflowGraph, assignment: string): Contrac
         ...approval,
       };
     }
+    if (node.type === "system") {
+      return {
+        ...extra,
+        id: node.id,
+        type: "system" as const,
+        action: node.action ?? "",
+        consumes,
+        ...(produces ? { produces } : {}),
+        ...(loop ? { loop } : {}),
+        ...approval,
+      };
+    }
     if (node.type === "tool") {
       return {
         ...extra,
@@ -402,6 +418,7 @@ export function validateGraph(graph: WorkflowGraph, name: string): GraphValidity
       if (!n.workflow) return { ok: false, reason: "workflow" };
       if (n.produces.trim().length === 0) return { ok: false, reason: "produces" };
     }
+    if (n.type === "system" && !n.action) return { ok: false, reason: "agent" };
     if (n.type === "tool") {
       if (splitCommands(n.commands).length === 0) return { ok: false, reason: "commands" };
       if (n.produces.trim().length === 0) return { ok: false, reason: "produces" };

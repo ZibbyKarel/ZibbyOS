@@ -12,12 +12,12 @@ only says which channels get Tier-1/2 treatment at all.
 
 ## Pieces
 
-| Piece      | File                                             | Role                                                                          |
-| ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Schema     | `libs/contracts/src/mandate/mandate.schema.ts`   | `MandateSchema` (strict), `MandateWriteSchema` (permissive transport shape), `DEFAULT_MANDATE` |
-| Contract   | `libs/contracts/src/mandate/mandate.contract.ts` | `mandateContract` — `GET`/`PUT /api/mandate`                                  |
-| Storage    | `apps/api/src/mandate/mandate.storage.service.ts` | `MandateStorageService` — reads/writes the single `mandate.json` at the data root |
-| Controller | `apps/api/src/mandate/mandate.controller.ts`     | Implements the contract; re-validates strictly and returns 422 on unknown keys |
+| Piece      | File                                              | Role                                                                                           |
+| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Schema     | `libs/contracts/src/mandate/mandate.schema.ts`    | `MandateSchema` (strict), `MandateWriteSchema` (permissive transport shape), `DEFAULT_MANDATE` |
+| Contract   | `libs/contracts/src/mandate/mandate.contract.ts`  | `mandateContract` — `GET`/`PUT /api/mandate`                                                   |
+| Storage    | `apps/api/src/mandate/mandate.storage.service.ts` | `MandateStorageService` — reads/writes the single `mandate.json` at the data root              |
+| Controller | `apps/api/src/mandate/mandate.controller.ts`      | Implements the contract; re-validates strictly and returns 422 on unknown keys                 |
 
 There is exactly **one** mandate document — no id, no list, like `POLICY.md`.
 
@@ -25,7 +25,7 @@ There is exactly **one** mandate document — no id, no list, like `POLICY.md`.
 
 1. On boot, `MandateStorageService.onModuleInit` seeds `mandate.json` with
    `DEFAULT_MANDATE` if the file is missing: `defaults: { dispatch: true, reply:
-   false }`, `channels: {}`. Dispatch works out of the box (Tier 1 investigation
+false }`, `channels: {}`. Dispatch works out of the box (Tier 1 investigation
    is silent and reversible); no outbound reply leaves any channel until the
    operator opts a channel in explicitly.
 2. `read()` is tolerant: a missing or malformed file falls back to

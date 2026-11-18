@@ -65,7 +65,6 @@ import {
   PR_CI_TRIAGE_ARTIFACT,
   PR_DESCRIPTION_ARTIFACT,
   PR_FIX_CI_ARTIFACT,
-  PR_FOLLOWUPS_ARTIFACT,
   PR_REBASE_ARTIFACT,
   PR_REPLIES_ARTIFACT,
   PR_REVIEW_ARTIFACT,
@@ -249,20 +248,6 @@ export class TaskSchedulerService
   ) {
     super();
     this.log = logger.child(TaskSchedulerService.name);
-  }
-
-  private prAddressFinalizer?: (task: ScheduledTask, followUps: string | null) => Promise<void>;
-
-  /**
-   * Registered by `InboxAddressCommentsService` (no DI cycle): after the in-run gate was approved
-   * and the run ended (done / failed / interrupted) it pushes, files the issues in `followUps`
-   * (`zibby-pr-followups.json`, null when the `file` phase was skipped or produced nothing) and
-   * posts the replies.
-   */
-  setPrAddressFinalizer(
-    fn: (task: ScheduledTask, followUps: string | null) => Promise<void>,
-  ): void {
-    this.prAddressFinalizer = fn;
   }
 
   /** The workflow runner, for `InboxAddressCommentsService` (it cannot inject it without a module cycle). */
@@ -2148,10 +2133,7 @@ export class TaskSchedulerService
               });
             if (delivery?.summary) outcome.summary = delivery.summary;
           }
-          // The in-run gate was approved: push, file the issues, post (never throws).
-          if (existing.prAddressComments?.state === "approved") {
-            await this.finalizeAddressComments(existing, run.workflowRunId);
-          }
+          await this.failUndeliveredAddressComments(taskId);
           // "Fix CI": park (or, `Fixed: all` on the operator's own PR, push) the fix.
           if (existing.prFixCi?.state === "running") {
             const artifact = await this.workflowRunner
@@ -2195,11 +2177,7 @@ export class TaskSchedulerService
             if (delivery?.summary) outcome.summary = delivery.summary;
           }
         } else {
-          const failed = await this.storage.get(taskId).catch(() => null);
-          // Failed / interrupted AFTER the gate: the approved fixes still go out; no issues, replies with a placeholder drop.
-          if (failed?.prAddressComments?.state === "approved") {
-            await this.finalizeAddressComments(failed, run.workflowRunId);
-          }
+          await this.failUndeliveredAddressComments(taskId);
           if (run.status === "failed") {
             // A failed triage run must not stay `running`: the heartbeat would wait on it forever.
             await this.storage
@@ -2247,18 +2225,16 @@ export class TaskSchedulerService
     });
   }
 
-  private async finalizeAddressComments(task: ScheduledTask, workflowRunId: string): Promise<void> {
-    try {
-      const followUps = await this.workflowRunner
-        .readArtifact(workflowRunId, PR_FOLLOWUPS_ARTIFACT)
-        .catch(() => null);
-      await this.prAddressFinalizer?.(task, followUps?.content ?? null);
-    } catch (error) {
-      this.log.warn("pr address-comments finalize failed (soft)", {
-        taskId: task.id,
-        err: error instanceof Error ? error.message : String(error),
-      });
-    }
+  /**
+   * The in-run gate was approved but the run ended before the `deliver` phase settled it (cancelled,
+   * failed earlier): the task must not sit in `approved` forever.
+   */
+  private async failUndeliveredAddressComments(taskId: string): Promise<void> {
+    await this.storage
+      .setPrAddressComments(taskId, (c) =>
+        c?.state === "approved" ? { ...c, state: "failed", note: "run ended before delivery" } : c,
+      )
+      .catch(() => undefined);
   }
 
   /**

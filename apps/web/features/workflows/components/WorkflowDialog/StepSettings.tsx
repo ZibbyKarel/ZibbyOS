@@ -106,7 +106,13 @@ export function StepSettings({ graph, setGraph, excludeWorkflowId }: StepSetting
       </Container>
       {nodes.map((n, i) => {
         const name =
-          n.type === "tool" ? t("typeTool") : n.type === "workflow" ? t("typeWorkflow") : n.agent;
+          n.type === "tool"
+            ? t("typeTool")
+            : n.type === "system"
+              ? t("typeSystem")
+              : n.type === "workflow"
+                ? t("typeWorkflow")
+                : n.agent;
         return (
           <Container data-testid={`step-settings-${n.id}`} key={n.id} padding={["100", "100"]}>
             <Typography mono truncate size="xs" type="note" weight="bold">

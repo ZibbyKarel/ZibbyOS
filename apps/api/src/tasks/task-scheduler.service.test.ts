@@ -1971,13 +1971,6 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
       workflowRunner.setGatePresenter.mock.calls[0]?.[0] as (ctx: {
         run: WorkflowRun;
       }) => Promise<string>;
-    const finalizer = vi.fn(async () => undefined);
-
-    beforeEach(() => {
-      finalizer.mockClear();
-      service.setPrAddressFinalizer(finalizer);
-    });
-
     it("registers a gate presenter that parks the approval with the gate run id", async () => {
       const id = await seed("running");
       workflowRunner.readArtifact.mockImplementation(async (_r: string, name: string) => ({
@@ -2008,29 +2001,24 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
     });
 
     it.each(["done", "failed", "interrupted"] as const)(
-      "a %s run in state approved calls the finalizer with the follow-ups artifact",
+      "a %s run that ends while still approved (deliver never ran) is marked failed",
       async (status) => {
         const id = await seed("approved");
-        workflowRunner.readArtifact.mockImplementation(async (_r: string, name: string) =>
-          name === "zibby-pr-followups.json" ? { name, content: "[]" } : null,
-        );
         workflowListener?.(gateRun(id, status));
-        await vi.waitFor(() =>
-          expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ id }), "[]"),
+        await vi.waitFor(async () =>
+          expect((await storage.get(id)).prAddressComments).toMatchObject({
+            state: "failed",
+            note: "run ended before delivery",
+          }),
         );
         expect(taskOutput.parkPrAddressComments).not.toHaveBeenCalled();
       },
     );
 
-    it("a skipped file phase passes null; a discarded or running(legacy) run never finalizes", async () => {
-      const approved = await seed("approved");
-      workflowListener?.(gateRun(approved, "done"));
-      await vi.waitFor(() => expect(finalizer).toHaveBeenCalledWith(expect.anything(), null));
-      finalizer.mockClear();
+    it("a pushed or discarded run is left alone at the end", async () => {
       const discarded = await seed("discarded");
       workflowListener?.(gateRun(discarded, "failed"));
       await vi.waitFor(async () => expect((await storage.get(discarded)).outcome).toBeDefined());
-      expect(finalizer).not.toHaveBeenCalled();
       expect((await storage.get(discarded)).prAddressComments?.state).toBe("discarded");
     });
   });

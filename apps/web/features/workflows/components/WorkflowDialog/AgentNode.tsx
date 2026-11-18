@@ -73,7 +73,7 @@ const symbolOf = (
   agents: Agent[],
   departments: readonly Department[],
 ): { glyph: IconName; color?: string } =>
-  node.type === "tool"
+  node.type === "tool" || node.type === "system"
     ? { glyph: "gear" }
     : node.type === "workflow"
       ? { glyph: "flow" }
@@ -128,9 +128,11 @@ export function AgentNode({
   const label =
     node.type === "tool"
       ? t("typeTool")
-      : node.type === "workflow"
-        ? node.workflow || t("typeWorkflow")
-        : node.agent;
+      : node.type === "system"
+        ? node.action || t("typeSystem")
+        : node.type === "workflow"
+          ? node.workflow || t("typeWorkflow")
+          : node.agent;
   const clickable = readOnly && Boolean(onNodeClick);
 
   const flowTarget = pending?.kind === "flow" && pending.from !== node.id;
@@ -302,11 +304,13 @@ export function AgentNode({
             </span>
           )}
           <Typography mono size="2xs" type="note" variant="tertiary">
-            {node.type === "workflow"
-              ? node.workflow
-                ? t("typeWorkflow")
-                : t("workflowNone")
-              : node.commands.split("\n").filter((c) => c.trim()).length || t("commandsNone")}
+            {node.type === "system"
+              ? t("typeSystem")
+              : node.type === "workflow"
+                ? node.workflow
+                  ? t("typeWorkflow")
+                  : t("workflowNone")
+                : node.commands.split("\n").filter((c) => c.trim()).length || t("commandsNone")}
           </Typography>
         </Stack>
       )}

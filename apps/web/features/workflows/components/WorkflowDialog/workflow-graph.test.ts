@@ -516,3 +516,22 @@ describe("engine + engineModel round-trip", () => {
     expect(graphToPhases(switched, INITIAL_ASSIGNMENT)[0]).not.toHaveProperty("engineModel");
   });
 });
+
+describe("system phase round-trip", () => {
+  it("keeps type and action through phasesToGraph → graphToPhases", () => {
+    const wf = {
+      ...existing,
+      phases: [
+        ...existing.phases,
+        { id: "deliver", type: "system", action: "x.deliver", produces: "report.md" },
+      ],
+    } as Workflow;
+    const out = graphToPhases(phasesToGraph(wf, agents), INITIAL_ASSIGNMENT);
+    expect(out[out.length - 1]).toMatchObject({
+      id: "deliver",
+      type: "system",
+      action: "x.deliver",
+      produces: "report.md",
+    });
+  });
+});
