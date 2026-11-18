@@ -2,12 +2,10 @@ import type { InboxPrReviewer, InboxPrReviewers, InboxPrThread } from "@zibby/co
 import { prWebUrl } from "../git-host/git-host-url";
 import { GitlabApiError, type GitlabClient } from "../git-host/gitlab-client";
 import {
-  canReview,
   gitlabCodeOwnersOf,
   isGroupOwner,
   readGitlabCodeowners,
   readGitlabGroupMembers,
-  readGitlabProjectMembers,
 } from "./code-owners.gitlab";
 import { readGitlabMrDiffs } from "./inbox-pr-diff.gitlab";
 import {
@@ -29,7 +27,7 @@ export async function gitlabThreads(
 ): Promise<InboxPrThread[]> {
   const threads: InboxPrThread[] = [];
   for (const d of await readGitlabDiscussions(client, link, iid)) {
-    const notes = (d.notes ?? []).filter((n) => !n.system);
+    const notes = (d.notes ?? []).filter((n) => !n.system && n.id !== undefined);
     const first = notes[0];
     if (!d.id || !first?.resolvable) continue;
     const pos = first.position;
@@ -50,7 +48,7 @@ export async function gitlabThreads(
         ? { url: `${prWebUrl({ kind: "gitlab", ...link }, iid)}#note_${first.id}` }
         : {}),
       comments: notes.map((n) => ({
-        id: String(n.id ?? ""),
+        id: String(n.id),
         author: n.author?.username
           ? { login: n.author.username, avatarUrl: n.author.avatar_url ?? "" }
           : null,
@@ -161,42 +159,6 @@ export async function gitlabReviewers(
   return { teams, users: [...people.values()].filter((p) => !placed.has(lower(p.login))) };
 }
 
-export interface GitlabReviewerCandidate {
-  username: string;
-  /** CODEOWNERS names them (or a group they belong to) for a changed file. */
-  codeOwner: boolean;
-}
-
-/**
- * Who can be asked to review: project members with Developer access or more (active accounts),
- * minus the author, CODEOWNERS of the changed files first.
- */
-export async function gitlabReviewerCandidates(
-  client: GitlabClient,
-  link: GitlabLink,
-  iid: number,
-): Promise<GitlabReviewerCandidate[]> {
-  const mr = await readGitlabMr(client, link, iid);
-  const [members, { owners }] = await Promise.all([
-    readGitlabProjectMembers(client, link),
-    ownershipOf(client, link, mr, iid),
-  ]);
-  const ownerNames = new Set(
-    [...owners].filter((o) => !isGroupOwner(o)).map((o) => lower(o.slice(1))),
-  );
-  for (const owner of [...owners].filter(isGroupOwner))
-    for (const m of await readGitlabGroupMembers(client, link.host, owner.slice(1)))
-      ownerNames.add(lower(m.username));
-  const author = lower(mr.author?.username);
-  const out = new Map<string, GitlabReviewerCandidate>();
-  for (const m of members) {
-    const key = lower(m.username);
-    if (!m.username || key === author || !canReview(m) || out.has(key)) continue;
-    out.set(key, { username: m.username, codeOwner: ownerNames.has(key) });
-  }
-  return [...out.values()].sort((a, b) => Number(b.codeOwner) - Number(a.codeOwner));
-}
-
 /**
  * Adds `username` to the MR's reviewers. `reviewer_ids` replaces the whole list, so the current
  * reviewers' ids are sent along; one without an id aborts rather than being dropped.
@@ -212,7 +174,8 @@ export async function requestGitlabReview(
     readGitlabReviewers(client, link, iid),
   ]);
   const ids = current.map((r) => {
-    if (r.user?.id === undefined) throw new Error(`reviewer ${r.user?.username ?? "?"} has no id`);
+    if (r.user?.id === undefined)
+      throw new GitlabApiError(`reviewer ${r.user?.username ?? "?"} has no id`, 422);
     return r.user.id;
   });
   await client.api(link.host, `${client.projectPath(link.repo)}/merge_requests/${iid}`, {

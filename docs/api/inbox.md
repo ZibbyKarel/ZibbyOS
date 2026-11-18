@@ -299,9 +299,7 @@ todo-5. One GraphQL read of the PR (`reviewRequests`, the newest 100 `reviews` w
 anyone in `approvals.approved_by`, the author excluded; `commented` = a non-system note in the MR's discussions. `teams` =
 the `@group/sub` CODEOWNERS owners of the changed files (`codeOwner: true`, never `requested`), with the reviewers who
 are members (`groups/:id/members/all`; an inaccessible group has no members). A failed read rejects (502); only 403/404
-on `approvals` or a group's members degrade. `gitlabReviewerCandidates` lists who could be asked: project members
-(`members/all`) with access level >= 30, active, minus the author, CODEOWNERS first (not exposed by an endpoint yet).
-`POST …/reviewers/request` resolves `login` through `users?username=` (exact match; unknown -> 422) and PUTs
+on `approvals` or a group's members degrade. `POST …/reviewers/request` resolves `login` through `users?username=` (exact match; unknown -> 422) and PUTs
 `merge_requests/:iid` `reviewer_ids` = the current reviewers' ids + the new one (existing reviewers are preserved).
 
 ## Review threads (`GET /api/inbox/prs/:projectId/:number/threads`)

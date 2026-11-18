@@ -96,24 +96,6 @@ export async function readGitlabGroupMembers(
   );
 }
 
-/** Direct + inherited members of the project. */
-export async function readGitlabProjectMembers(
-  client: GitlabClient,
-  link: GitlabLink,
-): Promise<GitlabMember[]> {
-  return (
-    (await client.api<GitlabMember[] | undefined>(
-      link.host,
-      `${client.projectPath(link.repo)}/members/all?per_page=100`,
-      { paginate: true },
-    )) ?? []
-  );
-}
-
-/** Developer (30) and up can review; blocked/deactivated accounts cannot. */
-export const canReview = (m: GitlabMember): boolean =>
-  (m.access_level ?? 0) >= 30 && (m.state === undefined || m.state === "active");
-
 /** Cache hook: runs `load` once per key within a TTL (the service supplies it). */
 export type Memo = <T>(key: string, load: () => Promise<T>) => Promise<T>;
 

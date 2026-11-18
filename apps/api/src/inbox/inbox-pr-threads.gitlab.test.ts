@@ -2,7 +2,6 @@ import type { Integration, Project } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { fakeGlab } from "../../test/gitlab-fake";
 import {
-  gitlabReviewerCandidates,
   gitlabReviewers,
   gitlabThreads,
   requestGitlabReview,
@@ -100,6 +99,14 @@ describe("gitlabThreads", () => {
         comments: [expect.objectContaining({ id: "21" })],
       },
     ]);
+  });
+
+  it("skips notes without an id instead of emitting an empty comment id", async () => {
+    const { client } = fakeGlab([
+      [/discussions/, [{ id: D1, notes: [note(), note({ id: undefined, body: "ghost" })] }]],
+    ]);
+    const [thread] = await gitlabThreads(client, link, 3);
+    expect(thread?.comments.map((c) => c.id)).toEqual(["11"]);
   });
 
   it("a thread is resolved only when every resolvable note is", async () => {
@@ -206,16 +213,6 @@ describe("gitlabReviewers", () => {
   });
 });
 
-describe("gitlabReviewerCandidates", () => {
-  it("project members from Developer up, active, minus the author; CODEOWNERS first", async () => {
-    expect(await gitlabReviewerCandidates(routes().client, link, 3)).toEqual([
-      { username: "zed", codeOwner: true }, // via @grp/core
-      { username: "alice", codeOwner: true },
-      { username: "bob", codeOwner: false },
-    ]);
-  });
-});
-
 describe("resolveGitlabUserId", () => {
   it("takes the exact username match (dots and case), 422 when unknown", async () => {
     const { client, paths } = fakeGlab([
@@ -275,7 +272,10 @@ describe("requestGitlabReview", () => {
   it("refuses to write when an existing reviewer has no id (it would be dropped)", async () => {
     put.mockClear();
     const { client } = setup([{ user: { username: "alice" } }]);
-    await expect(requestGitlabReview(client, link, 3, "zed")).rejects.toThrow(/no id/);
+    await expect(requestGitlabReview(client, link, 3, "zed")).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("no id"),
+    });
     expect(put).not.toHaveBeenCalled();
   });
 });
