@@ -6,10 +6,12 @@ import {
   FixInboxPrCiInputSchema,
   InboxPrSchema,
   InboxPrThreadSchema,
+  InboxSourceErrorSchema,
   PR_REVIEW_LEVELS,
   ProcessInboxItemInputSchema,
   RebaseInboxPrInputSchema,
   ReplyInboxPrThreadInputSchema,
+  RequestInboxPrReviewInputSchema,
   ReviewInboxPrInputSchema,
   SubmitInboxPrReviewInputSchema,
 } from "./inbox.schema";
@@ -145,6 +147,36 @@ describe("PR review threads", () => {
     };
     expect(InboxPrThreadSchema.safeParse(thread).success).toBe(true);
     expect(InboxPrThreadSchema.safeParse({ ...thread, id: "x" }).success).toBe(false);
+  });
+
+  it("InboxPrThreadSchema also accepts a GitLab discussion id", () => {
+    const thread = {
+      id: "a".repeat(40),
+      isResolved: false,
+      isOutdated: false,
+      path: "a.ts",
+      line: 3,
+      startLine: null,
+      diffHunk: "@@",
+      comments: [],
+    };
+    expect(InboxPrThreadSchema.safeParse(thread).success).toBe(true);
+    expect(InboxPrThreadSchema.safeParse({ ...thread, id: "a".repeat(39) }).success).toBe(false);
+  });
+
+  it("widens source, nested repo and GitLab usernames for GitLab data", () => {
+    expect(
+      InboxSourceErrorSchema.safeParse({ projectId: "p", source: "gitlab", message: "x" }).success,
+    ).toBe(true);
+    const review = {
+      projectId: "p",
+      repo: "shoptet/projects/app",
+      number: 1,
+    };
+    expect(ReviewInboxPrInputSchema.safeParse(review).success).toBe(true);
+    expect(ReviewInboxPrInputSchema.safeParse({ ...review, repo: "solo" }).success).toBe(false);
+    expect(RequestInboxPrReviewInputSchema.safeParse({ login: "karel.zibar" }).success).toBe(true);
+    expect(RequestInboxPrReviewInputSchema.safeParse({ login: ".bad" }).success).toBe(false);
   });
 
   it("exposes the thread routes", () => {

@@ -75,6 +75,17 @@ when every project's `gitRemote` resolves to its old `repo` and GitHub reports t
 repo under that same name (a renamed repo skips the group with a reason). A company
 that already owns a GitHub integration is skipped. Tokens are compared, never printed.
 
+## GitLab (`gitlab` kind)
+
+Config: `{ kind: "gitlab", host, repo?, streams, username }`. `host` is a bare hostname
+(`gitlab.group.team.blue`, optional `:port`); `repo` is the full project path at any nesting
+depth (`group/sub/name`). There is no token: all GitLab access goes through the `glab` CLI
+(`GitlabClient` in `apps/api/src/git-host`, `glab api <path> --hostname <host>`), which holds
+the auth. A project-owned gitlab integration must name its `repo`; a company-owned one may omit
+it, then `gitlabRepoFor` takes the project's `gitRemote` path, but only when the remote's host
+equals `config.host`. `githubRepoFor` likewise only derives from a `github.com` remote.
+`resolveGitHostLink` picks the gitlab link first, else the GitHub token link.
+
 ## Connection testing
 
 `POST /integrations/:id/test` calls the `ConnectionTester` seam (bound to the

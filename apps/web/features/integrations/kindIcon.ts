@@ -6,6 +6,7 @@ export const INTEGRATION_GLYPH = {
   email: "server",
   jira: "checkpoint",
   github: "branch",
+  gitlab: "branch",
   calendar: "clock",
   sentry: "bolt",
 } as const;

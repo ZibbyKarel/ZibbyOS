@@ -235,3 +235,42 @@ describe("GitHub repo ownership (phase 129)", () => {
     ).toBe(true);
   });
 });
+
+describe("gitlab integration", () => {
+  const config = {
+    kind: "gitlab" as const,
+    host: "gitlab.group.team.blue",
+    username: "karel.zibar",
+  };
+  const base = { id: "gl", kind: "gitlab" as const };
+  it("defaults streams and accepts a nested repo", () => {
+    const parsed = IntegrationConfigSchema.parse({ ...config, repo: "shoptet/projects/app" });
+    expect(parsed).toMatchObject({ streams: ["issues", "pulls"], repo: "shoptet/projects/app" });
+  });
+  it.each(["https://gitlab.com", "gitlab com", "gitlab.com/x", ""])("rejects host %j", (host) => {
+    expect(IntegrationConfigSchema.safeParse({ ...config, host }).success).toBe(false);
+  });
+  it("accepts host with port, rejects a single-segment repo and unknown keys", () => {
+    expect(IntegrationConfigSchema.safeParse({ ...config, host: "gl.local:8443" }).success).toBe(
+      true,
+    );
+    expect(IntegrationConfigSchema.safeParse({ ...config, repo: "solo" }).success).toBe(false);
+    expect(IntegrationConfigSchema.safeParse({ ...config, token: "x" }).success).toBe(false);
+    expect(IntegrationConfigSchema.safeParse({ ...config, username: "" }).success).toBe(false);
+  });
+  it("a project-owned gitlab integration needs a repo; a company-owned one may omit it", () => {
+    expect(CreateIntegrationSchema.safeParse({ ...base, companyId: "c", config }).success).toBe(
+      true,
+    );
+    expect(CreateIntegrationSchema.safeParse({ ...base, projectId: "p", config }).success).toBe(
+      false,
+    );
+    expect(
+      CreateIntegrationSchema.safeParse({
+        ...base,
+        projectId: "p",
+        config: { ...config, repo: "a/b" },
+      }).success,
+    ).toBe(true);
+  });
+});

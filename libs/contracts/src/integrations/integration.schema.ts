@@ -20,6 +20,7 @@ export const IntegrationKindSchema = z.enum([
   "email",
   "jira",
   "github",
+  "gitlab",
   "calendar",
   "sentry",
 ]);
@@ -76,7 +77,7 @@ export type JiraConfig = z.infer<typeof JiraConfigSchema>;
 /**
  * GitHub config — the `repo` ("owner/name") to monitor; the PAT lives in the
  * credentials store. Phase 129 (G1): `repo` is required on a PROJECT-owned
- * integration (enforced at the integration level, see `requireGithubRepoForProject`)
+ * integration (enforced at the integration level, see `requireGitRepoForProject`)
  * and optional on a COMPANY-owned one, where each inheriting project's repo comes
  * from its `gitRemote` (`githubRepoFor`); a set `repo` there still overrides. `streams` selects which event streams to ingest: `issues`
  * and/or `pulls` (the conversational channel), plus `ci` — which opts the repo
@@ -101,6 +102,29 @@ export const GitHubConfigSchema = z
   })
   .strict();
 export type GitHubConfig = z.infer<typeof GitHubConfigSchema>;
+
+/**
+ * GitLab config (via the `glab` CLI, which holds the auth — no token here). `host` is
+ * the hostname only; `repo` is the full project path (any nesting depth) and, as with
+ * GitHub, is required on a project-owned integration and optional on a company-owned
+ * one (then derived from the project's `gitRemote` when its host equals `host`).
+ * `.strict()`.
+ */
+export const GitLabConfigSchema = z
+  .object({
+    kind: z.literal("gitlab"),
+    host: z
+      .string()
+      .regex(/^[a-z0-9.-]+(:\d+)?$/i, "host must be a hostname, e.g. gitlab.example.com"),
+    repo: z
+      .string()
+      .regex(/^[^/]+(\/[^/]+)+$/, "repo must be a full path like 'group/name'")
+      .optional(),
+    streams: z.array(z.enum(["issues", "pulls", "ci"])).default(["issues", "pulls"]),
+    username: z.string().min(1),
+  })
+  .strict();
+export type GitLabConfig = z.infer<typeof GitLabConfigSchema>;
 
 /**
  * Google Calendar config — which calendar to poll (`calendarId`, defaults to the
@@ -145,6 +169,7 @@ export const IntegrationConfigSchema = z.discriminatedUnion("kind", [
   EmailConfigSchema,
   JiraConfigSchema,
   GitHubConfigSchema,
+  GitLabConfigSchema,
   CalendarConfigSchema,
   SentryConfigSchema,
 ]);
@@ -174,17 +199,22 @@ function requireExactlyOneOwner(
 }
 
 /**
- * Phase 129 (G1) — a project-owned GitHub integration must name its `repo`; only a
- * company-owned one may leave it to each project's `gitRemote`.
+ * Phase 129 (G1) — a project-owned GitHub or GitLab integration must name its `repo`;
+ * only a company-owned one may leave it to each project's `gitRemote`.
  */
-function requireGithubRepoForProject(
+function requireGitRepoForProject(
   data: { projectId?: string | undefined; config: IntegrationConfig },
   ctx: z.RefinementCtx,
 ): void {
-  if (data.projectId !== undefined && data.config.kind === "github" && !data.config.repo) {
+  const { config } = data;
+  if (
+    data.projectId !== undefined &&
+    (config.kind === "github" || config.kind === "gitlab") &&
+    !config.repo
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "a project-owned github integration needs a repo",
+      message: `a project-owned ${config.kind} integration needs a repo`,
       path: ["config", "repo"],
     });
   }
@@ -200,7 +230,7 @@ function refineIntegration(
   ctx: z.RefinementCtx,
 ): void {
   requireExactlyOneOwner(data, ctx);
-  requireGithubRepoForProject(data, ctx);
+  requireGitRepoForProject(data, ctx);
 }
 
 /**

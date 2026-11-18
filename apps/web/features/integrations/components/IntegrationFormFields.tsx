@@ -185,6 +185,9 @@ export function useIntegrationFormState(
 
   const buildConfig = (): CreateIntegrationInput["config"] => {
     switch (kind) {
+      case "gitlab":
+        // Placeholder (Task 2): the kind is hidden from the picker until its form lands.
+        throw new Error("gitlab form not implemented yet");
       case "slack":
         return {
           kind: "slack",
@@ -244,6 +247,8 @@ export function useIntegrationFormState(
   /** Per-kind required fields — the payload must validate against the contract. */
   const configReady = (): boolean => {
     switch (kind) {
+      case "gitlab":
+        return false; // Placeholder (Task 2).
       case "slack":
         return true;
       case "email":

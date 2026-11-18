@@ -34,6 +34,7 @@ export const API_MODULE_DOC_MAP = {
   comms: "docs/api/departments.md",
   hooks: "docs/api/extensibility.md",
   integrations: "docs/api/integrations.md",
+  "git-host": "docs/api/integrations.md",
   kb: "docs/api/teams.md",
   "limits-resume": "docs/api/limits.md",
   limits: "docs/api/limits.md",

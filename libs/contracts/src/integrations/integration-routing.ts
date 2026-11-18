@@ -52,6 +52,23 @@ export interface RoutableProject {
   integrationRouting?: IntegrationRoutingRule[] | undefined;
 }
 
+/**
+ * Any git remote (scp-like, `ssh://`, `https://`) → `{ host, path }`: `host` lowercased
+ * without user/port, `path` without leading slash / `.git` / trailing slash, at least two
+ * segments (GitLab allows nesting). `null` when it isn't such a remote.
+ */
+export function gitRemoteInfo(remote: string | undefined): { host: string; path: string } | null {
+  if (!remote) return null;
+  const m =
+    /^(?:[\w.-]+@([\w.-]+):|(?:https|ssh):\/\/(?:[^/@]+@)?([^/:]+)(?::\d+)?\/)(.+?)(?:\.git)?\/?$/i.exec(
+      remote.trim(),
+    );
+  const host = m?.[1] ?? m?.[2];
+  const path = m?.[3]?.replace(/^\/+/, "");
+  if (!host || !path || !/^[^/]+(\/[^/]+)+$/.test(path)) return null;
+  return { host: host.toLowerCase(), path };
+}
+
 /** `git@github.com:owner/name.git` / `https://github.com/owner/name(.git)` → `owner/name` (lowercased), else null. */
 export function repoFromGitRemote(remote: string | undefined): string | null {
   if (!remote) return null;
@@ -65,8 +82,8 @@ export function repoFromGitRemote(remote: string | undefined): string | null {
 /**
  * Phase 129 (G1/G2) — the repo a GitHub integration covers for `project`: a
  * project-owned integration's `config.repo`; a company-owned one's `config.repo`
- * override, else the project's `gitRemote`. `null` when there is none (or the
- * integration is not GitHub).
+ * override, else the project's `gitRemote` (only when that remote is on github.com).
+ * `null` when there is none (or the integration is not GitHub).
  */
 export function githubRepoFor(
   integration: {
@@ -78,7 +95,31 @@ export function githubRepoFor(
 ): string | null {
   if (integration.config.kind !== "github") return null;
   if (integration.projectId !== undefined) return integration.config.repo ?? null;
-  return integration.config.repo ?? repoFromGitRemote(project.gitRemote);
+  if (integration.config.repo) return integration.config.repo;
+  return gitRemoteInfo(project.gitRemote)?.host === "github.com"
+    ? repoFromGitRemote(project.gitRemote)
+    : null;
+}
+
+/**
+ * The project path a GitLab integration covers for `project`: project-owned → its
+ * `config.repo`; company-owned → `config.repo`, else the `gitRemote` path when the
+ * remote's host equals `config.host`. `null` otherwise (or when not GitLab).
+ */
+export function gitlabRepoFor(
+  integration: {
+    projectId?: string | undefined;
+    companyId?: string | undefined;
+    config: { kind: string; repo?: string | undefined; host?: string | undefined };
+  },
+  project: { gitRemote?: string | undefined },
+): string | null {
+  const { config } = integration;
+  if (config.kind !== "gitlab") return null;
+  if (integration.projectId !== undefined) return config.repo ?? null;
+  if (config.repo) return config.repo;
+  const info = gitRemoteInfo(project.gitRemote);
+  return info && config.host && info.host === config.host.toLowerCase() ? info.path : null;
 }
 
 const ci = (s: string) => s.trim().toLowerCase();

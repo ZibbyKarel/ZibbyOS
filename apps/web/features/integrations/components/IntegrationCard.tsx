@@ -32,6 +32,7 @@ const KIND_LABEL_KEY = {
   email: "integrations.kindEmail",
   jira: "integrations.kindJira",
   github: "integrations.kindGithub",
+  gitlab: "integrations.kindGitlab",
   calendar: "integrations.kindCalendar",
   sentry: "integrations.kindSentry",
 } as const satisfies Record<IntegrationKind, string>;
@@ -70,9 +71,11 @@ export function IntegrationCard({
           ? (config.projectKey ?? config.baseUrl)
           : config.kind === "github"
             ? (config.repo ?? `@${config.username}`)
-            : config.kind === "calendar"
-              ? config.calendarId
-              : `${config.org}/${config.project}`;
+            : config.kind === "gitlab"
+              ? (config.repo ?? `@${config.username}`)
+              : config.kind === "calendar"
+                ? config.calendarId
+                : `${config.org}/${config.project}`;
 
   return (
     <EntityCard

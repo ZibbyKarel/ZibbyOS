@@ -54,6 +54,9 @@ export class AdapterRegistry implements ConnectionTester {
         return this.jira;
       case "github":
         return this.github;
+      case "gitlab":
+        // Placeholder (Task 2): the GitLab channel adapter.
+        throw new Error("gitlab adapter not implemented yet");
       case "calendar":
         return this.calendar;
       case "sentry":

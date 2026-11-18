@@ -630,6 +630,7 @@
     "kindEmail": "E-mail",
     "kindJira": "Jira",
     "kindGithub": "GitHub",
+    "kindGitlab": "GitLab",
     "kindCalendar": "Kalendář",
     "kindSentry": "Sentry",
     "idLabel": "Identifikátor",
@@ -2456,6 +2457,7 @@
       "source": {
         "jira": "Jira",
         "github": "GitHub",
+        "gitlab": "GitLab",
         "slack": "Slack",
         "email": "E-mail",
         "calendar": "Kalendář",
@@ -3276,6 +3278,7 @@
     "source": {
       "jira": "Jira",
       "github": "GitHub",
+      "gitlab": "GitLab",
       "manual": "Ručně"
     },
     "status": {
