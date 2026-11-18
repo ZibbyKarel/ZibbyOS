@@ -1,0 +1,54 @@
+import type { GitlabClient } from "../git-host/gitlab-client";
+import { readGitlabPushableMr } from "./inbox-address-comments.gitlab";
+import { PrRefusedError } from "./inbox-rebase.service";
+import { type GitlabLink, readGitlabMr } from "./inbox.gitlab";
+
+/** The rebase poll: this many reads, `REBASE_POLL_MS` apart (the delay is injectable for tests). */
+export const REBASE_POLL_TRIES = 10;
+export const REBASE_POLL_MS = 2000;
+
+export type Delay = (ms: number) => Promise<void>;
+export const realDelay: Delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * `readPushablePr` for a GitLab MR: the pushable refs (`readGitlabPushableMr`, same guards) plus
+ * `mergeable` = `has_conflicts` read from the MR (null when GitLab does not say).
+ */
+export async function readGitlabRebaseRefs(client: GitlabClient, link: GitlabLink, iid: number) {
+  const refs = await readGitlabPushableMr(client, link, iid);
+  const mr = await readGitlabMr(client, link, iid);
+  const mergeable = mr.has_conflicts === undefined ? null : !mr.has_conflicts;
+  return { ...refs, mergeable };
+}
+
+/**
+ * GitLab's server-side rebase: `PUT merge_requests/:iid/rebase`, then poll the MR until
+ * `rebase_in_progress` is false. A `merge_error` is a failure carrying GitLab's message; so is a
+ * rebase still running after the bounded poll. A failed PUT or read propagates (`GitlabApiError`).
+ */
+export async function rebaseGitlabMr(
+  client: GitlabClient,
+  link: GitlabLink,
+  iid: number,
+  delay: Delay = realDelay,
+): Promise<void> {
+  const ref = `${link.repo}!${iid}`;
+  const mrPath = `${client.projectPath(link.repo)}/merge_requests/${iid}`;
+  await client.api(link.host, `${mrPath}/rebase`, { method: "PUT" });
+  for (let attempt = 1; attempt <= REBASE_POLL_TRIES; attempt++) {
+    const mr = await client.api<{ rebase_in_progress?: boolean; merge_error?: string | null }>(
+      link.host,
+      `${mrPath}?include_rebase_in_progress=true`,
+    );
+    if (!mr.rebase_in_progress) {
+      if (mr.merge_error) {
+        throw new PrRefusedError(`GitLab could not rebase ${ref}: ${mr.merge_error}`);
+      }
+      return;
+    }
+    if (attempt < REBASE_POLL_TRIES) await delay(REBASE_POLL_MS);
+  }
+  throw new PrRefusedError(
+    `GitLab is still rebasing ${ref} after ${(REBASE_POLL_TRIES * REBASE_POLL_MS) / 1000} s — check the merge request`,
+  );
+}

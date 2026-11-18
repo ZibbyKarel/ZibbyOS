@@ -90,6 +90,8 @@ export const inboxContract = c.router(
         // 422: no GitHub link, foreign repo, fork head, closed PR, or a head that is the
         // base/default branch.
         422: ErrorSchema,
+        // 502: GitLab refused or failed a merge request call (GitLab projects only).
+        502: ErrorSchema,
       },
       summary:
         "Update one PR's branch from its base (method merge by default, or rebase): GitHub's server-side update first ({ updated: true }); when it refuses (conflicts) a pr-rebase workflow task resolves them ({ taskId }) and ZIBBY pushes — right away when green, after a Tier-3 approval otherwise",
@@ -104,6 +106,8 @@ export const inboxContract = c.router(
         // 422: no GitHub link, foreign repo, fork head, closed PR, a base/default-branch head,
         // or a run already in flight.
         422: ErrorSchema,
+        // 502: GitLab refused or failed a merge request call (GitLab projects only).
+        502: ErrorSchema,
       },
       summary:
         "Start an agent that fixes one PR's unresolved review comments (pr-address-comments workflow); ZIBBY fast-forwards the PR head — right away when every comment was addressed with green checks, after a Tier-3 approval otherwise",
@@ -118,6 +122,8 @@ export const inboxContract = c.router(
         // 422: no GitHub link, foreign repo, fork head, closed PR, a base/default-branch head,
         // or a run already in flight.
         422: ErrorSchema,
+        // 502: GitLab refused or failed a merge request call (GitLab projects only).
+        502: ErrorSchema,
       },
       summary:
         "Start an agent that fixes one PR's failing CI checks (pr-fix-ci workflow); ZIBBY fast-forwards the PR head — right away on the operator's own PR after a full fix, after a Tier-3 approval otherwise",

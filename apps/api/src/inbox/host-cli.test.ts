@@ -29,5 +29,6 @@ describe("hostCli", () => {
     expect(cli.prDiff(7)).toBe("glab mr diff 7 -R gl.example.com/g/sub/app");
     expect(cli.prCheckout(7)).toBe("glab mr checkout 7 -R gl.example.com/g/sub/app");
     expect(cli.checks(7)).toBe("glab ci status -R gl.example.com/g/sub/app");
+    expect(cli.checks(7, "feat")).toBe("glab ci status --branch feat -R gl.example.com/g/sub/app");
   });
 });

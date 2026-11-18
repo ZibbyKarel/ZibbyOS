@@ -689,4 +689,54 @@ describe("PrAutomationService — autoFixCi (Automatická oprava CI mých PRs)",
     expect(await make().tick()).toEqual({ started: 0 });
     expect(ciTriage.start).not.toHaveBeenCalled();
   });
+
+  describe("GitLab merge requests go through the same decisions", () => {
+    const glMine = (over: Partial<InboxPr> = {}) =>
+      redMine({
+        source: "gitlab",
+        repo: "grp/sub/app",
+        url: "https://gl.example.com/grp/sub/app/-/merge_requests/7",
+        ...over,
+      });
+    const glTriageTask = (state: "triaged", verdict: "flaky" | "code"): ScheduledTask =>
+      triageTask(state, {
+        repo: "grp/sub/app",
+        url: "https://gl.example.com/grp/sub/app/-/merge_requests/7",
+        verdict,
+      });
+
+    it("triages my settled red MR with its nested repo path", async () => {
+      prs = [glMine()];
+      expect(await make().tick()).toEqual({ started: 1 });
+      expect(ciTriage.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repo: "grp/sub/app",
+          number: 7,
+          headSha: A,
+          failingChecks: ["test"],
+          ignoredChecks: ["Review approved"],
+        }),
+      );
+    });
+
+    it("flaky verdict → rerun, code verdict → auto fix-ci", async () => {
+      prs = [glMine()];
+      tasks = [glTriageTask("triaged", "flaky")];
+      expect(await make().tick()).toEqual({ started: 1 });
+      expect(ciTriage.rerun).toHaveBeenCalledWith("t_ci_triaged");
+
+      tasks = [glTriageTask("triaged", "code")];
+      expect(await make().tick()).toEqual({ started: 1 });
+      expect(fixCi.start).toHaveBeenCalledWith(
+        expect.objectContaining({ repo: "grp/sub/app", number: 7 }),
+        { auto: true, triageTaskId: "t_ci_triaged" },
+      );
+    });
+
+    it("leaves a GitLab MR of someone else alone, like a GitHub PR", async () => {
+      prs = [glMine({ bucket: "to-review", ciSettled: true })];
+      expect(await make().tick()).toEqual({ started: 0 });
+      expect(ciTriage.start).not.toHaveBeenCalled();
+    });
+  });
 });

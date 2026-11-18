@@ -548,6 +548,12 @@ unknown project; 422 no GitHub link / repo not the project's / fork head / close
 the base or default branch / a fix-ci run of the same PR already `running` or `awaiting-approval`
 (latest such task, not dead). Same PR guards as rebase (`readPushablePr`, `PrRefusedError`).
 
+**GitLab project:** `start` reads the MR with `readGitlabPushableMr`; the brief says "GitLab merge request",
+lists the pipeline's jobs with `glab ci status --branch <head>`, reads a failed job with
+`glab ci trace <job-id>`, protects `.gitlab-ci.yml` / `.gitlab/` instead of `.github/`, and forbids any
+`glab` write (`glab mr note|approve|merge|update|close|create`, `glab ci retry|run|cancel`, mutating
+`glab api`). The CI triage brief follows the same wording.
+
 `InboxFixCiService.start` (`apps/api/src/inbox/inbox-fix-ci.service.ts`) creates a task with the
 explicit `pr-fix-ci` workflow target (`.zibby/data/workflows/pr-fix-ci.workflow.md`, agent
 `fullstack-developer`) and stamps `prFixCi { repo, number, url, head, base, headSha, ownPr,
@@ -588,7 +594,10 @@ autopilotAt? }`. It refuses (`PrRefusedError`) when the head moved off the `head
    whose first non-empty line is `Triage: flaky|infra|code|unclear` (`parseCiTriageVerdict`).
    `TaskOutputService.parkPrCiTriage` parses it: `triaged` + `verdict` + `report`, or `failed` ("no
    verdict"). A stopped or failed run also ends `failed`, never stuck `running`.
-2. **flaky / infra -> rerun.** `rerun(taskId)` (from `triaged` only) re-runs the failed jobs now when
+2. **flaky / infra -> rerun.** (GitLab: the rerun lists `GET merge_requests/:iid/pipelines`, takes the newest
+   pipeline of the triaged head sha, and `POST pipelines/:id/retry` when it is `failed` / `canceled`; the
+   approval action is `gitlab.pipeline.retry`. No such pipeline, nothing to retry, or a rejected call ->
+   `failed` with a note naming GitLab / glab.) `rerun(taskId)` (from `triaged` only) re-runs the failed jobs now when
    Autopilot is on, otherwise raises a `pr-ci-rerun` approval (`github.actions.rerun`, risk low,
    `docs/api/approvals.md`) and the state is `awaiting-approval`. A rerun lists
    `GET /repos/{repo}/actions/runs?head_sha=<headSha>` and POSTs `.../rerun-failed-jobs` for every
@@ -625,6 +634,18 @@ phantom conflicts. `start` then skips GitHub's update, forces the rebase brief
 (`git rebase --onto origin/<base> <boundary>`, squash counted from `<boundary>`) and stores
 `prRebase.stackBoundary` / `stackParent`; `pushRebased` gets `dropBelow: stackBoundary` so the
 commit-preservation check compares `<boundary>..<clicked sha>`. Any API failure means no boundary.
+
+**GitLab project** (`inbox-rebase.gitlab.ts`): the refs come from `readGitlabPushableMr` (open, same
+source and target project, plain refs, source not the target or default branch; a fork MR is refused)
+plus `has_conflicts` for `conflictAtStart`. GitLab has no "merge the base into the branch" call, so
+only `method: "rebase"` on an MR without conflicts is done server-side: `PUT merge_requests/:iid/rebase`,
+then `GET merge_requests/:iid?include_rebase_in_progress=true` until `rebase_in_progress` is false
+(10 reads, 2 s apart) → 201 `{ updated: true }`, no task. A `merge_error` fails the call with GitLab's
+message, a rebase still running after the last read fails the call (422, `PrRefusedError`), and a failed
+PUT or read propagates as a `GitlabApiError` (404 → 404, 401/403 → 422, else 502) — never a silent
+fallback. `method: "merge"` (the default) or a conflicted MR starts the `pr-rebase` workflow with the
+same git-based brief, written with `glab` (`host-cli.ts`) and forbidding every `glab` write. There is no
+stacked-MR boundary detection on GitLab yet.
 
 todo-11. Body `{ projectId, repo, number, title? }` (strict) → 201 `{ taskId }`; 404 unknown
 project; 422 no GitHub link / repo not the project's / fork head / closed PR / head is the

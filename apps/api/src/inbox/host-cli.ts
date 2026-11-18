@@ -3,6 +3,10 @@ export type HostCliLink =
   | { kind: "github"; repo: string }
   | { kind: "gitlab"; host: string; repo: string };
 
+/** The GitLab write surface every GitLab prompt forbids (the `gh` writes are named per prompt). */
+export const glabWrites =
+  "any `glab` write: `glab mr note|approve|merge|update|close|create`, `glab ci retry|run|cancel`, mutating `glab api`";
+
 export interface HostCli {
   /** "GitHub" / "GitLab". */
   hostName: string;
@@ -20,8 +24,8 @@ export interface HostCli {
   prCheckout(n: number): string;
   /** Prints the PR head commit sha. */
   headSha(n: number): string;
-  /** Lists the PR's CI state (GitLab: for the checked-out MR branch). */
-  checks(n: number): string;
+  /** Lists the PR's CI state (GitLab: the pipeline of `branch`, else of the checked-out branch). */
+  checks(n: number, branch?: string): string;
   /** Prints a failed CI job's log. */
   failedLog: string;
 }
@@ -58,7 +62,7 @@ export function hostCli(link: HostCliLink): HostCli {
     prDiff: (n) => `glab mr diff ${n} ${r}`,
     prCheckout: (n) => `glab mr checkout ${n} ${r}`,
     headSha: (n) => `glab mr view ${n} ${r} --output json --jq .sha`,
-    checks: () => `glab ci status ${r}`,
+    checks: (_n, branch) => `glab ci status${branch ? ` --branch ${branch}` : ""} ${r}`,
     failedLog: `glab ci trace <job-id> ${r}`,
   };
 }
