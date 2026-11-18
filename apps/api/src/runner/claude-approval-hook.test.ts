@@ -1740,4 +1740,75 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
     expect(act("glab mr view 5 | cat")).toBeNull();
     expect(act("glab ci retry 9; glab mr merge 5")).toBe("pr.merge");
   });
+
+  it.each([
+    // GitLab auto-merge push options merge the MR on their own
+    ["git push -o merge_request.merge_when_pipeline_succeeds origin zibby/x", "pr.merge"],
+    ["git push -o merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -o merge_request.auto_merge=true origin zibby/x", "pr.merge"],
+    ["git push --push-option merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push --push-option=merge_request.merge_when_pipeline_succeeds origin x", "pr.merge"],
+    ["git push -omerge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git push -f -o merge_request.auto_merge origin zibby/x", "pr.merge"],
+    ["git -c push.pushOption=merge_request.auto_merge push origin zibby/x", "pr.merge"],
+    ["git -c PUSH.PUSHOPTION=merge_request.merge_when_pipeline_succeeds push", "pr.merge"],
+    ["git --config-env=push.pushOption=OPT push origin zibby/x", "pr.merge"],
+    // `=false` switches it off: still a push option → plain push, branch dropped
+    ["git push -o merge_request.auto_merge=false origin zibby/x", "git.push"],
+    ["git push -o ci.skip origin zibby/x", "git.push"],
+    ["git push --force -o ci.skip origin zibby/x", "git.force_push"],
+    ["git -c push.pushOption=ci.skip push origin zibby/x", "git.push"],
+    // persisting a push option for every later push
+    ["git config push.pushOption merge_request.auto_merge", "gh.api_write"],
+    ["git config --global push.pushoption ci.skip", "gh.api_write"],
+    ["git config --local --add push.pushOption x", "gh.api_write"],
+    ["git config set push.pushoption x", "gh.api_write"],
+    ["git -C repo config PUSH.pushOption x", "gh.api_write"],
+    // credential-printing glab reads
+    ["glab auth status --show-token", "gh.api_write"],
+    ["glab auth status -t", "gh.api_write"],
+    ["glab auth status --hostname h -t", "gh.api_write"],
+    ["glab config get token", "gh.api_write"],
+    ["glab config get --host h token", "gh.api_write"],
+    ["glab config get gitlab_token", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it("drops branch/branches whenever a push option is present", () => {
+    for (const cmd of [
+      "git push -o ci.skip origin zibby/x",
+      "git push --push-option=ci.skip origin zibby/x",
+      "git -c push.pushOption=ci.skip push origin zibby/x",
+      "git push -o merge_request.auto_merge=false origin zibby/x",
+    ]) {
+      const c = classify(cmd);
+      expect(c?.branch, cmd).toBeUndefined();
+      expect(c?.branches, cmd).toBeUndefined();
+    }
+    expect(classify("git push origin zibby/x")).toMatchObject({
+      action: "git.push",
+      branch: "zibby/x",
+    });
+    expect(classify("git -c user.name=x push origin zibby/x")).toMatchObject({
+      action: "git.push",
+      branch: "zibby/x",
+    });
+  });
+
+  it("keeps reading a push option and non-push config ungated", () => {
+    for (const cmd of [
+      "git config --get push.pushOption",
+      "git config --get-all push.pushoption",
+      "git config get push.pushOption",
+      "git config --list",
+      "git config -l",
+      "git config user.name x",
+      "git -c push.pushOption=merge_request.auto_merge status",
+      "glab auth status",
+      "glab config get host",
+    ]) {
+      expect(act(cmd), cmd).toBeNull();
+    }
+  });
 });
