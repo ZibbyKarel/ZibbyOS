@@ -395,30 +395,37 @@ function classifyGh(tokens) {
 //
 // Fails CLOSED: a glab subcommand that is not on the read-only lists below is a
 // write (`gh.api_write`), so an unknown or future command never passes ungated.
+// glab accepts value-taking flags before the group/verb (`glab -m x mr merge 1`), so
+// whenever a flag precedes the word taken as group or verb the parse is "ambiguous"
+// and fails UPWARD: every later word is checked and the highest-ranked match wins.
 
 /** glab flags that consume the next token (adds to the `gh api` set). */
 const GLAB_API_VALUE_FLAGS = new Set([...GH_API_VALUE_FLAGS, "--placeholder", "--output"]);
 const GLAB_API_FIELD_FLAGS = new Set([...GH_API_FIELD_FLAGS, "--form"]);
 
-/** Notes, discussions and approvals on an MR/issue → the comment/review class. */
+/** Notes and discussions on an MR/issue → the comment class (approvals carry a verdict: api_write). */
 const GLAB_COMMENT_PATH =
-  /(?:^|\/)(?:merge_requests|issues)\/[^/]+\/(?:notes(?:\/[^/]+)?|discussions(?:\/[^/]+(?:\/notes(?:\/[^/]+)?)?)?|approve|unapprove)$/;
+  /(?:^|\/)(?:merge_requests|issues)\/[^/]+\/(?:notes(?:\/[^/]+)?|discussions(?:\/[^/]+(?:\/notes(?:\/[^/]+)?)?)?)$/;
 const GLAB_MERGE_PATH = /(?:^|\/)merge_requests\/[^/]+\/merge$/;
 
-/** Classify a `glab api <path> …` segment: a write method or an implicit-POST field flag. */
-function classifyGlabApi(tokens, startIdx) {
+/**
+ * Classify a `glab api <path> …` call. `tokens` is the whole segment and `apiIdx` the
+ * index of the `api` token: method/field flags count wherever they sit (also before
+ * `api`), the path is the first non-flag token after it.
+ */
+function classifyGlabApi(tokens, apiIdx) {
   let method;
   let hasFieldFlag = false;
   let pathArg;
-  for (let j = startIdx; j < tokens.length; j++) {
+  for (let j = 1; j < tokens.length; j++) {
     const t = tokens[j];
-    if (t === undefined) continue;
-    const eq = /^(?:-X|--method=)(.+)$/i.exec(t);
+    if (t === undefined || j === apiIdx) continue;
+    const eq = /^(?:-X|--method=)(.+)$/.exec(t);
     if (eq) {
       method = eq[1].replace(/^=/, "");
       continue;
     }
-    if (/^(-X|--method)$/i.test(t)) {
+    if (t === "-X" || t === "--method") {
       method = tokens[j + 1];
       j += 1;
       continue;
@@ -437,20 +444,15 @@ function classifyGlabApi(tokens, startIdx) {
       continue;
     }
     if (t.startsWith("-")) continue;
-    if (pathArg === undefined) pathArg = t;
+    if (j > apiIdx && pathArg === undefined) pathArg = t;
   }
   const path = (pathArg ?? "").replace(/\?.*$/, "").replace(/\/$/, "");
-  if (path === "graphql") {
-    // Every graphql call is a POST; only a mutation (or a body we can't read) writes.
-    const opaque = tokens.some(
-      (t) => t === "--input" || t?.startsWith("--input=") || /(?:^|=)@/.test(t ?? ""),
-    );
-    return opaque || tokens.some((t) => /\bmutation\b/i.test(t ?? ""))
-      ? { action: "gh.api_write" }
-      : null;
-  }
   const effectiveMethod = method ?? (hasFieldFlag ? "POST" : "GET");
-  if (/^(GET|HEAD|OPTIONS)$/i.test(effectiveMethod)) return null;
+  const readMethod = /^(GET|HEAD|OPTIONS)$/i.test(effectiveMethod);
+  // graphql is always a POST; a query/mutation lives in a field (or a body we can't
+  // read, e.g. multi-line or `$(cat …)`), so any field flag is a write, like gh.
+  if (path === "graphql") return hasFieldFlag || !readMethod ? { action: "gh.api_write" } : null;
+  if (readMethod) return null;
   if (GLAB_MERGE_PATH.test(path)) return { action: "pr.merge" };
   if (GLAB_COMMENT_PATH.test(path)) return { action: "gh.pr_comment" };
   return { action: "gh.api_write" };
@@ -460,6 +462,7 @@ function classifyGlabApi(tokens, startIdx) {
 const GLAB_READ_VERBS = {
   mr: ["view", "show", "list", "ls", "diff", "checkout", "approvers", "issues"],
   issue: ["view", "show", "list", "ls"],
+  // `ci view` is interactive (can retry/cancel jobs) but needs a TTY, which Bash has none.
   ci: ["status", "view", "trace", "list", "ls", "get", "lint", "config", "artifact"],
   release: ["list", "view", "download"],
   repo: ["view", "clone", "list", "search", "contributors"],
@@ -478,46 +481,79 @@ const GLAB_GROUP = {
 /** Top-level commands with no verb that never touch GitLab state. */
 const GLAB_NO_VERB_READS = new Set(["version", "check-update", "whatsnew", "completion", "help"]);
 
+/** The action a group + verb maps to (or null: read / unknown — the caller decides). */
+function glabVerbAction(group, verb, tokens) {
+  if (group === "mr") {
+    if (/^(create|new|for|update)$/.test(verb)) {
+      // `--auto-merge` makes the MR merge itself once checks pass: a merge.
+      const auto = tokens.some((t) => t === "--auto-merge" || /^--auto-merge=(?!false$)/i.test(t));
+      if (auto) return { action: "pr.merge" };
+      if (verb !== "update") return { action: "pr.open" };
+    }
+    if (verb === "merge" || verb === "accept") return { action: "pr.merge" };
+    if (/^(note|comment)$/.test(verb)) return { action: "gh.pr_comment" };
+    // approve/revoke/unapprove carry a verdict, like a GitHub review → gh.api_write
+  }
+  if (group === "issue" && /^(note|comment)$/.test(verb)) return { action: "gh.pr_comment" };
+  return GLAB_READ_VERBS[group]?.includes(verb) ? null : { action: "gh.api_write" };
+}
+
 /**
- * Classify a `glab …` segment like `classifyGh`: global `-R/--repo` is skipped, `api`
- * goes through {@link classifyGlabApi}, MR/issue verbs map onto `pr.open`/`pr.merge`/
- * `gh.pr_comment`, and every command group's non-read verb (or any unknown command)
- * is `gh.api_write`. Help (`-h`/`--help` before any other flag, so no flag can swallow
- * it as its value) and the commands in {@link GLAB_NO_VERB_READS} stay ungated.
+ * Classify a `glab …` segment like `classifyGh`: `api` goes through {@link classifyGlabApi},
+ * MR/issue verbs map onto `pr.open`/`pr.merge`/`gh.pr_comment`, and every command group's
+ * non-read verb (or any unknown command) is `gh.api_write`. Help (`-h`/`--help` before any
+ * other flag, so no flag can swallow it as its value) and {@link GLAB_NO_VERB_READS} stay
+ * ungated. `-R/--repo <v>`, `--repo=v` and `-Rv` are known and skipped.
  */
 function classifyGlab(tokens) {
   if (tokens[0] !== "glab") return null;
-  const words = []; // non-flag tokens after `glab`, `-R/--repo <v>` removed
-  let sawFlag = false;
+  const words = []; // non-flag tokens after `glab`
+  const wordIdx = []; // their index in `tokens`
+  let flagAt; // number of words seen when the first unknown flag appeared
   for (let i = 1; i < tokens.length; i++) {
     const t = tokens[i];
     if (t === undefined) continue;
     if (t === "-R" || t === "--repo") i += 1;
+    else if (/^(--repo=|-R.)/.test(t)) continue;
     else if (t.startsWith("-")) {
-      if ((t === "-h" || t === "--help") && !sawFlag) return null;
-      sawFlag = true;
-    } else words.push(t);
+      if ((t === "-h" || t === "--help") && flagAt === undefined) return null;
+      flagAt ??= words.length;
+    } else {
+      words.push(t);
+      wordIdx.push(i);
+    }
   }
+  if (words.length === 0) return null;
   const top = words[0];
-  if (top === undefined || GLAB_NO_VERB_READS.has(top)) return null;
-  if (top === "api") {
-    // Re-walk the raw tokens: api flags (-X, -f, …) and its path must be seen in order.
-    let idx = 1;
-    while (tokens[idx] === "-R" || tokens[idx] === "--repo") idx += 2;
-    return tokens[idx] === "api" ? classifyGlabApi(tokens, idx + 1) : { action: "gh.api_write" };
+  // A flag before the group, or between group and verb (when the group has verbs), may
+  // have swallowed the real group/verb as its value → fail upward over every word.
+  const ambiguous =
+    flagAt !== undefined &&
+    (flagAt === 0 || (flagAt === 1 && top !== "api" && !GLAB_NO_VERB_READS.has(top)));
+  if (!ambiguous) {
+    if (GLAB_NO_VERB_READS.has(top)) return null;
+    if (top === "api") return classifyGlabApi(tokens, wordIdx[0]);
+    const group = GLAB_GROUP[top] ?? top;
+    const verb = words[1];
+    if (verb === undefined) return GLAB_READ_VERBS[group] ? null : { action: "gh.api_write" };
+    return glabVerbAction(group, verb, tokens);
   }
-  const group = GLAB_GROUP[top] ?? top;
-  const verb = words[1];
-  if (verb === undefined)
-    return GLAB_READ_VERBS[group] && !sawFlag ? null : { action: "gh.api_write" };
-  if (group === "mr") {
-    if (verb === "create" || verb === "new" || verb === "for") return { action: "pr.open" };
-    if (verb === "merge" || verb === "accept") return { action: "pr.merge" };
-    if (/^(note|comment|approve|revoke|unapprove)$/.test(verb)) return { action: "gh.pr_comment" };
+  let best = { action: "gh.api_write" };
+  const consider = (c) => {
+    if (c && ACTION_RANK[c.action] > ACTION_RANK[best.action]) best = c;
+  };
+  for (const w of words) {
+    consider(glabVerbAction("mr", w, tokens));
+    consider(glabVerbAction("issue", w, tokens));
   }
-  if (group === "issue" && /^(note|comment)$/.test(verb)) return { action: "gh.pr_comment" };
-  if (GLAB_READ_VERBS[group]?.includes(verb)) return null;
-  return { action: "gh.api_write" };
+  const apiPos = words.indexOf("api");
+  if (apiPos !== -1) {
+    const api = classifyGlabApi(tokens, wordIdx[apiPos]);
+    consider(api);
+    // A clean `api <path>` GET (api + one word) with no stronger match is a read.
+    if (api === null && words.length - apiPos <= 2 && best.action === "gh.api_write") return null;
+  }
+  return best;
 }
 
 /**

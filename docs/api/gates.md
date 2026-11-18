@@ -49,11 +49,14 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
 - GitLab (`glab`): the hook classifies `glab` like `gh`, onto the same actions, so every
   rule above applies unchanged. Global `-R/--repo` is skipped. `glab mr create|new|for` →
   `pr.open`; `glab mr merge|accept` and a write on `…/merge_requests/<iid>/merge` →
-  `pr.merge`; `glab mr note|comment|approve|revoke|unapprove`, `glab issue note|comment`
-  and a write on `…/notes`, `…/discussions…`, `…/approve`, `…/unapprove` →
-  `gh.pr_comment`. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
+  `pr.merge`; `glab mr note|comment`, `glab issue note|comment` and a write on `…/notes`,
+  `…/discussions…` → `gh.pr_comment`; approvals (`glab mr approve|revoke|unapprove`, a write
+  on `…/approve|unapprove`) carry a verdict like a GitHub review and stay `gh.api_write`.
+  `glab mr create|update --auto-merge` (other than `=false`) → `pr.merge`. A value-taking
+  flag before the group/verb (`glab -m x mr merge 1`) makes the parse ambiguous: every later
+  word is checked and the highest-ranked match wins, never a read. Any other `glab api` write (`-X/--method` other than GET/HEAD, or a
   field flag `-f/-F/--field/--raw-field/--form/--input` implying POST) → `gh.api_write`;
-  `glab api graphql` is a write only with a `mutation` (or a body the hook can't read).
+  `glab api graphql` is a write with any field flag (like gh), a bare one is a read.
   Every other glab verb is **fail-closed**: only the read-only verbs (`mr view|list|diff|
 checkout`, `issue view|list`, `ci status|view|trace|list|get|lint|config|artifact`,
   `release list|view|download`, `repo view|clone|list|search`, `variable get|list|export`,

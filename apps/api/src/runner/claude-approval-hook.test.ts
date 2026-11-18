@@ -1571,9 +1571,9 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
     ["glab merge-request merge 5", "pr.merge"],
     ["glab mr note -m hi 5", "gh.pr_comment"],
     ["glab mr comment 5 -m hi", "gh.pr_comment"],
-    ["glab mr approve 5", "gh.pr_comment"],
-    ["glab mr revoke 5", "gh.pr_comment"],
-    ["glab mr unapprove 5", "gh.pr_comment"],
+    ["glab mr approve 5", "gh.api_write"],
+    ["glab mr revoke 5", "gh.api_write"],
+    ["glab mr unapprove 5", "gh.api_write"],
     ["glab issue note 3 -m hi", "gh.pr_comment"],
     ["glab issue comment 3 -m hi", "gh.pr_comment"],
     ["glab mr update 5 --title x", "gh.api_write"],
@@ -1614,8 +1614,8 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
       "glab api projects/1/merge_requests/5/discussions/abc -X PUT -f resolved=true",
       "gh.pr_comment",
     ],
-    ["glab api projects/1/merge_requests/5/approve -X POST", "gh.pr_comment"],
-    ["glab api projects/1/merge_requests/5/unapprove -X POST", "gh.pr_comment"],
+    ["glab api projects/1/merge_requests/5/approve -X POST", "gh.api_write"],
+    ["glab api projects/1/merge_requests/5/unapprove -X POST", "gh.api_write"],
     ["glab api projects/1/issues/3/notes -X POST --input b.json", "gh.pr_comment"],
     ["glab api projects/1/merge_requests -X POST -f title=x", "gh.api_write"],
     ["glab api projects/1/merge_requests/5 -X PUT -f state_event=close", "gh.api_write"],
@@ -1628,8 +1628,50 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
     ["glab api projects/1/issues --input b.json", "gh.api_write"],
     ["glab api projects/1/issues -X FOO", "gh.api_write"],
     ["glab api graphql -f query='mutation { x }'", "gh.api_write"],
+    ["glab api graphql -f query='query {\nviewer { id } }'", "gh.api_write"],
+    ['glab api graphql -f query="$(cat q.graphql)"', "gh.api_write"],
+    ["glab api graphql -f query=$Q", "gh.api_write"],
+    ["glab api graphql -F query=@q.graphql --hostname h", "gh.api_write"],
+    ["glab api graphql -X POST", "gh.api_write"],
     ["glab api graphql -f query=@q.graphql", "gh.api_write"],
     ["glab api graphql --input q.json", "gh.api_write"],
+  ])("%s → %s", (cmd, action) => {
+    expect(act(cmd)).toBe(action);
+  });
+
+  it.each([
+    // a value-taking flag before the group or verb must not hide the real command
+    ["glab -m version mr merge 1 -y", "pr.merge"],
+    ["glab mr -m view merge 1 -y", "pr.merge"],
+    ["glab mr -m list accept 1", "pr.merge"],
+    ["glab -m help mr merge 1", "pr.merge"],
+    ["glab -m completion mr merge 1", "pr.merge"],
+    ["glab -m x mr merge 1", "pr.merge"],
+    ["glab mr -m x merge 1", "pr.merge"],
+    ["glab mr --squash merge 1", "pr.merge"],
+    ["glab mr --some-bool-flag merge 1", "pr.merge"],
+    ["glab -m x mr create -t y", "gh.api_write"], // ambiguous parse: ranks api_write over open,
+    ["glab -m x mr note 1", "gh.api_write"],
+    ["glab mr merge 1 -- --help", "pr.merge"],
+    ["glab mr merge -m --help 1", "pr.merge"],
+    ["glab -m x frobnicate", "gh.api_write"],
+    // `api` behind global flags: the method/field flags still count
+    ["glab --hostname h api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -X PUT api projects/1/merge_requests/5/merge", "pr.merge"],
+    ["glab --repo=g/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -Rg/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -R g/r api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab --hostname version api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab -m version api projects/1/merge_requests/5/merge -X PUT", "pr.merge"],
+    ["glab --hostname h api projects/1/issues -f title=x", "gh.api_write"],
+    // --auto-merge turns a create/update into a merge
+    ["glab mr create -t x --auto-merge", "pr.merge"],
+    ["glab mr create -t x --auto-merge=true", "pr.merge"],
+    ["glab mr new --auto-merge", "pr.merge"],
+    ["glab mr for 3 --auto-merge", "pr.merge"],
+    ["glab mr update 5 --auto-merge", "pr.merge"],
+    ["glab mr create -t x --auto-merge=false", "pr.open"],
+    ["glab mr update 5 --auto-merge=false", "gh.api_write"],
   ])("%s → %s", (cmd, action) => {
     expect(act(cmd)).toBe(action);
   });
@@ -1659,7 +1701,11 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
       "glab api projects/1/merge_requests/5",
       "glab api projects/1/merge_requests/5 --paginate --hostname h",
       "glab api -X GET projects/1/issues -F state=opened",
-      "glab api graphql -f query='query { currentUser { username } }'",
+      "glab api graphql",
+      "glab --hostname h api projects/1/merge_requests/5",
+      "glab mr",
+      "glab mr merge 1 --help",
+      "glab -h mr merge 1",
       "glab --help",
       "glab mr --help",
       "glab mr merge --help",
@@ -1675,7 +1721,7 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
     expect(act("glab mr frobnicate 5")).toBe("gh.api_write");
     expect(act("glab label list")).toBe("gh.api_write"); // not on the read-only list
     expect(act("glab mr note -m --help 5")).toBe("gh.pr_comment");
-    expect(act("glab mr merge --squash --help")).toBe("pr.merge");
+    expect(act("glab mr merge --squash --help")).toBe("pr.merge"); // a flag precedes --help
   });
 
   it("follows the gh precedence rules across chained segments", () => {
