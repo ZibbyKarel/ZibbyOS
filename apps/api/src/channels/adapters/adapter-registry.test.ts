@@ -3,6 +3,7 @@ import { AdapterRegistry } from "./adapter-registry";
 import { CalendarChannelAdapter } from "./calendar.adapter";
 import { EmailChannelAdapter } from "./email.adapter";
 import { GitHubChannelAdapter } from "./github.adapter";
+import { GitlabChannelAdapter } from "./gitlab.adapter";
 import { JiraChannelAdapter } from "./jira.adapter";
 import { SentryChannelAdapter } from "./sentry.adapter";
 import { SlackChannelAdapter } from "./slack.adapter";
@@ -26,6 +27,7 @@ describe("AdapterRegistry.resolve", () => {
     expect(registry.resolve("email")).toBeInstanceOf(EmailChannelAdapter);
     expect(registry.resolve("jira")).toBeInstanceOf(JiraChannelAdapter);
     expect(registry.resolve("github")).toBeInstanceOf(GitHubChannelAdapter);
+    expect(registry.resolve("gitlab")).toBeInstanceOf(GitlabChannelAdapter);
     expect(registry.resolve("calendar")).toBeInstanceOf(CalendarChannelAdapter);
   });
 

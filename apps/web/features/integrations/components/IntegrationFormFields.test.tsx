@@ -161,3 +161,67 @@ describe("IntegrationFormFields — github kind", () => {
     expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
   });
 });
+
+describe("IntegrationFormFields — gitlab kind", () => {
+  async function pickGitlab(props: { projectId?: string; companyId?: string }, onCreate = vi.fn()) {
+    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onCreate} {...props} />);
+    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
+    await userEvent.click(screen.getByText("GitLab"));
+    return onCreate;
+  }
+
+  it("shows host/repo/username, no credentials field, and a glab login note", async () => {
+    await pickGitlab({ projectId: "acme-app" });
+    expect(screen.getByTestId(IntegrationFormTestId.GitlabHost)).toBeInTheDocument();
+    expect(screen.getByTestId(IntegrationFormTestId.GitlabRepo)).toBeInTheDocument();
+    expect(screen.getByTestId(IntegrationFormTestId.GitlabUsername)).toBeInTheDocument();
+    expect(screen.getByTestId(IntegrationFormTestId.GitlabLogin)).toBeInTheDocument();
+    expect(screen.queryByTestId(IntegrationFormTestId.Secret)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(IntegrationFormTestId.GithubRepo)).not.toBeInTheDocument();
+  });
+
+  it("buildCreate() yields a valid GitLabConfig (nested repo, dotted username) and no secret", async () => {
+    const onCreate = await pickGitlab({ projectId: "acme-app" });
+    await userEvent.type(screen.getByTestId("integration-id"), "acme-gitlab");
+    await userEvent.type(
+      screen.getByTestId(IntegrationFormTestId.GitlabHost),
+      "gitlab.example.com",
+    );
+    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabRepo), "acme/platform/app");
+    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
+    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
+
+    const draft = onCreate.mock.calls[0]![0];
+    expect(draft.create.config).toEqual({
+      kind: "gitlab",
+      host: "gitlab.example.com",
+      repo: "acme/platform/app",
+      streams: ["issues", "pulls"],
+      username: "karel.zibar",
+    });
+    expect(draft.secret).toBeUndefined();
+  });
+
+  it("a project-owned integration needs a repo; a company-owned one does not", async () => {
+    await pickGitlab({ projectId: "acme-app" });
+    await userEvent.type(screen.getByTestId("integration-id"), "acme-gitlab");
+    await userEvent.type(
+      screen.getByTestId(IntegrationFormTestId.GitlabHost),
+      "gitlab.example.com",
+    );
+    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
+    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
+  });
+
+  it("company-owned: repo is optional and omitted from the config", async () => {
+    const onCreate = await pickGitlab({ companyId: "acme" });
+    await userEvent.type(screen.getByTestId("integration-id"), "co-gitlab");
+    await userEvent.type(
+      screen.getByTestId(IntegrationFormTestId.GitlabHost),
+      "gitlab.example.com",
+    );
+    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
+    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
+    expect(onCreate.mock.calls[0]![0].create.config).not.toHaveProperty("repo");
+  });
+});

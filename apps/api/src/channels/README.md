@@ -32,6 +32,10 @@ still costs a triage call.
 **How close to that ceiling an adapter sits is decided by its unit,** and the
 adapters deliberately differ:
 
+- **`gitlab.adapter.ts` — assigned/authored + reviewing + mentions** (GitLab's unit is an
+  issue or MR, like GitHub's; the operator's `mentioned`/`directly_addressed` todos stand in
+  for the mentions search; MRs also include "I am a reviewer"). Never wider than the
+  operator's username in this repo.
 - **`github.adapter.ts` — mentions + assignee** (`q=repo:{repo} is:open mentions:{username}`
   and `assignee:{username}`; the latter was dropped in phase 126a and restored by the
   operator), plus PRs ZIBBY itself opened. Opt-in `includeTeams` adds one leg per team —

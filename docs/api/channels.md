@@ -9,7 +9,7 @@ test fixtures gained the now-required `username`. This doc remains accurate. -->
 ## What channels are
 
 Channels are inbound communication channels ZIBBY watches on a heartbeat.
-Supported kinds: email (IMAP), Slack, Jira, GitHub, Google Calendar.
+Supported kinds: email (IMAP), Slack, Jira, GitHub, GitLab, Google Calendar.
 
 Inbound content is always **data** — never commands. It can never raise
 privileges or bypass the gate.
@@ -234,6 +234,28 @@ for storage itself.
 - `url` (Phase 127): `https://github.com/{repo}/{issues|pull}/{n}` — built from
   data already in hand, no extra request.
 
+### GitLab adapter
+
+`gitlab.adapter.ts`, over the `glab` CLI via `GitlabClient` (no stored credential). Same
+contract as the GitHub adapter: a first poll seeds the cursor to now and ingests nothing;
+later polls fetch what changed (`updated_after`), the cursor advances to the newest
+`updated_at`. A company-owned integration without `repo` is polled once per distinct repo of
+its inheriting projects (`ResolvedProjectService.gitlabRepoTargets`, the sibling of
+`githubRepoTargets`: the project's `gitRemote` path, only when its host equals `config.host`),
+each with its own cursor. Scope is "mine and mentions" for `config.username`:
+
+- `issues` stream: open issues assigned to or authored by the user.
+- `pulls` stream: open merge requests where the user is author, assignee or reviewer.
+- mentions: the user's pending todos with action `mentioned` / `directly_addressed` whose
+  project is this repo, each routed to the issues/pulls stream by its target type.
+
+Ids are `gl-<repo with / as ->-issue|mr-<iid>` (issue and MR iids are separate sequences,
+so the id carries the split); `externalRef` is `{ channel: <repo path>, messageId: <iid> }`;
+`url` is the GitLab web URL. A failing todos read (other than HTTP 429) degrades to a `notes`
+entry and issues/MRs still ingest; any other failure throws to the watcher's retry/backoff
+(the cursor does not advance). A reply posts a note on the issue or MR
+(`POST projects/:id/{issues|merge_requests}/:iid/notes`).
+
 ### Google Calendar adapter
 
 - Auth: **service account** — an SA JSON key signs a short-lived RS256 JWT,
@@ -282,12 +304,13 @@ one-shot, idempotent `OnModuleInit` sweep (mirrors `OwnerBackfillService`'s patt
 per-entity try/catch, atomic writes via each store's own `update`, never fatal to boot)
 that closes the gap for the two kinds where the URL is cheaply re-derivable after the fact:
 
-1. **Items**: every `ChannelItem` missing `url` with `kind: "jira"` or `kind: "github"` gets
+1. **Items**: every `ChannelItem` missing `url` with `kind: "jira"`, `"github"` or `"gitlab"` gets
    one derived from data already on disk — `externalRef.messageId` (the issue key/number)
    plus the owning integration's non-secret `config` (`baseUrl` / `repo`) — no extra network
    call. GitHub always uses `/issues/<n>` (GitHub redirects to `/pull/<n>` when it's
    actually a PR), since the stored item doesn't retain the `isPr` distinction the adapter
-   had at ingest time.
+   had at ingest time. GitLab uses `/-/issues/<n>` or `/-/merge_requests/<n>`, told apart by
+   the adapter's `-issue-`/`-mr-` id suffix.
 2. **Approvals**: every still-`pending`, `kind: "channel"` approval missing `sourceUrl` is
    resolved back to its item via the `<integrationId>/<itemId>` `runId` convention (the
    same split `ChannelTriageFlowService.itemFromRef` uses) and, if that item now has a

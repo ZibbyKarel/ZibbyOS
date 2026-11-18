@@ -42,6 +42,12 @@ export enum IntegrationFormTestId {
   GithubStreamPulls = "integration-github-stream-pulls",
   GithubUsername = "integration-github-username",
   GithubIncludeTeams = "integration-github-include-teams",
+  GitlabHost = "integration-gitlab-host",
+  GitlabRepo = "integration-gitlab-repo",
+  GitlabStreamIssues = "integration-gitlab-stream-issues",
+  GitlabStreamPulls = "integration-gitlab-stream-pulls",
+  GitlabUsername = "integration-gitlab-username",
+  GitlabLogin = "integration-gitlab-login",
   CalendarId = "integration-calendar-id",
   CalendarLookahead = "integration-calendar-lookahead",
   SentryOrg = "integration-sentry-org",
@@ -103,6 +109,10 @@ export interface IntegrationFormState {
   setGithubUsername: (v: string) => void;
   githubIncludeTeams: boolean;
   setGithubIncludeTeams: (v: boolean) => void;
+  gitlabHost: string;
+  setGitlabHost: (v: string) => void;
+  gitlabUsername: string;
+  setGitlabUsername: (v: string) => void;
   calendarId: string;
   setCalendarId: (v: string) => void;
   lookaheadDays: string;
@@ -149,6 +159,7 @@ export function useIntegrationFormState(
   const emailCfg = integration?.config.kind === "email" ? integration.config : undefined;
   const jiraCfg = integration?.config.kind === "jira" ? integration.config : undefined;
   const githubCfg = integration?.config.kind === "github" ? integration.config : undefined;
+  const gitlabCfg = integration?.config.kind === "gitlab" ? integration.config : undefined;
   const calendarCfg = integration?.config.kind === "calendar" ? integration.config : undefined;
   const sentryCfg = integration?.config.kind === "sentry" ? integration.config : undefined;
 
@@ -163,13 +174,17 @@ export function useIntegrationFormState(
   const [jiraEmail, setJiraEmail] = useState(jiraCfg?.email ?? "");
   const [projectKey, setProjectKey] = useState(jiraCfg?.projectKey ?? "");
   const [jql, setJql] = useState(jiraCfg?.jql ?? "");
-  const [repo, setRepo] = useState(githubCfg?.repo ?? "");
+  const [repo, setRepo] = useState(githubCfg?.repo ?? gitlabCfg?.repo ?? "");
+  // The issues/pulls stream toggles and the repo field are shared by the github and gitlab forms.
+  const streamsCfg = githubCfg ?? gitlabCfg;
   const [streamIssues, setStreamIssues] = useState(
-    githubCfg ? githubCfg.streams.includes("issues") : true,
+    streamsCfg ? streamsCfg.streams.includes("issues") : true,
   );
   const [streamPulls, setStreamPulls] = useState(
-    githubCfg ? githubCfg.streams.includes("pulls") : true,
+    streamsCfg ? streamsCfg.streams.includes("pulls") : true,
   );
+  const [gitlabHost, setGitlabHost] = useState(gitlabCfg?.host ?? "");
+  const [gitlabUsername, setGitlabUsername] = useState(gitlabCfg?.username ?? "");
   const [githubUsername, setGithubUsername] = useState(githubCfg?.username ?? "");
   const [githubIncludeTeams, setGithubIncludeTeams] = useState(githubCfg?.includeTeams ?? false);
   const [calendarId, setCalendarId] = useState(calendarCfg?.calendarId ?? "");
@@ -186,8 +201,18 @@ export function useIntegrationFormState(
   const buildConfig = (): CreateIntegrationInput["config"] => {
     switch (kind) {
       case "gitlab":
-        // Placeholder (Task 2): the kind is hidden from the picker until its form lands.
-        throw new Error("gitlab form not implemented yet");
+        return {
+          kind: "gitlab",
+          host: gitlabHost.trim(),
+          ...(repo.trim() ? { repo: repo.trim() } : {}),
+          streams: [
+            ...(streamIssues ? (["issues"] as const) : []),
+            ...(streamPulls ? (["pulls"] as const) : []),
+            // The CI stream has no switch here (the CI monitor owns it): keep it on re-save.
+            ...(gitlabCfg?.streams.includes("ci") ? (["ci"] as const) : []),
+          ],
+          username: gitlabUsername.trim(),
+        };
       case "slack":
         return {
           kind: "slack",
@@ -248,7 +273,11 @@ export function useIntegrationFormState(
   const configReady = (): boolean => {
     switch (kind) {
       case "gitlab":
-        return false; // Placeholder (Task 2).
+        return (
+          /^[a-z0-9.-]+(:\d+)?$/i.test(gitlabHost.trim()) &&
+          (companyOwned && repo.trim() === "" ? true : /^[^/]+(\/[^/]+)+$/.test(repo.trim())) &&
+          gitlabUsername.trim().length > 0
+        );
       case "slack":
         return true;
       case "email":
@@ -315,6 +344,10 @@ export function useIntegrationFormState(
     setGithubUsername,
     githubIncludeTeams,
     setGithubIncludeTeams,
+    gitlabHost,
+    setGitlabHost,
+    gitlabUsername,
+    setGitlabUsername,
     calendarId,
     setCalendarId,
     lookaheadDays,
@@ -340,7 +373,8 @@ export function useIntegrationFormState(
       config: buildConfig(),
     }),
     buildPatch: () => ({ name: name.trim() || undefined, enabled, config: buildConfig() }),
-    newSecret: () => secret.trim() || undefined,
+    // GitLab stores no secret (the glab CLI holds the login), whatever the field last held.
+    newSecret: () => (kind === "gitlab" ? undefined : secret.trim() || undefined),
   };
 }
 
@@ -398,6 +432,7 @@ export function IntegrationFormFields({
             { value: "email", label: t("integrations.kindEmail") },
             { value: "jira", label: t("integrations.kindJira") },
             { value: "github", label: t("integrations.kindGithub") },
+            { value: "gitlab", label: t("integrations.kindGitlab") },
             { value: "calendar", label: t("integrations.kindCalendar") },
             { value: "sentry", label: t("integrations.kindSentry") },
           ]}
@@ -587,6 +622,58 @@ export function IntegrationFormFields({
         </>
       )}
 
+      {kind === "gitlab" && (
+        <>
+          <TextInputField
+            data-testid={IntegrationFormTestId.GitlabHost}
+            hint={t("integrations.gitlabHostHint")}
+            label={t("integrations.gitlabHost")}
+            onChange={(e) => form.setGitlabHost(e.target.value)}
+            placeholder="gitlab.example.com"
+            value={form.gitlabHost}
+          />
+          <TextInputField
+            data-testid={IntegrationFormTestId.GitlabRepo}
+            hint={
+              form.companyOwned
+                ? t("integrations.gitlabRepoCompanyHint")
+                : t("integrations.gitlabRepoHint")
+            }
+            label={
+              form.companyOwned
+                ? t("integrations.gitlabRepoOptional")
+                : t("integrations.gitlabRepo")
+            }
+            onChange={(e) => form.setRepo(e.target.value)}
+            placeholder="group/subgroup/name"
+            value={form.repo}
+          />
+          <ToggleField
+            checked={form.streamIssues}
+            data-testid={IntegrationFormTestId.GitlabStreamIssues}
+            label={t("integrations.gitlabStreamIssues")}
+            onChange={form.setStreamIssues}
+          />
+          <ToggleField
+            checked={form.streamPulls}
+            data-testid={IntegrationFormTestId.GitlabStreamPulls}
+            label={t("integrations.gitlabStreamPulls")}
+            onChange={form.setStreamPulls}
+          />
+          <TextInputField
+            data-testid={IntegrationFormTestId.GitlabUsername}
+            hint={t("integrations.gitlabUsernameHint")}
+            label={t("integrations.gitlabUsername")}
+            onChange={(e) => form.setGitlabUsername(e.target.value)}
+            placeholder="first.last"
+            value={form.gitlabUsername}
+          />
+          <Typography data-testid={IntegrationFormTestId.GitlabLogin} size="sm" type="note">
+            {t("integrations.gitlabLogin")}
+          </Typography>
+        </>
+      )}
+
       {kind === "sentry" && (
         <>
           <TextInputField
@@ -623,15 +710,17 @@ export function IntegrationFormFields({
         </>
       )}
 
-      <TextInputField
-        autoComplete="off"
-        data-testid={IntegrationFormTestId.Secret}
-        label={secretLabel}
-        onChange={(e) => form.setSecret(e.target.value)}
-        placeholder={secretPlaceholder}
-        type="password"
-        value={form.secret}
-      />
+      {kind !== "gitlab" && (
+        <TextInputField
+          autoComplete="off"
+          data-testid={IntegrationFormTestId.Secret}
+          label={secretLabel}
+          onChange={(e) => form.setSecret(e.target.value)}
+          placeholder={secretPlaceholder}
+          type="password"
+          value={form.secret}
+        />
+      )}
 
       <ToggleField
         checked={form.enabled}

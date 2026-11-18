@@ -8,6 +8,7 @@ import {
   type ProjectPerson,
   type Team,
   githubRepoFor,
+  gitlabRepoFor,
 } from "@zibby/contracts";
 import { CompaniesStorageService } from "../companies/companies.storage.service";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
@@ -125,6 +126,17 @@ export class ResolvedProjectService {
     const targets = new Map<string, string[]>();
     for (const project of await this.inheritingProjects(integration)) {
       const repo = githubRepoFor(integration, project);
+      if (!repo) continue;
+      targets.set(repo, [...(targets.get(repo) ?? []), project.id]);
+    }
+    return targets;
+  }
+
+  /** {@link githubRepoTargets} for a GitLab integration: repo path → inheriting project ids. */
+  async gitlabRepoTargets(integration: Integration): Promise<Map<string, string[]>> {
+    const targets = new Map<string, string[]>();
+    for (const project of await this.inheritingProjects(integration)) {
+      const repo = gitlabRepoFor(integration, project);
       if (!repo) continue;
       targets.set(repo, [...(targets.get(repo) ?? []), project.id]);
     }

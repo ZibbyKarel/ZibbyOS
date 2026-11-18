@@ -19,6 +19,7 @@ import { type AutopilotLocation, AutopilotService } from "../autopilot/autopilot
 import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { GateRulesStorageService } from "../gate-rules/gate-rules.storage.service";
 import { CommsService } from "../comms/comms.service";
+import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { MandateStorageService } from "../mandate/mandate.storage.service";
@@ -798,7 +799,9 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
 
   private async sendReply(item: ChannelItem, text: string): Promise<ChannelItem> {
     const integration = await this.integrations.get(item.integrationId);
-    const creds = await this.credentials.read(item.integrationId);
+    const creds = needsStoredCredential(integration.kind)
+      ? await this.credentials.read(item.integrationId)
+      : NO_CREDENTIALS;
     if (!creds) throw new Error(`no credentials for ${item.integrationId}`);
     const adapter = this.registry.resolve(integration.kind);
     await adapter.send(integration, creds, item, text);

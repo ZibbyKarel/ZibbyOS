@@ -99,6 +99,47 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     expect(backfilled?.url).toBe("https://github.com/acme/repo/issues/42");
   });
 
+  it("backfills a GitLab item's url, telling issues from MRs by the adapter's id", async () => {
+    await integrations.create({
+      id: "gl-1",
+      kind: "gitlab",
+      projectId: "proj-1",
+      config: {
+        kind: "gitlab",
+        host: "gitlab.example.com",
+        repo: "acme/platform/app",
+        username: "karel.zibar",
+        streams: ["issues", "pulls"],
+      },
+    });
+    const ref = { channel: "acme/platform/app", messageId: "7" };
+    await items.put(
+      item({
+        id: "gl-acme-platform-app-issue-7",
+        integrationId: "gl-1",
+        kind: "gitlab",
+        externalRef: ref,
+      }),
+    );
+    await items.put(
+      item({
+        id: "gl-acme-platform-app-mr-7",
+        integrationId: "gl-1",
+        kind: "gitlab",
+        externalRef: ref,
+      }),
+    );
+
+    await backfill.onModuleInit();
+
+    expect((await items.get("gl-1", "gl-acme-platform-app-issue-7"))?.url).toBe(
+      "https://gitlab.example.com/acme/platform/app/-/issues/7",
+    );
+    expect((await items.get("gl-1", "gl-acme-platform-app-mr-7"))?.url).toBe(
+      "https://gitlab.example.com/acme/platform/app/-/merge_requests/7",
+    );
+  });
+
   it("leaves a Slack item unbackfilled (no permalink reconstructable after the fact)", async () => {
     await integrations.create({
       id: "slack-1",

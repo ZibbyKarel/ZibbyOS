@@ -86,6 +86,17 @@ it, then `gitlabRepoFor` takes the project's `gitRemote` path, but only when the
 equals `config.host`. `githubRepoFor` likewise only derives from a `github.com` remote.
 `resolveGitHostLink` picks the gitlab link first, else the GitHub token link.
 
+**No stored credential.** `needsStoredCredential(kind)` (`integrations/credential-kind.ts`)
+is the single check for "this kind keeps a secret": false only for `gitlab`. For it
+`PUT /integrations/:id/credentials` is 422 (any payload), `hasCredentials` is always `true`,
+the connection test and the channel watcher run without a credentials file (the adapter is
+handed `NO_CREDENTIALS`, which it ignores), and the web form has no secret field.
+
+**Connection test.** `GET /user` through `GitlabClient` on `config.host`: ok when the
+returned `username` is present and equals `config.username` (case-insensitive); a different
+login is a failed test naming both; glab missing, not logged in or the host unreachable is a
+failed test naming the host and `glab auth login --hostname <host>`.
+
 ## Connection testing
 
 `POST /integrations/:id/test` calls the `ConnectionTester` seam (bound to the

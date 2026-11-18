@@ -1,6 +1,4 @@
-import type { GitHostLink } from "./git-host-link";
-
-type UrlLink = Pick<GitHostLink, "kind" | "repo"> & { host?: string };
+type UrlLink = { kind: "github"; repo: string } | { kind: "gitlab"; host: string; repo: string };
 
 function base(link: UrlLink): string {
   return link.kind === "github"

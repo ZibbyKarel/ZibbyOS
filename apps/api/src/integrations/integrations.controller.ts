@@ -6,7 +6,7 @@ import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { makeErrorMapper } from "../shared/http/error-mapping";
 import { CONNECTION_TESTER, type ConnectionTester } from "./connection-tester";
-import { credentialMatchesKind } from "./credential-kind";
+import { NO_CREDENTIALS, credentialMatchesKind, needsStoredCredential } from "./credential-kind";
 import { CredentialsStore } from "./credentials.store";
 import {
   IntegrationConflictError,
@@ -40,7 +40,10 @@ export class IntegrationsController {
 
   /** Layer the read-time `hasCredentials` onto an entity for the wire. */
   private async withCredentialState(integration: Integration): Promise<Integration> {
-    return { ...integration, hasCredentials: await this.credentials.has(integration.id) };
+    // A kind with no stored secret (gitlab: the glab login) is always "credentialled".
+    const hasCredentials =
+      !needsStoredCredential(integration.kind) || (await this.credentials.has(integration.id));
+    return { ...integration, hasCredentials };
   }
 
   /** FK integrity: an integration must belong to an existing project (else 422). */
@@ -158,7 +161,9 @@ export class IntegrationsController {
           id,
           async () => {
             const integration = await this.storage.get(id);
-            const creds = await this.credentials.read(id);
+            const creds = needsStoredCredential(integration.kind)
+              ? await this.credentials.read(id)
+              : NO_CREDENTIALS;
             if (!creds) throw new NoCredentialsViolation();
             const result = await this.tester.test(integration, creds);
             await this.storage.markSync(
