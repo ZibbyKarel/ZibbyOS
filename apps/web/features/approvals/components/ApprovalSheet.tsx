@@ -62,6 +62,7 @@ import { parseReviewDoc, serializeReviewDoc } from "../prReviewDoc";
 import { isOperatorTokenError } from "../../../state/operatorToken";
 import { useApproveMutation, useRejectMutation, useReviseMutation } from "../mutations";
 import { useApprovalQuery } from "../queries";
+import { type SheetFrame, geometry } from "../../bridge/components/sheets/sheetTypes";
 
 /** Maps this feature's `DiffHunk` (approval.ts) into the DS `DiffView`'s own shape. */
 function toDsHunks(hunks: { h: string; lines: [kind: "add" | "del" | "ctx", text: string][] }[]) {
@@ -142,9 +143,14 @@ function useRailAnchor(id: string | null): SheetAnchor | null {
 export function ApprovalSheet({
   approvalId,
   onClose,
+  anchor: anchorProp,
+  frame,
 }: {
   approvalId: string | null;
   onClose: () => void;
+  /** Bridge detail sheet: sit at this anchor (with the sheet frame's nav) instead of beside the rail. */
+  anchor?: SheetAnchor;
+  frame?: SheetFrame;
 }) {
   const t = useTranslations("policy.approvals.sheet");
   const tApprovals = useTranslations("approvals");
@@ -175,7 +181,8 @@ export function ApprovalSheet({
   // todo-36: the operator's own review replacing ZIBBY's, keyed by approval id.
   const [ownDraft, setOwnDraft] = useState<{ id: string; text: string } | null>(null);
   const [now] = useState(() => Date.now());
-  const anchor = useRailAnchor(approvalId);
+  const railAnchor = useRailAnchor(anchorProp ? null : approvalId);
+  const anchor = anchorProp ?? railAnchor;
   // A 401 means the operator token is unset/wrong — say so instead of a bare failure.
   const decisionErrorText = (error: unknown) =>
     isOperatorTokenError(error)
@@ -628,6 +635,7 @@ export function ApprovalSheet({
   if (anchor && approvalId) {
     return (
       <AnchoredSheet
+        {...(anchorProp ? geometry(anchorProp, frame) : {})}
         actions={approval && approval.status === "pending" && !mode ? decision(true) : undefined}
         closeLabel={tApprovals("sheetClose")}
         eraserHeight={anchor.eH}

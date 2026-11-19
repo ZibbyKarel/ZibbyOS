@@ -107,23 +107,10 @@ describe("RunSheet", () => {
     expect(screen.getByTestId(AnchoredSheetTestId.Actions)).toHaveTextContent("Stop");
   });
 
-  it("closes the approval detail it opened when the run sheet closes", () => {
-    window.history.replaceState(null, "", "/dashboard?run=wf_1");
-    const { unmount } = renderWithProviders(
-      <RunSheet anchor={anchor} id="wf_1" onClose={() => {}} />,
-    );
+  it("the approval card opens the approval in the bridge sheet", () => {
+    const onOpen = vi.fn();
+    renderWithProviders(<RunSheet anchor={anchor} id="wf_1" onClose={() => {}} onOpen={onOpen} />);
     fireEvent.click(screen.getByTestId("open-approval"));
-    window.history.replaceState(null, "", "/dashboard?run=wf_1&approval=g1"); // the mocked router.push
-    unmount();
-    expect(window.location.search).toBe("?run=wf_1");
-  });
-
-  it("leaves an approval detail it did not open alone", () => {
-    window.history.replaceState(null, "", "/dashboard?run=wf_1&approval=g1");
-    const { unmount } = renderWithProviders(
-      <RunSheet anchor={anchor} id="wf_1" onClose={() => {}} />,
-    );
-    unmount();
-    expect(window.location.search).toBe("?run=wf_1&approval=g1");
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: "approval", id: "g1" }));
   });
 });

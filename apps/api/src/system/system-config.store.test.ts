@@ -104,6 +104,8 @@ describe("SystemConfigStore", () => {
           removed: [],
           collapsed: {},
           epicClosed: {},
+          designRev: 1,
+          sheetWidths: {},
         },
       });
     });

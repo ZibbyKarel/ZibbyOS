@@ -14,9 +14,12 @@ describe("presets", () => {
   it.each([
     ["DEFAULT", DEFAULT_LAYOUT],
     ["REVIEW", REVIEW_LAYOUT],
-  ] as const)("built-in %s: hero on top, compact, inside the species limits", (_, layout) => {
+  ] as const)("built-in %s: hero row on top, compact, inside the species limits", (_, layout) => {
     expect(compact(layout)).toEqual(layout);
-    expect(layout[0]).toMatchObject({ type: "briefing", x: 0, y: 0, w: COLS });
+    // Today + Indicators share the top row and span the whole board.
+    expect(layout[0]).toMatchObject({ type: "briefing", x: 0, y: 0 });
+    expect(layout[1]).toMatchObject({ type: "indicators", y: 0 });
+    expect((layout[0]?.w ?? 0) + (layout[1]?.w ?? 0)).toBe(COLS);
     for (const w of layout) {
       const [minW, minH, maxW, maxH] = SIZE_LIMITS[w.type];
       expect(w.w, w.id).toBeGreaterThanOrEqual(minW);

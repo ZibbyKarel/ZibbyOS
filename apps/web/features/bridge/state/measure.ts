@@ -34,6 +34,7 @@ export const SHEET_WIDTH: Record<string, number> = {
   quickAction: 400,
   note: 400,
   vaultNote: 640,
+  approval: 640,
 };
 
 export interface MeasureOptions {

@@ -42,7 +42,7 @@ export interface SheetFrame {
   onExpandedChange: (expanded: boolean) => void;
 }
 
-const WIDGET = { issue: "issues", pr: "prs", run: "runs" } as const;
+const WIDGET = { issue: "issues", pr: "prs", run: "runs", approval: "runs" } as const;
 
 /** Selection for a cross-sheet jump. The target row may not be on the board — the sheet keeps its anchor. */
 export const selectionFor = (kind: keyof typeof WIDGET, id: string): BridgeSelection => ({

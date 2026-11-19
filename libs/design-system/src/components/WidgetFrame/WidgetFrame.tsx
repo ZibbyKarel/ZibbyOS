@@ -52,7 +52,7 @@ export interface WidgetFrameProps {
   tier?: WidgetTier;
   /** Body shape of the widget, emitted as `data-species`. */
   species?: WidgetSpecies;
-  /** Something inside is red (failing CI, …): the frame takes a rose border (`data-alert`). */
+  /** Something inside is red (failing CI, …): the frame takes the primary tier's edge (gradient body, glow, top highlight) in the error colour (`data-alert`). */
   alert?: boolean;
   /** Narrow widgets: refresh, filters and collapse stay inline; the rest (add, settings) fold into a "⋯" menu. */
   compactControls?: boolean;
@@ -359,7 +359,9 @@ export function WidgetFrame({
       className={cn(
         frame({ tier }),
         anchored && "z-[31]",
-        alert && "border-[var(--color-state-err)]",
+        // The primary tier's look (amber for "needs you"), in the error colour.
+        alert &&
+          "border-state-err/30 bg-linear-to-b from-tier1-from to-tier1-to shadow-[var(--shadow-t1)]",
         dragging && "z-[5] border-ink transition-none",
       )}
       data-alert={alert || undefined}
@@ -370,10 +372,13 @@ export function WidgetFrame({
       ref={ref}
       style={style}
     >
-      {tier === "primary" ? (
+      {tier === "primary" || alert ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -top-px left-[18px] right-[18px] h-px bg-linear-to-r from-transparent via-accent/75 to-transparent"
+          className={cn(
+            "pointer-events-none absolute -top-px left-[18px] right-[18px] h-px bg-linear-to-r from-transparent to-transparent",
+            alert ? "via-state-err/75" : "via-accent/75",
+          )}
         />
       ) : null}
       <header

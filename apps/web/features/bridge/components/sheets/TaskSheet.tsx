@@ -25,7 +25,7 @@ import { useDepartmentLookup } from "../../../departments/useDepartmentLookup";
 import { useTaskQuery } from "../../../tasks";
 import { taskState } from "../../state/taskState";
 import { ApprovalNeed, isHighRisk } from "./ApprovalNeed";
-import { type SheetProps, geometry } from "./sheetTypes";
+import { type SheetProps, geometry, selectionFor } from "./sheetTypes";
 
 /**
  * Task detail from `GET /api/tasks/:id`: chain cards + subtasks table over its subtasks, the
@@ -33,7 +33,7 @@ import { type SheetProps, geometry } from "./sheetTypes";
  * data, so it is not shown. A pending approval of the task (or of one of its subtask runs)
  * becomes the "needs you" card.
  */
-export function TaskSheet({ id, anchor, onClose, frame }: SheetProps) {
+export function TaskSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   const t = useTranslations();
   const router = useRouter();
   const departments = useDepartmentLookup();
@@ -89,7 +89,11 @@ export function TaskSheet({ id, anchor, onClose, frame }: SheetProps) {
         approval && isHighRisk(approval) ? (
           <SheetAction
             intent="primary"
-            onClick={() => router.push(`/work/tasks/${task.id}?approval=${approval.id}` as Route)}
+            onClick={() =>
+              onOpen
+                ? onOpen(selectionFor("approval", approval.id))
+                : router.push(`/work/tasks/${task.id}` as Route)
+            }
           >
             {t("bridge.sheet.task.openApproval")}
           </SheetAction>

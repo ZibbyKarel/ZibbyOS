@@ -92,7 +92,9 @@ system-config section — link there rather than duplicating the table here.
    browsers: `density` (system-wide DS spacing, default `airy`) and `bridge`
    (the `/dashboard` Bridge board's layout, active preset, saved presets,
    `arranged` — which layouts sit in the header vs. its dropdown, `removed` —
-   deleted built-in layouts (REVIEW), collapsed widgets, closed epics). Every writer must pass `ui` through —
+   deleted built-in layouts (REVIEW), collapsed widgets, closed epics, `designRev` — revision of the built-in layouts the saved
+   DEFAULT was reconciled with, default `1` — and `sheetWidths` — detail-sheet width per kind in %,
+   default `{}`); widget `type` is one of `briefing` (label "Today"/"Dnešek"), `indicators` (the counters, "Ukazatele"), `issues`, `prs`, `runs`, `pins`, `todo`, `quickActions`, `teamKb`, `proposals`, `budgets`, `mentions`, `automationRuns`, `projectStatus`, `notes`. Every writer must pass `ui` through —
    the PUT replaces the whole document. See
    [bridge-dashboard-design.md](../plans/bridge-dashboard-design.md).
 

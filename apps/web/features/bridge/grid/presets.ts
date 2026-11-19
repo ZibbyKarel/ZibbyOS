@@ -3,12 +3,13 @@ import { type BridgeWidget, type WidgetTuple, compact, fromArr } from "./layout"
 export const DEFAULT_PRESET = "DEFAULT";
 export const REVIEW_PRESET = "REVIEW";
 
-/** Direction A (design `aDefault`): hero over 12 columns; PRs 5 + Runs 4 + a span-3 column
+/** Direction A (design `aDefault`): Today (7) + Indicators (5) over 12 columns; PRs 5 + Runs 4 + a span-3 column
  *  (Proposals / Project status / Automation runs); Issues 5 + a span-4 column (Mentions / Team
  *  knowledge) + a span-3 column (Budgets / TODO / Quick actions / Pinned). Heights sit inside the
  *  species min–max (spec §4, `SIZE_LIMITS`). */
 const DEFAULT_TUPLES: readonly WidgetTuple[] = [
-  ["briefing", 0, 0, 12, 3],
+  ["briefing", 0, 0, 7, 3],
+  ["indicators", 7, 0, 5, 3],
   ["prs", 0, 3, 5, 14],
   ["runs", 5, 3, 4, 14],
   ["proposals", 9, 3, 3, 6],
@@ -23,10 +24,11 @@ const DEFAULT_TUPLES: readonly WidgetTuple[] = [
   ["pins", 9, 31, 3, 3],
 ];
 
-/** Design `aReview`: slim hero (2 rows), PRs 6 wide, two span-3 columns
+/** Design `aReview`: Today + slim Indicators (2 rows), PRs 6 wide, two span-3 columns
  *  (Issues / Mentions and Runs / Proposals / Project status). */
 const REVIEW_TUPLES: readonly WidgetTuple[] = [
-  ["briefing", 0, 0, 12, 2],
+  ["briefing", 0, 0, 6, 2],
+  ["indicators", 6, 0, 6, 2],
   ["prs", 0, 2, 6, 20],
   ["issues", 6, 2, 3, 12],
   ["mentions", 6, 14, 3, 8],

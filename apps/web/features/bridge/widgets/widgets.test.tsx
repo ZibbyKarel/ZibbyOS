@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
 import { BridgePresetContext, BriefingWidget } from "./BriefingWidget";
+import { IndicatorsWidget } from "./IndicatorsWidget";
 import { IssuesWidget, IssuesWidgetTestId } from "./IssuesWidget";
 import { PrsWidget, PrsWidgetTestId } from "./PrsWidget";
 import type { BridgeWidgetProps } from "./registry";
@@ -179,6 +180,9 @@ describe("IssuesWidget", () => {
     expect(screen.getByTestId(IssuesWidgetTestId.Source)).toHaveAccessibleName("Jira");
     expect(screen.getByTestId(IssuesWidgetTestId.Source)).toHaveAttribute("title", "Jira");
     expect(screen.queryByText("Jira")).toBeNull();
+    expect(
+      within(screen.getByTestId(IssuesWidgetTestId.Source)).getByTestId(IconTestId.Root),
+    ).toHaveAttribute("data-icon", "jira");
   });
 
   it("new/running rows show the source status instead of the ZIBBY tag", () => {
@@ -760,22 +764,12 @@ describe("RunsWidget", () => {
 });
 
 describe("BriefingWidget", () => {
-  it("shows the lead and the KPIs, never empty", () => {
-    d.approvals = [{}, {}, {}];
-    // todo-18: RUNNING NOW counts only running runs, matching its `?state=running` link.
-    d.runs = [run("a", "running"), run("q", "queued")];
-    d.prs = [pr(1), pr(2)];
+  it("shows the greeting and lead without any numerals, never empty", () => {
     const props = setup({ widget: widget("w-brief", "briefing") });
     renderWithProviders(<BriefingWidget {...props} />);
-    // Bridge redesign phase 4: the briefing is a hero — greeting + headline + big numerals.
     expect(screen.getByTestId(BriefingHeroTestId.Lead)).toHaveTextContent("Two PRs wait on you.");
     expect(screen.getByTestId(BriefingHeroTestId.Title)).toHaveTextContent(/^Dobr/);
-    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-needs`)).toHaveTextContent("03");
-    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-running`)).toHaveTextContent("01");
-    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-prs`)).toHaveTextContent("02");
-    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-onYou`)).toHaveTextContent("00");
-    // todo-18: month-to-date spend (the projects' monthly cost windows), not today's.
-    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-spend`)).toHaveTextContent("$42.50");
+    expect(screen.queryByTestId(BriefingHeroTestId.Counters)).toBeNull();
     expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -791,13 +785,32 @@ describe("BriefingWidget", () => {
     expect(dayRefresh).toHaveBeenCalledWith({ body: {} });
     d.day = undefined;
   });
+});
+
+describe("IndicatorsWidget", () => {
+  it("shows the KPIs, never empty", () => {
+    d.approvals = [{}, {}, {}];
+    // todo-18: RUNNING NOW counts only running runs, matching its `?state=running` link.
+    d.runs = [run("a", "running"), run("q", "queued")];
+    d.prs = [pr(1), pr(2)];
+    const props = setup({ widget: widget("w-ind", "indicators") });
+    renderWithProviders(<IndicatorsWidget {...props} />);
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-needs`)).toHaveTextContent("03");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-running`)).toHaveTextContent("01");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-prs`)).toHaveTextContent("02");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-onYou`)).toHaveTextContent("00");
+    // todo-18: month-to-date spend (the projects' monthly cost windows), not today's.
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-spend`)).toHaveTextContent("$42.50");
+    expect(screen.queryByTestId(BriefingHeroTestId.Title)).toBeNull();
+    expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
+  });
 
   it("todo-18: every number links to its detail page", () => {
     d.approvals = [];
     d.runs = [];
     d.prs = [];
-    const props = setup({ widget: widget("w-brief", "briefing") });
-    renderWithProviders(<BriefingWidget {...props} />);
+    const props = setup({ widget: widget("w-ind", "indicators") });
+    renderWithProviders(<IndicatorsWidget {...props} />);
     const href = (id: string) =>
       screen.getByTestId(`${BriefingHeroTestId.Link}-${id}`).getAttribute("href");
     expect(href("needs")).toBe("/activity/approvals");
@@ -813,10 +826,10 @@ describe("BriefingWidget", () => {
       pr(2, { ci: "failing" }),
       pr(3, { mergeable: false }),
     ];
-    const props = setup({ widget: widget("w-brief", "briefing") });
+    const props = setup({ widget: widget("w-ind", "indicators") });
     renderWithProviders(
       <BridgePresetContext value="REVIEW">
-        <BriefingWidget {...props} />
+        <IndicatorsWidget {...props} />
       </BridgePresetContext>,
     );
     expect(screen.getByTestId(BriefingHeroTestId.Root)).toHaveAttribute("data-variant", "slim");

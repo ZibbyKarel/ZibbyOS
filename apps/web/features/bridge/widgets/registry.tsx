@@ -5,6 +5,7 @@ import type { BridgeWidget, WidgetType } from "../grid/layout";
 import { AutomationRunsWidget } from "./AutomationRunsWidget";
 import { BriefingWidget } from "./BriefingWidget";
 import { BudgetsWidget } from "./BudgetsWidget";
+import { IndicatorsWidget } from "./IndicatorsWidget";
 import { IssuesFilterControls, IssuesWidget } from "./IssuesWidget";
 import { MentionsWidget } from "./MentionsWidget";
 import { NotesWidget } from "./NotesWidget";
@@ -30,7 +31,8 @@ export interface BridgeSelection {
     | "note"
     | "automation"
     | "project"
-    | "vaultNote";
+    | "vaultNote"
+    | "approval";
   id: string;
   /** Id of the widget the row lives in (arrow keys navigate within it). */
   widgetId: string;
@@ -132,6 +134,13 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     icon: "coffee",
     species: "hero",
     Component: BriefingWidget,
+  },
+  indicators: {
+    labelKey: "bridge.widget.indicators.label",
+    descKey: "bridge.widget.indicators.desc",
+    icon: "pulse",
+    species: "meters",
+    Component: IndicatorsWidget,
   },
   issues: {
     labelKey: "bridge.widget.issues.label",

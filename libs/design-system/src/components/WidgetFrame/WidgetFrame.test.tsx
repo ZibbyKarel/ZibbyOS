@@ -398,4 +398,13 @@ describe("WidgetFrame", () => {
     expect(you).toHaveTextContent("2 for you");
     expect(you).toHaveClass("text-accent-fg", "rounded-full");
   });
+
+  it("alert gives the primary-tier edge in the error colour", () => {
+    render(<WidgetFrame alert label="X" />);
+    const root = screen.getByTestId(WidgetFrameTestId.Root);
+    expect(root).toHaveAttribute("data-alert", "true");
+    expect(root.className).toContain("border-state-err/30");
+    expect(root.className).toContain("bg-linear-to-b");
+    expect(root.querySelector(".via-state-err\\/75")).not.toBeNull();
+  });
 });

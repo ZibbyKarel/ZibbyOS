@@ -208,11 +208,15 @@ export type MarkdownVariant = "default" | "prose";
  *  behaviour, ported in here as of ZA-07). */
 const proseComponents: MarkdownRendererComponents = {
   ...testIdComponents,
-  a: ({ href, children }) => (
-    <a href={href} rel="noreferrer" target="_blank">
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) =>
+    // An app-relative path (`/x`, not `//host`) stays in the same tab; everything else leaves it.
+    href && /^\/(?!\/)/.test(href) ? (
+      <a href={href}>{children}</a>
+    ) : (
+      <a href={href} rel="noreferrer" target="_blank">
+        {children}
+      </a>
+    ),
 };
 
 export interface MarkdownProps {
@@ -230,7 +234,7 @@ export interface MarkdownProps {
    * `"prose"` — reading typography scoped to `.md-prose` (`theme/globals.css`),
    * driven entirely by design tokens rather than a fixed dark palette. Used by
    * the chat transcript, which renders over varying backgrounds. Links open in
-   * a new tab under `"prose"`.
+   * a new tab under `"prose"` (app-relative `/paths` stay in the same tab).
    */
   variant?: MarkdownVariant;
   /**

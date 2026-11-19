@@ -18,7 +18,8 @@ export const COLS = 12;
 /** Species size range per widget type (spec §4): `[minW, minH, maxW, maxH]` in columns × rows.
  *  Applied only to NEW resizes / adds — a stored layout is never clamped at render. */
 export const SIZE_LIMITS: Record<WidgetType, readonly [number, number, number, number]> = {
-  briefing: [6, 2, 12, 8],
+  briefing: [2, 2, 12, 8],
+  indicators: [2, 2, 12, 4],
   prs: [3, 6, 12, 24],
   issues: [3, 6, 12, 24],
   runs: [3, 6, 6, 24],

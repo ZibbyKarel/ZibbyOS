@@ -154,4 +154,12 @@ describe("Markdown", () => {
     rerender(<Markdown compact source="a" />);
     expect(screen.getByTestId(MarkdownTestId.Root)).toHaveClass("md-compact");
   });
+
+  it("prose: app-relative links stay in the tab, external ones open a new one", () => {
+    render(<Markdown source="[run](/activity/runs/r1) [ext](https://x.cz)" variant="prose" />);
+    const rel = screen.getByRole("link", { name: "run" });
+    expect(rel).toHaveAttribute("href", "/activity/runs/r1");
+    expect(rel).not.toHaveAttribute("target");
+    expect(screen.getByRole("link", { name: "ext" })).toHaveAttribute("target", "_blank");
+  });
 });

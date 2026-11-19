@@ -11,7 +11,7 @@ import {
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { Fragment, useCallback, useMemo } from "react";
-import { sourceIcon } from "../../integrations/kindIcon";
+import { brandSourceIcon } from "../../integrations/kindIcon";
 import { useNow } from "../../../hooks/useNow";
 import { compactAgo } from "../../../utils/time";
 import { itemScope, passesFilters, visibleItems } from "../../inbox/inbox";
@@ -172,7 +172,7 @@ export function IssuesWidget({
                       lead={
                         <StateGlyph
                           data-testid={IssuesWidgetTestId.Source}
-                          icon={sourceIcon(r.sourceKind).glyph}
+                          icon={brandSourceIcon(r.sourceKind)}
                           label={r.source}
                           tone="neutral"
                         />

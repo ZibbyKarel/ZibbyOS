@@ -13,6 +13,7 @@ import { SHEET_WIDTH, type SheetAnchor, anchorChanged, measureSheet } from "../s
 import { selectionLabel, useSheetHistory } from "../state/sheetHistory";
 import { findRow, rowPosition, stepRow, useRowKeyNav } from "../state/useRowKeyNav";
 import type { BridgeSelection } from "../widgets/registry";
+import { ApprovalSheet } from "../../approvals/components/ApprovalSheet";
 import { AutomationSheet } from "./sheets/AutomationSheet";
 import { IssueSheet } from "./sheets/IssueSheet";
 import { NoteSheet } from "./sheets/NoteSheet";
@@ -233,6 +234,15 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       {kind === "note" ? <NoteSheet key={k} {...common} /> : null}
       {kind === "automation" ? <AutomationSheet key={k} {...common} /> : null}
       {kind === "project" ? <ProjectSheet key={k} {...common} /> : null}
+      {kind === "approval" ? (
+        <ApprovalSheet
+          anchor={placed}
+          approvalId={selection.id}
+          frame={frame}
+          key={k}
+          onClose={onClose}
+        />
+      ) : null}
       {kind === "vaultNote" ? <VaultNoteSheet key={k} {...common} /> : null}
     </SheetPresentationContext>
   );

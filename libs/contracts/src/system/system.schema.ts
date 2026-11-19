@@ -63,6 +63,7 @@ export const BridgeWidgetSchema = z.preprocess(
     /** Catalog entry this widget renders. */
     type: z.enum([
       "briefing",
+      "indicators",
       "issues",
       "prs",
       "runs",

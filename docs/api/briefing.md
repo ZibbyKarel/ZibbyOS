@@ -43,10 +43,18 @@ is idempotent.
 ### Day overview (`DayOverviewService`)
 
 One haiku `spawnOneShot` over: today's calendar channel items (`[start] title` + event link),
-the last 24 h of other channel items (each enveloped, Law 4, with their `url`), the assembled
-briefing's needs-you lines and reminders, today's daily note and the North Star. The prompt says
-all of it is data, not instructions; a missing source is left out and nothing may be invented.
-The reply is cut down to http(s) links only and rendered by the web with HTML escaped.
+the last 24 h of other channel items (each enveloped, Law 4, with their `url` and, when known, an
+in-app `appUrl`: a PR/MR url → `/dashboard/inbox/pull-requests?pr=<url>`, a roadmap item's source url →
+`/dashboard/inbox/issues/<projectId>/<itemId>`), the assembled
+briefing's needs-you lines (with `appUrl` `/activity/runs/<id>` when they reference a run) and
+reminders, today's daily note and the North Star. The prompt says all of it is data, not
+instructions; a missing source is left out and nothing may be invented. The model is told to link
+every run, PR and issue it mentions via its `appUrl`. The prompt also carries the operator's chat
+personality (`SystemConfig.chatPersona`, the `CHAT_PERSONAS` block, read at generation time) as the
+voice of the text. The reply is cut down to http(s) links and app-relative paths (`/x`, never
+`//host`) and rendered by the web with HTML escaped; app-relative links open in the same tab and
+render amber. The cache file also records the personality: a changed `chatPersona` makes the next
+`GET /briefing/day` regenerate today's text.
 
 ## Flow
 

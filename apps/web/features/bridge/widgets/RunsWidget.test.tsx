@@ -160,6 +160,22 @@ describe("RunsWidget", () => {
     expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ you: 1 }));
   });
 
+  it("clicking a parked run with an approval opens the approval sheet; Detail opens the run sheet", async () => {
+    d.approvals = [{ id: "ap1", runId: "b", action: "pr.merge", summary: "Merge the fix" }];
+    vi.mocked(props.onOpen).mockClear();
+    renderWithProviders(<RunsWidget {...props} />);
+    await userEvent.click(
+      within(screen.getByTestId(StatusRailTestId.Park)).getByTestId(StatusRailTestId.Item),
+    );
+    expect(props.onOpen).toHaveBeenCalledTimes(1);
+    expect(props.onOpen).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: "approval", id: "ap1", widgetId: widget.id }),
+    );
+    vi.mocked(props.onOpen).mockClear();
+    await userEvent.click(screen.getByTestId(`${RunsWidgetTestId.Detail}-${key("b")}`));
+    expect(props.onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: "run", id: "b" }));
+  });
+
   it("the Detail action opens the run sheet", async () => {
     renderWithProviders(<RunsWidget {...props} />);
     expect(screen.queryByTestId(`${RunsWidgetTestId.Approve}-${key("b")}`)).toBeNull();

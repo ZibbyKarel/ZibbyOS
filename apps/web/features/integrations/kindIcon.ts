@@ -37,6 +37,11 @@ export function sourceIcon(kind: RoadmapSourceKind | IntegrationKind): {
   return { glyph: INTEGRATION_GLYPH[kind], src: INTEGRATION_LOGO[kind] };
 }
 
+/** Brand marks the DS draws as monochrome icons (the bridge's source glyphs: Jira, GitHub, GitLab). */
+export function brandSourceIcon(kind: RoadmapSourceKind | IntegrationKind): IconName {
+  return kind === "jira" || kind === "github" || kind === "gitlab" ? kind : sourceIcon(kind).glyph;
+}
+
 /** Brand accent per service (design token colours only) — the top edge of an own connection tile. */
 export const INTEGRATION_ACCENT: Record<IntegrationKind, string> = {
   jira: "var(--color-state-think)",

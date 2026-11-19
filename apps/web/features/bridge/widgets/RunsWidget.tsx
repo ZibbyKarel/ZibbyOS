@@ -84,6 +84,7 @@ export function dedupeRuns(
  * `NN% · elapsed` while running), or one idle line with "next in …" (the soonest scheduled run).
  * "Parked": runs waiting for the operator (approval, question, parked) as amber blocks with the
  * gate's ask and its actions inline (hold to approve / reject for an approval, Detail always).
+ * Clicking a parked block with an approval opens the approval detail; Detail opens the run sheet.
  * "Queued": runs waiting to start (queued / scheduled / held — they open the same run sheet, just with nothing running yet).
  * "Finished": the last 10. Every other row opens the run sheet. Sections collapse locally.
  */
@@ -188,6 +189,9 @@ export function RunsWidget({
       key: r.key,
       href: `/activity/runs/${r.runId}`,
     });
+  // A run waiting on an approval opens the approval in the bridge sheet; Detail opens the run.
+  const openApproval = (id: string) => () =>
+    onOpen({ kind: "approval", id, widgetId: widget.id, key: `${widget.id}:approval:${id}` });
   const section = (group: string, label: string, count: number, accent = false) => (
     <BoardSection
       closed={!!closed[group]}
@@ -266,7 +270,8 @@ export function RunsWidget({
               />
             }
             key={r.key}
-            onClick={open(r)}
+            // A run waiting on an approval opens the approval; its run sheet is the Detail button.
+            onClick={r.approval ? openApproval(r.approval.id) : open(r)}
             rowKey={r.key}
             selected={selection?.key === r.key}
             sub={r.step}

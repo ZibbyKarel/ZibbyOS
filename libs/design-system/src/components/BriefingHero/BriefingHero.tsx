@@ -33,10 +33,11 @@ export interface BriefingHeroProps {
   /** Small line above the title (date, time). */
   eyebrow?: ReactNode;
   /** The greeting ("Good evening.") or the empty state ("A quiet day."). */
-  title: ReactNode;
+  title?: ReactNode;
   /** The text under the title (one paragraph, or rendered markdown). */
   lead?: ReactNode;
-  counters: readonly BriefingHeroCounter[];
+  /** The big numerals; omit for a text-only hero. */
+  counters?: readonly BriefingHeroCounter[];
   /** `full` = desktop hero, `slim` = one-line title + small numerals (REVIEW),
    *  `phone` = 24px title + horizontally scrolling counter cards. */
   variant?: "full" | "slim" | "phone";
@@ -67,14 +68,14 @@ const VALUE = {
 
 /**
  * The Bridge briefing as a T0 hero (spec §2): no card chrome — an eyebrow, a greeting in
- * `title-xl`, one paragraph, and 3–5 big tabular numerals with small labels. Each numeral
+ * `title-xl`, and 3–5 big tabular numerals with small labels (the numerals on top, the text scrolling below). Each numeral
  * can link to its detail page.
  */
 export function BriefingHero({
   eyebrow,
   title,
   lead,
-  counters,
+  counters = [],
   variant = "full",
   ariaLabel,
   linkComponent,
@@ -87,97 +88,113 @@ export function BriefingHero({
       aria-label={ariaLabel}
       className={cn(
         "box-border flex h-full font-sans",
-        phone
-          ? "flex-col gap-[12px] py-[10px]"
-          : "flex-wrap content-end items-end gap-x-[48px] gap-y-[14px] px-[4px] pt-[6px] pb-[10px]",
+        // Numbers first (CSS order), the text below scrolls when the widget is small.
+        variant === "slim"
+          ? "flex-wrap content-end items-end gap-x-[48px] gap-y-[14px] px-[4px] pt-[6px] pb-[10px]"
+          : cn(
+              "flex-col",
+              phone ? "gap-[12px] py-[10px]" : "gap-[14px] px-[4px] pt-[6px] pb-[10px]",
+            ),
       )}
       data-testid={BriefingHeroTestId.Root}
       data-variant={variant}
       ref={ref}
     >
-      <div className={cn("min-w-0 max-h-full overflow-y-auto", !phone && "min-w-[260px] flex-1")}>
-        {eyebrow && variant !== "slim" ? (
-          <div
-            className="mb-[8px] text-[12px] text-ink-3 first-letter:uppercase"
-            data-testid={BriefingHeroTestId.Eyebrow}
-          >
-            {eyebrow}
-          </div>
-        ) : null}
-        <h2 className={cn(TITLE[variant], "text-ink")} data-testid={BriefingHeroTestId.Title}>
-          {title}
-        </h2>
-        {lead ? (
-          <div
-            className={cn(
-              "mt-[8px] max-w-[660px] text-pretty text-ink-2",
-              phone ? "text-[14px] leading-[1.55]" : "text-[15px] leading-[1.6]",
-            )}
-            data-testid={BriefingHeroTestId.Lead}
-          >
-            {lead}
-          </div>
-        ) : null}
-      </div>
-      <div
-        className={cn(
-          "flex",
-          phone
-            ? "gap-[8px] overflow-x-auto pb-[4px] [scrollbar-width:none]"
-            : variant === "slim"
-              ? "gap-[24px]"
-              : "flex-wrap gap-x-[30px] gap-y-[12px]",
-        )}
-        data-testid={BriefingHeroTestId.Counters}
-      >
-        {counters.map((c) => {
-          const body = (
-            <>
-              <span
-                className={cn(VALUE[variant], "tabular-nums", TONE[c.tone ?? "none"])}
-                data-testid={`${BriefingHeroTestId.Value}-${c.id}`}
-              >
-                {c.value}
-              </span>
-              <span
-                className={cn(
-                  "whitespace-nowrap text-ink-3",
-                  phone ? "text-[11.5px]" : "text-[12px]",
-                )}
-              >
-                {c.label}
-              </span>
-            </>
-          );
-          return (
+      {title || lead || eyebrow ? (
+        <div
+          className={cn(
+            "min-w-0 overflow-y-auto",
+            variant === "slim" ? "max-h-full min-w-[260px] flex-1" : "order-2 min-h-0 flex-1",
+          )}
+        >
+          {eyebrow && variant !== "slim" ? (
+            <div
+              className="mb-[8px] text-[12px] text-ink-3 first-letter:uppercase"
+              data-testid={BriefingHeroTestId.Eyebrow}
+            >
+              {eyebrow}
+            </div>
+          ) : null}
+          {title ? (
+            <h2 className={cn(TITLE[variant], "text-ink")} data-testid={BriefingHeroTestId.Title}>
+              {title}
+            </h2>
+          ) : null}
+          {lead ? (
             <div
               className={cn(
-                "flex flex-col gap-[4px]",
-                phone
-                  ? "min-w-[92px] flex-none rounded-[12px] border border-line bg-panel px-[12px] py-[10px]"
-                  : "min-w-[60px]",
+                "mt-[8px] max-w-[660px] text-pretty text-ink-2",
+                phone ? "text-[14px] leading-[1.55]" : "text-[15px] leading-[1.6]",
               )}
-              data-testid={`${BriefingHeroTestId.Counter}-${c.id}`}
-              key={c.id}
+              data-testid={BriefingHeroTestId.Lead}
             >
-              {c.href ? (
-                <Link
-                  className={cn(
-                    "flex flex-col gap-[4px] rounded-sm no-underline hover:opacity-80",
-                    focusRing,
-                  )}
-                  data-testid={`${BriefingHeroTestId.Link}-${c.id}`}
-                  href={c.href}
-                >
-                  {body}
-                </Link>
-              ) : (
-                body
-              )}
+              {lead}
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
+      {counters.length > 0 ? (
+        <div
+          className={cn(
+            "flex",
+            variant !== "slim" && "order-1 flex-none",
+            phone
+              ? "gap-[8px] overflow-x-auto pb-[4px] [scrollbar-width:none]"
+              : variant === "slim"
+                ? "gap-[24px]"
+                : "flex-wrap gap-x-[30px] gap-y-[12px]",
+          )}
+          data-testid={BriefingHeroTestId.Counters}
+        >
+          {counters.map((c) => {
+            const body = (
+              <>
+                <span
+                  className={cn(VALUE[variant], "tabular-nums", TONE[c.tone ?? "none"])}
+                  data-testid={`${BriefingHeroTestId.Value}-${c.id}`}
+                >
+                  {c.value}
+                </span>
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-ink-3",
+                    phone ? "text-[11.5px]" : "text-[12px]",
+                  )}
+                >
+                  {c.label}
+                </span>
+              </>
+            );
+            return (
+              <div
+                className={cn(
+                  "flex flex-col gap-[4px]",
+                  phone
+                    ? "min-w-[92px] flex-none rounded-[12px] border border-line bg-panel px-[12px] py-[10px]"
+                    : "min-w-[60px]",
+                )}
+                data-testid={`${BriefingHeroTestId.Counter}-${c.id}`}
+                key={c.id}
+              >
+                {c.href ? (
+                  <Link
+                    className={cn(
+                      "flex flex-col gap-[4px] rounded-sm no-underline hover:opacity-80",
+                      focusRing,
+                    )}
+                    data-testid={`${BriefingHeroTestId.Link}-${c.id}`}
+                    href={c.href}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  body
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }
