@@ -35,7 +35,7 @@ Reports end with `<verdict>pass</verdict>` or `<verdict>gap</verdict>`.
 | `PF_VISION_PROVIDER`                                              | `none`                                | `none` (pixel QA only), `mock`, `haiku`                                                        |
 | `PF_VISION_MODEL`                                                 | `haiku`                               | `claude -p --model` of the `haiku` judge (e.g. `sonnet`); recorded in `costs.jsonl`            |
 | `PF_MOCK_FAIL_PAGES`                                              | –                                     | e.g. `3,5`: mock emits a gray image for those pages on attempt 1; `0` = a white line-art cover |
-| `PF_SINGLE_SIDED`                                                 | `true`                                | blank back side after each coloring page                                                       |
+| `PF_SINGLE_SIDED`                                                 | `false`                               | blank back side after each coloring page                                                       |
 | `PF_AUTHOR`                                                       | –                                     | "First Last" for `publish.json` (last word = last name); empty author is a finalize warning    |
 | `PF_CREATED_AT`                                                   | now                                   | timestamp in the book README                                                                   |
 

@@ -12,9 +12,18 @@ export const COVER_SUFFIX = `full-colour children's book cover illustration, vib
 export const STICKER_SUFFIX =
   "full-colour flat vector sticker, saturated flat colours, bold dark outline closed all around the character, plain pure white background, nothing else, no shadow, no text";
 
-/** Item keys: `cover`, `buddy-<n>` (sticker), anything else is a black-and-white line-art image. */
+/** Appended to a character reference sheet (`char-<id>`): the character alone, no scene around it. */
+export const SHEET_SUFFIX = `black and white coloring book line art, thick clean black outlines, the character alone on a plain pure white background, no scenery, no ground, no other figures, white fill inside all shapes, no shading, no gray, no color, no text, ${ANATOMY}`;
+
+/** Item keys: `cover`, `buddy-<n>` (sticker), `char-<id>` (sheet), anything else is a black-and-white line-art page. */
 const suffixOf = (key: string): string =>
-  key === "cover" ? COVER_SUFFIX : key.startsWith("buddy-") ? STICKER_SUFFIX : COLORING_SUFFIX;
+  key === "cover"
+    ? COVER_SUFFIX
+    : key.startsWith("buddy-")
+      ? STICKER_SUFFIX
+      : key.startsWith("char-")
+        ? SHEET_SUFFIX
+        : COLORING_SUFFIX;
 
 /** The prompt a real provider sends: the item's prompt plus the page, cover or sticker suffix. */
 export const promptFor = (item: { key: string; prompt: string }): string =>

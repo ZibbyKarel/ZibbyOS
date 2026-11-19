@@ -50,6 +50,7 @@ export function createHaikuVisionProvider(
     async judge(input): Promise<VisionVerdict> {
       const t0 = performance.now();
       const prompt = `${qaPrompt(input)}\n\nUse the Read tool to view the image at ${input.file}${input.referenceImage ? ` (first image) and the reference sheet at ${input.referenceImage} (second image)` : ""} and judge it. Answer ONLY with one \`\`\`json block containing the JSON object, nothing else.`;
+      // A hung judge must block the item (judge-error), not crash the whole cast/produce round.
       const r = await run(
         "claude",
         [
@@ -70,7 +71,11 @@ export function createHaikuVisionProvider(
           ...(input.referenceImage ? ["--add-dir", path.dirname(input.referenceImage)] : []),
         ],
         { stdin: prompt, timeoutMs },
-      );
+      ).catch((e: unknown) => {
+        // Only a timeout becomes a judge-error; a missing `claude` binary still fails fast.
+        if (!(e instanceof Error) || !e.message.includes("timed out")) throw e;
+        return { code: null, stdout: "", stderr: e.message };
+      });
       const { verdict, cost } =
         r.code === 0
           ? parseEnvelope(r.stdout, input.characterCounts, input.scene)

@@ -86,6 +86,8 @@ export const PlanSchema = z.strictObject({
   brief: BriefSchema,
   title: z.string(),
   subtitle: z.string().optional(),
+  /** Two or three short sentences for the back cover; falls back to a generic age line. */
+  backBlurb: z.string().max(320).optional(),
   /** Title-page line in the brief's language (e.g. "Tahle omalovánka patří Natálce"). */
   ownerLine: z.string().max(80).optional(),
   /** Visual rules the illustrator must follow. */

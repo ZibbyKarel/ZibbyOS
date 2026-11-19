@@ -188,7 +188,7 @@ export async function render(argv: string[], ctx: Ctx): Promise<number> {
   const fontBytes = fs.readFileSync(FONT_FILE);
   const interior = await newDoc(plan.title);
   // subset:false -> no random subset tag in the font name, keeps the PDF byte-identical across runs.
-  const font = await interior.embedFont(fontBytes, { subset: false });
+  const font = await interior.embedFont(fontBytes, { subset: false, features: { liga: false } });
   const safe = makeSafe(font, warnings);
   const images: ManifestImage[] = [];
 
@@ -224,7 +224,7 @@ export async function render(argv: string[], ctx: Ctx): Promise<number> {
   // Cover wrap
   const { spineIn, widthIn, heightIn } = coverSizeIn(interiorPages);
   const cover = await newDoc(`${plan.title} (cover)`);
-  const cfont = await cover.embedFont(fontBytes, { subset: false });
+  const cfont = await cover.embedFont(fontBytes, { subset: false, features: { liga: false } });
   const csafe = makeSafe(cfont, warnings);
   const cp = cover.addPage([widthIn * PT, heightIn * PT]);
   const bleed = BLEED_IN * PT;
@@ -264,7 +264,11 @@ export async function render(argv: string[], ctx: Ctx): Promise<number> {
   const back: string[] = [];
   if (plan.subtitle) back.push(...wrap(cfont, csafe(plan.subtitle), 20, 440), "");
   back.push(
-    csafe(`A coloring book for ages ${plan.brief.targetAge.min}-${plan.brief.targetAge.max}`),
+    ...(plan.backBlurb
+      ? wrap(cfont, csafe(plan.backBlurb), 20, 440)
+      : [
+          csafe(`A coloring book for ages ${plan.brief.targetAge.min}-${plan.brief.targetAge.max}`),
+        ]),
   );
   const panelTop = coverTop - 0.75 * PT;
   const panelH = back.length * 20 * 1.25 + 40;
