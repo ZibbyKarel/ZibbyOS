@@ -48,6 +48,7 @@ interface GhCheckRun {
   status?: string;
   conclusion?: string | null;
   completed_at?: string | null;
+  html_url?: string;
 }
 interface GhPull {
   number?: number;
@@ -129,8 +130,16 @@ export function ciState(runs: readonly GhCheckRun[], ignored?: readonly string[]
 export function ciDetails(
   runs: readonly GhCheckRun[],
   ignored?: readonly string[],
-): Pick<InboxPr, "ciSettled" | "ciFailingChecks" | "ciCompletedAt"> {
+): Pick<InboxPr, "ciSettled" | "ciFailingChecks" | "ciFailingJobs" | "ciCompletedAt"> {
   const counted = countedRuns(runs, ignored);
+  const failingJobs = counted
+    .filter((r) => r.name && FAILED_CONCLUSIONS.includes(r.conclusion ?? ""))
+    .map((r) => ({
+      name: r.name ?? "",
+      status: r.conclusion ?? "failure",
+      ...(r.html_url?.startsWith("https://") ? { url: r.html_url } : {}),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
   const failing = [
     ...new Set(
       counted
@@ -146,6 +155,7 @@ export function ciDetails(
   return {
     ciSettled: counted.length > 0 && counted.every((r) => r.status === "completed"),
     ciFailingChecks: failing,
+    ciFailingJobs: failingJobs,
     ...(completed.length > 0
       ? { ciCompletedAt: new Date(Math.max(...completed)).toISOString() }
       : {}),
@@ -555,10 +565,18 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
       const ignored = project.ciIgnoredChecks;
       const ci = checks ? ciState(checks.check_runs ?? [], ignored) : ("unknown" as const);
       const ciExtra = checks ? ciDetails(checks.check_runs ?? [], ignored) : {};
-      const review = reviewState(
+      let review = reviewState(
         Array.isArray(reviews) ? reviews : [],
         (pull.requested_reviewers ?? []).map((u) => u.login ?? "").filter(Boolean),
       );
+      // An approval only counts once branch protection is satisfied (required approvals,
+      // codeowners, everyone who requested changes): GitHub's `reviewDecision` says so. A null
+      // decision (no review rule) or an unreadable one keeps the plain approval.
+      if (
+        review === "approved" &&
+        (await this.reviewDecision(token, repo, number)) === "REVIEW_REQUIRED"
+      )
+        review = "none";
       const mergeable = pull.mergeable ?? null;
       const unresolvedThreads =
         bucket.bucket === "mine"
@@ -753,6 +771,33 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     if (json.errors?.length || !nodes) throw new Error("github graphql: no data");
     // ponytail: first 100 threads; a PR with more counts only those.
     return nodes.filter((t) => t.isResolved === false).length;
+  }
+
+  /** GitHub's `reviewDecision` (APPROVED / CHANGES_REQUESTED / REVIEW_REQUIRED / null); undefined when unreadable. */
+  private async reviewDecision(
+    token: string,
+    repo: string,
+    n: number,
+  ): Promise<string | undefined> {
+    const [owner, name] = repo.split("/");
+    try {
+      const res = await this.fetchImpl(`${GITHUB_API}/graphql`, {
+        method: "POST",
+        headers: { ...this.headers(token), "content-type": "application/json" },
+        body: JSON.stringify({
+          query:
+            "query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){reviewDecision}}}",
+          variables: { owner, name, n },
+        }),
+      });
+      if (!res.ok) return undefined;
+      const json = (await res.json()) as {
+        data?: { repository?: { pullRequest?: { reviewDecision?: string | null } | null } | null };
+      };
+      return json.data?.repository?.pullRequest?.reviewDecision ?? undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   private headers(token: string): Record<string, string> {

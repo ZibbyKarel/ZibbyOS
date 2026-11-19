@@ -767,6 +767,8 @@ describe("InboxAddressCommentsService", () => {
       expect(text).toContain("followup: <what is to be done");
       expect(text).toContain("{{ISSUE}}");
       expect(text).toContain('"followUp"');
+      expect(text).toContain("by a bot");
+      expect(text).toContain("no pleasantries");
     }
   });
 });

@@ -17,6 +17,8 @@ export enum StackCrumbsTestId {
   Label = "stack-crumbs-label",
   /** Suffixed with the crumb id. */
   Crumb = "stack-crumbs-crumb",
+  /** The arrow after a crumb; suffixed with that crumb's id. */
+  Arrow = "stack-crumbs-arrow",
 }
 
 export interface StackCrumb {
@@ -49,8 +51,12 @@ const dot = (c: StackCrumb) => (
   />
 );
 
-/** `Stack  #1 → #2 → #3` breadcrumb with a state dot per crumb; the current crumb is raised. */
+/**
+ * `Stack  #1 → #2 → #3` breadcrumb with a state dot per crumb; the current crumb is raised and
+ * every arrow points at it (`#1 ← #2 ← #3` on the first, `#1 → #2 ← #3` on the middle one).
+ */
 export function StackCrumbs({ label, crumbs }: StackCrumbsProps) {
+  const current = crumbs.findIndex((c) => c.current);
   return (
     <div
       className="flex flex-wrap items-center gap-[4px] text-meta"
@@ -77,7 +83,11 @@ export function StackCrumbs({ label, crumbs }: StackCrumbsProps) {
               {c.label}
             </span>
           )}
-          {i < crumbs.length - 1 ? <span className="text-ink-3">→</span> : null}
+          {i < crumbs.length - 1 ? (
+            <span className="text-ink-3" data-testid={`${StackCrumbsTestId.Arrow}-${c.id}`}>
+              {current !== -1 && i >= current ? "←" : "→"}
+            </span>
+          ) : null}
         </span>
       ))}
     </div>

@@ -63,6 +63,54 @@ describe("Markdown", () => {
       expect(root).toHaveTextContent("<CustomTag>");
     });
 
+    it("renders a safe <img> (block and inline) as an image, dropping every other attribute", () => {
+      const ok = (src: string) => src.startsWith("https://ok.test/");
+      render(
+        <Markdown
+          escapeHtml
+          allowImage={ok}
+          source={
+            '<img width="1507" height="1258" alt="shot" src="https://ok.test/a.png" onerror="x()" style="x:y" />\n\ntext <img src="https://ok.test/b.png" alt="b"> more'
+          }
+        />,
+      );
+      const root = screen.getByTestId(MarkdownTestId.Root);
+      const images = root.getElementsByTagName("img");
+      expect(images).toHaveLength(2);
+      expect(images[0]).toHaveAttribute("width", "1507");
+      expect(images[0]).toHaveAttribute("height", "1258");
+      expect(images[0]).toHaveAttribute("alt", "shot");
+      expect(images[0]).not.toHaveAttribute("onerror");
+      expect(images[0]).not.toHaveAttribute("style");
+      expect(root).not.toHaveTextContent("<img");
+    });
+
+    it("keeps an <img> with a non-http(s) src, and any other tag, as literal text", () => {
+      render(
+        <Markdown escapeHtml source={'<img src="javascript:alert(1)">\n\n<script>x</script>'} />,
+      );
+      const root = screen.getByTestId(MarkdownTestId.Root);
+      expect(root.getElementsByTagName("img")).toHaveLength(0);
+      expect(root).toHaveTextContent("<img");
+      expect(root).toHaveTextContent("<script>");
+    });
+
+    it("an <img> the allowImage guard rejects renders as a link, not a request", () => {
+      render(
+        <Markdown
+          escapeHtml
+          allowImage={() => false}
+          source={'<img src="https://evil.test/p.png" alt="p">'}
+        />,
+      );
+      const root = screen.getByTestId(MarkdownTestId.Root);
+      expect(root.getElementsByTagName("img")).toHaveLength(0);
+      expect(screen.getByTestId(MarkdownTestId.BlockedImage)).toHaveAttribute(
+        "href",
+        "https://evil.test/p.png",
+      );
+    });
+
     it("still renders a fenced code block (and its angle brackets) when escapeHtml is set", () => {
       render(<Markdown escapeHtml source={source} />);
       expect(screen.getByTestId(MarkdownTestId.CodeBlock)).toHaveTextContent(

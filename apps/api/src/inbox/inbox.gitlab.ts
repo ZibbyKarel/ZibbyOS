@@ -36,6 +36,7 @@ export interface GitlabJob {
   status?: string;
   allow_failure?: boolean;
   finished_at?: string | null;
+  web_url?: string;
 }
 
 export interface GitlabApprovals {
@@ -169,8 +170,13 @@ export function jobAsCheckRun(job: GitlabJob): {
   status: string;
   conclusion: string | null;
   completed_at?: string | null;
+  html_url?: string;
 } {
-  const base = { ...(job.name ? { name: job.name } : {}), completed_at: job.finished_at ?? null };
+  const base = {
+    ...(job.name ? { name: job.name } : {}),
+    ...(job.web_url ? { html_url: job.web_url } : {}),
+    completed_at: job.finished_at ?? null,
+  };
   switch (job.status) {
     case "success":
       return { ...base, status: "completed", conclusion: "success" };

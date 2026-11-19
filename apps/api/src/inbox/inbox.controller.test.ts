@@ -15,6 +15,7 @@ import {
   ThreadNotOnPrError,
 } from "./inbox-pr-threads.service";
 import { InboxReviewService } from "./inbox-review.service";
+import { PrReplyRewriteService } from "./pr-reply-rewrite.service";
 import { InboxController } from "./inbox.controller";
 import { InboxService } from "./inbox.service";
 import type { INestApplication } from "@nestjs/common";
@@ -84,6 +85,10 @@ describe("InboxController getInboxPrDiff GitHub error mapping", () => {
           },
         },
         {
+          provide: PrReplyRewriteService,
+          useValue: { rewrite: async () => "Fixed in abc1234." },
+        },
+        {
           provide: InboxPrDiffService,
           useValue: {
             getDiff: async () => {
@@ -128,6 +133,17 @@ describe("InboxController getInboxPrDiff GitHub error mapping", () => {
       .send({ projectId: "acme", repo: "acme/app", number: 7 })
       .expect(422);
     expect(res.body.message).toContain("fork");
+  });
+
+  it("rewrite-reply returns the rewritten body (operator-only)", async () => {
+    const body = { body: "Fixed in abc1234, thanks!", mode: "shorter" };
+    await request(app.getHttpServer()).post("/api/inbox/prs/rewrite-reply").send(body).expect(401);
+    const res = await withOperator(
+      request(app.getHttpServer()).post("/api/inbox/prs/rewrite-reply"),
+    )
+      .send(body)
+      .expect(200);
+    expect(res.body).toEqual({ body: "Fixed in abc1234." });
   });
 
   it("maps an unknown project on rebase to 404", async () => {

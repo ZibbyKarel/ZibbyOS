@@ -1303,7 +1303,10 @@
     "revise": "Answer / request changes",
     "reviseLabel": "Answer or changes",
     "reviseHint": "The step re-runs with this note (e.g. your answers to the questions above), then comes back to you for review.",
-    "confirmRevise": "Send"
+    "confirmRevise": "Send",
+    "rewriteAllShorter": "All shorter",
+    "rewriteAllLonger": "All more detailed",
+    "rewriteFailed": "The rewrite failed; the reply is unchanged."
   },
   "zibby": {
     "label": "Zibby",
@@ -3760,7 +3763,9 @@
       "summary": "Review threads · {open} unresolved · {resolved} resolved",
       "showResolved": "show resolved",
       "error": "Couldn't load review threads",
-      "replyError": "Couldn't send the reply"
+      "replyError": "Couldn't send the reply",
+      "shorter": "Shorter",
+      "longer": "More detail"
     },
     "sync": {
       "button": "Sync",
@@ -4586,6 +4591,17 @@
         },
         "banner": {
           "ciFailing": "{count, plural, =0 {Checks are failing} one {# check failing} other {# checks failing}}"
+        },
+        "discussion": "Discussion",
+        "discussionValue": "{resolved} of {total} resolved",
+        "failedJobs": {
+          "title": "Failed jobs",
+          "open": "Open job {name}",
+          "status": {
+            "failure": "Failed",
+            "cancelled": "Cancelled",
+            "timed_out": "Timed out"
+          }
         }
       },
       "run": {

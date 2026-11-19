@@ -50,8 +50,14 @@ describe("mergeReviewThreads", () => {
   });
 });
 
-const hooks = vi.hoisted(() => ({ threads: { data: undefined as unknown, isError: false } }));
+const hooks = vi.hoisted(() => ({
+  threads: { data: undefined as unknown, isError: false },
+  rewrite: vi.fn(),
+}));
 vi.mock("../../inbox/queries", () => ({ useInboxPrThreadsQuery: () => hooks.threads }));
+vi.mock("../../inbox/mutations", () => ({
+  useRewriteInboxPrReplyMutation: () => ({ mutateAsync: hooks.rewrite }),
+}));
 
 const task = {
   projectId: "p1",
@@ -106,6 +112,65 @@ describe("AddressCommentsReview", () => {
       { threadId: "PRRT_c", body: "fixed it", resolve: true },
       { threadId: "PRRT_a", body: "answer", resolve: false },
     ]);
+  });
+});
+
+describe("rewrite buttons", () => {
+  const replies = [
+    { threadId: "PRRT_c", body: "Fixed in abc, thanks!", resolve: true },
+    { threadId: "PRRT_a", body: "", resolve: false },
+  ];
+  beforeEach(() => {
+    hooks.threads = { data: [A, B, C], isError: false };
+    hooks.rewrite.mockReset();
+    hooks.rewrite.mockResolvedValue({ status: 200, body: { body: "Fixed in abc." } });
+  });
+
+  it("per-comment Stručněji rewrites that draft in place, with the thread comment as context", async () => {
+    const onRepliesChange = vi.fn();
+    renderWithProviders(
+      <AddressCommentsReview
+        now={NOW}
+        onRepliesChange={onRepliesChange}
+        replies={replies}
+        task={task}
+      />,
+    );
+    // only the non-empty draft can be rewritten
+    const [first, second] = screen.getAllByTestId(ReviewThreadTestId.Shorter);
+    expect(first).toBeDisabled();
+    expect(second).toBeEnabled();
+    fireEvent.click(second!);
+    await vi.waitFor(() => expect(onRepliesChange).toHaveBeenCalled());
+    expect(hooks.rewrite).toHaveBeenCalledWith({
+      body: { body: "Fixed in abc, thanks!", mode: "shorter", comment: "hi" },
+    });
+    expect(onRepliesChange).toHaveBeenCalledWith([
+      { threadId: "PRRT_c", body: "Fixed in abc.", resolve: true },
+      replies[1],
+    ]);
+  });
+
+  it("the top buttons rewrite every non-empty draft; a failure keeps the draft and says so", async () => {
+    const onRepliesChange = vi.fn();
+    renderWithProviders(
+      <AddressCommentsReview
+        now={NOW}
+        onRepliesChange={onRepliesChange}
+        replies={replies}
+        task={task}
+      />,
+    );
+    fireEvent.click(screen.getByTestId(AddressCommentsReviewTestId.AllLonger));
+    await vi.waitFor(() => expect(onRepliesChange).toHaveBeenCalled());
+    expect(hooks.rewrite).toHaveBeenCalledTimes(1);
+    expect(hooks.rewrite.mock.calls[0]?.[0].body.mode).toBe("longer");
+
+    hooks.rewrite.mockRejectedValue(new Error("422"));
+    onRepliesChange.mockClear();
+    fireEvent.click(screen.getByTestId(AddressCommentsReviewTestId.AllShorter));
+    await screen.findByTestId(AddressCommentsReviewTestId.RewriteError);
+    expect(onRepliesChange).toHaveBeenCalledWith(replies);
   });
 });
 

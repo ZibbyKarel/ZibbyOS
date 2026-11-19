@@ -8,3 +8,4 @@ export { useAddressInboxPrCommentsMutation } from "./useAddressInboxPrCommentsMu
 export { useReplyInboxPrThreadMutation } from "./useReplyInboxPrThreadMutation";
 export { useSubmitInboxPrReviewMutation } from "./useSubmitInboxPrReviewMutation";
 export { useRequestInboxPrReviewMutation } from "./useRequestInboxPrReviewMutation";
+export { useRewriteInboxPrReplyMutation } from "./useRewriteInboxPrReplyMutation";

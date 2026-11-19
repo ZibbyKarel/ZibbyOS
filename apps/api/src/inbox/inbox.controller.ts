@@ -17,6 +17,7 @@ import { InboxReviewService, ReviewRepoMismatchError } from "./inbox-review.serv
 import { RoadmapItemLifecycleError, RoadmapItemNotFoundError } from "../roadmap/roadmap.errors";
 import { InboxItemNotFoundError } from "./inbox-issues.service";
 import { InboxService } from "./inbox.service";
+import { PrReplyRewriteService, ReplyRewriteError } from "./pr-reply-rewrite.service";
 
 /**
  * Every mutating inbox route is an operator click; rebase, address-comments and fix-ci
@@ -34,6 +35,7 @@ export class InboxController {
     private readonly rebases: InboxRebaseService,
     private readonly addressComments: InboxAddressCommentsService,
     private readonly fixCi: InboxFixCiService,
+    private readonly replyRewrite: PrReplyRewriteService,
   ) {}
 
   @TsRestHandler(inboxContract)
@@ -183,6 +185,15 @@ export class InboxController {
           };
         } catch (error) {
           return mapThreadsError(error);
+        }
+      },
+      rewriteInboxPrReply: async ({ body }) => {
+        try {
+          return { status: 200 as const, body: { body: await this.replyRewrite.rewrite(body) } };
+        } catch (error) {
+          if (error instanceof ReplyRewriteError)
+            return { status: 422 as const, body: { message: error.message } };
+          throw error;
         }
       },
       submitInboxPrReview: async ({ params, body }) => {

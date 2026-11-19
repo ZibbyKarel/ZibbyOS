@@ -22,6 +22,7 @@ import {
   prAncestors,
   prBaseLabel,
   prChildren,
+  prDescendants,
   prState,
   prWaits,
   splitPrs,
@@ -404,6 +405,11 @@ describe("PR stacks", () => {
 
   it("children are the PRs stacked directly on it", () => {
     expect(prChildren(b, all)).toEqual([d, c]);
+  });
+
+  it("descendants span the whole stack above a PR, not just its direct children", () => {
+    expect(prDescendants(a, all)).toEqual([b, d, c]);
+    expect(prDescendants(c, all)).toEqual([]);
   });
 
   it("groups by the bottom-most visible ancestor; kids sorted by number", () => {

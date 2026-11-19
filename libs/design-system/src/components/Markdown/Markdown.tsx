@@ -34,6 +34,51 @@ export enum MarkdownTestId {
 interface MdNode {
   type: string;
   children?: MdNode[];
+  value?: string;
+  url?: string;
+  alt?: string;
+  data?: { hProperties?: Record<string, string> };
+}
+
+const IMG_TAG = /<img\b([^>]*?)\/?>/gi;
+/** Layout wrappers GitHub bodies put around pasted images; dropped, never rendered. */
+const IMG_WRAPPER = /<\/?(?:p|div|br)\b[^>]*>/gi;
+const ATTR = /([a-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+const unentity = (v: string) =>
+  v
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+/**
+ * Raw HTML made only of `<img>` tags (plus bare p/div/br wrappers) as image nodes, keeping
+ * just `src` (http(s) only), `alt` and numeric `width`/`height`; every other attribute (event
+ * handlers, style, srcset…) is dropped. `null` for anything else, which stays literal text.
+ */
+function htmlImages(html: string): MdNode[] | null {
+  const tags = [...html.matchAll(IMG_TAG)];
+  if (tags.length === 0) return null;
+  if (html.replace(IMG_TAG, "").replace(IMG_WRAPPER, "").trim() !== "") return null;
+  const images: MdNode[] = [];
+  for (const tag of tags) {
+    const attrs: Record<string, string> = {};
+    for (const m of (tag[1] ?? "").matchAll(ATTR))
+      attrs[(m[1] ?? "").toLowerCase()] = unentity(m[2] ?? m[3] ?? "");
+    const src = attrs.src ?? "";
+    if (!/^https?:\/\//i.test(src)) return null;
+    const size = (v: string | undefined) => (v && /^\d{1,5}$/.test(v) ? v : undefined);
+    const width = size(attrs.width);
+    const height = size(attrs.height);
+    images.push({
+      type: "image",
+      url: src,
+      alt: attrs.alt ?? "",
+      data: { hProperties: { ...(width && { width }), ...(height && { height }) } },
+    });
+  }
+  return images;
 }
 
 /**
@@ -41,15 +86,29 @@ interface MdNode {
  * prose) as plain text, so the renderer shows the literal tag instead of letting
  * the downstream `rehype-raw` parse it into an (often empty, invisible) element.
  * Fenced/inline code is a `code`/`inlineCode` node, not `html`, so it is untouched.
+ * The one exception is a safe `<img>` ({@link htmlImages}): GitHub PR bodies embed
+ * pasted screenshots that way, so it becomes a markdown image (then subject to `allowImage`).
  * Used by {@link Markdown} when `escapeHtml` is set: the right choice for
  * untrusted model/agent output (it also closes a raw-HTML injection vector). A
  * hand-rolled walk keeps `unist-util-visit` out of the dependency surface.
  */
 function remarkEscapeRawHtml() {
   return (tree: MdNode): void => {
-    const walk = (node: MdNode): void => {
-      if (node.type === "html") node.type = "text";
-      node.children?.forEach(walk);
+    const walk = (node: MdNode, parent?: MdNode): void => {
+      if (node.type === "html") {
+        const images = htmlImages(node.value ?? "");
+        if (!images) node.type = "text";
+        else if (parent?.type === "paragraph") {
+          // inline html is one tag per node, so there is exactly one image
+          Object.assign(node, images[0], { value: undefined });
+        } else {
+          node.type = "paragraph";
+          node.children = images;
+          node.value = undefined;
+        }
+        return;
+      }
+      node.children?.forEach((child) => walk(child, node));
     };
     walk(tree);
   };
@@ -197,11 +256,21 @@ function withImageGuard(
   if (!allowImage) return components;
   return {
     ...components,
-    img: ({ src, alt, title }) => {
+    img: ({ src, alt, title, width, height }) => {
       const url = typeof src === "string" ? src : "";
-      // a plain <img>: the DS is framework-agnostic (no next/image)
-      // eslint-disable-next-line @next/next/no-img-element
-      if (url && allowImage(url)) return <img alt={alt} src={url} title={title} />;
+      if (url && allowImage(url))
+        return (
+          // a plain <img>: the DS is framework-agnostic (no next/image)
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={alt}
+            className="h-auto max-w-full"
+            height={height}
+            src={url}
+            title={title}
+            width={width}
+          />
+        );
       return (
         <a data-testid={MarkdownTestId.BlockedImage} href={url} rel="noreferrer" target="_blank">
           {alt || url}

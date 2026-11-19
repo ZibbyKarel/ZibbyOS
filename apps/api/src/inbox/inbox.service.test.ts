@@ -140,9 +140,28 @@ describe("PR classification", () => {
     expect(ciDetails(runs, ignored)).toEqual({
       ciSettled: true,
       ciFailingChecks: [],
+      ciFailingJobs: [],
       ciCompletedAt: "2026-01-01T10:00:00.000Z",
     });
-    expect(ciDetails([runs[1]!], ignored)).toEqual({ ciSettled: false, ciFailingChecks: [] });
+    expect(ciDetails([runs[1]!], ignored)).toEqual({
+      ciSettled: false,
+      ciFailingChecks: [],
+      ciFailingJobs: [],
+    });
+    expect(
+      ciDetails([
+        {
+          name: "lint",
+          status: "completed",
+          conclusion: "failure",
+          html_url: "https://x.test/j/1",
+        },
+        { name: "evil", status: "completed", conclusion: "timed_out", html_url: "javascript:x" },
+      ]).ciFailingJobs,
+    ).toEqual([
+      { name: "evil", status: "timed_out" },
+      { name: "lint", status: "failure", url: "https://x.test/j/1" },
+    ]);
     expect(
       ciDetails([
         { name: "b", status: "completed", conclusion: "failure" },
@@ -221,6 +240,7 @@ describe("InboxService.listPrs", () => {
       changesRequested?: boolean;
       graphqlThreads?: unknown[];
       graphqlStatus?: number;
+      reviewDecision?: string | null;
       graphqlBody?: unknown;
       headSha?: string;
       myApproval?: boolean;
@@ -251,7 +271,12 @@ describe("InboxService.listPrs", () => {
         return json(
           opts.graphqlBody ?? {
             data: {
-              repository: { pullRequest: { reviewThreads: { nodes: graphqlThreads } } },
+              repository: {
+                pullRequest: {
+                  reviewThreads: { nodes: graphqlThreads },
+                  reviewDecision: opts.reviewDecision,
+                },
+              },
             },
           },
           opts.graphqlStatus ?? 200,
@@ -856,8 +881,19 @@ describe("InboxService.listPrs", () => {
   it("reads threads on my PR even without changes-requested (comment-only reviews)", async () => {
     const { service, calls } = build();
     const pr3 = (await service.listPrs()).prs.find((p) => p.number === 3);
-    expect(calls.filter((c) => c === "graphql")).toHaveLength(1);
+    // threads read + the reviewDecision check of the approved PR
+    expect(calls.filter((c) => c === "graphql")).toHaveLength(2);
     expect(pr3?.review).toBe("approved");
     expect(pr3?.unresolvedThreads).toBe(1);
+  });
+
+  it("an approval stays unless GitHub's reviewDecision is REVIEW_REQUIRED", async () => {
+    const required = build([], { reviewDecision: "REVIEW_REQUIRED" });
+    const blocked = (await required.service.listPrs()).prs.find((p) => p.number === 3);
+    expect(blocked?.review).toBe("none");
+    const approved = build([], { reviewDecision: "APPROVED" });
+    expect((await approved.service.listPrs()).prs.find((p) => p.number === 3)?.review).toBe(
+      "approved",
+    );
   });
 });

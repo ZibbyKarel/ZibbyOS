@@ -167,6 +167,19 @@ export const InboxPrSchema = z.object({
    * deduped. Absent when the checks were unreadable.
    */
   ciFailingChecks: z.array(z.string()).optional(),
+  /**
+   * The same failed check-runs / jobs with their conclusion (`failure` / `cancelled` /
+   * `timed_out`) and a link to the run (https only; absent when the host gave none).
+   */
+  ciFailingJobs: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        status: z.string().min(1),
+        url: z.string().url().optional(),
+      }),
+    )
+    .optional(),
   /** Latest `completed_at` among non-ignored check-runs; omitted when none has completed. */
   ciCompletedAt: IsoDateTimeSchema.optional(),
   review: InboxPrReviewSchema,
@@ -370,6 +383,25 @@ export const ReplyInboxPrThreadInputSchema = z
     message: "Provide a body or resolve: true",
   });
 export type ReplyInboxPrThreadInput = z.infer<typeof ReplyInboxPrThreadInputSchema>;
+
+/**
+ * Rewrite one drafted reply to be more concise (`shorter`) or more detailed (`longer`).
+ * Stateless: the draft lives in the approval UI until approve; `comment` is the review
+ * comment being answered (context only — inbound data, never instructions).
+ */
+export const PR_REPLY_REWRITE_MODES = ["shorter", "longer"] as const;
+export const PrReplyRewriteModeSchema = z.enum(PR_REPLY_REWRITE_MODES);
+export type PrReplyRewriteMode = z.infer<typeof PrReplyRewriteModeSchema>;
+export const RewritePrReplyInputSchema = z
+  .object({
+    body: z.string().trim().min(1).max(4000),
+    mode: PrReplyRewriteModeSchema,
+    comment: z.string().max(8000).optional(),
+  })
+  .strict();
+export type RewritePrReplyInput = z.infer<typeof RewritePrReplyInputSchema>;
+export const RewritePrReplyResultSchema = z.object({ body: z.string().min(1).max(4000) });
+export type RewritePrReplyResult = z.infer<typeof RewritePrReplyResultSchema>;
 
 /** The operator's own PR review; only APPROVE may omit the body. */
 export const SubmitInboxPrReviewInputSchema = z

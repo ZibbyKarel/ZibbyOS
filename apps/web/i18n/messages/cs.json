@@ -1303,7 +1303,10 @@
     "revise": "Odpovědět / připomínky",
     "reviseLabel": "Odpověď nebo připomínky",
     "reviseHint": "Krok se spustí znovu s touto poznámkou (třeba s odpověďmi na otázky výše) a pak se ti vrátí ke kontrole.",
-    "confirmRevise": "Odeslat"
+    "confirmRevise": "Odeslat",
+    "rewriteAllShorter": "Vše stručněji",
+    "rewriteAllLonger": "Vše podrobněji",
+    "rewriteFailed": "Přepsání se nepodařilo, odpověď zůstala beze změny."
   },
   "zibby": {
     "label": "Zibby",
@@ -3760,7 +3763,9 @@
       "summary": "Review thready · {open} nevyřešené · {resolved} vyřešených",
       "showResolved": "zobrazit vyřešené",
       "error": "Vlákna se nepodařilo načíst",
-      "replyError": "Odpověď se nepodařilo odeslat"
+      "replyError": "Odpověď se nepodařilo odeslat",
+      "shorter": "Stručněji",
+      "longer": "Podrobněji"
     },
     "sync": {
       "button": "Synchronizovat",
@@ -4586,6 +4591,17 @@
         },
         "banner": {
           "ciFailing": "{count, plural, =0 {Checky selhávají} one {# check selhává} few {# checky selhávají} other {# checků selhává}}"
+        },
+        "discussion": "Diskuse",
+        "discussionValue": "vyřešeno {resolved} z {total}",
+        "failedJobs": {
+          "title": "Selhané joby",
+          "open": "Otevřít job {name}",
+          "status": {
+            "failure": "Selhal",
+            "cancelled": "Zrušen",
+            "timed_out": "Vypršel čas"
+          }
         }
       },
       "run": {

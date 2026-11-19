@@ -3,6 +3,7 @@
 import type {
   InboxPrThread,
   OperatorThreadReply,
+  PrReplyRewriteMode,
   PrReviewEvent,
   PrThreadOutcome,
   ScheduledTask,
@@ -10,12 +11,16 @@ import type {
 import {
   Accordion,
   AccordionItem,
+  Button,
   Container,
   Markdown,
+  Row,
   Stack,
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
+import { useRewriteInboxPrReplyMutation } from "../../inbox/mutations";
 import { ReviewThread } from "../../inbox/components/ReviewThread/ReviewThread";
 import { useInboxPrThreadsQuery } from "../../inbox/queries";
 
@@ -25,6 +30,9 @@ export enum AddressCommentsReviewTestId {
   Report = "address-comments-review-report",
   AlreadyResolved = "address-comments-review-already-resolved",
   FallbackDraft = "address-comments-review-fallback-draft",
+  AllShorter = "address-comments-review-all-shorter",
+  AllLonger = "address-comments-review-all-longer",
+  RewriteError = "address-comments-review-rewrite-error",
 }
 
 type AddressComments = NonNullable<ScheduledTask["prAddressComments"]>;
@@ -152,6 +160,9 @@ export function AddressCommentsReview({
   const t = useTranslations("approvals");
   const addr = task.prAddressComments;
   const threadsQuery = useInboxPrThreadsQuery(task.projectId, addr?.number);
+  const rewrite = useRewriteInboxPrReplyMutation();
+  const [rewriting, setRewriting] = useState<ReadonlySet<string>>(new Set());
+  const [rewriteFailed, setRewriteFailed] = useState(false);
   if (!addr) return null;
 
   const outcomes = addr.outcomes ?? [];
@@ -170,6 +181,43 @@ export function AddressCommentsReview({
   const change = (threadId: string, next: Partial<OperatorThreadReply>) =>
     onRepliesChange(replies.map((r) => (r.threadId === threadId ? { ...r, ...next } : r)));
 
+  // Rewrites one draft in place; returns the new body (or nothing when the call failed).
+  const rewriteOne = async (threadId: string, body: string, mode: PrReplyRewriteMode) => {
+    const comment = threadsQuery.data?.find((th) => th.id === threadId)?.comments[0]?.body;
+    setRewriting((cur) => new Set(cur).add(threadId));
+    try {
+      const res = await rewrite.mutateAsync({ body: { body, mode, ...(comment && { comment }) } });
+      return res.status === 200 ? { threadId, body: res.body.body } : undefined;
+    } catch {
+      return undefined;
+    } finally {
+      setRewriting((cur) => {
+        const next = new Set(cur);
+        next.delete(threadId);
+        return next;
+      });
+    }
+  };
+  // Applies finished rewrites onto the latest `replies` so concurrent edits are not lost.
+  const applyRewrites = (done: ({ threadId: string; body: string } | undefined)[]) => {
+    setRewriteFailed(done.some((d) => !d));
+    const byId = new Map(done.flatMap((d) => (d ? [[d.threadId, d.body] as const] : [])));
+    onRepliesChange(
+      replies.map((r) =>
+        byId.has(r.threadId) ? { ...r, body: byId.get(r.threadId) ?? r.body } : r,
+      ),
+    );
+  };
+  const rewriteAll = async (mode: PrReplyRewriteMode) =>
+    applyRewrites(
+      await Promise.all(
+        open.flatMap((r) =>
+          r.draft?.body.trim() ? [rewriteOne(r.thread.id, r.draft.body, mode)] : [],
+        ),
+      ),
+    );
+  const canRewrite = open.some((r) => r.draft?.body.trim());
+
   return (
     <Stack data-testid={AddressCommentsReviewTestId.Root} gap="200">
       <Typography data-testid={AddressCommentsReviewTestId.Summary} type="h3">
@@ -180,6 +228,37 @@ export function AddressCommentsReview({
           skipped: count("skipped"),
         })}
       </Typography>
+      {open.length > 0 && (
+        <Row gap="100">
+          {(["shorter", "longer"] as const).map((mode) => (
+            <Button
+              data-testid={
+                mode === "shorter"
+                  ? AddressCommentsReviewTestId.AllShorter
+                  : AddressCommentsReviewTestId.AllLonger
+              }
+              disabled={!canRewrite || rewriting.size > 0}
+              intent="secondary"
+              key={mode}
+              loading={rewriting.size > 0}
+              onClick={() => void rewriteAll(mode)}
+              size="sm"
+            >
+              {t(mode === "shorter" ? "rewriteAllShorter" : "rewriteAllLonger")}
+            </Button>
+          ))}
+        </Row>
+      )}
+      {rewriteFailed && (
+        <Typography
+          data-testid={AddressCommentsReviewTestId.RewriteError}
+          size="sm"
+          tone="bad"
+          type="text"
+        >
+          {t("rewriteFailed")}
+        </Typography>
+      )}
       {!rows && threadsQuery.isError && (
         <Typography size="sm" tone="bad" type="text">
           {t("addressThreadsError")}
@@ -211,6 +290,9 @@ export function AddressCommentsReview({
             body: draft?.body ?? "",
             resolve: draft?.resolve ?? false,
             onChange: (next) => change(thread.id, next),
+            rewriting: rewriting.has(thread.id),
+            onRewrite: async (mode) =>
+              applyRewrites([await rewriteOne(thread.id, draft?.body ?? "", mode)]),
             ...(draft?.followUp !== undefined
               ? {
                   followUp: {

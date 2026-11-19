@@ -20,6 +20,7 @@ import { InboxReviewService } from "./inbox-review.service";
 import { InboxController } from "./inbox.controller";
 import { InboxService } from "./inbox.service";
 import { PrAutomationService } from "./pr-automation.service";
+import { PrReplyRewriteService } from "./pr-reply-rewrite.service";
 
 export function resolveInboxStateFile(): string {
   return process.env.INBOX_STATE_FILE ?? dataDir("inbox-state.json");
@@ -52,6 +53,7 @@ export function resolveInboxStateFile(): string {
     InboxCiTriageService,
     InboxPrDiffService,
     InboxPrThreadsService,
+    PrReplyRewriteService,
     // todo-16 — the PR automation heartbeat. AutopilotService (automation tree), SystemConfigStore,
     // WatcherHealthRegistry and ActivityLogService are all @Global — no new import, no cycle.
     PrAutomationService,

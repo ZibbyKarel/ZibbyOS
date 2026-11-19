@@ -19,6 +19,8 @@ import {
   RequestInboxPrReviewInputSchema,
   ReviewInboxPrInputSchema,
   ReviewInboxPrResultSchema,
+  RewritePrReplyInputSchema,
+  RewritePrReplyResultSchema,
   SetInboxHiddenSchema,
   SubmitInboxPrReviewInputSchema,
   SubmitInboxPrReviewResultSchema,
@@ -170,6 +172,14 @@ export const inboxContract = c.router(
       body: ReplyInboxPrThreadInputSchema,
       responses: { 200: InboxPrThreadSchema, 404: ErrorSchema, 422: ErrorSchema, 502: ErrorSchema },
       summary: "Reply to and/or resolve one PR review thread; returns the updated thread",
+    },
+    rewriteInboxPrReply: {
+      method: "POST",
+      path: "/inbox/prs/rewrite-reply",
+      body: RewritePrReplyInputSchema,
+      responses: { 200: RewritePrReplyResultSchema, 422: ErrorSchema, 502: ErrorSchema },
+      summary:
+        "Rewrite one drafted PR review reply to be shorter or more detailed (LLM one-shot; stays concrete, 422 when no concrete rewrite comes back)",
     },
     submitInboxPrReview: {
       method: "POST",

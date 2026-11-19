@@ -68,10 +68,60 @@ export interface PrActionButtonsProps {
   baseLabel: string;
   /** Leave "Fix CI" out — the PR detail renders `PrFixCiButton` in its checks summary instead. */
   hideFixCi?: boolean;
+  /** Leave "Address comments" out — the PR detail renders `PrAddressButton` in its discussion summary instead. */
+  hideAddress?: boolean;
 }
 
 export interface PrFixCiButtonProps {
   pr: InboxPr;
+}
+
+export interface PrAddressButtonProps {
+  pr: InboxPr;
+}
+
+/**
+ * "Address review comments" — a `pr-address-comments` task (ZIBBY fast-forwards the fixes, never
+ * force: right away for `Addressed: all`, after a Tier-3 approval otherwise). Renders nothing
+ * unless `isFix` and no ZIBBY run of the PR is in flight (the running label replaces it).
+ */
+export function PrAddressButton({ pr }: PrAddressButtonProps) {
+  const t = useTranslations("inboxPage.prs.actions");
+  const address = useAddressInboxPrCommentsMutation();
+  const [message, setMessage] = useState<string | null>(null);
+  if (!isFix(pr) || runsOf(pr).some(inFlight) || address.isSuccess) return null;
+  const onAddress = () =>
+    address.mutate(
+      { body: { projectId: pr.projectId, repo: pr.repo, number: pr.number, title: pr.title } },
+      {
+        onSuccess: () => setMessage(null),
+        onError: (err) =>
+          setMessage(
+            "status" in err && err.status === 422
+              ? t("addressRefused", { reason: err.body.message })
+              : t("addressFailed"),
+          ),
+      },
+    );
+  return (
+    <>
+      <Button
+        data-testid={PrActionsTestId.Address}
+        disabled={address.isPending}
+        intent="primary"
+        loading={address.isPending}
+        onClick={onAddress}
+        size="sm"
+      >
+        {t("address")}
+      </Button>
+      {message && (
+        <Typography data-testid={PrActionsTestId.Message} type="label" variant="secondary">
+          {message}
+        </Typography>
+      )}
+    </>
+  );
 }
 
 /**
@@ -135,13 +185,16 @@ export function PrFixCiButton({ pr }: PrFixCiButtonProps) {
  * a failed run keeps the buttons and adds a link to the failed task. Review / Address / Fix CI hide once
  * their latest run succeeded after the PR's last GitHub change (`updatedAt` ≤ `finishedAt`).
  */
-export function PrActionButtons({ pr, hideFixCi = false }: PrActionButtonsProps) {
+export function PrActionButtons({
+  pr,
+  hideFixCi = false,
+  hideAddress = false,
+}: PrActionButtonsProps) {
   const t = useTranslations("inboxPage.prs.actions");
   const qc = useQueryClient();
   const review = useReviewInboxPrMutation();
   const merge = useMergeProjectPrMutation();
   const rebase = useRebaseInboxPrMutation();
-  const address = useAddressInboxPrCommentsMutation();
   const [deleteBranch, setDeleteBranch] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [modes, setMode] = useSessionFlags<string>(REVIEW_MODE_STORAGE_KEY);
@@ -191,20 +244,6 @@ export function PrActionButtons({ pr, hideFixCi = false }: PrActionButtonsProps)
             "status" in err && err.status === 422
               ? t("rebaseRefused", { reason: err.body.message })
               : t("rebaseFailed"),
-          ),
-      },
-    );
-
-  const onAddress = () =>
-    address.mutate(
-      { body: target },
-      {
-        onSuccess: () => setMessage(null),
-        onError: (err) =>
-          setMessage(
-            "status" in err && err.status === 422
-              ? t("addressRefused", { reason: err.body.message })
-              : t("addressFailed"),
           ),
       },
     );
@@ -272,18 +311,7 @@ export function PrActionButtons({ pr, hideFixCi = false }: PrActionButtonsProps)
               />
             </Container>
           )}
-          {isFix(pr) && (
-            <Button
-              data-testid={PrActionsTestId.Address}
-              disabled={address.isPending}
-              intent="primary"
-              loading={address.isPending}
-              onClick={onAddress}
-              size="sm"
-            >
-              {t("address")}
-            </Button>
-          )}
+          {!hideAddress && <PrAddressButton pr={pr} />}
           {!hideFixCi && <PrFixCiButton pr={pr} />}
           {isRebase(pr) && (
             <Container data-testid={PrActionsTestId.Rebase}>

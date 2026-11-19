@@ -1,4 +1,4 @@
-import type { InboxPr, InboxPrReviewers } from "@zibby/contracts";
+import type { InboxPr, InboxPrReviewers, InboxPrThread } from "@zibby/contracts";
 import {
   AnchoredSheetTestId,
   CopyableTestId,
@@ -15,11 +15,12 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatAboutButtonTestId } from "../../../chat/components/ChatAboutButton";
 import { ChatProvider, useChat } from "../../../chat/ChatContext";
-import { fireEvent, renderWithProviders, screen, within } from "../../../../test/render";
+import { cleanup, fireEvent, renderWithProviders, screen, within } from "../../../../test/render";
 import { prListHref } from "../../../inbox/inbox";
 import { PrActionsTestId } from "../../../inbox/components/PrActionButtons";
 import { PrReviewersTestId } from "../../../inbox/components/PrReviewers";
 import { EntityRunListTestId } from "../../../runs/components/EntityRunList";
+import { PrChecksHoverTestId } from "./PrChecksHover";
 import { PrSheet, PrSheetTestId } from "./PrSheet";
 
 const { hooks, setDraft, closePr, push } = vi.hoisted(() => ({
@@ -31,6 +32,7 @@ const { hooks, setDraft, closePr, push } = vi.hoisted(() => ({
     diff: "",
     items: [] as unknown[],
     reviewers: undefined as InboxPrReviewers | undefined,
+    threads: [] as InboxPrThread[],
   },
 }));
 vi.mock("next/navigation", () => ({
@@ -44,6 +46,7 @@ vi.mock("../../../inbox/mutations", () => ({
   useRebaseInboxPrMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useFixInboxPrCiMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useAddressInboxPrCommentsMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useReplyInboxPrThreadMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useSubmitInboxPrReviewMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useRequestInboxPrReviewMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -58,7 +61,7 @@ vi.mock("../../../projects/queries", () => ({
 vi.mock("../../../inbox/queries", () => ({
   useInboxItemsQuery: () => ({ data: { items: hooks.items, epics: [] } }),
   useInboxPrsQuery: () => ({ data: { prs: hooks.prs, errors: [] } }),
-  useInboxPrThreadsQuery: () => ({ data: [] }),
+  useInboxPrThreadsQuery: () => ({ data: hooks.threads }),
   useInboxPrReviewersQuery: () => ({ data: hooks.reviewers }),
   useInboxPrDiffQuery: () => ({
     data: { diff: hooks.diff, truncated: false },
@@ -146,6 +149,7 @@ afterEach(() => {
   hooks.diff = "";
   hooks.items = [];
   hooks.reviewers = undefined;
+  hooks.threads = [];
 });
 
 describe("PrSheet action buttons", () => {
@@ -238,6 +242,77 @@ describe("PrSheet content", () => {
       screen.getByTestId(AnchoredSheetTestId.Meta).compareDocumentPosition(trail) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("shows the whole stack from any position, every arrow pointing at the viewed PR", () => {
+    const a = pr(10, { headRef: "a", baseRef: "main" });
+    const b = pr(11, { headRef: "b", baseRef: "a" });
+    const c = pr(12, { headRef: "c", baseRef: "b" });
+    const d = pr(13, { headRef: "d", baseRef: "c" });
+    show(a, [a, b, c, d]);
+    const root = () => screen.getByTestId(StackCrumbsTestId.Root).textContent;
+    expect(root()).toBe("Stack#10←#11←#12←#13");
+    cleanup();
+    show(c, [a, b, c, d]);
+    expect(root()).toBe("Stack#10→#11→#12←#13");
+  });
+
+  it("Diskuse sits between Kontroly and Issue: resolved of total threads, address button on my PR", () => {
+    const thread = (id: string, isResolved: boolean): InboxPrThread => ({
+      id: `PRRT_${id}`,
+      isResolved,
+      isOutdated: false,
+      path: "a.ts",
+      line: 1,
+      startLine: null,
+      diffHunk: "@@ -1 +1 @@\n+x",
+      comments: [],
+    });
+    hooks.threads = [thread("1", true), thread("2", true), thread("3", false)];
+    show(pr(40, { headRef: "feat", unresolvedThreads: 1 }));
+    const strip = screen.getByTestId(MetricStripTestId.Root);
+    const ids = [...strip.children].map((c) => c.getAttribute("data-testid"));
+    expect(ids.slice(0, 3)).toEqual(
+      ["state", "checks", "discussion"].map((id) => `${MetricStripTestId.Item}-${id}`),
+    );
+    const cell = screen.getByTestId(`${MetricStripTestId.Item}-discussion`);
+    expect(cell).toHaveTextContent("Diskuse");
+    expect(cell).toHaveTextContent("vyřešeno 2 z 3");
+    expect(within(cell).getByTestId(PrActionsTestId.Address)).toBeInTheDocument();
+    // the header actions no longer carry it
+    expect(
+      within(screen.getByTestId(AnchoredSheetTestId.Actions)).queryByTestId(
+        PrActionsTestId.Address,
+      ),
+    ).toBeNull();
+  });
+
+  it("has no Diskuse cell without threads", () => {
+    show(pr(41, {}));
+    expect(screen.queryByTestId(`${MetricStripTestId.Item}-discussion`)).toBeNull();
+  });
+
+  it("hovering failing Kontroly lists the failed jobs with status and a link", () => {
+    show(
+      pr(42, {
+        ci: "failing",
+        ciFailingJobs: [{ name: "lint", status: "failure", url: "https://ci.test/job/1" }],
+      }),
+    );
+    expect(screen.queryByTestId(PrChecksHoverTestId.Panel)).toBeNull();
+    fireEvent.mouseEnter(screen.getByTestId(PrChecksHoverTestId.Trigger).parentElement!);
+    const panel = screen.getByTestId(PrChecksHoverTestId.Panel);
+    expect(panel).toHaveTextContent("lint");
+    expect(panel).toHaveTextContent("Selhal");
+    expect(within(panel).getByTestId(PrChecksHoverTestId.JobLink)).toHaveAttribute(
+      "href",
+      "https://ci.test/job/1",
+    );
+  });
+
+  it("passing checks have no hover panel", () => {
+    show(pr(43, { ci: "passing" }));
+    expect(screen.queryByTestId(PrChecksHoverTestId.Trigger)).toBeNull();
   });
 
   it("has no trail without a stack", () => {

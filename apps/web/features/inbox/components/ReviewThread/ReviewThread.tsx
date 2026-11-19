@@ -1,6 +1,6 @@
 "use client";
 
-import type { InboxPrThread, PrThreadOutcome } from "@zibby/contracts";
+import type { InboxPrThread, PrReplyRewriteMode, PrThreadOutcome } from "@zibby/contracts";
 import {
   Avatar,
   Button,
@@ -38,6 +38,8 @@ export enum ReviewThreadTestId {
   ReplyInput = "review-thread-reply-input",
   Resolve = "review-thread-resolve",
   Send = "review-thread-send",
+  Shorter = "review-thread-shorter",
+  Longer = "review-thread-longer",
   FollowUpTag = "review-thread-followup-tag",
   FollowUpInput = "review-thread-followup-input",
   FollowUpHint = "review-thread-followup-hint",
@@ -49,6 +51,9 @@ export interface ReviewThreadReply {
   onChange(next: { body: string; resolve: boolean }): void;
   onSend?(): void;
   sending?: boolean;
+  /** Drafts only: rewrite the body in place ("Stručněji" / "Podrobněji"). Absent = no buttons. */
+  onRewrite?(mode: PrReplyRewriteMode): void;
+  rewriting?: boolean;
   /** A follow-up issue ZIBBY files after approval: the editable brief. Emptied = no issue. */
   followUp?: { value: string; onChange(next: string): void };
 }
@@ -254,7 +259,30 @@ export function ReviewThread({ thread, outcome, isNew, reply, now, prRef }: Revi
               </Stack>
             ) : null}
             <Row gap="150" justify="between">
-              <ChatAboutButton about={threadChatAbout(thread, { pr: prRef, outcome })} />
+              <Row gap="100">
+                <ChatAboutButton about={threadChatAbout(thread, { pr: prRef, outcome })} />
+                {reply?.onRewrite ? (
+                  <>
+                    {(["shorter", "longer"] as const).map((mode) => (
+                      <Button
+                        data-testid={
+                          mode === "shorter"
+                            ? ReviewThreadTestId.Shorter
+                            : ReviewThreadTestId.Longer
+                        }
+                        disabled={!reply.body.trim() || reply.rewriting}
+                        intent="ghost"
+                        key={mode}
+                        loading={reply.rewriting}
+                        onClick={() => reply.onRewrite?.(mode)}
+                        size="sm"
+                      >
+                        {t(mode)}
+                      </Button>
+                    ))}
+                  </>
+                ) : null}
+              </Row>
               {reply ? (
                 <Row gap="150">
                   <label>

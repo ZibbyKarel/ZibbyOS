@@ -22,6 +22,23 @@ describe("StackCrumbs", () => {
     expect(screen.getByTestId(StackCrumbsTestId.Root)).toHaveTextContent("#1→#2");
   });
 
+  it("points every arrow at the current crumb", () => {
+    const arrows = (current: string) => {
+      const { unmount } = render(
+        <StackCrumbs
+          crumbs={["1", "2", "3"].map((id) => ({ id, label: `#${id}`, current: id === current }))}
+          label="STACK"
+        />,
+      );
+      const text = screen.getByTestId(StackCrumbsTestId.Root).textContent;
+      unmount();
+      return text;
+    };
+    expect(arrows("1")).toBe("STACK#1←#2←#3");
+    expect(arrows("2")).toBe("STACK#1→#2←#3");
+    expect(arrows("3")).toBe("STACK#1→#2→#3");
+  });
+
   it("makes a crumb with onSelect a button; others stay plain", () => {
     const onSelect = vi.fn();
     render(

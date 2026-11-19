@@ -317,6 +317,22 @@ export function prChildren(pr: InboxPr, all: readonly InboxPr[]): InboxPr[] {
   return all.filter((p) => parentPr(p, all) === pr);
 }
 
+/** Every PR stacked on `pr`, directly or not (depth-first). Cycle-safe. */
+export function prDescendants(pr: InboxPr, all: readonly InboxPr[]): InboxPr[] {
+  const out: InboxPr[] = [];
+  const seen = new Set([pr.url]);
+  const walk = (p: InboxPr) => {
+    for (const kid of prChildren(p, all)) {
+      if (seen.has(kid.url)) continue;
+      seen.add(kid.url);
+      out.push(kid);
+      walk(kid);
+    }
+  };
+  walk(pr);
+  return out;
+}
+
 /** Ancestors not yet ready to merge — what `pr` waits on. */
 export function prWaits(pr: InboxPr, all: readonly InboxPr[]): InboxPr[] {
   return prAncestors(pr, all).filter((a) => a.blocker !== "ready-to-merge");

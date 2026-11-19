@@ -13,6 +13,7 @@ import {
   Markdown,
   MenuButton,
   MetricStrip,
+  type MetricStripColumns,
   type MetricStripItem,
   Pressable,
   Row,
@@ -37,19 +38,23 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ConfirmDeleteDialog } from "../../../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
 import { ChatAboutButton } from "../../../chat/components/ChatAboutButton";
-import { PrActionButtons, PrFixCiButton } from "../../../inbox/components/PrActionButtons";
+import {
+  PrActionButtons,
+  PrAddressButton,
+  PrFixCiButton,
+} from "../../../inbox/components/PrActionButtons";
 import { PrReviewButton } from "../../../inbox/components/PrReviewButton";
 import {
   chainKey,
   itemKey,
   linkedPrOf,
   prBaseLabel,
-  prChildren,
+  prDescendants,
   prListHref,
 } from "../../../inbox/inbox";
 import { sourceIcon } from "../../../integrations/kindIcon";
 import { issueHref } from "../../../inbox/components/IssueRow";
-import { isFixCi, isMine } from "../../../inbox/state/prActions";
+import { isFix, isFixCi, isMine } from "../../../inbox/state/prActions";
 import { EntityRunList, prRunTone } from "../../../runs/components/EntityRunList";
 import { prChatAbout } from "../../../inbox/prChatAbout";
 import { PrReviewers } from "../../../inbox/components/PrReviewers";
@@ -74,6 +79,7 @@ import {
   prStatus,
   prStatusKey,
 } from "../../state/prStatus";
+import { PrChecksHover } from "./PrChecksHover";
 import { type SheetProps, geometry, selectionFor } from "./sheetTypes";
 
 // The diff renderer is heavy and client-only — same lazy load as the inbox PR detail.
@@ -287,7 +293,7 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   const key = prStatusKey(pr);
   const review = reviewKey(pr);
   const mine = isMine(pr);
-  const path = [...prStack(pr, all), pr, ...prChildren(pr, all)];
+  const path = [...prStack(pr, all), pr, ...prDescendants(pr, all)];
   const issues = (itemsData?.items ?? []).filter((i) => linkedPrOf(i)?.url === pr.url);
   const project = projects?.find((p) => p.id === pr.projectId);
   const runRows = (pr.runs ?? []).map((r) => ({
@@ -344,9 +350,27 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
     {
       id: "checks",
       label: t("bridge.sheet.pr.checks"),
-      value: <IconValue icon={CI_ICON[pr.ci]} text={t(`bridge.sheet.pr.ci.${pr.ci}`)} />,
+      value: (
+        <PrChecksHover jobs={pr.ci === "failing" ? (pr.ciFailingJobs ?? []) : []}>
+          <IconValue icon={CI_ICON[pr.ci]} text={t(`bridge.sheet.pr.ci.${pr.ci}`)} />
+        </PrChecksHover>
+      ),
       ...(isFixCi(pr) && { action: <PrFixCiButton pr={pr} /> }),
     },
+    ...(threads?.length || isFix(pr)
+      ? [
+          {
+            id: "discussion",
+            label: t("bridge.sheet.pr.discussion"),
+            // threads still loading: the list's open count is all there is (none resolved)
+            value: t("bridge.sheet.pr.discussionValue", {
+              resolved: threads?.filter((th) => th.isResolved).length ?? 0,
+              total: threads?.length ?? pr.unresolvedThreads ?? 0,
+            }),
+            ...(mine && { action: <PrAddressButton pr={pr} /> }),
+          },
+        ]
+      : []),
     ...(issues.length > 0
       ? [
           {
@@ -412,7 +436,7 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
       actions={
         <>
           <PrReviewButton pr={pr} />
-          <PrActionButtons hideFixCi baseLabel={base} pr={pr} />
+          <PrActionButtons hideAddress hideFixCi baseLabel={base} pr={pr} />
         </>
       }
       banner={
@@ -523,7 +547,10 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
         <Row wrap align="start" gap="300">
           {/* At least 340px: on a phone the strip takes the full width and Reviewers wrap below. */}
           <Container grow minWidth="min(100%, 340px)">
-            <MetricStrip columns={summary.length === 5 ? 5 : 4} items={summary} />
+            <MetricStrip
+              columns={Math.min(6, Math.max(4, summary.length)) as MetricStripColumns}
+              items={summary}
+            />
           </Container>
           {hasReviewers ? <PrReviewers number={pr.number} projectId={pr.projectId} /> : null}
         </Row>
