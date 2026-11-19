@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { KeepAwakeRow } from "./KeepAwakeRow";
 import { useTranslations } from "next-intl";
-import { Button, Panel, Stack, TextInputField, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  SettingsPanel,
+  Stack,
+  TextInputField,
+  Typography,
+} from "@zibby/design-system";
 import type { MachineConfig } from "@zibby/contracts";
 import { useMachineConfigQuery, useUpdateMachineConfigMutation } from "../../machine";
 
@@ -37,32 +45,35 @@ function MachineEditor({ config }: { config: MachineConfig }) {
   };
 
   return (
-    <Panel header={t("machine.title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("machine.cloneRootHint")}
-        </Typography>
+    <SettingsPanel id="machine" title={t("machine.title")}>
+      <KeepAwakeRow />
+      <Container padding="250">
+        <Stack gap="200">
+          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+            {t("machine.cloneRootHint")}
+          </Typography>
 
-        <TextInputField
-          data-testid={MachineSectionTestId.CloneRoot}
-          label={t("machine.cloneRootLabel")}
-          onChange={(e) => setCloneRoot(e.target.value)}
-          placeholder={config.cloneRoot}
-          value={cloneRoot}
-        />
+          <TextInputField
+            data-testid={MachineSectionTestId.CloneRoot}
+            label={t("machine.cloneRootLabel")}
+            onChange={(e) => setCloneRoot(e.target.value)}
+            placeholder={config.cloneRoot}
+            value={cloneRoot}
+          />
 
-        <Stack align="center" direction="row" justify="end">
-          <Button
-            data-testid={MachineSectionTestId.Save}
-            disabled={setConfig.isPending || trimmed.length === 0}
-            icon="check"
-            intent="primary"
-            onClick={save}
-          >
-            {t("machine.save")}
-          </Button>
+          <Stack align="center" direction="row" justify="end">
+            <Button
+              data-testid={MachineSectionTestId.Save}
+              disabled={setConfig.isPending || trimmed.length === 0}
+              icon="check"
+              intent="primary"
+              onClick={save}
+            >
+              {t("machine.save")}
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
-    </Panel>
+      </Container>
+    </SettingsPanel>
   );
 }

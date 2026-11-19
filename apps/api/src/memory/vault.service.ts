@@ -316,6 +316,7 @@ export class VaultService implements OnModuleInit {
         ...(project ? { project } : {}),
         ...(department ? { department } : {}),
         ...(domain ? { domain } : {}),
+        ...(typedFieldsOf(n.frontmatter).raw === true ? { raw: true } : {}),
       };
     });
     const edges: MemoryGraph["edges"] = [];

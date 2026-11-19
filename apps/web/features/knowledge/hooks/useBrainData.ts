@@ -77,6 +77,7 @@ export function useBrainData(): BrainData {
       vault: vault.data,
       kbs: kbTeams.map((t, i) => ({
         teamId: t.id,
+        name: t.name,
         graph: graphs[i]?.data as MemoryGraph | undefined,
       })),
       openIds,

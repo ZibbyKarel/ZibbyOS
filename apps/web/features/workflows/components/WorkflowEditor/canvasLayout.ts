@@ -140,14 +140,21 @@ export const contentBounds = (
 
 export const clampZoom = (z: number): number => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
 
-/** The view that centres `bounds` in a viewport with `pad` breathing room (never zooms past 1×). */
-export const fitView = (bounds: Rect, vw: number, vh: number, pad = 72): View => {
-  const zoom = clampZoom(
-    Math.min(1, (vw - pad * 2) / Math.max(bounds.w, 1), (vh - pad * 2) / Math.max(bounds.h, 1)),
+/**
+ * Fit `bounds` into the viewport. `minZoom` keeps cards readable: a flow too long for the
+ * viewport at that scale is left-aligned (panned/scrolled) instead of shrunk.
+ */
+export const fitView = (bounds: Rect, vw: number, vh: number, pad = 72, minZoom = 0): View => {
+  const fitted = Math.min(
+    1,
+    (vw - pad * 2) / Math.max(bounds.w, 1),
+    (vh - pad * 2) / Math.max(bounds.h, 1),
   );
+  const zoom = clampZoom(Math.max(fitted, minZoom));
+  const overflowsX = bounds.w * zoom + pad * 2 > vw;
   return {
     zoom,
-    x: (vw - bounds.w * zoom) / 2 - bounds.x * zoom,
+    x: overflowsX ? pad - bounds.x * zoom : (vw - bounds.w * zoom) / 2 - bounds.x * zoom,
     y: (vh - bounds.h * zoom) / 2 - bounds.y * zoom,
   };
 };

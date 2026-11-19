@@ -1,198 +1,131 @@
 import type { Project, ProjectBudgetStatus } from "@zibby/contracts";
 import {
-  EntityCard,
-  Progress,
+  BudgetBars,
+  CountGrid,
+  IconTile,
+  ListCard,
+  SegmentedBar,
   Stack,
-  Stat,
   Tag,
   Typography,
-  getUsageTone,
 } from "@zibby/design-system";
+import type { SegmentedBarTone, SubNavLinkComponent } from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { formatCostUsd } from "../../../utils/cost";
 import { groupFilterParam } from "../../runs/statusGroups";
+import type { RunStatusGroupKey } from "../../runs/statusGroups";
+import { budgetWindowBars } from "../projectListStats";
 import { useProjectTaskStats } from "../queries";
 
 export interface ProjectCardProps {
   project: Project;
-  /** Live budget status for this engagement (Phase 8.1) — bars + running count. */
+  /** Live budget status for this engagement (Phase 8.1) — usage bars + held count. */
   budget?: ProjectBudgetStatus;
+  /** Runs blocked on the operator (approval / park / pause / held); shown as the amber chip. */
+  needsYou?: number;
   onOpen?: (project: Project) => void;
 }
 
-/** One labelled run-count bar (used vs cap), tinted by usage. Hidden when uncapped. */
-function BudgetBar({ label, used, cap }: { label: string; used: number; cap?: number }) {
-  if (cap == null) return null;
-  const pct = cap === 0 ? 100 : Math.min(100, Math.round((used / cap) * 100));
-  return (
-    <Stack gap="25">
-      <Stack align="center" direction="row" gap="100" justify="between">
-        <Typography mono size="2xs" type="note" variant="tertiary">
-          {label}
-        </Typography>
-        <Typography mono size="2xs" type="note" variant="secondary">
-          {used}/{cap}
-        </Typography>
-      </Stack>
-      <Progress
-        height="50"
-        label={`${label} ${used}/${cap}`}
-        tone={getUsageTone(pct)}
-        value={pct}
-      />
-    </Stack>
-  );
-}
+const GROUP_TONE: Record<RunStatusGroupKey, SegmentedBarTone> = {
+  running: "run",
+  waiting: "warn",
+  done: "ok",
+  error: "bad",
+  parked: "idle",
+};
 
 /**
- * The dollar-window counterpart of {@link BudgetBar} (Phase 12) — a spent/cap
- * bar, hidden when the project hasn't set a dollar cap on this window (even
- * though `spentUsd` is always present in the status readout).
- */
-function CostBar({
-  label,
-  spentUsd,
-  capUsd,
-}: {
-  label: string;
-  spentUsd: number;
-  capUsd?: number;
-}) {
-  if (capUsd == null) return null;
-  const pct = capUsd === 0 ? 100 : Math.min(100, Math.round((spentUsd / capUsd) * 100));
-  const readout = `${formatCostUsd(spentUsd)} / ${formatCostUsd(capUsd)}`;
-  return (
-    <Stack gap="25">
-      <Stack align="center" direction="row" gap="100" justify="between">
-        <Typography mono size="2xs" type="note" variant="tertiary">
-          {label}
-        </Typography>
-        <Typography mono size="2xs" type="note" variant="secondary">
-          {readout}
-        </Typography>
-      </Stack>
-      <Progress height="50" label={`${label} ${readout}`} tone={getUsageTone(pct)} value={pct} />
-    </Stack>
-  );
-}
-
-/**
- * Catalog card for a single project (target directory): a thin container over
- * the generic {@link EntityCard}. The footer leads with the per-status task-run stats
- * (the same buckets the project detail's run summary shows, minus the "Celkem"
- * total), each a deep-link into the runs feed pre-filtered to that project + bucket.
- * With a Phase-8 budget set, the daily/weekly run-count and cost bars follow.
+ * Catalog card for a project (design Seznamy "Projekty"): name + mono path + category tag,
+ * live chips, a status ratio bar over a 3x2 count grid whose cells deep-link into the runs
+ * feed pre-filtered to this project, and day/week/month budget bars (only with a budget).
  *
- * Phase 78 decision: this card deliberately does NOT show an open-PR count
- * badge. There is no batch/count endpoint — the only source is
- * `GET /projects/:id/prs`, one GitHub API round trip per project — so a badge
- * here would turn a project-list render into N requests. The count instead
- * lives once, on the project detail's header (`ProjectPrCountBadge` in
- * `ProjectPullRequestsPanel.tsx`), sharing its cache key with that screen's PR
- * overview panel.
+ * Phase 78: deliberately no open-PR badge — it needs one GitHub round trip per project
+ * (see `ProjectPullRequestsPanel`); the 14-day spend sparkline of the design is deferred.
  */
-export function ProjectCard({ project, budget, onOpen }: ProjectCardProps) {
+export function ProjectCard({ project, budget, needsYou = 0, onOpen }: ProjectCardProps) {
   const t = useTranslations("projects");
   const tr = useTranslations("runs");
-  const hasBudget = project.budget != null;
-  const { groups } = useProjectTaskStats(project.id);
-
-  // Per-status task stats (minus the "Celkem" total). Each stat is its own
-  // `next/link` — living in the card footer, outside the body's click target, so a
-  // stat click deep-links to /activity/runs and never triggers the card's open-detail nav.
-  // Phase 108: the runs feed has no global scope any more — each href carries the
-  // project explicitly via `?project=<id>` (the pre-Phase-24 mechanism), restored
-  // as the one way to drill into a single project's runs.
-  //
-  // F8d: `/runs` is deleted — repointed at `/activity/runs` (F2). Pre-existing F2
-  // limitation, not fixed here: the Archive screen only reads `?run=`, so
-  // `?project=`/`?filter=` land inert (the archive opens unscoped/unfiltered
-  // rather than 404ing).
-  const taskStats = (
-    <Stack wrap direction="row" gap="200">
-      {groups.map(({ group: g, count }) => (
-        <Link
-          data-testid={`project-card-stat-${g.key}`}
-          href={`/activity/runs?project=${project.id}&filter=${groupFilterParam(g)}` as Route}
-          key={g.key}
-        >
-          <Stat
-            icon={g.icon}
-            label={tr(`group.${g.key}`)}
-            tone={count > 0 ? g.tone : "neutral"}
-            value={count}
-          />
-        </Link>
-      ))}
-    </Stack>
-  );
+  const { total, groups } = useProjectTaskStats(project.id);
+  const running = groups.find((g) => g.group.key === "running")?.count ?? 0;
+  const bars = budgetWindowBars(budget, project.budget);
+  const held = budget?.held ?? 0;
 
   return (
-    <EntityCard
-      actions={
-        <Stack gap="150">
-          {taskStats}
-          {hasBudget && (
-            <Stack gap="100">
-              <BudgetBar
-                cap={project.budget?.dailyRuns}
-                label={t("budgetDaily")}
-                used={budget?.daily.used ?? 0}
-              />
-              <BudgetBar
-                cap={project.budget?.weeklyRuns}
-                label={t("budgetWeekly")}
-                used={budget?.weekly.used ?? 0}
-              />
-              <CostBar
-                capUsd={budget?.dailyCost?.capUsd}
-                label={t("budgetDailyCost")}
-                spentUsd={budget?.dailyCost?.spentUsd ?? 0}
-              />
-              <CostBar
-                capUsd={budget?.weeklyCost?.capUsd}
-                label={t("budgetWeeklyCost")}
-                spentUsd={budget?.weeklyCost?.spentUsd ?? 0}
-              />
-              <CostBar
-                capUsd={budget?.monthlyCost?.capUsd}
-                label={t("budgetMonthlyCost")}
-                spentUsd={budget?.monthlyCost?.spentUsd ?? 0}
-              />
-              <Stack align="center" direction="row" gap="200">
-                <Stat label={t("budgetRunning")} value={String(budget?.running ?? 0)} />
-                {(budget?.queued ?? 0) > 0 && (
-                  <Stat label={t("budgetQueued")} value={String(budget?.queued ?? 0)} />
-                )}
-                {(budget?.held ?? 0) > 0 && (
-                  <Stat label={t("budgetHeld")} tone="warn" value={String(budget?.held ?? 0)} />
-                )}
-              </Stack>
+    <ListCard onOpen={() => onOpen?.(project)} openLabel={t("openAria", { name: project.name })}>
+      <Stack align="start" direction="row" gap="150">
+        {project.logo && <IconTile alt={project.name} glyph="code" size="sm" src={project.logo} />}
+        <Stack grow gap="25">
+          <Typography truncate size="md" type="note" weight="semibold">
+            {project.name}
+          </Typography>
+          <Typography mono truncate size="caption" type="note" variant="tertiary">
+            {project.path}
+          </Typography>
+          {(running > 0 || needsYou > 0 || held > 0) && (
+            <Stack wrap direction="row" gap="150">
+              {running > 0 && (
+                <Typography size="caption" tone="run" type="note" weight="medium">
+                  {t("runningCount", { count: running })}
+                </Typography>
+              )}
+              {needsYou > 0 && (
+                <Typography size="caption" tone="warn" type="note" weight="medium">
+                  {t("needsYouCount", { count: needsYou })}
+                </Typography>
+              )}
+              {held > 0 && (
+                <Typography size="caption" tone="warn" type="note" weight="medium">
+                  {t("budgetHeld")} {held}
+                </Typography>
+              )}
             </Stack>
           )}
         </Stack>
-      }
-      badges={
-        project.category
-          ? [
-              [
-                <Tag key="cat" tone="neutral">
-                  {project.category}
-                </Tag>,
-              ],
-            ]
-          : undefined
-      }
-      description={project.desc}
-      glyph="code"
-      logoAlt={project.name}
-      logoSrc={project.logo}
-      onClick={() => onOpen?.(project)}
-      openLabel={t("openAria", { name: project.name })}
-      subtitle={project.path}
-      title={project.name}
-    />
+        {project.category && <Tag tone="neutral">{project.category}</Tag>}
+      </Stack>
+
+      <SegmentedBar
+        ariaLabel={t("statusRatioAria", { name: project.name })}
+        segments={groups.map(({ group, count }) => ({
+          id: group.key,
+          value: count,
+          tone: GROUP_TONE[group.key],
+        }))}
+      />
+
+      {/* Typed routes can't infer a query-string template, so each href is cast `as Route`. */}
+      <CountGrid
+        items={[
+          {
+            id: "total",
+            label: tr("group.total"),
+            value: total,
+            href: `/activity/runs?project=${project.id}` as Route,
+            testId: "project-card-stat-total",
+          },
+          ...groups.map(({ group, count }) => ({
+            id: group.key,
+            label: tr(`group.${group.key}`),
+            value: count,
+            tone: GROUP_TONE[group.key],
+            href: `/activity/runs?project=${project.id}&filter=${groupFilterParam(group)}` as Route,
+            testId: `project-card-stat-${group.key}`,
+          })),
+        ]}
+        linkComponent={Link as SubNavLinkComponent}
+      />
+
+      {bars.length > 0 && (
+        <BudgetBars
+          items={bars.map((b) => ({
+            id: b.id,
+            label: t(`budgetWindow.${b.id}`),
+            pct: b.pct,
+            detail: b.detail,
+          }))}
+        />
+      )}
+    </ListCard>
   );
 }

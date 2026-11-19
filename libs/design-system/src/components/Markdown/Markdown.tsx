@@ -186,6 +186,8 @@ export interface MarkdownProps {
    * pixels from untrusted bodies) and renders as a plain link to the source instead.
    */
   allowImage?: (src: string) => boolean;
+  /** Tight reading rhythm for the default theme: no list indent, small paragraph and item gaps. */
+  compact?: boolean;
 }
 
 function withImageGuard(
@@ -222,6 +224,7 @@ export function Markdown({
   variant = "default",
   highlight,
   allowImage,
+  compact = false,
 }: MarkdownProps) {
   const rehypePlugins = highlight ? [rehypeHighlight(highlight)] : undefined;
   if (variant === "prose") {
@@ -238,7 +241,11 @@ export function Markdown({
     );
   }
   return (
-    <div data-color-mode="dark" data-testid={MarkdownTestId.Root}>
+    <div
+      className={compact ? "md-compact" : undefined}
+      data-color-mode="dark"
+      data-testid={MarkdownTestId.Root}
+    >
       {/* The vars go on the renderer's own root: the library's
           `[data-color-mode*=dark] .wmde-markdown` rule re-declares the primer
           palette there, so vars set on the wrapper are shadowed (light-grey

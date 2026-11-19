@@ -6,7 +6,7 @@ import {
   CompanyIntegrationsPanel,
   CompanyIntegrationsPanelTestId as TestId,
 } from "./CompanyIntegrationsPanel";
-import { IntegrationFormTestId } from "../../integrations/components/IntegrationFormDialog";
+import { ConnectWizardTestId } from "../../integrations/components/ConnectWizardSheet";
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
@@ -18,6 +18,7 @@ const idle = { mutate: vi.fn(), isPending: false };
 
 vi.mock("../../integrations", () => ({
   useCompanyIntegrationsQuery: () => hooks.list,
+  useIntegrationsQuery: () => hooks.list,
   useCreateIntegrationMutation: () => hooks.create,
   useSetCredentialsMutation: () => idle,
   useTestIntegrationMutation: () => idle,
@@ -26,16 +27,11 @@ vi.mock("../../integrations", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 describe("CompanyIntegrationsPanel", () => {
-  it("shows the empty state, then creates a company-owned integration (companyId, no projectId)", async () => {
-    render(<CompanyIntegrationsPanel companyId="shoptet" />);
+  it("shows the empty state, then opens the connect wizard owned by the company", async () => {
+    render(<CompanyIntegrationsPanel companyId="shoptet" ownerName="Shoptet" projectCount={2} />);
     expect(screen.getByTestId(TestId.Empty)).toBeInTheDocument();
 
     await userEvent.click(screen.getByTestId(TestId.Add));
-    await userEvent.type(screen.getByTestId("integration-id"), "slack-shoptet");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
-
-    const body = hooks.create.mutate.mock.calls[0]?.[0].body;
-    expect(body).toMatchObject({ id: "slack-shoptet", kind: "slack", companyId: "shoptet" });
-    expect(body).not.toHaveProperty("projectId");
+    expect(screen.getByTestId(ConnectWizardTestId.Root)).toBeInTheDocument();
   });
 });

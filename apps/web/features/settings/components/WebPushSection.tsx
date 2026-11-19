@@ -1,6 +1,12 @@
 "use client";
 
-import { Panel, Stack, Toggle, Typography } from "@zibby/design-system";
+import {
+  SettingsNote,
+  SettingsPanel,
+  SettingsRow,
+  StatusBadge,
+  Toggle,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { apiClient } from "../../../state/api";
@@ -87,17 +93,17 @@ export function WebPushSection() {
     }
   }
 
+  const noteTone = hint === "hint" ? null : hint === "denied" ? "wait" : "err";
   return (
-    <Panel header={t("title")} padding="300">
-      <Stack align="center" direction="row" gap="250" justify="between">
-        <Stack gap="50">
-          <Typography type="text" weight="medium">
-            {t("label")}
-          </Typography>
-          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-            {supported ? t(hint) : t("unsupported")}
-          </Typography>
-        </Stack>
+    <SettingsPanel
+      badge={
+        <StatusBadge tone={checked ? "ok" : "off"}>{checked ? t("on") : t("off")}</StatusBadge>
+      }
+      description={t("panelHint")}
+      id="push"
+      title={t("title")}
+    >
+      <SettingsRow hint={supported ? t("hint") : undefined} label={t("label")}>
         <Toggle
           checked={checked}
           disabled={!supported || busy}
@@ -107,7 +113,13 @@ export function WebPushSection() {
             void (next ? enable() : disable()).finally(() => setBusy(false));
           }}
         />
-      </Stack>
-    </Panel>
+      </SettingsRow>
+      {!supported && (
+        <SettingsNote icon="warn" tone="wait">
+          {t("unsupported")}
+        </SettingsNote>
+      )}
+      {supported && noteTone && <SettingsNote tone={noteTone}>{t(hint)}</SettingsNote>}
+    </SettingsPanel>
   );
 }

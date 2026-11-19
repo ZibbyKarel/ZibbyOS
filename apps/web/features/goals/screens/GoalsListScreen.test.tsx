@@ -1,10 +1,10 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GoalCardTestId } from "@zibby/design-system";
+import { GoalLoopCardTestId, ListToolbarTestId, SegmentedRingTestId } from "@zibby/design-system";
 import type { Goal, TaskRun } from "@zibby/contracts";
 import { renderWithProviders as render } from "../../../test/render";
-import { GoalsListScreen } from "./GoalsListScreen";
+import { GoalsListScreen, GoalsListScreenTestId } from "./GoalsListScreen";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -31,6 +31,7 @@ const { hooks } = vi.hoisted(() => ({
 
 const resumeMutate = vi.fn();
 const stopMutate = vi.fn();
+const createMutate = vi.fn();
 
 vi.mock("../queries", () => ({
   useGoalsQuery: () => ({
@@ -40,11 +41,14 @@ vi.mock("../queries", () => ({
     refetch: vi.fn(),
   }),
 }));
+vi.mock("../../agents", () => ({
+  useAgentsQuery: () => ({ data: [{ id: "delivery", name: "Delivery agent" }] }),
+}));
+vi.mock("../../tasks/mutations", () => ({
+  useCreateTaskMutation: () => ({ mutate: createMutate }),
+}));
 vi.mock("../mutations", () => ({
   useResumeGoalRunMutation: () => ({ mutate: resumeMutate }),
-}));
-vi.mock("../../projects", () => ({
-  useProjectsQuery: () => ({ data: [{ id: "client-portal", name: "Client Portal" }] }),
 }));
 vi.mock("../../runs", () => ({
   useRunsQuery: () => ({ runs: hooks.runs, isPending: hooks.runsPending }),
@@ -60,54 +64,86 @@ beforeEach(() => {
   push.mockClear();
   resumeMutate.mockClear();
   stopMutate.mockClear();
+  createMutate.mockClear();
 });
 
-describe("GoalsListScreen (ZB-06)", () => {
-  it("renders only the h1 — no page eyebrow or subtitle", () => {
-    render(<GoalsListScreen />);
-    expect(screen.queryByText("WORK — GOALS")).toBeNull();
-    expect(
-      screen.queryByText("A goal repeats until the verifier passes or the run budget runs out."),
-    ).toBeNull();
-    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
-  });
+const runOf = (status: string, extra: Partial<TaskRun> = {}) =>
+  ({
+    runId: `run-${status}`,
+    kind: "goal",
+    goalId: "ship-feature",
+    status,
+    owner: "ship-feature",
+    title: "",
+    prompt: "",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    iterations: [],
+    ...extra,
+  }) as unknown as TaskRun;
 
-  it("renders a GoalCard per goal, with the project name in the eyebrow", () => {
+describe("GoalsListScreen", () => {
+  it("renders one loop card per goal with a ring segment per budgeted iteration", () => {
     hooks.goals = [goal];
     render(<GoalsListScreen />);
-    expect(screen.getByTestId(GoalCardTestId.Title)).toHaveTextContent("Ship feature Y green");
-    expect(screen.getByTestId(GoalCardTestId.Eyebrow)).toHaveTextContent("Client Portal");
+    expect(screen.getByTestId(GoalLoopCardTestId.Title)).toHaveTextContent("Ship feature Y green");
+    expect(screen.getAllByTestId(SegmentedRingTestId.Segment)).toHaveLength(10);
+    expect(screen.getByTestId(GoalLoopCardTestId.Maker)).toHaveTextContent("delivery");
   });
 
-  it("opens the goal detail on the card's Open action", async () => {
+  it("opens the goal detail from the card cover", async () => {
     hooks.goals = [goal];
     render(<GoalsListScreen />);
-    await userEvent.click(screen.getByTestId(GoalCardTestId.Open));
+    await userEvent.click(screen.getByTestId(GoalLoopCardTestId.Open));
     expect(push).toHaveBeenCalledWith("/work/goals/ship-feature");
   });
 
-  it("shows resume only for a parked run, and calls the resume mutation", async () => {
+  it("offers resume for a parked run and calls the resume mutation", async () => {
     hooks.goals = [goal];
-    hooks.runs = [
-      {
-        runId: "run-1",
-        kind: "goal",
-        goalId: "ship-feature",
-        status: "parked",
-        owner: "ship-feature",
-        title: "",
-        prompt: "",
-        startedAt: "2026-01-01T00:00:00.000Z",
-        iterations: [],
-      } as unknown as TaskRun,
-    ];
+    hooks.runs = [runOf("parked")];
     render(<GoalsListScreen />);
-    await userEvent.click(screen.getByTestId(GoalCardTestId.Resume));
-    expect(resumeMutate).toHaveBeenCalledWith({ params: { runId: "run-1" }, body: {} });
+    const actions = within(screen.getByTestId(GoalLoopCardTestId.Actions));
+    await userEvent.click(actions.getAllByRole("button")[0]!);
+    expect(resumeMutate).toHaveBeenCalledWith({ params: { runId: "run-parked" }, body: {} });
+  });
+
+  it("stops a running run", async () => {
+    hooks.goals = [goal];
+    hooks.runs = [runOf("running")];
+    render(<GoalsListScreen />);
+    const actions = within(screen.getByTestId(GoalLoopCardTestId.Actions));
+    await userEvent.click(actions.getAllByRole("button")[0]!);
+    expect(stopMutate).toHaveBeenCalledWith({ params: { runId: "run-running" }, body: {} });
+  });
+
+  it("starts the loop of an idle goal", async () => {
+    hooks.goals = [goal];
+    render(<GoalsListScreen />);
+    const actions = within(screen.getByTestId(GoalLoopCardTestId.Actions));
+    await userEvent.click(actions.getAllByRole("button")[0]!);
+    expect(createMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters by status chip", async () => {
+    hooks.goals = [goal, { ...goal, id: "other", objective: "Other" }];
+    hooks.runs = [runOf("parked")];
+    render(<GoalsListScreen />);
+    expect(screen.getAllByTestId(GoalLoopCardTestId.Root)).toHaveLength(2);
+    const chips = screen.getAllByTestId(ListToolbarTestId.Chip);
+    // order: all, active, parked, done, error
+    await userEvent.click(within(chips[2]!).getByRole("button"));
+    expect(screen.getAllByTestId(GoalLoopCardTestId.Root)).toHaveLength(1);
+    await userEvent.click(within(chips[1]!).getByRole("button"));
+    expect(screen.queryAllByTestId(GoalLoopCardTestId.Root)).toHaveLength(0);
   });
 
   it("shows the empty state when there are no goals", () => {
     render(<GoalsListScreen />);
-    expect(screen.getByText("Zatím žádné cíle")).toBeInTheDocument();
+    expect(screen.getByTestId(GoalsListScreenTestId.Empty)).toBeInTheDocument();
+  });
+
+  it("shows skeletons while loading", () => {
+    hooks.goalsPending = true;
+    render(<GoalsListScreen />);
+    expect(screen.getAllByTestId(GoalsListScreenTestId.Skeleton).length).toBeGreaterThan(0);
   });
 });

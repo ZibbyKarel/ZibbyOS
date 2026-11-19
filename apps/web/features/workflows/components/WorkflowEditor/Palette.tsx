@@ -106,6 +106,17 @@ export function Palette({
           size="sm"
           title={t("open")}
         />
+        {(["users", "terminal", "flow"] as const).map((icon) => (
+          <Button
+            aria-label={t("open")}
+            icon={icon}
+            intent="ghost"
+            key={icon}
+            onClick={() => onOpenChange(true)}
+            size="sm"
+            tabIndex={-1}
+          />
+        ))}
       </Container>
     );
   }

@@ -419,6 +419,8 @@ export class KbReaderService {
         id: n.relPath,
         label: n.title.slice(0, KB_GRAPH_LABEL_MAX_CHARS),
         tier: "knowledge" as const,
+        // an `inbox/` note is not triaged yet (the team-kb-ingest workflow files it)
+        ...(n.relPath.startsWith("inbox/") ? { raw: true } : {}),
       })),
       edges,
     };

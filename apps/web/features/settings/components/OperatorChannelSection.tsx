@@ -1,7 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Button, Panel, Stack, ToggleField, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Checkbox,
+  Grid,
+  SettingsPanel,
+  SettingsRow,
+  Stack,
+  StatusBadge,
+  Toggle,
+  Typography,
+} from "@zibby/design-system";
 import {
   type OperatorChannelSettings,
   type OperatorEventKind,
@@ -13,7 +23,6 @@ import {
   useSetOperatorChannelSettingsMutation,
   useTestOperatorChannelMutation,
 } from "../../operator-channel";
-import { InfoRow } from "./InfoRow";
 
 /** Testids for the operator-channel card (the screen + tests select via these). */
 export enum OperatorChannelSectionTestId {
@@ -49,92 +58,109 @@ export function OperatorChannelSection() {
     put({ ...settings, notify: { ...settings.notify, events } });
   };
   const result = test.data?.body;
+  const connected = Boolean(status?.connected);
+  const events = OperatorEventKindSchema.options;
+  const on = settings.notify.events.length;
 
   return (
-    <Panel
-      header={t("operatorChannel.title")}
-      headerEnd={
+    <SettingsPanel
+      actions={
         <Button
           data-testid={OperatorChannelSectionTestId.Test}
           disabled={test.isPending || !settings.enabled}
           icon="play"
+          intent="ghost"
           onClick={() => test.mutate({})}
           size="sm"
         >
           {t("operatorChannel.test")}
         </Button>
       }
-      padding="300"
+      badge={
+        <StatusBadge tone={connected && settings.enabled ? "ok" : "off"}>
+          {!connected
+            ? t("operatorChannel.notConnected")
+            : settings.enabled
+              ? t("operatorChannel.connected")
+              : t("access.paused")}
+        </StatusBadge>
+      }
+      description={t("operatorChannel.hint")}
+      id="slack"
+      title={t("operatorChannel.title")}
     >
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("operatorChannel.hint")}
-        </Typography>
-
-        {status && (
-          <Stack gap="75">
-            <InfoRow label={t("operatorChannel.mode")} value={status.mode} />
-            <InfoRow
-              label={t("operatorChannel.connection")}
-              tone={status.connected ? "ok" : undefined}
-              value={
-                status.connected
-                  ? (status.workspace ?? t("operatorChannel.connected"))
-                  : t("operatorChannel.notConnected")
-              }
-            />
-            <InfoRow
-              label={t("operatorChannel.credentials")}
-              value={`bot ${status.credentials.bot ? "✓" : "–"} · app ${status.credentials.app ? "✓" : "–"}`}
-            />
-            {status.lastDelivery && (
-              <InfoRow
-                label={t("operatorChannel.lastDelivery")}
-                value={`${status.lastDelivery.kind} · ${status.lastDelivery.status}`}
-              />
-            )}
-            {status.lastError && (
-              <InfoRow label={t("operatorChannel.lastError")} value={status.lastError} />
-            )}
-          </Stack>
-        )}
-
-        {result && (
+      <SettingsRow hint={t("access.masterHint")} label={t("operatorChannel.enabled")}>
+        <Toggle
+          checked={settings.enabled}
+          data-testid={OperatorChannelSectionTestId.Enabled}
+          label={t("operatorChannel.enabled")}
+          onChange={(next) => put({ ...settings, enabled: next })}
+        />
+      </SettingsRow>
+      {status && (
+        <>
+          <SettingsRow
+            disabled={!settings.enabled}
+            hint={status.workspace ?? undefined}
+            label={t("operatorChannel.connection")}
+          >
+            <Typography mono type="note">
+              {status.mode}
+            </Typography>
+          </SettingsRow>
+          <SettingsRow disabled={!settings.enabled} label={t("operatorChannel.credentials")}>
+            <Typography mono type="note">
+              {`bot ${status.credentials.bot ? "✓" : "–"} · app ${status.credentials.app ? "✓" : "–"}`}
+            </Typography>
+          </SettingsRow>
+          {status.lastDelivery && (
+            <SettingsRow disabled={!settings.enabled} label={t("operatorChannel.lastDelivery")}>
+              <Typography mono type="note">
+                {`${status.lastDelivery.kind} · ${status.lastDelivery.status}`}
+              </Typography>
+            </SettingsRow>
+          )}
+          {status.lastError && (
+            <SettingsRow disabled={!settings.enabled} label={t("operatorChannel.lastError")}>
+              <Typography mono type="note">
+                {status.lastError}
+              </Typography>
+            </SettingsRow>
+          )}
+        </>
+      )}
+      {result && (
+        <SettingsRow label={t("operatorChannel.test")}>
           <Typography
             mono
             data-testid={OperatorChannelSectionTestId.TestResult}
-            size="2xs"
             type="note"
             variant="tertiary"
           >
             {result.ok ? t("operatorChannel.testOk") : t("operatorChannel.testFailed")}:{" "}
             {result.detail}
           </Typography>
-        )}
-
-        <ToggleField
-          checked={settings.enabled}
-          data-testid={OperatorChannelSectionTestId.Enabled}
-          label={t("operatorChannel.enabled")}
-          onChange={(on) => put({ ...settings, enabled: on })}
-        />
-
-        <Stack gap="100">
-          <Typography size="sm" type="note" variant="secondary" weight="semibold">
-            {t("operatorChannel.events")}
-          </Typography>
-          {OperatorEventKindSchema.options.map((kind) => (
-            <ToggleField
-              checked={settings.notify.events.includes(kind)}
-              data-testid={`${OperatorChannelSectionTestId.Event}-${kind}`}
-              disabled={!settings.enabled}
-              key={kind}
-              label={t(`operatorChannel.event.${kind}`)}
-              onChange={(on) => toggleEvent(kind, on)}
-            />
+        </SettingsRow>
+      )}
+      <SettingsRow stack label={`${t("operatorChannel.events")} · ${on}/${events.length}`}>
+        <Grid cols={2} gap="150">
+          {events.map((kind) => (
+            <Stack align="center" direction="row" gap="100" key={kind}>
+              <Checkbox
+                checked={settings.notify.events.includes(kind)}
+                data-testid={`${OperatorChannelSectionTestId.Event}-${kind}`}
+                disabled={!settings.enabled}
+                label={t(`operatorChannel.event.${kind}`)}
+                onChange={(next) => toggleEvent(kind, next)}
+                size="sm"
+              />
+              <Typography size="sm" type="text">
+                {t(`operatorChannel.event.${kind}`)}
+              </Typography>
+            </Stack>
           ))}
-        </Stack>
-      </Stack>
-    </Panel>
+        </Grid>
+      </SettingsRow>
+    </SettingsPanel>
   );
 }

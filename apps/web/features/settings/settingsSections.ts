@@ -9,6 +9,15 @@
  * "not a function") even though a production build works fine. Splitting the
  * pure constant out of the client component file sidesteps the boundary
  * entirely.
+ *
+ * Redesign v2: `ai-models` became `ai-engines`; `activity` folded into General
+ * (the "Live log" panel). The legacy ids redirect (see the route page).
  */
-export const SETTINGS_SECTIONS = ["general", "activity", "runtime", "ai-models", "status"] as const;
+export const SETTINGS_SECTIONS = ["general", "access", "ai-engines", "runtime", "status"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+/** Old section ids → where they live now. */
+export const LEGACY_SETTINGS_REDIRECTS: Record<string, string> = {
+  "ai-models": "/system/settings/ai-engines",
+  activity: "/system/settings/general#live-log",
+};

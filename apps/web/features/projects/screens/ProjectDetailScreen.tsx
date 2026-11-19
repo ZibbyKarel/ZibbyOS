@@ -8,6 +8,8 @@ import {
   Container,
   Divider,
   Tabs as DsTabs,
+  EntityHeader,
+  IconTile,
   Panel,
   Pressable,
   SelectField,
@@ -33,6 +35,14 @@ import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../../components/PageContainer/PageContainer";
 import { slug } from "../../../utils/slug";
 import { useCompaniesQuery } from "../../companies";
+import { useEntityT } from "../../entity/useEntityT";
+import { useIntegrationsQuery } from "../../integrations";
+import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
+import { EntityConnections } from "../../integrations/components/EntityConnections";
+import { buildConnections } from "../../integrations/connectionsModel";
+import { useTeamsQuery } from "../../teams";
+import { ProjectOverviewKpis, ProjectRunPulse } from "../components/ProjectOverviewKpis";
+import { useProjectsQuery } from "../queries";
 import { InboxPanel } from "../../integrations/components/InboxPanel";
 import { RoadmapPanel } from "../../roadmap/components/RoadmapPanel";
 import { type ProjectBasicsBody, ProjectBasicsPanel } from "../components/ProjectBasicsPanel";
@@ -205,7 +215,13 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
   const t = useTranslations("projects.profile");
   const tp = useTranslations("projects");
   const tk = useTranslations();
+  const te = useEntityT();
   const router = useRouter();
+  const [connecting, setConnecting] = useState(false);
+  const [now] = useState(() => Date.now());
+  const allIntegrationsQ = useIntegrationsQuery();
+  const allProjectsQ = useProjectsQuery();
+  const { data: allTeams = [] } = useTeamsQuery();
   const searchParams = useSearchParams();
 
   // New-project mode: there is no id yet, so the id-keyed queries stay inert and
@@ -550,6 +566,14 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
   const showClonedFromCloneRoot =
     !isNew && localState?.present && localState.source === "cloneRoot";
 
+  const connections = buildConnections(
+    allIntegrationsQ.data ?? [],
+    allProjectsQ.data ?? [],
+    { projectId: id, parentCompanyId: project?.companyId },
+    now,
+  );
+  const companyName = companies.find((c) => c.id === project?.companyId)?.name;
+
   return (
     <Container padding={["300", "350"]}>
       <PageContainer>
@@ -565,18 +589,98 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
             linkComponent={Link as SubNavLinkComponent}
           />
 
-          <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Typography type="h1">{isNew ? tp("newProject") : (project?.name ?? "")}</Typography>
-            <Stack align="center" direction="row" gap="100">
-              {showClonedFromCloneRoot && (
-                <Tag data-testid="cloned-from-clone-root" tone="neutral">
-                  {tp("localState.clonedFromCloneRoot")}
-                </Tag>
-              )}
-              {!isNew && <ProjectCiStatusChip projectId={id} />}
-              {!isNew && <ProjectPrCountBadge projectId={id} />}
-            </Stack>
-          </Stack>
+          {isNew && <Typography type="h1">{tp("newProject")}</Typography>}
+
+          {!isNew && project && (
+            <EntityHeader
+              actions={
+                <Button icon="edit" intent="ghost" onClick={() => setTab("overview")} size="sm">
+                  {te("company.edit")}
+                </Button>
+              }
+              aside={<ProjectRunPulse projectId={id} />}
+              chips={
+                <>
+                  <ProjectCiStatusChip projectId={id} />
+                  <ProjectPrCountBadge projectId={id} />
+                  {showClonedFromCloneRoot && (
+                    <Tag data-testid="cloned-from-clone-root" tone="neutral">
+                      {tp("localState.clonedFromCloneRoot")}
+                    </Tag>
+                  )}
+                  {showMissingCloneBanner && <Tag tone="warn">{te("project.noLocalClone")}</Tag>}
+                </>
+              }
+              mark={<IconTile glyph="grid" size="lg" src={undefined} />}
+              summary={
+                <Typography size="sm" type="note" variant="secondary">
+                  {te("project.summary", {
+                    total: connections.tiles.length,
+                    own: connections.own.length,
+                    inherited: connections.inherited.length,
+                  })}
+                  {connections.down.length > 0 && (
+                    <>
+                      {" · "}
+                      <Typography as="span" size="sm" tone="bad" type="note">
+                        {te("project.down", { count: connections.down.length })}
+                      </Typography>
+                    </>
+                  )}
+                </Typography>
+              }
+              title={project.name}
+              titleMeta={project.gitRemote
+                ?.replace(/^(https?:\/\/|git@)/, "")
+                .replace(/:(?!\d)/, "/")
+                .replace(/\.git$/, "")}
+              variant="project"
+            />
+          )}
+
+          {!isNew && project && (
+            <EntityConnections
+              companyName={companyName}
+              model={connections}
+              onConnect={() => setConnecting(true)}
+              onOpen={(i) =>
+                router.push(
+                  (i.companyId
+                    ? `/companies/${i.companyId}/integrations/${i.id}`
+                    : `/projects/${id}/integrations/${i.id}`) as Route,
+                )
+              }
+              ribbon={[
+                ...(project.companyId
+                  ? [
+                      {
+                        kind: "company" as const,
+                        label: companyName ?? project.companyId,
+                        icon: "building" as const,
+                        onSelect: () => router.push(`/companies/${project.companyId}` as Route),
+                      },
+                    ]
+                  : []),
+                ...(project.teamId
+                  ? [
+                      {
+                        kind: "team" as const,
+                        label:
+                          allTeams.find((x) => x.id === project.teamId)?.name ?? project.teamId,
+                        icon: "users" as const,
+                        onSelect: () => router.push(`/teams/${project.teamId}` as Route),
+                      },
+                    ]
+                  : []),
+                {
+                  kind: "project" as const,
+                  label: project.name,
+                  icon: "grid" as const,
+                  current: true,
+                },
+              ]}
+            />
+          )}
 
           {showMissingCloneBanner && (
             <Alert
@@ -629,7 +733,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
                 <TabList>
                   {PROJECT_TABS.map((key) => (
                     <Tab key={key} value={key}>
-                      {t(`tabs.${key}`)}
+                      {key === "secrets" ? te("project.tabs.secrets") : t(`tabs.${key}`)}
                     </Tab>
                   ))}
                 </TabList>
@@ -637,12 +741,19 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
 
               {tab === "overview" && (
                 <Stack gap="300">
+                  <ProjectOverviewKpis
+                    integrations={{
+                      total: connections.tiles.length,
+                      down: connections.down.length,
+                    }}
+                    projectId={id}
+                  />
+                  <ProjectPullRequestsPanel projectId={id} />
+                  <ProjectRunSummary projectId={id} />
                   {basicsPanel}
                   <ProjectCompanyPanel companyId={project.companyId} projectId={id} />
                   <ProjectTeamPanel projectId={id} teamId={project.teamId} />
-                  <ProjectRunSummary projectId={id} />
                   <ProjectHealthPanel healthCheck={project.healthCheck} projectId={id} />
-                  <ProjectPullRequestsPanel projectId={id} />
                 </Stack>
               )}
 
@@ -678,6 +789,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
                   {/* Channels owned by this project (one project = one company) */}
                   <ProjectIntegrationsPanel
                     gitRemote={project.gitRemote}
+                    ownerName={project.name}
                     projectId={id}
                     routing={project.integrationRouting}
                   />
@@ -693,6 +805,15 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
           ) : null}
         </Stack>
       </PageContainer>
+
+      {connecting && project && (
+        <ConnectWizardSheet
+          onClose={() => setConnecting(false)}
+          onOpenIntegration={(iid) => router.push(`/projects/${id}/integrations/${iid}` as Route)}
+          owner={{ projectId: id }}
+          ownerName={project.name}
+        />
+      )}
 
       {confirmDelete && project && (
         <ConfirmDeleteDialog

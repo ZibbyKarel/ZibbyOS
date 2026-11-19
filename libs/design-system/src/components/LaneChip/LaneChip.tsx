@@ -6,6 +6,7 @@ export enum LaneChipTestId {
   Root = "lane-chip-root",
   Own = "lane-chip-own",
   Hint = "lane-chip-hint",
+  Grip = "lane-chip-grip",
 }
 
 /** `semi` = violet, `auto` = amber, `neutral` = plain (a capability with no lane colour). */
@@ -22,7 +23,7 @@ export interface LaneChipProps extends Omit<
   "className" | "type"
 > {
   tone?: LaneChipTone;
-  /** Inherited from the parent row: dashed and dimmed. */
+  /** Inherited from the parent row: borderless text, no fill. Own chips carry the fill. */
   inherited?: boolean;
   /** Own override: a small dot after the label. */
   own?: boolean;
@@ -60,7 +61,7 @@ export function LaneChip({
         "inline-flex h-7 items-center gap-1.5 rounded-lg border pr-2.5 pl-2 font-sans text-[12px] font-medium whitespace-nowrap text-ink",
         locked ? "cursor-default" : "cursor-grab active:cursor-grabbing",
         toneClass[tone],
-        inherited && "border-dashed bg-transparent text-ink-2",
+        inherited && "border-transparent bg-transparent text-ink-2",
         dragging && "opacity-35",
         "aria-expanded:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-ink)_25%,transparent)]",
         focusRing,
@@ -70,6 +71,15 @@ export function LaneChip({
       type="button"
       {...rest}
     >
+      {!locked && (
+        <span
+          aria-hidden="true"
+          className="-mr-0.5 text-[10px] leading-none tracking-[-2px] text-ink-3 opacity-70"
+          data-testid={LaneChipTestId.Grip}
+        >
+          ⋮⋮
+        </span>
+      )}
       {icon}
       {children}
       {own && (

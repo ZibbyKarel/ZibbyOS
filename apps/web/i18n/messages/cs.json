@@ -47,7 +47,9 @@
         "ai-models": "AI modely",
         "activity": "Aktivita",
         "status": "Stav",
-        "inventory": "Inventář stroje"
+        "inventory": "Inventář stroje",
+        "access": "Přístup a oznámení",
+        "ai-engines": "AI enginy"
       },
       "dashboard": {
         "map": "Můstek",
@@ -63,6 +65,7 @@
       },
       "workforce": {
         "agents": "Agenti",
+        "departments": "Oddělení",
         "skills": "Dovednosti",
         "commands": "Příkazy",
         "mcp": "MCP",
@@ -193,12 +196,12 @@
     },
     "brain": {
       "header": {
-        "title": "Mozek",
+        "title": "Znalosti",
         "count": "{notes} poznámek · {sources} zdroje",
         "sources": "Zdroje",
         "sourcesFailed": "{count} zdroj selhal",
         "searchLabel": "Hledat v mozku",
-        "searchPlaceholder": "Hledat poznámky…",
+        "searchPlaceholder": "Hledat v celém mozku — název, cesta, tag",
         "pending": "{count} věcí čeká na tebe",
         "updateAll": "Aktualizovat vše",
         "updating": "Aktualizuji…"
@@ -227,22 +230,52 @@
         "fit": "Přizpůsobit",
         "links": "{count} odkazů",
         "openQuestion": "Otevřená otázka",
-        "legendHub": "Index"
+        "legendHub": "Index, MOC · hub",
+        "zoneVault": "VAULT",
+        "zoneKb": "TÝMOVÉ KB",
+        "zoneBridge": "MOST · INDEX",
+        "legendVault": "Vault · kruh",
+        "legendKb": "Týmová KB · čtverec",
+        "legendOpen": "Otevřená otázka · čeká na tebe",
+        "legendUnsorted": "Neroztříděné",
+        "legendLink": "Odkaz · zvýrazní se při najetí",
+        "minimap": "minimapa",
+        "labels": "Popisky",
+        "labelsAuto": "Auto",
+        "labelsAll": "Vše",
+        "labelsOff": "Vyp",
+        "minimapToggle": "Minimapa",
+        "physicsToggle": "Pohyb uzlů",
+        "linksInOut": "{in} odkazuje sem · {out} odkazy ven"
       },
       "tree": {
         "index": "Index",
         "label": "Strom poznámek",
-        "shelfGeneral": "Obecné"
+        "shelfGeneral": "Obecné",
+        "rail": "Strom",
+        "openTree": "Otevřít strom",
+        "closeTree": "Sbalit strom"
       },
       "filters": {
         "department": "Oddělení",
         "allDepartments": "Všechna oddělení",
-        "orphans": "Osiřelé",
-        "clear": "Zrušit filtry"
+        "orphans": "Jen sirotci",
+        "clear": "Zrušit filtry",
+        "unsorted": "Neroztříděné"
       },
       "note": {
         "empty": "Vyber poznámku v grafu nebo ve stromu.",
-        "openQuestions": "Otevřené otázky"
+        "openQuestions": "Otevřené otázky",
+        "emptyTitle": "Vyber poznámku",
+        "emptyHint": "Klikni na uzel v mozku nebo na položku ve stromu.",
+        "popular": "Nejpropojenější poznámky",
+        "copyPath": "Kopírovat cestu",
+        "neighbourhood": "Okolí v mozku",
+        "linksIn": "Odkazuje sem",
+        "linksOut": "Odkazy ven",
+        "edit": "Upravit",
+        "updated": "upraveno {date}",
+        "close": "Zavřít poznámku"
       },
       "inbox": {
         "open": "Navrhnout do inboxu",
@@ -275,14 +308,18 @@
         "current": "aktuální",
         "pulling": "Stahuji změny",
         "failedGeneric": "Aktualizace selhala.",
-        "retry": "Zkusit znovu"
+        "retry": "Zkusit znovu",
+        "pending": "{count} věcí čeká na tebe"
       }
     },
     "maintenance": {
       "title": "Údržba",
       "pending": "{count} věcí čeká na tebe",
       "questions": "Otevřené otázky",
-      "ingest": "Ingest: {name}"
+      "ingest": "Ingest: {name}",
+      "scope": "Rozsah",
+      "scopeAll": "Vše",
+      "scopeVault": "Vault"
     }
   },
   "common": {
@@ -467,7 +504,60 @@
       "noRunsTitle": "Zatím žádné běhy",
       "noRunsBody": "Tento cíl ještě nebyl spuštěn — přiřaďte mu úlohu a spusťte smyčku."
     },
-    "newGoal": "Nový cíl"
+    "newGoal": "Nový cíl",
+    "list": {
+      "section": "Práce",
+      "title": "Cíle",
+      "count": {
+        "total": "{count, plural, one {# cíl} few {# cíle} other {# cílů}}",
+        "active": "{count, plural, one {# pracuje} few {# pracují} other {# pracuje}}",
+        "parked": "{count, plural, one {# čeká na tebe} few {# čekají na tebe} other {# čeká na tebe}}",
+        "error": "{count, plural, one {# s chybou} few {# s chybou} other {# s chybou}}",
+        "done": "{count, plural, one {# hotový} few {# hotové} other {# hotových}}"
+      },
+      "filter": {
+        "all": "Vše",
+        "active": "Aktivní",
+        "parked": "Zaparkované",
+        "done": "Hotové",
+        "error": "Chyba"
+      },
+      "state": {
+        "working": "Pracuje",
+        "thinking": "Přemýšlí",
+        "blocked": "Zaparkováno",
+        "error": "Chyba",
+        "done": "Hotovo",
+        "idle": "Nečinný"
+      },
+      "action": {
+        "openRun": "Otevřít běh",
+        "edit": "Upravit cíl",
+        "openError": "Otevřít chybu",
+        "retry": "Zkusit znovu",
+        "history": "Historie iterací",
+        "start": "Spustit smyčku"
+      },
+      "maker": "Maker",
+      "verifier": "Verifier",
+      "budgetPct": "{pct} % rozpočtu iterací",
+      "ringCaption": "z {max} iterací",
+      "ringAria": "{used} z {max} iterací",
+      "openAria": "Otevřít cíl {name}",
+      "verdict": {
+        "head": "Verdikt · iterace {n}",
+        "none": "Zatím bez verdiktu",
+        "noneText": "Smyčka ještě neběžela.",
+        "noText": "Verifier nevrátil žádný text.",
+        "outcome": {
+          "running": "Běží",
+          "passed": "Prošlo",
+          "failed": "Neprošlo",
+          "parked": "Čeká na tebe",
+          "error": "Chyba"
+        }
+      }
+    }
   },
   "tasksWork": {
     "state": {
@@ -789,7 +879,46 @@
       "stay": "Zůstat",
       "discardLeave": "Zahodit a odejít",
       "leaveTitle": "Odejít bez uložení?",
-      "leaveBody": "{count, plural, one {# neuložená změna se ztratí.} few {# neuložené změny se ztratí.} other {# neuložených změn se ztratí.}}"
+      "leaveBody": "{count, plural, one {# neuložená změna se ztratí.} few {# neuložené změny se ztratí.} other {# neuložených změn se ztratí.}}",
+      "frontmatter": "Frontmatter",
+      "expandEditor": "Zvětšit editor",
+      "moreActions": "Další",
+      "copyFile": "Kopírovat název souboru",
+      "iconInitials": "Iniciály",
+      "rulesIntro": "Vyhodnocuje se shora dolů; nižší vrstva může vyšší zpřísnit, ale systémové pravidlo nikdy nepovolí.",
+      "systemTitle": "Systém",
+      "systemSub": "vždy zapnuto · jen ke čtení",
+      "sourceSystem": "systém",
+      "catalogTitle": "Z katalogu",
+      "catalogSub": "{count} propojeno z Governance › Brány",
+      "sourceCatalog": "katalog",
+      "linkFromCatalog": "Propojit z katalogu",
+      "tightenedBelow": "zpřísněno níže",
+      "ownTitle": "Vlastní pravidla",
+      "ownSub": "jen tento agent",
+      "engineGlobal": "Globální"
+    },
+    "list": {
+      "section": "Pracovníci",
+      "all": "Vše",
+      "newAgent": "Nový agent",
+      "count": "{count, plural, one {# agent} few {# agenti} other {# agentů}} {depts, plural, one {v # oddělení} other {ve # odděleních}}",
+      "working": "{count} pracuje",
+      "failing": "{count, plural, one {# chyba} few {# chyby} other {# chyb}}",
+      "searchPlaceholder": "Hledat agenta nebo nástroj",
+      "statusWorking": "Pracuje",
+      "statusError": "Chyba",
+      "now": "Právě: {task}",
+      "effort": {
+        "low": "nízká",
+        "medium": "střední",
+        "high": "vysoká"
+      },
+      "statRuns": "Běhy 7 d",
+      "statSuccess": "Úspěšnost",
+      "statCost": "Cena 7 d",
+      "noMatchTitle": "Žádný agent nevyhovuje",
+      "noMatchBody": "Zkus jiné hledání nebo jiný engine."
     }
   },
   "integrations": {
@@ -972,7 +1101,26 @@
     "outputFolderToError": "Absolutní cesta nebo začíná ~/",
     "outputRemove": "Odebrat",
     "outputAdd": "Přidat výstup",
-    "outputFolder": "zkopíruje složku {from} do {to}/[běh]"
+    "outputFolder": "zkopíruje složku {from} do {to}/[běh]",
+    "list": {
+      "section": "Práce",
+      "all": "Vše",
+      "newWorkflow": "Nové workflow",
+      "count": "{count, plural, one {# workflow} few {# workflow} other {# workflow}}",
+      "running": "Běží {min} min · fáze {phase} ze {total}",
+      "runningShort": "Běží {min} min",
+      "finished": "{ago} · {min} min",
+      "failed": "{ago} · selhalo",
+      "waiting": "Čeká na tvé schválení",
+      "neverRun": "Zatím neběželo",
+      "outputPr": "Pull request",
+      "outputFile": "Soubor",
+      "searchPlaceholder": "Hledat workflow nebo agenta",
+      "runningCount": "{count} běží",
+      "waitingCount": "{count} čeká na schválení",
+      "noMatchTitle": "Žádné workflow nevyhovuje",
+      "noMatchBody": "Zkus jiné hledání nebo oddělení."
+    }
   },
   "phase": {
     "modelTitle": "model (override per-run)",
@@ -1359,7 +1507,10 @@
       "browserDevtools": "F12 otevírá vývojářské nástroje prohlížeče.",
       "commandPalette": "Cmd/Ctrl K otevírá v této aplikaci paletu příkazů.",
       "newTask": "Samotné N otevírá v této aplikaci Nový úkol."
-    }
+    },
+    "panelHint": "Jedna globální kombinace vyvolá Zibbyho odkudkoli v ZibbyOS.",
+    "recordAnother": "Nahrát jinou",
+    "keepAnyway": "Ponechat"
   },
   "settings": {
     "operatorToken": "Operátorský token",
@@ -1387,7 +1538,8 @@
         "jarvis": "Butler s osobností — vřele, lidsky, se suchým humorem a předvídavostí. Výchozí.",
         "concise": "Minimum slov, žádná vata, rovnou k věci.",
         "formal": "Neutrální a profesionální, věcně a zdvořile, bez humoru."
-      }
+      },
+      "panelHint": "Jak s tebou Zibby mluví v chatu, hlasu a přehledech. Práce agentů se nemění."
     },
     "automations": {
       "desc": {
@@ -1521,7 +1673,10 @@
       "unsupported": "Tento prohlížeč push notifikace nepodporuje (desktopová aplikace je také nemá).",
       "denied": "Upozornění jsou v prohlížeči zablokovaná. Povol je v nastavení webu.",
       "error": "Push se nepodařilo zapnout nebo vypnout. Zkus to znovu.",
-      "tokenRequired": "Nejdřív nastav operátorský token v Nastavení."
+      "tokenRequired": "Nejdřív nastav operátorský token v Nastavení.",
+      "on": "Zapnuto",
+      "off": "Vypnuto",
+      "panelHint": "Notifikace na tomto zařízení. Každý prohlížeč a telefon se přihlašuje zvlášť."
     },
     "appearance": {
       "title": "Vzhled",
@@ -1533,7 +1688,8 @@
         "system": "Systémový"
       },
       "motionLabel": "Omezený pohyb",
-      "motionHint": "Vypne animace glyfů a stavů v tomto prohlížeči — navíc k vlastnímu nastavení omezeného pohybu v OS."
+      "motionHint": "Vypne animace glyfů a stavů v tomto prohlížeči — navíc k vlastnímu nastavení omezeného pohybu v OS.",
+      "hint": "Jak rozhraní vypadá na tomto zařízení."
     },
     "activity": {
       "title": "Aktivita",
@@ -1552,7 +1708,11 @@
         "channels": "Kanály",
         "integrations": "Integrace",
         "briefing": "Briefing"
-      }
+      },
+      "was": "dříve Aktivita",
+      "summary": "Co se ukazuje v živém logu. {visible} viditelné · {grouped} seskupené · {hidden} skryté",
+      "groupHeader": "Skupina událostí",
+      "liveLog": "Živý log"
     },
     "updates": {
       "title": "Aktualizace",
@@ -1580,6 +1740,61 @@
       "ensureProject": "Upravovat ZIBBY jako projekt",
       "failed": "Registrace projektu ZIBBY se nepovedla",
       "installTreeWarning": "Projekt ZIBBY ukazuje přímo na běžící instalaci — runbook (Builder ≠ Subject) doporučuje samostatný klon. Uprav cestu projektu."
+    },
+    "onThisPage": "Na této stránce",
+    "pagesLabel": "Stránky nastavení",
+    "pages": {
+      "general": {
+        "title": "Obecné",
+        "question": "Jak má ZibbyOS vypadat a jak se má chovat?"
+      },
+      "access": {
+        "title": "Přístup a oznámení",
+        "question": "Jak mě Zibby zastihne a jak prokážu, že jsem to já?"
+      },
+      "aiEngines": {
+        "title": "AI enginy",
+        "question": "Který mozek pohání agenty?"
+      },
+      "runtime": {
+        "title": "Runtime",
+        "question": "Jak tenhle stroj běží?"
+      },
+      "status": {
+        "title": "Stav a aktualizace",
+        "question": "Je všechno v pořádku a jakou verzi mám?"
+      }
+    },
+    "draft": {
+      "offline": "Démon je offline — nastavení je jen ke čtení, dokud se nevrátí.",
+      "unsaved": "{count, plural, one {# neuložená změna} few {# neuložené změny} other {# neuložených změn}}",
+      "discard": "Zahodit",
+      "saveChanges": "Uložit změny",
+      "saveFailed": "Uložení se nepodařilo — {reason}",
+      "stay": "Zůstat",
+      "discardLeave": "Zahodit a odejít",
+      "leaveTitle": "Odejít bez uložení?",
+      "leaveBody": "{count, plural, one {# neuložená změna se ztratí} few {# neuložené změny se ztratí} other {# neuložených změn se ztratí}}."
+    },
+    "languagePanel": {
+      "hint": "Agenti dál odpovídají jazykem, kterým jim píšeš.",
+      "interface": "Jazyk rozhraní",
+      "title": "Jazyk",
+      "rowHint": "Popisky, data a formát čísel. Uloží se pro tento prohlížeč."
+    },
+    "railTitle": "Nastavení",
+    "access": {
+      "tokenMeta": "Nastaveno {at} v {browser}",
+      "tokenStored": "Uložený token",
+      "replace": "Nahradit",
+      "remove": "Odebrat",
+      "tokenPaste": "Vlož operátorský token",
+      "tokenNote": "Uloženo jen v tomto prohlížeči. Odesílá se pouze na API Zibby při rozhodování o schváleních.",
+      "paused": "Pozastaveno",
+      "masterHint": "Hlavní vypínač. Vybrané události zůstanou zachované i vypnuté."
+    },
+    "runtimePanel": {
+      "thisMac": "Tento Mac"
     }
   },
   "runs": {
@@ -2288,6 +2503,25 @@
         "integrationsTitle": "Efektivní integrace",
         "noIntegrations": "Žádné integrace (firma ani projekt)."
       }
+    },
+    "section": "Projekty",
+    "countLine": "{count} projektů",
+    "runsRunningTotal": "{count} běží",
+    "needsYouTotal": "{count} čeká na tebe",
+    "runningCount": "{count} běží",
+    "needsYouCount": "{count} čeká na tebe",
+    "categoryAction": "Kategorie",
+    "filterAll": "Vše",
+    "filterRunning": "Běží",
+    "filterNeedsYou": "Čeká na tebe",
+    "filterOverBudget": "Přes rozpočet",
+    "searchPlaceholder": "Hledat projekt",
+    "noMatch": "Žádný projekt neodpovídá filtru.",
+    "statusRatioAria": "Poměr stavů běhů projektu {name}",
+    "budgetWindow": {
+      "day": "Den",
+      "week": "Týden",
+      "month": "Měsíc"
     }
   },
   "companies": {
@@ -2371,7 +2605,15 @@
       "add": "Přidat integraci",
       "hint": "Sdílené všemi projekty této firmy. Každý projekt si položky přiřazuje vlastními pravidly směrování a může integraci přebít vlastní.",
       "empty": "Zatím žádné integrace firmy — přidej Jiru, GitHub nebo Slack jednou a sdílej je napříč projekty firmy."
-    }
+    },
+    "section": "Firmy",
+    "countCompanies": "{count} firem",
+    "projectsCount": "{count} projektů",
+    "teamsCount": "{count} týmy",
+    "gaugeAria": "Rozpočet firmy {name}",
+    "gaugeCaption": "dnes {spent} z {cap}",
+    "defaultBudget": "Výchozí rozpočet",
+    "perDay": "{amount} / den"
   },
   "teams": {
     "title": "Týmy",
@@ -2436,7 +2678,14 @@
     },
     "metrics": {
       "projects": "Projekty"
-    }
+    },
+    "section": "Týmy",
+    "countTeams": "{count} týmů",
+    "inCompanies": "v {count} firmách",
+    "filterAll": "Vše",
+    "filterNoCompany": "Bez firmy",
+    "searchPlaceholder": "Hledat tým",
+    "noMatch": "Žádný tým neodpovídá filtru."
   },
   "automations": {
     "title": "Automatizace",
@@ -2547,7 +2796,33 @@
     "runDialogTitle": "Spustit automatizaci",
     "runPromptLabel": "Doplňující prompt (volitelný)",
     "runPromptPlaceholder": "např. chci projít včerejšek",
-    "runPromptHint": "Odešle se jen s tímto během; automatizace se nemění."
+    "runPromptHint": "Odešle se jen s tímto během; automatizace se nemění.",
+    "list": {
+      "section": "Práce",
+      "all": "Vše",
+      "on": "Zapnuté",
+      "off": "Vypnuté",
+      "newAutomation": "Nová automatizace",
+      "triggers": "{count, plural, one {# spouštěč} few {# spouštěče} other {# spouštěčů}}",
+      "enabledCount": "{count} zapnuto",
+      "systemCount": "{count, plural, one {# systémová} few {# systémové} other {# systémových}}",
+      "nextRunIn": "příští běh {when}",
+      "searchPlaceholder": "Hledat automatizaci",
+      "cronTitle": "Časové spouštěče",
+      "eventTitle": "Událostní spouštěče",
+      "systemTitle": "Systémové automatizace",
+      "when": "Kdy",
+      "whenEvent": "Když",
+      "now": "teď",
+      "sevenDaysAgo": "před 7 dny",
+      "firesInWeek": "{count}× za 7 dní",
+      "approvalsNote": "Automatizace, které sahají na produkci nebo peníze, se před spuštěním zastaví ve frontě Schvalování a čekají na tebe.",
+      "approvalsLink": "Fronta",
+      "approvalsLinkCount": "Fronta · {count} čeká",
+      "noMatchTitle": "Žádná automatizace nevyhovuje",
+      "noMatchBody": "Zkus jiné hledání nebo filtr.",
+      "runShort": "Spustit"
+    }
   },
   "hooks": {
     "title": "Hooky",
@@ -2926,7 +3201,8 @@
     },
     "registryLink": "Spravovat v registru →",
     "registryDescription": "Tento seznam se spravuje v globálním registru, ne po odděleních.",
-    "registryTitle": "Spravováno v registru"
+    "registryTitle": "Spravováno v registru",
+    "openDepartment": "Otevřít oddělení {name}"
   },
   "pins": {
     "pin": "Připnout",
@@ -3357,7 +3633,9 @@
       "activity": "Aktivita",
       "runtime": "Runtime",
       "ai-models": "AI modely",
-      "status": "Stav"
+      "status": "Stav",
+      "access": "Přístup a oznámení",
+      "ai-engines": "AI enginy"
     },
     "gateSection": {
       "global": "Globální pravidla",
@@ -3419,7 +3697,28 @@
     "emptyHooks": "Zatím žádné hooky.",
     "emptyCommands": "Zatím žádné příkazy.",
     "emptyAgents": "Zatím žádní agenti.",
-    "openAria": "Otevřít {name}"
+    "openAria": "Otevřít {name}",
+    "list": {
+      "section": "Pracovníci",
+      "title": "Registry",
+      "searchPlaceholder": "Hledat v registrech",
+      "count": {
+        "skills": "{count, plural, one {# skill} few {# skilly} other {# skillů}}",
+        "external": "{count, plural, one {# externí} few {# externí} other {# externích}}",
+        "marketplaces": "{count} z marketplaces",
+        "local": "{count, plural, one {# lokální} few {# lokální} other {# lokálních}}",
+        "commands": "{count, plural, one {# příkaz} few {# příkazy} other {# příkazů}}",
+        "hooks": "{count, plural, one {# hook} few {# hooky} other {# hooků}}",
+        "mcp": "{count, plural, one {# MCP server} few {# MCP servery} other {# MCP serverů}}",
+        "mcpOn": "{count} zapnuto"
+      },
+      "noMatch": "Nic nenalezeno pro „{q}“",
+      "noMatchBody": "Zkus jiné slovo nebo vyčisti hledání.",
+      "nowhere": "nikam",
+      "updateAvailable": "Aktualizace",
+      "toggleMcp": "Zapnout {name}",
+      "terminalTitle": "~/.zibby/commands"
+    }
   },
   "notifications": {
     "title": "Notifikace",
@@ -4437,7 +4736,24 @@
     "mcpServers": "MCP servery",
     "hooksYes": "Ano",
     "hooksNo": "Ne",
-    "none": "Žádné"
+    "none": "Žádné",
+    "list": {
+      "section": "Pracovníci",
+      "title": "Marketplace",
+      "count": {
+        "catalogs": "{count, plural, one {# katalog} few {# katalogy} other {# katalogů}}",
+        "installed": "{installed} z {total} pluginů nainstalováno"
+      },
+      "filter": {
+        "all": "Vše",
+        "dev": "Dev",
+        "regular": "Běžné"
+      },
+      "installedBefore": "Nainstalováno ",
+      "installedAfter": " z {total} pluginů",
+      "browse": "Procházet",
+      "noMatch": "Žádný katalog v tomto filtru"
+    }
   },
   "autopilot": {
     "label": "Autopilot",
@@ -4536,7 +4852,12 @@
     "tokenReplace": "Zadat jiný",
     "switchToAuto": "Přepnout na Automat",
     "lane_manual": "Nic se samo nespustí. Co sem patří, spustíš ty.",
-    "semiCellDisabled": "Zatím nejde: spustit, ale vždy počkat"
+    "semiCellDisabled": "Zatím nejde: spustit, ale vždy počkat",
+    "laneMeaning_manual": "Sám nezačne",
+    "laneMeaning_semi": "Udělá, počká na schválení",
+    "laneMeaning_auto": "Udělá a pošle report",
+    "teamsCount": "{count, plural, one {# tým} few {# týmy} other {# týmů}}",
+    "readOnlyLine": "Jen ke čtení: změny úrovní potřebují operátorský token (uloží se jen v tomto prohlížeči)."
   },
   "prsPage": {
     "title": "Otevřená PR",
@@ -4904,6 +5225,227 @@
       "then": "Pokračování smyčky nikam nevede",
       "when": "Podmínka musí odkazovat na dřívější fázi",
       "outputs": "Dokončete výstupy"
+    },
+    "parity": {
+      "kind_agent": "Fáze agenta · {n} z {total}",
+      "kind_tool": "Krok nástroje · {n} z {total}",
+      "kind_workflow": "Podworkflow · {n} z {total}",
+      "kind_system": "Systémový krok · {n} z {total}",
+      "nothingSelected": "Nic nevybráno · platí pro každý běh",
+      "more": "Více",
+      "change": "Změnit",
+      "whereRuns": "Kde běží",
+      "runsDefault": "Výchozí",
+      "tier": "Úroveň modelu",
+      "thinking": "Přemýšlení",
+      "low": "nízké",
+      "medium": "střední",
+      "high": "vysoké",
+      "overrides": "Přepisuje výchozí agenta",
+      "reset": "Obnovit",
+      "runsWorkflow": "Spouští workflow",
+      "loopFail": "Selhat běh",
+      "commandsCount": "{n, plural, one {# příkaz} few {# příkazy} other {# příkazů}}",
+      "askMe": "Zeptat se",
+      "advisorSummary": "{model} · {n, plural, one {# volání} few {# volání} other {# volání}}",
+      "runDefaults": "Výchozí pro běh",
+      "askAtRun": "Zeptat se při spuštění",
+      "requires": "Vyžaduje",
+      "budgetSummary": "${cost} · varovat při {pct} %",
+      "maxCost": "Max. cena (USD)",
+      "warnAt": "Varovat při (%)",
+      "defaultAdvisor": "Výchozí poradce",
+      "workflowInstructions": "Instrukce workflow",
+      "nameAria": "Název workflow",
+      "noProblems": "Bez problémů",
+      "discard": "Zahodit",
+      "settings": "Nastavení workflow",
+      "runHistory": "Historie běhů",
+      "export": "Exportovat",
+      "deleteWorkflow": "Smazat workflow…",
+      "cancel": "Zrušit",
+      "deleteConfirm": "Smazat workflow",
+      "deleteTitle": "Smazat „{name}“?",
+      "deleteBody": "Soubor workflow se odstraní. Dřívější běhy si ponechají historii.",
+      "phasesCount": "{n, plural, one {# fáze} few {# fáze} other {# fází}}",
+      "loopLabel": "⇄ max. {n}×",
+      "fitShort": "Fit",
+      "expandCanvas": "Rozbalit plátno",
+      "autoLayout": "Auto-layout",
+      "autoLayoutHint": "Znovu spustit automatické rozložení a přizpůsobit pohled",
+      "runSheetAria": "Spustit workflow",
+      "runSheetTitle": "Spustit {name}"
+    }
+  },
+  "brand": {
+    "splashGreeting": {
+      "morning": "Dobré ráno, {name}.",
+      "afternoon": "Dobré odpoledne, {name}.",
+      "evening": "Dobrý večer, {name}."
+    }
+  },
+  "departmentsList": {
+    "section": "Oddělení",
+    "title": "Oddělení",
+    "countDepartments": "{count} oddělení",
+    "countWorking": "{count} pracuje",
+    "countWaiting": "{count} čeká",
+    "countFailing": "{count} selhává",
+    "rootMonogram": "Z",
+    "rootLabel": "ZIBBY",
+    "emptyTitle": "Zatím žádná oddělení",
+    "emptyDescription": "Oddělení se objeví, jakmile je ZIBBY vytvoří."
+  },
+  "entity": {
+    "connections": {
+      "label": "Připojení",
+      "channels": "{count, plural, one {# kanál} few {# kanály} other {# kanálů}}",
+      "down": "{service} ({owner}) nefunguje",
+      "expired": "Token vypršel",
+      "error": "Chyba připojení",
+      "expires": "Vyprší za {days} d",
+      "disconnected": "Odpojeno",
+      "disabled": "Vypnuto",
+      "connected": "Připojeno",
+      "synced": "synchronizováno před {ago}",
+      "neverSynced": "zatím nesynchronizováno",
+      "ownChip": "Vlastní",
+      "from": "Od {name}",
+      "serves": "slouží {count, plural, one {# projektu} other {# projektům}}",
+      "inheritedLegend": "zděděné",
+      "ownLegend": "vlastní",
+      "ribbonAria": "Rozsah připojení",
+      "summaryAttention": "{connected} připojeno, {count} vyžaduje pozornost",
+      "summary": "{connected} připojeno",
+      "connectHint": "Jira, GitHub, GitLab, Slack, Email, Kalendář, Sentry",
+      "connect": "Připojit"
+    },
+    "wizard": {
+      "title": "Připojit službu",
+      "titleFor": "Připojit {service}",
+      "stepPick": "Služba",
+      "stepConnect": "Připojení",
+      "stepTest": "Test",
+      "back": "Zpět",
+      "connect": "Připojit {service}",
+      "openSettings": "Otevřít nastavení",
+      "done": "Hotovo",
+      "contextCompany": "Připojuji pro {name}; zdědí ho {count, plural, one {# projekt} few {# projekty} other {# projektů}}.",
+      "contextProject": "Připojuji jen pro projekt {name}.",
+      "need": "Budete potřebovat",
+      "testing": "Testuji připojení...",
+      "testOk": "Připojení funguje",
+      "testFail": "Test selhal",
+      "retest": "Otestovat znovu",
+      "doneCompany": "Uloženo. Připojení zdědí {count, plural, one {# projekt} few {# projekty} other {# projektů}}.",
+      "doneProject": "Uloženo pro tento projekt.",
+      "failHint": "Připojení je uložené. Zkontrolujte nastavení a otestujte znovu.",
+      "createFailed": "Připojení se nepodařilo vytvořit",
+      "kind": {
+        "slack": {
+          "desc": "Kanály, zmínky a odpovědi",
+          "need": "bot token"
+        },
+        "email": {
+          "desc": "Schránka přes IMAP a SMTP",
+          "need": "heslo aplikace"
+        },
+        "jira": {
+          "desc": "Úkoly a boardy",
+          "need": "API token"
+        },
+        "github": {
+          "desc": "Repozitáře, PR a CI",
+          "need": "osobní přístupový token"
+        },
+        "gitlab": {
+          "desc": "Repozitáře, merge requesty a CI",
+          "need": "osobní přístupový token"
+        },
+        "calendar": {
+          "desc": "Schůzky a dostupnost",
+          "need": "service account"
+        },
+        "sentry": {
+          "desc": "Chyby a releasy",
+          "need": "auth token"
+        }
+      }
+    },
+    "company": {
+      "edit": "Upravit",
+      "kind": "firma",
+      "summary": {
+        "attention": "{count} vyžaduje pozornost",
+        "counts": "{teams, plural, one {# tým} few {# týmy} other {# týmů}} · {projects, plural, one {# projekt} few {# projekty} other {# projektů}} · {contacts, plural, one {# kontakt} few {# kontakty} other {# kontaktů}}"
+      },
+      "gauge": {
+        "caption": "Rozpočet · {month}",
+        "runs": "Běhy"
+      },
+      "ribbon": {
+        "teams": "{count, plural, one {# tým} few {# týmy} other {# týmů}}",
+        "projects": "{count, plural, one {# projekt} few {# projekty} other {# projektů}}"
+      },
+      "vipNote": "VIP: Zibby jejich zprávy vždy eskaluje vám",
+      "projects": {
+        "title": "Projekty",
+        "project": "Projekt",
+        "team": "Tým",
+        "repo": "Repozitář",
+        "marks": "Integrace",
+        "runs": "Běhy · 30d",
+        "addExisting": "Přidat existující",
+        "empty": "Zatím žádné propojené projekty."
+      },
+      "caps": {
+        "title": "Limity rozpočtu",
+        "edit": "Upravit limity",
+        "runs": "Běhy",
+        "spend": "Útrata (USD)",
+        "daily": "Denně",
+        "weekly": "Týdně",
+        "monthly": "Měsíčně",
+        "note": "Týmy a projekty mohou tyto limity snížit, nikdy zvýšit."
+      },
+      "about": {
+        "title": "O firmě",
+        "slug": "Slug",
+        "teams": "Týmy",
+        "tasks": "Úkoly této firmy"
+      }
+    },
+    "project": {
+      "kpi": {
+        "runs": "Běhy · 30 dní",
+        "success": "Úspěšnost",
+        "spend": "Útrata · měsíc",
+        "prs": "Otevřené PR",
+        "integrations": "Integrace",
+        "down": "{count} nefunguje"
+      },
+      "pulse": {
+        "caption": "Běhy · posledních 24 h",
+        "running": "{count} běží"
+      },
+      "noLocalClone": "Bez lokálního klonu",
+      "summary": "{total, plural, one {# integrace} few {# integrace} other {# integrací}} — {own} vlastní, {inherited} zděděných",
+      "down": "{count} nefunguje",
+      "tabs": {
+        "secrets": "Prostředí"
+      }
+    },
+    "team": {
+      "kind": "tým",
+      "codeOwner": "code owner @{slug}",
+      "vault": {
+        "title": "Znalostní vault",
+        "indexed": "indexováno",
+        "notes": "{count, plural, one {# poznámka} few {# poznámky} other {# poznámek}}"
+      },
+      "feed": {
+        "title": "Nedávno aktualizované znalosti"
+      }
     }
   }
 }

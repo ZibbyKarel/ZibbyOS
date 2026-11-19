@@ -1,18 +1,27 @@
 "use client";
 
-import type { RegistryBindings } from "@zibby/contracts";
+import type { Command, Hook, McpServer, RegistryBindings } from "@zibby/contracts";
 import { type DepartmentId } from "@zibby/contracts";
 import {
   Button,
+  CardSkeleton,
   Container,
   EmptyState,
-  EntityCard,
   Grid,
-  type IconName,
-  SectionLabel,
+  Icon,
+  IconTile,
+  ListHeader,
+  ListSection,
+  ListToolbar,
+  RegistryList,
+  RegistryRow,
+  SkillTile,
   Stack,
   StatusDot,
+  SubNav,
+  type SubNavLinkComponent,
   Tag,
+  Toggle,
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
@@ -23,7 +32,6 @@ import { type ReactNode, useState } from "react";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { PageContainer } from "../../../components/PageContainer/PageContainer";
 import { QueryError } from "../../../components/LoadError/QueryError";
-import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
 import { slug } from "../../../utils/slug";
 import { AgentsByDepartment } from "../../agents/components/AgentsByDepartment";
 import { AddCommandModal } from "../../commands/components/AddCommandModal/AddCommandModal";
@@ -36,11 +44,14 @@ import {
   type McpServerCreateDraft,
   McpServerFormDialog,
 } from "../../mcp/components/McpServerFormDialog";
-import { useCreateMcpServerMutation, useSetMcpCredentialsMutation } from "../../mcp/mutations";
+import {
+  useCreateMcpServerMutation,
+  useSetMcpCredentialsMutation,
+  useUpdateMcpServerMutation,
+} from "../../mcp/mutations";
 import { useMcpServersQuery } from "../../mcp/queries";
 import { toastBus } from "../../../components/Toaster/toastBus";
 import { AddSkillModal } from "../../skills/components/AddSkillModal/AddSkillModal";
-import { ExternalSkillSource } from "../../skills/components/ExternalSkillSource";
 import { InstallExternalSkillDialog } from "../../skills/components/InstallExternalSkillDialog";
 import { useCreateSkillMutation, useSyncAllExternalSkillsMutation } from "../../skills/mutations";
 import { useSkillCategoriesQuery, useSkillsQuery } from "../../skills/queries";
@@ -52,10 +63,16 @@ export enum RegistriesScreenTestId {
   SyncAllSkills = "registries-sync-all-skills",
   InstallSkills = "registries-install-skills",
   Empty = "registries-empty",
+  Add = "registries-add",
+  /** Suffixed with the server id. */
+  McpToggle = "registries-mcp-toggle",
   BoundIn = "registries-bound-in",
   /** Suffixed with `external`, `marketplaces` or `local`. */
   SkillSection = "registries-skill-section",
 }
+
+/** The in-page kind switcher order (the design's), not the route registry's. */
+const TAB_ORDER = ["skills", "commands", "hooks", "mcp"] as const;
 
 export interface RegistriesScreenProps {
   kind: RegistryKindParam;
@@ -108,7 +125,11 @@ function BoundIn({
       </Typography>
       {ids.map((id) => {
         const code = departments.get(id)?.code ?? id;
-        const tag = <Tag key={id}>{code}</Tag>;
+        const tag = (
+          <Tag key={id} size="sm">
+            {code}
+          </Tag>
+        );
         return tab ? (
           <Link href={`/workforce/departments/${id}/${tab}`} key={id}>
             {tag}
@@ -121,86 +142,161 @@ function BoundIn({
   );
 }
 
-interface RegistryCardsQuery<T> {
-  data?: T[];
-  isPending: boolean;
-  isError: boolean;
-  refetch: () => unknown;
-}
-
-/** Loading / error / empty states around a card grid laid out like the Agents and Marketplace pages. */
-function RegistryCards<T>({
-  query,
-  empty,
-  renderCard,
-}: {
-  query: RegistryCardsQuery<T>;
-  empty: string;
-  renderCard: (row: T) => ReactNode;
-}) {
-  if (query.isPending) return <QueryLoading />;
-  if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
-  const rows = query.data ?? [];
-  if (rows.length === 0)
-    return <EmptyState data-testid={RegistriesScreenTestId.Empty} title={empty} />;
-  return (
-    <Grid cols={1} gap="150" lg={3} md={2}>
-      {rows.map(renderCard)}
-    </Grid>
-  );
-}
-
 /**
- * `/system/registries/[kind]` (ZB-11, ROUTE-MAP §1/§3): a card grid per global
- * library kind (skills, mcp, hooks, commands), the same `EntityCard` layout as the
- * Agents and Marketplace pages; kind switching lives in the shell's sub-nav row
- * (`AppShell`). Each card footer shows "Bound in" derived from
- * `GET /api/registries/bindings` (O-09 — read-only, no stored binding); agents show
- * their department. A card click navigates to the unchanged
- * `/system/registries/<kind>/[id]` detail form; creation reuses each domain's
- * existing create-only dialog (N4d/N4e grammar) unchanged.
+ * `/system/registries/[kind]` — Seznamy "Registry": one header (breadcrumb, live count line,
+ * sync / install / add actions), a search toolbar, an in-page kind switcher with counts and a
+ * density list per kind — grouped skill tiles, terminal-style command rows, "event → command"
+ * hook rows, MCP status rows with an enabled switch. Kind switching also stays in the shell's
+ * sub-nav row (`AppShell`). "Bound in" derives from `GET /api/registries/bindings` (O-09 —
+ * read-only). A row/tile click opens the unchanged `/system/registries/<kind>/[id]` detail; creation
+ * reuses each domain's existing create-only dialog.
  */
 export function RegistriesScreen({ kind, openCreateOnMount }: RegistriesScreenProps) {
   const t = useTranslations("registries");
+  const tl = useTranslations("registries.list");
   const router = useRouter();
   const [creating, setCreating] = useState(Boolean(openCreateOnMount));
+  const [search, setSearch] = useState("");
 
   const closeCreate = () => {
     setCreating(false);
     if (openCreateOnMount) router.replace(registryHref(kind) as Route);
   };
 
-  const bindingsQuery = useRegistryBindingsQuery();
-  const bindings: RegistryBindings | undefined = bindingsQuery.data;
+  const bindings: RegistryBindings | undefined = useRegistryBindingsQuery().data;
+  const skillsQuery = useSkillsQuery();
+  const marketplaceSkills = useMarketplaceSkillsQuery().data ?? [];
+  const mcpQuery = useMcpServersQuery();
+  const hooksQuery = useHooksQuery();
+  const commandsQuery = useCommandsQuery();
+
+  const skills = skillsQuery.data ?? [];
+  const counts = {
+    skills: skills.length + marketplaceSkills.length,
+    commands: commandsQuery.data?.length ?? 0,
+    hooks: hooksQuery.data?.length ?? 0,
+    mcp: mcpQuery.data?.length ?? 0,
+  };
+
+  const addButton = (
+    <Button
+      data-testid={RegistriesScreenTestId.Add}
+      icon="plus"
+      intent="ink"
+      onClick={() =>
+        // Agents are created on their own page, not in a dialog.
+        kind === "agents" ? router.push("/workforce/agents/new" as Route) : setCreating(true)
+      }
+    >
+      {t(`add.${kind}`)}
+    </Button>
+  );
+
+  const countFragments = () => {
+    const plain = (text: string) => ({ text, tone: "plain" as const });
+    if (kind === "skills") {
+      const external = skills.filter((s) => s.source).length;
+      return [
+        plain(tl("count.skills", { count: counts.skills })),
+        plain(tl("count.external", { count: external })),
+        plain(tl("count.marketplaces", { count: marketplaceSkills.length })),
+        plain(tl("count.local", { count: skills.length - external })),
+      ];
+    }
+    if (kind === "mcp") {
+      const on = (mcpQuery.data ?? []).filter((s) => s.enabled).length;
+      return [
+        plain(tl("count.mcp", { count: counts.mcp })),
+        plain(tl("count.mcpOn", { count: on })),
+      ];
+    }
+    if (kind === "commands" || kind === "hooks")
+      return [plain(tl(`count.${kind}`, { count: counts[kind] }))];
+    return [];
+  };
+
+  const tabs = TAB_ORDER.map((k) => ({
+    href: registryHref(k),
+    label: t(`kinds.${k}`),
+    count: counts[k],
+    active: k === kind,
+  }));
+  const q = search.trim().toLowerCase();
+  const match = (...fields: (string | undefined)[]) =>
+    q === "" || fields.some((f) => f?.toLowerCase().includes(q));
 
   return (
     <Container padding={["300", "350"]}>
       <PageContainer>
         <Stack gap="250">
-          <Stack align="baseline" direction="row" gap="150" justify="between">
-            <Typography type="title">{t("title")}</Typography>
-            <Stack align="center" direction="row" gap="100">
-              {kind === "skills" && <ExternalSkillActions />}
-              <Button
-                icon="plus"
-                intent="primary"
-                onClick={() =>
-                  // Agents are created on their own page, not in a dialog.
-                  kind === "agents"
-                    ? router.push("/workforce/agents/new" as Route)
-                    : setCreating(true)
-                }
-              >
-                {t(`add.${kind}`)}
-              </Button>
-            </Stack>
-          </Stack>
+          <ListHeader
+            actions={
+              <>
+                {kind === "skills" && <ExternalSkillActions />}
+                {addButton}
+              </>
+            }
+            count={countFragments()}
+            route={registryHref(kind)}
+            section={tl("section")}
+            title={tl("title")}
+          />
 
-          {kind === "agents" && <AgentsByDepartment />}
-          {kind === "skills" && <SkillsCards bindings={bindings?.skills} />}
-          {kind === "mcp" && <McpCards bindings={bindings?.mcp} />}
-          {kind === "hooks" && <HooksCards bindings={bindings?.hooks} />}
-          {kind === "commands" && <CommandsCards bindings={bindings?.commands} />}
+          {kind === "agents" ? (
+            <AgentsByDepartment />
+          ) : (
+            <>
+              <ListToolbar
+                search={{
+                  value: search,
+                  onChange: setSearch,
+                  placeholder: tl("searchPlaceholder"),
+                }}
+              />
+              <SubNav items={tabs} linkComponent={Link as SubNavLinkComponent} />
+              {kind === "skills" && (
+                <SkillsList
+                  add={addButton}
+                  bindings={bindings?.skills}
+                  marketplaceSkills={marketplaceSkills.filter((s) => match(s.name, s.id, s.desc))}
+                  query={skillsQuery}
+                  search={q}
+                  skills={skills.filter((s) => match(s.name, s.id, s.desc))}
+                />
+              )}
+              {kind === "mcp" && (
+                <McpList
+                  add={addButton}
+                  bindings={bindings?.mcp}
+                  query={mcpQuery}
+                  rows={(mcpQuery.data ?? []).filter((s) =>
+                    match(s.name, s.id, s.desc, s.command, s.url),
+                  )}
+                  search={q}
+                />
+              )}
+              {kind === "hooks" && (
+                <HooksList
+                  add={addButton}
+                  bindings={bindings?.hooks}
+                  query={hooksQuery}
+                  rows={(hooksQuery.data ?? []).filter((h) =>
+                    match(h.name, h.id, h.desc, h.command, h.event),
+                  )}
+                  search={q}
+                />
+              )}
+              {kind === "commands" && (
+                <CommandsList
+                  add={addButton}
+                  bindings={bindings?.commands}
+                  query={commandsQuery}
+                  rows={(commandsQuery.data ?? []).filter((c) => match(c.id, c.description))}
+                  search={q}
+                />
+              )}
+            </>
+          )}
         </Stack>
       </PageContainer>
 
@@ -239,6 +335,7 @@ function ExternalSkillActions() {
       <Button
         data-testid={RegistriesScreenTestId.SyncAllSkills}
         icon="retry"
+        intent="ghost"
         loading={syncAll.isPending}
         onClick={sync}
       >
@@ -247,6 +344,7 @@ function ExternalSkillActions() {
       <Button
         data-testid={RegistriesScreenTestId.InstallSkills}
         icon="branch"
+        intent="secondary"
         onClick={() => setInstalling(true)}
       >
         {t("installAction")}
@@ -257,165 +355,335 @@ function ExternalSkillActions() {
 }
 
 // ---------------------------------------------------------------------------
-// Per-kind card grids
+// Per-kind lists
 // ---------------------------------------------------------------------------
 
 type Bindings = Record<string, DepartmentId[]>;
 
-/** Skills page body: External (GitHub), From marketplaces (read-only), Local (the rest), in that order. */
-function SkillsCards({ bindings }: { bindings?: Bindings }) {
+interface ListQuery {
+  isPending: boolean;
+  isError: boolean;
+  refetch: () => unknown;
+}
+
+interface KindListProps<T> {
+  query: ListQuery;
+  rows: T[];
+  bindings?: Bindings;
+  /** The normalised search text — non-empty turns the empty state into "nothing found". */
+  search: string;
+  add: ReactNode;
+}
+
+/** Loading / error / empty / nothing-found around one kind's list; renders `children` when rows exist. */
+function KindState({
+  query,
+  total,
+  shown,
+  search,
+  add,
+  empty,
+  skeleton,
+  children,
+}: {
+  query: ListQuery;
+  total: number;
+  shown: number;
+  search: string;
+  add: ReactNode;
+  empty: string;
+  skeleton: "tile" | "row";
+  children: ReactNode;
+}) {
+  const t = useTranslations("registries.list");
+  if (query.isPending)
+    return skeleton === "tile" ? (
+      <Grid cols={2} gap="100" lg={5} md={3}>
+        {Array.from({ length: 10 }).map((_, i) => (
+          <CardSkeleton key={i} shape="card" />
+        ))}
+      </Grid>
+    ) : (
+      <Stack gap="0">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <CardSkeleton key={i} shape="row" />
+        ))}
+      </Stack>
+    );
+  if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
+  if (total === 0)
+    return (
+      <EmptyState
+        action={add}
+        data-testid={RegistriesScreenTestId.Empty}
+        icon="stack"
+        title={empty}
+      />
+    );
+  if (shown === 0 && search)
+    return <EmptyState body={t("noMatchBody")} icon="search" title={t("noMatch", { q: search })} />;
+  return <>{children}</>;
+}
+
+type SkillRow = NonNullable<ReturnType<typeof useSkillsQuery>["data"]>[number];
+
+function SkillsList({
+  query,
+  skills,
+  marketplaceSkills,
+  bindings,
+  search,
+  add,
+}: {
+  query: ListQuery;
+  skills: SkillRow[];
+  marketplaceSkills: ReturnType<typeof useMarketplaceSkillsQuery>["data"] & object;
+  bindings?: Bindings;
+  search: string;
+  add: ReactNode;
+}) {
   const t = useTranslations("registries");
   const router = useRouter();
-  const query = useSkillsQuery();
-  const marketplaceSkills = useMarketplaceSkillsQuery().data ?? [];
+  const allSkills = useSkillsQuery().data ?? [];
+  const allMarketplace = useMarketplaceSkillsQuery().data ?? [];
 
-  if (query.isPending) return <QueryLoading />;
-  if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
-
-  const skills = query.data ?? [];
-  const external = skills.filter((s) => s.source);
-  const local = skills.filter((s) => !s.source);
-  if (skills.length + marketplaceSkills.length === 0)
-    return <EmptyState data-testid={RegistriesScreenTestId.Empty} title={t("emptySkills")} />;
-
-  const renderSkill = (s: (typeof skills)[number]) => (
-    <EntityCard
-      actions={boundIn("skills", bindings?.[s.id])}
-      badges={[
-        [
-          s.source ? (
-            <ExternalSkillSource key="source" source={s.source} />
-          ) : (
-            <Tag key="category">{s.category ?? t("skillTypeFallback")}</Tag>
-          ),
-        ],
-      ]}
-      description={s.desc}
-      glyph={(s.glyph as IconName | undefined) ?? "brain"}
-      key={s.id}
-      onClick={() => router.push(registryHref("skills", s.id) as Route)}
-      openLabel={t("openAria", { name: s.name })}
-      subtitle={s.id !== s.name ? s.id : undefined}
-      title={s.name}
-    />
-  );
+  const renderSkill = (s: SkillRow) => {
+    const hasUpdate = Boolean(s.source?.latestSha && s.source.latestSha !== s.source.sha);
+    return (
+      <SkillTile
+        description={s.desc}
+        footer={
+          <>
+            {boundIn("skills", bindings?.[s.id]) ?? (
+              <Typography mono size="xs" type="note" variant="tertiary">
+                {`${t("columns.boundIn")} ${t("list.nowhere")}`}
+              </Typography>
+            )}
+            {hasUpdate && (
+              <Tag size="sm" tone="accent">
+                {t("list.updateAvailable")}
+              </Tag>
+            )}
+          </>
+        }
+        key={s.id}
+        name={s.id}
+        onOpen={() => router.push(registryHref("skills", s.id) as Route)}
+        openLabel={t("openAria", { name: s.name ?? s.id })}
+        source={s.source ? s.source.owner : (s.category ?? t("skillTypeFallback"))}
+      />
+    );
+  };
 
   const sections = [
-    { key: "external", label: t("skillSections.external"), cards: external.map(renderSkill) },
+    {
+      key: "external",
+      icon: "globe" as const,
+      label: t("skillSections.external"),
+      tiles: skills.filter((s) => s.source).map(renderSkill),
+    },
     {
       key: "marketplaces",
+      icon: "stack" as const,
       label: t("skillSections.marketplaces"),
       // Read-only: the plugin owns the skill, so there is no detail page to open.
-      cards: marketplaceSkills.map((s) => (
-        <EntityCard
-          badges={[[<Tag key="marketplace">{`${s.marketplace} · ${s.plugin}`}</Tag>]]}
+      tiles: marketplaceSkills.map((s) => (
+        <SkillTile
           description={s.desc}
-          glyph="brain"
           key={s.id}
-          title={s.name}
+          name={s.name}
+          source={`${s.marketplace} · ${s.plugin}`}
         />
       )),
     },
-    { key: "local", label: t("skillSections.local"), cards: local.map(renderSkill) },
-  ].filter((section) => section.cards.length > 0);
+    {
+      key: "local",
+      icon: "file" as const,
+      label: t("skillSections.local"),
+      tiles: skills.filter((s) => !s.source).map(renderSkill),
+    },
+  ].filter((section) => section.tiles.length > 0);
 
   return (
-    <Stack gap="300">
-      {sections.map(({ key, label, cards }) => (
-        <Stack data-testid={`${RegistriesScreenTestId.SkillSection}-${key}`} gap="150" key={key}>
-          <SectionLabel>{`${label} · ${cards.length}`}</SectionLabel>
-          <Grid cols={1} gap="150" lg={3} md={2}>
-            {cards}
-          </Grid>
-        </Stack>
-      ))}
-    </Stack>
+    <KindState
+      add={add}
+      empty={t("emptySkills")}
+      query={query}
+      search={search}
+      shown={sections.length}
+      skeleton="tile"
+      total={allSkills.length + allMarketplace.length}
+    >
+      <Stack gap="300">
+        {sections.map(({ key, icon, label, tiles }) => (
+          <span data-testid={`${RegistriesScreenTestId.SkillSection}-${key}`} key={key}>
+            <ListSection count={tiles.length} icon={icon} title={label}>
+              <Grid cols={2} gap="100" lg={5} md={3}>
+                {tiles}
+              </Grid>
+            </ListSection>
+          </span>
+        ))}
+      </Stack>
+    </KindState>
   );
 }
 
-function McpCards({ bindings }: { bindings?: Bindings }) {
+function McpList({ query, rows, bindings, search, add }: KindListProps<McpServer>) {
   const t = useTranslations("registries");
   const router = useRouter();
+  const update = useUpdateMcpServerMutation();
+  const total = useMcpServersQuery().data?.length ?? 0;
   return (
-    <RegistryCards
+    <KindState
+      add={add}
       empty={t("emptyMcp")}
-      query={useMcpServersQuery()}
-      renderCard={(s) => (
-        <EntityCard
-          actions={boundIn("mcp", bindings?.[s.id])}
-          aside={
-            <Stack align="center" direction="row" gap="75">
-              <StatusDot size="75" tone={s.enabled ? "ok" : "idle"} />
-              <Typography mono size="xs" type="note">
-                {s.enabled ? t("status.enabled") : t("status.disabled")}
+      query={query}
+      search={search}
+      shown={rows.length}
+      skeleton="row"
+      total={total}
+    >
+      <RegistryList>
+        {rows.map((s) => {
+          const name = s.name ?? s.id;
+          return (
+            <RegistryRow
+              aside={
+                <>
+                  <Tag>{s.type}</Tag>
+                  <Typography mono truncate size="xs" type="note" variant="tertiary">
+                    {(s.type === "stdio" ? s.command : s.url) ?? s.id}
+                  </Typography>
+                </>
+              }
+              key={s.id}
+              lead={<IconTile glyph="server" size="md" tone="neutral" />}
+              onOpen={() => router.push(registryHref("mcp", s.id) as Route)}
+              openLabel={t("openAria", { name })}
+              trailing={
+                <Stack align="center" direction="row" gap="150">
+                  {boundIn("mcp", bindings?.[s.id])}
+                  <Toggle
+                    checked={s.enabled}
+                    data-testid={`${RegistriesScreenTestId.McpToggle}-${s.id}`}
+                    label={t("list.toggleMcp", { name })}
+                    onChange={(enabled) =>
+                      update.mutate({ params: { id: s.id }, body: { enabled } })
+                    }
+                  />
+                </Stack>
+              }
+            >
+              <Typography size="md" type="note" weight="medium">
+                {name}
               </Typography>
-            </Stack>
-          }
-          badges={[[<Tag key="type">{s.type}</Tag>]]}
-          description={s.desc}
-          glyph="server"
-          key={s.id}
-          onClick={() => router.push(registryHref("mcp", s.id) as Route)}
-          openLabel={t("openAria", { name: s.name ?? s.id })}
-          subtitle={(s.type === "stdio" ? s.command : s.url) ?? s.id}
-          title={s.name ?? s.id}
-        />
-      )}
-    />
+              <Stack align="center" direction="row" gap="75">
+                <StatusDot size="75" tone={s.enabled ? "ok" : "idle"} />
+                <Typography size="xs" type="note" variant="tertiary">
+                  {s.enabled ? t("status.enabled") : t("status.disabled")}
+                </Typography>
+              </Stack>
+            </RegistryRow>
+          );
+        })}
+      </RegistryList>
+    </KindState>
   );
 }
 
-function HooksCards({ bindings }: { bindings?: Bindings }) {
+function HooksList({ query, rows, bindings, search, add }: KindListProps<Hook>) {
   const t = useTranslations("registries");
   const router = useRouter();
+  const total = useHooksQuery().data?.length ?? 0;
   return (
-    <RegistryCards
+    <KindState
+      add={add}
       empty={t("emptyHooks")}
-      query={useHooksQuery()}
-      renderCard={(h) => (
-        <EntityCard
-          actions={boundIn("hooks", bindings?.[h.id])}
-          badges={[[<Tag key="event">{h.event}</Tag>]]}
-          description={h.desc}
-          glyph="bolt"
-          key={h.id}
-          onClick={() => router.push(registryHref("hooks", h.id) as Route)}
-          openLabel={t("openAria", { name: h.name ?? h.id })}
-          subtitle={h.command}
-          title={h.name ?? h.id}
-        />
-      )}
-    />
+      query={query}
+      search={search}
+      shown={rows.length}
+      skeleton="row"
+      total={total}
+    >
+      <RegistryList>
+        {rows.map((h) => (
+          <RegistryRow
+            key={h.id}
+            lead={
+              <Stack align="center" direction="row" gap="100">
+                <Tag icon="bolt">{h.event}</Tag>
+                <Icon name="arrow" size="sm" />
+              </Stack>
+            }
+            leadWidth="wide"
+            onOpen={() => router.push(registryHref("hooks", h.id) as Route)}
+            openLabel={t("openAria", { name: h.name ?? h.id })}
+            trailing={boundIn("hooks", bindings?.[h.id])}
+          >
+            <Typography mono truncate size="xs" type="note">
+              {h.command}
+            </Typography>
+          </RegistryRow>
+        ))}
+      </RegistryList>
+    </KindState>
   );
 }
 
-function CommandsCards({ bindings }: { bindings?: Bindings }) {
+function CommandsList({ query, rows, bindings, search, add }: KindListProps<Command>) {
   const t = useTranslations("registries");
   const router = useRouter();
+  const total = useCommandsQuery().data?.length ?? 0;
   return (
-    <RegistryCards
+    <KindState
+      add={add}
       empty={t("emptyCommands")}
-      query={useCommandsQuery()}
-      renderCard={(c) => (
-        <EntityCard
-          actions={boundIn("commands", bindings?.[c.id])}
-          badges={[
-            [
-              <Tag key="scope">
-                {c["disable-model-invocation"] ? t("commandScope.manual") : t("commandScope.auto")}
-              </Tag>,
-            ],
-          ]}
-          description={c.description}
-          glyph="code"
-          key={c.id}
-          onClick={() => router.push(registryHref("commands", c.id) as Route)}
-          openLabel={t("openAria", { name: `/${c.id}` })}
-          subtitle={c["argument-hint"]}
-          title={`/${c.id}`}
-        />
-      )}
-    />
+      query={query}
+      search={search}
+      shown={rows.length}
+      skeleton="row"
+      total={total}
+    >
+      <RegistryList dashed terminalTitle={t("list.terminalTitle")}>
+        {rows.map((c) => (
+          <RegistryRow
+            key={c.id}
+            lead={
+              <Typography mono type="note" variant="tertiary">
+                ›
+              </Typography>
+            }
+            onOpen={() => router.push(registryHref("commands", c.id) as Route)}
+            openLabel={t("openAria", { name: `/${c.id}` })}
+            trailing={
+              <Stack align="center" direction="row" gap="150">
+                {boundIn("commands", bindings?.[c.id])}
+                <Tag tone={c["disable-model-invocation"] ? "neutral" : "accent"}>
+                  {c["disable-model-invocation"]
+                    ? t("commandScope.manual")
+                    : t("commandScope.auto")}
+                </Tag>
+              </Stack>
+            }
+          >
+            <Stack wrap align="baseline" direction="row" gap="100">
+              <Typography mono size="md" type="note" weight="medium">
+                {`/${c.id}`}
+              </Typography>
+              {c["argument-hint"] && (
+                <Typography mono size="xs" type="note" variant="tertiary">
+                  {c["argument-hint"]}
+                </Typography>
+              )}
+            </Stack>
+            <Typography truncate size="xs" type="note" variant="tertiary">
+              {c.description}
+            </Typography>
+          </RegistryRow>
+        ))}
+      </RegistryList>
+    </KindState>
   );
 }
 

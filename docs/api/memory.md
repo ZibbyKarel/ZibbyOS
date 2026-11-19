@@ -127,7 +127,9 @@ GET /api/memory/graph
 ```
 
 Returns `{ nodes, edges: { from, to }[] }` for a force-directed
-visualization.
+visualization. A node carries `raw: true` when the note is still unsorted (its
+frontmatter has `raw: true`, the "halda" the nightly triage categorises); the Brain
+screen counts these in its "Neroztříděné" filter.
 
 ### The daily note
 

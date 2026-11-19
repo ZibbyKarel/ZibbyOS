@@ -5,3 +5,4 @@ export {
   duplicateWorkflowId,
   useDuplicateWorkflowMutation,
 } from "./useDuplicateWorkflowMutation";
+export { useDeleteWorkflowMutation } from "./useDeleteWorkflowMutation";

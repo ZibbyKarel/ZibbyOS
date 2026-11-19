@@ -1,5 +1,15 @@
 "use client";
-import { Button, Container, MenuButton, Stack, Tag, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  GraphInlineInput,
+  Icon,
+  Kbd,
+  MenuButton,
+  Stack,
+  Tag,
+  Typography,
+} from "@zibby/design-system";
 import { PinButton } from "../../../pins";
 import type { GraphProblem } from "../WorkflowDialog/workflow-graph";
 import { useWdT } from "./useWdT";
@@ -14,6 +24,9 @@ export enum WorkflowBarTestId {
   Save = "wd-bar-save",
   Duplicate = "wd-bar-duplicate",
   Run = "wd-bar-run",
+  Name = "wd-bar-name",
+  Ok = "wd-bar-ok",
+  More = "wd-bar-more",
 }
 
 export interface WorkflowBarProps {
@@ -38,11 +51,19 @@ export interface WorkflowBarProps {
   duplicating: boolean;
   onRun: () => void;
   onCopyFile: () => void;
+  /** Edit mode: the name is an inline input. */
+  onNameChange: (name: string) => void;
+  /** ⋯ → Workflow settings (⌘,). */
+  onOpenSettings: () => void;
+  onRunHistory: () => void;
+  onExport: () => void;
+  onDelete: () => void;
 }
 
 /** Top bar of the workflow page: breadcrumb, state, problems, and the page actions. */
 export function WorkflowBar(p: WorkflowBarProps) {
   const t = useWdT("workflowDetail.bar");
+  const tp = useWdT("workflowDetail.parity");
   const canSave = p.dirty && p.problems.length === 0 && !p.saving;
   return (
     <Container
@@ -54,15 +75,36 @@ export function WorkflowBar(p: WorkflowBarProps) {
       <Stack wrap align="center" direction="row" gap="150" justify="between">
         <Stack align="center" direction="row" gap="100">
           <Button data-testid={WorkflowBarTestId.Back} intent="ghost" onClick={p.onBack} size="sm">
-            {t("workflows")}
+            <span aria-hidden="true">‹</span> {t("workflows")}
           </Button>
           <Typography size="sm" type="note" variant="tertiary">
             /
           </Typography>
-          <Typography truncate size="sm" type="note" weight="semibold">
-            {p.name}
-          </Typography>
-          {p.department && <Tag>{p.department}</Tag>}
+          {p.editing ? (
+            <GraphInlineInput
+              aria-label={tp("nameAria")}
+              data-testid={WorkflowBarTestId.Name}
+              onChange={(e) => p.onNameChange(e.target.value)}
+              size={Math.max(12, p.name.length)}
+              value={p.name}
+              variant="field"
+              weight="bold"
+            />
+          ) : (
+            <Typography truncate size="sm" type="note" weight="semibold">
+              {p.name}
+            </Typography>
+          )}
+          {p.department && <Tag icon="users">{p.department}</Tag>}
+          <PinButton id={p.workflowId} kind="workflow" />
+          {p.editing && p.problems.length === 0 && (
+            <Stack align="center" data-testid={WorkflowBarTestId.Ok} direction="row" gap="50">
+              <Icon name="check" size="xs" tone="dim" />
+              <Typography size="xs" type="note" variant="tertiary">
+                {tp("noProblems")}
+              </Typography>
+            </Stack>
+          )}
           {p.editing && p.dirty && (
             <Tag data-testid={WorkflowBarTestId.Dirty} tone="warn">
               {t("unsaved")}
@@ -92,7 +134,6 @@ export function WorkflowBar(p: WorkflowBarProps) {
               )}
             />
           )}
-          <PinButton id={p.workflowId} kind="workflow" />
           {p.editing ? (
             <>
               <Button
@@ -101,7 +142,7 @@ export function WorkflowBar(p: WorkflowBarProps) {
                 onClick={p.onCancel}
                 size="sm"
               >
-                {t("cancel")}
+                {tp("discard")}
               </Button>
               <Button
                 data-testid={WorkflowBarTestId.Save}
@@ -112,7 +153,7 @@ export function WorkflowBar(p: WorkflowBarProps) {
                 onClick={p.onSave}
                 size="sm"
               >
-                {t("save")}
+                {t("save")} <Kbd>⌘S</Kbd>
               </Button>
             </>
           ) : (
@@ -150,7 +191,31 @@ export function WorkflowBar(p: WorkflowBarProps) {
           <MenuButton
             ariaLabel={t("more")}
             items={[
-              { id: "copy-file", label: t("copyFile", { file: p.file }), onSelect: p.onCopyFile },
+              {
+                id: "settings",
+                label: tp("settings"),
+                icon: "gear",
+                trailing: "⌘,",
+                onSelect: p.onOpenSettings,
+              },
+              { id: "history", label: tp("runHistory"), icon: "clock", onSelect: p.onRunHistory },
+              {
+                id: "copy-file",
+                label: t("copyFile", { file: p.file }),
+                icon: "file",
+                onSelect: p.onCopyFile,
+              },
+              { id: "sep1", divider: true },
+              { id: "duplicate", label: t("duplicate"), icon: "copy", onSelect: p.onDuplicate },
+              { id: "export", label: tp("export"), icon: "arrow", onSelect: p.onExport },
+              { id: "sep2", divider: true },
+              {
+                id: "delete",
+                label: tp("deleteWorkflow"),
+                icon: "trash",
+                danger: true,
+                onSelect: p.onDelete,
+              },
             ]}
           />
         </Stack>

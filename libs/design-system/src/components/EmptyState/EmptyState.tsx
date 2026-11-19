@@ -3,6 +3,8 @@ import { Stack } from "../Stack/Stack";
 import { Container } from "../Container/Container";
 import { Card, CardContent } from "../Card/Card";
 import { Typography } from "../Typography/Typography";
+import { IconTile } from "../IconTile/IconTile";
+import type { IconName } from "../Icon/Icon";
 
 export enum EmptyStateTestId {
   Root = "empty-state-root",
@@ -16,6 +18,8 @@ export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
   body?: string;
   /** A `Button` (or similar) the caller renders — EmptyState only positions it. */
   action?: ReactNode;
+  /** Optional glyph in a tile above the title. */
+  icon?: IconName;
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -24,7 +28,7 @@ export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
  * optional body sentence and an optional action, centred. Every list, table
  * and panel reaches for this instead of hand-rolling its own copy.
  */
-export function EmptyState({ title, body, action, ref, ...rest }: EmptyStateProps) {
+export function EmptyState({ title, body, action, icon, ref, ...rest }: EmptyStateProps) {
   return (
     <Card
       background="surface"
@@ -36,6 +40,7 @@ export function EmptyState({ title, body, action, ref, ...rest }: EmptyStateProp
     >
       <CardContent padding="400">
         <Stack align="center" gap="100">
+          {icon ? <IconTile glyph={icon} size="lg" tone="neutral" /> : null}
           <Typography align="center" data-testid={EmptyStateTestId.Title} type="h3">
             {title}
           </Typography>

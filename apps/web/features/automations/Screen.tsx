@@ -2,35 +2,53 @@
 
 import { type Automation, automationTakesPrompt } from "@zibby/contracts";
 import {
+  Alert,
   Button,
+  CardSkeleton,
   Container,
+  DenseRowList,
+  EmptyState,
   Grid,
-  Icon,
   type IconName,
+  ListHeader,
+  type ListHeaderTone,
+  ListSection,
+  ListToolbar,
   Stack,
+  TextLink,
   Typography,
 } from "@zibby/design-system";
-import { Collection } from "@/components/Collection/Collection";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { EmptyState } from "../../components/EmptyState/EmptyState";
+import { useMemo, useState } from "react";
+import { NavLink } from "../../components/layout/AppShell/NavLink";
 import { QueryError } from "../../components/LoadError/QueryError";
-import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
-import { SectionLabel } from "../../components/SectionLabel/SectionLabel";
-import { SystemAutomationRow } from "../settings/components/SystemAutomationRow";
+import { useApprovalsQuery } from "../approvals/queries";
 import { useAgentsQuery } from "../agents/queries";
 import { useWorkflowsQuery } from "../workflows/queries";
 import { AutomationCard } from "./components/AutomationCard";
 import { AutomationFormDialog } from "./components/AutomationFormDialog";
+import { AutomationSystemRow } from "./components/AutomationSystemRow";
 import { RunAutomationDialog } from "./components/RunAutomationDialog";
+import { type AutomationFilter, automationMatches, nextRunMs } from "./automationListModel";
 import {
   useCreateAutomationMutation,
   useTriggerAutomationMutation,
   useUpdateAutomationMutation,
 } from "./mutations";
 import { useAutomationsQuery } from "./queries";
+import { relativeLabel } from "./schedule";
+
+export enum ScreenTestId {
+  Skeletons = "automations-skeletons",
+  Empty = "automations-empty",
+  NoMatch = "automations-no-match",
+  Approvals = "automations-approvals-note",
+  CronSection = "automations-cron-section",
+  EventSection = "automations-event-section",
+  SystemSection = "automations-system-section",
+}
 
 export function Screen() {
   const t = useTranslations("automations");
@@ -41,7 +59,12 @@ export function Screen() {
   const all = automationsQuery.data ?? [];
   const automations = all.filter((a) => !a.system);
   const systemAutomations = all.filter((a) => a.system);
+  const locale = useLocale();
   const { data: agents = [] } = useAgentsQuery();
+  const approvals = useApprovalsQuery().data;
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<AutomationFilter>("all");
+  const [now] = useState(() => Date.now());
   const { data: workflows = [] } = useWorkflowsQuery();
   const create = useCreateAutomationMutation();
   const update = useUpdateAutomationMutation();
@@ -112,97 +135,135 @@ export function Screen() {
     );
   };
 
-  const cronAutomations = automations.filter((a) => a.trigger.type === "cron");
-  const eventAutomations = automations.filter((a) => a.trigger.type === "event");
+  const visible = (list: Automation[]) => list.filter((a) => automationMatches(a, filter, search));
+  const cronAutomations = visible(automations.filter((a) => a.trigger.type === "cron"));
+  // Signal triggers fire on an outside event too, so they share the event section.
+  const eventAutomations = visible(automations.filter((a) => a.trigger.type !== "cron"));
+  const systemVisible = visible(systemAutomations);
+  const matched = cronAutomations.length + eventAutomations.length + systemVisible.length;
+
+  const chips = useMemo(
+    () => [
+      { id: "all", label: t("list.all"), count: all.length },
+      { id: "on", label: t("list.on"), count: all.filter((a) => a.enabled).length },
+      { id: "off", label: t("list.off"), count: all.filter((a) => !a.enabled).length },
+    ],
+    [all, t],
+  );
+
+  const nextMs = useMemo(() => {
+    const times = all
+      .map((a) => nextRunMs(a, new Date(now)))
+      .filter((n): n is number => n !== null);
+    return times.length ? Math.min(...times) : null;
+  }, [all, now]);
+  const count: ListHeaderTone[] = [];
+  if (automationsQuery.data) {
+    count.push({ text: t("list.triggers", { count: automations.length }), tone: "plain" });
+    count.push({
+      text: t("list.enabledCount", { count: all.filter((a) => a.enabled).length }),
+      tone: "plain",
+    });
+    if (systemAutomations.length > 0)
+      count.push({
+        text: t("list.systemCount", { count: systemAutomations.length }),
+        tone: "plain",
+      });
+    if (nextMs !== null)
+      count.push({
+        text: t("list.nextRunIn", { when: relativeLabel(nextMs, now, locale) }),
+        tone: "plain",
+      });
+  }
+
+  const addButton = (
+    <Button icon="plus" intent="ink" onClick={() => setCreating(true)}>
+      {t("list.newAutomation")}
+    </Button>
+  );
 
   // Honest load states (Phase 18.2): a pending/failed automations fetch must never
-  // read as an empty workspace (see Collection's own docstring for the same rule).
+  // read as an empty workspace.
   const body = automationsQuery.isPending ? (
-    <QueryLoading />
+    <Grid cols={1} data-testid={ScreenTestId.Skeletons} gap="150" lg={2}>
+      {[0, 1, 2, 3].map((i) => (
+        <CardSkeleton key={i} shape="card" />
+      ))}
+    </Grid>
   ) : automationsQuery.isError ? (
     <QueryError onRetry={() => void automationsQuery.refetch()} />
+  ) : all.length === 0 ? (
+    <EmptyState
+      action={addButton}
+      body={t("emptyDescription")}
+      data-testid={ScreenTestId.Empty}
+      icon="clock"
+      title={t("emptyTitle")}
+    />
+  ) : matched === 0 ? (
+    <EmptyState
+      body={t("list.noMatchBody")}
+      data-testid={ScreenTestId.NoMatch}
+      icon="search"
+      title={t("list.noMatchTitle")}
+    />
   ) : (
-    <Stack gap="250">
-      <Stack align="center" direction="row" gap="100">
-        <Icon name="shield" size="sm" tone="warn" />
-        <Typography mono size="2xs" type="micro" variant="tertiary">
-          {t("autonomyNote")}
-        </Typography>
-      </Stack>
-
-      {all.length === 0 ? (
-        <EmptyState
-          actionLabel={t("addAutomation")}
-          description={t("emptyDescription")}
-          glyph="clock"
-          onAction={() => setCreating(true)}
-          title={t("emptyTitle")}
-        />
-      ) : (
-        <Stack gap="250">
-          {cronAutomations.length > 0 && (
-            <Container>
-              <SectionLabel>
-                <Stack inline align="center" direction="row" gap="50">
-                  <Icon name="clock" size="sm" tone="accent" /> {t("cronSection")}
-                </Stack>
-              </SectionLabel>
-              <Collection
-                empty={{
-                  description: "",
-                  glyph: "clock",
-                  title: "",
-                }}
-                items={cronAutomations}
-                renderItem={renderCard}
-              />
-            </Container>
-          )}
-          {eventAutomations.length > 0 && (
-            <Container>
-              <SectionLabel>
-                <Stack inline align="center" direction="row" gap="50">
-                  <Icon name="bolt" size="sm" tone="accent" /> {t("eventSection")}
-                </Stack>
-              </SectionLabel>
-              <Grid cols={1} gap="150" lg={3} sm={2}>
-                {eventAutomations.map(renderCard)}
-              </Grid>
-            </Container>
-          )}
-          {systemAutomations.length > 0 && (
-            <Container>
-              <SectionLabel>
-                <Stack inline align="center" direction="row" gap="50">
-                  <Icon name="gear" size="sm" tone="accent" /> {t("systemSection")}
-                </Stack>
-              </SectionLabel>
-              <Stack gap="150">
-                <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-                  {t("systemHint")}
-                </Typography>
-                <Grid cols={1} gap="150" lg={3} sm={2}>
-                  {systemAutomations.map((automation) => (
-                    <SystemAutomationRow
-                      automation={automation}
-                      description={automation.description}
-                      key={automation.id}
-                      onEdit={() => router.push(`/work/automations/${automation.id}`)}
-                      onToggle={() =>
-                        update.mutate({
-                          params: { id: automation.id },
-                          body: { enabled: !automation.enabled },
-                        })
-                      }
-                      onTrigger={() => runAutomation(automation)}
-                      triggering={trigger.isPending}
-                    />
-                  ))}
-                </Grid>
-              </Stack>
-            </Container>
-          )}
-        </Stack>
+    <Stack gap="300">
+      {cronAutomations.length > 0 && (
+        <Container data-testid={ScreenTestId.CronSection}>
+          <ListSection
+            count={cronAutomations.length}
+            hint="cron"
+            icon="clock"
+            title={t("list.cronTitle")}
+          >
+            <Grid cols={1} gap="150" lg={2}>
+              {cronAutomations.map(renderCard)}
+            </Grid>
+          </ListSection>
+        </Container>
+      )}
+      {eventAutomations.length > 0 && (
+        <Container data-testid={ScreenTestId.EventSection}>
+          <ListSection
+            count={eventAutomations.length}
+            hint="event"
+            icon="bolt"
+            title={t("list.eventTitle")}
+          >
+            <Grid cols={1} gap="150" lg={2}>
+              {eventAutomations.map(renderCard)}
+            </Grid>
+          </ListSection>
+        </Container>
+      )}
+      {systemVisible.length > 0 && (
+        <Container data-testid={ScreenTestId.SystemSection}>
+          <ListSection count={systemVisible.length} icon="gear" title={t("list.systemTitle")}>
+            <Stack gap="100">
+              <Typography leading="snug" size="caption" type="note" variant="tertiary">
+                {t("systemHint")}
+              </Typography>
+              <DenseRowList>
+                {systemVisible.map((automation) => (
+                  <AutomationSystemRow
+                    automation={automation}
+                    key={automation.id}
+                    onEdit={() => router.push(`/work/automations/${automation.id}`)}
+                    onToggle={() =>
+                      update.mutate({
+                        params: { id: automation.id },
+                        body: { enabled: !automation.enabled },
+                      })
+                    }
+                    onTrigger={() => runAutomation(automation)}
+                    triggering={trigger.isPending}
+                  />
+                ))}
+              </DenseRowList>
+            </Stack>
+          </ListSection>
+        </Container>
       )}
     </Stack>
   );
@@ -211,13 +272,44 @@ export function Screen() {
     <Container padding={["300", "350"]}>
       <PageContainer>
         <Stack gap="250">
-          <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Typography type="h1">{t("title")}</Typography>
-            <Button icon="plus" intent="primary" onClick={() => setCreating(true)}>
-              {t("addAutomation")}
-            </Button>
-          </Stack>
-
+          <ListHeader
+            actions={addButton}
+            count={count}
+            route="/work/automations"
+            section={t("list.section")}
+            title={t("title")}
+          />
+          {all.length > 0 && (
+            <ListToolbar
+              activeChip={filter}
+              chips={chips}
+              onChipChange={(id) => setFilter(id as AutomationFilter)}
+              search={{
+                value: search,
+                onChange: setSearch,
+                placeholder: t("list.searchPlaceholder"),
+              }}
+            />
+          )}
+          {!automationsQuery.isPending && !automationsQuery.isError && all.length > 0 && (
+            <Container data-testid={ScreenTestId.Approvals}>
+              <Alert severity="warn">
+                <Stack align="center" direction="row" gap="150" justify="between">
+                  <Typography size="caption" type="note" variant="secondary">
+                    {t("list.approvalsNote")}
+                  </Typography>
+                  <TextLink href="/governance/approvals" linkComponent={NavLink}>
+                    <Typography size="caption" tone="accent" type="note" weight="semibold">
+                      {approvals && approvals.length > 0
+                        ? t("list.approvalsLinkCount", { count: approvals.length })
+                        : t("list.approvalsLink")}{" "}
+                      →
+                    </Typography>
+                  </TextLink>
+                </Stack>
+              </Alert>
+            </Container>
+          )}
           {body}
         </Stack>
       </PageContainer>

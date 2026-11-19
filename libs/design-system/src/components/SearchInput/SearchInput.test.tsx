@@ -12,6 +12,11 @@ describe("SearchInput", () => {
     expect(control).toHaveAccessibleName("Search the archive");
   });
 
+  it("renders a trailing adornment after the input", () => {
+    render(<SearchInput ariaLabel="Search" onChange={() => {}} trailing={<kbd>/</kbd>} value="" />);
+    expect(screen.getByTestId(SearchInputTestId.Root)).toHaveTextContent("/");
+  });
+
   it("shows the placeholder", () => {
     render(
       <SearchInput

@@ -71,4 +71,10 @@ describe("BrandMark", () => {
     expect(el).toHaveAccessibleName("ZibbyOS");
     expect(el).not.toHaveAttribute("aria-hidden");
   });
+
+  it("mono takes currentColor and drops the glow", () => {
+    render(<BrandMark mono size={64} />);
+    expect(screen.getByTestId(BrandMarkTestId.Knot)).toHaveAttribute("fill", "currentColor");
+    expect(screen.queryByTestId(BrandMarkTestId.Glow)).toBeNull();
+  });
 });

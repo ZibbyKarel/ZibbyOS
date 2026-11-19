@@ -36,3 +36,25 @@ export function sourceIcon(kind: RoadmapSourceKind | IntegrationKind): {
   if (kind === "github") return { glyph: INTEGRATION_GLYPH.github };
   return { glyph: INTEGRATION_GLYPH[kind], src: INTEGRATION_LOGO[kind] };
 }
+
+/** Brand accent per service (design token colours only) — the top edge of an own connection tile. */
+export const INTEGRATION_ACCENT: Record<IntegrationKind, string> = {
+  jira: "var(--color-state-think)",
+  slack: "var(--color-state-err)",
+  github: "var(--color-ink-2)",
+  gitlab: "var(--color-warn)",
+  calendar: "var(--color-state-think)",
+  sentry: "var(--color-state-work)",
+  email: "var(--color-ok)",
+};
+
+/** Root-namespace i18n key of each kind's display name. */
+export const INTEGRATION_KIND_LABEL_KEY = {
+  slack: "integrations.kindSlack",
+  email: "integrations.kindEmail",
+  jira: "integrations.kindJira",
+  github: "integrations.kindGithub",
+  gitlab: "integrations.kindGitlab",
+  calendar: "integrations.kindCalendar",
+  sentry: "integrations.kindSentry",
+} as const satisfies Record<IntegrationKind, string>;

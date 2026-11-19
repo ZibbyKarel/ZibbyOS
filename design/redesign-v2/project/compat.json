@@ -1,0 +1,67 @@
+{
+  "v": 1,
+  "mode": "omelette",
+  "root": "project/",
+  "title": "ZibbyCorp",
+  "entry": "Bridge Redesign.dc.html",
+  "pages": [
+    {
+      "path": "Bridge Redesign.dc.html",
+      "title": "Můstek — redesign",
+      "kind": "page"
+    },
+    {
+      "path": "Bridge Sheets.dc.html",
+      "title": "Můstek — detaily",
+      "kind": "page"
+    },
+    {
+      "path": "Top Chrome.dc.html",
+      "title": "ZibbyOS — top chrome redesign",
+      "kind": "page"
+    },
+    {
+      "path": "Settings.dc.html",
+      "title": "ZibbyOS — Settings",
+      "kind": "page",
+      "name": "Settings"
+    },
+    {
+      "path": "Zibby.dc.html",
+      "title": "Zibby — orb a konverzace",
+      "kind": "page"
+    },
+    {
+      "path": "Brand.dc.html",
+      "title": "ZibbyOS — logo a splash",
+      "kind": "page"
+    },
+    {
+      "path": "Entity Detail.dc.html",
+      "title": "ZibbyOS — Company, Project, Team detail and integrations",
+      "kind": "page",
+      "name": "Firma · Projekt · Tým"
+    }
+  ],
+  "migratorVersion": "artifact-migrator (claude-design-backend ed667f7ac9c1)",
+  "createdAt": "2026-11-05T11:11:34.109Z",
+  "source": {
+    "v": 1,
+    "app": "claude-design",
+    "url": "https://claude.ai/design/p/9edf215c-512f-44db-bef7-5819bdc788cd",
+    "projectId": "9edf215c-512f-44db-bef7-5819bdc788cd",
+    "exportedAt": "2026-11-05T11:11:34.109Z"
+  },
+  "report": {
+    "itemsVersion": 2,
+    "pages": {
+      "total": 1,
+      "ok": 1,
+      "partial": 0,
+      "notMigrated": 0
+    },
+    "items": [],
+    "truncated": 0,
+    "truncatedLeftOut": 0
+  }
+}

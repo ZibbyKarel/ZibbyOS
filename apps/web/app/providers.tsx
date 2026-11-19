@@ -8,6 +8,7 @@ import { apiClient } from "../state/api";
 import { AppearanceProvider } from "../state/appearance";
 import { RunEventsProvider } from "../features/runs/runEvents";
 import { BootSplash } from "../components/layout/BootSplash/BootSplash";
+import { BrandFavicon } from "../features/brand/BrandFavicon";
 import { Toaster } from "../components/Toaster/Toaster";
 import { emitMutationError, isInlineErrorMutation } from "../components/Toaster/toastBus";
 
@@ -52,6 +53,7 @@ export function Providers({ children }: { children: ReactNode }) {
               itself so the resolved choice always drives the token swap. */}
           <DensityAppearance>
             <BootSplash>{children}</BootSplash>
+            <BrandFavicon />
             <Toaster />
           </DensityAppearance>
         </RunEventsProvider>

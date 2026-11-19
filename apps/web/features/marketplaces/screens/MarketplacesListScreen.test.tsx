@@ -2,6 +2,7 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MarketplaceSummary } from "@zibby/contracts";
+import { MarketplaceCardTestId } from "@zibby/design-system";
 import { ConnectMarketplaceDialogTestId } from "../components/ConnectMarketplaceDialog";
 import { MarketplacesListScreen, MarketplacesListScreenTestId } from "./MarketplacesListScreen";
 
@@ -44,15 +45,16 @@ describe("MarketplacesListScreen", () => {
   it("renders a card per marketplace and a card click navigates to its detail", async () => {
     render(<MarketplacesListScreen />);
     expect(screen.getByText("zibby-skills")).toBeInTheDocument();
-    expect(screen.getByText("Nainstalováno 1 z 3 pluginů")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Otevřít zibby-skills" }));
+    expect(screen.getByTestId(MarketplaceCardTestId.Name)).toHaveTextContent("zibby-skills");
+    expect(screen.getByTestId(MarketplaceCardTestId.Percent)).toHaveTextContent("33");
+    await userEvent.click(screen.getByTestId(MarketplaceCardTestId.Open));
     expect(push).toHaveBeenCalledWith("/workforce/marketplaces/zibby-skills");
   });
 
   it("shows the empty state without marketplaces", () => {
     hooks.list = { data: [], isPending: false, isError: false, refetch: vi.fn() };
     render(<MarketplacesListScreen />);
-    expect(screen.getByText("Žádná připojená marketplace")).toBeInTheDocument();
+    expect(screen.getByTestId(MarketplacesListScreenTestId.Empty)).toBeInTheDocument();
   });
 
   it("the connect dialog submits the trimmed source with the dev-mode switch", async () => {

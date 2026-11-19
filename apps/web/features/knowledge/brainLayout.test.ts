@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MemoryGraph } from "@zibby/contracts";
-import { layoutBrain, simulate, worldSize } from "./brainLayout";
+import { layoutBrain, simulate } from "./brainLayout";
 import { buildBrainGraph } from "./brainModel";
 
 const WIDTH = 560;
@@ -92,18 +92,18 @@ describe("layoutBrain", () => {
     ],
   });
 
-  it("places every node (hub included) inside the world, deterministically", () => {
+  it("places every node deterministically: vault left of the hub, team KB right, bridge between", () => {
     const l = layoutBrain(graph);
     expect(l.pos.size).toBe(graph.nodes.length);
     for (const p of l.pos.values()) {
-      expect(p.x).toBeGreaterThanOrEqual(24);
-      expect(p.x).toBeLessThanOrEqual(l.width - 24);
+      expect(Number.isFinite(p.x)).toBe(true);
       expect(Number.isFinite(p.y)).toBe(true);
     }
+    expect(l.pos.get("index")).toMatchObject({ x: 0, y: 0 });
+    expect(l.pos.get("vault:a")!.x).toBeLessThan(0);
+    expect(l.pos.get("kb:x.md")!.x).toBeGreaterThan(0);
+    expect(l.pos.get("bridge:kb")!.x).toBe(0);
+    expect(l.zones.map((z) => z.kind)).toEqual(["vault", "kb", "bridge"]);
     expect([...layoutBrain(graph).pos.values()]).toEqual([...l.pos.values()]);
-  });
-
-  it("grows the world with the node count", () => {
-    expect(worldSize(2000).width).toBeGreaterThan(worldSize(10).width);
   });
 });

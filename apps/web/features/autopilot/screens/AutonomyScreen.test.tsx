@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type AutopilotStatus, NO_AUTOMATION } from "@zibby/contracts";
+import { LaneMatrixTestId, SegmentedControlTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATOR_TOKEN_STORAGE_KEY } from "../../../state/operatorToken";
 import { AutonomyMatrixTestId } from "../components/AutonomyMatrix";
@@ -53,13 +54,18 @@ describe("AutonomyScreen", () => {
     // global row: five locked chips in the Manuál lane (global is all-off), explained
     expect(chip("global:autoReview")).toHaveAttribute("aria-disabled", "true");
     expect(chip("global:autoReview")).toHaveAttribute("data-lane", "manual");
-    expect(screen.getByTestId(AutonomyMatrixTestId.GlobalNote)).toBeInTheDocument();
     // level off: Automat lane is capped, Manuál is disabled
-    expect(screen.getByTestId(AutonomyScreenTestId.CapNote)).toHaveTextContent(
+    expect(screen.getByTestId(`${LaneMatrixTestId.Head}-auto`)).toHaveTextContent(
       "Teď jako Poloautomat",
     );
-    expect(screen.getByTestId("zibby-mode-card-manual")).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByTestId("zibby-mode-card-semi")).toHaveAttribute("aria-checked", "true");
+    // the "not available yet" note sits once, in the Poloautomat header; empty cells are a dash
+    expect(screen.getByTestId(`${LaneMatrixTestId.Head}-semi`)).toHaveTextContent("Zatím nejde");
+    expect(screen.getAllByTestId(AutonomyMatrixTestId.Lane)[1]).toHaveTextContent("—");
+    expect(screen.getByTestId(`${SegmentedControlTestId.Item}-manual`)).toBeDisabled();
+    expect(screen.getByTestId(`${SegmentedControlTestId.Item}-semi`)).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
     expect(screen.queryByTestId(AutonomyScreenTestId.Unlock)).toBeNull();
   });
 

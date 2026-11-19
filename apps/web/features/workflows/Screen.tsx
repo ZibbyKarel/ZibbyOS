@@ -1,25 +1,40 @@
 "use client";
 
-import { Button, Container, Grid, SectionLabel, Stack, Typography } from "@zibby/design-system";
+import {
+  Button,
+  CardSkeleton,
+  Container,
+  EmptyState,
+  ListHeader,
+  type ListHeaderTone,
+  ListSection,
+  ListToolbar,
+  type ListToolbarChip,
+  Stack,
+} from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { QueryError } from "../../components/LoadError/QueryError";
 import { QueryLoading } from "../../components/LoadingState/QueryLoading";
+import { useRunsQuery } from "../runs";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useAgentsQuery } from "../agents";
 import { useDepartmentLookup } from "../departments/useDepartmentLookup";
 import { NewWorkflowDialog } from "./components/NewWorkflowDialog/NewWorkflowDialog";
 import { WorkflowDetailScreen } from "./components/WorkflowEditor/WorkflowDetailScreen";
-import { WorkflowCard } from "./components/WorkflowCard/WorkflowCard";
+import { WorkflowListCard } from "./components/WorkflowListCard";
+import { latestWorkflowRun, workflowMatches } from "./workflowListModel";
 import { useCreateWorkflowMutation } from "./mutations";
 import { groupWorkflowsByDepartment } from "./groupWorkflowsByDepartment";
 import { useWorkflowsQuery } from "./queries";
 
 export enum ScreenTestId {
   Group = "workflows-group",
+  Skeletons = "workflows-skeletons",
+  Empty = "workflows-empty",
+  NoMatch = "workflows-no-match",
 }
 
 export interface ScreenProps {
@@ -52,16 +67,51 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
 
   const list = workflows;
   const selected = routeId ? list.find((p) => p.id === routeId) : undefined;
+  const { runs } = useRunsQuery();
+  const [now] = useState(() => Date.now());
+  const [search, setSearch] = useState("");
+  const [dept, setDept] = useState("all");
+  const latest = useMemo(
+    () => new Map(list.map((w) => [w.id, latestWorkflowRun(runs, w.id)] as const)),
+    [list, runs],
+  );
   const groups = useMemo(
     () =>
       groupWorkflowsByDepartment(
-        list,
+        list.filter(
+          (w) =>
+            (dept === "all" || (w.department ?? "none") === dept) &&
+            workflowMatches(w, search, agents),
+        ),
         (id) => departments.get(id)?.name,
         t("workflows.noDepartment"),
       ),
-    [list, departments, t],
+    [list, departments, t, search, dept, agents],
   );
-
+  const chips: ListToolbarChip[] = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const w of list)
+      counts.set(w.department ?? "none", (counts.get(w.department ?? "none") ?? 0) + 1);
+    return [
+      { id: "all", label: t("workflows.list.all"), count: list.length },
+      ...[...counts].map(([id, count]) => ({
+        id,
+        label: departments.get(id)?.code ?? t("workflows.noDepartment"),
+        count,
+      })),
+    ];
+  }, [list, departments, t]);
+  const runningCount = [...latest.values()].filter((r) => r?.status === "running").length;
+  const waitingCount = [...latest.values()].filter(
+    (r) => r && ["awaiting-approval", "held", "parked", "paused"].includes(r.status),
+  ).length;
+  const count: ListHeaderTone[] = [
+    { text: t("workflows.list.count", { count: list.length }), tone: "plain" },
+  ];
+  if (runningCount > 0)
+    count.push({ text: t("workflows.list.runningCount", { count: runningCount }), tone: "run" });
+  if (waitingCount > 0)
+    count.push({ text: t("workflows.list.waitingCount", { count: waitingCount }), tone: "warn" });
   const addModal = adding && (
     <NewWorkflowDialog
       agents={agents}
@@ -84,49 +134,62 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
 
   // Honest load states (F5 consolidation, mirroring automations/Screen.tsx
   // from F4): a pending/failed fetch must never read as an empty workspace.
+  const addButton = (
+    <Button icon="plus" intent="ink" onClick={() => setAdding(true)}>
+      {t("workflows.list.newWorkflow")}
+    </Button>
+  );
   const body = workflowsQuery.isPending ? (
-    <QueryLoading />
+    <Stack data-testid={ScreenTestId.Skeletons} gap="150">
+      {[0, 1, 2].map((i) => (
+        <CardSkeleton key={i} shape="wide" />
+      ))}
+    </Stack>
   ) : workflowsQuery.isError ? (
     <QueryError onRetry={() => void workflowsQuery.refetch()} />
   ) : list.length === 0 ? (
     <EmptyState
-      actionLabel={t("workflows.addWorkflow")}
-      description={t("workflows.emptyDescription")}
-      glyph="flow"
-      hint={t("workflows.emptyHint")}
-      onAction={() => setAdding(true)}
+      action={addButton}
+      body={t("workflows.emptyDescription")}
+      data-testid={ScreenTestId.Empty}
+      icon="flow"
       title={t("workflows.emptyTitle")}
+    />
+  ) : groups.length === 0 ? (
+    <EmptyState
+      body={t("workflows.list.noMatchBody")}
+      data-testid={ScreenTestId.NoMatch}
+      icon="search"
+      title={t("workflows.list.noMatchTitle")}
     />
   ) : (
     <Stack gap="300">
       {groups.map((group) => (
-        <Stack data-testid={ScreenTestId.Group} gap="150" key={group.department ?? ""}>
-          <SectionLabel
-            action={
-              <Typography mono size="xs" type="note" variant="tertiary">
-                {group.workflows.length}
-              </Typography>
-            }
-            aria-level={2}
-            role="heading"
+        <Container data-testid={ScreenTestId.Group} key={group.department ?? ""}>
+          <ListSection
+            code={group.department ? departments.get(group.department)?.code : undefined}
+            count={group.workflows.length}
+            icon={group.department ? undefined : "flow"}
+            title={group.label}
           >
-            {group.label}
-          </SectionLabel>
-          <Grid cols={1} gap="150" lg={3} md={2}>
-            {group.workflows.map((p) => (
-              <WorkflowCard
-                agents={agents}
-                key={p.id}
-                onSelect={(id: string) => router.push(`${basePath}/${id}` as Route)}
-                workflow={p}
-              />
-            ))}
-          </Grid>
-        </Stack>
+            <Stack gap="150">
+              {group.workflows.map((p) => (
+                <WorkflowListCard
+                  agents={agents}
+                  departmentCode={p.department ? departments.get(p.department)?.code : undefined}
+                  key={p.id}
+                  now={now}
+                  onOpen={(id: string) => router.push(`${basePath}/${id}` as Route)}
+                  run={latest.get(p.id) ?? null}
+                  workflow={p}
+                />
+              ))}
+            </Stack>
+          </ListSection>
+        </Container>
       ))}
     </Stack>
   );
-
   // The full-page editor replaces the list while a workflow is open.
   if (routeId && workflowsQuery.isPending) return <QueryLoading />;
   if (selected) return <WorkflowDetailScreen basePath={basePath} workflow={selected} />;
@@ -135,13 +198,25 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
     <Container padding={["300", "350"]}>
       <PageContainer>
         <Stack gap="250">
-          <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Typography type="h1">{t("workflows.title")}</Typography>
-            <Button icon="plus" intent="primary" onClick={() => setAdding(true)}>
-              {t("workflows.addWorkflow")}
-            </Button>
-          </Stack>
-
+          <ListHeader
+            actions={addButton}
+            count={count}
+            route={basePath}
+            section={t("workflows.list.section")}
+            title={t("workflows.title")}
+          />
+          {list.length > 0 && (
+            <ListToolbar
+              activeChip={dept}
+              chips={chips}
+              onChipChange={setDept}
+              search={{
+                value: search,
+                onChange: setSearch,
+                placeholder: t("workflows.list.searchPlaceholder"),
+              }}
+            />
+          )}
           {body}
         </Stack>
       </PageContainer>

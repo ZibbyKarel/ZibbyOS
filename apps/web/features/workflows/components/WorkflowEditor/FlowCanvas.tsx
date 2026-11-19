@@ -67,6 +67,8 @@ export enum FlowCanvasTestId {
   Undo = "canvas-undo",
   Redo = "canvas-redo",
   Minimap = "canvas-minimap",
+  Expand = "canvas-expand",
+  AutoLayout = "canvas-auto-layout",
   Ghost = "canvas-ghost",
   Edge = "canvas-edge",
   FilePill = "canvas-file-pill",
@@ -86,6 +88,8 @@ export interface FlowCanvasProps {
   departments?: readonly Department[];
   /** Child workflow id → display name (sub-workflow cards). */
   workflowNames?: ReadonlyMap<string, string>;
+  /** Phase count per workflow id, for the sub-workflow card. */
+  workflowSizes?: ReadonlyMap<string, number>;
   /** The workflow opens a PR: draw the delivery end node after the last phase. */
   hasPrOutput: boolean;
   editing: boolean;
@@ -123,6 +127,7 @@ export function FlowCanvas({
   agents,
   departments,
   workflowNames,
+  workflowSizes,
   hasPrOutput,
   editing,
   problems,
@@ -130,7 +135,6 @@ export function FlowCanvas({
   onSelect,
   loopOpenId,
   onLoopOpen,
-  attempts,
   onDrop,
   onInsertAfter,
   onToggleCheckpoint,
@@ -140,6 +144,7 @@ export function FlowCanvas({
   canRedo,
 }: FlowCanvasProps) {
   const t = useWdT("workflowDetail.canvas");
+  const tp = useWdT("workflowDetail.parity");
   const label = usePhaseLabel(agents);
   const rootRef = useRef<HTMLElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -176,12 +181,12 @@ export function FlowCanvas({
     return () => ro.disconnect();
   }, []);
   const fit = () => {
-    if (size.w > 0) setView(fitView(bounds, size.w, size.h));
+    if (size.w > 0) setView(fitView(bounds, size.w, size.h, 72, READABLE_ZOOM));
   };
   const nodeCount = order.length;
   useEffect(() => {
     if (touched.current || size.w === 0) return;
-    setView(fitView(bounds, size.w, size.h));
+    setView(fitView(bounds, size.w, size.h, 72, READABLE_ZOOM));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.w, size.h, nodeCount, hasPrOutput]);
 
@@ -376,7 +381,6 @@ export function FlowCanvas({
       onPointerDown={onBgDown}
       onPointerMove={onBgMove}
       onPointerUp={onBgUp}
-      overflow="hidden"
       position="relative"
       ref={rootRef}
       role="application"
@@ -385,6 +389,8 @@ export function FlowCanvas({
         backgroundImage: `radial-gradient(color-mix(in srgb, var(--color-ink) ${editing ? 11 : 6}%, transparent) 1px, transparent 1.4px)`,
         backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px`,
         backgroundPosition: `${view.x}px ${view.y}px`,
+        // clip (not hidden): focus/scrollIntoView must never scroll the canvas box.
+        overflow: "clip",
         touchAction: "none",
         cursor: panning ? "grabbing" : "default",
       }}
@@ -485,12 +491,9 @@ export function FlowCanvas({
 
         {order.map((n) => {
           const rect = placement.cards.get(n.id) ?? EMPTY;
-          const l = loopOf(graph, n.id);
-          const done = attempts?.[n.id];
           return (
             <PhaseCard
               agent={agents.find((a) => a.id === n.agent)}
-              attempt={l && done !== undefined ? { n: done, max: l.maxRetries + 1 } : undefined}
               departments={departments}
               editing={editing}
               key={n.id}
@@ -505,6 +508,7 @@ export function FlowCanvas({
               rect={rect}
               selected={selectedId === n.id}
               workflowName={n.workflow ? workflowNames?.get(n.workflow) : undefined}
+              workflowSize={n.workflow ? workflowSizes?.get(n.workflow) : undefined}
             />
           );
         })}
@@ -573,11 +577,7 @@ export function FlowCanvas({
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 4,
-                    height: 20,
-                    padding: "0 6px",
-                    borderRadius: 6,
-                    background: "var(--color-background)",
-                    border: "1px solid var(--color-border)",
+                    height: 16,
                     marginTop: -22,
                   }}
                 >
@@ -727,7 +727,7 @@ export function FlowCanvas({
                 >
                   <Icon name={l.fail ? "x" : "retry"} size="xs" />
                   <Typography mono size="2xs" type="note" weight="semibold">
-                    {`${l.loop.maxRetries}×`}
+                    {tp("loopLabel", { n: l.loop.maxRetries })}
                   </Typography>
                   {ladder && (
                     <span
@@ -893,6 +893,23 @@ export function FlowCanvas({
         </Container>
       )}
 
+      <Container data-nopan="" position="absolute" right="12px" style={{ top: 12, zIndex: 8 }}>
+        <Button
+          aria-label={tp("expandCanvas")}
+          data-testid={FlowCanvasTestId.Expand}
+          icon="expand"
+          intent="secondary"
+          onClick={() => {
+            const el = rootRef.current;
+            if (!el) return;
+            if (document.fullscreenElement) void document.exitFullscreen();
+            else void el.requestFullscreen?.();
+          }}
+          size="sm"
+          title={tp("expandCanvas")}
+        />
+      </Container>
+
       <Container
         aria-label={t("tools")}
         data-nopan=""
@@ -920,6 +937,21 @@ export function FlowCanvas({
         >
           −
         </Button>
+        {!editing && (
+          <Button
+            aria-label={t("fit")}
+            data-testid={FlowCanvasTestId.Fit}
+            intent="ghost"
+            onClick={() => {
+              touched.current = false;
+              fit();
+            }}
+            size="sm"
+            title={t("fit")}
+          >
+            {tp("fitShort")}
+          </Button>
+        )}
         <Typography
           mono
           aria-live="polite"
@@ -939,20 +971,20 @@ export function FlowCanvas({
         >
           +
         </Button>
-        <Button
-          aria-label={t("fit")}
-          data-testid={FlowCanvasTestId.Fit}
-          icon="expand"
-          intent="ghost"
-          onClick={() => {
-            touched.current = false;
-            fit();
-          }}
-          size="sm"
-          title={t("fit")}
-        />
         {editing && (
           <>
+            <Button
+              aria-label={t("fit")}
+              data-testid={FlowCanvasTestId.Fit}
+              icon="expand"
+              intent="ghost"
+              onClick={() => {
+                touched.current = false;
+                fit();
+              }}
+              size="sm"
+              title={t("fit")}
+            />
             <Button
               aria-label={t("undo")}
               data-testid={FlowCanvasTestId.Undo}
@@ -975,11 +1007,23 @@ export function FlowCanvas({
             >
               ↷
             </Button>
+            <Button
+              data-testid={FlowCanvasTestId.AutoLayout}
+              intent="ghost"
+              onClick={() => {
+                touched.current = false;
+                fit();
+              }}
+              size="sm"
+              title={tp("autoLayoutHint")}
+            >
+              {tp("autoLayout")}
+            </Button>
           </>
         )}
       </Container>
 
-      {order.length > 0 && size.w > 0 && (
+      {editing && order.length > 0 && size.w > 0 && (
         <Minimap
           bounds={bounds}
           onCenter={(w) => {
@@ -1000,6 +1044,9 @@ export function FlowCanvas({
     </Container>
   );
 }
+
+/** Fit never shrinks cards below this scale; longer flows scroll/pan. */
+const READABLE_ZOOM = 0.8;
 
 const MM_W = 176;
 const MM_H = 100;

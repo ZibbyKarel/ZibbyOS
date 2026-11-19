@@ -1,195 +1,30 @@
 "use client";
 
-import {
-  ButtonGroup,
-  Container,
-  Divider,
-  Panel,
-  Stack,
-  Toggle,
-  Typography,
-} from "@zibby/design-system";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { PageContainer } from "../../components/PageContainer/PageContainer";
-import { useHealthQuery } from "../health";
-import { AiModelsSection } from "./components/AiModelsSection";
-import { ActivitySection } from "./components/ActivitySection";
-import { AppearanceSection } from "./components/AppearanceSection";
-import { ChatSection } from "./components/ChatSection";
-import { OperatorChannelSection } from "./components/OperatorChannelSection";
-import { ZibbyShortcutSection } from "./components/ZibbyShortcutSection";
-import { WebPushSection } from "./components/WebPushSection";
-import { OperatorTokenSection } from "./components/OperatorTokenSection";
-import { MachineSection } from "./components/MachineSection";
-import { SystemSection } from "./components/SystemSection";
-import { InfoRow } from "./components/InfoRow";
-import { SelfDevelopmentPanel } from "./components/SelfDevelopmentPanel";
-import { UpdatesSection } from "./components/UpdatesSection";
-import { WatcherRows } from "./components/WatcherRows";
+import { Container } from "@zibby/design-system";
+import { AiEnginesPage } from "./pages/AiEnginesPage";
+import { RuntimePage } from "./pages/RuntimePage";
+import { StatusPage } from "./pages/StatusPage";
+import { AccessPage } from "./pages/AccessPage";
+import { GeneralPage } from "./pages/GeneralPage";
 import type { SettingsSection } from "./settingsSections";
-
-type Locale = "cs" | "en";
-
-const DAEMON = "ZIBBY daemon";
-const HOST = "Mac";
-
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h} h ${m} m` : `${m} m`;
-}
-
-/** A labelled preference row: title + hint on the left, a control on the right. */
-function SettingRow({
-  label,
-  hint,
-  control,
-}: {
-  label: string;
-  hint?: string;
-  control: React.ReactNode;
-}) {
-  return (
-    <Stack align="center" direction="row" gap="250" justify="between">
-      <Container minW0>
-        <Stack gap="50">
-          <Typography type="text" weight="medium">
-            {label}
-          </Typography>
-          {hint && (
-            <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-              {hint}
-            </Typography>
-          )}
-        </Stack>
-      </Container>
-      <Container shrink={false}>{control}</Container>
-    </Stack>
-  );
-}
-
-const CAFFEINATE_KEY = "zibby.caffeinate";
-
-/** Module-scoped so the cookie write isn't analyzed as an in-render mutation. */
-function writeLocaleCookie(value: Locale) {
-  document.cookie = `locale=${value}; path=/; max-age=31536000`;
-}
 
 export interface SettingsScreenProps {
   section: SettingsSection;
 }
 
 /**
- * `/system/settings/[section]` (ZB-11, ROUTE-MAP §3) — the settings sections
- * router; the sections are the shell sub-nav items (`SECTIONS.system`). `general`
- * stacks General, Updates, Appearance, Machine and chat persona. Each former `/settings?tab=` is now its own route; the "gates" and
- * "mandate" tabs already moved to `/governance/gates` (ZB-08), "automations" to the top-level `/work/automations`
- * page, and "selfKnowledge" to
- * `/knowledge/distill` (ZB-09).
+ * `/system/settings/[section]` (ZB-11, ROUTE-MAP §3) — the settings pages router. Five
+ * pages share the `SettingsPage` frame (left rail, anchors, draft grammar). The old
+ * `activity` page now lives in General as the Live log panel.
  */
 export function SettingsScreen({ section }: SettingsScreenProps) {
-  const t = useTranslations("settings");
-  const locale = useLocale() as Locale;
-  const router = useRouter();
-  const { data: health, isSuccess } = useHealthQuery();
-
-  const [caffeinate, setCaffeinate] = useState(() =>
-    typeof window === "undefined" ? true : localStorage.getItem(CAFFEINATE_KEY) !== "false",
-  );
-  const setCaffeinateValue = (next: boolean) => {
-    setCaffeinate(next);
-    if (typeof window !== "undefined") localStorage.setItem(CAFFEINATE_KEY, String(next));
-  };
-
-  const setLocale = (value: Locale) => {
-    writeLocaleCookie(value);
-    router.refresh();
-  };
-
   return (
-    <Container padding={["300", "350"]}>
-      <PageContainer>
-        <Stack direction="col" gap="250">
-          <Typography type="title">{t("title")}</Typography>
-
-          {section === "general" && (
-            <Stack gap="250">
-              <Panel header={t("preferences")} padding="300">
-                <Stack gap="200">
-                  <SettingRow
-                    control={
-                      <ButtonGroup
-                        ariaLabel={t("language")}
-                        onChange={(v) => setLocale(v as Locale)}
-                        options={[
-                          { id: "cs", label: "Čeština" },
-                          { id: "en", label: "English" },
-                        ]}
-                        value={locale}
-                      />
-                    }
-                    hint={t("languageHint")}
-                    label={t("language")}
-                  />
-                  <Divider />
-                  <SettingRow
-                    control={
-                      <Toggle
-                        checked={caffeinate}
-                        label={t("caffeinate")}
-                        onChange={setCaffeinateValue}
-                      />
-                    }
-                    hint={t("caffeinateHint")}
-                    label={t("caffeinate")}
-                  />
-                </Stack>
-              </Panel>
-              <UpdatesSection />
-              <AppearanceSection />
-              <MachineSection />
-              <ChatSection />
-              <ZibbyShortcutSection />
-              <OperatorTokenSection />
-              <OperatorChannelSection />
-              <WebPushSection />
-            </Stack>
-          )}
-
-          {section === "activity" && <ActivitySection />}
-          {section === "runtime" && <SystemSection />}
-          {section === "ai-models" && <AiModelsSection />}
-
-          {section === "status" && (
-            <Stack gap="250">
-              <Panel header={t("system")} padding="300">
-                <Stack gap="150">
-                  <InfoRow label={t("daemon")} value={DAEMON} />
-                  <Divider />
-                  <InfoRow label={t("host")} value={HOST} />
-                  <Divider />
-                  <InfoRow label={t("uptime")} value={health ? formatUptime(health.uptime) : "—"} />
-                  <Divider />
-                  <InfoRow
-                    label={t("status")}
-                    tone={isSuccess ? "ok" : undefined}
-                    value={isSuccess ? t("online") : t("offline")}
-                  />
-                  {health?.watchers && health.watchers.length > 0 && (
-                    <>
-                      <Divider />
-                      <WatcherRows watchers={health.watchers} />
-                    </>
-                  )}
-                </Stack>
-              </Panel>
-              <SelfDevelopmentPanel />
-            </Stack>
-          )}
-        </Stack>
-      </PageContainer>
+    <Container>
+      {section === "general" && <GeneralPage />}
+      {section === "access" && <AccessPage />}
+      {section === "status" && <StatusPage />}
+      {section === "runtime" && <RuntimePage />}
+      {section === "ai-engines" && <AiEnginesPage />}
     </Container>
   );
 }

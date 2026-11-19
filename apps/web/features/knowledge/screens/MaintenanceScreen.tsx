@@ -6,10 +6,8 @@ import {
   Button,
   Container,
   Grid,
-  List,
-  ListItem,
-  ListItemText,
   Panel,
+  SegmentedControl,
   Stack,
   Typography,
 } from "@zibby/design-system";
@@ -67,7 +65,7 @@ export function MaintenanceScreen() {
   const cronLabel = useCronLabel();
   const automationsQuery = useAutomationsQuery();
   const trigger = useTriggerAutomationMutation();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [scope, setScope] = useState<string>("all");
   const [log, setLog] = useState<RunLogLine[]>([]);
   // Captured once at mount — coarse (minute/hour) relative labels on a
   // short-lived screen, same posture as `SystemAutomationRow`'s own `now`.
@@ -77,7 +75,8 @@ export function MaintenanceScreen() {
     () => (automationsQuery.data ?? []).filter((a) => isDistillTarget(a.target.type)),
     [automationsQuery.data],
   );
-  const current = automations.find((a) => a.id === selected) ?? automations[0];
+  const showVault = scope === "all" || scope === "vault";
+  const shownKbs = kbs.filter((kb) => scope === "all" || scope === kb.id);
 
   const runNow = (automation: Automation) => {
     trigger.mutate(
@@ -109,153 +108,151 @@ export function MaintenanceScreen() {
                 {tm("pending", { count: brain.openQuestions.length })}
               </Typography>
             </Stack>
+            <SegmentedControl
+              ariaLabel={tm("scope")}
+              items={[
+                { value: "all", label: tm("scopeAll") },
+                { value: "vault", label: tm("scopeVault") },
+                ...kbs.map((kb) => ({ value: kb.id, label: kb.name })),
+              ]}
+              onChange={setScope}
+              size="sm"
+              value={scope}
+            />
           </Stack>
 
-          {automationsQuery.isPending ? (
-            <QueryLoading />
-          ) : automationsQuery.isError ? (
-            <QueryError onRetry={() => void automationsQuery.refetch()} />
-          ) : automations.length === 0 ? (
-            <Panel header={t("distill.log")} padding="300">
-              <Typography size="sm" type="note" variant="tertiary">
-                {t("distill.noAutomations")}
-              </Typography>
-            </Panel>
-          ) : (
-            <Grid align="start" gap="200" sidebar="left">
-              <List>
-                {automations.map((a) => {
-                  const runs = log.filter((l) => l.automationId === a.id);
-                  return (
-                    <ListItem
-                      active={a.id === current?.id}
-                      id={a.id}
-                      key={a.id}
-                      onSelect={() => setSelected(a.id)}
-                    >
-                      <ListItemText>
-                        <Stack gap="25">
-                          <Typography size="sm" type="note" weight="semibold">
-                            {a.name ?? a.id}
-                          </Typography>
-                          <Typography mono size="2xs" type="note" variant="tertiary">
-                            {a.trigger.type === "cron" ? cronLabel(a.trigger.expr) : a.trigger.type}
-                            {" · "}
-                            {runs.length}
+          <Grid align="start" cols={2} gap="200">
+            <Stack gap="200">
+              {!showVault ? null : automationsQuery.isPending ? (
+                <QueryLoading />
+              ) : automationsQuery.isError ? (
+                <QueryError onRetry={() => void automationsQuery.refetch()} />
+              ) : automations.length === 0 ? (
+                <Panel header={t("distill.log")} padding="300">
+                  <Typography size="sm" type="note" variant="tertiary">
+                    {t("distill.noAutomations")}
+                  </Typography>
+                </Panel>
+              ) : (
+                automations.map((a) => (
+                  <Panel
+                    header={
+                      <Stack align="baseline" direction="row" gap="100">
+                        <Typography size="sm" type="note" weight="semibold">
+                          {a.name ?? a.id}
+                        </Typography>
+                        <Typography mono size="2xs" type="note" variant="tertiary">
+                          {a.target.type}
+                        </Typography>
+                      </Stack>
+                    }
+                    headerEnd={
+                      <Stack align="center" direction="row" gap="150">
+                        <Typography mono size="2xs" type="note" variant="tertiary">
+                          {a.trigger.type === "cron" ? cronLabel(a.trigger.expr) : a.trigger.type}
+                        </Typography>
+                        <Button
+                          data-testid="distill-run-now"
+                          icon="play"
+                          intent="ghost"
+                          loading={trigger.isPending}
+                          onClick={() => runNow(a)}
+                          size="sm"
+                        >
+                          {trigger.isPending ? t("distill.running") : t("distill.runNow")}
+                        </Button>
+                      </Stack>
+                    }
+                    key={a.id}
+                    padding="250"
+                  >
+                    <Stack gap="150">
+                      <Typography size="sm" type="note" variant="secondary">
+                        {isDistillTarget(a.target.type)
+                          ? ta(`automations.desc.${a.target.type}`)
+                          : ""}
+                      </Typography>
+                      <Typography mono size="xs" type="note" variant="tertiary">
+                        {a.lastFiredAt
+                          ? t("distill.lastRun", {
+                              ago: relativeLabel(Date.parse(a.lastFiredAt), now, locale),
+                            })
+                          : t("distill.neverRun")}
+                      </Typography>
+                      <Typography uppercase size="2xs" type="note" variant="tertiary">
+                        {t("distill.log")}
+                      </Typography>
+                      <Panel padding="150">
+                        <Stack gap="75">
+                          {log
+                            .filter((l) => l.automationId === a.id)
+                            .map((l) => (
+                              <Typography mono key={l.at} size="xs" type="note" variant="secondary">
+                                {new Date(l.at).toLocaleTimeString()} —{" "}
+                                {t("distill.outcome", { ref: l.ref })}
+                              </Typography>
+                            ))}
+                          <Typography mono size="xs" type="note" variant="tertiary">
+                            {t("distill.metricsUnavailable")}
                           </Typography>
                         </Stack>
-                      </ListItemText>
-                    </ListItem>
-                  );
-                })}
-              </List>
-
-              {current && (
-                <Panel
-                  header={current.name ?? current.id}
-                  headerEnd={
-                    <Button
-                      data-testid="distill-run-now"
-                      icon="play"
-                      intent="primary"
-                      loading={trigger.isPending}
-                      onClick={() => runNow(current)}
-                      size="sm"
-                    >
-                      {trigger.isPending ? t("distill.running") : t("distill.runNow")}
-                    </Button>
-                  }
-                  padding="250"
-                >
-                  <Stack gap="200">
-                    <Typography size="sm" type="note" variant="secondary">
-                      {isDistillTarget(current.target.type)
-                        ? ta(`automations.desc.${current.target.type}`)
-                        : ""}
-                    </Typography>
-                    <Typography mono size="2xs" type="note" variant="tertiary">
-                      {current.lastFiredAt
-                        ? t("distill.lastRun", {
-                            ago: relativeLabel(Date.parse(current.lastFiredAt), now, locale),
-                          })
-                        : t("distill.neverRun")}
-                    </Typography>
-
-                    <Typography mono size="2xs" type="note" variant="tertiary">
-                      {t("distill.metricsUnavailable")}
-                    </Typography>
-
-                    <Typography uppercase size="2xs" type="note" variant="tertiary">
-                      {t("distill.log")}
-                    </Typography>
-                    <Stack gap="75">
-                      {log
-                        .filter((l) => l.automationId === current.id)
-                        .map((l) => (
-                          <Typography mono key={l.at} size="xs" type="note" variant="secondary">
-                            {new Date(l.at).toLocaleTimeString()} —{" "}
-                            {t("distill.outcome", { ref: l.ref })}
-                          </Typography>
-                        ))}
+                      </Panel>
                     </Stack>
+                  </Panel>
+                ))
+              )}
+              {showVault && brain.openQuestions.length > 0 && (
+                <Panel header={tm("questions")} padding="200">
+                  <Stack gap="100">
+                    {brain.openQuestions.map((q) => (
+                      <Stack
+                        align="center"
+                        data-testid={MaintenanceScreenTestId.Question}
+                        direction="row"
+                        gap="100"
+                        key={`${q.teamId}:${q.noteId}:${q.text}`}
+                      >
+                        <SourceShape color="var(--color-warn)" shape="ring" />
+                        <Typography size="sm" type="note">
+                          {q.text}
+                        </Typography>
+                        <Button
+                          intent="ghost"
+                          onClick={() =>
+                            router.push(
+                              `/knowledge/brain?note=${encodeURIComponent(brainId(q.teamId, q.noteId))}` as Route,
+                            )
+                          }
+                          size="sm"
+                        >
+                          {q.noteTitle}
+                        </Button>
+                      </Stack>
+                    ))}
                   </Stack>
                 </Panel>
               )}
-            </Grid>
-          )}
+            </Stack>
 
-          <Stack gap="150">
-            <Typography uppercase size="2xs" type="note" variant="tertiary">
-              {t("distill.selfModel.title")}
-            </Typography>
-            <SelfKnowledgeSection />
-          </Stack>
-
-          {brain.openQuestions.length > 0 && (
-            <Stack gap="100">
-              <Typography uppercase size="2xs" type="note" variant="tertiary">
-                {tm("questions")}
-              </Typography>
-              <Panel padding="150">
+            <Stack gap="200">
+              {showVault && (
                 <Stack gap="100">
-                  {brain.openQuestions.map((q) => (
-                    <Stack
-                      align="center"
-                      data-testid={MaintenanceScreenTestId.Question}
-                      direction="row"
-                      gap="100"
-                      key={`${q.teamId}:${q.noteId}:${q.text}`}
-                    >
-                      <SourceShape color="var(--color-warn)" shape="ring" />
-                      <Typography size="sm" type="note">
-                        {q.text}
-                      </Typography>
-                      <Button
-                        intent="ghost"
-                        onClick={() =>
-                          router.push(
-                            `/knowledge/brain?note=${encodeURIComponent(brainId(q.teamId, q.noteId))}` as Route,
-                          )
-                        }
-                        size="sm"
-                      >
-                        {q.noteTitle}
-                      </Button>
-                    </Stack>
-                  ))}
+                  <Typography uppercase size="2xs" type="note" variant="tertiary">
+                    {t("distill.selfModel.title")}
+                  </Typography>
+                  <SelfKnowledgeSection />
                 </Stack>
-              </Panel>
+              )}
+              {shownKbs.map((kb) => (
+                <Stack data-testid={MaintenanceScreenTestId.Ingest} gap="100" key={kb.id}>
+                  <Typography uppercase size="2xs" type="note" variant="tertiary">
+                    {tm("ingest", { name: kb.name })}
+                  </Typography>
+                  <TeamKbIngest teamId={kb.id} />
+                </Stack>
+              ))}
             </Stack>
-          )}
-
-          {kbs.map((kb) => (
-            <Stack data-testid={MaintenanceScreenTestId.Ingest} gap="100" key={kb.id}>
-              <Typography uppercase size="2xs" type="note" variant="tertiary">
-                {tm("ingest", { name: kb.name })}
-              </Typography>
-              <TeamKbIngest teamId={kb.id} />
-            </Stack>
-          ))}
+          </Grid>
         </Stack>
       </PageContainer>
     </Container>

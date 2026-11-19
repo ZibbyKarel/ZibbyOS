@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, Ref } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 import { cn } from "../../utils/cn";
 import { focusRingInset } from "../../utils/focus";
 import { Icon } from "../Icon/Icon";
@@ -26,6 +26,8 @@ export interface SearchInputProps extends Omit<
    * fronts a known total, e.g. the archive's item count. Absent renders
    * nothing (most callers have no fixed total to show). */
   count?: number | string;
+  /** Trailing adornment after the input (e.g. a `Kbd` shortcut hint). */
+  trailing?: ReactNode;
 }
 
 /**
@@ -41,6 +43,7 @@ export function SearchInput({
   ref,
   surface = "solid",
   count,
+  trailing,
   ...props
 }: SearchInputProps) {
   return (
@@ -81,6 +84,7 @@ export function SearchInput({
           {count}
         </span>
       )}
+      {trailing}
     </div>
   );
 }

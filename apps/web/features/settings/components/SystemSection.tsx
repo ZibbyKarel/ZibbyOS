@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
+  Container,
   Divider,
   NumberField,
-  Panel,
+  SettingsPanel,
   Slider,
   Stack,
   ToggleField,
@@ -96,134 +97,136 @@ function SystemEditor({ config }: { config: SystemConfig }) {
     });
 
   return (
-    <Panel header={t("runtime.title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("runtime.hint")}
-        </Typography>
+    <SettingsPanel id="runtime" title={t("runtime.title")}>
+      <Container padding="250">
+        <Stack gap="200">
+          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+            {t("runtime.hint")}
+          </Typography>
 
-        <DurationField
-          data-testid={SystemSectionTestId.TaskTick}
-          hint={t("runtime.taskTickHint")}
-          label={t("runtime.taskTick")}
-          onValueChange={setTaskTickMs}
-          valueMs={taskTickMs}
-        />
-        <DurationField
-          data-testid={SystemSectionTestId.ChannelTick}
-          hint={t("runtime.channelTickHint")}
-          label={t("runtime.channelTick")}
-          onValueChange={setChannelTickMs}
-          valueMs={channelTickMs}
-        />
-        <DurationField
-          data-testid={SystemSectionTestId.MonitorTick}
-          hint={t("runtime.monitorTickHint")}
-          label={t("runtime.monitorTick")}
-          onValueChange={setMonitorTickMs}
-          valueMs={monitorTickMs}
-        />
-        <DurationField
-          data-testid={SystemSectionTestId.AutomationTick}
-          hint={t("runtime.automationTickHint")}
-          label={t("runtime.automationTick")}
-          onValueChange={setAutomationTickMs}
-          valueMs={automationTickMs}
-        />
-        <DurationField
-          data-testid={SystemSectionTestId.LimitResumeTick}
-          hint={t("runtime.limitResumeTickHint")}
-          label={t("runtime.limitResumeTick")}
-          onValueChange={setLimitResumeTickMs}
-          valueMs={limitResumeTickMs}
-        />
-        <DurationField
-          data-testid={SystemSectionTestId.RoadmapTick}
-          hint={t("runtime.roadmapTickHint")}
-          label={t("runtime.roadmapTick")}
-          onValueChange={setRoadmapTickMs}
-          valueMs={roadmapTickMs}
-        />
-
-        <Divider />
-
-        <NumberField
-          data-testid={SystemSectionTestId.LimitResumeMax}
-          hint={t("runtime.limitResumeMaxHint")}
-          label={t("runtime.limitResumeMax")}
-          min={1}
-          onValueChange={setLimitResumeMax}
-          value={limitResumeMax}
-        />
-        <NumberField
-          data-testid={SystemSectionTestId.MaxConcurrentRuns}
-          hint={t("runtime.maxConcurrentRunsHint")}
-          label={t("runtime.maxConcurrentRuns")}
-          min={1}
-          onValueChange={setMaxConcurrentRuns}
-          value={maxConcurrentRuns}
-        />
-        <NumberField
-          data-testid={SystemSectionTestId.DockDoneTasksLimit}
-          hint={t("runtime.dockDoneTasksLimitHint")}
-          label={t("runtime.dockDoneTasksLimit")}
-          max={100}
-          min={1}
-          onValueChange={setDockDoneTasksLimit}
-          value={dockDoneTasksLimit}
-        />
-
-        <Divider />
-
-        <ToggleField
-          checked={goalAutoResume}
-          data-testid={SystemSectionTestId.GoalAutoResume}
-          hint={t("runtime.goalAutoResumeHint")}
-          label={t("runtime.goalAutoResume")}
-          onChange={setGoalAutoResume}
-        />
-
-        <Divider />
-
-        <Typography type="body">{t("runtime.autoCompact")}</Typography>
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("runtime.autoCompactHint")}
-        </Typography>
-        <div data-testid={SystemSectionTestId.AutoCompactOpencode}>
-          <Slider
-            format={(v) => `${v} %`}
-            label={t("runtime.autoCompactOpencode")}
-            max={95}
-            min={50}
-            onChange={(opencode) => setAutoCompactPct((p) => ({ ...p, opencode }))}
-            step={5}
-            value={autoCompactPct.opencode}
+          <DurationField
+            data-testid={SystemSectionTestId.TaskTick}
+            hint={t("runtime.taskTickHint")}
+            label={t("runtime.taskTick")}
+            onValueChange={setTaskTickMs}
+            valueMs={taskTickMs}
           />
-        </div>
-        <div data-testid={SystemSectionTestId.AutoCompactClaude}>
-          <Slider
-            format={(v) => `${v} %`}
-            label={t("runtime.autoCompactClaude")}
-            max={95}
-            min={50}
-            onChange={(claude) => setAutoCompactPct((p) => ({ ...p, claude }))}
-            step={5}
-            value={autoCompactPct.claude}
+          <DurationField
+            data-testid={SystemSectionTestId.ChannelTick}
+            hint={t("runtime.channelTickHint")}
+            label={t("runtime.channelTick")}
+            onValueChange={setChannelTickMs}
+            valueMs={channelTickMs}
           />
-        </div>
+          <DurationField
+            data-testid={SystemSectionTestId.MonitorTick}
+            hint={t("runtime.monitorTickHint")}
+            label={t("runtime.monitorTick")}
+            onValueChange={setMonitorTickMs}
+            valueMs={monitorTickMs}
+          />
+          <DurationField
+            data-testid={SystemSectionTestId.AutomationTick}
+            hint={t("runtime.automationTickHint")}
+            label={t("runtime.automationTick")}
+            onValueChange={setAutomationTickMs}
+            valueMs={automationTickMs}
+          />
+          <DurationField
+            data-testid={SystemSectionTestId.LimitResumeTick}
+            hint={t("runtime.limitResumeTickHint")}
+            label={t("runtime.limitResumeTick")}
+            onValueChange={setLimitResumeTickMs}
+            valueMs={limitResumeTickMs}
+          />
+          <DurationField
+            data-testid={SystemSectionTestId.RoadmapTick}
+            hint={t("runtime.roadmapTickHint")}
+            label={t("runtime.roadmapTick")}
+            onValueChange={setRoadmapTickMs}
+            valueMs={roadmapTickMs}
+          />
 
-        <Stack align="center" direction="row" justify="end">
-          <Button
-            data-testid={SystemSectionTestId.Save}
-            disabled={setConfig.isPending}
-            icon="check"
-            intent="primary"
-            onClick={save}
-          >
-            {t("runtime.save")}
-          </Button>
+          <Divider />
+
+          <NumberField
+            data-testid={SystemSectionTestId.LimitResumeMax}
+            hint={t("runtime.limitResumeMaxHint")}
+            label={t("runtime.limitResumeMax")}
+            min={1}
+            onValueChange={setLimitResumeMax}
+            value={limitResumeMax}
+          />
+          <NumberField
+            data-testid={SystemSectionTestId.MaxConcurrentRuns}
+            hint={t("runtime.maxConcurrentRunsHint")}
+            label={t("runtime.maxConcurrentRuns")}
+            min={1}
+            onValueChange={setMaxConcurrentRuns}
+            value={maxConcurrentRuns}
+          />
+          <NumberField
+            data-testid={SystemSectionTestId.DockDoneTasksLimit}
+            hint={t("runtime.dockDoneTasksLimitHint")}
+            label={t("runtime.dockDoneTasksLimit")}
+            max={100}
+            min={1}
+            onValueChange={setDockDoneTasksLimit}
+            value={dockDoneTasksLimit}
+          />
+
+          <Divider />
+
+          <ToggleField
+            checked={goalAutoResume}
+            data-testid={SystemSectionTestId.GoalAutoResume}
+            hint={t("runtime.goalAutoResumeHint")}
+            label={t("runtime.goalAutoResume")}
+            onChange={setGoalAutoResume}
+          />
+
+          <Divider />
+
+          <Typography type="body">{t("runtime.autoCompact")}</Typography>
+          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+            {t("runtime.autoCompactHint")}
+          </Typography>
+          <div data-testid={SystemSectionTestId.AutoCompactOpencode}>
+            <Slider
+              format={(v) => `${v} %`}
+              label={t("runtime.autoCompactOpencode")}
+              max={95}
+              min={50}
+              onChange={(opencode) => setAutoCompactPct((p) => ({ ...p, opencode }))}
+              step={5}
+              value={autoCompactPct.opencode}
+            />
+          </div>
+          <div data-testid={SystemSectionTestId.AutoCompactClaude}>
+            <Slider
+              format={(v) => `${v} %`}
+              label={t("runtime.autoCompactClaude")}
+              max={95}
+              min={50}
+              onChange={(claude) => setAutoCompactPct((p) => ({ ...p, claude }))}
+              step={5}
+              value={autoCompactPct.claude}
+            />
+          </div>
+
+          <Stack align="center" direction="row" justify="end">
+            <Button
+              data-testid={SystemSectionTestId.Save}
+              disabled={setConfig.isPending}
+              icon="check"
+              intent="primary"
+              onClick={save}
+            >
+              {t("runtime.save")}
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
-    </Panel>
+      </Container>
+    </SettingsPanel>
   );
 }

@@ -2,12 +2,21 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Company } from "@zibby/contracts";
+import { CardSkeletonTestId } from "@zibby/design-system";
 import { CompaniesListScreen } from "./CompaniesListScreen";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-const COMPANIES: Company[] = [{ id: "acme", name: "Acme", desc: "Klient" }];
+const COMPANIES: Company[] = [
+  {
+    id: "acme",
+    name: "Acme",
+    desc: "Klient",
+    people: [{ name: "Karel", role: "dev" }],
+    budget: { dailyCostCapUsd: 40 },
+  },
+];
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
@@ -18,8 +27,15 @@ const { hooks } = vi.hoisted(() => ({
 vi.mock("../queries", () => ({
   useCompaniesQuery: () => hooks.companies,
 }));
+vi.mock("../../projects/queries", () => ({
+  useProjectsQuery: () => ({ data: [] }),
+  useBudgetQuery: () => ({ data: undefined }),
+}));
+vi.mock("../../teams/queries", () => ({
+  useTeamsQuery: () => ({ data: [{ id: "t1", name: "Platforma", companyId: "acme" }] }),
+}));
 
-describe("CompaniesListScreen (ZB-06)", () => {
+describe("CompaniesListScreen", () => {
   beforeEach(() => {
     push.mockClear();
     hooks.companies = { data: COMPANIES, isPending: false, isError: false, refetch: vi.fn() };
@@ -38,8 +54,14 @@ describe("CompaniesListScreen (ZB-06)", () => {
 
   it("the header add action navigates to /companies/new", async () => {
     render(<CompaniesListScreen />);
-    await userEvent.click(screen.getByRole("button", { name: "Přidat firmu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nová firma" }));
     expect(push).toHaveBeenCalledWith("/companies/new");
+  });
+
+  it("shows card skeletons while loading", () => {
+    hooks.companies = { data: [], isPending: true, isError: false, refetch: vi.fn() };
+    render(<CompaniesListScreen />);
+    expect(screen.getAllByTestId(CardSkeletonTestId.Root).length).toBeGreaterThan(0);
   });
 
   it("shows the empty state when there are no companies", () => {

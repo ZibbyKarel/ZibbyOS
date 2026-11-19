@@ -36,6 +36,7 @@ export function GoalLoop({
   const t = useTranslations("goalPage");
   return (
     <LoopDiagram
+      board
       active={active}
       backLabel={parked ? t("pausedNeedsYou") : t("verdictRetry")}
       count={`${used} / ${max}`}

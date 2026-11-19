@@ -2,19 +2,10 @@
 import type { KeyboardEvent, PointerEvent } from "react";
 import { useWdT } from "./useWdT";
 import type { Agent, Department } from "@zibby/contracts";
-import type { IconName } from "@zibby/design-system";
-import {
-  Container,
-  EngineBadge,
-  Icon,
-  IconTile,
-  Stack,
-  Tag,
-  Typography,
-} from "@zibby/design-system";
-import { agentSymbol } from "../../../agents/agentSymbol";
-import { useEngineBadge, useTierLabel } from "../../../ai-providers";
-import { stepEngineChoice, stepEngineTarget } from "../../../../utils/engine";
+import { Container, Icon, Stack, Tag, Typography } from "@zibby/design-system";
+import { useTierLabel } from "../../../ai-providers";
+import { stepEngineChoice } from "../../../../utils/engine";
+import { PhaseAvatar } from "./PhaseAvatar";
 import { BAD, SURFACE, mix } from "../WorkflowDialog/canvas-tokens";
 import type { GraphNode } from "../WorkflowDialog/workflow-graph";
 import { type Lod, type Rect } from "./canvasLayout";
@@ -24,8 +15,13 @@ export enum PhaseCardTestId {
   Handle = "phase-card-loop-handle",
   Problem = "phase-card-problem",
   When = "phase-card-when",
-  Attempt = "phase-card-attempt",
 }
+
+/** "code-reviewer" → "Code reviewer": a phase's display name is its (humanised) id. */
+export const phaseName = (id: string): string => {
+  const words = id.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
 
 export interface PhaseCardProps {
   node: GraphNode;
@@ -34,14 +30,14 @@ export interface PhaseCardProps {
   departments?: readonly Department[];
   /** `workflow` step: the child workflow's display name. */
   workflowName?: string;
+  /** `workflow` step: how many phases the child workflow has. */
+  workflowSize?: number;
   selected: boolean;
   /** The phase has a validation problem (red mark). */
   problem: boolean;
   lod: Lod;
   /** Edit mode shows the loop handle on hover/selection. */
   editing: boolean;
-  /** Live-run attempt tally (n of max) for a looping phase. */
-  attempt?: { n: number; max?: number };
   onSelect: (id: string) => void;
   onLoopHandleDown: (id: string, e: PointerEvent) => void;
 }
@@ -54,33 +50,32 @@ export function PhaseCard({
   agent,
   departments = [],
   workflowName,
+  workflowSize,
   selected,
   problem,
   lod,
   editing,
-  attempt,
   onSelect,
   onLoopHandleDown,
 }: PhaseCardProps) {
   const t = useWdT("workflowDetail.card");
   const tierLabel = useTierLabel();
-  const engineBadge = useEngineBadge();
+  const tp = useWdT("workflowDetail.parity");
   const isAgent = node.type === "agent";
   const choice = stepEngineChoice(node, agent);
 
-  const title = isAgent
-    ? (agent?.name ?? node.agent)
-    : node.type === "tool"
-      ? t("tool")
-      : node.type === "workflow"
-        ? t("subWorkflow")
-        : t("system");
+  const agentName = agent?.name ?? node.agent;
+  // Machine-ish ids ("n9", "p2", "step-3") are no name: fall back to the agent.
+  const title =
+    /^[a-z]{0,4}[-_]?\d+$/i.test(node.id) && isAgent
+      ? phaseName(agent?.displayName ?? agentName)
+      : phaseName(node.id);
   const subtitle = isAgent
-    ? node.id
+    ? agentName
     : node.type === "tool"
       ? t("commands", { n: node.commands.split("\n").filter((c) => c.trim()).length })
       : node.type === "workflow"
-        ? workflowName || node.workflow || t("noWorkflow")
+        ? `↳ ${workflowName || node.workflow || t("noWorkflow")}`
         : node.action || node.id;
   const modelLine = isAgent
     ? `${
@@ -90,11 +85,12 @@ export function PhaseCard({
       } · ${node.thinking}`
     : node.type === "tool"
       ? `$ ${node.commands.split("\n").find((c) => c.trim()) ?? ""}`
-      : node.produces;
+      : node.type === "workflow"
+        ? workflowSize === undefined
+          ? ""
+          : tp("phasesCount", { n: workflowSize })
+        : node.produces;
 
-  const sym = isAgent
-    ? agentSymbol(agent, departments)
-    : { glyph: (node.type === "workflow" ? "flow" : "gear") as IconName, color: undefined };
   const when = node.extra?.when;
   const hasAdvisor = isAgent && node.extra?.advisor !== undefined && node.extra.advisor !== false;
 
@@ -112,19 +108,6 @@ export function PhaseCard({
     : selected
       ? "var(--color-ink)"
       : "var(--color-border-strong)";
-
-  const lead = (
-    <EngineBadge {...(isAgent ? engineBadge(stepEngineTarget(node, agent)) : {})}>
-      <IconTile
-        alt={isAgent ? node.agent : undefined}
-        color={sym.color}
-        glyph={sym.glyph}
-        shape={isTool ? "square" : undefined}
-        size="sm"
-        src={isAgent ? agent?.avatar : undefined}
-      />
-    </EngineBadge>
-  );
 
   return (
     <Container
@@ -174,12 +157,29 @@ export function PhaseCard({
             borderBottom: "1px solid var(--color-border)",
             background: mix("var(--color-ink)", 5),
             borderRadius: "6px 6px 0 0",
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            paddingLeft: 8,
           }}
-        />
+        >
+          {[0, 1, 2].map((d) => (
+            <span
+              key={d}
+              // eslint-disable-next-line react/forbid-dom-props
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: "50%",
+                background: "var(--color-ink-3)",
+              }}
+            />
+          ))}
+        </Container>
       )}
 
       <Stack align="center" direction="row" gap="100">
-        {lead}
+        <PhaseAvatar agent={agent} departments={departments} node={node} />
         <Container grow minW0>
           <Typography truncate size={lod === "far" ? "xs" : "sm"} type="note" weight="semibold">
             {title}
@@ -198,8 +198,8 @@ export function PhaseCard({
           direction="row"
           gap="75"
           style={{
-            marginTop: 6,
-            paddingTop: 6,
+            margin: "6px -12px 0",
+            padding: "6px 12px 0",
             borderTop: "1px solid var(--color-border)",
           }}
         >
@@ -210,16 +210,20 @@ export function PhaseCard({
           </Container>
           {isAgent && node.prompt && (
             <span title={t("hasPrompt")}>
-              <Typography mono size="2xs" type="note" variant="secondary">
-                ¶
-              </Typography>
+              <Tag>
+                <Typography mono as="span" size="2xs" type="note" variant="secondary">
+                  ¶
+                </Typography>
+              </Tag>
             </span>
           )}
           {isAgent && node.skill && (
             <span title={t("hasSkill")}>
-              <Typography mono size="2xs" tone="accent" type="note" weight="bold">
-                /
-              </Typography>
+              <Tag tone="working">
+                <Typography mono as="span" size="2xs" type="note" weight="bold">
+                  /
+                </Typography>
+              </Tag>
             </span>
           )}
           {hasAdvisor && (
@@ -246,13 +250,6 @@ export function PhaseCard({
         position="absolute"
         style={{ top: -8, right: -8, display: "flex", gap: 3, alignItems: "center" }}
       >
-        {attempt && (
-          <span data-testid={PhaseCardTestId.Attempt}>
-            <Tag tone="warn">
-              {attempt.max !== undefined ? `${attempt.n}/${attempt.max}` : attempt.n}
-            </Tag>
-          </span>
-        )}
         {problem && (
           <Container
             aria-label={t("problem")}

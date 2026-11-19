@@ -66,7 +66,10 @@ vi.mock("../../agents", () => ({
     ],
   }),
 }));
-vi.mock("../../workflows", () => ({ useWorkflowsQuery: () => ({ data: [] }) }));
+vi.mock("../../workflows", () => ({
+  useWorkflowsQuery: () => ({ data: [] }),
+  useWorkflowRunQuery: () => ({ data: undefined }),
+}));
 vi.mock("../../projects", () => ({ useProjectsQuery: () => ({ data: [] }) }));
 vi.mock("../../runs", () => ({
   useRunsQuery: () => ({ runs: hooks.runs, isPending: false }),
@@ -156,7 +159,7 @@ describe("GoalDetailScreen", () => {
 
   it("turns the objective into a field in edit mode", async () => {
     render(<GoalDetailScreen goalId={goal.id} />);
-    await userEvent.click(screen.getByRole("button", { name: messages.goalPage.edit }));
+    await userEvent.click(screen.getAllByRole("button", { name: messages.goalPage.edit })[0]!);
     expect(screen.getByLabelText(messages.goalPage.objective)).toHaveValue(goal.objective);
     expect(screen.getByRole("button", { name: messages.goalPage.save })).toBeEnabled();
   });

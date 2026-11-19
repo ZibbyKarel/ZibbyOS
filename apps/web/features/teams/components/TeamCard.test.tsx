@@ -30,6 +30,11 @@ describe("TeamCard", () => {
     expect(screen.queryByText("znalostní báze")).not.toBeInTheDocument();
   });
 
+  it("shows the company crumb when given", () => {
+    render(<TeamCard companyName="ZibbyCorp" team={team()} />);
+    expect(screen.getByText("ZibbyCorp")).toBeInTheDocument();
+  });
+
   it("calls onOpen with the team when clicked", () => {
     const onOpen = vi.fn();
     render(<TeamCard onOpen={onOpen} team={team()} />);

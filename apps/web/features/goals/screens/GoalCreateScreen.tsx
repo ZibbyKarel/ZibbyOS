@@ -9,6 +9,8 @@ import {
   Button,
   Container,
   DetailTable,
+  Dropdown,
+  Field,
   Grid,
   Icon,
   LoopDiagram,
@@ -77,6 +79,13 @@ export function GoalCreateScreen() {
       : undefined;
   const makerOptions = draft.makerKind === "agent" ? agentOptions : workflowOptions;
 
+  const sectionHeader = (icon: "shield" | "dollar", title: string) => (
+    <Stack align="center" direction="row" gap="100">
+      <Icon name={icon} size="sm" />
+      {title}
+    </Stack>
+  );
+
   return (
     <Container padding={["300", "350"]}>
       <Stack gap="250">
@@ -84,11 +93,11 @@ export function GoalCreateScreen() {
           items={[{ label: t("goals"), href: "/work/goals" }, { label: t("newGoal") }]}
           linkComponent={Link as SubNavLinkComponent}
         />
-        <Grid gap="300" sidebar="right">
+        <Grid gap="400" sidebar="right">
           <Stack gap="200">
             <Stack gap="50">
               <Typography type="h1">{t("newGoal")}</Typography>
-              <Typography type="bodySm" variant="secondary">
+              <Typography size="sm" type="bodySm" variant="tertiary">
                 {t("newGoalIntro")}
               </Typography>
             </Stack>
@@ -96,27 +105,36 @@ export function GoalCreateScreen() {
               hint={t("objectiveHint")}
               label={t("objective")}
               onChange={(e) => patch({ objective: e.target.value })}
-              rows={4}
+              rows={3}
+              size="sm"
               value={draft.objective}
             />
             <TextInputField
               hint={t("nameHint")}
               label={t("name")}
               onChange={(e) => patch({ name: e.target.value })}
+              size="sm"
               value={draft.name}
             />
-            <Grid cols={1} gap="150" md={2}>
-              <SelectField
-                label={t("project")}
-                onValueChange={(v) => patch({ projectId: v })}
-                options={[
-                  { value: "", label: t("noProject") },
-                  ...projects.map((p) => ({ value: p.id, label: p.name })),
-                ]}
-                value={draft.projectId}
-              />
+            <Grid cols={1} gap="300" md={2}>
+              <Field label={t("project")}>
+                {({ id }) => (
+                  <Dropdown
+                    plain
+                    id={id}
+                    onChange={(v) => patch({ projectId: v })}
+                    options={[
+                      { value: "", label: t("noProject") },
+                      ...projects.map((p) => ({ value: p.id, label: p.name })),
+                    ]}
+                    value={draft.projectId}
+                    variant="inline"
+                  />
+                )}
+              </Field>
               <Stack gap="100">
                 <SegmentPickerField
+                  compact
                   label={t("maker")}
                   onValueChange={(v) =>
                     patch({ makerKind: v as GoalDraft["makerKind"], makerId: "" })
@@ -127,27 +145,35 @@ export function GoalCreateScreen() {
                   ]}
                   value={draft.makerKind}
                 />
-                <SelectField
-                  label={t(draft.makerKind === "agent" ? "kindAgent" : "kindWorkflow")}
-                  onValueChange={(v) => patch({ makerId: v })}
+                <Dropdown
+                  plain
+                  aria-label={t(draft.makerKind === "agent" ? "kindAgent" : "kindWorkflow")}
+                  onChange={(v) => patch({ makerId: v })}
                   options={makerOptions}
                   placeholder={t("pick")}
                   value={draft.makerId}
+                  variant="inline"
                 />
               </Stack>
             </Grid>
-            <Panel header={t("verifier")} headerEnd={t("freshEachIteration")} padding="200">
+            <Panel
+              header={sectionHeader("shield", t("verifier"))}
+              headerEnd={t("freshEachIteration")}
+              headerRule={false}
+              padding="200"
+            >
               <Stack gap="150">
                 <SelectField
-                  hint={t("verifierHint")}
                   label={t("verifierAgent")}
                   onValueChange={(v) => patch({ verifierAgent: v })}
                   options={agentOptions}
                   placeholder={t("pick")}
+                  size="xs"
                   value={draft.verifierAgent}
                 />
                 <Grid cols={1} gap="150" md={2}>
                   <SegmentPickerField
+                    compact
                     label={t("modelTier")}
                     onValueChange={(v) => patch({ verifierModel: v as GoalDraft["verifierModel"] })}
                     options={[
@@ -159,6 +185,7 @@ export function GoalCreateScreen() {
                     value={draft.verifierModel}
                   />
                   <SegmentPickerField
+                    compact
                     label={t("thinking")}
                     onValueChange={(v) =>
                       patch({ verifierThinking: v as GoalDraft["verifierThinking"] })
@@ -174,24 +201,30 @@ export function GoalCreateScreen() {
                 </Grid>
               </Stack>
             </Panel>
-            <Panel header={t("limits")} padding="200">
-              <GoalLimitsFields draft={draft} onChange={patch} />
+            <Panel header={sectionHeader("dollar", t("limits"))} headerRule={false} padding="200">
+              <GoalLimitsFields columns={3} draft={draft} onChange={patch} />
             </Panel>
             <TextAreaField
               hint={t("instructionsHint")}
               label={t("instructionsForMaker")}
               onChange={(e) => patch({ instructions: e.target.value })}
-              rows={4}
+              rows={3}
+              size="sm"
               value={draft.instructions}
             />
-            <Stack wrap direction="row" gap="100" justify="end">
+            <Stack wrap align="center" direction="row" gap="100" justify="end">
               <Button intent="ghost" onClick={() => router.push("/work/goals" as Route)}>
                 {t("cancel")}
               </Button>
-              <Button disabled={!valid || busy} intent="secondary" onClick={() => submit(false)}>
+              <Button disabled={!valid || busy} intent="ghost" onClick={() => submit(false)}>
                 {t("create")}
               </Button>
-              <Button disabled={!valid || busy} icon="play" onClick={() => submit(true)}>
+              <Button
+                disabled={!valid || busy}
+                icon="play"
+                intent="ink"
+                onClick={() => submit(true)}
+              >
                 {t("createAndStart")}
               </Button>
             </Stack>
@@ -201,21 +234,25 @@ export function GoalCreateScreen() {
               {t("preview")}
             </Typography>
             <LoopDiagram
+              board
+              mini
               backLabel={t("verdictRetry")}
               count={`0 / ${draft.maxIterations ?? "?"}`}
               countLabel={t("iteration")}
               forwardLabel={t("resultJudge")}
               maker={
                 <LoopDiagramNode
+                  mini
                   kicker={t("maker")}
-                  leading={<Icon name={draft.makerKind === "agent" ? "bot" : "flow"} size="md" />}
+                  leading={<Icon name={draft.makerKind === "agent" ? "bot" : "flow"} size="sm" />}
                   title={nameOf(makerOptions, draft.makerId)}
                 />
               }
               verifier={
                 <LoopDiagramNode
+                  mini
                   kicker={t("verifier")}
-                  leading={<Icon name="shield" size="md" />}
+                  leading={<Icon name="shield" size="sm" />}
                   subtitle={t("freshVerifier")}
                   title={nameOf(agentOptions, draft.verifierAgent)}
                 />

@@ -6,81 +6,135 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
   Button,
+  CardSkeleton,
   Container,
   EmptyState,
-  EntityCard,
   Grid,
+  ListHeader,
+  ListToolbar,
+  MarketplaceCard,
   Stack,
-  Tag,
-  Typography,
 } from "@zibby/design-system";
 import { QueryError } from "../../../components/LoadError/QueryError";
-import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
 import { ConnectMarketplaceDialog } from "../components/ConnectMarketplaceDialog";
 import { useMarketplacesQuery } from "../queries";
 
 export enum MarketplacesListScreenTestId {
   Connect = "marketplaces-connect",
+  Empty = "marketplaces-empty",
+  Skeleton = "marketplaces-skeleton",
+  Browse = "marketplaces-browse",
 }
+
+type Filter = "all" | "dev" | "regular";
+const FILTERS: readonly Filter[] = ["all", "dev", "regular"];
 
 /** `/workforce/marketplaces` — connected Claude Code plugin marketplaces. */
 export function MarketplacesListScreen() {
   const t = useTranslations("marketplaces");
+  const tl = useTranslations("marketplaces.list");
   const router = useRouter();
   const query = useMarketplacesQuery();
   const [connecting, setConnecting] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
   const marketplaces = query.data ?? [];
+  const loading = query.isPending;
+
+  const kindOf = (devMode: boolean): Filter => (devMode ? "dev" : "regular");
+  const countOf = (f: Filter) =>
+    f === "all" ? marketplaces.length : marketplaces.filter((m) => kindOf(m.devMode) === f).length;
+  const shown =
+    filter === "all" ? marketplaces : marketplaces.filter((m) => kindOf(m.devMode) === filter);
+  const totalPlugins = marketplaces.reduce((n, m) => n + m.pluginCount, 0);
+  const totalInstalled = marketplaces.reduce((n, m) => n + m.installedCount, 0);
 
   const connectButton = (
     <Button
       data-testid={MarketplacesListScreenTestId.Connect}
       icon="plus"
-      intent="primary"
+      intent="ink"
       onClick={() => setConnecting(true)}
     >
       {t("connect")}
     </Button>
   );
 
+  const open = (id: string) => router.push(`/workforce/marketplaces/${id}` as Route);
+
   return (
     <Container padding={["300", "350"]}>
       <Stack gap="200">
-        <Stack wrap align="baseline" direction="row" gap="150" justify="between">
-          <Typography type="h1">{t("title")}</Typography>
-          {connectButton}
-        </Stack>
+        <ListHeader
+          actions={connectButton}
+          count={
+            loading
+              ? []
+              : [
+                  { text: tl("count.catalogs", { count: marketplaces.length }), tone: "plain" },
+                  {
+                    text: tl("count.installed", { installed: totalInstalled, total: totalPlugins }),
+                    tone: "plain",
+                  },
+                ]
+          }
+          route="/workforce/marketplaces"
+          section={tl("section")}
+          title={tl("title")}
+        />
 
-        <Typography size="sm" type="note" variant="secondary">
-          {t("countSummary", { count: marketplaces.length })}
-        </Typography>
+        {!loading && marketplaces.length > 0 && (
+          <ListToolbar
+            activeChip={filter}
+            chips={FILTERS.map((f) => ({ id: f, label: tl(`filter.${f}`), count: countOf(f) }))}
+            onChipChange={(id) => setFilter(id as Filter)}
+          />
+        )}
 
-        {query.isPending ? (
-          <QueryLoading />
+        {loading ? (
+          <Grid cols={1} gap="200" lg={3} sm={2}>
+            {[0, 1, 2].map((i) => (
+              <span data-testid={MarketplacesListScreenTestId.Skeleton} key={i}>
+                <CardSkeleton shape="card" />
+              </span>
+            ))}
+          </Grid>
         ) : query.isError ? (
           <QueryError onRetry={() => void query.refetch()} />
         ) : marketplaces.length === 0 ? (
-          <EmptyState action={connectButton} body={t("emptyDescription")} title={t("emptyTitle")} />
+          <EmptyState
+            action={connectButton}
+            body={t("emptyDescription")}
+            data-testid={MarketplacesListScreenTestId.Empty}
+            icon="grid"
+            title={t("emptyTitle")}
+          />
         ) : (
-          <Grid cols={1} gap="150" lg={3} sm={2}>
-            {marketplaces.map((m) => (
-              <EntityCard
-                badges={[
-                  [
-                    <Tag key="mode" tone={m.devMode ? "thinking" : "neutral"}>
-                      {m.devMode ? t("devBadge") : t("normalBadge")}
-                    </Tag>,
-                  ],
+          <Grid cols={1} gap="200" lg={3} sm={2}>
+            {shown.map((m) => (
+              <MarketplaceCard
+                footer={
+                  <Button
+                    data-testid={MarketplacesListScreenTestId.Browse}
+                    intent="secondary"
+                    onClick={() => open(m.id)}
+                    size="sm"
+                  >
+                    {tl("browse")}
+                  </Button>
+                }
+                installed={m.installedCount}
+                installedText={[
+                  tl("installedBefore"),
+                  tl("installedAfter", { total: m.pluginCount }),
                 ]}
-                description={t("installedOf", {
-                  installed: m.installedCount,
-                  total: m.pluginCount,
-                })}
-                glyph="grid"
                 key={m.id}
-                onClick={() => router.push(`/workforce/marketplaces/${m.id}` as Route)}
+                kind={m.devMode ? "dev" : "regular"}
+                kindLabel={m.devMode ? t("devBadge") : t("normalBadge")}
+                name={m.id}
+                onOpen={() => open(m.id)}
                 openLabel={t("openAria", { name: m.id })}
-                subtitle={m.source}
-                title={m.id}
+                source={m.source}
+                total={m.pluginCount}
               />
             ))}
           </Grid>

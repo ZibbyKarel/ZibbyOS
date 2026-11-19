@@ -6,6 +6,7 @@ import {
   Alert,
   Button,
   DetailTable,
+  Markdown,
   Panel,
   Stack,
   type SubNavLinkComponent,
@@ -49,6 +50,8 @@ export interface GoalSidePanelsProps {
   editing: boolean;
   draft: GoalDraft;
   onChange: (patch: Partial<GoalDraft>) => void;
+  /** Switches the page into edit mode (the Limits "Edit" link). */
+  onEdit?: () => void;
   /** Average cost + duration of one iteration, when derivable from the shown run. */
   perIteration?: string;
 }
@@ -59,35 +62,48 @@ export function GoalSidePanels({
   editing,
   draft,
   onChange,
+  onEdit,
   perIteration,
 }: GoalSidePanelsProps) {
   const t = useTranslations("goalPage");
   const b = goal.budget;
+  const mono = (v: string) => (
+    <Typography mono size="sm" type="bodySm">
+      {v}
+    </Typography>
+  );
   const rows = [
-    { cells: [t("iterations"), t("maxN", { n: goal.maxIterations })] },
+    { cells: [t("iterations"), mono(t("maxN", { n: goal.maxIterations }))] },
     ...(b?.dailyRuns || b?.weeklyRuns
       ? [
           {
             cells: [
               t("runs"),
-              [
-                b.dailyRuns ? t("perDay", { n: b.dailyRuns }) : null,
-                b.weeklyRuns ? t("perWeek", { n: b.weeklyRuns }) : null,
-              ]
-                .filter(Boolean)
-                .join(" · "),
+              mono(
+                [
+                  b.dailyRuns ? t("perDay", { n: b.dailyRuns }) : null,
+                  b.weeklyRuns ? t("perWeek", { n: b.weeklyRuns }) : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              ),
             ],
           },
         ]
       : []),
     ...(b?.monthlyCostCapUsd
-      ? [{ cells: [t("spend"), t("perMonth", { n: b.monthlyCostCapUsd })] }]
+      ? [{ cells: [t("spend"), mono(t("perMonth", { n: b.monthlyCostCapUsd }))] }]
       : []),
-    ...(perIteration ? [{ cells: [t("perIteration"), perIteration] }] : []),
+    ...(perIteration ? [{ cells: [t("perIteration"), mono(perIteration)] }] : []),
   ];
   return (
     <Stack gap="150">
-      <Panel header={t("instructions")} headerEnd={t("toTheMaker")} padding="200">
+      <Panel
+        header={t("instructions")}
+        headerEnd={t("toTheMaker")}
+        headerRule={false}
+        padding="200"
+      >
         {editing ? (
           <TextAreaField
             label={t("instructions")}
@@ -96,12 +112,21 @@ export function GoalSidePanels({
             value={draft.instructions}
           />
         ) : (
-          <Typography leading="relaxed" size="sm" type="bodySm" variant="secondary">
-            {goal.instructions}
-          </Typography>
+          <Markdown compact escapeHtml source={goal.instructions} />
         )}
       </Panel>
-      <Panel header={t("limits")} padding="200">
+      <Panel
+        header={t("limits")}
+        headerEnd={
+          editing || !onEdit ? undefined : (
+            <Button icon="edit" intent="ghost" onClick={onEdit} size="sm">
+              {t("edit")}
+            </Button>
+          )
+        }
+        headerRule={false}
+        padding="200"
+      >
         {editing ? (
           <GoalLimitsFields draft={draft} onChange={onChange} />
         ) : (

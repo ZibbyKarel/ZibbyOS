@@ -1,21 +1,23 @@
 "use client";
 
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { GateRule, GateRuleInput, GlobalGateRule } from "@zibby/contracts";
 import {
   Button,
   Card,
   Container,
+  Divider,
   Icon,
-  SelectField,
+  MenuButton,
   Stack,
+  Tag,
   Typography,
 } from "@zibby/design-system";
 import { useGateRulesQuery, useSystemPolicyQuery } from "../../gates";
-import { RuleCard } from "../../gates/components/RuleCard";
-import { DecisionBadge, MatcherText, ResolveChips } from "../../gates/components/RuleParts";
-import { MATCHER_ICON } from "../../gates/gate";
+import { DecisionBadge } from "../../gates/components/RuleParts";
+import { matchText } from "../../gates/gate";
+import { useDetailT } from "../useDetailT";
 
 export interface AgentRulesSectionProps {
   /** Display name of the agent whose rules are being edited. */
@@ -30,93 +32,121 @@ export interface AgentRulesSectionProps {
   onLinkedChange: (ids: string[]) => void;
 }
 
-/** A group header with a count, used to separate the three rule layers. */
-function GroupHeading({
-  icon,
-  tone,
-  title,
-  count,
-  layer,
-}: {
-  icon: "shield" | "link" | "bolt";
-  tone: "warn" | "accent";
-  title: string;
-  count?: number;
-  /** 1-based layer number, shown as a numbered badge before the icon. */
-  layer: number;
-}) {
+interface RuleRowProps {
+  rule: Pick<GateRule, "match" | "decision">;
+  /** Muted second line (the catalog rule's name). */
+  note?: string;
+  decisionLabel: string;
+  /** Right-hand slot: the rule's source, a chip or the row actions. */
+  end: ReactNode;
+  /** Struck through: a lower layer tightened this rule. */
+  overridden?: boolean;
+}
+
+/** `bash: rm -rf /*` — the rule's AND-ed conditions as one mono line. */
+function patternText(match: GateRule["match"]): string {
+  return match
+    .map((c) => {
+      const { lead, pattern } = matchText(c);
+      return pattern ? `${lead}: ${pattern}` : lead;
+    })
+    .join(" & ");
+}
+
+/** One rule row: decision badge, mono pattern over a muted note, source / actions at the right. */
+function RuleRow({ rule, note, decisionLabel, end, overridden }: RuleRowProps) {
   return (
-    <Stack align="center" direction="row" gap="100">
-      <Typography mono size="2xs" type="note" variant="tertiary">
-        {layer}
-      </Typography>
-      <Icon name={icon} size="xs" tone={tone} />
-      <Typography uppercase size="2xs" tone={tone} type="note" weight="bold">
-        {title}
-      </Typography>
-      {count !== undefined && (
-        <Typography mono size="2xs" type="note" variant="tertiary">
-          {count}
-        </Typography>
-      )}
-    </Stack>
+    <Container padding={["100", "150"]}>
+      <Stack align="center" direction="row" gap="150">
+        <Container shrink={false} width="64px">
+          <DecisionBadge decision={rule.decision} label={decisionLabel} />
+        </Container>
+        <Container grow minW0>
+          <Stack gap="25">
+            <Typography
+              mono
+              size="sm"
+              strike={overridden}
+              type="note"
+              variant={overridden ? "tertiary" : "primary"}
+            >
+              {patternText(rule.match)}
+            </Typography>
+            {note && (
+              <Typography mono size="2xs" type="note" variant="tertiary">
+                {note}
+              </Typography>
+            )}
+          </Stack>
+        </Container>
+        {end}
+      </Stack>
+    </Container>
   );
 }
 
-/** A read-only row for a linked global rule (edited on the catalog page), with unlink. */
-function LinkedRuleRow({
-  rule,
-  andLabel,
-  youLabel,
-  decisionLabel,
-  unlinkLabel,
-  onUnlink,
-}: {
-  rule: GlobalGateRule;
-  andLabel: string;
-  youLabel: string;
-  decisionLabel: string;
-  unlinkLabel: string;
-  onUnlink: () => void;
-}) {
-  const matcherIcon = MATCHER_ICON[rule.match[0]?.type ?? "action"];
+interface LayerProps {
+  layer: number;
+  title: string;
+  subtitle: string;
+  action?: ReactNode;
+  children: ReactNode;
+}
+
+/** A numbered layer card: header (badge, title, subtitle, action) over divided rows. */
+function Layer({ layer, title, subtitle, action, children }: LayerProps) {
   return (
-    <Card background="background" radius="sm">
-      <Container padding="150">
-        <Stack align="center" direction="row" gap="100">
-          <Icon name={matcherIcon} size="sm" tone="faint" />
-          <Container grow minW0>
-            <Stack gap="50">
-              {rule.name && (
-                <Typography mono size="sm" type="note" variant="secondary">
-                  {rule.name}
-                </Typography>
-              )}
-              <Stack wrap align="center" direction="row" gap="100">
-                <MatcherText andLabel={andLabel} match={rule.match} />
-                <DecisionBadge decision={rule.decision} label={decisionLabel} />
-                {rule.decision === "ask" && (
-                  <ResolveChips resolve={rule.resolve} youLabel={youLabel} />
-                )}
-              </Stack>
-            </Stack>
-          </Container>
-          <Button aria-label={unlinkLabel} icon="x" intent="ghost" onClick={onUnlink} size="sm" />
+    <Card background="panel" radius="sm">
+      <Container padding={["100", "150"]}>
+        <Stack align="center" direction="row" gap="100" justify="between">
+          <Stack align="center" direction="row" gap="100">
+            <Tag>{layer}</Tag>
+            <Typography size="sm" type="note" weight="bold">
+              {title}
+            </Typography>
+            <Typography size="xs" type="note" variant="tertiary">
+              {subtitle}
+            </Typography>
+          </Stack>
+          {action}
         </Stack>
       </Container>
+      <Divider />
+      {children}
     </Card>
   );
 }
 
+function Rows({ children }: { children: ReactNode[] }) {
+  return (
+    <Stack>
+      {children.map((row, i) => (
+        <div key={i}>
+          {i > 0 && <Divider />}
+          {row}
+        </div>
+      ))}
+    </Stack>
+  );
+}
+
+function Empty({ children }: { children: string }) {
+  return (
+    <Container padding="150">
+      <Typography mono size="xs" type="note" variant="tertiary">
+        {children}
+      </Typography>
+    </Container>
+  );
+}
+
 /**
- * The "Rules" tab of the agent editor — three layers, evaluated top-down (first
- * match wins): the locked system floor (inherited, read-only), the linked global
- * catalog rules (shared, edited on the catalog page; link/unlink here), and the
- * agent's own rules (editable). Own rules and links persist on the agent entity
- * via the editor's single Save; the floor is enforced server-side regardless.
+ * The "Rules" tab of the agent editor — three layers, evaluated top-down: the locked system
+ * floor (read-only), the linked global catalog rules (link / unlink here), and the agent's own
+ * rules (editable). Own rules and links persist on the agent via the editor's single Save; the
+ * floor is enforced server-side regardless.
  */
 export function AgentRulesSection({
-  agentName,
   gates,
   gateRuleIds,
   onAddRule,
@@ -125,15 +155,11 @@ export function AgentRulesSection({
   onLinkedChange,
 }: AgentRulesSectionProps) {
   const t = useTranslations("gates");
+  const td = useDetailT();
   const { data: inherited = [] } = useSystemPolicyQuery();
   const { data: globalRules = [] } = useGateRulesQuery();
 
   const decisionLabel = (d: GateRule["decision"]) => t(`decision_.${d}`);
-  const ruleProps = {
-    andLabel: t("and"),
-    youLabel: t("you"),
-    notifyHint: t("notifyHint"),
-  };
 
   const linked = useMemo(
     () =>
@@ -146,125 +172,153 @@ export function AgentRulesSection({
     () => globalRules.filter((r) => !gateRuleIds.includes(r.id)),
     [globalRules, gateRuleIds],
   );
-
-  /** Own rules are id-less in `gates`; key them by index for display + callbacks. */
-  const ownDisplay: GateRule[] = gates.map((g, i) => ({
-    id: String(i),
-    source: "agent",
-    locked: false,
-    ...g,
-  }));
+  /** A catalog rule an own rule re-decides for the same match: the lower layer wins. */
+  const tightened = (rule: GlobalGateRule) =>
+    gates.some(
+      (g) => g.decision !== rule.decision && JSON.stringify(g.match) === JSON.stringify(rule.match),
+    );
 
   return (
-    <Stack gap="250">
-      <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-        {t("evalNote")}
-      </Typography>
-
-      {/* 1) Inherited system floor — read-only */}
-      <Stack gap="100">
-        <GroupHeading icon="shield" layer={1} title={t("inheritedTitle")} tone="warn" />
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("inheritedNote")}
+    <Stack gap="150">
+      <Stack align="center" direction="row" gap="150" justify="between">
+        <Typography size="sm" type="note" variant="secondary">
+          {td("rulesIntro")}
         </Typography>
+        <Stack align="center" direction="row" gap="75">
+          {(["allow", "ask", "deny"] as const).map((d) => (
+            <DecisionBadge decision={d} key={d} label={decisionLabel(d)} />
+          ))}
+        </Stack>
+      </Stack>
+
+      <Layer
+        action={<Icon name="lock" size="sm" tone="faint" />}
+        layer={1}
+        subtitle={td("systemSub")}
+        title={td("systemTitle")}
+      >
         {inherited.length === 0 ? (
-          <Typography mono size="xs" type="note" variant="tertiary">
-            {t("noInherited")}
-          </Typography>
+          <Empty>{t("noInherited")}</Empty>
         ) : (
-          <Stack gap="100">
+          <Rows>
             {inherited.map((rule) => (
-              <RuleCard
-                locked
+              <RuleRow
+                decisionLabel={decisionLabel(rule.decision)}
+                end={
+                  <Typography size="xs" type="note" variant="tertiary">
+                    {td("sourceSystem")}
+                  </Typography>
+                }
                 key={rule.id}
                 rule={rule}
-                {...ruleProps}
-                decisionLabel={decisionLabel(rule.decision)}
               />
             ))}
-          </Stack>
+          </Rows>
         )}
-      </Stack>
+      </Layer>
 
-      {/* 2) Linked global catalog rules — shared, edited on the catalog page */}
-      <Stack gap="100">
-        <GroupHeading
-          count={linked.length}
-          icon="link"
-          layer={2}
-          title={t("linkedTitle")}
-          tone="accent"
-        />
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("linkedNote")}
-        </Typography>
+      <Layer
+        action={
+          available.length > 0 ? (
+            <MenuButton
+              ariaLabel={td("linkFromCatalog")}
+              items={available.map((r) => ({
+                id: r.id,
+                label: r.name ?? r.id,
+                onSelect: () => onLinkedChange([...gateRuleIds, r.id]),
+              }))}
+              renderTrigger={(props) => (
+                <Button {...props} icon="plus" intent="ghost" size="sm">
+                  {td("linkFromCatalog")}
+                </Button>
+              )}
+            />
+          ) : undefined
+        }
+        layer={2}
+        subtitle={td("catalogSub", { count: linked.length })}
+        title={td("catalogTitle")}
+      >
         {linked.length === 0 ? (
-          <Typography mono size="xs" type="note" variant="tertiary">
-            {t("noLinked")}
-          </Typography>
+          <Empty>{t("noLinked")}</Empty>
         ) : (
-          <Stack gap="100">
-            {linked.map((rule) => (
-              <LinkedRuleRow
-                andLabel={ruleProps.andLabel}
-                decisionLabel={decisionLabel(rule.decision)}
-                key={rule.id}
-                onUnlink={() => onLinkedChange(gateRuleIds.filter((id) => id !== rule.id))}
-                rule={rule}
-                unlinkLabel={t("unlink")}
-                youLabel={ruleProps.youLabel}
-              />
-            ))}
-          </Stack>
+          <Rows>
+            {linked.map((rule) => {
+              const over = tightened(rule);
+              return (
+                <RuleRow
+                  decisionLabel={decisionLabel(rule.decision)}
+                  end={
+                    <Stack align="center" direction="row" gap="75">
+                      {over ? (
+                        <Tag>{td("tightenedBelow")}</Tag>
+                      ) : (
+                        <Typography size="xs" type="note" variant="tertiary">
+                          {td("sourceCatalog")}
+                        </Typography>
+                      )}
+                      <Button
+                        aria-label={t("unlink")}
+                        icon="x"
+                        intent="ghost"
+                        onClick={() => onLinkedChange(gateRuleIds.filter((id) => id !== rule.id))}
+                        size="sm"
+                      />
+                    </Stack>
+                  }
+                  key={rule.id}
+                  note={rule.name}
+                  overridden={over}
+                  rule={rule}
+                />
+              );
+            })}
+          </Rows>
         )}
-        {available.length > 0 && (
-          <SelectField
-            label={t("linkGlobal")}
-            onValueChange={(id) => {
-              if (id) onLinkedChange([...gateRuleIds, id]);
-            }}
-            options={[
-              { value: "", label: t("linkGlobalPlaceholder") },
-              ...available.map((r) => ({ value: r.id, label: r.name ?? r.id })),
-            ]}
-            value=""
-          />
-        )}
-      </Stack>
+      </Layer>
 
-      {/* 3) The agent's own rules — editable */}
-      <Stack gap="100">
-        <GroupHeading
-          count={gates.length}
-          icon="bolt"
-          layer={3}
-          title={t("ownTitle", { agent: agentName })}
-          tone="accent"
-        />
-        {ownDisplay.length === 0 ? (
-          <Typography mono size="xs" type="note" variant="tertiary">
-            {t("noOwnRules")}
-          </Typography>
+      <Layer
+        action={
+          <Button icon="plus" intent="ghost" onClick={onAddRule} size="sm">
+            {t("addRule")}
+          </Button>
+        }
+        layer={3}
+        subtitle={td("ownSub")}
+        title={td("ownTitle")}
+      >
+        {gates.length === 0 ? (
+          <Empty>{t("noOwnRules")}</Empty>
         ) : (
-          <Stack gap="100">
-            {ownDisplay.map((rule, i) => (
-              <RuleCard
-                deleteLabel={t("delete")}
-                editLabel={t("edit")}
-                key={i}
-                onDelete={() => onDeleteRule(i)}
-                onEdit={() => onEditRule(i)}
-                rule={rule}
-                {...ruleProps}
+          <Rows>
+            {gates.map((rule, i) => (
+              <RuleRow
                 decisionLabel={decisionLabel(rule.decision)}
+                end={
+                  <Stack align="center" direction="row" gap="25">
+                    <Button
+                      aria-label={t("edit")}
+                      icon="edit"
+                      intent="ghost"
+                      onClick={() => onEditRule(i)}
+                      size="sm"
+                    />
+                    <Button
+                      aria-label={t("delete")}
+                      icon="trash"
+                      intent="ghost"
+                      onClick={() => onDeleteRule(i)}
+                      size="sm"
+                    />
+                  </Stack>
+                }
+                key={i}
+                rule={rule}
               />
             ))}
-          </Stack>
+          </Rows>
         )}
-        <Button block icon="plus" intent="ghost" onClick={onAddRule} size="sm">
-          {t("addRule")}
-        </Button>
-      </Stack>
+      </Layer>
     </Stack>
   );
 }

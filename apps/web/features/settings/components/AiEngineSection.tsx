@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ButtonGroup, Panel, Stack, Typography } from "@zibby/design-system";
+import { ButtonGroup, Container, SettingsPanel, Stack, Typography } from "@zibby/design-system";
 import {
   type AiEngineStatus,
   MODEL_FAMILIES,
@@ -82,132 +82,139 @@ function AiEngineEditor({ config, engines }: AiEngineEditorProps) {
   };
 
   return (
-    <Panel header={t("title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("hint")}
-        </Typography>
-
-        <Typography data-testid={AiEngineSectionTestId.OpencodeStatus} size="sm" type="text">
-          {!opencode
-            ? t("runsOn")
-            : opencode.available
-              ? t("runsOnAvailable", { version: opencode.version ?? "?" })
-              : t("runsOnMissing")}
-        </Typography>
-        {opencode && !opencode.available && (
-          <Typography data-testid={AiEngineSectionTestId.Blocked} size="sm" tone="warn" type="text">
-            {t("blockedUnavailable")}
+    <SettingsPanel id="engine" title={t("title")}>
+      <Container padding="250">
+        <Stack gap="200">
+          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+            {t("hint")}
           </Typography>
-        )}
 
-        <span data-testid={AiEngineSectionTestId.Family}>
-          <ButtonGroup
-            ariaLabel={t("familyTitle")}
-            onChange={(f) => choose(f as ModelFamily)}
-            options={MODEL_FAMILIES.map((f) => ({ id: f, label: t(`family.${f}`) }))}
-            value={config.modelFamily}
-          />
-        </span>
-        {disconnected.map((f) => (
-          <Typography
-            data-testid={`${AiEngineSectionTestId.FamilyHint}-${f}`}
-            key={f}
-            leading="snug"
-            size="sm"
-            tone="warn"
-            type="text"
-          >
-            {f === "bluecode"
-              ? t("familyBlueCodeNotConnected", { family: t(`family.${f}`) })
-              : t("familyNotConnected", {
-                  family: t(`family.${f}`),
-                  command: `opencode auth login ${MODEL_FAMILY_PROVIDER[f]}`,
-                })}
+          <Typography data-testid={AiEngineSectionTestId.OpencodeStatus} size="sm" type="text">
+            {!opencode
+              ? t("runsOn")
+              : opencode.available
+                ? t("runsOnAvailable", { version: opencode.version ?? "?" })
+                : t("runsOnMissing")}
           </Typography>
-        ))}
-        {!catalogReadable && (
-          <Typography
-            data-testid={AiEngineSectionTestId.Unchecked}
-            leading="snug"
-            size="2xs"
-            type="note"
-            variant="tertiary"
-          >
-            {t("presetUnchecked")}
-          </Typography>
-        )}
-
-        {opencode?.available && (
-          <>
-            {opencode.providers && opencode.providers.length > 0 ? (
-              <Typography data-testid={AiEngineSectionTestId.Providers} size="sm" type="text">
-                {t("providers", { list: opencode.providers.join(", ") })}
-              </Typography>
-            ) : (
-              <Typography
-                data-testid={AiEngineSectionTestId.NoProviders}
-                leading="snug"
-                size="sm"
-                type="note"
-                variant="secondary"
-              >
-                {t("noProviders")}
-              </Typography>
-            )}
-            <AiEngineModelPicker
-              label={t("defaultModel")}
-              loaded={engines !== undefined}
-              models={models}
-              onChange={chooseModel}
-              value={model}
-            />
-            <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-              {t("levelsHint")}
+          {opencode && !opencode.available && (
+            <Typography
+              data-testid={AiEngineSectionTestId.Blocked}
+              size="sm"
+              tone="warn"
+              type="text"
+            >
+              {t("blockedUnavailable")}
             </Typography>
-            <Stack data-testid={AiEngineSectionTestId.Levels} gap="100">
-              <Typography mono size="sm" type="note" variant="secondary">
-                {t("levelsTitle")}
-              </Typography>
-              {MODEL_TIERS.map((tier, i) => {
-                const runs = resolveTierModel(tier, config.opencodeTierModels, model, listed);
-                return (
-                  <span data-testid={`${AiEngineSectionTestId.Level}-${tier}`} key={tier}>
-                    <AiEngineModelPicker
-                      clearable
-                      quiet
-                      label={t("levelRow", { n: i + 1, name: tier })}
-                      loaded={engines !== undefined}
-                      models={models}
-                      onChange={(id) => chooseTierModel(tier, id)}
-                      value={config.opencodeTierModels[tier] ?? ""}
-                    />
-                    {runs && runs !== config.opencodeTierModels[tier] && (
-                      <Typography
-                        mono
-                        data-testid={`${AiEngineSectionTestId.LevelFallback}-${tier}`}
-                        size="2xs"
-                        type="note"
-                        variant="tertiary"
-                      >
-                        {t("levelFallback", { model: runs })}
-                      </Typography>
-                    )}
-                  </span>
-                );
-              })}
-            </Stack>
-          </>
-        )}
-        {setConfig.isError &&
-          (isOperatorTokenError(setConfig.error) ? (
-            <OperatorTokenNotice />
-          ) : (
-            <Typography size="sm" tone="bad" type="text">
-              {t("saveFailed")}
+          )}
+
+          <span data-testid={AiEngineSectionTestId.Family}>
+            <ButtonGroup
+              ariaLabel={t("familyTitle")}
+              onChange={(f) => choose(f as ModelFamily)}
+              options={MODEL_FAMILIES.map((f) => ({ id: f, label: t(`family.${f}`) }))}
+              value={config.modelFamily}
+            />
+          </span>
+          {disconnected.map((f) => (
+            <Typography
+              data-testid={`${AiEngineSectionTestId.FamilyHint}-${f}`}
+              key={f}
+              leading="snug"
+              size="sm"
+              tone="warn"
+              type="text"
+            >
+              {f === "bluecode"
+                ? t("familyBlueCodeNotConnected", { family: t(`family.${f}`) })
+                : t("familyNotConnected", {
+                    family: t(`family.${f}`),
+                    command: `opencode auth login ${MODEL_FAMILY_PROVIDER[f]}`,
+                  })}
             </Typography>
           ))}
-      </Stack>
-    </Panel>
+          {!catalogReadable && (
+            <Typography
+              data-testid={AiEngineSectionTestId.Unchecked}
+              leading="snug"
+              size="2xs"
+              type="note"
+              variant="tertiary"
+            >
+              {t("presetUnchecked")}
+            </Typography>
+          )}
+
+          {opencode?.available && (
+            <>
+              {opencode.providers && opencode.providers.length > 0 ? (
+                <Typography data-testid={AiEngineSectionTestId.Providers} size="sm" type="text">
+                  {t("providers", { list: opencode.providers.join(", ") })}
+                </Typography>
+              ) : (
+                <Typography
+                  data-testid={AiEngineSectionTestId.NoProviders}
+                  leading="snug"
+                  size="sm"
+                  type="note"
+                  variant="secondary"
+                >
+                  {t("noProviders")}
+                </Typography>
+              )}
+              <AiEngineModelPicker
+                label={t("defaultModel")}
+                loaded={engines !== undefined}
+                models={models}
+                onChange={chooseModel}
+                value={model}
+              />
+              <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+                {t("levelsHint")}
+              </Typography>
+              <Stack data-testid={AiEngineSectionTestId.Levels} gap="100">
+                <Typography mono size="sm" type="note" variant="secondary">
+                  {t("levelsTitle")}
+                </Typography>
+                {MODEL_TIERS.map((tier, i) => {
+                  const runs = resolveTierModel(tier, config.opencodeTierModels, model, listed);
+                  return (
+                    <span data-testid={`${AiEngineSectionTestId.Level}-${tier}`} key={tier}>
+                      <AiEngineModelPicker
+                        clearable
+                        quiet
+                        label={t("levelRow", { n: i + 1, name: tier })}
+                        loaded={engines !== undefined}
+                        models={models}
+                        onChange={(id) => chooseTierModel(tier, id)}
+                        value={config.opencodeTierModels[tier] ?? ""}
+                      />
+                      {runs && runs !== config.opencodeTierModels[tier] && (
+                        <Typography
+                          mono
+                          data-testid={`${AiEngineSectionTestId.LevelFallback}-${tier}`}
+                          size="2xs"
+                          type="note"
+                          variant="tertiary"
+                        >
+                          {t("levelFallback", { model: runs })}
+                        </Typography>
+                      )}
+                    </span>
+                  );
+                })}
+              </Stack>
+            </>
+          )}
+          {setConfig.isError &&
+            (isOperatorTokenError(setConfig.error) ? (
+              <OperatorTokenNotice />
+            ) : (
+              <Typography size="sm" tone="bad" type="text">
+                {t("saveFailed")}
+              </Typography>
+            ))}
+        </Stack>
+      </Container>
+    </SettingsPanel>
   );
 }

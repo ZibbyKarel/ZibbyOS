@@ -3,7 +3,15 @@
 import { useState } from "react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { Button, Divider, Panel, Stack, TextLink, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  Divider,
+  SettingsPanel,
+  Stack,
+  TextLink,
+  Typography,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { updateErrorMessage, useEnsureSelfProjectMutation, useSelfStatusQuery } from "../../self";
 import { InfoRow } from "./InfoRow";
@@ -58,88 +66,90 @@ export function SelfDevelopmentPanel() {
   };
 
   return (
-    <Panel data-testid={SelfDevelopmentPanelTestId.Root} header={t("title")} padding="300">
-      <Stack gap="150">
-        <InfoRow label={t("branch")} value={status.currentBranch} />
-        <Divider />
-        <InfoRow
-          label={t("sync")}
-          value={t("syncValue", { behind: status.behind, ahead: status.ahead })}
-        />
-        <Divider />
-        <InfoRow label={t("dirty")} value={status.dirty ? t("yes") : t("no")} />
-        <Divider />
-        <Stack gap="75">
-          <Typography mono size="sm" type="note" variant="tertiary">
-            {t("openPrs")}
-          </Typography>
-          {status.prs.length === 0 ? (
-            <Typography mono size="sm" type="note" weight="semibold">
-              {t("noPrs")}
+    <SettingsPanel id="self-dev" title={t("title")}>
+      <Container data-testid={SelfDevelopmentPanelTestId.Root} padding="250">
+        <Stack gap="150">
+          <InfoRow label={t("branch")} value={status.currentBranch} />
+          <Divider />
+          <InfoRow
+            label={t("sync")}
+            value={t("syncValue", { behind: status.behind, ahead: status.ahead })}
+          />
+          <Divider />
+          <InfoRow label={t("dirty")} value={status.dirty ? t("yes") : t("no")} />
+          <Divider />
+          <Stack gap="75">
+            <Typography mono size="sm" type="note" variant="tertiary">
+              {t("openPrs")}
             </Typography>
-          ) : (
-            status.prs.map((pr) => (
-              <TextLink
-                data-testid={SelfDevelopmentPanelTestId.PrLink}
-                href={pr.url}
-                key={pr.number}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <Typography mono size="sm" type="note" weight="semibold">
-                  #{pr.number} {pr.title}
-                </Typography>
-              </TextLink>
-            ))
-          )}
-        </Stack>
-        <Divider />
-        <Typography leading="snug" size="sm" type="note" variant="tertiary">
-          {t("explain")}
-        </Typography>
-        {status.projectUsesInstallTree && (
-          <Typography
-            data-testid={SelfDevelopmentPanelTestId.InstallTreeWarning}
-            leading="snug"
-            size="sm"
-            tone="warn"
-            type="note"
-          >
-            {t("installTreeWarning")}
-          </Typography>
-        )}
-        <Stack align="center" direction="row" gap="150">
-          <Button
-            data-testid={SelfDevelopmentPanelTestId.Action}
-            intent="secondary"
-            loading={ensure.isPending}
-            onClick={handleAction}
-            size="sm"
-          >
-            {status.projectId ? t("openProject") : t("ensureProject")}
-          </Button>
-          <Typography
-            aria-live="polite"
-            as="span"
-            data-testid={SelfDevelopmentPanelTestId.Status}
-            role="status"
-            size="xs"
-            type="note"
-          >
-            {error && (
-              <Typography
-                as="span"
-                data-testid={SelfDevelopmentPanelTestId.Error}
-                size="xs"
-                tone="bad"
-                type="note"
-              >
-                {error}
+            {status.prs.length === 0 ? (
+              <Typography mono size="sm" type="note" weight="semibold">
+                {t("noPrs")}
               </Typography>
+            ) : (
+              status.prs.map((pr) => (
+                <TextLink
+                  data-testid={SelfDevelopmentPanelTestId.PrLink}
+                  href={pr.url}
+                  key={pr.number}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <Typography mono size="sm" type="note" weight="semibold">
+                    #{pr.number} {pr.title}
+                  </Typography>
+                </TextLink>
+              ))
             )}
+          </Stack>
+          <Divider />
+          <Typography leading="snug" size="sm" type="note" variant="tertiary">
+            {t("explain")}
           </Typography>
+          {status.projectUsesInstallTree && (
+            <Typography
+              data-testid={SelfDevelopmentPanelTestId.InstallTreeWarning}
+              leading="snug"
+              size="sm"
+              tone="warn"
+              type="note"
+            >
+              {t("installTreeWarning")}
+            </Typography>
+          )}
+          <Stack align="center" direction="row" gap="150">
+            <Button
+              data-testid={SelfDevelopmentPanelTestId.Action}
+              intent="secondary"
+              loading={ensure.isPending}
+              onClick={handleAction}
+              size="sm"
+            >
+              {status.projectId ? t("openProject") : t("ensureProject")}
+            </Button>
+            <Typography
+              aria-live="polite"
+              as="span"
+              data-testid={SelfDevelopmentPanelTestId.Status}
+              role="status"
+              size="xs"
+              type="note"
+            >
+              {error && (
+                <Typography
+                  as="span"
+                  data-testid={SelfDevelopmentPanelTestId.Error}
+                  size="xs"
+                  tone="bad"
+                  type="note"
+                >
+                  {error}
+                </Typography>
+              )}
+            </Typography>
+          </Stack>
         </Stack>
-      </Stack>
-    </Panel>
+      </Container>
+    </SettingsPanel>
   );
 }

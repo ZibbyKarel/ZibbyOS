@@ -124,7 +124,9 @@ export function IterationTimelineItem({
               onClick={onToggle}
               type="button"
             >
-              <Icon name="chevron" size="sm" />
+              <span className={cn("grid", expanded ? "-rotate-90" : "rotate-90")}>
+                <Icon name="chevron" size="sm" />
+              </span>
             </button>
           ) : null}
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import { Container, Stack } from "@zibby/design-system";
+import { Button, Container, Dialog, Stack, Typography } from "@zibby/design-system";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,9 +8,9 @@ import { isOperatorTokenError } from "../../../../state/operatorToken";
 import { useAgentsQuery } from "../../../agents";
 import { OperatorTokenNotice } from "../../../ai-providers";
 import { useDepartmentLookup } from "../../../departments/useDepartmentLookup";
-import { useNewTask } from "../../../tasks";
 import {
   duplicateWorkflowBody,
+  useDeleteWorkflowMutation,
   useDuplicateWorkflowMutation,
   useUpdateWorkflowMutation,
 } from "../../mutations";
@@ -30,8 +30,9 @@ import {
 } from "../WorkflowDialog/workflow-graph";
 import type { GraphProblem } from "../WorkflowDialog/workflow-graph";
 import { FlowCanvas } from "./FlowCanvas";
-import { Inspector } from "./Inspector";
+import { INSPECTOR_DEFAULT, Inspector } from "./Inspector";
 import { Palette } from "./Palette";
+import { RunWorkflowSheet } from "./RunWorkflowSheet";
 import type { PhaseDrop } from "./dnd";
 import { useGraphHistory } from "./useGraphHistory";
 import { usePhaseLabel } from "./usePhaseLabel";
@@ -55,9 +56,11 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
   const { data: agents = [] } = useAgentsQuery();
   const { data: workflows = [] } = useWorkflowsQuery();
   const departments = useDepartmentLookup();
-  const { open: openNewTask } = useNewTask();
+  const [runOpen, setRunOpen] = useState(false);
   const update = useUpdateWorkflowMutation();
   const duplicate = useDuplicateWorkflowMutation();
+  const remove = useDeleteWorkflowMutation();
+  const tp = useWdT("workflowDetail.parity");
   const label = usePhaseLabel(agents);
 
   const viewGraph = useMemo(() => phasesToGraph(workflow, agents), [workflow, agents]);
@@ -66,9 +69,11 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
   const [draft, setDraft] = useState<WorkflowDraft>(() => draftFromWorkflow(workflow));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loopOpenId, setLoopOpenId] = useState<string | null>(null);
-  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [insertAfter, setInsertAfter] = useState<string | null>(null);
-  const [inspectorW, setInspectorW] = useState(360);
+  const [inspectorW, setInspectorW] = useState(INSPECTOR_DEFAULT);
 
   // Another workflow (route change) starts fresh in read mode.
   const lastId = useRef(workflow.id);
@@ -77,6 +82,7 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
     lastId.current = workflow.id;
     setEditing(false);
     setSelectedId(null);
+    setSettingsOpen(false);
     setLoopOpenId(null);
     setDraft(draftFromWorkflow(workflow));
   }, [workflow]);
@@ -99,17 +105,38 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
   const run = runs.find((r) => r.workflowId === workflow.id);
   const attempts = run ? attemptsFromStageRuns(run.stageRuns) : undefined;
   const workflowNames = useMemo(() => new Map(workflows.map((w) => [w.id, w.name])), [workflows]);
+  const workflowSizes = useMemo(
+    () => new Map(workflows.map((w) => [w.id, w.phases.length])),
+    [workflows],
+  );
 
   const startEdit = () => {
     history.reset(viewGraph);
     setDraft(draftFromWorkflow(workflow));
     setEditing(true);
+    setSettingsOpen(true);
   };
   const stopEdit = () => {
     setEditing(false);
     setInsertAfter(null);
     setLoopOpenId(null);
+    setSettingsOpen(false);
   };
+  const exportJson = () => {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(workflow, null, 2)], { type: "application/json" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${workflow.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const closeInspector = () => {
+    if (selectedId) setSelectedId(null);
+    else setSettingsOpen(false);
+  };
+  const inspectorOpen = selectedId !== null || settingsOpen;
   const save = () => {
     if (!dirty || allProblems.length > 0 || update.isPending) return;
     const patch = draftPatch(workflow, draft);
@@ -147,13 +174,20 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
   // Keyboard: Esc closes the inspector/popover, A toggles the palette, ⌘Z / ⇧⌘Z, ⌘S, Delete.
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
-      if (loopOpenId) setLoopOpenId(null);
+      if (runOpen) setRunOpen(false);
+      else if (loopOpenId) setLoopOpenId(null);
       else if (insertAfter) setInsertAfter(null);
-      else setSelectedId(null);
+      else closeInspector();
+      return;
+    }
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key === ",") {
+      e.preventDefault();
+      setSelectedId(null);
+      setSettingsOpen(true);
       return;
     }
     if (isTyping(e.target) || !editing) return;
-    const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
       if (e.shiftKey) history.redo();
@@ -187,7 +221,19 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
   const err = update.error ?? duplicate.error;
 
   return (
-    <Stack data-testid="wd-screen" gap="0" style={{ height: "100%", minHeight: 640 }}>
+    // The shell's chrome (94px) and bottom padding (72px) sit around this page: fill what is left.
+    <Stack
+      data-testid="wd-screen"
+      gap="0"
+      style={{
+        height: "calc(100dvh - 94px)",
+        minHeight: 560,
+        // cancels the shell's 72px bottom padding so the canvas reaches the viewport edge
+        marginBottom: -72,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       <WorkflowBar
         department={workflow.department ? departments.get(workflow.department)?.name : undefined}
         dirty={dirty}
@@ -198,6 +244,7 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
         onBack={() => router.push(basePath as Route)}
         onCancel={stopEdit}
         onCopyFile={() => void navigator.clipboard?.writeText(workflow.file)}
+        onDelete={() => setConfirmDelete(true)}
         onDuplicate={() => {
           const body = duplicateWorkflowBody(
             workflow,
@@ -209,14 +256,14 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
           );
         }}
         onEdit={startEdit}
-        onRun={() =>
-          openNewTask(undefined, {
-            kind: "workflow",
-            id: workflow.id,
-            name: workflow.name,
-            glyph: "flow",
-          })
-        }
+        onExport={exportJson}
+        onNameChange={(name) => setDraft((d) => ({ ...d, name }))}
+        onOpenSettings={() => {
+          setSelectedId(null);
+          setSettingsOpen(true);
+        }}
+        onRun={() => setRunOpen((v) => !v)}
+        onRunHistory={() => router.push("/activity/runs" as Route)}
         onSave={save}
         onSelectProblem={(id) => setSelectedId(id ?? null)}
         problemLabel={problemLabel}
@@ -224,12 +271,19 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
         saving={update.isPending}
         workflowId={workflow.id}
       />
+      {runOpen && (
+        <RunWorkflowSheet
+          onClose={() => setRunOpen(false)}
+          workflowId={workflow.id}
+          workflowName={workflow.name}
+        />
+      )}
       {isOperatorTokenError(err) && (
         <Container padding={["100", "200"]}>
           <OperatorTokenNotice />
         </Container>
       )}
-      <Stack direction="row" gap="0" style={{ flex: 1, minHeight: 0 }}>
+      <Stack direction="row" gap="0" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         {editing && (
           <Palette
             agents={agents}
@@ -266,25 +320,57 @@ export function WorkflowDetailScreen({ workflow, basePath }: WorkflowDetailScree
             setGraph={history.set}
             undo={history.undo}
             workflowNames={workflowNames}
+            workflowSizes={workflowSizes}
           />
         </Container>
-        <Inspector
-          agents={agents}
-          departments={departments.list}
-          draft={draft}
-          editing={editing}
-          graph={graph}
-          onClose={() => setSelectedId(null)}
-          onDraftChange={setDraft}
-          onWidthChange={setInspectorW}
-          problems={editing ? allProblems : []}
-          selectedId={selectedId}
-          setGraph={history.set}
-          width={inspectorW}
-          workflow={workflow}
-          workflows={workflows}
-        />
+        {inspectorOpen && (
+          <Inspector
+            agents={agents}
+            departments={departments.list}
+            draft={draft}
+            editing={editing}
+            graph={graph}
+            onClose={closeInspector}
+            onDraftChange={setDraft}
+            onWidthChange={setInspectorW}
+            problems={editing ? allProblems : []}
+            selectedId={selectedId}
+            setGraph={history.set}
+            width={inspectorW}
+            workflow={workflow}
+            workflows={workflows}
+          />
+        )}
       </Stack>
+      <Dialog
+        actions={
+          <>
+            <Button intent="ghost" onClick={() => setConfirmDelete(false)} size="sm">
+              {tp("cancel")}
+            </Button>
+            <Button
+              intent="danger"
+              loading={remove.isPending}
+              onClick={() =>
+                remove.mutate(
+                  { params: { id: workflow.id } },
+                  { onSuccess: () => router.push(basePath as Route) },
+                )
+              }
+              size="sm"
+            >
+              {tp("deleteConfirm")}
+            </Button>
+          </>
+        }
+        onClose={() => setConfirmDelete(false)}
+        open={confirmDelete}
+        title={tp("deleteTitle", { name: workflow.name })}
+      >
+        <Typography size="sm" type="note" variant="secondary">
+          {tp("deleteBody")}
+        </Typography>
+      </Dialog>
     </Stack>
   );
 }

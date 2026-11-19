@@ -20,6 +20,7 @@ import {
 import { CatalogProvider } from "../../../state/store";
 import { NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
+import { OpenNoteDockProvider } from "../../../features/knowledge/noteDockContext";
 import { ChatProvider, useChat } from "../../../features/chat";
 import { ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
 import { CommandPaletteHost, useCommandPaletteHotkey } from "../../../features/command-palette";
@@ -206,6 +207,7 @@ function SectionSubNav({
         : (inboxCounts?.toReview ?? 0) + (inboxCounts?.mineBlocked ?? 0) > 0;
     return {
       href: tab.href,
+      icon: "icon" in tab ? tab.icon : undefined,
       label: t(`subtab.${section.id}.${tab.id}` as Parameters<typeof t>[0]),
       active: tab.href === activeHref,
       count: count || undefined,
@@ -336,112 +338,114 @@ function AppShellChrome({ children }: { children: ReactNode }) {
   return (
     <PageBreadcrumbSlotProvider activeHrefs={activeSubHrefs} element={crumbSlot}>
       <PageActionsSlotProvider element={actionsSlot}>
-        <AppFrame
-          dock={
-            <>
-              <NoteDock onClose={() => setNoteOpen(false)} open={noteOpen} />
-              {/* Zibby: the overlay assistant (full screen, summoned from anywhere). It owns the
+        <OpenNoteDockProvider value={openNote}>
+          <AppFrame
+            dock={
+              <>
+                <NoteDock onClose={() => setNoteOpen(false)} open={noteOpen} />
+                {/* Zibby: the overlay assistant (full screen, summoned from anywhere). It owns the
                   chat engine — mounted exactly once, so the app keeps a single SSE stream. */}
-              <ZibbyHost />
-            </>
-          }
-          fullBleed={pathname === "/dashboard"}
-          header={
-            phone ? (
-              <MobileToolbar
-                actions={
-                  <>
-                    <ZibbyModeControl needsAttention={needsAttention} variant="toolbar" />
-                    <NewMenu iconOnly onNewNote={openNote} />
-                    <NotificationBell />
-                  </>
-                }
-                banner={
-                  autopilotOn
-                    ? tShell.rich("autopilotBanner", { b: (chunks) => <b>{chunks}</b> })
-                    : undefined
-                }
-                bannerAction={
-                  autopilotOn ? (
-                    <ZibbyModeChange
-                      renderTrigger={(begin) => (
-                        <Button intent="ghost" onClick={begin} size="sm">
-                          {tShell("autopilotBannerChange")}
-                        </Button>
-                      )}
+                <ZibbyHost />
+              </>
+            }
+            fullBleed={pathname === "/dashboard"}
+            header={
+              phone ? (
+                <MobileToolbar
+                  actions={
+                    <>
+                      <ZibbyModeControl needsAttention={needsAttention} variant="toolbar" />
+                      <NewMenu iconOnly onNewNote={openNote} />
+                      <NotificationBell />
+                    </>
+                  }
+                  banner={
+                    autopilotOn
+                      ? tShell.rich("autopilotBanner", { b: (chunks) => <b>{chunks}</b> })
+                      : undefined
+                  }
+                  bannerAction={
+                    autopilotOn ? (
+                      <ZibbyModeChange
+                        renderTrigger={(begin) => (
+                          <Button intent="ghost" onClick={begin} size="sm">
+                            {tShell("autopilotBannerChange")}
+                          </Button>
+                        )}
+                      />
+                    ) : undefined
+                  }
+                  brand={
+                    <NavLink aria-label="ZibbyOS" href="/dashboard">
+                      <BrandMark live state={trailing.markState} />
+                    </NavLink>
+                  }
+                  leading={<PhoneMenu pathname={pathname} />}
+                  title={tNav(active)}
+                />
+              ) : (
+                <AppHeader
+                  autopilotActive={autopilotOn}
+                  create={<NewMenu iconOnly={lv >= 2} onNewNote={openNote} />}
+                  hideWordmark={lv >= 1}
+                  homeHref="/dashboard"
+                  linkComponent={NavLink}
+                  markState={trailing.markState}
+                  mode={
+                    <HeaderModeGroup active={autopilotOn} ariaLabel={tShell("modeGroupAria")}>
+                      <AiEngineSwitcher compact={lv >= 2} />
+                    </HeaderModeGroup>
+                  }
+                  nav={
+                    <SectionNav
+                      active={active}
+                      attention={needsAttention}
+                      iconOnlyInactive={lv >= 2}
                     />
-                  ) : undefined
-                }
-                brand={
-                  <NavLink aria-label="ZibbyOS" href="/dashboard">
-                    <BrandMark live state={trailing.markState} />
-                  </NavLink>
-                }
-                leading={<PhoneMenu pathname={pathname} />}
-                title={tNav(active)}
+                  }
+                  notifications={<NotificationBell />}
+                  onSearchClick={() => setPaletteOpen(true)}
+                  preferences={<PreferencesMenu />}
+                  ref={headerRef}
+                  searchCompact={lv >= 1}
+                  searchLabel={tShell("search")}
+                  status={
+                    <SystemStatus
+                      limitItems={trailing.limitItems}
+                      markState={trailing.markState}
+                      mergeRings={lv >= 1}
+                      runningCount={trailing.runningCount}
+                      updateAvailable={trailing.updateAvailable}
+                      version={trailing.version}
+                    />
+                  }
+                  zibby={<ZibbyModeControl needsAttention={needsAttention} />}
+                />
+              )
+            }
+            skipLinkLabel={t("skipToContent")}
+            subnav={
+              <SectionSubNav
+                active={active}
+                currentHref={currentHref}
+                onPinRequested={onPinRequested}
+                pageActions={pageActions}
+                trail={<div ref={setCrumbSlot} />}
               />
-            ) : (
-              <AppHeader
-                autopilotActive={autopilotOn}
-                create={<NewMenu iconOnly={lv >= 2} onNewNote={openNote} />}
-                hideWordmark={lv >= 1}
-                homeHref="/dashboard"
-                linkComponent={NavLink}
-                markState={trailing.markState}
-                mode={
-                  <HeaderModeGroup active={autopilotOn} ariaLabel={tShell("modeGroupAria")}>
-                    <AiEngineSwitcher compact={lv >= 2} />
-                  </HeaderModeGroup>
-                }
-                nav={
-                  <SectionNav
-                    active={active}
-                    attention={needsAttention}
-                    iconOnlyInactive={lv >= 2}
-                  />
-                }
-                notifications={<NotificationBell />}
-                onSearchClick={() => setPaletteOpen(true)}
-                preferences={<PreferencesMenu />}
-                ref={headerRef}
-                searchCompact={lv >= 1}
-                searchLabel={tShell("search")}
-                status={
-                  <SystemStatus
-                    limitItems={trailing.limitItems}
-                    markState={trailing.markState}
-                    mergeRings={lv >= 1}
-                    runningCount={trailing.runningCount}
-                    updateAvailable={trailing.updateAvailable}
-                    version={trailing.version}
-                  />
-                }
-                zibby={<ZibbyModeControl needsAttention={needsAttention} />}
-              />
-            )
-          }
-          skipLinkLabel={t("skipToContent")}
-          subnav={
-            <SectionSubNav
-              active={active}
-              currentHref={currentHref}
-              onPinRequested={onPinRequested}
-              pageActions={pageActions}
-              trail={<div ref={setCrumbSlot} />}
+            }
+          >
+            {children}
+            <ApprovalSheet approvalId={approvalSheet.approvalId} onClose={approvalSheet.close} />
+            <CommandPaletteHost
+              onOpenApproval={approvalSheet.open}
+              onOpenChange={setPaletteOpen}
+              open={paletteOpen}
             />
-          }
-        >
-          {children}
-          <ApprovalSheet approvalId={approvalSheet.approvalId} onClose={approvalSheet.close} />
-          <CommandPaletteHost
-            onOpenApproval={approvalSheet.open}
-            onOpenChange={setPaletteOpen}
-            open={paletteOpen}
-          />
-          {pinDialogOpen && (
-            <PinPageDialog href={currentHref} onClose={() => setPinDialogOpen(false)} />
-          )}
-        </AppFrame>
+            {pinDialogOpen && (
+              <PinPageDialog href={currentHref} onClose={() => setPinDialogOpen(false)} />
+            )}
+          </AppFrame>
+        </OpenNoteDockProvider>
       </PageActionsSlotProvider>
     </PageBreadcrumbSlotProvider>
   );

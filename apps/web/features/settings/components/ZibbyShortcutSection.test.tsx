@@ -96,7 +96,7 @@ describe("ZibbyShortcutSection", () => {
     await userEvent.click(screen.getByTestId(Id.Record));
     press({ code: "Space", key: " ", metaKey: true });
     const warning = screen.getByTestId(Id.Collision);
-    expect(warning).toHaveRole("alert");
+    expect(warning.closest("[role]")).toHaveRole("status");
     expect(warning).toHaveTextContent("Spotlight");
     expect(window.localStorage.getItem(ZIBBY_SHORTCUT_STORAGE_KEY)).toBe("Meta+Space");
   });

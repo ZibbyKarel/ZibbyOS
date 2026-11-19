@@ -36,6 +36,7 @@ describe("SECTIONS sub-menus", () => {
     const ids = (id: string) => SECTIONS.find((s) => s.id === id)?.tabs.map((t) => t.id);
     expect(ids("workforce")).toEqual([
       "agents",
+      "departments",
       "skills",
       "commands",
       "mcp",
@@ -44,9 +45,9 @@ describe("SECTIONS sub-menus", () => {
     ]);
     expect(ids("system")).toEqual([
       "general",
+      "access",
+      "ai-engines",
       "runtime",
-      "ai-models",
-      "activity",
       "status",
       "inventory",
     ]);

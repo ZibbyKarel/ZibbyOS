@@ -97,7 +97,8 @@ GET    /teams/search?q=   free-text search (id, name, desc) — declared
                           BEFORE getTeam so it isn't captured by :id
 GET    /teams/:id         get one team
 GET    /teams/:id/kb/graph read-only wiki-link graph of the team KB (same shape
-                          as GET /memory/graph; 404 if no team or no KB)
+                          as GET /memory/graph; 404 if no team or no KB;
+                          a node under `inbox/` is flagged `raw: true` (unsorted))
 GET    /teams/:id/kb/notes  markdown notes of the team KB, [{ id: relPath, title, folder }]
                           (no .vtt, no _templates/); 404 if no team or no KB
 GET    /teams/:id/kb/note?path=<relPath>  one note { id, title, body, links }

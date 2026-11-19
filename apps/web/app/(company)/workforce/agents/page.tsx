@@ -1,5 +1,5 @@
-import { RegistriesScreen } from "../../../../features/registries/screens/RegistriesScreen";
+import { AgentsScreen } from "../../../../features/agents/screens/AgentsScreen";
 
 export default function AgentsPage() {
-  return <RegistriesScreen kind="agents" />;
+  return <AgentsScreen />;
 }

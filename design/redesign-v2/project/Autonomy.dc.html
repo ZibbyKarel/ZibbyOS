@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZIBBY — režimy a úrovně autonomie</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<link rel="stylesheet" href="./orb.css">
+<script src="./orb.js"></script>
+<style>
+.au-wrap{width:1440px;max-width:calc(100% - 40px);margin:0 auto}
+.au-intro{padding:30px 0 4px}
+.au-intro h2{font-size:26px;font-weight:500;letter-spacing:-.03em;margin:0 0 6px}
+.au-intro p{color:var(--ink2);font-size:14px;max-width:880px;margin:0 0 8px;text-wrap:pretty}
+.au-intro p b{color:var(--ink);font-weight:500}
+.au-stage{position:relative;margin:14px auto 56px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
+.au-stage.glow::after,.ph.glow::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:70;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--amber) 75%,transparent),inset 0 0 46px color-mix(in srgb,var(--amber) 22%,transparent);animation:auglow 3.2s ease-in-out infinite}
+.au-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.au-notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin:-34px auto 56px;font-size:12.5px;color:var(--ink2);line-height:1.55}
+.au-notes b{display:block;color:var(--ink);font-weight:500;margin-bottom:3px}
+.au-sim{display:flex;align-items:center;gap:8px;margin:10px auto 0;font-size:12px;color:var(--ink3)}
+.au-sim .fchips{padding:0}
+/* header (Top Chrome) */
+.tc-h{position:relative;z-index:40;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px 0 16px;background:var(--p1);border-bottom:1px solid var(--line);transition:border-color .2s}
+.tc-h.auto{border-bottom-color:color-mix(in srgb,var(--amber) 55%,transparent)}
+.tc-brand{display:flex;align-items:center;gap:8px;color:var(--ink);text-decoration:none;border-radius:8px;padding:4px 4px 4px 2px;flex:none}
+.tc-wm{font-weight:600;letter-spacing:-.03em;font-size:14.5px}
+.tc-sec{display:flex;gap:2px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--ink) 3.5%,transparent);border:1px solid var(--line)}
+.tc-sec a{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px 0 8px;border-radius:7px;color:var(--ink3);font-size:12.5px;font-weight:500;text-decoration:none;white-space:nowrap}
+.tc-sec a:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.tc-sec a[aria-current=page]{color:var(--ink);background:var(--p3);box-shadow:0 0 0 1px var(--line2)}
+.bz[data-theme=light] .tc-sec a[aria-current=page]{background:var(--p1);box-shadow:0 1px 2px rgba(20,22,26,.08),0 0 0 1px var(--line2)}
+.tc-sec a:focus-visible,.tc-brand:focus-visible,.tc-lk:focus-visible,.zm-link:focus-visible,.au-band:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.tc-sp{flex:1;min-width:8px}
+.tc-div{width:1px;height:22px;background:var(--line2);flex:none;margin:0 4px}
+.tc-cmd{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 9px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink3);font-size:12.5px;white-space:nowrap}
+.tc-new{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px 0 8px;border-radius:8px;background:var(--ink);color:var(--on-ink);font-size:12.5px;font-weight:500;white-space:nowrap}
+.tc-new.io{width:32px;height:32px;padding:0;justify-content:center}
+.tc-stat{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 9px 0 10px;border-radius:8px;border:1px solid var(--line);font-size:12px;color:var(--ink2);white-space:nowrap}
+.tc-stat .n{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink)}
+.tc-eng{width:18px;height:18px;border-radius:5px;display:inline-grid;place-items:center;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;background:var(--p3);color:var(--ink);border:1px solid var(--line2);flex:none}
+.tc-ib{position:relative;width:32px;height:32px;display:inline-grid;place-items:center;border-radius:8px;color:var(--ink2);flex:none}
+.bz .tc-ib{text-align:center}
+.tc-ib:hover{background:var(--p2);color:var(--ink)}
+.tc-bell b{position:absolute;top:2px;right:0;min-width:15px;height:15px;padding:0 4px;border-radius:99px;background:var(--ink);color:var(--on-ink);font-size:9.5px;font-weight:600;display:grid;place-items:center;box-shadow:0 0 0 2px var(--p1)}
+.tc-bell b.amb{background:var(--amber);color:var(--on-amber)}
+.tc-node{transform-box:fill-box;transform-origin:center;animation:tcpulse 1.3s ease-in-out infinite}
+.tc-anc{position:relative;display:inline-flex}
+.tc-pop{position:absolute;top:calc(100% + 10px);right:0;z-index:45;background:var(--sheet);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px;font-size:12.5px;color:var(--ink);white-space:normal}
+.tc-pop.l{left:0;right:auto}
+.tc-ph{padding:8px 8px 6px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.tc-lk{color:var(--ink2);font-size:12px;text-decoration:none;border-radius:5px;padding:2px 4px;white-space:nowrap}
+.tc-lk:hover{color:var(--ink)}
+.tc-catch{position:absolute;inset:0;z-index:30}
+.tc-ctx{position:relative;z-index:10;display:flex;align-items:stretch;height:42px;padding:0 14px;border-bottom:1px solid var(--line);gap:4px}
+.tc-tabs{display:flex;align-items:stretch;gap:2px}
+.tc-tabs a{position:relative;display:inline-flex;align-items:center;padding:0 10px;color:var(--ink3);font-size:13px;text-decoration:none;white-space:nowrap}
+.tc-tabs a[aria-current=page]{color:var(--ink);font-weight:500}
+.tc-tabs a[aria-current=page]::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px 2px 0 0;background:var(--ink)}
+.tc-page{padding:22px 24px 28px;display:flex;flex-direction:column;gap:14px}
+.tc-sk{height:10px;border-radius:6px;background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.tc-card{border:1px solid var(--line);border-radius:10px;background:var(--p1);padding:14px;display:flex;flex-direction:column;gap:9px}
+.tc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tc-mbar{display:flex;align-items:center;gap:4px;height:52px;padding:0 8px 0 6px;background:var(--p1);border-bottom:1px solid var(--line);position:relative;z-index:5}
+.tc-mbar .tc-brand{padding:4px}
+.tc-mtitle{font-size:15px;font-weight:600;letter-spacing:-.015em;color:var(--ink)}
+/* ===== Zibby section: orb + mode selector, tinted by mode ===== */
+.zs{display:inline-flex;align-items:stretch;height:32px;border-radius:999px;border:1px solid var(--line2);transition:background .2s,border-color .2s,box-shadow .2s}
+.zs>button,.zs .tc-anc>button{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;white-space:nowrap;color:inherit}
+.zs .zb{padding:0 10px 0 6px;border-radius:999px 0 0 999px}
+.zs .zm{height:100%;padding:0 9px 0 10px;gap:6px;border-left:1px solid currentColor;border-left-color:color-mix(in srgb,currentColor 30%,transparent);border-radius:0 999px 999px 0}
+.zs .zb:hover,.zs .zm:hover,.zs .zm[aria-expanded=true]{background:color-mix(in srgb,currentColor 10%,transparent)}
+.zs.manual{color:var(--ink3);background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.zs.semi{color:var(--violet);border-color:color-mix(in srgb,var(--violet) 55%,transparent);background:color-mix(in srgb,var(--violet) 12%,transparent)}
+.zs.auto{color:var(--amber-fg);border-color:color-mix(in srgb,var(--amber) 70%,transparent);background:color-mix(in srgb,var(--amber) 15%,transparent);animation:zsglow 2.4s ease-in-out infinite}
+.zs.compact .zb{padding:0 4px 0 5px}
+.zs.compact .zm{padding:0 8px}
+.zs .orb{margin:0 1px}
+.zg{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor}
+.zg.manual{background:transparent;border:1.5px solid currentColor}
+.zg.semi{background:linear-gradient(90deg,currentColor 50%,transparent 50%);border:1.5px solid currentColor}
+/* mode menu */
+.zm-head{display:flex;gap:16px;align-items:center;padding:16px 14px 14px;margin:-6px -6px 8px;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+.zm-head.manual{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.zm-head.semi{background:color-mix(in srgb,var(--violet) 10%,transparent)}
+.zm-head.auto{background:color-mix(in srgb,var(--amber) 12%,transparent)}
+.zm-head b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.zm-head b span{font-weight:400;color:var(--ink2)}
+.zm-head small{display:block;color:var(--ink2);font-size:12px;line-height:1.45;margin-top:2px}
+.zm-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.zm-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 6px 11px;border-radius:10px;border:1px solid var(--line2);color:var(--ink)}
+.bz .zm-card{text-align:center}
+.zm-card:hover{background:var(--p2)}
+.zm-card b{display:block;font-size:12.5px;font-weight:600}
+.zm-card small{display:block;font-size:11px;color:var(--ink3);margin-top:1px}
+.zm-card[aria-checked=true].manual{border-color:var(--ink3);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.zm-card[aria-checked=true].semi{border-color:color-mix(in srgb,var(--violet) 70%,transparent);background:color-mix(in srgb,var(--violet) 11%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--violet) 40%,transparent)}
+.zm-card[aria-checked=true].semi b{color:var(--violet)}
+.zm-card[aria-checked=true].auto{border-color:color-mix(in srgb,var(--amber) 75%,transparent);background:color-mix(in srgb,var(--amber) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--amber) 40%,transparent)}
+.zm-card[aria-checked=true].auto b{color:var(--amber-fg)}
+.au-bs .zm-card{padding:20px 6px 14px}
+.au-bs .zm-card b{font-size:14px}
+.au-bs .zm-head{margin:0 0 10px;border-radius:12px;border:1px solid var(--line)}
+.zm-sep{height:1px;background:var(--line);margin:6px -6px}
+.zm-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--ink);text-decoration:none}
+.zm-link:hover{background:var(--p2)}
+.zm-link>span{flex:1}
+.zm-link small{display:block;color:var(--ink3);font-size:11.5px}
+.zm-pend{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;color:var(--ink);text-decoration:none;background:color-mix(in srgb,var(--ink) 4%,transparent);margin-bottom:4px}
+.zm-pend>span{flex:1}
+/* ===== levels page ===== */
+.lv-main{padding:22px 24px 120px;display:flex;flex-direction:column;gap:16px}
+.lv-head{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.lv-head>div:first-child{flex:1;min-width:420px}
+.lv-head h2{font-size:20px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+.lv-head p{color:var(--ink2);font-size:13px;max-width:720px}
+.lv-mode{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px;border-radius:12px;border:1px solid var(--line);background:var(--p1);font-size:12.5px;color:var(--ink2)}
+.lv-seg{display:inline-flex;padding:2px;border-radius:9px;border:1px solid var(--line2);background:var(--bg)}
+.lv-seg button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--ink3)}
+.lv-seg button:hover{color:var(--ink)}
+.lv-seg button[aria-checked=true].manual{background:var(--p3);color:var(--ink)}
+.lv-seg button[aria-checked=true].semi{background:color-mix(in srgb,var(--violet) 16%,transparent);color:var(--violet)}
+.lv-seg button[aria-checked=true].auto{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber-fg)}
+table.lv{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;background:var(--p1);overflow:visible;font-size:12.5px}
+table.lv th,table.lv td{border-bottom:1px solid var(--line);vertical-align:middle;text-align:left}
+table.lv tbody tr:last-child>*{border-bottom:0}
+table.lv thead th{position:sticky;top:0;z-index:6;padding:10px 12px;font-weight:500;color:var(--ink3);background:color-mix(in srgb,var(--ink) 3%,var(--p1));border-bottom-color:var(--line2);box-shadow:0 1px 0 var(--line2),0 8px 14px -12px rgba(0,0,0,.6)}
+.lv-scroll{height:760px;overflow:auto;scrollbar-width:thin}
+table.lv thead th:first-child{border-top-left-radius:12px}
+table.lv thead th:last-child{border-top-right-radius:12px}
+.lv-lh{display:flex;align-items:center;gap:8px}
+.lv-lh b{font-size:13px;font-weight:600;color:var(--ink)}
+.lv-lh small{display:block;font-size:11.5px;color:var(--ink3);font-weight:400}
+.lv-lh.semi b{color:var(--violet)}
+.lv-lh.auto b{color:var(--amber-fg)}
+.lv-capnote{display:inline-flex;margin-top:5px;font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;color:var(--ink2);background:color-mix(in srgb,var(--ink) 7%,transparent)}
+table.lv td.ln{padding:6px;border-left:1px solid var(--line);width:28%}
+.lane{min-height:44px;display:flex;flex-wrap:wrap;align-content:center;gap:6px;padding:6px;border-radius:9px;border:1px dashed transparent;transition:background .12s,border-color .12s}
+.lane.capped{background:repeating-linear-gradient(135deg,transparent 0 7px,color-mix(in srgb,var(--ink) 3.5%,transparent) 7px 8px)}
+.lane.dropok{border-color:var(--line2)}
+.lane.dropok.manual{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.lane.dropok.semi{border-color:color-mix(in srgb,var(--violet) 50%,transparent);background:color-mix(in srgb,var(--violet) 6%,transparent)}
+.lane.dropok.auto{border-color:color-mix(in srgb,var(--amber) 55%,transparent);background:color-mix(in srgb,var(--amber) 6%,transparent)}
+.lane .empty{color:var(--ink3);font-size:11.5px;padding-left:4px}
+.lv-cw{position:relative;display:inline-flex}
+.lv-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid var(--line2);background:var(--p2);color:var(--ink);cursor:grab;white-space:nowrap}
+.lv-chip:active{cursor:grabbing}
+.lv-chip .gr{color:var(--ink3);opacity:.7;margin-right:-2px}
+.lv-chip.semi{border-color:color-mix(in srgb,var(--violet) 45%,transparent);background:color-mix(in srgb,var(--violet) 12%,transparent)}
+.lv-chip.auto{border-color:color-mix(in srgb,var(--amber) 55%,transparent);background:color-mix(in srgb,var(--amber) 13%,transparent)}
+.lv-chip.inh{border-style:dashed;background:transparent;color:var(--ink2)}
+.lv-chip .own{width:5px;height:5px;border-radius:50%;background:var(--ink);margin-left:2px}
+.lv-chip[aria-expanded=true]{box-shadow:0 0 0 2px color-mix(in srgb,var(--ink) 25%,transparent)}
+.lv-chip.dragging{opacity:.35}
+table.lv th.nm{padding:10px 12px;width:260px;font-weight:400}
+.lv-nm{display:flex;align-items:center;gap:9px;position:relative}
+.lv-nm b{display:block;font-weight:500;color:var(--ink)}
+.lv-nm small{display:block;color:var(--ink3);font-size:11.5px}
+.lv-nm .ico{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);color:var(--ink2);flex:none}
+tr.team .lv-nm{padding-left:26px}
+tr.team .lv-nm::before{content:'';position:absolute;left:10px;top:-14px;width:10px;height:28px;border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);border-bottom-left-radius:6px}
+tr.global>*{background:color-mix(in srgb,var(--ink) 2.5%,transparent)}
+.lv-acts{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.lv-acts .btn{height:22px;padding:0 7px;font-size:11.5px;gap:4px}
+.lv-menu{width:232px}
+.lv-mi{display:flex;align-items:center;gap:9px;width:100%;min-height:32px;padding:0 8px;border-radius:7px;color:var(--ink)}
+.lv-mi:hover{background:var(--p2)}
+.lv-mi[aria-disabled=true]{color:var(--ink3);cursor:not-allowed}
+.lv-mi small{margin-left:auto;color:var(--ink3);font-size:11px}
+.lv-never{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px dashed var(--line2);color:var(--ink2);font-size:12.5px}
+.lv-never>b{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-weight:500;margin-right:4px}
+.btn.ink{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.btn.ink:hover{background:color-mix(in srgb,var(--ink) 85%,var(--bg))}
+.btn.ink[aria-disabled=true]{opacity:.4;cursor:not-allowed}
+.au-toast{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:9px 10px 9px 14px;border-radius:10px;background:var(--ink);color:var(--on-ink);font-size:12.5px;box-shadow:var(--shadow-pop);white-space:nowrap}
+.au-toast button{color:var(--on-ink);text-decoration:underline;font-weight:500}
+/* confirm */
+.au-scrim{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(2px)}
+.au-dlg{position:absolute;z-index:51;top:90px;left:50%;transform:translateX(-50%);width:500px;background:var(--sheet);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden}
+.au-dlg-h{display:flex;align-items:center;gap:10px;padding:16px 14px 6px 20px}
+.au-dlg-h h3{flex:1;font-size:17px;font-weight:600;letter-spacing:-.015em}
+.au-dlg-b{padding:4px 20px 16px;display:flex;flex-direction:column;gap:12px;color:var(--ink2);font-size:13px}
+.au-dlg-b ul{margin:0;padding-left:18px}
+.au-dlg-b li{margin:2px 0}
+.au-dlg-b li b{color:var(--ink);font-weight:500}
+.au-never{padding:12px;border-radius:10px;background:color-mix(in srgb,var(--ink) 3%,transparent);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.au-never-h{display:flex;align-items:center;gap:7px;color:var(--ink);font-weight:500;font-size:12.5px}
+.au-never-l{display:flex;flex-wrap:wrap;gap:5px}
+.au-tok{display:flex;flex-direction:column;gap:6px}
+.au-tok label{color:var(--ink);font-weight:500;font-size:12.5px}
+.au-tok input{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font-family:'Geist Mono',monospace;font-size:12.5px}
+.au-tok input:focus{outline:2px solid var(--amber);outline-offset:1px}
+.au-tok small{color:var(--ink3);font-size:11.5px}
+.au-tokok{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink)}
+.au-tokok svg{color:var(--emerald)}
+.au-dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+/* phone */
+.au-phs{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;margin:18px auto 60px}
+.au-phs>div>p{font-size:12px;color:var(--ink3);margin:0 0 10px;text-align:center}
+.au-band{display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:12.5px;color:var(--ink2);text-decoration:none;background:color-mix(in srgb,var(--amber) 13%,transparent);border-bottom:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
+.au-band b{color:var(--amber-fg);font-weight:600}
+.au-band .lk{margin-left:auto;color:var(--ink);font-weight:500;display:inline-flex;align-items:center;gap:2px}
+.au-bs-wrap{position:absolute;inset:0;z-index:60}
+.au-bs-scrim{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.au-bs{position:absolute;left:0;right:0;bottom:0;background:var(--sheet);border-top:1px solid var(--line2);border-radius:20px 20px 0 0;padding:8px 12px 30px;box-shadow:var(--shadow-pop)}
+.au-grab{width:38px;height:4px;border-radius:9px;background:var(--line2);margin:2px auto 12px}
+.au-bs .zm-link{min-height:50px;font-size:14px}
+@keyframes tcpulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes zospin{to{transform:rotate(360deg)}}
+@keyframes zobreath{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,#f5a524 55%,transparent)}50%{box-shadow:0 0 10px 2px color-mix(in srgb,#f5a524 55%,transparent)}}
+@keyframes zsglow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--amber) 0%,transparent)}50%{box-shadow:0 0 14px 1px color-mix(in srgb,var(--amber) 40%,transparent)}}
+@keyframes auglow{0%,100%{opacity:.7}50%{opacity:1}}
+</style>
+</helmet>
+<div class="bz" data-theme="{{ theme }}">
+  <nav class="vt" aria-label="Pohledy">
+    <span class="lbl">ZIBBY · autonomie</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="4">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <span style="flex:1"></span>
+    <div class="seg" role="group" aria-label="Téma">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+  {{ page }}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"tsType":"string","section":"View"},"view":{"editor":"enum","default":"header","options":["header","levels","phone","notes"],"tsType":"string","section":"View"}}'>
+class Component extends DCLogic {
+  state = { view: null, theme: null, mode: 'semi', own: null, open: null, menu: null, drag: null, toast: null, undo: null, confirm: false, tok: '', exp: { acme: true, north: true, contoso: true }, sim: { pending: true, token: false } };
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  pd = e => { if (e && e.preventDefault) e.preventDefault(); };
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  view() { return this.state.view || this.props.view || 'header'; }
+
+  // ===== data =====
+  MODES = ['manual', 'semi', 'auto'];
+  RANK = { manual: 0, semi: 1, auto: 2 };
+  M = {
+    manual: { label: 'Manuál', desc: 'Zibby sám nic nedělá. Vše čeká na tebe.', lane: 'Sám nezačne' },
+    semi: { label: 'Poloautomat', desc: 'Práci sám vyzvedne a udělá, výsledek počká na tvé schválení.', lane: 'Udělá, počká na schválení' },
+    auto: { label: 'Automat', desc: 'Zibby řídí vše sám, ty dostáváš reporty. Merge, deploy a platby se ptají vždy.', lane: 'Udělá a pošle report' }
+  };
+  SCOPES = [
+    { id: 'global', label: 'Výchozí', sub: 'Pro vše bez výjimky', kind: 'global', parent: null },
+    { id: 'acme', label: 'Acme Corp', sub: 'Firma', kind: 'company', parent: 'global' },
+    { id: 'acme-plat', label: 'Platform', sub: 'Tým · Acme Corp', kind: 'team', parent: 'acme' },
+    { id: 'acme-growth', label: 'Growth', sub: 'Tým · Acme Corp', kind: 'team', parent: 'acme' },
+    { id: 'north', label: 'Northwind', sub: 'Firma', kind: 'company', parent: 'global' },
+    { id: 'north-data', label: 'Data', sub: 'Tým · Northwind', kind: 'team', parent: 'north' },
+    { id: 'contoso', label: 'Contoso', sub: 'Firma', kind: 'company', parent: 'global' },
+    { id: 'contoso-mob', label: 'Mobile', sub: 'Tým · Contoso', kind: 'team', parent: 'contoso' },
+    { id: 'contoso-web', label: 'Web', sub: 'Tým · Contoso', kind: 'team', parent: 'contoso' },
+    { id: 'initech', label: 'Initech', sub: 'Firma', kind: 'company', parent: 'global' },
+    { id: 'personal', label: 'Osobní', sub: 'Firma', kind: 'company', parent: 'global' }
+  ];
+  CAPS = [
+    { id: 'review', name: 'Code review', icon: 'pr' },
+    { id: 'comments', name: 'Připomínky z review', icon: 'msg' },
+    { id: 'implement', name: 'Implementace', icon: 'work', noAuto: 'Implementace jde nejvýš do Poloautomatu: otevření PR se vždy zeptá.' },
+    { id: 'communicate', name: 'Komunikace', icon: 'chat' },
+    { id: 'ci', name: 'Oprava CI', icon: 'ci' }
+  ];
+  INIT = {
+    global: { review: 'auto', comments: 'auto', implement: 'semi', communicate: 'auto', ci: 'auto' },
+    acme: { communicate: 'semi' },
+    'acme-growth': { ci: 'manual' },
+    north: { comments: 'semi', communicate: 'manual' },
+    'contoso-mob': { review: 'semi', comments: 'semi' },
+    initech: { review: 'manual', comments: 'manual', implement: 'manual', communicate: 'manual', ci: 'manual' }
+  };
+  NEVER = ['Merge', 'Deploy', 'Platby', 'Mazání', 'Force push', 'Push do sdílených větví', 'E-mail', 'Otevření PR', 'Nová issue v Jiře'];
+  SECS = [['dash', 'Dashboard', 'dash'], ['work', 'Práce', 'work'], ['port', 'Portfolio', 'comp'], ['wf', 'Workforce', 'team'], ['know', 'Znalosti', 'know'], ['gov', 'Governance', 'gov']];
+  P = {
+    dash: ['M4 4h7v7H4z', 'M13 4h7v4h-7z', 'M13 10h7v10h-7z', 'M4 13h7v7H4z'],
+    work: ['M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z', 'M8.5 12l2.5 2.5 5-5'],
+    comp: ['M4 20V6.5L11 4v16', 'M11 20h9V9.5L11 7', 'M3 20h18', 'M7 9h1', 'M7 13h1', 'M7 16.5h1', 'M14.5 12.5h2', 'M14.5 16h2'],
+    team: ['M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M2.5 20a6.5 6.5 0 0 1 13 0', 'M16 4.5a3.5 3.5 0 0 1 0 6.5', 'M18 14a6.5 6.5 0 0 1 3.5 6'],
+    know: ['M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z', 'M5 20.5V5.5', 'M9 7.5h6'],
+    gov: ['M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z', 'M9 12l2 2 4-4'],
+    globe: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M4 12h16', 'M12 4c2.5 2.6 2.5 13.4 0 16', 'M12 4c-2.5 2.6-2.5 13.4 0 16'],
+    search: ['M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z', 'M15.5 15.5L20 20'],
+    plus: ['M12 5v14', 'M5 12h14'],
+    chev: ['M7 10l5 5 5-5'],
+    chevu: ['M7 14l5-5 5 5'],
+    chevr: ['M10 7l5 5-5 5'],
+    bell: ['M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z', 'M10 20.5a2 2 0 0 0 4 0'],
+    sliders: ['M4 7h9', 'M17 7h3', 'M15 5v4', 'M4 17h3', 'M11 17h9', 'M9 15v4'],
+    menu: ['M4 7h16', 'M4 12h16', 'M4 17h16'],
+    x: ['M6 6l12 12', 'M18 6L6 18'],
+    check: ['M5 12.5l4.5 4.5L19 7.5'],
+    undo: ['M9 14L4 9l5-5', 'M4 9h10.5a5.5 5.5 0 0 1 0 11H11'],
+    lock: ['M6 11h12v9H6z', 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3'],
+    key: ['M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M11.5 11H20', 'M17 11v3', 'M20 11v2'],
+    grip: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
+    pr: ['M7 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', 'M7 8.5v11', 'M17 15.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', 'M17 15.5V10a3 3 0 0 0-3-3h-3', 'M12.5 5l-2 2 2 2'],
+    msg: ['M4 5h16v11H10l-5 4v-4H4z', 'M8 9.5h8', 'M8 12.5h5'],
+    chat: ['M5 6h11v8H9l-4 3z', 'M16 9h3v8h-1v2.5L15 17h-4'],
+    ci: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M8.5 12.5l2.5 2.5 4.5-5'],
+    levels: ['M4 7h16', 'M4 12h10', 'M4 17h6']
+  };
+  ic(n, s, sw) { const h = this.h; s = s || 16; return h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: sw || (n === 'grip' ? 3 : 1.7), strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', flex: 'none' } }, (this.P[n] || []).map((d, i) => h('path', { d, key: i }))); }
+  mark(size) {
+    const h = this.h, wing = d => h('path', { d, fill: 'currentColor', stroke: 'currentColor', strokeWidth: 6, strokeLinejoin: 'round' });
+    return h('svg', { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', overflow: 'visible', flex: 'none' } },
+      wing('M8 16L28.5 30V34L8 48Z'), wing('M56 16L35.5 30V34L56 48Z'), h('circle', { cx: 32, cy: 32, r: 9.2, fill: 'var(--p1)' }), h('circle', { cx: 32, cy: 32, r: 6.6, fill: 'var(--violet)', className: 'tc-node' }));
+  }
+  ST = { manual: 'sleep', semi: 'think', auto: 'speak' };
+  SL = { manual: 'Spí', semi: 'Přemýšlí', auto: 'Mluví' };
+  orb(mode, s) { const h = this.h; return h('span', { className: 'orb', style: { '--s': s + 'px', display: 'inline-block' }, 'aria-hidden': 'true' }, h('canvas', { className: 'zorb', 'data-st': this.ST[mode] || mode, 'data-size': s, 'aria-hidden': 'true' })); }
+  glyph(mode) { return this.h('span', { className: 'zg ' + mode, 'aria-hidden': 'true' }); }
+
+  // ===== model =====
+  sc(id) { return this.SCOPES.find(s => s.id === id); }
+  cap(id) { return this.CAPS.find(c => c.id === id); }
+  own() { return this.state.own || this.INIT; }
+  eff(id, cap, own) { own = own || this.own(); let s = this.sc(id); while (s) { const o = own[s.id]; if (o && o[cap]) return { v: o[cap], from: s.id }; s = s.parent ? this.sc(s.parent) : null; } return { v: 'manual', from: 'global' }; }
+  hasOwn(id, own) { const o = (own || this.own())[id]; return !!o && Object.keys(o).length > 0; }
+  exceptions(own) { own = own || this.own(); return this.SCOPES.filter(s => s.parent && this.hasOwn(s.id, own)); }
+  move(sid, cid, lane) {
+    const c = this.cap(cid), s = this.sc(sid);
+    if (lane === 'auto' && c.noAuto) return this.setState({ toast: c.noAuto, undo: null, menu: null, drag: null });
+    const before = this.own(), o = JSON.parse(JSON.stringify(before)), cur = Object.assign({}, o[sid] || {});
+    const pv = s.parent ? this.eff(s.parent, cid, o).v : null;
+    if (s.parent && lane === pv) delete cur[cid]; else cur[cid] = lane;
+    if (Object.keys(cur).length) o[sid] = cur; else delete o[sid];
+    this.setState({ own: o, undo: before, menu: null, drag: null, toast: c.name + ' · ' + s.label + ' → ' + this.M[lane].label + (s.parent && lane === pv ? ' (zase dědí)' : '') });
+  }
+  inheritCap(sid, cid) { const before = this.own(), o = JSON.parse(JSON.stringify(before)); if (o[sid]) { delete o[sid][cid]; if (!Object.keys(o[sid]).length) delete o[sid]; } this.setState({ own: o, undo: before, menu: null, toast: this.cap(cid).name + ' · ' + this.sc(sid).label + ' zase dědí z ' + this.sc(this.sc(sid).parent).label }); }
+  inheritAll(sid) { const before = this.own(), o = JSON.parse(JSON.stringify(before)); delete o[sid]; this.setState({ own: o, undo: before, menu: null, toast: this.sc(sid).label + ' zase celé dědí z ' + this.sc(this.sc(sid).parent).label }); }
+  setMode(m) {
+    if (m === this.state.mode) return this.setState({ open: null });
+    if (m === 'auto') return this.setState({ open: null, confirm: true, tok: '' });
+    this.setState({ mode: m, open: null, undo: null, toast: 'Zibby je teď v režimu ' + this.M[m].label + '.' });
+  }
+  confirmOk = () => { if (this.state.sim.token && !this.state.tok) return; this.setState({ mode: 'auto', confirm: false, tok: '', undo: null, toast: 'Automat zapnut. Zibby řídí vše sám.' }); };
+
+  // ===== Zibby section in the header =====
+  zsec(o) {
+    const h = this.h, m = o.mode, I = o.int;
+    return h('div', { className: 'zs ' + m + (o.compact ? ' compact' : ''), role: 'group', 'aria-label': 'Zibby' },
+      h('button', { className: 'zb', title: 'Zeptej se Zibbyho (⌘J)', 'aria-label': 'Zeptej se Zibbyho, ⌘J' }, this.orb(m, 20), o.compact ? null : 'Zibby'),
+      h('span', { className: 'tc-anc' },
+        h('button', { className: 'zm', 'aria-haspopup': 'dialog', 'aria-expanded': !!o.open, title: this.M[m].desc, 'aria-label': 'Režim Zibbyho: ' + this.M[m].label + ', Zibby ' + this.SL[m].toLowerCase() + '. Změnit', onClick: I ? () => this.setState({ open: this.state.open ? null : 'mode', menu: null }) : undefined },
+          this.M[m].label, this.ic('chev', 11, 2)),
+        o.open ? this.modeMenu(o) : null));
+  }
+  modeOpts(o, big) {
+    const h = this.h, I = o.int;
+    return h('div', { className: 'zm-cards', role: 'radiogroup', 'aria-label': 'Režim Zibbyho' }, this.MODES.map(k => h('button', { key: k, role: 'radio', className: 'zm-card ' + k, 'aria-checked': o.mode === k, title: this.M[k].desc, 'aria-label': this.M[k].label + ', Zibby ' + this.SL[k].toLowerCase() + '. ' + this.M[k].desc, onClick: I ? () => this.setMode(k) : undefined },
+      this.orb(k, big ? 40 : 30), h('span', null, h('b', null, this.M[k].label), h('small', null, this.SL[k])))));
+  }
+  modeHead(m) {
+    const h = this.h;
+    return h('div', { className: 'zm-head ' + m }, h('span', { role: 'img', 'aria-label': 'Zibby ' + this.SL[m].toLowerCase() }, this.orb(m, 52)),
+      h('span', null, h('b', null, this.M[m].label, h('span', null, ' · Zibby ' + this.SL[m].toLowerCase())), h('small', null, this.M[m].desc)));
+  }
+  levelsLink(o) {
+    const h = this.h, ex = this.exceptions(o.own);
+    return h('a', { href: '#', className: 'zm-link', onClick: o.int ? e => { e.preventDefault(); this.setState({ view: 'levels', open: null }); } : this.pd },
+      this.ic('levels', 16), h('span', null, 'Úrovně autonomie', h('small', null, ex.length ? 'Výjimky: ' + ex.map(s => s.label).join(', ') : 'Bez výjimek, platí všude stejně')), this.ic('chevr', 14));
+  }
+  modeMenu(o) {
+    const h = this.h;
+    return h('div', { className: 'tc-pop', role: 'dialog', 'aria-label': 'Režim Zibbyho', style: { width: 400 } },
+      this.modeHead(o.mode),
+      this.modeOpts(o),
+      h('div', { className: 'zm-sep' }),
+      o.pending ? h('a', { href: '#', className: 'zm-pend', onClick: this.pd }, h('span', { className: 'dot blocked' }), h('span', null, '3 schválení čekají na tebe'), this.ic('chevr', 14)) : null,
+      this.levelsLink(o));
+  }
+  hdr(o) {
+    const h = this.h;
+    return h('header', { className: 'tc-h' + (o.mode === 'auto' ? ' auto' : '') },
+      h('a', { href: '#', className: 'tc-brand', 'aria-label': 'ZibbyOS, přejít na Dashboard', onClick: this.pd }, this.mark(22), h('span', { className: 'tc-wm' }, 'ZibbyOS')),
+      h('nav', { 'aria-label': 'Sekce' }, h('div', { className: 'tc-sec' }, this.SECS.map(([id, l, i]) => h('a', { href: '#', key: id, 'aria-current': id === (o.sec || 'dash') ? 'page' : undefined, onClick: this.pd }, this.ic(i, 15), l)))),
+      h('span', { className: 'tc-sp' }),
+      h('button', { className: 'tc-cmd', 'aria-label': 'Hledat a příkazy, ⌘K' }, this.ic('search', 14), h('span', null, 'Hledat'), h('span', { className: 'kbd' }, '⌘K')),
+      h('button', { className: 'tc-new', 'aria-label': 'Vytvořit' }, this.ic('plus', 14, 2.2), 'Nový'),
+      this.zsec(o),
+      h('span', { className: 'tc-div', 'aria-hidden': 'true' }),
+      h('button', { className: 'tc-stat', 'aria-label': '3 agenti pracují. Stav systému' }, h('span', { className: 'dot working', style: { width: 7, height: 7 } }), h('span', { className: 'n' }, '3')),
+      h('button', { className: 'tc-ib', title: 'AI engine: Claude', 'aria-label': 'AI engine: Claude. Změnit' }, h('span', { className: 'tc-eng' }, 'Cl')),
+      h('button', { className: 'tc-ib tc-bell', 'aria-label': 'Oznámení, 5 nepřečtených' + (o.pending ? ', 3 schválení čekají' : '') }, this.ic('bell', 17), h('b', { className: o.pending ? 'amb' : null, 'aria-hidden': 'true' }, '5')),
+      h('button', { className: 'tc-ib', 'aria-label': 'Předvolby a nastavení' }, this.ic('sliders', 17)));
+  }
+  pageStub() { const h = this.h; return h('main', { className: 'tc-page' }, h('div', { className: 'tc-grid' }, [0, 1, 2].map(i => h('div', { className: 'tc-card', key: i }, h('div', { className: 'tc-sk', style: { width: '38%' } }), h('div', { className: 'tc-sk', style: { width: '86%', opacity: .7 } }), h('div', { className: 'tc-sk', style: { width: '62%', opacity: .7 } })))), h('div', { className: 'tc-card' }, [78, 60, 72, 54].map((w, i) => h('div', { className: 'tc-sk', key: i, style: { width: w + '%', opacity: .6 } })))); }
+  confirmDlg() {
+    const h = this.h, S = this.state, ex = this.exceptions(), tokMissing = S.sim.token, dis = tokMissing && !S.tok;
+    const close = () => this.setState({ confirm: false, tok: '' });
+    const exLines = ex.map(s => { const o = this.own()[s.id]; return h('li', { key: s.id }, h('b', null, s.label), ': ', Object.keys(o).map(c => this.cap(c).name + ' → ' + this.M[o[c]].label).join(', ')); });
+    return [h('div', { className: 'au-scrim', key: 's', onClick: close }),
+      h('div', { className: 'au-dlg', key: 'd', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'au-cf' },
+        h('div', { className: 'au-dlg-h' }, this.orb('auto', 22), h('h3', { id: 'au-cf' }, 'Přepnout Zibbyho na Automat?'), h('button', { className: 'ib', 'aria-label': 'Zavřít', onClick: close }, this.ic('x', 16))),
+        h('div', { className: 'au-dlg-b' },
+          h('p', null, 'Zibby bude sám dělat i odesílat všechno, co je v Úrovních autonomie ve sloupci Automat. Ty dostaneš reporty.'),
+          ex.length ? h('div', null, h('p', { style: { marginBottom: 4 } }, 'Výjimky, které platí dál:'), h('ul', null, exLines)) : null,
+          h('div', { className: 'au-never' }, h('div', { className: 'au-never-h' }, this.ic('lock', 14), 'Tohle se zeptá vždy'), h('div', { className: 'au-never-l' }, this.NEVER.map(n => h('span', { key: n, className: 'chip' }, n)))),
+          h('p', null, '3 schválení, která už čekají, zůstanou čekat na tebe.'),
+          tokMissing ? h('div', { className: 'au-tok' }, h('label', { htmlFor: 'au-tok' }, 'Operátorský token'),
+              h('input', { id: 'au-tok', type: 'password', autoComplete: 'off', placeholder: 'zby_op_…', value: S.tok, onChange: e => this.setState({ tok: e.target.value }), 'aria-describedby': 'au-tokh' }),
+              h('small', { id: 'au-tokh' }, 'Najdeš ho v Nastavení › Obecné. Uloží se jen v tomto prohlížeči.'))
+            : h('div', { className: 'au-tokok' }, this.ic('key', 15), 'Operátorský token ověřen')),
+        h('div', { className: 'au-dlg-f' }, h('button', { className: 'btn', onClick: close }, 'Zrušit'), h('button', { className: 'btn ink', 'aria-disabled': dis ? 'true' : undefined, onClick: dis ? undefined : this.confirmOk }, 'Přepnout na Automat')))];
+  }
+  overlays() {
+    const h = this.h, S = this.state;
+    return [S.open || S.menu ? h('div', { className: 'tc-catch', key: 'c', onClick: () => this.setState({ open: null, menu: null }) }) : null,
+      S.confirm ? this.confirmDlg() : null,
+      S.toast ? h('div', { className: 'au-toast', key: 't', role: 'status' }, S.toast, S.undo ? h('button', { onClick: () => this.setState({ own: S.undo, undo: null, toast: 'Vráceno.' }) }, 'Zpět') : h('button', { onClick: () => this.setState({ toast: null }) }, 'Zavřít')) : null];
+  }
+
+  // ===== levels table =====
+  chip(s, c, e, I) {
+    const h = this.h, S = this.state, inh = e.from !== s.id, lane = e.v, key = s.id + '|' + c.id, open = I && S.menu === key;
+    const idx = this.MODES.indexOf(lane);
+    const keys = I ? ev => {
+      if (ev.key === 'ArrowRight' && idx < 2) { ev.preventDefault(); this.move(s.id, c.id, this.MODES[idx + 1]); }
+      if (ev.key === 'ArrowLeft' && idx > 0) { ev.preventDefault(); this.move(s.id, c.id, this.MODES[idx - 1]); }
+      if (ev.key === 'Escape') this.setState({ menu: null });
+    } : undefined;
+    return h('span', { className: 'lv-cw', key: c.id },
+      h('button', { className: 'lv-chip ' + lane + (inh ? ' inh' : '') + (S.drag && S.drag.k === key ? ' dragging' : ''), draggable: !!I,
+        onDragStart: I ? ev => { try { ev.dataTransfer.setData('text/plain', key); ev.dataTransfer.effectAllowed = 'move'; } catch (x) {} this.setState({ drag: { k: key, s: s.id, c: c.id }, menu: null }); } : undefined,
+        onDragEnd: I ? () => this.setState({ drag: null }) : undefined,
+        onClick: I ? () => this.setState({ menu: open ? null : key, open: null }) : undefined, onKeyDown: keys,
+        'aria-haspopup': 'menu', 'aria-expanded': open,
+        'aria-label': c.name + ': ' + this.M[lane].label + (inh ? ', zděděno z ' + this.sc(e.from).label : '') + '. Přetáhni, nebo šipkami vlevo a vpravo přesuň. Enter otevře nabídku.' },
+        h('span', { className: 'gr' }, this.ic('grip', 12)), this.ic(c.icon, 13), c.name, !inh && s.parent ? h('span', { className: 'own', title: 'Vlastní nastavení', 'aria-hidden': 'true' }) : null),
+      open ? h('div', { className: 'tc-pop l lv-menu', role: 'menu', 'aria-label': 'Přesunout ' + c.name, style: { top: 'calc(100% + 6px)' } },
+        h('div', { className: 'tc-ph' }, c.name + ' · ' + s.label),
+        this.MODES.map(m => { const dis = m === 'auto' && c.noAuto; return h('button', { key: m, className: 'lv-mi', role: 'menuitemradio', 'aria-checked': lane === m, 'aria-disabled': dis ? 'true' : undefined, title: dis ? c.noAuto : undefined, onClick: dis ? undefined : () => this.move(s.id, c.id, m) }, this.glyph(m), this.M[m].label, lane === m ? h('small', null, 'teď') : dis ? h('small', null, 'nejde') : null); }),
+        !inh && s.parent ? [h('div', { className: 'zm-sep', key: 's' }), h('button', { key: 'i', className: 'lv-mi', role: 'menuitem', onClick: () => this.inheritCap(s.id, c.id) }, this.ic('undo', 14), 'Dědit z ' + this.sc(s.parent).label)] : null) : null);
+  }
+  lane(s, m, own, mode, I) {
+    const h = this.h, S = this.state, capped = this.RANK[m] > this.RANK[mode];
+    const caps = this.CAPS.filter(c => this.eff(s.id, c.id, own).v === m);
+    const ok = I && S.drag && S.drag.s === s.id && !(m === 'auto' && this.cap(S.drag.c).noAuto);
+    return h('td', { className: 'ln', key: m },
+      h('div', { className: 'lane ' + m + (capped ? ' capped' : '') + (ok ? ' dropok' : ''),
+        onDragOver: I ? ev => { if (S.drag && S.drag.s === s.id) ev.preventDefault(); } : undefined,
+        onDrop: I ? ev => { ev.preventDefault(); const d = S.drag; if (d && d.s === s.id) this.move(d.s, d.c, m); else this.setState({ drag: null }); } : undefined },
+        caps.length ? caps.map(c => this.chip(s, c, this.eff(s.id, c.id, own), I)) : h('span', { className: 'empty' }, ok ? 'Pusť sem' : '—')));
+  }
+  levelsTable(own, mode, I) {
+    const h = this.h, S = this.state;
+    const exp = I ? S.exp : { acme: true, north: true, contoso: true };
+    const rows = this.SCOPES.filter(s => s.kind !== 'team' || exp[s.parent]);
+    return h('table', { className: 'lv' },
+      h('caption', { className: 'au-sr' }, 'Úrovně autonomie: schopnosti podle firmy a týmu'),
+      h('thead', null, h('tr', null, h('th', { scope: 'col' }, 'Firma / tým'),
+        this.MODES.map(m => h('th', { scope: 'col', key: m }, h('div', { className: 'lv-lh ' + m }, this.orb(m, 16), h('span', null, h('b', null, this.M[m].label), h('small', null, this.M[m].lane))),
+          this.RANK[m] > this.RANK[mode] ? h('span', { className: 'lv-capnote' }, 'Teď jako ' + this.M[mode].label + ' (režim v hlavičce)') : null)))),
+      h('tbody', null, rows.map(s => {
+        const teams = this.SCOPES.filter(t => t.parent === s.id), mine = this.hasOwn(s.id, own);
+        return h('tr', { key: s.id, className: s.kind },
+          h('th', { scope: 'row', className: 'nm' }, h('div', { className: 'lv-nm' }, h('span', { className: 'ico' }, this.ic(s.kind === 'team' ? 'team' : s.kind === 'global' ? 'globe' : 'comp', 15)),
+            h('span', null, h('b', null, s.label), h('small', null, s.kind === 'global' ? s.sub : mine ? s.sub + ' · vlastní výjimky' : s.sub + ' · dědí z ' + this.sc(s.parent).label))),
+            teams.length || (s.parent && mine) ? h('div', { className: 'lv-acts' },
+              teams.length ? h('button', { className: 'btn gh', 'aria-expanded': !!exp[s.id], onClick: I ? () => this.setState({ exp: Object.assign({}, S.exp, { [s.id]: !S.exp[s.id] }) }) : undefined }, this.ic(exp[s.id] ? 'chevu' : 'chev', 11, 2), teams.length + (teams.length === 1 ? ' tým' : ' týmy')) : null,
+              s.parent && mine ? h('button', { className: 'btn gh', title: 'Zrušit výjimky a dědit z ' + this.sc(s.parent).label, onClick: I ? () => this.inheritAll(s.id) : undefined }, this.ic('undo', 12), 'Dědit vše') : null) : null),
+          this.MODES.map(m => this.lane(s, m, own, mode, I)));
+      })));
+  }
+  levelsPage() {
+    const h = this.h, S = this.state, own = this.own(), mode = S.mode;
+    const o = { int: true, mode, open: S.open, pending: S.sim.pending, own, sec: 'gov' };
+    const sim = (l, k) => h('button', { key: k, 'aria-pressed': !!S.sim[k], onClick: () => this.setState({ sim: Object.assign({}, S.sim, { [k]: !S.sim[k] }) }) }, l);
+    return h('div', { className: 'au-wrap' },
+      h('div', { className: 'au-intro' }, h('h2', null, 'Governance › Úrovně autonomie'),
+        h('p', null, 'Každý řádek je firma nebo tým, sloupce jsou tři režimy. Schopnost ', h('b', null, 'přetáhneš do sloupce'), ', kam patří, nebo na ni klikneš a vybereš z nabídky (šipky ←/→ fungují z klávesnice). Tým dědí z firmy: zděděné schopnosti jsou čárkovaně, vlastní mají tečku. ', h('b', null, 'Režim v hlavičce je strop'), ': v Poloautomatu se sloupec Automat chová jako Poloautomat, v Manuálu nedělá nic sám nikdo.'),
+        h('p', null, 'Změny se ukládají hned a jdou vrátit tlačítkem Zpět.')),
+      h('div', { className: 'au-sim', style: { width: 1440, maxWidth: 'calc(100% - 40px)' } }, 'Simulace', h('div', { className: 'fchips' }, sim('Čekající schválení', 'pending'), sim('Chybí operátorský token', 'token')),
+        h('button', { className: 'btn sm gh', onClick: () => this.setState({ own: null, mode: 'semi', toast: null, undo: null, menu: null, open: null }) }, this.ic('undo', 13), 'Výchozí stav')),
+      h('div', { className: 'au-stage' + (mode === 'auto' ? ' glow' : ''), style: { width: 1440, height: 856 } },
+        this.hdr(o),
+        h('div', { className: 'tc-ctx' }, h('nav', { className: 'tc-tabs', 'aria-label': 'Stránky Governance' }, ['Gates', 'Úrovně autonomie', 'Rozpočty', 'Útrata'].map(l => h('a', { href: '#', key: l, 'aria-current': l === 'Úrovně autonomie' ? 'page' : undefined, onClick: this.pd }, l)))),
+        h('div', { className: 'lv-scroll', tabIndex: 0, role: 'region', 'aria-label': 'Úrovně autonomie' }, h('main', { className: 'lv-main' },
+          h('div', { className: 'lv-head' },
+            h('div', null, h('h2', null, 'Úrovně autonomie'), h('p', null, 'Kolik volnosti má Zibby v jednotlivých schopnostech, po firmách a týmech. Výchozí řádek platí všude, kde není výjimka.')),
+            h('div', { className: 'lv-mode' }, 'Režim Zibbyho', h('div', { className: 'lv-seg', role: 'radiogroup', 'aria-label': 'Režim Zibbyho' }, this.MODES.map(m => h('button', { key: m, role: 'radio', className: m, 'aria-checked': mode === m, onClick: () => this.setMode(m) }, this.orb(m, 14), this.M[m].label))))),
+          this.levelsTable(own, mode, true),
+          h('div', { className: 'lv-never' }, h('b', null, this.ic('lock', 14), 'Vždy se zeptá, v každém režimu:'), this.NEVER.map(n => h('span', { className: 'chip', key: n }, n)), h('a', { href: '#', className: 'tc-lk', style: { marginLeft: 'auto' }, onClick: this.pd }, 'Pravidla v Gates →')))),
+        this.overlays()),
+      h('div', { className: 'au-notes', style: { width: 1440, maxWidth: 'calc(100% - 40px)' } },
+        h('div', null, h('b', null, 'Proč sloupce'), 'Každá schopnost je v řádku jen jednou a hned vidíš, kde je. Odpadá pět radio skupin pod sebou; nový řádek (firma, tým) je jen další pruh.'),
+        h('div', null, h('b', null, 'Dědičnost'), 'Řádek ukládá jen rozdíl proti rodiči. Přetažení zpět na zděděnou hodnotu výjimku samo smaže. „Dědit vše“ smaže všechny výjimky řádku.'),
+        h('div', null, h('b', null, 'Omezení'), 'Implementace do Automatu nejde (otevření PR se vždy ptá): sloupec se při tažení nerozsvítí a nabídka ji ukáže jako „nejde“.')));
+  }
+
+  // ===== views =====
+  headerPage() {
+    const h = this.h, S = this.state, mode = S.mode;
+    const live = { int: true, mode, open: S.open, pending: S.sim.pending, own: this.own() };
+    const stat = (m, open) => h('div', { className: 'au-stage' + (m === 'auto' ? ' glow' : ''), style: { width: 1440, height: open ? 560 : 230, marginBottom: 8 } }, this.hdr({ mode: m, open, pending: true, own: this.INIT }), this.pageStub());
+    const cap = (t, d) => h('div', { className: 'cap' }, h('b', null, t), h('span', null, d));
+    return h('div', { className: 'au-wrap' },
+      h('div', { className: 'au-intro' }, h('h2', null, 'Hlavička: Zibby a jeho režim'),
+        h('p', null, 'Sekce Zibbyho v hlavičce má dvě části: ', h('b', null, 'orb'), ' otevře konverzaci (⌘J) a ', h('b', null, 'přepínač režimu'), ' ukazuje, v jakém režimu Zibby je. Orb je ten ze stránky Zibby a režim přebírá jeho stavy: ', h('b', null, 'Manuál = Spí'), ' (šedý, skoro nehybný), ', h('b', null, 'Poloautomat = Přemýšlí'), ' (fialový vír), ', h('b', null, 'Automat = Mluví'), ' (teplý amber, pulzuje). Celá sekce má barvu stavu, v Automatu navíc svítí a aplikaci lemuje záře.'),
+        h('p', null, 'Zkus přepnout režim v hlavičce níž. Přepnutí do Automatu chce potvrzení s operátorským tokenem, dolů se přepíná hned.')),
+      h('div', { className: 'au-sim', style: { width: 1440, maxWidth: 'calc(100% - 40px)' } }, 'Simulace', h('div', { className: 'fchips' },
+        h('button', { 'aria-pressed': S.sim.pending, onClick: () => this.setState({ sim: Object.assign({}, S.sim, { pending: !S.sim.pending }) }) }, 'Čekající schválení'),
+        h('button', { 'aria-pressed': S.sim.token, onClick: () => this.setState({ sim: Object.assign({}, S.sim, { token: !S.sim.token }) }) }, 'Chybí operátorský token'))),
+      h('div', { className: 'au-stage' + (mode === 'auto' ? ' glow' : ''), style: { width: 1440, height: 560 } }, this.hdr(live), this.pageStub(), this.overlays()),
+      cap('Manuál', 'Zibby spí: malá tmavá síť, skoro bez pohybu. Celá sekce je ztlumená do stejné šedé. Sám nic nedělá.'),
+      stat('manual'),
+      cap('Poloautomat', 'Zibby přemýšlí: fialová síť se kroutí do víru. Sekce je fialová. Práci dělá sám, výsledky čekají na schválení.'),
+      stat('semi'),
+      cap('Automat', 'Zibby mluví: teplá síť se rytmicky nadechuje. Sekce je amber a pulzuje, hlavička má amber linku a celou aplikaci lemuje záře. Při prefers-reduced-motion se nic nehýbe, barvy a záře zůstanou.'),
+      stat('auto'),
+      cap('Nabídka režimu', 'Nahoře velký orb v aktuálním stavu a jedna věta, co režim znamená. Pod ním tři karty režimů, každá s orbem ve svém stavu. Dole čekající schválení a rychlý odkaz na Úrovně autonomie s výčtem výjimek.'),
+      stat('semi', true), stat('auto', true),
+      h('div', { className: 'au-notes', style: { width: 1440, maxWidth: 'calc(100% - 40px)' } },
+        h('div', null, h('b', null, 'Ovládání'), 'Skupina role=group „Zibby“: tlačítko konverzace a tlačítko režimu (aria-haspopup, aria-label „Režim Zibbyho: Poloautomat. Změnit“). Režimy jsou radiogroup. Stav nikdy nenese jen barva: název režimu je vždy vidět a orb má aria-label se stavem („Zibby přemýšlí“).'),
+        h('div', null, h('b', null, 'Úzká hlavička'), 'Při kolapsu (Top Chrome, krok 4+) zmizí text „Zibby“, název režimu zůstane. Na 1024 px zůstane jen orb a název režimu.'),
+        h('div', null, h('b', null, 'Co mizí'), 'Tlačítko Autopilot s kompasem, dialog s tabulkou, slovo Autopilot a fialový banner. Engine tile zůstává samostatně v zóně systému.')));
+  }
+
+  phoneTop(mode, pending) {
+    const h = this.h;
+    return h('header', { className: 'tc-mbar' },
+      h('button', { className: 'tc-ib', 'aria-label': 'Menu' }, this.ic('menu', 19)),
+      h('a', { href: '#', className: 'tc-brand', 'aria-label': 'ZibbyOS', onClick: this.pd }, this.mark(20)),
+      h('span', { className: 'tc-mtitle' }, 'Dashboard'), h('span', { style: { flex: 1 } }),
+      this.zsec({ mode, compact: true }),
+      h('button', { className: 'tc-ib tc-bell', 'aria-label': 'Oznámení, 5 nepřečtených' }, this.ic('bell', 18), h('b', { className: pending ? 'amb' : null, 'aria-hidden': 'true' }, '5')));
+  }
+  phoneFrame(mode, kids) { const h = this.h; return h('div', { className: 'stage phone', style: { margin: 0 } }, h('div', { className: 'ph' + (mode === 'auto' ? ' glow' : '') }, h('div', { className: 'sbar', 'aria-hidden': 'true' }, h('span', null, '9:41'), h('span', { style: { fontSize: 12 } }, '5G ▮▮▮')), kids)); }
+  phoneBody(mode) {
+    const h = this.h;
+    return [this.phoneTop(mode, true),
+      mode === 'auto' ? h('a', { href: '#', key: 'b', className: 'au-band', onClick: this.pd }, this.orb('auto', 14), h('span', null, h('b', null, 'Automat'), ' · Zibby řídí vše'), h('span', { className: 'lk' }, 'Změnit', this.ic('chevr', 14))) : null,
+      h('main', { className: 'tc-page', key: 'm', style: { padding: 16 } }, [0, 1, 2].map(i => h('div', { className: 'tc-card', key: i }, h('div', { className: 'tc-sk', style: { width: '44%' } }), h('div', { className: 'tc-sk', style: { width: '82%', opacity: .6 } }))))];
+  }
+  phonePage() {
+    const h = this.h, col = (l, el, k) => h('div', { key: k }, h('p', null, l), el);
+    const sheet = [this.phoneBody('semi'), h('div', { className: 'au-bs-wrap', key: 'bs' }, h('div', { className: 'au-bs-scrim', 'aria-hidden': 'true' }),
+      h('div', { className: 'au-bs', role: 'dialog', 'aria-label': 'Režim Zibbyho' }, h('div', { className: 'au-grab', 'aria-hidden': 'true' }),
+                this.modeHead('semi'), this.modeOpts({ mode: 'semi' }, true), h('div', { className: 'zm-sep' }),
+        h('a', { href: '#', className: 'zm-pend', onClick: this.pd }, h('span', { className: 'dot blocked' }), h('span', null, '3 schválení čekají na tebe'), this.ic('chevr', 14)),
+        this.levelsLink({ own: this.INIT })))];
+    return h('div', { className: 'au-wrap' },
+      h('div', { className: 'au-intro' }, h('h2', null, 'Telefon · 390'),
+        h('p', null, 'V toolbaru zůstane kompaktní sekce Zibbyho: orb ve stavu režimu (spí / přemýšlí / mluví) + název režimu ve stejných barvách. Klepnutí na orb otevře konverzaci, na režim sheet se třemi volbami a odkazem na Úrovně autonomie. V Automatu je navíc amber pásek a záře kolem obrazovky, protože malou sekci je snadné přehlédnout.')),
+      h('div', { className: 'au-phs' },
+        col('Manuál', this.phoneFrame('manual', this.phoneBody('manual')), 'a'),
+        col('Poloautomat', this.phoneFrame('semi', this.phoneBody('semi')), 'b'),
+        col('Automat', this.phoneFrame('auto', this.phoneBody('auto')), 'c'),
+        col('Výběr režimu', this.phoneFrame('semi', sheet), 'd')));
+  }
+
+  notesPage() {
+    const h = this.h, c = t => h('code', null, t);
+    const res = { manual: { manual: 'nic', semi: 'nic', auto: 'nic' }, semi: { manual: 'nic', semi: 'udělá, čeká', auto: 'udělá, čeká' }, auto: { manual: 'nic', semi: 'udělá, čeká', auto: 'udělá a odešle' } };
+    return h('div', { className: 'spec' },
+      h('h1', null, 'Model a pravidla'),
+      h('p', { className: 'lede' }, 'Orb v hlavičce používá stavy ze stránky Zibby: Manuál = sleep, Poloautomat = think, Automat = speak (', c('<ZibbyOrb state />'), '). Orb v otevřené konverzaci má dál svůj vlastní stav; orb v hlavičce ukazuje vždy režim. Dvě místa, jedno pravidlo: ', h('strong', null, 'režim v hlavičce je strop, Úrovně autonomie říkají, kam až smí která schopnost v které firmě.'), ' Výchozí řádek má všechno v Automatu (kromě Implementace), takže bez výjimek stačí jen přepínač v hlavičce.'),
+      h('h2', null, 'Co se stane'),
+      h('table', null, h('thead', null, h('tr', null, h('th', null, 'Schopnost ve sloupci ↓ / režim v hlavičce →'), this.MODES.map(m => h('th', { key: m }, this.M[m].label)))),
+        h('tbody', null, this.MODES.map(cell => h('tr', { key: cell }, h('td', null, this.M[cell].label), this.MODES.map(m => h('td', { key: m }, res[m][cell])))))),
+      h('h2', null, 'Změna dat (navrhuji)'),
+      h('pre', null, 'level: "manual" | "semi" | "auto"          // dnes off | full\nautomation[scope][capability]: "manual" | "semi" | "auto"   // dnes boolean\n\nefektivně = min(level, buňka)\nmanual → nic nestartuje · semi → startuje, výsledek čeká · auto → startuje i odesílá (overlay ask→notify)'),
+      h('table', null, h('thead', null, h('tr', null, h('th', null, 'Téma'), h('th', null, 'Návrh'))), h('tbody', null, [
+        ['Migrace', 'level off → semi, full → auto (dnešní off znamená „pracuje a čeká“). Toggle true → auto, false → manual. Chování se nezmění.'],
+        ['Manuál', 'Nová hodnota: nic nestartuje bez ohledu na tabulku. Dnes neexistuje, dnes by to znamenalo vypnout všech 5 přepínačů všude.'],
+        ['Token', 'Jen pro přepnutí do Automatu. Snížit režim jde bez tokenu, i z chatu (autopilot_off přepne do Poloautomatu).'],
+        ['Implementace', 'API odmítne "auto": nic by neodemklo, otevření PR se vždy ptá.'],
+        ['Výchozí řádek', 'Editovatelný (dnes ho UI vždy uloží vypnutý).'],
+        ['Rozlišení scope', 'Beze změny: tým > firma > výchozí pro PR, firma > výchozí pro roadmapu a kanály, výchozí pro tvoje tasky.'],
+        ['Routa', c('/governance/autonomy') + ' (záložka „Úrovně autonomie“ vedle Gates).']
+      ].map((r, i) => h('tr', { key: i }, h('td', null, r[0]), h('td', null, r[1]))))),
+      h('h2', null, 'Amber'),
+      h('p', null, 'V Top Chrome amber znamená „čeká na tebe“ (zvonek, počítadlo Inboxu). Automat si teď amber bere pro sekci Zibbyho a záři. Funguje to, protože se to nepotká na stejném prvku: čekající schválení zůstávají jen u zvonku a v nabídce režimu jako neutrální řádek. Kdyby to splývalo, druhá volba je mít Automat v amber a „čeká na tebe“ přesunout do rose.'),
+      h('h2', null, 'Přístupnost'),
+      h('ul', null,
+        h('li', null, 'Čip schopnosti je ', c('button'), ' s ', c('aria-label'), ' („Code review: Poloautomat, zděděno z Acme Corp. Přetáhni, nebo šipkami…“). Drag and drop má vždy náhradu: nabídka po kliknutí a šipky ←/→.'),
+        h('li', null, 'Režim: ', c('role=radiogroup'), ' v nabídce, na telefonu i na stránce. Tabulka má ', c('caption'), ' a hlavičky sloupců i řádků.'),
+        h('li', null, 'Barva nikdy sama: každý režim má název a orb s aria-label stavu. ', c('prefers-reduced-motion'), ' zastaví orb (orb.js) i pulz sekce a záře.')));
+  }
+
+  renderVals() {
+    const v = this.view();
+    const VL = [['header', 'Hlavička a režimy'], ['levels', 'Úrovně autonomie'], ['phone', 'Telefon'], ['notes', 'Model a pravidla']];
+    const pages = { header: () => this.headerPage(), levels: () => this.levelsPage(), phone: () => this.phonePage(), notes: () => this.notesPage() };
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => this.setState({ view: k, open: null, menu: null, toast: null, undo: null }) })),
+      themes: [['dark', 'Tmavé'], ['light', 'Světlé']].map(([k, l]) => ({ label: l, on: this.theme() === k, pick: () => this.setTheme(k) })),
+      theme: this.theme(),
+      page: (pages[v] || pages.header)()
+    };
+  }
+}
+</script>
+</body>
+</html>

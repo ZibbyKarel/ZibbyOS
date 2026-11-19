@@ -8,10 +8,13 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   Alert,
+  Breadcrumb,
   Button,
   Container,
   Dialog,
+  Divider,
   Grid,
+  MenuButton,
   Stack,
   type SubNavLinkComponent,
   Tab,
@@ -24,7 +27,6 @@ import {
 } from "@zibby/design-system";
 import type { Agent, GateRuleInput } from "@zibby/contracts";
 import { useFormControls } from "@zibby/forms";
-import { PageBreadcrumb } from "../../../components/layout/PageBreadcrumb";
 import { PageContainer } from "../../../components/PageContainer/PageContainer";
 import { useIsPhone } from "../../../hooks/useIsPhone";
 import { apiErrorMessage } from "../../../state/apiErrorMessage";
@@ -61,6 +63,7 @@ import {
   ROUTING_LIMIT,
   applyFormValues,
   dirtySections,
+  frontmatterPreview,
   ownRuleToInitial,
   toFormValues,
 } from "./agentEditValues";
@@ -281,6 +284,7 @@ export function AgentEditor({ agent, isNew = false }: AgentEditorProps) {
     <AgentInstructionsCard
       dirty={dirtyAt("instructions")}
       fileName={fileName}
+      frontmatter={frontmatterPreview(values)}
       key={formKey}
       value={values.instructions}
     />
@@ -368,17 +372,46 @@ export function AgentEditor({ agent, isNew = false }: AgentEditorProps) {
   return renderForm(
     <Container padding={["300", "350"]}>
       <PageContainer>
-        <Stack gap="250">
-          <Stack align="center" direction="row" gap="150" justify="between">
-            <PageBreadcrumb
-              items={[
-                { label: t("title"), href: "/workforce/agents" },
-                { label: isNew ? t("newAgent") : title },
-              ]}
-              linkComponent={Link as SubNavLinkComponent}
-            />
-            {!isNew && <PinButton id={agent.id} kind="agent" />}
-          </Stack>
+        <Stack gap="0">
+          <Container data-testid={TestId.Crumbs} padding={["0", "0", "0", "0"]}>
+            <Stack align="center" direction="row" gap="100" justify="between">
+              <Stack align="center" direction="row" gap="100">
+                <Typography aria-hidden="true" size="sm" type="note" variant="tertiary">
+                  ‹
+                </Typography>
+                <Breadcrumb
+                  items={[
+                    { label: t("title"), href: "/workforce/agents" },
+                    { label: isNew ? t("newAgent") : title },
+                  ]}
+                  linkComponent={Link as SubNavLinkComponent}
+                />
+                {!isNew && <PinButton iconOnly id={agent.id} kind="agent" />}
+              </Stack>
+              <MenuButton
+                ariaLabel={td("moreActions")}
+                items={[
+                  {
+                    id: "copy-file",
+                    label: td("copyFile"),
+                    icon: "copy",
+                    onSelect: () => void navigator.clipboard?.writeText(fileName),
+                  },
+                  ...(isNew
+                    ? []
+                    : [
+                        {
+                          id: "runs",
+                          label: td("tabRuns"),
+                          icon: "pulse" as const,
+                          onSelect: () => setTab("runs"),
+                        },
+                      ]),
+                ]}
+              />
+            </Stack>
+          </Container>
+          <Divider />
 
           <AgentHero
             avatar={agent.avatar}
@@ -392,7 +425,6 @@ export function AgentEditor({ agent, isNew = false }: AgentEditorProps) {
             dirty={dirty}
             engineBadge={globalEngineBadge}
             fileName={fileName}
-            glyph={values.glyph || "bot"}
             isNew={isNew}
             onCancel={() => router.push("/workforce/agents")}
             onDelete={() => setConfirmDelete(true)}
@@ -413,7 +445,7 @@ export function AgentEditor({ agent, isNew = false }: AgentEditorProps) {
             </Alert>
           )}
 
-          {body}
+          <Container padding={["250", "0", "0", "0"]}>{body}</Container>
         </Stack>
       </PageContainer>
 

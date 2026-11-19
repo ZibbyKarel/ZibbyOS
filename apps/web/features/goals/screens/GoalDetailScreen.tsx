@@ -244,6 +244,7 @@ export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
                   </Button>
                 }
                 body={t("noRunsBody")}
+                icon="retry"
                 title={t("noRunsTitle")}
               />
             )}
@@ -262,6 +263,7 @@ export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
               editing={editing}
               goal={goal}
               onChange={patch}
+              onEdit={() => setDraft(draftFromGoal(goal))}
               perIteration={perIteration}
             />
           </Stack>

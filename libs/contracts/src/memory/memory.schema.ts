@@ -106,6 +106,8 @@ export const MemoryGraphSchema = z.object({
       department: DepartmentIdSchema.optional(),
       /** Life-domain (F8) — same optional/back-compat posture. */
       domain: NoteDomainSchema.optional(),
+      /** Unsorted "halda": a vault note flagged `raw: true`, or a team-KB note under `inbox/`. */
+      raw: z.boolean().optional(),
     }),
   ),
   edges: z.array(z.object({ from: z.string(), to: z.string() })),

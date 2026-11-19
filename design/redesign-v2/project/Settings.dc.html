@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZibbyOS — Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<style>
+/* ---- chrome (same rules as Top Chrome) ---- */
+.tc-h{position:relative;z-index:40;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px 0 16px;background:var(--p1);border-bottom:1px solid var(--line);flex:none}
+.tc-zw{display:flex;align-items:center;gap:10px;flex:none}
+.tc-z{gap:6px}
+.tc-brand{display:flex;align-items:center;gap:8px;color:var(--ink);text-decoration:none;border-radius:8px;padding:4px 4px 4px 2px;flex:none}
+.tc-brand:focus-visible,.tc-sec a:focus-visible,.tc-crumbs a:focus-visible,.st-rail a:focus-visible,.st-anc a:focus-visible,.st-lk:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.tc-wm{font-weight:600;letter-spacing:-.03em;font-size:14.5px}
+.tc-sec{display:flex;gap:2px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--ink) 3.5%,transparent);border:1px solid var(--line)}
+.tc-sec a{position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px 0 8px;border-radius:7px;color:var(--ink3);font-size:12.5px;font-weight:500;text-decoration:none;white-space:nowrap}
+.tc-sec a.io{padding:0;width:30px;justify-content:center}
+.tc-sec a:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.tc-sec a .att{position:absolute;top:4px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 2px var(--p1)}
+.tc-sp{flex:1;min-width:8px}
+.tc-div{width:1px;height:22px;background:var(--line2);flex:none;margin:0 4px}
+.tc-cmd{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 9px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink3);font-size:12.5px;white-space:nowrap}
+.tc-cmd:hover{color:var(--ink);border-color:var(--ink3)}
+.tc-new{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;background:var(--ink);color:var(--on-ink);font-size:12.5px;font-weight:500;white-space:nowrap}
+.tc-new.io{width:30px;padding:0;justify-content:center}
+.tc-new .cv{opacity:.55;margin-left:-1px}
+.tc-zib{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 6px;border-radius:999px;border:1px solid var(--line2);color:var(--ink);font-size:12.5px;font-weight:500;white-space:nowrap}
+.tc-zib:hover{background:var(--p2)}
+.tc-orb{position:relative;display:inline-block;flex:none;border-radius:50%;background:radial-gradient(circle at 34% 30%,color-mix(in srgb,var(--sky) 85%,#fff) 0%,var(--violet) 72%);box-shadow:0 0 0 1px color-mix(in srgb,var(--violet) 30%,transparent)}
+.tc-stat{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 7px 0 10px;border-radius:8px;border:1px solid var(--line);font-size:12px;color:var(--ink2);white-space:nowrap}
+.tc-stat .n{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink)}
+.tc-stat .rings{display:inline-flex;gap:3px;padding-left:7px;border-left:1px solid var(--line)}
+.tc-upd{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:color-mix(in srgb,var(--sky) 15%,transparent);color:var(--sky)}
+.tc-mode{display:inline-flex;align-items:stretch;height:30px;border-radius:8px;border:1px solid var(--line2)}
+.tc-mode>button{display:inline-flex;align-items:center;gap:6px;padding:0 9px;font-size:12px;font-weight:500;color:var(--ink2);white-space:nowrap}
+.tc-mode>button+button{border-left:1px solid var(--line2)}
+.tc-eng{width:18px;height:18px;border-radius:5px;display:inline-grid;place-items:center;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;background:var(--p3);color:var(--ink);border:1px solid var(--line2);flex:none}
+.tc-ib{position:relative;width:32px;height:32px;display:inline-grid;place-items:center;border-radius:8px;color:var(--ink2);flex:none}
+.bz .tc-ib{text-align:center}
+.tc-ib:hover{background:var(--p2);color:var(--ink)}
+.tc-ib.on{background:var(--p3);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+.tc-bell b{position:absolute;top:2px;right:0;min-width:15px;height:15px;padding:0 4px;border-radius:99px;background:var(--ink);color:var(--on-ink);font-size:9.5px;font-weight:600;display:grid;place-items:center;box-shadow:0 0 0 2px var(--p1)}
+.tc-anc{position:relative;display:inline-flex}
+.tc-pop{position:absolute;top:calc(100% + 10px);right:0;z-index:45;background:var(--sheet);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px;font-size:12.5px;color:var(--ink);white-space:normal}
+.tc-mi{display:flex;align-items:center;gap:10px;width:100%;min-height:32px;padding:0 8px;border-radius:7px;color:var(--ink);text-decoration:none}
+.tc-mi:hover,.tc-mi.hl{background:var(--p2)}
+.tc-mi .ico{color:var(--ink3);display:inline-flex}
+.tc-mi .k{margin-left:auto}
+.tc-mi small{margin-left:auto;color:var(--ink3);font-size:11.5px}
+.tc-sep{height:1px;background:var(--line);margin:6px -6px}
+.tc-ph{padding:8px 8px 6px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.tc-mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;font-size:12.5px;color:var(--ink2)}
+.tc-mfoot{padding:6px 8px 4px;font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink3)}
+.tc-scrim{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(2px)}
+.tc-pal{position:absolute;z-index:51;top:76px;left:50%;transform:translateX(-50%);width:620px;background:var(--sheet);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden}
+.tc-pal-in{display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);color:var(--ink3)}
+.tc-pal-in input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font:inherit;font-size:15px}
+.tc-pal-g{padding:6px}
+.tc-pal-z{display:flex;align-items:center;gap:14px;padding:10px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}
+.tc-ctx{position:relative;z-index:10;display:flex;align-items:center;height:42px;padding:0 14px;border-bottom:1px solid var(--line);gap:4px;flex:none}
+.tc-crumbs{display:flex;align-items:center;font-size:13px;color:var(--ink3);padding-left:6px}
+.tc-crumbs ol{display:flex;align-items:center;gap:2px;list-style:none;margin:0;padding:0}
+.tc-crumbs li{display:flex;align-items:center;gap:2px}
+.tc-crumbs a{display:inline-flex;align-items:center;gap:5px;color:var(--ink3);text-decoration:none;padding:3px 5px;border-radius:5px;white-space:nowrap}
+.tc-crumbs a:hover{color:var(--ink);background:var(--p2)}
+.tc-crumbs [aria-current=page]{color:var(--ink);font-weight:500;padding:3px 5px}
+.tc-crumbs .sl{color:var(--ink3);opacity:.6}
+.tc-mbar{display:flex;align-items:center;gap:4px;height:52px;padding:0 8px 0 6px;background:var(--p1);border-bottom:1px solid var(--line);position:relative;z-index:5;flex:none}
+.tc-mtitle{font-size:15px;font-weight:600;letter-spacing:-.015em;color:var(--ink)}
+.tc-node{transform-box:fill-box;transform-origin:center}
+.tc-node.working{animation:tcpulse 1.3s ease-in-out infinite}
+.tc-node.needs{animation:tcpulse 1.9s ease-in-out infinite}
+@keyframes tcpulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ---- settings grammar ---- */
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.st-wrap{width:1440px;max-width:calc(100% - 40px);margin:0 auto}
+.st-stage{position:relative;margin:14px auto 56px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.st-scroll{flex:1;min-height:0;overflow-y:auto;position:relative}
+.st-body{display:grid;grid-template-columns:216px minmax(0,1fr) 168px;gap:40px;padding:28px 28px 0;align-items:start;max-width:1340px;margin:0 auto}
+.st-body.na{grid-template-columns:216px minmax(0,780px) 168px}
+.st-body.nar{grid-template-columns:192px minmax(0,1fr);gap:28px;padding:24px 24px 0}
+.st-rail{position:sticky;top:28px;display:flex;flex-direction:column;gap:2px}
+.st-rail .hd{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:2px 10px 8px}
+.st-rail a{display:flex;align-items:center;gap:10px;min-height:34px;padding:6px 10px;border-radius:8px;color:var(--ink2);text-decoration:none;font-size:13px;line-height:1.3}
+.st-rail a:hover{background:var(--p2);color:var(--ink)}
+.st-rail a[aria-current=page]{background:var(--p2);color:var(--ink);font-weight:500;box-shadow:inset 0 0 0 1px var(--line2)}
+.st-rail a .ico{color:var(--ink3);display:inline-flex}
+.st-rail a[aria-current=page] .ico{color:var(--ink)}
+.st-rail a .tail{margin-left:auto;display:inline-flex}
+.st-rail .ad{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 18%,transparent)}
+.st-rail .uv{font-family:'Geist Mono';font-size:10.5px;padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--sky) 15%,transparent);color:var(--sky)}
+.st-rail .ft{margin-top:14px;padding:12px 10px 0;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink3);line-height:1.6}
+.st-anc{position:sticky;top:28px;display:flex;flex-direction:column;border-left:1px solid var(--line)}
+.st-anc .hd{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:2px 12px 8px}
+.st-anc a{display:flex;align-items:center;gap:6px;padding:5px 12px;margin-left:-1px;border-left:1px solid transparent;font-size:12.5px;color:var(--ink3);text-decoration:none;line-height:1.35}
+.st-anc a:hover{color:var(--ink)}
+.st-anc a[aria-current=location]{color:var(--ink);border-left-color:var(--ink);font-weight:500}
+.st-anc .dd,.st-save .dd{width:6px;height:6px;border-radius:50%;background:var(--ink);flex:none}
+.st-anc .wd{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
+.st-main{min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:48px}
+.st-hd{padding:0 2px 4px}
+.st-hd .eb{font-size:12px;color:var(--ink3);margin-bottom:6px}
+.st-hd h1{font-size:24px;font-weight:600;letter-spacing:-.025em;color:var(--ink);line-height:1.2}
+.st-hd p{font-size:14px;color:var(--ink2);margin-top:5px;text-wrap:pretty}
+.st-pnl{border:1px solid var(--line);border-radius:12px;background:var(--p1);scroll-margin-top:20px;transition:border-color .2s,box-shadow .2s}
+.st-pnl.dirty{border-color:color-mix(in srgb,var(--ink) 30%,transparent)}
+.st-pnl.err{border-color:color-mix(in srgb,var(--rose) 50%,transparent)}
+.st-pnl.ns{background:transparent;border-style:dashed;border-color:var(--line2)}
+.st-pnl.att{border-color:color-mix(in srgb,var(--amber) 55%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--amber) 14%,transparent)}
+.st-pnl.off>.st-row,.st-pnl.off>.st-cards,.st-pnl.off>.st-grid2{opacity:.5}
+.st-phd{display:flex;align-items:flex-start;gap:12px;padding:14px 16px 12px}
+.st-phd .tt{flex:1;min-width:0}
+.st-phd h2{font-size:14px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ink);line-height:1.35}
+.st-phd p{font-size:12.5px;color:var(--ink3);margin-top:3px;text-wrap:pretty;max-width:62ch}
+.st-pa{display:flex;gap:6px;align-items:center;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.st-pa .st{font-size:12px;color:var(--ink3);display:inline-flex;align-items:center;gap:6px}
+.st-tog{display:flex;align-items:flex-start;gap:12px;width:100%;padding:14px 16px 12px;border-radius:12px}
+.st-tog:hover{background:color-mix(in srgb,var(--ink) 2%,transparent)}
+.st-tog .cv{color:var(--ink3);margin-top:1px;transition:transform .2s}
+.st-tog[aria-expanded=true] .cv{transform:rotate(180deg)}
+.st-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px;padding:12px 16px;border-top:1px solid var(--line)}
+.st-row .lb{flex:1 1 250px;min-width:0}
+.st-row .l{font-size:13px;font-weight:500;color:var(--ink);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.st-row .lb small{display:block;font-size:12px;color:var(--ink3);margin-top:2px;text-wrap:pretty;max-width:56ch;line-height:1.45}
+.st-row .ct{flex:0 1 auto;display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;min-width:0}
+.st-row.stack .ct{flex:1 1 100%;margin-left:0;justify-content:flex-start}
+.st-row.dis{opacity:.5}
+.st-row .was{font-size:11.5px;font-weight:400;color:var(--ink3);font-family:'Geist Mono'}
+.st-row.chg .l::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ink)}
+.st-in{height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;outline:none;min-width:0}
+.st-in::placeholder{color:var(--ink3)}
+.st-in:focus{border-color:var(--ink2);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 12%,transparent)}
+.st-in.mono{font-family:'Geist Mono',monospace;font-size:12.5px}
+.st-in.chg{border-color:color-mix(in srgb,var(--ink) 55%,transparent)}
+.st-in[aria-invalid=true]{border-color:var(--rose)}
+.st-in:disabled{opacity:.5}
+.st-in[type=number]{width:68px;text-align:right;font-family:'Geist Mono';font-variant-numeric:tabular-nums}
+.st-fld{display:inline-flex;align-items:center;position:relative;min-width:0}
+.st-fld .st-in{padding-right:34px;width:100%}
+.st-fld .tc-ib{position:absolute;right:2px;width:28px;height:28px}
+.st-sw{width:34px;height:20px;border-radius:99px;background:color-mix(in srgb,var(--ink) 20%,transparent);position:relative;flex:none;transition:background .15s}
+.st-sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.35);transition:transform .15s}
+.st-sw[aria-checked=true]{background:var(--ink)}
+.st-sw[aria-checked=true]::after{transform:translateX(14px);background:var(--on-ink)}
+.st-sw:disabled{opacity:.45;cursor:not-allowed}
+.bz .st-sw:focus-visible{border-radius:99px}
+.st-seg{padding:3px}
+.st-seg button{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:6px;font-size:12.5px;color:var(--ink3);white-space:nowrap}
+.st-seg button:hover{color:var(--ink)}
+.st-seg button[aria-checked=true]{background:var(--p3);color:var(--ink);font-weight:500;box-shadow:0 0 0 1px var(--line2)}
+.bz[data-theme=light] .st-seg button[aria-checked=true]{background:var(--p1);box-shadow:0 1px 2px rgba(20,22,26,.08),0 0 0 1px var(--line2)}
+.st-seg.sm button{height:22px;padding:0 8px;font-size:12px}
+.st-seg button:disabled{opacity:.45;cursor:not-allowed}
+.btn.ink{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.btn.ink:hover{background:color-mix(in srgb,var(--ink) 84%,var(--bg))}
+.btn.danger{color:var(--rose);border-color:color-mix(in srgb,var(--rose) 40%,transparent)}
+.btn.danger:hover{background:color-mix(in srgb,var(--rose) 10%,transparent)}
+.btn.dangerf{background:var(--rose);border-color:var(--rose);color:var(--on-status)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{background:inherit}
+.btn.ink:disabled:hover{background:var(--ink)}
+.st-spin{display:inline-flex}
+.st-spin svg{animation:spin 1s linear infinite}
+.bdg{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:99px;font-size:11.5px;font-weight:500;white-space:nowrap;letter-spacing:0}
+.bdg::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;box-sizing:border-box;flex:none}
+.bdg.ok{color:var(--emerald);background:color-mix(in srgb,var(--emerald) 11%,transparent)}
+.bdg.wait{color:var(--amber-fg);background:var(--amb-s)}
+.bdg.off{color:var(--ink2);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.bdg.off::before{background:transparent;border:1.5px solid currentColor}
+.bdg.err{color:var(--rose);background:color-mix(in srgb,var(--rose) 11%,transparent)}
+.bdg.info{color:var(--sky);background:color-mix(in srgb,var(--sky) 12%,transparent)}
+.bdg.nd::before{display:none}
+.st-note{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:start;margin:0 16px 14px;padding:10px 12px;border-radius:9px;font-size:12.5px;color:var(--ink2);line-height:1.5}
+.st-note>.i{margin-top:1px;display:inline-flex}
+.st-note b{color:var(--ink);font-weight:500}
+.st-note .ac{display:flex;gap:6px;align-items:center;align-self:center;flex-wrap:wrap;justify-content:flex-end}
+.st-note.info{background:color-mix(in srgb,var(--ink) 3%,transparent);border:1px solid var(--line)}
+.st-note.info>.i{color:var(--ink3)}
+.st-note.wait{background:color-mix(in srgb,var(--amber) 7%,transparent);border:1px solid color-mix(in srgb,var(--amber) 30%,transparent)}
+.st-note.wait>.i{color:var(--amber-fg)}
+.st-note.err{background:color-mix(in srgb,var(--rose) 7%,transparent);border:1px solid color-mix(in srgb,var(--rose) 32%,transparent)}
+.st-note.err>.i{color:var(--rose)}
+.st-note.sky{background:color-mix(in srgb,var(--sky) 7%,transparent);border:1px solid color-mix(in srgb,var(--sky) 30%,transparent)}
+.st-note.sky>.i{color:var(--sky)}
+.st-note.top{margin:0}
+.st-row+.st-note,.st-cards+.st-note,.st-grid2+.st-note,.st-mxw+.st-note{margin-top:2px}
+.st-code{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;white-space:nowrap}
+.st-val{font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--ink);white-space:nowrap}
+.st-dim{color:var(--ink3);font-size:12px}
+.st-lk{color:var(--ink2);font-size:12.5px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;border-radius:4px;display:inline-flex;align-items:center;gap:4px}
+.st-lk:hover{color:var(--ink);text-decoration-color:var(--ink3)}
+.st-keys{display:inline-flex;gap:4px;align-items:center}
+.st-key{min-width:28px;height:28px;padding:0 8px;border-radius:7px;border:1px solid var(--line2);border-bottom-width:2px;background:var(--p2);font-family:'Geist Mono',monospace;font-size:12.5px;display:inline-grid;place-items:center;color:var(--ink)}
+.st-recbox{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;border:1px dashed var(--ink2);color:var(--ink);font-size:12.5px;background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.st-recbox i{width:8px;height:8px;border-radius:50%;background:var(--rose);animation:tcpulse 1s ease-in-out infinite}
+.st-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:2px 16px 16px}
+.st-cards.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.st-card{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);min-width:0}
+.st-card:hover{border-color:var(--ink3)}
+.st-card[aria-checked=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.st-card:disabled{opacity:.5;cursor:not-allowed}
+.st-card .t{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.st-card .d{font-size:12px;color:var(--ink2);line-height:1.45;text-wrap:pretty}
+.st-card .q{font-size:12px;color:var(--ink3);border-top:1px solid var(--line);padding-top:8px;margin-top:auto;font-style:italic;line-height:1.45}
+.st-card .m{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink3)}
+.st-rd{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink3);margin-left:auto;flex:none;box-sizing:border-box}
+[aria-checked=true]>.t>.st-rd{border:5px solid var(--ink)}
+.st-tile{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;background:var(--p3);border:1px solid var(--line2);color:var(--ink);flex:none}
+.st-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:2px 16px 16px}
+.st-fc{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px;background:var(--bg);min-width:0}
+.st-fc.ns{border-style:dashed;border-color:var(--line2);background:transparent}
+.st-fc .fh{display:flex;align-items:center;gap:10px}
+.st-fc .fh b{display:block;font-size:13.5px;font-weight:600;color:var(--ink)}
+.st-fc .fh small{display:block;font-size:12px;color:var(--ink3)}
+.st-fc .fh .bdg{margin-left:auto}
+.st-cmd{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;border-radius:8px;background:var(--code-bg);border:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);min-width:0}
+.st-cmd .p{color:var(--ink3)}
+.st-cmd code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:inherit}
+.st-cmd .tc-ib{width:26px;height:26px}
+.st-mxw{padding:0 0 6px}
+.st-mx{width:100%;border-collapse:collapse;font-size:12.5px}
+.st-mx caption{text-align:left;padding:0 16px 8px;font-size:12px;color:var(--ink3);caption-side:bottom;padding-top:10px}
+.st-mx th{font-weight:500;color:var(--ink3);font-size:11.5px;padding:8px 6px;text-align:center;border-top:1px solid var(--line);white-space:nowrap}
+.st-mx th:first-child,.st-mx td:first-child{text-align:left;padding-left:16px}
+.st-mx td{border-top:1px solid var(--line);padding:7px 6px;text-align:center;vertical-align:middle}
+.st-mx td:first-child{color:var(--ink)}
+.st-mx td small{display:block;color:var(--ink3);font-size:11.5px}
+.st-mx input,.st-chk input{accent-color:var(--ink);width:16px;height:16px;margin:0;cursor:pointer}
+.st-chk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px;padding:4px 16px 14px;border:0;margin:0;min-width:0}
+.st-chk legend{padding:12px 0 6px;font-size:12px;font-weight:500;color:var(--ink3);float:left;width:100%;border-top:1px solid var(--line)}
+.st-chk label{display:flex;align-items:center;gap:10px;min-height:32px;font-size:13px;color:var(--ink)}
+.st-chk label small{color:var(--ink3);font-size:11.5px;margin-left:auto}
+.st-chk:disabled label{opacity:.5}
+.st-sel{display:flex;align-items:center;gap:8px;height:34px;padding:0 8px 0 10px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font-family:'Geist Mono',monospace;font-size:12.5px;min-width:0;width:100%}
+.st-sel .v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.st-sel:hover{border-color:var(--ink3)}
+.st-sel[aria-expanded=true]{border-color:var(--ink2);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 12%,transparent)}
+.st-lb{margin:6px 0 0;border:1px solid var(--line2);border-radius:10px;background:var(--sheet);box-shadow:var(--shadow-pop);padding:4px;list-style:none;width:100%}
+.st-opt{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);cursor:pointer}
+.st-opt:hover{background:var(--p2)}
+.st-opt[aria-selected=true]{background:var(--p2)}
+.st-opt .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-opt .ck{width:14px;color:var(--ink);display:inline-flex}
+.tg{font-family:'Geist',sans-serif;font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink2);white-space:nowrap}
+.tg.free{background:color-mix(in srgb,var(--emerald) 12%,transparent);color:var(--emerald)}
+.tg.sub{background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky)}
+.tg.think{background:transparent;box-shadow:inset 0 0 0 1px var(--line2)}
+.tg.unv{background:var(--amb-s);color:var(--amber-fg)}
+.st-step{display:inline-flex;align-items:center;border:1px solid var(--line2);border-radius:8px;height:32px;background:var(--bg)}
+.st-step button{width:30px;height:30px;display:grid;place-items:center;color:var(--ink2)}
+.bz .st-step button{text-align:center}
+.st-step button:hover{color:var(--ink);background:var(--p2)}
+.st-step button:first-child{border-radius:7px 0 0 7px}
+.st-step button:last-child{border-radius:0 7px 7px 0}
+.st-step input{width:44px;height:30px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);background:transparent;color:var(--ink);text-align:center;font-family:'Geist Mono';font-size:12.5px;outline:none}
+.st-step.chg{border-color:color-mix(in srgb,var(--ink) 55%,transparent)}
+.st-rng{display:flex;align-items:center;gap:12px;min-width:280px}
+.st-rng input{flex:1;accent-color:var(--ink);min-width:0}
+.st-rng output{font-family:'Geist Mono';font-size:12.5px;color:var(--ink);min-width:40px;text-align:right}
+.st-rng .sc{display:flex;justify-content:space-between;font-family:'Geist Mono';font-size:10.5px;color:var(--ink3)}
+.st-sch .ct{gap:6px}
+.st-wt{display:grid;grid-template-columns:minmax(0,1.3fr) 80px minmax(0,1.2fr) 110px;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);font-size:12.5px}
+.st-wt.hd{font-size:11.5px;color:var(--ink3);padding-top:8px;padding-bottom:8px}
+.st-wt .nm{font-family:'Geist Mono';color:var(--ink)}
+.st-wt .sm{color:var(--ink3);font-size:12px}
+.st-wt .bdg{justify-self:end}
+.st-wt.stale{background:color-mix(in srgb,var(--amber) 5%,transparent)}
+.st-big{display:flex;align-items:center;gap:14px;padding:4px 16px 14px}
+.st-big .n{font-family:'Geist Mono';font-size:20px;letter-spacing:.06em;font-weight:500;color:var(--emerald)}
+.st-big .n.off{color:var(--rose)}
+.st-big small{display:block;font-size:12px;color:var(--ink3)}
+.st-prog{height:5px;border-radius:99px;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden;width:220px}
+.st-prog i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .3s}
+.st-save{position:sticky;bottom:18px;z-index:20;display:flex;align-items:center;gap:12px;padding:9px 10px 9px 16px;border-radius:12px;background:var(--sheet);border:1px solid var(--line2);box-shadow:var(--shadow-pop);font-size:13px;margin-top:4px}
+.st-save .tx{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+.st-save .tx b{font-weight:500;color:var(--ink)}
+.st-save .tx small{color:var(--ink3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-save .sp{flex:1}
+.st-save .okc{color:var(--emerald);display:inline-flex}
+.st-save.saved{border-color:color-mix(in srgb,var(--emerald) 40%,transparent)}
+.st-save.error{border-color:color-mix(in srgb,var(--rose) 50%,transparent)}
+.st-save.error .ei{color:var(--rose);display:inline-flex}
+.st-foot{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--ink3);padding:2px 4px}
+.st-chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:6px;font-size:11.5px;color:var(--ink2);background:color-mix(in srgb,var(--ink) 6%,transparent);white-space:nowrap;font-weight:400}
+.st-chip.wait{color:var(--amber-fg);background:var(--amb-s)}
+.st-chips{display:flex;gap:6px;flex-wrap:wrap}
+.st-toast{position:absolute;right:20px;bottom:20px;z-index:60;width:400px;display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:10px;padding:13px 10px 13px 14px;border-radius:12px;background:var(--sheet);border:1px solid color-mix(in srgb,var(--rose) 40%,transparent);box-shadow:var(--shadow-pop);font-size:12.5px;color:var(--ink2);line-height:1.45}
+.st-toast .i{color:var(--rose);display:inline-flex;margin-top:1px}
+.st-toast b{display:block;color:var(--ink);font-weight:600;font-size:13px}
+.st-toast .go{display:inline-flex;align-items:center;gap:6px;margin-top:8px;height:28px;padding:0 10px;border-radius:7px;background:var(--ink);color:var(--on-ink);font-weight:500;font-size:12.5px;text-decoration:none}
+.st-stub{padding:22px 28px;display:flex;flex-direction:column;gap:14px}
+.st-stub h2{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.st-sk{height:10px;border-radius:6px;background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.st-skc{border:1px solid var(--line);border-radius:10px;background:var(--p1);padding:14px;display:flex;flex-direction:column;gap:9px}
+.st-pr{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:12px 14px;border-radius:10px;background:var(--p1);border:1px solid color-mix(in srgb,var(--rose) 35%,transparent);align-items:center}
+.st-pr b{font-weight:500;color:var(--ink)}
+.st-pr small{display:block;color:var(--rose);font-size:12px}
+.st-selw{position:relative;display:flex;flex-direction:column;gap:4px}
+.st-selw .pre{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.st-nsel{appearance:none;-webkit-appearance:none;width:100%;height:40px;padding:0 36px 0 12px;border-radius:10px;border:1px solid var(--line2);background:var(--p1);color:var(--ink);font:inherit;font-size:14px;font-weight:500;outline:none}
+.st-nsel:focus{border-color:var(--ink2);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 12%,transparent)}
+.st-selw>svg{position:absolute;right:12px;bottom:13px;pointer-events:none;color:var(--ink3)}
+.st-ancsel .st-nsel{height:34px;font-size:13px;font-weight:400;background:var(--bg)}
+.st-ancsel>svg{bottom:10px}
+.st-narsel{display:grid;grid-template-columns:auto minmax(0,260px);gap:10px;align-items:center}
+.st-narsel .pre{white-space:nowrap}
+.st-plist{display:flex;flex-direction:column;gap:8px;padding:2px 16px 16px}
+.st-pi{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 12px 12px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--bg)}
+.st-pi>input{accent-color:var(--ink);width:16px;height:16px;margin:10px 0 0;cursor:pointer}
+.st-pi.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.st-pi.edit{grid-template-columns:minmax(0,1fr);border-color:var(--ink2);background:var(--p1)}
+.st-pl{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:start;cursor:pointer;min-width:0}
+.st-av{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--p3);border:1px solid var(--line2);font-weight:600;font-size:14px;color:var(--ink)}
+.st-pt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.st-pt .n{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.st-pt .d{font-size:12.5px;color:var(--ink2);text-wrap:pretty}
+.st-pt .q{font-size:12px;color:var(--ink3);font-style:italic;margin-top:3px;text-wrap:pretty}
+.st-pa2{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.st-pih{display:flex;align-items:center;gap:12px;font-size:13.5px;color:var(--ink)}
+.st-pform{display:flex;flex-direction:column;gap:12px}
+.st-pform label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--ink2);font-weight:500;min-width:0}
+.st-pform label small{font-weight:400;color:var(--ink3)}
+.st-pf2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:12px}
+.st-ta{height:auto;padding:8px 10px;line-height:1.5;resize:vertical;font-size:13px}
+.st-pfa{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.st-hm{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3)}
+.st-hm .st-in[type=number]{width:56px}
+.ph .st-pi{grid-template-columns:18px minmax(0,1fr)}
+.ph .st-pi .st-pa2{grid-column:2;justify-content:flex-start}
+.ph .st-pf2{grid-template-columns:1fr}
+.ph .st-pl{grid-template-columns:minmax(0,1fr)}
+.ph .st-pl .st-av{display:none}
+/* phone */
+.ph{display:flex;flex-direction:column}
+.ph .st-pscroll{flex:1;min-height:0;overflow-y:auto;position:relative}
+.ph .st-mnav{display:flex;flex-direction:column;gap:10px;padding:14px 14px 6px}
+.ph .st-main{padding:4px 12px 140px;gap:12px}
+.ph .st-hd h1{font-size:20px}
+.ph .st-hd p{font-size:13px}
+.ph .st-cards,.ph .st-grid2,.ph .st-cards.two{grid-template-columns:1fr}
+.ph .st-row{padding:12px 14px}
+.ph .st-row .lb{flex-basis:200px}
+.ph .st-note{margin-left:14px;margin-right:14px;grid-template-columns:18px minmax(0,1fr)}
+.ph .st-note .ac{grid-column:2;justify-content:flex-start}
+.ph .st-chk{grid-template-columns:1fr}
+.ph .st-mx td small{display:none}
+.ph .st-mx th{font-size:11px;padding:8px 2px}
+.ph .st-save{position:absolute;left:10px;right:10px;bottom:24px;margin:0}
+.ph .st-recrow .ct{justify-content:flex-start;margin-left:0}
+/* doc views */
+.st-doc{width:1440px;max-width:calc(100% - 40px);margin:26px auto 80px}
+.st-doc h2.h{font-size:22px;font-weight:600;letter-spacing:-.02em;margin:34px 0 6px;color:var(--ink)}
+.st-doc p.lead{color:var(--ink2);font-size:14px;max-width:820px;margin:0 0 16px;text-wrap:pretty}
+.st-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+.st-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.st-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:start}
+.st-lbl{font-family:'Geist Mono';font-size:11px;color:var(--ink3);margin:0 0 6px 2px;letter-spacing:.02em}
+.st-ann{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:40px;align-items:start}
+.st-ann ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:13px;color:var(--ink2);line-height:1.55}
+.st-ann li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px}
+.st-ann li b{color:var(--ink);font-weight:500}
+.st-n{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;font-family:'Geist Mono';font-size:11px;font-weight:600;background:var(--ink);color:var(--on-ink)}
+.st-pin{position:relative}
+.st-pin>.st-n{position:absolute;z-index:3;box-shadow:0 0 0 3px var(--canvas)}
+.st-cs{display:grid;grid-template-columns:repeat(2,380px);gap:24px}
+.spec .st-tg{display:inline-block;font-size:11px;font-weight:500;padding:1px 6px;border-radius:5px;white-space:nowrap}
+.st-tg.moved{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+.st-tg.merged{background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)}
+.st-tg.new{background:color-mix(in srgb,var(--emerald) 14%,transparent);color:var(--emerald)}
+.st-tg.kept{background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink2)}
+.st-tg.renamed{background:var(--amb-s);color:var(--amber-fg)}
+.st-pages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:14px 0 6px}
+.st-pages>div{border:1px solid var(--line);border-radius:12px;background:var(--p1);padding:14px;font-size:12.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px}
+.st-pages b{color:var(--ink);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.st-pages i{font-style:normal;color:var(--ink3)}
+.st-pages ul{margin:6px 0 0;padding-left:16px}
+.st-pages li{margin:2px 0}
+.st-pages .new{border-color:color-mix(in srgb,var(--emerald) 40%,transparent)}
+.st-intro{padding:28px 0 4px}
+.st-intro h2{font-size:26px;font-weight:500;letter-spacing:-.03em;margin:0 0 6px}
+.st-intro p{color:var(--ink2);font-size:14px;max-width:860px;margin:0;text-wrap:pretty}
+@media (prefers-reduced-motion:reduce){.st-spin svg,.st-recbox i{animation:none}}
+</style>
+</helmet>
+<div class="bz" data-theme="{{ theme }}">
+  <nav class="vt" aria-label="Views">
+    <span class="lbl">ZibbyOS · settings</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="10">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <span style="flex:1"></span>
+    <div class="seg" role="group" aria-label="Scenario" style="margin-right:6px">
+      <sc-for list="{{ scens }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <div class="seg" role="group" aria-label="Language" style="margin-right:6px">
+      <sc-for list="{{ langs }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <div class="seg" role="group" aria-label="Theme">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+  {{ page }}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"tsType":"string","section":"View"},"lang":{"editor":"enum","default":"en","options":["en","cs"],"tsType":"string","section":"View"},"view":{"editor":"enum","default":"access","options":["general","access","engines","runtime","status","narrow","phone","entry","grammar","map"],"tsType":"string","section":"View"}}'>
+class Component extends DCLogic {
+  RTB = { awake: true, clone: '~/Code/zibby-clones', sch: { planner: 5, channels: 2, ci: 5, auto: 1, limit: 15, roadmap: 360 }, maxRuns: 3, maxCycles: 3, dock: 8, autoResume: true, cOc: 80, cCl: 92 };
+  RT0 = { awake: true, clone: '~/Code/zibby-clones', sch: { planner: 90, channels: 2, ci: 5, auto: 1, limit: 15, roadmap: 360 }, maxRuns: 4, maxCycles: 3, dock: 8, autoResume: true, cOc: 80, cCl: 92 };
+  PERS0 = [{ id: 'jarvis', builtin: true }, { id: 'concise', builtin: true }, { id: 'pro', builtin: true }, { id: 'c1', name: 'Standup', desc: 'Bullets: done, next, blocked. Good for morning check-ins.', prompt: 'Answer as three short bullet groups: Done, Next, Blocked. No greetings. Numbers and names over adjectives.', sample: '• Done: 3 PRs merged • Next: deploy acme-web • Blocked: CI on billing' }];
+  LOG0 = { tasks: 'v', runs: 'v', workflows: 'g', goals: 'v', approvals: 'v', channels: 'g', integrations: 'h', briefing: 'v' };
+  EV0 = { pr: true, review: true, run: false, approval: true, parked: true, budget: true, ci: true, brief: true, auto: false };
+  cl = o => JSON.parse(JSON.stringify(o));
+  state = {
+    view: null, theme: null, lang: null, pref: 'system', motion: false,
+    combo: ['⌘', 'Space'], rec: false, recMsg: null, hold: true, persona: 'jarvis', personas: this.cl(this.PERS0), pEdit: null, pDraft: null, pDel: null, logOpen: true, log: Object.assign({}, this.LOG0),
+    token: true, tokDraft: '', tokShow: false, hl: null, slack: true, slackOn: true, ev: Object.assign({}, this.EV0), tested: false, push: 'on',
+    eng: 'claude', ocOpen: false, ocModel: 'openrouter/qwen3-coder:free', oa: true, oaDraft: '', oaDel: false, bc: true, bcRefresh: false,
+    rt: this.cl(this.RT0), base: this.cl(this.RTB), save: 'idle', saving: null, savedAt: '', restart: false,
+    upd: 'avail', checking: false, dev: true, anc: {}
+  };
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  pd = e => { if (e && e.preventDefault) e.preventDefault(); };
+  lang() { return this.state.lang || this.props.lang || 'en'; }
+  t = (en, cs) => (this.lang() === 'cs' ? cs : en);
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  view() { return this.state.view || this.props.view || 'access'; }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); clearTimeout(this.t3); clearTimeout(this.t4); }
+
+  P = {
+    dash: ['M4 4h7v7H4z', 'M13 4h7v4h-7z', 'M13 10h7v10h-7z', 'M4 13h7v7H4z'],
+    work: ['M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z', 'M8.5 12l2.5 2.5 5-5'],
+    comp: ['M4 20V6.5L11 4v16', 'M11 20h9V9.5L11 7', 'M3 20h18', 'M7 9h1', 'M7 13h1', 'M7 16.5h1', 'M14.5 12.5h2', 'M14.5 16h2'],
+    team: ['M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M2.5 20a6.5 6.5 0 0 1 13 0', 'M16 4.5a3.5 3.5 0 0 1 0 6.5', 'M18 14a6.5 6.5 0 0 1 3.5 6'],
+    know: ['M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z', 'M5 20.5V5.5', 'M9 7.5h6'],
+    gov: ['M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z', 'M9 12l2 2 4-4'],
+    ai: ['M12 3.5l1.7 4.8 4.8 1.7-4.8 1.7L12 16.5l-1.7-4.8L5.5 10l4.8-1.7z', 'M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z'],
+    gear: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M12 2.5v3', 'M12 18.5v3', 'M4.6 4.6l2.1 2.1', 'M17.3 17.3l2.1 2.1', 'M2.5 12h3', 'M18.5 12h3', 'M4.6 19.4l2.1-2.1', 'M17.3 6.7l2.1-2.1'],
+    sliders: ['M4 7h9', 'M17 7h3', 'M15 5v4', 'M4 17h3', 'M11 17h9', 'M9 15v4'],
+    search: ['M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z', 'M15.5 15.5L20 20'],
+    plus: ['M12 5v14', 'M5 12h14'], minus: ['M5 12h14'],
+    chev: ['M7 10l5 5 5-5'], chevr: ['M10 7l5 5-5 5'], chevl: ['M14 7l-5 5 5 5'],
+    bell: ['M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z', 'M10 20.5a2 2 0 0 0 4 0'],
+    compass: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M9 15l1.8-4.2L15 9l-1.8 4.2z'],
+    up: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 16V8.5', 'M8.8 11.5L12 8.3l3.2 3.2'],
+    sun: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2.5v2', 'M12 19.5v2', 'M2.5 12h2', 'M19.5 12h2', 'M5.3 5.3l1.4 1.4', 'M17.3 17.3l1.4 1.4', 'M5.3 18.7l1.4-1.4', 'M17.3 6.7l1.4-1.4'],
+    moon: ['M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z'],
+    mon: ['M3.5 5h17v11h-17z', 'M9 20h6', 'M12 16v4'],
+    kbd: ['M3 6.5h18v11H3z', 'M7 10h.01', 'M11 10h.01', 'M15 10h.01', 'M8 14h8'],
+    book: ['M4 5.5c2.5-1.5 5.5-1.5 8 0v14c-2.5-1.5-5.5-1.5-8 0z', 'M12 5.5c2.5-1.5 5.5-1.5 8 0v14c-2.5-1.5-5.5-1.5-8 0z'],
+    check: ['M5 12.5l4.5 4.5L19 7.5'], x: ['M6 6l12 12', 'M18 6L6 18'],
+    key: ['M14.5 4.5a5 5 0 1 1-4.2 7.7L4 18.5V20h3v-2h2v-2h2l.6-.6A5 5 0 0 1 14.5 4.5z', 'M16 8.5h.01'],
+    cpu: ['M7 7h10v10H7z', 'M10 10h4v4h-4z', 'M10 3.5V7', 'M14 3.5V7', 'M10 17v3.5', 'M14 17v3.5', 'M3.5 10H7', 'M3.5 14H7', 'M17 10h3.5', 'M17 14h3.5'],
+    pulse: ['M3 12h4l2.5-6 5 12 2.5-6h4'],
+    eye: ['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z'],
+    eyeoff: ['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z', 'M4 4l16 16'],
+    warn: ['M12 4l9 16H3z', 'M12 10v4', 'M12 17h.01'],
+    info: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 11v5', 'M12 8h.01'],
+    errc: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M9 9l6 6', 'M15 9l-6 6'],
+    refresh: ['M19.5 11A7.5 7.5 0 0 0 6 7L4 9', 'M4 4.5V9h4.5', 'M4.5 13A7.5 7.5 0 0 0 18 17l2-2', 'M20 19.5V15h-4.5'],
+    copy: ['M8.5 8.5h11v11h-11z', 'M5 15.5V4.5h11'],
+    send: ['M4 12l16-8-6 16-3-7z', 'M11 13l9-9'],
+    phone: ['M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', 'M11 18h2'],
+    lock: ['M6 11h12v9H6z', 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3'],
+    branch: ['M7 4v11', 'M7 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M17 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M17 10c0 4-10 2-10 6'],
+    down: ['M12 4v11', 'M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
+    trash: ['M5 7h14', 'M10 7V4.5h4V7', 'M7 7l1 13h8l1-13'],
+    rec: ['M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z'],
+    reset: ['M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9', 'M4.5 4.5V9H9'],
+    ext: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v6H4V6h6'],
+    term: ['M4 5h16v14H4z', 'M7.5 9.5l3 2.5-3 2.5', 'M12.5 15h4'],
+    hash: ['M5 9h15', 'M4 15h15', 'M10 4L8 20', 'M16 4l-2 16'],
+    mic: ['M12 3.5a2.5 2.5 0 0 0-2.5 2.5v6a2.5 2.5 0 0 0 5 0V6A2.5 2.5 0 0 0 12 3.5z', 'M6.5 11.5a5.5 5.5 0 0 0 11 0', 'M12 17v3.5'],
+    updown: ['M8 9.5l4-4 4 4', 'M8 14.5l4 4 4-4'],
+    log: ['M8 6h12', 'M8 12h12', 'M8 18h12', 'M4 6h.01', 'M4 12h.01', 'M4 18h.01'],
+    chat: ['M4 5h16v11H9l-5 4z'],
+    edit: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4']
+  };
+  ic(n, s, sw) { const h = this.h; s = s || 16; if (n === 'spin') return h('span', { className: 'st-spin' }, this.ic('refresh', s, sw)); return h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: sw || 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', flex: 'none' } }, (this.P[n] || []).map((d, i) => h('path', { d, key: i }))); }
+  mark(size, st) {
+    const h = this.h, col = { idle: 'var(--ink3)', working: 'var(--violet)', needs: 'var(--amber)' }[st || 'working'];
+    const wing = d => h('path', { d, fill: 'currentColor', stroke: 'currentColor', strokeWidth: 6, strokeLinejoin: 'round' });
+    return h('svg', { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', overflow: 'visible', flex: 'none' } },
+      wing('M8 16L28.5 30V34L8 48Z'), wing('M56 16L35.5 30V34L56 48Z'),
+      h('circle', { cx: 32, cy: 32, r: 9.2, fill: 'var(--p1)' }),
+      h('circle', { cx: 32, cy: 32, r: 6.6, fill: col, className: st === 'idle' ? null : 'tc-node ' + st }));
+  }
+  ring(p) {
+    const h = this.h, r = 6, C = 2 * Math.PI * r, hot = p >= 80;
+    return h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true', style: { display: 'block' } },
+      h('circle', { cx: 8, cy: 8, r, fill: 'none', stroke: 'var(--line2)', strokeWidth: 2.2 }),
+      h('circle', { cx: 8, cy: 8, r, fill: 'none', stroke: hot ? 'var(--amber)' : 'var(--ink2)', strokeWidth: 2.2, strokeLinecap: 'round', strokeDasharray: (C * p / 100) + ' ' + C, transform: 'rotate(-90 8 8)' }));
+  }
+  czN(n, a, b, c) { return n === 1 ? a : (n >= 2 && n <= 4 ? b : c); }
+
+  // ================= primitives =================
+  sw(on, onClick, label, o) { o = o || {}; return this.h('button', { type: 'button', className: 'st-sw', role: 'switch', 'aria-checked': !!on, 'aria-label': label, 'aria-describedby': o.desc, id: o.id, disabled: !!o.dis, onClick: o.dis ? undefined : onClick }); }
+  seg(opts, cur, pick, label, o) {
+    const h = this.h; o = o || {};
+    return h('div', { className: 'seg st-seg' + (o.sm ? ' sm' : ''), role: 'radiogroup', 'aria-label': label },
+      opts.map(([k, l, icn], i) => h('button', { type: 'button', key: k, role: 'radio', 'aria-checked': cur === k, tabIndex: cur === k ? 0 : -1, disabled: !!o.dis, onClick: o.dis ? undefined : () => pick(k), onKeyDown: e => this.segKey(e, opts, cur, pick) }, icn ? this.ic(icn, 14) : null, l)));
+  }
+  segKey(e, opts, cur, pick) {
+    const i = Math.max(0, opts.findIndex(x => x[0] === cur)); let j = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % opts.length;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + opts.length) % opts.length;
+    if (j === null) return; e.preventDefault(); pick(opts[j][0]);
+    const sib = e.currentTarget.parentNode && e.currentTarget.parentNode.children[j]; if (sib) setTimeout(() => sib.focus(), 0);
+  }
+  btn(label, o) { const h = this.h; o = o || {}; return h('button', { type: 'button', key: o.key, className: 'btn ' + (o.k || ''), onClick: o.dis ? undefined : (o.on || this.pd), disabled: !!o.dis, 'aria-label': o.al, 'aria-pressed': o.pressed, onKeyDown: o.kd, id: o.id }, o.ic ? this.ic(o.ic, 14, o.ic === 'plus' || o.ic === 'check' ? 2 : null) : null, label); }
+  bdg(k, txt) { return this.h('span', { className: 'bdg ' + k }, txt); }
+  note(k, icn, body, acts, o) { const h = this.h; o = o || {}; return h('div', { className: 'st-note ' + k + (o.top ? ' top' : ''), role: o.role }, h('span', { className: 'i' }, this.ic(icn, 16)), h('div', null, body), acts ? h('div', { className: 'ac' }, acts) : h('span')); }
+  inp(o) { return this.h('input', { className: 'st-in' + (o.mono ? ' mono' : '') + (o.chg ? ' chg' : ''), id: o.id, type: o.type || 'text', value: o.v, placeholder: o.ph, onChange: o.on || (() => {}), readOnly: !o.on, disabled: !!o.dis, 'aria-describedby': o.desc, 'aria-label': o.al, style: o.w ? { width: o.w } : null, min: o.min, max: o.max, autoComplete: 'off', spellCheck: false, autoFocus: o.af }); }
+  code(txt) { return this.h('code', { className: 'st-code' }, txt); }
+  cmd(txt) { const h = this.h; return h('div', { className: 'st-cmd' }, h('span', { className: 'p', 'aria-hidden': 'true' }, '$'), h('code', null, txt), h('button', { type: 'button', className: 'tc-ib', 'aria-label': this.t('Copy command', 'Kopírovat příkaz'), title: this.t('Copy', 'Kopírovat') }, this.ic('copy', 14))); }
+  fid(id) { return this.pfx + '-' + id; }
+  row(label, hint, ctl, o) {
+    const h = this.h; o = o || {}; const id = o.id ? this.fid(o.id) : null;
+    return h('div', { className: 'st-row' + (o.dis ? ' dis' : '') + (o.stack ? ' stack' : '') + (o.chg ? ' chg' : '') + (o.cls ? ' ' + o.cls : ''), key: o.key },
+      h('div', { className: 'lb' }, h(id && !o.noFor ? 'label' : 'span', { className: 'l', htmlFor: id && !o.noFor ? id : undefined, id: id ? id + '-l' : undefined }, label, o.tag || null), hint ? h('small', { id: id ? id + '-h' : undefined }, hint) : null),
+      h('div', { className: 'ct' }, ctl));
+  }
+  panel(id, title, hint, body, o) {
+    const h = this.h; o = o || {};
+    return h('section', { className: 'st-pnl ' + (o.cls || ''), id: this.fid('p-' + id), 'aria-labelledby': this.fid('h-' + id), key: id, 'aria-busy': o.busy || undefined },
+      o.head || h('div', { className: 'st-phd' }, h('div', { className: 'tt' }, h('h2', { id: this.fid('h-' + id) }, title, o.badge || null), hint ? h('p', null, hint) : null), o.acts ? h('div', { className: 'st-pa' }, o.acts) : null),
+      body);
+  }
+
+  // ================= chrome =================
+  SECS = [['dashboard', 'Dashboard', 'Přehled', 'dash'], ['work', 'Work', 'Práce', 'work'], ['portfolio', 'Portfolio', 'Portfolio', 'comp'], ['workforce', 'Workforce', 'Tým', 'team'], ['knowledge', 'Knowledge', 'Znalosti', 'know'], ['governance', 'Governance', 'Pravidla', 'gov']];
+  header(o) {
+    const h = this.h, t = this.t, lv = o.lv || 0, S = this.state;
+    const A = h('div', { className: 'tc-zw' },
+      h('a', { href: '#', className: 'tc-brand', 'aria-label': t('ZibbyOS, go to Dashboard', 'ZibbyOS, přejít na Přehled'), onClick: this.pd }, this.mark(22, !S.token ? 'needs' : 'working'), lv < 1 ? h('span', { className: 'tc-wm' }, 'ZibbyOS') : null),
+      h('nav', { 'aria-label': t('Sections', 'Sekce') }, h('div', { className: 'tc-sec' }, this.SECS.map(([id, en, cs, icn]) => {
+        const io = lv >= 1, cur = o.sec === id;
+        return h('a', { href: '#', key: id, className: io && !cur ? 'io' : null, 'aria-current': cur ? 'page' : undefined, title: io ? t(en, cs) : undefined, 'aria-label': io && !cur ? t(en, cs) : undefined, onClick: this.pd, style: cur ? { color: 'var(--ink)', background: 'var(--p3)', boxShadow: '0 0 0 1px var(--line2)' } : null }, this.ic(icn, 15), io && !cur ? null : t(en, cs), id === 'dashboard' && !S.token ? h('span', { className: 'att', 'aria-hidden': 'true' }) : null);
+      }))));
+    const B = h('div', { className: 'tc-zw tc-z' },
+      h('button', { type: 'button', className: 'tc-cmd', 'aria-label': t('Search and commands, ⌘K', 'Hledat a příkazy, ⌘K'), onClick: () => this.setState({ view: 'entry' }) }, this.ic('search', 14), lv < 1 ? h('span', null, t('Search', 'Hledat')) : null, h('span', { className: 'kbd' }, '⌘K')),
+      h('button', { type: 'button', className: 'tc-new' + (lv >= 1 ? ' io' : ''), 'aria-label': t('Create', 'Vytvořit') }, this.ic('plus', 14, 2.2), lv < 1 ? t('New', 'Nový') : null, lv < 1 ? h('span', { className: 'cv' }, this.ic('chev', 12, 2)) : null),
+      h('button', { type: 'button', className: 'tc-zib', 'aria-label': t('Ask Zibby, ⌘J', 'Zeptat se Zibbyho, ⌘J') }, h('span', { className: 'tc-orb', style: { width: 18, height: 18 }, 'aria-hidden': 'true' }), 'Zibby'));
+    const C = h('div', { className: 'tc-zw tc-z' },
+      h('button', { type: 'button', className: 'tc-stat', 'aria-label': t('3 agents working. Usage 62% and 41%. Update available. Open system status', '3 agenti pracují. Využití 62 % a 41 %. Je dostupná aktualizace. Otevřít stav systému') },
+        h('span', { className: 'dot working', style: { width: 7, height: 7 } }), h('span', { className: 'n' }, '3'), h('span', { className: 'rings' }, lv < 1 ? [this.ring(62), this.ring(41)] : this.ring(62)), S.upd === 'avail' ? h('span', { className: 'tc-upd' }, this.ic('up', 13, 2)) : null),
+      h('div', { className: 'tc-mode', role: 'group', 'aria-label': t('Operating mode', 'Režim') },
+        lv < 1 ? h('button', { type: 'button', 'aria-label': t('AI engine: ', 'AI engine: ') + (S.eng === 'claude' ? 'Claude' : 'opencode') }, h('span', { className: 'tc-eng', 'aria-hidden': 'true' }, S.eng === 'claude' ? 'Cl' : 'oc'), this.ic('chev', 11, 2)) : null,
+        h('button', { type: 'button', 'aria-pressed': false }, this.ic('compass', 14), lv < 1 ? t('Approve', 'Schvalovat') : null)),
+      h('button', { type: 'button', className: 'tc-ib tc-bell', 'aria-label': t('Notifications, 5 unread', 'Oznámení, 5 nepřečtených') }, this.ic('bell', 17), h('b', { 'aria-hidden': 'true' }, '5')),
+      h('span', { className: 'tc-anc' },
+        h('button', { type: 'button', className: 'tc-ib' + (o.inSettings ? ' on' : ''), 'aria-haspopup': 'menu', 'aria-expanded': !!o.menu, 'aria-label': t('Preferences and settings', 'Předvolby a nastavení') + (o.inSettings ? t(', current', ', aktuální') : ''), title: t('Preferences & settings (⌘,)', 'Předvolby a nastavení (⌘,)') }, this.ic('sliders', 17)),
+        o.menu ? this.acctPop() : null));
+    return h('header', { className: 'tc-h' }, A, h('span', { className: 'tc-sp' }), B, h('span', { className: 'tc-div', 'aria-hidden': 'true' }), C);
+  }
+  acctPop() {
+    const h = this.h, t = this.t, S = this.state;
+    return h('div', { className: 'tc-pop', role: 'menu', 'aria-label': t('Preferences and settings', 'Předvolby a nastavení'), style: { width: 300 } },
+      h('div', { className: 'tc-ph' }, t('Preferences', 'Předvolby')),
+      h('div', { className: 'tc-mrow' }, h('span', null, t('Theme', 'Motiv')), this.seg([['system', null, 'mon'], ['light', null, 'sun'], ['dark', null, 'moon']], S.pref, k => this.setPref(k), t('Theme', 'Motiv'), { sm: true })),
+      h('div', { className: 'tc-mrow' }, h('span', null, t('Language', 'Jazyk')), this.seg([['en', 'EN'], ['cs', 'CS']], this.lang(), k => this.setState({ lang: k }), t('Language', 'Jazyk'), { sm: true })),
+      h('div', { className: 'tc-sep' }),
+      h('a', { href: '#', className: 'tc-mi hl', role: 'menuitem', onClick: e => { this.pd(e); this.setState({ view: 'general' }); } }, h('span', { className: 'ico' }, this.ic('gear', 15)), h('span', null, t('Settings', 'Nastavení')), !S.token ? h('span', { className: 'bdg wait nd', style: { marginLeft: 'auto', height: 18, fontSize: 10.5 } }, t('Token missing', 'Chybí token')) : null, h('span', { className: 'kbd', style: { marginLeft: S.token ? 'auto' : 6 } }, '⌘,')),
+      h('a', { href: '#', className: 'tc-mi', role: 'menuitem', onClick: this.pd }, h('span', { className: 'ico' }, this.ic('kbd', 15)), h('span', null, t('Keyboard shortcuts', 'Klávesové zkratky')), h('span', { className: 'kbd k' }, '?')),
+      h('a', { href: '#', className: 'tc-mi', role: 'menuitem', onClick: this.pd }, h('span', { className: 'ico' }, this.ic('book', 15)), h('span', null, t('Documentation', 'Dokumentace'))),
+      h('div', { className: 'tc-sep' }),
+      h('div', { className: 'tc-mfoot' }, 'zibby.local · v1.1.2'));
+  }
+  ctx(page) {
+    const h = this.h, t = this.t, P = this.PG(page);
+    return h('div', { className: 'tc-ctx' }, h('nav', { className: 'tc-crumbs', 'aria-label': t('Breadcrumb', 'Drobečková navigace') }, h('ol', null,
+      h('li', null, h('a', { href: '#', onClick: e => { this.pd(e); this.setState({ view: 'general' }); } }, this.ic('gear', 14), t('Settings', 'Nastavení'))),
+      h('li', null, h('span', { className: 'sl', 'aria-hidden': 'true' }, '›'), h('span', { 'aria-current': 'page' }, t(P.en, P.cs))))),
+      h('span', { className: 'tc-sp' }),
+      h('span', { className: 'st-dim', style: { display: 'inline-flex', gap: 6, alignItems: 'center' } }, t('Switches apply instantly · fields save with', 'Přepínače platí hned · pole se ukládají'), h('span', { className: 'kbd' }, '⌘S')));
+  }
+  setPref(k) { this.setState({ pref: k }); if (k !== 'system') this.setTheme(k); }
+
+  // ================= pages =================
+  PAGES = [
+    { id: 'general', en: 'General', cs: 'Obecné', icon: 'sliders', q: ['How do I want ZibbyOS to look and feel?', 'Jak má ZibbyOS vypadat a jak se má chovat?'] },
+    { id: 'access', en: 'Access & notifications', cs: 'Přístup a oznámení', icon: 'key', q: ['How does Zibby reach me, and how do I prove it’s me?', 'Jak mě Zibby zastihne a jak prokážu, že jsem to já?'] },
+    { id: 'engines', en: 'AI engines', cs: 'AI enginy', icon: 'ai', q: ['Which brain runs the agents?', 'Který mozek pohání agenty?'] },
+    { id: 'runtime', en: 'Runtime', cs: 'Runtime', icon: 'cpu', q: ['How does this machine run?', 'Jak tenhle stroj běží?'] },
+    { id: 'status', en: 'Status & updates', cs: 'Stav a aktualizace', icon: 'pulse', q: ['Is everything healthy, and what version am I on?', 'Je všechno v pořádku a jakou verzi mám?'] }
+  ];
+  PG(id) { return this.PAGES.find(p => p.id === id) || this.PAGES[0]; }
+
+  // ---------- General ----------
+  COLL = { '⌘ Space': ['Spotlight on macOS', 'Spotlight v macOS'], '⌃ Space': ['input-source switching on macOS', 'přepínání vstupních zdrojů v macOS'], '⌘ Tab': ['the app switcher', 'přepínač aplikací'], '⌘ Q': ['Quit in every app', 'Ukončit v každé aplikaci'], '⌘ W': ['Close tab in the browser', 'Zavřít panel v prohlížeči'], '⌘ L': ['the browser address bar', 'adresní řádek prohlížeče'], '⌘ K': ['the ZibbyOS command palette', 'paletu příkazů ZibbyOS'], '⌘ J': ['Ask Zibby in the header', 'Zeptat se Zibbyho v hlavičce'], '⌘ ,': ['Settings', 'Nastavení'] };
+  KN = { '⌘': 'Command', '⌥': 'Option', '⌃': 'Control', '⇧': 'Shift' };
+  keys(c) { const h = this.h, t = this.t; const lab = k => (k === 'Space' ? t('Space', 'Mezerník') : k); return h('span', { className: 'st-keys', role: 'img', 'aria-label': c.map(k => this.KN[k] || lab(k)).join(' ') }, c.map((k, i) => h('kbd', { key: i, className: 'st-key' }, lab(k)))); }
+  recKey = e => {
+    if (!this.state.rec) return;
+    if (e.key === 'Tab') { this.setState({ rec: false, recMsg: null }); return; }
+    e.preventDefault();
+    if (e.key === 'Escape') { this.setState({ rec: false, recMsg: null }); return; }
+    if (['Meta', 'Control', 'Alt', 'Shift'].indexOf(e.key) >= 0) return;
+    const m = []; if (e.ctrlKey) m.push('⌃'); if (e.altKey) m.push('⌥'); if (e.shiftKey) m.push('⇧'); if (e.metaKey) m.push('⌘');
+    const c = e.code || '';
+    const k = c === 'Space' ? 'Space' : c.indexOf('Key') === 0 ? c.slice(3) : c.indexOf('Digit') === 0 ? c.slice(5) : c === 'Comma' ? ',' : (e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    if (!m.length && !/^F\d+$/.test(k)) { this.setState({ recMsg: 'mod' }); return; }
+    this.setState({ combo: m.concat([k]), rec: false, recMsg: null });
+  };
+  pg_general(m) {
+    const h = this.h, t = this.t, S = this.state, out = [];
+    out.push({ id: 'language', label: t('Language', 'Jazyk'), node: this.panel('language', t('Language', 'Jazyk'), t('Agents still reply in whatever language you write to them.', 'Agenti dál odpovídají jazykem, kterým jim píšeš.'),
+      this.row(t('Interface language', 'Jazyk rozhraní'), t('Labels, dates and number formats. Saved for this browser.', 'Popisky, data a formát čísel. Uloží se pro tento prohlížeč.'), this.seg([['cs', 'Čeština'], ['en', 'English']], this.lang(), k => this.setState({ lang: k }), t('Interface language', 'Jazyk rozhraní')))) });
+    out.push({ id: 'appearance', label: t('Appearance', 'Vzhled'), node: this.panel('appearance', t('Appearance', 'Vzhled'), t('How the interface looks on this device.', 'Jak rozhraní vypadá na tomto zařízení.'), [
+      this.row(t('Theme', 'Motiv'), t('System follows your OS light or dark setting.', 'Systémový se řídí světlým nebo tmavým režimem OS.'), this.seg([['system', t('System', 'Systémový'), 'mon'], ['light', t('Light', 'Světlý'), 'sun'], ['dark', t('Dark', 'Tmavý'), 'moon']], S.pref, k => this.setPref(k), t('Theme', 'Motiv')), { key: 'th' }),
+      this.row(t('Reduce motion', 'Omezit pohyb'), t('Stops status pulses, the summon animation and the splash. Follows the OS until you change it here.', 'Zastaví pulzování stavů, animaci vyvolání a úvodní obrazovku. Dokud to tu nezměníš, řídí se OS.'), this.sw(S.motion, () => this.setState({ motion: !S.motion }), t('Reduce motion', 'Omezit pohyb'), { id: this.fid('motion'), desc: this.fid('motion-h') }), { id: 'motion', key: 'rm' })]) });
+    const combo = S.combo.join(' '), coll = this.COLL[combo];
+    const recBtn = this.btn(S.rec ? t('Recording…', 'Nahrávám…') : t('Record', 'Nahrát'), { ic: 'rec', pressed: !!S.rec, on: () => this.setState({ rec: !S.rec, recMsg: null }), kd: this.recKey, id: this.fid('rec'), al: S.rec ? t('Recording. Press the new combination, Escape cancels', 'Nahrávám. Stiskni novou kombinaci, Esc zruší') : t('Record a new shortcut for Summon Zibby', 'Nahrát novou zkratku pro vyvolání Zibbyho') });
+    out.push({ id: 'shortcuts', label: t('Shortcuts', 'Zkratky'), warn: !!coll, node: this.panel('shortcuts', t('Shortcuts', 'Zkratky'), t('One global key combination brings Zibby up from anywhere in ZibbyOS.', 'Jedna globální kombinace vyvolá Zibbyho odkudkoli v ZibbyOS.'), [
+      this.row(t('Summon Zibby', 'Vyvolat Zibbyho'), t('Works while a ZibbyOS tab or the desktop app is focused.', 'Funguje, když je aktivní panel ZibbyOS nebo desktopová aplikace.'), [
+        S.rec ? h('span', { className: 'st-recbox', key: 'rb', 'aria-live': 'polite' }, h('i', { 'aria-hidden': 'true' }), t('Press keys… Esc cancels', 'Stiskni klávesy… Esc zruší')) : h('span', { key: 'kb' }, this.keys(S.combo)),
+        h('span', { key: 'rb2' }, recBtn),
+        h('span', { key: 'rs' }, this.btn(t('Reset', 'Obnovit'), { k: 'gh', ic: 'reset', dis: combo === '⌥ Z', on: () => this.setState({ combo: ['⌥', 'Z'], rec: false, recMsg: null }), al: t('Reset to default, Option Z', 'Obnovit výchozí, Option Z') }))], { key: 'sz', cls: 'st-recrow' }),
+      S.recMsg === 'mod' ? this.note('err', 'errc', t('Add a modifier: ⌘, ⌥, ⌃ or ⇧. Single keys would fire while you type.', 'Přidej modifikátor: ⌘, ⌥, ⌃ nebo ⇧. Samotná klávesa by se spouštěla při psaní.'), null, { role: 'alert' }) : null,
+      coll && !S.rec ? this.note('wait', 'warn', [h('b', { key: 'b' }, t(combo.replace('Space', 'Space') + ' is already ' + coll[0] + '.', combo.replace('Space', 'Mezerník') + ' už používá ' + coll[1] + '.')), ' ', t('The OS or browser gets it first, so Zibby never sees it.', 'OS nebo prohlížeč ji dostane dřív, takže ji Zibby nikdy neuvidí.')],
+        [this.btn(t('Record another', 'Nahrát jinou'), { k: 'sm', key: 'r', on: () => this.setState({ rec: true }) }), this.btn(t('Keep anyway', 'Ponechat'), { k: 'sm gh', key: 'k' })], { role: 'status' }) : null,
+      this.row(t('Hold to talk', 'Podržením mluvit'), t('Tap the shortcut to open the chat. Hold it to talk; release to send.', 'Klepnutím otevřeš chat. Podržením mluvíš, puštěním odešleš.'), this.sw(S.hold, () => this.setState({ hold: !S.hold }), t('Hold to talk', 'Podržením mluvit'), { id: this.fid('hold'), desc: this.fid('hold-h') }), { id: 'hold', key: 'ht' })]) });
+    out.push({ id: 'persona', label: t('Chat persona', 'Osobnost chatu'), node: this.personaPanel(m) });
+    const G = [['tasks', 'Tasks', 'Úkoly', 'Created, started, done', 'Založení, start, hotovo'], ['runs', 'Runs', 'Běhy', 'Agent runs and steps', 'Běhy agentů a kroky'], ['workflows', 'Workflows', 'Workflow', 'Phase changes', 'Změny fází'], ['goals', 'Goals', 'Cíle', 'Maker ⇄ verifier rounds', 'Kola tvůrce ⇄ ověřovatele'], ['approvals', 'Approvals', 'Schválení', 'Requests and decisions', 'Žádosti a rozhodnutí'], ['channels', 'Channels', 'Kanály', 'Slack and mail threads', 'Vlákna ze Slacku a pošty'], ['integrations', 'Integrations', 'Integrace', 'Webhooks, syncs, MCP', 'Webhooky, synchronizace, MCP'], ['briefing', 'Briefing', 'Briefing', 'Daily briefing', 'Denní briefing']];
+    const C = [['v', t('Visible', 'Viditelné')], ['g', t('Grouped', 'Seskupené')], ['h', t('Hidden', 'Skryté')]];
+    const cnt = k => Object.keys(S.log).filter(x => S.log[x] === k).length;
+    const sum = cnt('v') + ' ' + t('visible', 'viditelných') + ' · ' + cnt('g') + ' ' + t('grouped', 'seskupených') + ' · ' + cnt('h') + ' ' + t('hidden', 'skrytých');
+    const head = h('button', { type: 'button', className: 'st-tog', 'aria-expanded': !!S.logOpen, 'aria-controls': this.fid('logbody'), onClick: () => this.setState({ logOpen: !S.logOpen }) },
+      h('span', { style: { flex: 1, minWidth: 0 } }, h('h2', { id: this.fid('h-livelog'), style: { fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--ink)', display: 'flex', gap: 8, alignItems: 'center' } }, t('Live log', 'Živý log'), h('span', { className: 'st-chip' }, t('was Activity', 'dříve Aktivita'))), h('span', { style: { display: 'block', fontSize: 12.5, color: 'var(--ink3)', marginTop: 3 } }, t('What shows up in Dashboard › Activity. ', 'Co se ukáže v Přehled › Aktivita. ') + sum)),
+      h('span', { className: 'cv' }, this.ic('chev', 18, 2)));
+    out.push({ id: 'livelog', label: t('Live log', 'Živý log'), node: this.panel('livelog', null, null, S.logOpen ? h('div', { className: 'st-mxw', id: this.fid('logbody') }, h('table', { className: 'st-mx' },
+      h('caption', null, t('Grouped folds bursts into one line, e.g. “Runs · 14 steps in acme-web”.', 'Seskupené složí dávku do jednoho řádku, např. „Běhy · 14 kroků v acme-web“.')),
+      h('thead', null, h('tr', null, h('th', { scope: 'col' }, t('Event group', 'Skupina událostí')), C.map(([k, l]) => h('th', { scope: 'col', key: k }, l)))),
+      h('tbody', null, G.map(([k, en, cs, de, dc]) => h('tr', { key: k }, h('th', { scope: 'row', style: { textAlign: 'left', paddingLeft: 16, color: 'var(--ink)', fontSize: 12.5, fontWeight: 500, whiteSpace: 'normal' } }, t(en, cs), h('small', { style: { display: m === 'phone' ? 'none' : 'block', color: 'var(--ink3)', fontWeight: 400, fontSize: 11.5 } }, t(de, dc))),
+        C.map(([c, l]) => h('td', { key: c }, h('input', { type: 'radio', name: this.fid('log-' + k), checked: S.log[k] === c, onChange: () => this.setState({ log: Object.assign({}, S.log, { [k]: c }) }), 'aria-label': t(en, cs) + ': ' + l })))))))) : null, { head })
+    });
+    return out;
+  }
+
+  PDEF() {
+    const t = this.t;
+    return {
+      jarvis: { name: 'Jarvis', desc: t('Warm butler with a little wit. Leads with what needs you.', 'Vřelý komorník s trochou vtipu. Začne tím, co potřebuje tebe.'), prompt: t('Warm, slightly witty butler. Lead with what needs the operator, then what is handled. Greet Karel by name.', 'Vřelý komorník s lehkým humorem. Nejdřív to, co potřebuje operátor, pak co je vyřízené. Karla oslovuj jménem.'), sample: t('“Good evening, Karel. Two things need you; the rest is handled.”', '„Dobrý večer, Karle. Dvě věci čekají na tebe, zbytek je vyřízený.“') },
+      concise: { name: t('Concise', 'Stručný'), desc: t('Shortest useful answer. No greetings, no recap.', 'Nejkratší užitečná odpověď. Bez pozdravů a shrnutí.'), prompt: t('As few words as possible. No greetings, no recap. Numbers over adjectives.', 'Co nejméně slov. Bez pozdravů a shrnutí. Čísla místo přídavných jmen.'), sample: t('“2 approvals. CI red on acme-web.”', '„2 schválení. CI na acme-web je červené.“') },
+      pro: { name: t('Professional', 'Profesionální'), desc: t('Neutral, complete sentences. Safe for screen-sharing.', 'Neutrální, celé věty. Bezpečné při sdílení obrazovky.'), prompt: t('Neutral tone, complete sentences, no jokes or first names. Assume the screen may be shared.', 'Neutrální tón, celé věty, žádné vtipy ani křestní jména. Počítej s tím, že obrazovku může vidět někdo další.'), sample: t('“Two approvals are pending. The acme-web pipeline failed at 10:42.”', '„Čekají dvě schválení. Pipeline acme-web selhala v 10:42.“') }
+    };
+  }
+  pView(p) { const d = p.builtin ? this.PDEF()[p.id] : {}; return { name: p.name || d.name, desc: p.desc || d.desc, prompt: p.prompt || d.prompt, sample: p.sample || d.sample, edited: p.builtin && !!(p.name || p.desc || p.prompt) }; }
+  pSave() {
+    const S = this.state, d = S.pDraft; if (!d || !d.name.trim()) return;
+    let ps = this.cl(S.personas), sel = S.persona;
+    if (S.pEdit === 'new') { const id = 'c' + Date.now(); ps.push({ id, name: d.name.trim(), desc: d.desc.trim(), prompt: d.prompt.trim(), sample: this.t('Preview after the first reply in this style.', 'Ukázka se objeví po první odpovědi v tomto stylu.') }); sel = id; }
+    else ps = ps.map(p => p.id === S.pEdit ? Object.assign(p, { name: d.name.trim(), desc: d.desc.trim(), prompt: d.prompt.trim() }) : p);
+    this.setState({ personas: ps, persona: sel, pEdit: null, pDraft: null });
+  }
+  personaPanel(m) {
+    const h = this.h, t = this.t, S = this.state;
+    const startEdit = p => { const v = p ? this.pView(p) : { name: '', desc: '', prompt: '' }; this.setState({ pEdit: p ? p.id : 'new', pDraft: { name: v.name, desc: v.desc, prompt: v.prompt }, pDel: null }); };
+    const D = S.pDraft || {}, setD = k => e => this.setState({ pDraft: Object.assign({}, S.pDraft, { [k]: e.target.value }) });
+    const form = (isNew, p) => h('div', { className: 'st-pform', key: 'f' },
+      h('div', { className: 'st-pf2' },
+        h('label', null, h('span', null, t('Name', 'Název')), h('input', { className: 'st-in', value: D.name || '', onChange: setD('name'), placeholder: t('e.g. Standup', 'např. Standup'), autoFocus: true })),
+        h('label', null, h('span', null, t('One-line description', 'Popis na jeden řádek')), h('input', { className: 'st-in', value: D.desc || '', onChange: setD('desc'), placeholder: t('Shown under the name', 'Zobrazí se pod názvem') }))),
+      h('label', null, h('span', null, t('How Zibby should talk', 'Jak má Zibby mluvit')), h('textarea', { className: 'st-in st-ta', rows: 3, value: D.prompt || '', onChange: setD('prompt'), placeholder: t('Tone, length, what to lead with, words to avoid…', 'Tón, délka, čím začít, jakým slovům se vyhnout…') }), h('small', null, t('Style only. Facts, approvals and agent work are not affected.', 'Jen styl. Fakta, schvalování ani práce agentů se nemění.'))),
+      h('div', { className: 'st-pfa' },
+        p && p.builtin && this.pView(p).edited ? this.btn(t('Reset to default', 'Obnovit výchozí'), { k: 'sm gh', ic: 'reset', key: 'r', on: () => this.setState({ personas: S.personas.map(x => x.id === p.id ? { id: x.id, builtin: true } : x), pEdit: null, pDraft: null }) }) : null,
+        h('span', { style: { flex: 1 }, key: 's' }),
+        this.btn(t('Cancel', 'Zrušit'), { k: 'sm gh', key: 'c', on: () => this.setState({ pEdit: null, pDraft: null }) }),
+        this.btn(isNew ? t('Add persona', 'Přidat osobnost') : t('Save persona', 'Uložit osobnost'), { k: 'sm ink', key: 'o', dis: !(D.name || '').trim(), on: () => this.pSave() })));
+    const rows = S.personas.map(p => {
+      const v = this.pView(p), on = S.persona === p.id, id = this.fid('pr-' + p.id);
+      if (S.pEdit === p.id) return h('div', { key: p.id, className: 'st-pi edit' }, h('div', { className: 'st-pih' }, h('span', { className: 'st-av' }, (D.name || v.name || '?').charAt(0).toUpperCase()), h('b', null, t('Edit persona', 'Upravit osobnost'))), form(false, p));
+      return h('div', { key: p.id, className: 'st-pi' + (on ? ' on' : '') },
+        h('input', { type: 'radio', id, name: this.fid('persona'), checked: on, onChange: () => this.setState({ persona: p.id }), 'aria-describedby': id + '-d' }),
+        h('label', { htmlFor: id, className: 'st-pl' },
+          h('span', { className: 'st-av', 'aria-hidden': 'true' }, v.name.charAt(0).toUpperCase()),
+          h('span', { className: 'st-pt' },
+            h('span', { className: 'n' }, v.name, p.builtin ? h('span', { className: 'st-chip' }, v.edited ? t('Built-in · edited', 'Vestavěná · upravená') : t('Built-in', 'Vestavěná')) : h('span', { className: 'st-chip' }, t('Custom', 'Vlastní')), on ? h('span', { className: 'bdg ok' }, t('In use', 'Používá se')) : null),
+            h('span', { className: 'd', id: id + '-d' }, v.desc),
+            h('span', { className: 'q' }, v.sample))),
+        S.pDel === p.id
+          ? h('div', { className: 'st-pa2', role: 'alertdialog', 'aria-label': t('Delete persona', 'Smazat osobnost') }, h('span', { className: 'st-dim' }, t('Delete?', 'Smazat?')), this.btn(t('Cancel', 'Zrušit'), { k: 'sm gh', key: 'c', on: () => this.setState({ pDel: null }) }), this.btn(t('Delete', 'Smazat'), { k: 'sm dangerf', key: 'd', on: () => this.setState({ personas: S.personas.filter(x => x.id !== p.id), persona: on ? 'jarvis' : S.persona, pDel: null }) }))
+          : h('div', { className: 'st-pa2' },
+            this.btn(t('Edit', 'Upravit'), { k: 'sm gh', ic: 'edit', key: 'e', al: t('Edit ', 'Upravit ') + v.name, on: () => startEdit(p) }),
+            p.builtin ? null : h('button', { type: 'button', key: 'x', className: 'tc-ib', style: { width: 26, height: 26 }, 'aria-label': t('Delete ', 'Smazat ') + v.name, onClick: () => this.setState({ pDel: p.id }) }, this.ic('trash', 14))));
+    });
+    return this.panel('persona', t('Chat persona', 'Osobnost chatu'), t('How Zibby talks to you in chat, voice and briefings. Agents’ work is unaffected.', 'Jak s tebou Zibby mluví v chatu, hlasem a v briefinzích. Práci agentů to neovlivní.'), [
+      h('div', { className: 'st-plist', role: 'radiogroup', 'aria-label': t('Chat persona', 'Osobnost chatu'), key: 'l' }, rows,
+        S.pEdit === 'new' ? h('div', { key: 'new', className: 'st-pi edit' }, h('div', { className: 'st-pih' }, h('span', { className: 'st-av' }, (D.name || '+').charAt(0).toUpperCase()), h('b', null, t('New persona', 'Nová osobnost'))), form(true, null)) : null)
+    ], { acts: S.pEdit ? null : this.btn(t('New persona', 'Nová osobnost'), { k: 'sm', ic: 'plus', on: () => startEdit(null) }) });
+  }
+
+  // ---------- Access ----------
+  pushState() { return !this.state.token ? 'token' : this.state.push; }
+  pushView(ps, o) {
+    const h = this.h, t = this.t; o = o || {};
+    const B = { on: ['ok', t('On', 'Zapnuto')], off: ['off', t('Off', 'Vypnuto')], token: ['wait', t('Token required', 'Vyžaduje token')], blocked: ['err', t('Blocked by browser', 'Blokováno prohlížečem')], unsupported: ['off', t('Not supported here', 'Zde nepodporováno')] }[ps];
+    const hint = { on: t('This browser on zibby.local receives approvals and run results, even with the tab closed.', 'Tento prohlížeč na zibby.local dostává schválení a výsledky běhů i se zavřeným panelem.'), off: t('Turn on to get approvals and run results when the tab is closed.', 'Zapni, ať dostáváš schválení a výsledky běhů i se zavřeným panelem.'), token: t('Push subscriptions are signed with the operator token.', 'Odběr push se podepisuje operátorským tokenem.'), blocked: t('You or the browser denied notifications for zibby.local.', 'Ty nebo prohlížeč jste pro zibby.local zakázali oznámení.'), unsupported: t('This browser can’t receive web push.', 'Tento prohlížeč neumí přijímat web push.') }[ps];
+    return this.panel(o.id || 'push', t('Web push', 'Web push'), t('Notifications on this device. Each browser and phone subscribes separately.', 'Oznámení na tomto zařízení. Každý prohlížeč a telefon se přihlašuje zvlášť.'), [
+      this.row(t('Push to this device', 'Push na toto zařízení'), hint, this.sw(ps === 'on', () => this.setState({ push: ps === 'on' ? 'off' : 'on' }), t('Push to this device', 'Push na toto zařízení'), { dis: ps === 'token' || ps === 'blocked' || ps === 'unsupported' }), { key: 'r', dis: ps === 'unsupported' }),
+      ps === 'token' ? this.note('wait', 'key', [h('b', { key: 'b' }, t('Set the operator token first.', 'Nejdřív nastav operátorský token.')), ' ', t('Then this switch unlocks.', 'Pak se tento přepínač odemkne.')], this.btn(t('Go to token', 'Přejít na token'), { k: 'sm', on: () => this.go('access', 'operator-token') }), { role: 'status' }) : null,
+      ps === 'blocked' ? this.note('err', 'errc', [h('b', { key: 'b' }, t('Allow notifications in the site settings,', 'Povol oznámení v nastavení webu,')), ' ', t('then reload ZibbyOS.', 'pak ZibbyOS obnov.')], this.btn(t('How to allow', 'Jak povolit'), { k: 'sm gh', ic: 'ext' })) : null,
+      ps === 'on' && !o.noTest ? this.note('info', 'bell', t('Last push delivered today 11:04 · Run completed · acme-web#218', 'Poslední push doručen dnes v 11:04 · Běh dokončen · acme-web#218'), this.btn(t('Send test', 'Poslat test'), { k: 'sm', ic: 'send' })) : null,
+      this.note('info', 'phone', [h('b', { key: 'b' }, t('On iPhone, add to Home Screen first.', 'Na iPhonu nejdřív přidej na plochu.')), ' ', t('Share › Add to Home Screen, then open ZibbyOS from the icon. Safari only delivers push to Home Screen apps.', 'Sdílet › Přidat na plochu a otevři ZibbyOS z ikony. Safari doručuje push jen aplikacím na ploše.')])
+    ], { badge: this.bdg(B[0], B[1]), cls: ps === 'blocked' ? 'err' : ps === 'token' ? 'off' : '' });
+  }
+  tokenPanel(o) {
+    const h = this.h, t = this.t, S = this.state; o = o || {};
+    const ok = o.force !== undefined ? o.force : S.token, att = !ok && S.hl === 'operator-token';
+    const used = [[t('Approvals', 'Schvalování')], [t('Autopilot', 'Autopilot')], [t('Engine switch', 'Změna enginu')], [t('Web push', 'Web push')]];
+    const body = ok ? [
+      this.row(t('Operator token', 'Operátorský token'), t('Set 12 Nov in this browser (Chrome · MacBook Pro).', 'Nastaven 12. 11. v tomto prohlížeči (Chrome · MacBook Pro).'), [h('code', { className: 'st-val', key: 'v', 'aria-label': t('Token ending 3f9a', 'Token končící 3f9a') }, '••••••••••••••••3f9a'), this.btn(t('Replace', 'Nahradit'), { k: 'sm', key: 'r', on: () => this.setState({ token: false, hl: null }) }), this.btn(t('Remove', 'Odebrat'), { k: 'sm gh danger', key: 'd', on: () => this.setState({ token: false, hl: null }) })], { key: 'r' })
+    ] : [
+      this.row(t('Operator token', 'Operátorský token'), [t('Run ', 'Na hostiteli spusť '), this.code('zibby token show'), t(' on the host and paste the result.', ' a vlož výsledek.')],
+        h('div', { style: { display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' } },
+          h('div', { className: 'st-fld', style: { flex: '1 1 260px' } }, this.inp({ id: this.fid('tok'), type: S.tokShow ? 'text' : 'password', v: S.tokDraft, ph: 'zbt_…', mono: true, on: e => this.setState({ tokDraft: e.target.value }), desc: this.fid('tok-h') + ' ' + this.fid('tok-store'), af: att }),
+            h('button', { type: 'button', className: 'tc-ib', 'aria-label': S.tokShow ? t('Hide token', 'Skrýt token') : t('Show token', 'Zobrazit token'), 'aria-pressed': !!S.tokShow, onClick: () => this.setState({ tokShow: !S.tokShow }) }, this.ic(S.tokShow ? 'eyeoff' : 'eye', 15))),
+          this.btn(t('Save token', 'Uložit token'), { k: 'ink', dis: !S.tokDraft.trim(), on: () => this.setState({ token: true, tokDraft: '', hl: null }) })), { id: 'tok', stack: true, key: 'r' })
+    ];
+    return this.panel(o.id || 'operator-token', t('Operator token', 'Operátorský token'), t('Proves that requests from this browser come from you.', 'Dokazuje, že požadavky z tohoto prohlížeče posíláš ty.'), [
+      body,
+      this.row(t('Used by', 'Používá ho'), null, h('div', { className: 'st-chips' }, used.map(([l], i) => h('span', { key: i, className: 'st-chip' + (ok ? '' : ' wait') }, ok ? this.ic('check', 12, 2) : this.ic('lock', 12), l))), { key: 'u' }),
+      h('div', { key: 'n', id: this.fid('tok-store') }, this.note('info', 'lock', [h('b', { key: 'b' }, t('Stored only in this browser.', 'Uloží se jen v tomto prohlížeči.')), ' ', t('It never touches the server’s disk. Set it again on each browser and on your phone.', 'Na disk serveru se nikdy nedostane. Na každém prohlížeči a na telefonu ho nastav znovu.')]))
+    ], { badge: ok ? this.bdg('ok', t('Saved', 'Uloženo')) : this.bdg('wait', t('Missing — approvals will be rejected', 'Chybí — schválení budou odmítnuta')), cls: att ? 'att' : '' });
+  }
+  pg_access(m) {
+    const h = this.h, t = this.t, S = this.state, out = [];
+    out.push({ id: 'operator-token', label: t('Operator token', 'Operátorský token'), warn: !S.token, node: this.tokenPanel() });
+    const EV = [['pr', 'PR opened', 'Otevřené PR'], ['review', 'Review finished', 'Dokončená revize'], ['run', 'Run completed', 'Dokončený běh'], ['approval', 'Approval waiting', 'Čekající schválení'], ['parked', 'Run parked', 'Zaparkovaný běh'], ['budget', 'Budget cap', 'Limit rozpočtu'], ['ci', 'CI red', 'Červené CI'], ['brief', 'Daily briefing', 'Denní briefing'], ['auto', 'Autopilot action', 'Akce autopilota']];
+    let slack;
+    if (!S.slack) slack = this.panel('slack', t('Slack operator channel', 'Slack kanál operátora'), t('Where Zibby posts things you should know about.', 'Kam Zibby posílá věci, o kterých bys měl vědět.'), [
+      this.note('info', 'hash', [h('b', { key: 'b' }, t('Slack isn’t connected yet.', 'Slack ještě není připojený.')), ' ', t('Connect it once in Portfolio › Integrations, then pick the operator channel here.', 'Připoj ho jednou v Portfolio › Integrace a pak tu vyber kanál operátora.')], this.btn(t('Open Integrations', 'Otevřít integrace'), { k: 'sm', ic: 'ext' }))
+    ], { badge: this.bdg('off', t('Not set up', 'Nenastaveno')), cls: 'ns' });
+    else slack = this.panel('slack', t('Slack operator channel', 'Slack kanál operátora'), t('Where Zibby posts things you should know about.', 'Kam Zibby posílá věci, o kterých bys měl vědět.'), [
+      this.row(t('Deliver to Slack', 'Doručovat do Slacku'), t('Master switch. Your event choices are kept while it’s off.', 'Hlavní vypínač. Vybrané události zůstanou zachované i vypnuté.'), this.sw(S.slackOn, () => this.setState({ slackOn: !S.slackOn }), t('Deliver to Slack', 'Doručovat do Slacku')), { key: 'm' }),
+      this.row(t('Channel', 'Kanál'), t('Workspace acme-hq', 'Workspace acme-hq'), [h('span', { className: 'st-val', key: 'v' }, '#zibby-operator'), h('a', { href: '#', className: 'st-lk', key: 'l', onClick: this.pd }, t('Change in Integrations', 'Změnit v Integracích'), this.ic('ext', 12))], { key: 'c', dis: !S.slackOn }),
+      this.row(t('Last delivery', 'Poslední doručení'), null, [h('span', { className: 'st-val', key: 'v' }, S.tested ? t('Test message · just now', 'Testovací zpráva · právě teď') : t('Run completed · acme-web#218 · 11:04', 'Běh dokončen · acme-web#218 · 11:04'))], { key: 'd', dis: !S.slackOn }),
+      this.row(t('Last error', 'Poslední chyba'), t('Retried automatically and delivered 40 s later.', 'Automaticky zopakováno, doručeno o 40 s později.'), [h('span', { className: 'st-val', key: 'v', style: { color: 'var(--ink2)' } }, t('9 Nov 22:15 · rate_limited', '9. 11. 22:15 · rate_limited'))], { key: 'e', dis: !S.slackOn }),
+      h('fieldset', { className: 'st-chk', disabled: !S.slackOn, key: 'f' }, h('legend', null, t('Send these events', 'Posílat tyto události') + ' · ' + Object.keys(S.ev).filter(k => S.ev[k]).length + '/9'),
+        EV.map(([k, en, cs]) => h('label', { key: k }, h('input', { type: 'checkbox', checked: !!S.ev[k], onChange: () => this.setState({ ev: Object.assign({}, S.ev, { [k]: !S.ev[k] }) }) }), t(en, cs), k === 'approval' ? h('small', null, t('recommended', 'doporučeno')) : null)))
+    ], { badge: S.slackOn ? this.bdg('ok', t('Connected', 'Připojeno')) : this.bdg('off', t('Paused', 'Pozastaveno')), cls: S.slackOn ? '' : '',
+      acts: this.btn(S.tested ? t('Sent', 'Odesláno') : t('Send test', 'Poslat test'), { k: 'sm', ic: S.tested ? 'check' : 'send', dis: !S.slackOn || !S.token, on: () => { this.setState({ tested: true }); clearTimeout(this.t3); this.t3 = setTimeout(() => this.setState({ tested: false }), 2500); } }) });
+    out.push({ id: 'slack', label: t('Slack channel', 'Slack kanál'), node: slack });
+    out.push({ id: 'push', label: t('Web push', 'Web push'), warn: !S.token, node: this.pushView(this.pushState()) });
+    return out;
+  }
+
+  // ---------- AI engines ----------
+  OC = [['opencode/grok-code-fast-1', ['free']], ['opencode/big-pickle', ['free', 'think']], ['openrouter/qwen3-coder:free', ['unv']], ['anthropic/claude-sonnet-4-5', ['sub', 'think']], ['openai/gpt-5-codex', ['sub', 'think']], ['bluecode/devstral-medium', ['sub']]];
+  tags(ts) { const h = this.h, t = this.t; const L = { free: t('free', 'zdarma'), sub: t('subscription', 'předplatné'), think: 'thinking', unv: t('free?', 'zdarma?') }; return ts.map(x => h('span', { key: x, className: 'tg ' + x }, L[x])); }
+  pg_engines(m) {
+    const h = this.h, t = this.t, S = this.state, out = [];
+    const E = [['claude', 'Cl', 'Claude Code', '2.1.4', '/opt/homebrew/bin/claude'], ['opencode', 'oc', 'opencode', '0.14.2', '~/.opencode/bin/opencode']];
+    const lock = !S.token;
+    out.push({ id: 'engine', label: t('Active engine', 'Aktivní engine'), warn: lock, node: this.panel('engine', t('Active engine', 'Aktivní engine'), t('The CLI that executes every agent run on this machine.', 'CLI, které na tomto stroji spouští každý běh agenta.'), [
+      h('div', { className: 'st-cards two', role: 'radiogroup', 'aria-label': t('Active engine', 'Aktivní engine'), key: 'c' }, E.map(([k, mo, n, v, p]) => h('button', { type: 'button', key: k, className: 'st-card', role: 'radio', 'aria-checked': S.eng === k, disabled: lock, tabIndex: S.eng === k ? 0 : -1, onClick: () => this.setState({ eng: k }) },
+        h('span', { className: 't' }, h('span', { className: 'st-tile' }, mo), n, h('span', { className: 'st-rd', 'aria-hidden': 'true' })),
+        h('span', { className: 'm' }, this.bdg('ok', t('Installed', 'Nainstalováno')), h('span', { className: 'st-val', style: { fontSize: 12 } }, 'v' + v)),
+        h('span', { className: 'd', style: { fontFamily: 'Geist Mono', fontSize: 11.5, color: 'var(--ink3)' } }, p)))),
+      lock ? this.note('wait', 'key', [h('b', { key: 'b' }, t('Switching needs the operator token.', 'Přepnutí vyžaduje operátorský token.')), ' ', t('The current engine keeps running.', 'Současný engine dál běží.')], this.btn(t('Set token', 'Nastavit token'), { k: 'sm', on: () => this.go('access', 'operator-token') }), { role: 'status' }) : null]) });
+    const F = [['claude', 'Cl', 'Claude', true, t('Claude Max · via claude login', 'Claude Max · přes claude login'), 'claude login'], ['openai', 'Oa', 'OpenAI', S.oa, t('API key below', 'API klíč níže'), 'opencode auth login openai'], ['ocfree', 'oc', 'OpenCode free', true, t('No account needed · 6 models', 'Bez účtu · 6 modelů'), 'opencode auth login'], ['bluecode', 'bc', 'BlueCode', S.bc, t('Gateway · 23 models', 'Brána · 23 modelů'), 'zibby bluecode connect <gateway-url>']];
+    out.push({ id: 'families', label: t('Model families', 'Rodiny modelů'), node: this.panel('families', t('Model families', 'Rodiny modelů'), t('Providers the engines can call. Connect them in a terminal on the host; ZibbyOS never asks for passwords.', 'Poskytovatelé, které enginy mohou volat. Připojují se v terminálu na hostiteli; ZibbyOS nikdy nechce hesla.'),
+      h('div', { className: 'st-grid2' }, F.map(([k, mo, n, on, sub, c]) => h('div', { key: k, className: 'st-fc' + (on ? '' : ' ns') },
+        h('div', { className: 'fh' }, h('span', { className: 'st-tile' }, mo), h('span', { style: { minWidth: 0 } }, h('b', null, n), h('small', null, on ? sub : t('Run in a terminal on the host:', 'Spusť v terminálu na hostiteli:'))), on ? this.bdg('ok', t('Connected', 'Připojeno')) : this.bdg('off', t('Not set up', 'Nenastaveno'))),
+        on ? null : this.cmd(c))))) });
+    const cur = this.OC.find(x => x[0] === S.ocModel) || this.OC[0], unv = cur[1].indexOf('unv') >= 0;
+    out.push({ id: 'ocmodel', label: t('opencode model', 'Model opencode'), warn: unv, node: this.panel('ocmodel', t('opencode model', 'Model opencode'), t('Default model when the engine is opencode. Agents can still override it per run.', 'Výchozí model, když je engine opencode. Agenti ho můžou přepsat pro jednotlivý běh.'), [
+      this.row(t('Default model', 'Výchozí model'), S.eng === 'opencode' ? t('In use now.', 'Právě se používá.') : t('Not in use: the active engine is Claude.', 'Nepoužívá se: aktivní engine je Claude.'),
+        h('div', { style: { width: '100%' } },
+          h('button', { type: 'button', className: 'st-sel', role: 'combobox', 'aria-haspopup': 'listbox', 'aria-expanded': !!S.ocOpen, 'aria-controls': this.fid('oclb'), 'aria-label': t('Default model', 'Výchozí model') + ': ' + cur[0], onClick: () => this.setState({ ocOpen: !S.ocOpen }) }, h('span', { className: 'v' }, cur[0]), this.tags(cur[1]), this.ic('updown', 14)),
+          S.ocOpen ? h('ul', { className: 'st-lb', role: 'listbox', id: this.fid('oclb'), 'aria-label': t('Models', 'Modely') }, this.OC.map(([id, ts]) => h('li', { key: id, role: 'option', className: 'st-opt', 'aria-selected': id === S.ocModel, onClick: () => this.setState({ ocModel: id, ocOpen: false }) }, h('span', { className: 'ck' }, id === S.ocModel ? this.ic('check', 14, 2) : null), h('span', { className: 'n' }, id), this.tags(ts)))) : null), { stack: true, key: 'r' }),
+      unv ? this.note('wait', 'warn', [h('b', { key: 'b' }, t('Not verified as free — may cost money.', 'Neověřeno jako zdarma — může stát peníze.')), ' ', t('The provider lists it as free, but ZibbyOS hasn’t seen a $0 bill for it yet.', 'Poskytovatel ho uvádí zdarma, ale ZibbyOS u něj zatím neviděl nulový účet.')], this.btn(t('Pick a verified model', 'Vybrat ověřený model'), { k: 'sm', on: () => this.setState({ ocModel: 'opencode/grok-code-fast-1' }) }), { role: 'status' }) : null]) });
+    let oa;
+    if (S.oa) oa = this.panel('openai', t('OpenAI API key', 'API klíč OpenAI'), t('Used by OpenAI models in opencode. Billed to your OpenAI account.', 'Používají ho modely OpenAI v opencode. Účtuje se na tvůj účet OpenAI.'), [
+      this.row(t('API key', 'API klíč'), t('Saved 3 Nov · last used 2 h ago', 'Uložen 3. 11. · naposledy použit před 2 h'), [h('code', { className: 'st-val', key: 'v' }, 'sk-proj-••••••••7Qa2'), S.oaDel ? null : this.btn(t('Delete', 'Smazat'), { k: 'sm gh danger', ic: 'trash', key: 'd', on: () => this.setState({ oaDel: true }) })], { key: 'r' }),
+      S.oaDel ? this.note('err', 'warn', [h('b', { key: 'b' }, t('Delete the OpenAI key?', 'Smazat klíč OpenAI?')), ' ', t('Runs on OpenAI models fail until you add a new one.', 'Běhy na modelech OpenAI selžou, dokud nepřidáš nový.')], [this.btn(t('Cancel', 'Zrušit'), { k: 'sm', key: 'c', on: () => this.setState({ oaDel: false }) }), this.btn(t('Delete key', 'Smazat klíč'), { k: 'sm dangerf', key: 'd', on: () => this.setState({ oa: false, oaDel: false }) })], { role: 'alertdialog' }) : null
+    ], { badge: this.bdg('ok', t('Saved', 'Uloženo')) });
+    else oa = this.panel('openai', t('OpenAI API key', 'API klíč OpenAI'), t('Used by OpenAI models in opencode. Billed to your OpenAI account.', 'Používají ho modely OpenAI v opencode. Účtuje se na tvůj účet OpenAI.'), [
+      this.row(t('API key', 'API klíč'), t('Stored encrypted on the host, never shown again.', 'Uloží se šifrovaně na hostiteli a už se nezobrazí.'), h('div', { style: { display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' } }, h('div', { className: 'st-fld', style: { flex: '1 1 260px' } }, this.inp({ id: this.fid('oak'), type: 'password', v: S.oaDraft, ph: 'sk-…', mono: true, on: e => this.setState({ oaDraft: e.target.value }) })), this.btn(t('Save key', 'Uložit klíč'), { k: 'ink', dis: !S.oaDraft.trim(), on: () => this.setState({ oa: true, oaDraft: '' }) })), { id: 'oak', stack: true, key: 'r' })
+    ], { badge: this.bdg('off', t('Not set', 'Nenastaveno')), cls: 'ns' });
+    out.push({ id: 'openai', label: t('OpenAI key', 'Klíč OpenAI'), node: oa });
+    out.push({ id: 'bluecode', label: t('BlueCode gateway', 'Brána BlueCode'), node: S.bc ? this.panel('bluecode', t('BlueCode gateway', 'Brána BlueCode'), t('Self-hosted gateway that exposes extra models to opencode.', 'Vlastní brána, která zpřístupní další modely pro opencode.'), [
+      this.row(t('Base URL', 'Základní URL'), null, this.inp({ id: this.fid('bcu'), v: 'https://gw.bluecode.cz/v1', mono: true, w: 300, on: () => {} }), { id: 'bcu', key: 'u' }),
+      this.row(t('Key', 'Klíč'), null, h('code', { className: 'st-val' }, 'bc_live_••••••••4e1'), { key: 'k' }),
+      this.row(t('Models', 'Modely'), S.bcRefresh ? t('Refreshing…', 'Obnovuji…') : t('Refreshed 2 h ago', 'Obnoveno před 2 h'), [h('span', { className: 'st-val', key: 'v' }, t('23 models', '23 modelů')), this.btn(t('Refresh models', 'Obnovit modely'), { k: 'sm', key: 'b', ic: S.bcRefresh ? 'spin' : 'refresh', dis: S.bcRefresh, on: () => { this.setState({ bcRefresh: true }); clearTimeout(this.t4); this.t4 = setTimeout(() => this.setState({ bcRefresh: false }), 1400); } })], { key: 'm' })
+    ], { badge: this.bdg('ok', t('Connected', 'Připojeno')), acts: this.btn(t('Remove', 'Odebrat'), { k: 'sm gh danger', on: () => this.setState({ bc: false }) }) })
+      : this.panel('bluecode', t('BlueCode gateway', 'Brána BlueCode'), t('Self-hosted gateway that exposes extra models to opencode.', 'Vlastní brána, která zpřístupní další modely pro opencode.'), [
+        this.note('info', 'term', [h('b', { key: 'b' }, t('Not set up.', 'Nenastaveno.')), ' ', t('Connect from the host so the key never passes through the browser:', 'Připoj z hostitele, ať klíč nikdy neprojde prohlížečem:'), h('div', { style: { marginTop: 8 }, key: 'c' }, this.cmd('zibby bluecode connect https://gw.example.com/v1'))], this.btn(t('I’ve run it', 'Hotovo, zkontrolovat'), { k: 'sm', ic: 'refresh', on: () => this.setState({ bc: true }) }))
+      ], { badge: this.bdg('off', t('Not set up', 'Nenastaveno')), cls: 'ns' }) });
+    return out;
+  }
+
+  // ---------- Runtime ----------
+  GROUPS = { machine: ['awake', 'clone'], sch: ['sch'], lim: ['maxRuns', 'maxCycles', 'dock', 'autoResume'], ctx: ['cOc', 'cCl'] };
+  diffKeys() { const a = this.state.rt, b = this.state.base, out = []; ['awake', 'clone', 'maxRuns', 'maxCycles', 'dock', 'autoResume', 'cOc', 'cCl'].forEach(k => { if (a[k] !== b[k]) out.push(k); }); Object.keys(a.sch).forEach(k => { if (a.sch[k] !== b.sch[k]) out.push('sch.' + k); }); return out; }
+  gDirty(g) { const d = this.diffKeys(); return d.filter(k => this.GROUPS[g].some(x => k === x || k.indexOf(x + '.') === 0)).length; }
+  GN(g) { const t = this.t; return { machine: t('Machine', 'Stroj'), sch: t('Schedulers', 'Plánovače'), lim: t('Limits', 'Limity'), ctx: t('Context', 'Kontext') }[g]; }
+  rtSet(path, v) { const rt = this.cl(this.state.rt); if (path[0] === 'sch') rt.sch[path[1]] = v; else rt[path[0]] = v; this.setState({ rt, save: this.state.save === 'saved' ? 'idle' : this.state.save }); }
+  save(g) {
+    if (this.state.save === 'saving') return;
+    clearTimeout(this.t1); clearTimeout(this.t2);
+    this.setState({ save: 'saving', saving: g || 'all' });
+    this.t1 = setTimeout(() => {
+      const base = this.cl(this.state.base), rt = this.state.rt, old = this.state.base.autoResume;
+      (g ? this.GROUPS[g] : Object.keys(rt)).forEach(k => { base[k] = this.cl(rt[k]); });
+      const d = new Date();
+      this.setState({ base, save: 'saved', saving: g || 'all', savedAt: ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2), restart: this.state.restart || base.autoResume !== old });
+      this.t2 = setTimeout(() => this.setState({ save: 'idle', saving: null }), 2600);
+    }, 900);
+  }
+  discard(g) { const rt = this.cl(this.state.rt), b = this.state.base; (g ? this.GROUPS[g] : Object.keys(rt)).forEach(k => { rt[k] = this.cl(b[k]); }); this.setState({ rt }); }
+  pActs(g) {
+    const t = this.t, S = this.state, n = this.gDirty(g), mine = S.saving === g || S.saving === 'all';
+    if (S.save === 'saving' && mine) return this.h('span', { className: 'st', 'aria-live': 'polite' }, this.ic('spin', 14), t('Saving…', 'Ukládám…'));
+    if (S.save === 'saved' && mine && !n) return this.bdg('ok', t('Saved', 'Uloženo'));
+    if (!n) return null;
+    return [this.btn(t('Discard', 'Zahodit'), { k: 'sm gh', key: 'd', on: () => this.discard(g) }), this.btn(t('Save', 'Uložit'), { k: 'sm ink', key: 's', on: () => this.save(g) })];
+  }
+  stepper(path, v, base, label, min, max) {
+    const h = this.h, t = this.t, set = x => this.rtSet(path, Math.max(min, Math.min(max, x)));
+    return h('div', { className: 'st-step' + (v !== base ? ' chg' : ''), role: 'group', 'aria-label': label },
+      h('button', { type: 'button', 'aria-label': t('Decrease ', 'Snížit ') + label, onClick: () => set(v - 1), disabled: v <= min }, this.ic('minus', 14, 2)),
+      h('input', { type: 'text', inputMode: 'numeric', value: v, 'aria-label': label, onChange: e => { const n = parseInt(e.target.value, 10); if (!isNaN(n)) set(n); } }),
+      h('button', { type: 'button', 'aria-label': t('Increase ', 'Zvýšit ') + label, onClick: () => set(v + 1), disabled: v >= max }, this.ic('plus', 14, 2)));
+  }
+  was(cur, base, fmt) { if (cur === base) return null; return this.h('span', { className: 'was' }, this.t('was ', 'dříve ') + (fmt ? fmt(base) : base)); }
+  pg_runtime(m) {
+    const h = this.h, t = this.t, S = this.state, R = S.rt, B = S.base, out = [];
+    const cls = g => (this.gDirty(g) ? 'dirty' : '');
+    out.push({ id: 'machine', label: t('Machine', 'Stroj'), dirty: this.gDirty('machine'), node: this.panel('machine', t('Machine', 'Stroj'), t('Settings for this computer only. Other hosts keep their own.', 'Nastavení jen pro tento počítač. Ostatní hostitelé mají vlastní.'), [
+      this.row(t('Keep awake', 'Nenechat usnout'), t('caffeinate stops this Mac from sleeping while runs are active.', 'caffeinate nedovolí Macu usnout, dokud běží běhy.'), this.sw(R.awake, () => this.rtSet(['awake'], !R.awake), t('Keep awake', 'Nenechat usnout')), { key: 'a', chg: R.awake !== B.awake, tag: [h('span', { className: 'st-chip', key: 'c' }, t('this Mac', 'tento Mac')), this.was(R.awake, B.awake, x => (x ? t('on', 'zap.') : t('off', 'vyp.')))] }),
+      this.row(t('Clone root', 'Kořen klonů'), t('Where project repositories are cloned. Existing clones are not moved.', 'Kam se klonují repozitáře projektů. Stávající klony se nepřesouvají.'), this.inp({ id: this.fid('clone'), v: R.clone, mono: true, w: 280, chg: R.clone !== B.clone, on: e => this.rtSet(['clone'], e.target.value) }), { id: 'clone', key: 'c', chg: R.clone !== B.clone })
+    ], { cls: cls('machine'), acts: this.pActs('machine') }) });
+    const SCH = [['planner', 'Task planner', 'Plánovač úloh', 'Turns goals into next tasks. 10 min → up to 6 plans an hour.', 'Z cílů dělá další úkoly. 10 min → až 6 plánů za hodinu.'], ['channels', 'Channel watch', 'Hlídání kanálů', 'Reads Slack and mail threads. 2 min → replies feel live.', 'Čte vlákna ze Slacku a pošty. 2 min → odpovědi působí živě.'], ['ci', 'CI monitoring', 'Monitoring CI', 'Polls CI on open PRs. 5 min → a red build shows within 5 min.', 'Kontroluje CI u otevřených PR. 5 min → červený build uvidíš do 5 min.'], ['auto', 'Automations', 'Automatizace', 'Evaluates cron and event triggers. 1 min → a 09:00 cron fires by 09:01.', 'Vyhodnocuje cron a události. 1 min → cron v 9:00 se spustí nejpozději v 9:01.'], ['limit', 'Limit resume', 'Obnova po limitu', 'Retries runs parked on a usage limit. 15 min → at most 4 tries an hour.', 'Znovu zkouší běhy zaparkované na limitu. 15 min → nejvýš 4 pokusy za hodinu.'], ['roadmap', 'Roadmap sync', 'Sync roadmapy', 'Pulls roadmaps from Linear and GitHub. 6 h → 4 syncs a day.', 'Stahuje roadmapy z Linearu a GitHubu. 6 h → 4 synchronizace denně.']];
+    const fmtU = x => { const hh = Math.floor(x / 60), mm = x % 60; return x === 0 ? t('off', 'vyp.') : (hh ? hh + ' h' : '') + (hh && mm ? ' ' : '') + (mm ? mm + ' min' : ''); };
+    out.push({ id: 'schedulers', label: t('Schedulers', 'Plánovače'), dirty: this.gDirty('sch'), node: this.panel('schedulers', t('Schedulers', 'Plánovače'), [t('How often each loop wakes up, in hours and minutes. ', 'Jak často se každá smyčka probudí, v hodinách a minutách. '), h('b', { key: 'b', style: { color: 'var(--ink2)', fontWeight: 500 } }, t('0 h 0 min = off.', '0 h 0 min = vypnuto.'))], SCH.map(([k, en, cs, he, hc]) => {
+      const v = R.sch[k], b = B.sch[k], chg = v !== b, hh = Math.floor(v / 60), mm = v % 60;
+      const setHM = (nh, nm) => { nh = Math.max(0, Math.min(168, nh)); nm = Math.max(0, nm); this.rtSet(['sch', k], nh * 60 + nm); };
+      const num = (e) => parseInt(e.target.value || '0', 10) || 0;
+      return this.row(t(en, cs), t(he, hc), [v === 0 ? h('span', { key: 'o' }, this.bdg('off', t('Off', 'Vyp.'))) : null,
+        h('span', { key: 'hm', className: 'st-hm', role: 'group', 'aria-labelledby': this.fid('sch-' + k + '-l'), 'aria-describedby': this.fid('sch-' + k + '-h') },
+          h('input', { id: this.fid('sch-' + k), className: 'st-in' + (chg ? ' chg' : ''), type: 'number', min: 0, max: 168, value: hh, 'aria-label': t(en, cs) + t(', hours', ', hodiny'), onChange: e => setHM(num(e), mm) }), h('span', { 'aria-hidden': 'true' }, 'h'),
+          h('input', { className: 'st-in' + (chg ? ' chg' : ''), type: 'number', min: 0, max: 59, step: 1, value: mm, 'aria-label': t(en, cs) + t(', minutes', ', minuty'), onChange: e => { const n = num(e); setHM(hh + Math.floor(n / 60), n % 60); } }), h('span', { 'aria-hidden': 'true' }, 'min'))],
+        { id: 'sch-' + k, key: k, chg, cls: 'st-sch', noFor: false, tag: this.was(fmtU(v), fmtU(b)) });
+    }), { cls: cls('sch'), acts: this.pActs('sch') }) });
+    out.push({ id: 'limits', label: t('Limits', 'Limity'), dirty: this.gDirty('lim'), node: this.panel('limits', t('Limits', 'Limity'), t('Guard rails for how much runs at once and how long things linger.', 'Mantinely pro to, kolik toho běží najednou a jak dlouho věci zůstávají.'), [
+      this.row(t('Max concurrent runs', 'Max. souběžných běhů'), t('Runs above this wait in the queue.', 'Běhy nad tento počet čekají ve frontě.'), this.stepper(['maxRuns'], R.maxRuns, B.maxRuns, t('Max concurrent runs', 'Max. souběžných běhů'), 1, 12), { key: 'a', chg: R.maxRuns !== B.maxRuns, tag: this.was(R.maxRuns, B.maxRuns) }),
+      this.row(t('Max limit-resume cycles', 'Max. cyklů obnovy po limitu'), t('After this many retries a parked run waits for you.', 'Po tolika pokusech zaparkovaný běh čeká na tebe.'), this.stepper(['maxCycles'], R.maxCycles, B.maxCycles, t('Max limit-resume cycles', 'Max. cyklů obnovy po limitu'), 0, 10), { key: 'b', chg: R.maxCycles !== B.maxCycles, tag: this.was(R.maxCycles, B.maxCycles) }),
+      this.row(t('Finished tasks in dock', 'Hotové úkoly v doku'), t('How many done tasks stay visible before they archive.', 'Kolik hotových úkolů zůstane vidět, než se archivují.'), this.stepper(['dock'], R.dock, B.dock, t('Finished tasks in dock', 'Hotové úkoly v doku'), 0, 30), { key: 'c', chg: R.dock !== B.dock, tag: this.was(R.dock, B.dock) }),
+      this.row(t('Auto-resume goals on start', 'Po startu automaticky obnovit cíle'), t('Goals that were running when the daemon stopped pick up again.', 'Cíle, které běžely při zastavení daemona, pokračují.'), [S.restart ? this.btn(t('Restart daemon', 'Restartovat daemon'), { k: 'sm', key: 'rs', ic: 'refresh', on: () => this.setState({ restart: false }) }) : null, h('span', { key: 's' }, this.sw(R.autoResume, () => this.rtSet(['autoResume'], !R.autoResume), t('Auto-resume goals on start', 'Po startu automaticky obnovit cíle')))],
+        { key: 'd', chg: R.autoResume !== B.autoResume, tag: h('span', { className: 'st-chip' + (S.restart ? ' wait' : '') }, this.ic('refresh', 11, 2), S.restart ? t('Restart to apply', 'Projeví se po restartu') : t('Restart required', 'Vyžaduje restart')) })
+    ], { cls: cls('lim'), acts: this.pActs('lim') }) });
+    const rng = (key, label, v, b) => h('div', { className: 'st-rng', style: { flexDirection: 'column', alignItems: 'stretch', gap: 4, minWidth: m === 'phone' ? 0 : 300, width: m === 'phone' ? '100%' : undefined } },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('input', { type: 'range', min: 50, max: 98, step: 1, value: v, 'aria-label': label, 'aria-valuetext': v + ' %', id: this.fid(key), onChange: e => this.rtSet([key], parseInt(e.target.value, 10)) }), h('output', { htmlFor: this.fid(key) }, v + '%')),
+      h('div', { className: 'sc', 'aria-hidden': 'true', style: { paddingRight: 52 } }, h('span', null, t('50% cheaper', '50 % levnější')), h('span', null, t('98% keeps more', '98 % pamatuje víc'))));
+    out.push({ id: 'context', label: t('Context', 'Kontext'), dirty: this.gDirty('ctx'), node: this.panel('context', t('Context', 'Kontext'), t('Compact the conversation when the context window is this full. Lower is cheaper but may forget details.', 'Zkomprimovat konverzaci, když je kontextové okno takhle plné. Nižší je levnější, ale může zapomenout detaily.'), [
+      this.row(t('OpenCode auto-compaction', 'Auto-kompakce OpenCode'), null, rng('cOc', t('OpenCode auto-compaction', 'Auto-kompakce OpenCode'), R.cOc, B.cOc), { key: 'a', chg: R.cOc !== B.cOc, tag: this.was(R.cOc + '%', B.cOc + '%') }),
+      this.row(t('Claude auto-compaction', 'Auto-kompakce Claude'), null, rng('cCl', t('Claude auto-compaction', 'Auto-kompakce Claude'), R.cCl, B.cCl), { key: 'b', chg: R.cCl !== B.cCl, tag: this.was(R.cCl + '%', B.cCl + '%') })
+    ], { cls: cls('ctx'), acts: this.pActs('ctx') }) });
+    return out;
+  }
+  saveBarView(st, n, groups, o) {
+    const h = this.h, t = this.t; o = o || {};
+    const live = o.static ? undefined : 'polite';
+    let left;
+    if (st === 'saved') left = [h('span', { className: 'okc', key: 'i' }, this.ic('check', 16, 2)), h('span', { className: 'tx', key: 't', 'aria-live': live }, h('b', null, t('All changes saved', 'Vše uloženo')), h('small', null, o.at || '11:42'))];
+    else if (st === 'error') left = [h('span', { className: 'ei', key: 'i' }, this.ic('errc', 16)), h('span', { className: 'tx', key: 't', role: o.static ? undefined : 'alert' }, h('b', null, t('Couldn’t save — daemon offline', 'Nepodařilo se uložit — daemon je offline')), h('small', null, t('Your edits are kept. Retry when it’s back.', 'Úpravy zůstávají. Zkus to znovu, až bude zpět.')))];
+    else left = [h('span', { className: 'dd', key: 'i' }), h('span', { className: 'tx', key: 't', 'aria-live': live }, h('b', null, st === 'saving' ? t('Saving…', 'Ukládám…') : t(n + (n === 1 ? ' unsaved change' : ' unsaved changes'), n + ' ' + this.czN(n, 'neuložená změna', 'neuložené změny', 'neuložených změn'))), o.phone ? null : h('small', null, groups))];
+    return h('div', { className: 'st-save ' + st, role: 'region', 'aria-label': t('Unsaved changes', 'Neuložené změny'), style: o.static ? { position: 'relative', bottom: 'auto' } : null },
+      left, h('span', { className: 'sp' }),
+      st === 'saved' ? null : st === 'error' ? [this.btn(t('Discard', 'Zahodit'), { k: 'gh', key: 'd' }), this.btn(t('Retry', 'Zkusit znovu'), { k: 'ink', key: 's', ic: 'refresh' })]
+        : [this.btn(t('Discard', 'Zahodit'), { k: 'gh', key: 'd', dis: st === 'saving', on: o.static ? undefined : () => this.discard() }), this.btn(st === 'saving' ? t('Saving…', 'Ukládám…') : t('Save changes', 'Uložit změny'), { k: 'ink', key: 's', dis: st === 'saving', ic: st === 'saving' ? 'spin' : null, on: o.static ? undefined : () => this.save() })],
+      o.phone || st === 'saved' ? null : h('span', { className: 'kbd', 'aria-hidden': 'true' }, '⌘S'));
+  }
+  saveBar(m) {
+    const S = this.state, n = this.diffKeys().length;
+    if (!n && S.save !== 'saving' && !(S.save === 'saved' && S.saving === 'all')) return null;
+    const st = S.save === 'saving' && S.saving === 'all' ? 'saving' : S.save === 'saved' && S.saving === 'all' && !n ? 'saved' : 'dirty';
+    const groups = ['machine', 'sch', 'lim', 'ctx'].filter(g => this.gDirty(g)).map(g => this.GN(g)).join(' · ');
+    return this.saveBarView(st, n, groups, { phone: m === 'phone', at: S.savedAt });
+  }
+
+  // ---------- Status ----------
+  pg_status(m) {
+    const h = this.h, t = this.t, S = this.state, out = [];
+    out.push({ id: 'system', label: t('System status', 'Stav systému'), node: this.sysPanel(false) });
+    const W = [['task-planner', '10 min', t('2 min ago', 'před 2 min'), 'ok'], ['channel-watch', '2 min', t('48 s ago', 'před 48 s'), 'ok'], ['ci-monitor', '5 min', t('41 min ago · expected every 5 min', 'před 41 min · čekáno každých 5 min'), 'stale'], ['automations', '1 min', t('12 s ago', 'před 12 s'), 'ok'], ['limit-resume', '15 min', t('9 min ago', 'před 9 min'), 'ok'], ['roadmap-sync', '6 h', t('Linear not connected', 'Linear není připojený'), 'dis']];
+    const WB = { ok: ['ok', 'OK'], stale: ['wait', t('Stale', 'Zamrzlý')], dis: ['off', t('Disabled', 'Vypnutý')] };
+    out.push({ id: 'watchers', label: t('Watchers', 'Hlídače'), warn: true, node: this.panel('watchers', t('Watchers', 'Hlídače'), t('Background loops from Runtime › Schedulers and when each last ticked.', 'Smyčky na pozadí z Runtime › Plánovače a kdy naposledy tikly.'), [
+      m === 'phone' ? null : h('div', { className: 'st-wt hd', key: 'hd', 'aria-hidden': 'true' }, h('span', null, t('Watcher', 'Hlídač')), h('span', null, t('Every', 'Každých')), h('span', null, t('Last tick', 'Poslední tik')), h('span', { style: { justifySelf: 'end' } }, t('State', 'Stav'))),
+      h('div', { role: 'list', key: 'l' }, W.map(([n, iv, last, st]) => h('div', { key: n, role: 'listitem', className: 'st-wt' + (st === 'stale' ? ' stale' : '') }, h('span', { className: 'nm' }, n), h('span', { className: 'sm' }, iv), h('span', { className: 'sm', style: st === 'stale' ? { color: 'var(--amber-fg)' } : null }, last), this.bdg(WB[st][0], WB[st][1])))),
+      this.note('wait', 'warn', [h('b', { key: 'b' }, t('ci-monitor is stale.', 'ci-monitor zamrzl.')), ' ', t('Red builds may go unnoticed.', 'Červené buildy můžou zůstat bez povšimnutí.')], this.btn(t('Restart watcher', 'Restartovat hlídač'), { k: 'sm', ic: 'refresh' }), { role: 'status' })
+    ]) });
+    out.push({ id: 'version', label: t('Version & updates', 'Verze a aktualizace'), node: this.verPanel(S.upd) });
+    out.push({ id: 'dev', label: t('ZIBBY development', 'Vývoj ZIBBY'), warn: S.dev, node: this.panel('dev', t('ZIBBY development', 'Vývoj ZIBBY'), t('Work on ZibbyOS itself with your own agents.', 'Pracuj na samotném ZibbyOS vlastními agenty.'), [
+      this.row(t('Branch', 'Větev'), null, [h('span', { className: 'st-val', key: 'b', style: { display: 'inline-flex', gap: 6, alignItems: 'center' } }, this.ic('branch', 14), 'feat/settings-regroup'), h('span', { className: 'st-chip', key: 'a' }, '↑3 ↓0')], { key: 'b' }),
+      this.row(t('Working tree', 'Pracovní strom'), t('Uncommitted changes in the install directory.', 'Necommitnuté změny v instalačním adresáři.'), this.bdg('wait', t('Dirty · 2 files', 'Neuloženo · 2 soubory')), { key: 'w' }),
+      this.row(t('Open pull requests', 'Otevřené pull requesty'), null, h('a', { href: '#', className: 'st-lk', onClick: this.pd }, '#412 ' + t('Regroup settings', 'Přeskupení nastavení'), ' · CI ', h('span', { style: { color: 'var(--emerald)' } }, '✓')), { key: 'p' }),
+      this.row(t('Develop ZIBBY as a project', 'Vyvíjet ZIBBY jako projekt'), t('Registers the ZibbyOS repo in Portfolio so agents can take tasks on it.', 'Zaregistruje repozitář ZibbyOS v Portfoliu, aby na něm agenti mohli brát úkoly.'), this.sw(S.dev, () => this.setState({ dev: !S.dev }), t('Develop ZIBBY as a project', 'Vyvíjet ZIBBY jako projekt')), { key: 'd' }),
+      S.dev ? this.note('wait', 'warn', [h('b', { key: 'b' }, t('The project points at the running install', 'Projekt ukazuje na běžící instalaci')), ' ', h('code', { className: 'st-code', key: 'c' }, '~/Apps/zibby'), '. ', t('An agent editing it can restart the daemon mid-run. Use a separate clone.', 'Agent, který ho upraví, může restartovat daemon uprostřed běhu. Použij samostatný klon.')], this.btn(t('Clone to ~/Code/zibby', 'Naklonovat do ~/Code/zibby'), { k: 'sm' }), { role: 'status' }) : null
+    ]) });
+    return out;
+  }
+  sysPanel(off, id) {
+    const h = this.h, t = this.t;
+    return this.panel(id || 'system', t('System status', 'Stav systému'), t('The daemon that runs agents on this host.', 'Daemon, který na tomto hostiteli spouští agenty.'), [
+      h('div', { className: 'st-big', key: 'b' }, h('span', { className: 'dot ' + (off ? 'error' : 'done'), style: { width: 10, height: 10 } }), h('span', null, h('span', { className: 'n' + (off ? ' off' : '') }, off ? 'OFFLINE' : 'NOMINAL'), h('small', null, off ? t('No heartbeat for 3 min · last seen 11:39', 'Žádný heartbeat 3 min · naposledy v 11:39') : t('zibbyd · pid 4127 · heartbeat 2 s ago', 'zibbyd · pid 4127 · heartbeat před 2 s')))),
+      this.row(t('Host', 'Hostitel'), null, h('span', { className: 'st-val' }, 'zibby.local · macOS 15.2 · M3 Max'), { key: 'h' }),
+      this.row(t('Uptime', 'Doba běhu'), null, h('span', { className: 'st-val' }, off ? '—' : t('6 d 14 h 22 min', '6 d 14 h 22 min')), { key: 'u' }),
+      off ? this.note('err', 'errc', [h('b', { key: 'b' }, t('Settings are read-only while the daemon is offline.', 'Dokud je daemon offline, nastavení jen čteš.')), ' ', t('Start it on the host:', 'Spusť ho na hostiteli:'), h('div', { key: 'c', style: { marginTop: 8 } }, this.cmd('zibby daemon start'))], null, { role: 'alert' }) : null
+    ], { badge: off ? this.bdg('err', t('Offline', 'Offline')) : this.bdg('ok', t('Nominal', 'V pořádku')) });
+  }
+  verPanel(st, id) {
+    const h = this.h, t = this.t, S = this.state, stat = id !== undefined;
+    const dl = () => { if (stat) return; this.setState({ upd: 'dl' }); clearTimeout(this.t3); this.t3 = setTimeout(() => this.setState({ upd: 'ready' }), 1800); };
+    const chk = () => { if (stat) return; this.setState({ checking: true }); clearTimeout(this.t4); this.t4 = setTimeout(() => this.setState({ checking: false }), 900); };
+    const cur = st === 'done' ? 'v1.2.0' : 'v1.1.2';
+    const badge = { avail: this.bdg('info', t('Update 1.2.0 available', 'Dostupná aktualizace 1.2.0')), dl: this.bdg('info', t('Downloading', 'Stahuji')), ready: this.bdg('wait', t('Restart to finish', 'Dokončí se restartem')), done: this.bdg('ok', t('Up to date', 'Aktuální')), fail: this.bdg('err', t('Update failed', 'Aktualizace selhala')) }[st];
+    return this.panel(id || 'version', t('Version & updates', 'Verze a aktualizace'), t('ZibbyOS updates itself in place; running work is paused, not lost.', 'ZibbyOS se aktualizuje na místě; rozběhnutá práce se pozastaví, neztratí se.'), [
+      this.row(t('Current', 'Aktuální'), t('Installed 4 Nov', 'Nainstalováno 4. 11.'), h('span', { className: 'st-val' }, cur), { key: 'c' }),
+      this.row(t('Latest', 'Nejnovější'), (S.checking && !stat) ? t('Checking…', 'Kontroluji…') : t('Checked 6 min ago', 'Zkontrolováno před 6 min'), [h('span', { className: 'st-val', key: 'v' }, 'v1.2.0'), h('a', { href: '#', className: 'st-lk', key: 'l', onClick: this.pd }, t('Release notes', 'Poznámky k vydání'), this.ic('ext', 12))], { key: 'l' }),
+      st === 'avail' ? this.note('sky', 'up', [h('b', { key: 'b' }, t('v1.2.0 adds Access & notifications and faster limit resume.', 'v1.2.0 přináší Přístup a oznámení a rychlejší obnovu po limitu.')), ' ', t('Restart takes about 20 s.', 'Restart trvá asi 20 s.')], this.btn(t('Download & install', 'Stáhnout a nainstalovat'), { k: 'sm ink', ic: 'down', on: dl })) : null,
+      st === 'dl' ? this.note('sky', 'down', [h('b', { key: 'b' }, t('Downloading v1.2.0… 64%', 'Stahuji v1.2.0… 64 %')), h('div', { key: 'p', style: { marginTop: 8 }, className: 'st-prog', role: 'progressbar', 'aria-valuenow': 64, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': t('Download progress', 'Průběh stahování') }, h('i', { style: { width: '64%' } }))], this.btn(t('Cancel', 'Zrušit'), { k: 'sm gh', on: stat ? undefined : () => this.setState({ upd: 'avail' }) })) : null,
+      st === 'ready' ? this.note('wait', 'refresh', [h('b', { key: 'b' }, t('v1.2.0 is ready.', 'v1.2.0 je připravená.')), ' ', t('3 runs will pause and resume after the restart.', '3 běhy se pozastaví a po restartu budou pokračovat.')], this.btn(t('Restart now', 'Restartovat teď'), { k: 'sm ink', on: stat ? undefined : () => this.setState({ upd: 'done' }) })) : null,
+      st === 'fail' ? this.note('err', 'errc', [h('b', { key: 'b' }, t('Checksum mismatch on v1.2.0.', 'Nesedí kontrolní součet v1.2.0.')), ' ', t('Nothing was changed; you’re still on v1.1.2.', 'Nic se nezměnilo; dál máš v1.1.2.')], [this.btn(t('View log', 'Zobrazit log'), { k: 'sm gh', key: 'l' }), this.btn(t('Retry', 'Zkusit znovu'), { k: 'sm', key: 'r', ic: 'refresh' })], { role: 'alert' }) : null,
+      st === 'done' ? this.note('info', 'check', t('You’re on the latest version.', 'Máš nejnovější verzi.')) : null
+    ], { badge, acts: this.btn((S.checking && !stat) ? t('Checking…', 'Kontroluji…') : t('Check now', 'Zkontrolovat'), { k: 'sm', ic: (S.checking && !stat) ? 'spin' : 'refresh', on: chk }) });
+  }
+
+  // ================= layout =================
+  go(page, hl) { this.setState({ view: page === 'access' ? 'access' : page, hl: hl || null }); }
+  jump(fullId, pid) { const el = document.getElementById(fullId); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); if (pid) this.setState({ anc: Object.assign({}, this.state.anc, { [this.pfx0 || 'x']: pid }) }); }
+  rail(page) {
+    const h = this.h, t = this.t, S = this.state;
+    return h('nav', { className: 'st-rail', 'aria-label': t('Settings pages', 'Stránky nastavení') },
+      h('div', { className: 'hd', 'aria-hidden': 'true' }, t('Settings', 'Nastavení')),
+      this.PAGES.map(p => h('a', { href: '#', key: p.id, 'aria-current': p.id === page ? 'page' : undefined, onClick: e => { this.pd(e); this.setState({ view: this.view() === 'narrow' ? 'narrow' : p.id, narrowPage: p.id }); }, 'aria-label': t(p.en, p.cs) + (p.id === 'access' && !S.token ? t(', needs you', ', čeká na tebe') : '') + (p.id === 'status' && S.upd === 'avail' ? t(', update available', ', dostupná aktualizace') : '') },
+        h('span', { className: 'ico' }, this.ic(p.icon, 16)), h('span', null, t(p.en, p.cs)),
+        p.id === 'access' && !S.token ? h('span', { className: 'tail' }, h('span', { className: 'ad' })) : p.id === 'status' && S.upd === 'avail' ? h('span', { className: 'tail' }, h('span', { className: 'uv' }, '1.2')) : null)),
+      h('div', { className: 'ft' }, t('Open from anywhere with ', 'Odkudkoli otevřeš ') , h('span', { className: 'kbd' }, '⌘,'), h('br'), 'zibby.local · v1.1.2'));
+  }
+  anchors(list, key) {
+    const h = this.h, t = this.t, cur = this.state.anc[key] || list[0].id;
+    return h('nav', { className: 'st-anc', 'aria-label': t('On this page', 'Na této stránce') }, h('div', { className: 'hd', 'aria-hidden': 'true' }, t('On this page', 'Na této stránce')),
+      list.map(p => h('a', { href: '#' + this.fid('p-' + p.id), key: p.id, 'aria-current': cur === p.id ? 'location' : undefined, onClick: e => { this.pd(e); const el = document.getElementById(e.currentTarget.getAttribute('href').slice(1)); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); this.setState({ anc: Object.assign({}, this.state.anc, { [key]: p.id }) }); } },
+        h('span', null, p.label), p.dirty ? h('span', { className: 'dd', 'aria-label': t('unsaved', 'neuloženo') }) : p.warn ? h('span', { className: 'wd', 'aria-label': t('needs attention', 'vyžaduje pozornost') }) : null)));
+  }
+  ancSel(list, o) {
+    const h = this.h, t = this.t; o = o || {};
+    return h('div', { className: 'st-selw st-ancsel' + (o.row ? ' st-narsel' : '') },
+      h('label', { className: 'pre', htmlFor: this.fid('anc') }, t('On this page', 'Na této stránce')),
+      h('div', { style: { position: 'relative' } }, h('select', { id: this.fid('anc'), className: 'st-nsel', onChange: e => { const el = document.getElementById(e.target.value); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }, list.map(p => h('option', { key: p.id, value: this.fid('p-' + p.id) }, p.label + (p.dirty ? ' •' : '')))),
+        h('span', { style: { position: 'absolute', right: 12, top: 10, pointerEvents: 'none', color: 'var(--ink3)' } }, this.ic('updown', 14))));
+  }
+  mainCol(page, list, m) {
+    const h = this.h, t = this.t, S = this.state, P = this.PG(page);
+    return h('main', { className: 'st-main', 'aria-labelledby': this.fid('title') },
+      h('div', { className: 'st-hd' }, m === 'phone' ? null : h('div', { className: 'eb' }, t('Settings', 'Nastavení')), h('h1', { id: this.fid('title') }, t(P.en, P.cs)), h('p', null, t(P.q[0], P.q[1]))),
+      page === 'access' && !S.token ? this.note('wait', 'key', [h('b', { key: 'b' }, t('Finish setup in this browser.', 'Dokonči nastavení v tomto prohlížeči.')), ' ', t('Without the operator token, approvals are rejected and Autopilot, engine switching and push stay locked.', 'Bez operátorského tokenu se schválení odmítají a Autopilot, změna enginu i push zůstanou zamčené.')], null, { top: true, role: 'status' }) : null,
+      m === 'narrow' && list.length > 3 ? this.ancSel(list, { row: true }) : null,
+      list.map(p => p.node),
+      page === 'engines' ? h('div', { className: 'st-foot' }, this.ic('info', 15), t('Applies to new runs; running work is not switched.', 'Platí pro nové běhy; rozběhnutá práce se nepřepne.')) : null,
+      page === 'runtime' ? this.saveBar(m) : null);
+  }
+  frame(page, o) {
+    const h = this.h; o = o || {}; this.pfx = o.key || page;
+    const list = this['pg_' + page](o.mode);
+    const nar = o.mode === 'narrow', anc = list.length > 3 && !nar;
+    return h('div', { className: 'st-stage', style: { width: o.w || 1440, height: o.hgt || 900 } },
+      this.header({ lv: nar ? 1 : 0, inSettings: true }), this.ctx(page),
+      h('div', { className: 'st-scroll' }, h('div', { className: 'st-body' + (nar ? ' nar' : anc ? '' : ' na') }, this.rail(page), this.mainCol(page, list, o.mode), anc ? this.anchors(list, this.pfx) : h('span'))),
+      o.toast ? this.toast() : null);
+  }
+  phone(page, key) {
+    const h = this.h, t = this.t; this.pfx = key;
+    const list = this['pg_' + page]('phone'), P = this.PG(page);
+    return h('div', { className: 'stage phone', style: { margin: 0 } }, h('div', { className: 'ph' },
+      h('div', { className: 'sbar', 'aria-hidden': 'true' }, h('span', null, '9:41'), h('span', { style: { fontFamily: 'Geist Mono', fontSize: 12 } }, '5G ▮▮▮')),
+      h('div', { className: 'tc-mbar' }, h('button', { type: 'button', className: 'tc-ib', 'aria-label': t('Back', 'Zpět') }, this.ic('chevl', 18)), h('span', { className: 'tc-mtitle' }, t('Settings', 'Nastavení')), h('span', { className: 'tc-sp' }), h('button', { type: 'button', className: 'tc-ib', 'aria-label': t('Search settings', 'Hledat v nastavení') }, this.ic('search', 17))),
+      h('div', { className: 'st-pscroll' },
+        h('div', { className: 'st-mnav' },
+          h('div', { className: 'st-selw' }, h('label', { className: 'pre', htmlFor: key + '-pg' }, t('Settings page', 'Stránka nastavení')), h('div', { style: { position: 'relative' } }, h('select', { id: key + '-pg', className: 'st-nsel', value: page, onChange: () => {} }, this.PAGES.map(p => h('option', { key: p.id, value: p.id }, t(p.en, p.cs) + (p.id === 'access' && !this.state.token ? ' •' : '')))), h('span', { style: { position: 'absolute', right: 12, top: 13, pointerEvents: 'none', color: 'var(--ink3)' } }, this.ic('updown', 14)))),
+          list.length > 3 ? this.ancSel(list) : null),
+        this.mainCol(page, list.map(x => x), 'phone')),
+      h('div', { className: 'home', 'aria-hidden': 'true' })));
+  }
+  toast() {
+    const h = this.h, t = this.t;
+    return h('div', { className: 'st-toast', role: 'alert' }, h('span', { className: 'i' }, this.ic('errc', 18)),
+      h('div', null, h('b', null, t('Approval was rejected', 'Schválení bylo odmítnuto')), t('This browser has no operator token, so the daemon refused “Deploy acme-web to production”.', 'Tento prohlížeč nemá operátorský token, takže daemon odmítl „Nasadit acme-web do produkce“.'),
+        h('div', null, h('a', { href: '#', className: 'go', onClick: e => { this.pd(e); this.setState({ view: 'access', token: false, hl: 'operator-token' }); } }, this.ic('key', 14), t('Set the operator token in Settings › Access', 'Nastav operátorský token v Nastavení › Přístup')))),
+      h('button', { type: 'button', className: 'tc-ib', 'aria-label': t('Dismiss', 'Zavřít'), style: { width: 26, height: 26 } }, this.ic('x', 14)));
+  }
+
+  // ================= views =================
+  cap(title, txt, w) { const h = this.h; return h('div', { className: 'cap', style: w ? { width: w } : null }, h('b', null, title), h('span', null, txt)); }
+  vPage(page) {
+    const t = this.t, P = this.PG(page);
+    const D = {
+      general: t('Five panels, one question. Language and theme apply instantly. Record a real shortcut — try ⌘K or ⌘W to see the collision card. Live log (was its own page) is a collapsible matrix.', 'Pět panelů, jedna otázka. Jazyk a motiv platí okamžitě. Nahraj skutečnou zkratku — zkus ⌘K nebo ⌘W a uvidíš kartu kolize. Živý log (dříve samostatná stránka) je sbalitelná matice.'),
+      access: t('New page. Operator token sits first because three other things depend on it. Flip “First run” in the toolbar to see the missing-token state ripple into push and the engine switch.', 'Nová stránka. Operátorský token je první, protože na něm závisí tři další věci. Přepni nahoře na „První spuštění“ a uvidíš, jak chybějící token ovlivní push i změnu enginu.'),
+      engines: t('Renamed from AI models. Disconnected providers show a terminal command, never a password form. The opencode model picker flags models that claim to be free but aren’t verified.', 'Přejmenováno z AI modelů. Nepřipojení poskytovatelé ukazují příkaz do terminálu, nikdy formulář s heslem. Výběr modelu opencode označí modely, které tvrdí, že jsou zdarma, ale nejsou ověřené.'),
+      runtime: t('Opens with two unsaved edits so you can see the dirty grammar: ink dot on the row, “was …”, Discard/Save on the panel, sticky save bar. Save one panel or all.', 'Otevírá se se dvěma neuloženými úpravami, ať je vidět gramatika změn: tečka u řádku, „dříve …“, Zahodit/Uložit u panelu a lepicí lišta. Ulož jeden panel nebo všechno.'),
+      status: t('Health first, then version. Updates moved here from General; the header status chip deep-links to #version.', 'Nejdřív zdraví, pak verze. Aktualizace se sem přesunuly z Obecných; stavový čip v hlavičce vede přímo na #version.')
+    };
+    return this.h('div', null, this.cap(t(P.en, P.cs) + ' · 1440', D[page]), this.frame(page, { key: 'd-' + page }));
+  }
+  vNarrow() {
+    const h = this.h, t = this.t, pg = this.state.narrowPage || 'runtime';
+    return h('div', null, this.cap(t('Narrow desktop · 1100', 'Úzký desktop · 1100'), t('Section track goes icon-only, the anchor rail folds into an “On this page” select above the panels, rows wrap their control under the label when the label needs the room.', 'Sekce se zúží na ikony, kotvy se složí do výběru „Na této stránce“ nad panely a řádky zalomí ovládací prvek pod popisek, když popisek potřebuje místo.'), 1100),
+      this.frame(pg, { key: 'n-' + pg, w: 1100, mode: 'narrow' }));
+  }
+  vPhone() {
+    const h = this.h, t = this.t;
+    return h('div', null, this.cap(t('Phone · 390', 'Telefon · 390'), t('Sub-nav is a native select (the page list is short and well known). Pages with more than 3 panels add a second select to jump. Long controls drop under the label; switches stay on the right.', 'Podnavigace je nativní select (seznam stránek je krátký a známý). Stránky s více než 3 panely přidají druhý výběr pro skok. Dlouhé prvky spadnou pod popisek; přepínače zůstávají vpravo.')),
+      h('div', { className: 'phs', style: { display: 'flex', gap: 40, justifyContent: 'center', flexWrap: 'wrap', margin: '14px auto 64px' } },
+        h('div', null, h('p', { className: 'st-lbl', style: { textAlign: 'center' } }, t('General', 'Obecné')), this.phone('general', 'pg')),
+        h('div', null, h('p', { className: 'st-lbl', style: { textAlign: 'center' } }, t('Access & notifications', 'Přístup a oznámení')), this.phone('access', 'pa')),
+        h('div', null, h('p', { className: 'st-lbl', style: { textAlign: 'center' } }, t('Runtime · dirty', 'Runtime · neuloženo')), this.phone('runtime', 'pr'))));
+  }
+  vEntry() {
+    const h = this.h, t = this.t, S = this.state;
+    const stub = (title, extra) => h('div', { className: 'st-stub' }, h('h2', null, title), extra || null, h('div', { className: 'st-g3' }, [0, 1, 2].map(i => h('div', { className: 'st-skc', key: i }, h('div', { className: 'st-sk', style: { width: '40%' } }), h('div', { className: 'st-sk' }), h('div', { className: 'st-sk', style: { width: '70%' } })))));
+    const res = [['gear', t('Settings', 'Nastavení'), t('General', 'Obecné'), '⌘,', true], ['key', t('Access & notifications', 'Přístup a oznámení'), t('Operator token · Slack · Web push', 'Operátorský token · Slack · Web push'), null, false], ['ai', t('AI engines', 'AI enginy'), t('Active engine · Model families', 'Aktivní engine · Rodiny modelů'), null, false], ['cpu', t('Runtime', 'Runtime'), t('Machine · Schedulers · Limits', 'Stroj · Plánovače · Limity'), null, false], ['pulse', t('Status & updates', 'Stav a aktualizace'), t('Update 1.2.0 available', 'Dostupná aktualizace 1.2.0'), null, false]];
+    const sub = [['kbd', t('Summon Zibby shortcut', 'Zkratka pro vyvolání Zibbyho'), t('Settings › General › Shortcuts', 'Nastavení › Obecné › Zkratky')], ['sliders', t('Reset settings to defaults…', 'Obnovit výchozí nastavení…'), t('Command', 'Příkaz')]];
+    this.pfx = 'e';
+    return h('div', null,
+      h('div', { className: 'st-wrap st-intro' }, h('h2', null, t('Entry points', 'Vstupní body')), h('p', null, t('Settings is not in the section track. It opens from the preferences menu, ⌘, from anywhere, the command palette, and deep links from errors. While it’s open no section pill is active and the preferences button stays pressed.', 'Nastavení není v liště sekcí. Otevírá se z menu předvoleb, zkratkou ⌘, odkudkoli, z palety příkazů a přímými odkazy z chyb. Když je otevřené, žádná sekce není aktivní a tlačítko předvoleb zůstává stisknuté.'))),
+      this.cap(t('1 · Preferences menu', '1 · Menu předvoleb'), t('Theme and language stay as quick toggles; “Settings ⌘,” is the way into the full area. A missing token shows right on the menu item.', 'Motiv a jazyk zůstávají jako rychlé přepínače; „Nastavení ⌘,“ vede do celé oblasti. Chybějící token je vidět přímo u položky.')),
+      h('div', { className: 'st-stage', style: { width: 1440, height: 430 } }, this.header({ menu: true, sec: 'dashboard' }), stub(t('Bridge', 'Můstek'))),
+      this.cap(t('2 · Command palette', '2 · Paleta příkazů'), t('Typing “sett” ranks the Settings entry first with its ⌘, hint, then each page with the panels it holds, then individual settings. Panel and setting results deep-link to their anchor.', 'Po napsání „nast“ je první Nastavení s nápovědou ⌘,, pak každá stránka s panely, které obsahuje, a nakonec jednotlivá nastavení. Výsledky panelů a nastavení vedou přímo na kotvu.')),
+      h('div', { className: 'st-stage', style: { width: 1440, height: 600 } }, this.header({ sec: 'dashboard' }), stub(t('Bridge', 'Můstek')),
+        h('div', { className: 'tc-scrim', 'aria-hidden': 'true' }),
+        h('div', { className: 'tc-pal', role: 'dialog', 'aria-label': t('Command palette', 'Paleta příkazů') },
+          h('div', { className: 'tc-pal-in' }, this.ic('search', 16), h('input', { value: t('sett', 'nast'), readOnly: true, 'aria-label': t('Search', 'Hledat'), role: 'combobox', 'aria-expanded': true, 'aria-controls': 'pal-l', 'aria-activedescendant': 'pal-0' }), h('span', { className: 'kbd' }, 'esc')),
+          h('div', { className: 'tc-pal-g', role: 'listbox', id: 'pal-l' },
+            h('div', { className: 'tc-ph' }, t('Settings', 'Nastavení')),
+            res.map(([icn, l, s, k, hl], i) => h('div', { key: i, id: 'pal-' + i, role: 'option', 'aria-selected': hl, className: 'tc-mi' + (hl ? ' hl' : '') }, h('span', { className: 'ico' }, this.ic(icn, 15)), h('span', null, l), h('small', { style: { marginLeft: 8 } }, s), k ? h('span', { className: 'kbd', style: { marginLeft: 'auto' } }, k) : null, i === 1 && !S.token ? h('span', { className: 'bdg wait nd', style: { marginLeft: 'auto', height: 18, fontSize: 10.5 } }, t('Token missing', 'Chybí token')) : null)),
+            h('div', { className: 'tc-sep' }), h('div', { className: 'tc-ph' }, t('Settings & commands', 'Nastavení a příkazy')),
+            sub.map(([icn, l, s], i) => h('div', { key: i, role: 'option', 'aria-selected': false, className: 'tc-mi' }, h('span', { className: 'ico' }, this.ic(icn, 15)), h('span', null, l), h('small', null, s)))),
+          h('div', { className: 'tc-pal-z' }, h('span', null, h('span', { className: 'kbd' }, '↵'), ' ', t('open', 'otevřít')), h('span', null, h('span', { className: 'kbd' }, '↑↓'), ' ', t('move', 'posun')), h('span', { style: { marginLeft: 'auto' } }, t('⌘, opens Settings without the palette', '⌘, otevře Nastavení i bez palety'))))),
+      this.cap(t('3 · Deep link from an approval error', '3 · Přímý odkaz z chyby schválení'), t('The rejected approval stays visible inline; the toast offers the one fix. The link lands on Settings › Access with the token panel highlighted and the field focused. Click it.', 'Odmítnuté schválení zůstane vidět v seznamu; toast nabídne jediné řešení. Odkaz vede na Nastavení › Přístup se zvýrazněným panelem tokenu a kurzorem v poli. Klikni.')),
+      h('div', { className: 'st-stage', style: { width: 1440, height: 430 } }, this.header({ sec: 'dashboard' }),
+        stub(t('Inbox · Approvals', 'Inbox · Schválení'), h('div', { className: 'st-pr' }, h('span', { style: { color: 'var(--rose)' } }, this.ic('errc', 18)), h('span', null, h('b', null, t('Deploy acme-web to production', 'Nasadit acme-web do produkce')), h('small', null, t('Rejected by daemon · operator token missing', 'Odmítnuto daemonem · chybí operátorský token'))), this.btn(t('Approve again', 'Schválit znovu'), { k: 'sm', dis: true }))),
+        this.toast()));
+  }
+  vGrammar() {
+    const h = this.h, t = this.t; this.pfx = 'g';
+    const mini = (st, k) => {
+      const lab = { def: t('Default', 'Výchozí'), dirty: t('Dirty / unsaved', 'Změněno / neuloženo'), saving: t('Saving', 'Ukládá se'), saved: t('Saved', 'Uloženo'), err: t('Error', 'Chyba'), dis: t('Disabled', 'Zakázáno'), ns: t('Not set up', 'Nenastaveno') }[st];
+      const acts = { dirty: [this.btn(t('Discard', 'Zahodit'), { k: 'sm gh', key: 'a' }), this.btn(t('Save', 'Uložit'), { k: 'sm ink', key: 'b' })], saving: h('span', { className: 'st' }, this.ic('spin', 14), t('Saving…', 'Ukládám…')), saved: this.bdg('ok', t('Saved', 'Uloženo')), err: [this.btn(t('Discard', 'Zahodit'), { k: 'sm gh', key: 'a' }), this.btn(t('Retry', 'Zkusit znovu'), { k: 'sm ink', key: 'b', ic: 'refresh' })] }[st];
+      const v = st === 'def' || st === 'saved' ? '~/Code/zibby-clones' : st === 'ns' ? '' : '~/Code/clones';
+      const body = st === 'ns' ? [this.note('info', 'term', [h('b', { key: 'b' }, t('Not set up.', 'Nenastaveno.')), ' ', t('Says what’s missing and gives the one next step — a command or a link, never a dead end.', 'Řekne, co chybí, a dá jeden další krok — příkaz nebo odkaz, nikdy slepou uličku.')], this.btn(t('Set up', 'Nastavit'), { k: 'sm' }))] : [
+        this.row(t('Clone root', 'Kořen klonů'), st === 'dis' ? t('Requires the operator token.', 'Vyžaduje operátorský token.') : t('Where repositories are cloned.', 'Kam se klonují repozitáře.'), h('input', { className: 'st-in mono' + (st === 'dirty' || st === 'err' ? ' chg' : ''), value: v, readOnly: true, disabled: st === 'dis' || st === 'saving', 'aria-invalid': st === 'err' ? 'true' : undefined, 'aria-label': t('Clone root', 'Kořen klonů'), style: { width: 190 } }), { key: 'r', chg: st === 'dirty', dis: st === 'dis', tag: st === 'dirty' ? this.was(1, 2, () => '~/Code/zibby-clones') : null }),
+        st === 'err' ? this.note('err', 'errc', t('Folder doesn’t exist on the host. Create it or pick another.', 'Složka na hostiteli neexistuje. Vytvoř ji nebo zvol jinou.'), null) : null];
+      return h('div', { key: k }, h('p', { className: 'st-lbl' }, lab), this.panel('gm-' + st, t('Machine', 'Stroj'), null, body, { acts, cls: { dirty: 'dirty', err: 'err', dis: 'off', ns: 'ns' }[st] || '', badge: st === 'dis' ? this.bdg('wait', t('Token required', 'Vyžaduje token')) : st === 'ns' ? this.bdg('off', t('Not set up', 'Nenastaveno')) : null, busy: st === 'saving' }));
+    };
+    const ctrl = this.panel('g-ctrl', t('Controls', 'Ovládací prvky'), t('Label and hint on the left, one control on the right. Rows wrap; nothing truncates.', 'Popisek a nápověda vlevo, jeden prvek vpravo. Řádky se zalamují; nic se neusekává.'), [
+      this.row(t('Toggle', 'Přepínač'), t('Applies instantly. role="switch".', 'Platí hned. role="switch".'), this.sw(true, null, 'Toggle'), { key: 1 }),
+      this.row(t('Segmented control', 'Segmentový přepínač'), t('Applies instantly. Radio group, arrow keys move.', 'Platí hned. Skupina rádií, šipky posouvají.'), this.seg([['a', t('System', 'Systémový')], ['b', t('Light', 'Světlý')], ['c', t('Dark', 'Tmavý')]], 'a', () => {}, 'Seg'), { key: 2 }),
+      this.row(t('Text input', 'Textové pole'), t('Draft until saved. Changed fields get an ink border.', 'Koncept, dokud se neuloží. Změněné pole má tmavší okraj.'), this.inp({ v: '~/Code/zibby-clones', mono: true, w: 220, al: 'Input' }), { key: 3 }),
+      this.row(t('Duration', 'Doba'), t('Hours + minutes, e.g. 1 h 30 min. Minutes over 59 roll into hours; 0 h 0 min = off.', 'Hodiny + minuty, např. 1 h 30 min. Minuty nad 59 přetečou do hodin; 0 h 0 min = vypnuto.'), h('span', { className: 'st-hm' }, h('input', { className: 'st-in', type: 'number', value: 1, readOnly: true, 'aria-label': 'Hours' }), 'h', h('input', { className: 'st-in', type: 'number', value: 30, readOnly: true, 'aria-label': 'Minutes' }), 'min'), { key: 4 }),
+      this.row(t('Select', 'Výběr'), t('Combobox + listbox; badges are part of each option’s name.', 'Combobox + listbox; štítky jsou součástí názvu možnosti.'), h('button', { type: 'button', className: 'st-sel', style: { width: 280 } }, h('span', { className: 'v' }, 'opencode/big-pickle'), this.tags(['free', 'think']), this.ic('updown', 14)), { key: 5 }),
+      this.row(t('Stepper', 'Krokovač'), t('Bounded integers.', 'Celá čísla s mezemi.'), h('div', { className: 'st-step' }, h('button', { type: 'button', 'aria-label': '−' }, this.ic('minus', 14, 2)), h('input', { value: 4, readOnly: true, 'aria-label': 'Value' }), h('button', { type: 'button', 'aria-label': '+' }, this.ic('plus', 14, 2))), { key: 6 }),
+      this.row(t('Buttons', 'Tlačítka'), t('Ink fill = the one primary action. Amber is never a button colour here.', 'Plná tmavá = jediná hlavní akce. Jantar tu nikdy není barva tlačítka.'), [this.btn(t('Secondary', 'Vedlejší'), { key: 'a' }), this.btn(t('Primary', 'Hlavní'), { k: 'ink', key: 'b' }), this.btn(t('Remove', 'Odebrat'), { k: 'gh danger', key: 'c' })], { key: 7 })
+    ]);
+    const anat = h('div', { className: 'st-ann' },
+      h('div', { className: 'st-pin' },
+        h('span', { className: 'st-n', style: { left: -10, top: -10 } }, '1'), h('span', { className: 'st-n', style: { right: 150, top: 10 } }, '2'), h('span', { className: 'st-n', style: { left: -10, top: 74 } }, '3'), h('span', { className: 'st-n', style: { right: -10, top: 84 } }, '4'), h('span', { className: 'st-n', style: { left: -10, bottom: 10 } }, '5'),
+        h('div', { className: 'st-hd', style: { marginBottom: 14 } }, h('h1', null, t('Runtime', 'Runtime')), h('p', null, t('How does this machine run?', 'Jak tenhle stroj běží?'))),
+        this.panel('g-an', t('Limits', 'Limity'), t('Guard rails for how much runs at once.', 'Mantinely pro to, kolik toho běží najednou.'), [
+          this.row(t('Max concurrent runs', 'Max. souběžných běhů'), t('Runs above this wait in the queue.', 'Běhy nad tento počet čekají ve frontě.'), h('div', { className: 'st-step chg' }, h('button', { type: 'button', 'aria-label': '−' }, this.ic('minus', 14, 2)), h('input', { value: 4, readOnly: true, 'aria-label': 'Value' }), h('button', { type: 'button', 'aria-label': '+' }, this.ic('plus', 14, 2))), { key: 1, chg: true, tag: this.was(4, 3) })
+        ], { cls: 'dirty', acts: [this.btn(t('Discard', 'Zahodit'), { k: 'sm gh', key: 'a' }), this.btn(t('Save', 'Uložit'), { k: 'sm ink', key: 'b' })] }),
+        h('div', { style: { marginTop: 14 } }, this.saveBarView('dirty', 1, t('Limits', 'Limity'), { static: true }))),
+      h('ol', null,
+        h('li', null, h('span', { className: 'st-n' }, '1'), h('span', null, h('b', null, t('Page header.', 'Hlavička stránky.')), ' ', t('Title + the one question the page answers. No buttons here.', 'Název + jediná otázka, na kterou stránka odpovídá. Žádná tlačítka.'))),
+        h('li', null, h('span', { className: 'st-n' }, '2'), h('span', null, h('b', null, t('Panel head.', 'Hlavička panelu.')), ' ', t('h2 + one-line hint, an optional status badge, and actions top-right (Send test, Check now; Discard/Save only when dirty).', 'h2 + jednořádková nápověda, volitelný stavový štítek a akce vpravo nahoře (Poslat test, Zkontrolovat; Zahodit/Uložit jen při změně).'))),
+        h('li', null, h('span', { className: 'st-n' }, '3'), h('span', null, h('b', null, t('Row.', 'Řádek.')), ' ', t('Label + hint left (flex-basis 250 px), control right. An ink dot and “was …” mark a change.', 'Popisek + nápověda vlevo (flex-basis 250 px), prvek vpravo. Tečka a „dříve …“ značí změnu.'))),
+        h('li', null, h('span', { className: 'st-n' }, '4'), h('span', null, h('b', null, t('Control.', 'Prvek.')), ' ', t('Switches and segmented controls apply instantly. Inputs, steppers and sliders are drafts.', 'Přepínače a segmenty platí hned. Pole, krokovače a posuvníky jsou koncept.'))),
+        h('li', null, h('span', { className: 'st-n' }, '5'), h('span', null, h('b', null, t('Sticky save bar.', 'Lepicí lišta uložení.')), ' ', t('Appears with the first draft, lists which panels are dirty, saves everything (⌘S). Leaving the page with drafts asks first.', 'Objeví se s prvním konceptem, vypíše změněné panely a uloží vše (⌘S). Odchod ze stránky s koncepty se nejdřív zeptá.')))));
+    return h('div', { className: 'st-doc' },
+      h('div', { className: 'st-intro', style: { paddingTop: 0 } }, h('h2', null, t('Shared grammar', 'Sdílená gramatika')), h('p', null, t('Defined once, used on every page. Same tokens as the Bridge: hairlines, ink-filled primary, amber only for “waits for you”, violet only for agents acting (it never appears in Settings controls).', 'Definováno jednou, použito všude. Stejné tokeny jako Můstek: tenké linky, plná tmavá hlavní akce, jantar jen pro „čeká na tebe“, fialová jen pro jednající agenty (v ovládání nastavení se neobjeví).'))),
+      h('h2', { className: 'h' }, t('Anatomy', 'Anatomie')), anat,
+      h('h2', { className: 'h' }, t('Controls', 'Ovládací prvky')), h('div', { className: 'st-g2' }, ctrl,
+        h('div', null, h('p', { className: 'st-lbl' }, t('Status badges', 'Stavové štítky')), h('div', { className: 'st-pnl', style: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12 } },
+          [['ok', t('ok', 'ok'), t('Saved · Connected · Nominal', 'Uloženo · Připojeno · V pořádku')], ['wait', t('waits for you', 'čeká na tebe'), t('Missing token · Stale · Restart to finish', 'Chybí token · Zamrzlý · Dokončí se restartem')], ['off', t('off', 'vypnuto'), t('Off · Paused · Not set up · Disabled', 'Vypnuto · Pozastaveno · Nenastaveno · Vypnutý')], ['err', t('error', 'chyba'), t('Blocked · Offline · Update failed', 'Blokováno · Offline · Aktualizace selhala')]].map(([k, n, ex]) => h('div', { key: k, style: { display: 'grid', gridTemplateColumns: '130px minmax(0,1fr)', gap: 12, alignItems: 'center', fontSize: 12.5, color: 'var(--ink2)' } }, this.bdg(k, n), ex)),
+          h('p', { style: { fontSize: 12, color: 'var(--ink3)', borderTop: '1px solid var(--line)', paddingTop: 10 } }, t('Shape + text, never colour alone: “off” is a hollow dot. Sky is reserved for “update available”.', 'Tvar + text, nikdy jen barva: „vypnuto“ má dutou tečku. Modrá je vyhrazená pro „dostupná aktualizace“.'))),
+          h('p', { className: 'st-lbl', style: { marginTop: 16 } }, t('Save bar', 'Lišta uložení')),
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } }, this.saveBarView('dirty', 3, t('Schedulers · Limits', 'Plánovače · Limity'), { static: true }), this.saveBarView('saving', 3, '', { static: true }), this.saveBarView('saved', 0, '', { static: true }), this.saveBarView('error', 3, '', { static: true })))),
+      h('h2', { className: 'h' }, t('Panel states', 'Stavy panelu')), h('p', { className: 'lead' }, t('Default, dirty, saving, saved, error, disabled, not set up — the same panel in each.', 'Výchozí, změněno, ukládá se, uloženo, chyba, zakázáno, nenastaveno — stejný panel v každém stavu.')),
+      h('div', { className: 'st-g4' }, ['def', 'dirty', 'saving', 'saved'].map((s, i) => mini(s, i))), h('div', { className: 'st-g3', style: { marginTop: 16 } }, ['err', 'dis', 'ns'].map((s, i) => mini(s, 'b' + i))),
+      h('h2', { className: 'h' }, t('Web push states', 'Stavy web push')),
+      h('div', { className: 'st-g2' }, ['on', 'token', 'blocked', 'unsupported'].map(s => h('div', { key: s }, h('p', { className: 'st-lbl' }, s), this.pushView(s, { id: 'gp-' + s, noTest: true })))),
+      h('h2', { className: 'h' }, t('Update and system states', 'Stavy aktualizace a systému')),
+      h('div', { className: 'st-g2' }, ['avail', 'dl', 'ready', 'fail', 'done'].map(s => h('div', { key: s }, h('p', { className: 'st-lbl' }, s), this.verPanel(s, 'gv-' + s))), h('div', null, h('p', { className: 'st-lbl' }, 'offline'), this.sysPanel(true, 'gs-off'))),
+      h('h2', { className: 'h' }, t('Czech is ~30% longer', 'Čeština je o ~30 % delší')), h('p', { className: 'lead' }, t('Same row at 380 px in both languages. The label column never truncates; the control drops under it when they can’t share a line.', 'Stejný řádek na 380 px v obou jazycích. Sloupec popisku se nikdy neusekne; prvek spadne pod něj, když se nevejdou na jeden řádek.')),
+      h('div', { className: 'st-cs' }, [['en', 'Auto-resume goals on start', 'Goals that were running when the daemon stopped pick up again.', 'Restart required'], ['cs', 'Po startu automaticky obnovit cíle', 'Cíle, které běžely při zastavení daemona, pokračují.', 'Vyžaduje restart']].map(([l, a, b, c]) => h('div', { key: l }, h('p', { className: 'st-lbl' }, l.toUpperCase()), h('div', { className: 'st-pnl' }, this.row(a, b, this.sw(true, null, a), { tag: h('span', { className: 'st-chip' }, c) }), this.row(l === 'en' ? 'Theme' : 'Motiv', null, this.seg([['s', l === 'en' ? 'System' : 'Systémový'], ['l', l === 'en' ? 'Light' : 'Světlý'], ['d', l === 'en' ? 'Dark' : 'Tmavý']], 's', () => {}, 'x')))))));
+  }
+  vMap() {
+    const h = this.h, t = this.t;
+    const TG = { moved: t('Moved', 'Přesunuto'), merged: t('Merged', 'Sloučeno'), new: t('New', 'Nové'), kept: t('Kept', 'Beze změny'), renamed: t('Renamed', 'Přejmenováno') };
+    const tg = k => h('span', { className: 'st-tg ' + k }, TG[k]);
+    const MOVES = [
+      [t('General › Preferences · Language', 'Obecné › Předvolby · Jazyk'), t('General › Language', 'Obecné › Jazyk'), 'kept'],
+      [t('General › Preferences · Caffeinate', 'Obecné › Předvolby · Caffeinate'), t('Runtime › Machine · Keep awake', 'Runtime › Stroj · Nenechat usnout'), 'moved'],
+      [t('General › Updates', 'Obecné › Aktualizace'), t('Status & updates › Version & updates', 'Stav a aktualizace › Verze a aktualizace'), 'moved'],
+      [t('General › Appearance', 'Obecné › Vzhled'), t('General › Appearance', 'Obecné › Vzhled'), 'kept'],
+      [t('General › Machine · Clone root', 'Obecné › Stroj · Kořen klonů'), t('Runtime › Machine', 'Runtime › Stroj'), 'moved'],
+      [t('General › Chat persona', 'Obecné › Osobnost chatu'), t('General › Chat persona', 'Obecné › Osobnost chatu'), 'kept'],
+      [t('General › Shortcuts', 'Obecné › Zkratky'), t('General › Shortcuts', 'Obecné › Zkratky'), 'kept'],
+      [t('General › Operator token', 'Obecné › Operátorský token'), t('Access & notifications › Operator token (first)', 'Přístup a oznámení › Operátorský token (první)'), 'moved'],
+      [t('General › Operator channel (Slack)', 'Obecné › Kanál operátora (Slack)'), t('Access & notifications › Slack operator channel', 'Přístup a oznámení › Slack kanál operátora'), 'moved'],
+      [t('General › Push notifications', 'Obecné › Push notifikace'), t('Access & notifications › Web push', 'Přístup a oznámení › Web push'), 'moved'],
+      [t('Activity (whole page)', 'Aktivita (celá stránka)'), t('General › Live log (collapsible panel)', 'Obecné › Živý log (sbalitelný panel)'), 'merged'],
+      [t('Runtime › Runtime parameters', 'Runtime › Běhové parametry'), t('Runtime › Schedulers · Limits · Context', 'Runtime › Plánovače · Limity · Kontext'), 'moved'],
+      [t('AI models › AI engine', 'AI modely › AI engine'), t('AI engines › Active engine · Model families · opencode model', 'AI enginy › Aktivní engine · Rodiny modelů · Model opencode'), 'renamed'],
+      [t('AI models › OpenAI key, BlueCode', 'AI modely › Klíč OpenAI, BlueCode'), t('AI engines › OpenAI API key · BlueCode gateway', 'AI enginy › API klíč OpenAI · Brána BlueCode'), 'renamed'],
+      [t('Status › Daemon, host, watchers', 'Stav › Daemon, stroj, hlídače'), t('Status & updates › System status · Watchers', 'Stav a aktualizace › Stav systému · Hlídače'), 'kept'],
+      [t('Status › ZIBBY development', 'Stav › Vývoj ZIBBY'), t('Status & updates › ZIBBY development', 'Stav a aktualizace › Vývoj ZIBBY'), 'kept'],
+      [t('Machine inventory (sub-nav item)', 'Inventář stroje (položka sub-nav)'), '/workforce/capabilities/machine', 'moved']
+    ];
+    const ROUTES = [['/system/settings', '/system/settings/general', t('Redirect', 'Přesměrování')], ['/system/settings/activity', '/system/settings/general#live-log', '301'], ['/system/settings/ai-models', '/system/settings/ai-engines', '301'], ['—', '/system/settings/access', t('New', 'Nová')], ['/system/settings/runtime', t('same', 'beze změny'), ''], ['/system/settings/status', t('same, now includes #version', 'beze změny, nově s #version'), ''], ['/system/inventory', '/workforce/capabilities/machine', '301']];
+    const LINKS = [[t('“Set the token in Settings → General” (approvals, Autopilot, engine switch)', '„Nastav token v Nastavení → Obecné“ (schvalování, Autopilot, změna enginu)'), '/system/settings/access#operator-token'], [t('Push “token required”', 'Push „vyžaduje token“'), '/system/settings/access#operator-token'], [t('Header status chip · update dot', 'Stavový čip v hlavičce · tečka aktualizace'), '/system/settings/status#version'], [t('Header engine menu › Engine settings', 'Menu enginu v hlavičce › Nastavení enginu'), '/system/settings/ai-engines#engine'], [t('Stale watcher in system popover', 'Zamrzlý hlídač v popoveru systému'), '/system/settings/status#watchers']];
+    const table = (head, rows) => h('table', null, h('thead', null, h('tr', null, head.map((x, i) => h('th', { key: i }, x)))), h('tbody', null, rows.map((r, i) => h('tr', { key: i }, r.map((c, j) => h('td', { key: j }, c))))));
+    const PGS = [['general', [t('Language', 'Jazyk'), t('Appearance', 'Vzhled'), t('Shortcuts', 'Zkratky'), t('Chat persona', 'Osobnost chatu'), t('Live log', 'Živý log')]], ['access', [t('Operator token', 'Operátorský token'), t('Slack operator channel', 'Slack kanál operátora'), t('Web push', 'Web push')]], ['engines', [t('Active engine', 'Aktivní engine'), t('Model families', 'Rodiny modelů'), t('opencode model', 'Model opencode'), t('OpenAI API key', 'API klíč OpenAI'), t('BlueCode gateway', 'Brána BlueCode')]], ['runtime', [t('Machine', 'Stroj'), t('Schedulers', 'Plánovače'), t('Limits', 'Limity'), t('Context', 'Kontext')]], ['status', [t('System status', 'Stav systému'), t('Watchers', 'Hlídače'), t('Version & updates', 'Verze a aktualizace'), t('ZIBBY development', 'Vývoj ZIBBY')]]];
+    const A11Y = [
+      [t('Landmarks', 'Orientační body'), t('header (banner) → nav “Sections” with no aria-current while in Settings → nav “Settings pages” (aria-current="page") → main labelled by the h1 → nav “On this page”. Each panel is a section labelled by its h2.', 'header (banner) → nav „Sekce“ bez aria-current, když je otevřené Nastavení → nav „Stránky nastavení“ (aria-current="page") → main pojmenovaný h1 → nav „Na této stránce“. Každý panel je section pojmenovaná svým h2.')],
+      [t('Focus order', 'Pořadí fokusu'), t('Header → settings rail → h1 → panels top to bottom; inside a panel: head actions, then rows left-to-right → save bar → anchor rail. After a deep link, focus lands in the target field (token input), not on the page top.', 'Hlavička → lišta nastavení → h1 → panely shora dolů; v panelu: akce v hlavičce, pak řádky zleva doprava → lišta uložení → kotvy. Po přímém odkazu dostane fokus cílové pole (vstup tokenu), ne začátek stránky.')],
+      [t('Rows', 'Řádky'), t('Visible <label for> on every control; the hint is aria-describedby. Changed rows add “changed, was 5 min” to the description, not colour only.', 'Viditelný <label for> u každého prvku; nápověda přes aria-describedby. Změněné řádky přidají do popisu „změněno, dříve 5 min“, ne jen barvu.')],
+      [t('Toggles and segments', 'Přepínače a segmenty'), t('Toggle = button role="switch" aria-checked. Segmented and engine cards = role="radiogroup"/"radio" with roving tabindex; ←/→ move and select. Personas are native radios; Edit and Delete are separate buttons after each radio, and the editor takes focus on its Name field.', 'Přepínač = button role="switch" aria-checked. Segmenty a karty enginu = role="radiogroup"/"radio" s putujícím tabindexem; ←/→ posouvají a vybírají. Osobnosti jsou nativní rádia; Upravit a Smazat jsou samostatná tlačítka za každým rádiem a editor dostane fokus v poli Název.')],
+      [t('Live log matrix', 'Matice živého logu'), t('Real table: row headers (scope="row"), column headers; one native radio group per row, named “Runs: Grouped”. The collapse control is a button with aria-expanded + aria-controls.', 'Skutečná tabulka: záhlaví řádků (scope="row") a sloupců; jedna nativní skupina rádií na řádek, pojmenovaná „Běhy: Seskupené“. Sbalení je tlačítko s aria-expanded + aria-controls.')],
+      [t('Status messages', 'Stavové zprávy'), t('Save bar text is aria-live="polite" (“Saving…”, “All changes saved”). Save failures and approval-rejected toasts are role="alert". Collision and stale warnings are role="status".', 'Text lišty uložení je aria-live="polite" („Ukládám…“, „Vše uloženo“). Selhání uložení a toast odmítnutého schválení mají role="alert". Varování o kolizi a zamrzlém hlídači mají role="status".')],
+      [t('Destructive actions', 'Destruktivní akce'), t('Delete key opens an inline alertdialog in the panel; focus moves to Cancel first. Leaving a page with drafts asks “Discard 2 unsaved changes?”.', 'Smazání klíče otevře v panelu inline alertdialog; fokus jde nejdřív na Zrušit. Odchod se stránky s koncepty se zeptá „Zahodit 2 neuložené změny?“.')],
+      [t('Model select', 'Výběr modelu'), t('combobox + listbox with aria-activedescendant; badges are part of each option’s accessible name (“qwen3-coder, free, unverified”).', 'combobox + listbox s aria-activedescendant; štítky jsou součástí přístupného názvu („qwen3-coder, zdarma, neověřeno“).')],
+      [t('Motion and colour', 'Pohyb a barvy'), t('Reduce motion stops pulses and spinners (a static icon remains). Badges pair colour with text and dot shape; contrast meets 4.5:1 in both themes (amber text uses --amber-fg).', 'Omezit pohyb zastaví pulzy i spinnery (zůstane statická ikona). Štítky kombinují barvu s textem a tvarem tečky; kontrast splňuje 4,5:1 v obou tématech (jantarový text používá --amber-fg).')]
+    ];
+    const KB = [['Enter / Space', t('Start recording (button gets aria-pressed="true"; live region says “Press the new combination. Escape cancels.”)', 'Spustí nahrávání (tlačítko dostane aria-pressed="true"; živý region řekne „Stiskni novou kombinaci. Esc zruší.“)')], [t('Any combo with ⌘ ⌥ ⌃ ⇧', 'Libovolná kombinace s ⌘ ⌥ ⌃ ⇧'), t('Captured on keydown of the focused button only; stops recording and announces “Summon Zibby set to Command Space”.', 'Zachytí se jen při keydown na aktivním tlačítku; ukončí nahrávání a oznámí „Vyvolání Zibbyho nastaveno na Command Mezerník“.')], [t('A key without modifier', 'Klávesa bez modifikátoru'), t('Rejected with an inline alert (F-keys are allowed alone).', 'Odmítnuta s inline upozorněním (F-klávesy samotné jsou povolené).')], ['Esc', t('Cancels, keeps the previous combo.', 'Zruší, ponechá předchozí kombinaci.')], ['Tab', t('Never captured: cancels recording and moves focus on, so keyboard users can’t get trapped.', 'Nikdy se nezachytí: zruší nahrávání a posune fokus dál, aby se uživatel klávesnice nezasekl.')], [t('Reset', 'Obnovit'), t('Restores ⌥ Z and announces it; disabled when already default.', 'Obnoví ⌥ Z a oznámí to; je zakázané, když je už výchozí.')], [t('Collision', 'Kolize'), t('Warning card is role="status" and linked to the key caps via aria-describedby; key caps read as “Command Space”, not symbols.', 'Karta varování má role="status" a je propojená s klávesami přes aria-describedby; klávesy se čtou jako „Command Mezerník“, ne jako symboly.')]];
+    return h('div', { className: 'spec', style: { width: 1100 } },
+      h('h1', null, t('What moved where', 'Co se kam přesunulo')),
+      h('p', { className: 'lede' }, t('The old General page stacked nine panels with no hierarchy. Now each page answers one operator question. Five pages instead of four: Access & notifications is new because the token, Slack and push are the only things that don’t belong anywhere else — and the token is needed on other pages, so it deserves to be easy to find.', 'Staré Obecné vršilo devět panelů bez hierarchie. Teď každá stránka odpovídá na jednu otázku operátora. Pět stránek místo čtyř: Přístup a oznámení je nová, protože token, Slack a push nikam jinam nepatří — a token je potřeba i na jiných stránkách, takže si zaslouží být snadno k nalezení.')),
+      h('div', { className: 'st-pages' }, PGS.map(([id, items]) => { const P = this.PG(id); return h('div', { key: id, className: id === 'access' ? 'new' : '' }, h('b', null, this.ic(P.icon, 15), t(P.en, P.cs), id === 'access' ? tg('new') : null), h('i', null, t(P.q[0], P.q[1])), h('ul', null, items.map((x, i) => h('li', { key: i }, x)))); })),
+      h('h2', null, t('Panel moves', 'Přesuny panelů')), table([t('Was', 'Dříve'), t('Now', 'Nyní'), ''], MOVES.map(([a, b, k]) => [a, b, tg(k)])),
+      h('h2', null, t('Routes', 'Routy')), table([t('Old route', 'Stará routa'), t('New route', 'Nová routa'), ''], ROUTES.map(([a, b, c]) => [h('code', null, a), h('code', null, b), c])),
+      h('p', null, t('Panel anchors: ', 'Kotvy panelů: '), h('code', null, '#language #appearance #shortcuts #persona #live-log · #operator-token #slack #push · #engine #families #opencode-model #openai #bluecode · #machine #schedulers #limits #context · #system #watchers #version #dev')),
+      h('h2', null, t('Deep links to update', 'Přímé odkazy k úpravě')), table([t('Source', 'Zdroj'), t('Target', 'Cíl')], LINKS.map(([a, b]) => [a, h('code', null, b)])),
+      h('p', null, t('Also update the Top Chrome IA: Settings now lists five pages (add Access & notifications) and General no longer carries the token.', 'Uprav také IA v Top Chrome: Nastavení má teď pět stránek (přidat Přístup a oznámení) a Obecné už nenese token.')),
+      h('h2', null, t('Accessibility', 'Přístupnost')), table([t('Area', 'Oblast'), t('Rule', 'Pravidlo')], A11Y),
+      h('h2', null, t('Keyboard: shortcut recorder', 'Klávesnice: nahrávání zkratky')), table([t('Key', 'Klávesa'), t('Behaviour', 'Chování')], KB),
+      h('h2', null, t('Czech and long labels', 'Čeština a dlouhé popisky')),
+      h('ul', null, h('li', null, t('No fixed label widths. Label column flex-basis 250 px; the control wraps below it rather than truncating.', 'Žádné pevné šířky popisků. Sloupec popisku má flex-basis 250 px; prvek se raději zalomí pod něj, než aby se usekl.')), h('li', null, t('Buttons and segments hug their text; segmented options never ellipsize. Rail items wrap to two lines if needed (“Přístup a oznámení” fits in 216 px).', 'Tlačítka a segmenty se přizpůsobí textu; segmenty se nikdy nezkracují. Položky lišty se v nouzi zalomí na dva řádky („Přístup a oznámení“ se do 216 px vejde).')), h('li', null, t('Numbers and times follow the interface language (62 % / 12. 11.); key caps use symbols in both, with spelled-out names for screen readers.', 'Čísla a časy se řídí jazykem rozhraní (62 % / 12. 11.); klávesy používají symboly v obou jazycích a pro čtečky vypsané názvy.'))));
+  }
+
+  renderVals() {
+    const v = this.view(), t = this.t;
+    const VL = [['general', t('General', 'Obecné')], ['access', t('Access', 'Přístup')], ['engines', t('AI engines', 'AI enginy')], ['runtime', 'Runtime'], ['status', t('Status', 'Stav')], ['narrow', t('Narrow 1100', 'Úzký 1100')], ['phone', t('Phone 390', 'Telefon 390')], ['entry', t('Entry points', 'Vstupní body')], ['grammar', t('Grammar & states', 'Gramatika a stavy')], ['map', t('Map & a11y', 'Mapa a přístupnost')]];
+    let page;
+    if (['general', 'access', 'engines', 'runtime', 'status'].indexOf(v) >= 0) page = this.vPage(v);
+    else if (v === 'narrow') page = this.vNarrow();
+    else if (v === 'phone') page = this.vPhone();
+    else if (v === 'entry') page = this.vEntry();
+    else if (v === 'grammar') page = this.vGrammar();
+    else page = this.vMap();
+    const S = this.state;
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => this.setState({ view: k }) })),
+      scens: [['first', t('First run', 'První spuštění')], ['set', t('Configured', 'Nastaveno')]].map(([k, l]) => ({ label: l, on: (k === 'first') === !S.token, pick: () => this.setState(k === 'first' ? { token: false, slack: false, bc: false, oa: false, hl: null } : { token: true, slack: true, bc: true, oa: true, hl: null }) })),
+      langs: [['en', 'EN'], ['cs', 'CS']].map(([k, l]) => ({ label: l, on: this.lang() === k, pick: () => this.setState({ lang: k }) })),
+      themes: [['dark', t('Dark', 'Tmavé')], ['light', t('Light', 'Světlé')]].map(([k, l]) => ({ label: l, on: this.theme() === k, pick: () => this.setTheme(k) })),
+      theme: this.theme(), page
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { Dropdown, type DropdownOption } from "../../Dropdown/Dropdown";
+import { Dropdown, type DropdownOption, type DropdownSize } from "../../Dropdown/Dropdown";
 import { Field } from "../Field";
 
 interface SelectFieldBaseProps<T extends string = string> {
@@ -6,6 +6,8 @@ interface SelectFieldBaseProps<T extends string = string> {
   hint?: string;
   error?: string;
   options: DropdownOption<T>[];
+  /** Trigger density; `xs` is the dense 32px inspector row. Single-select only. */
+  size?: DropdownSize;
 }
 
 export interface SelectFieldSingleProps<T extends string = string> extends SelectFieldBaseProps<T> {
@@ -79,6 +81,7 @@ export function SelectField<T extends string = string>(props: SelectFieldProps<T
             onChange={props.onValueChange}
             options={options}
             placeholder={props.placeholder}
+            size={props.size}
             value={props.value}
             variant="field"
           />

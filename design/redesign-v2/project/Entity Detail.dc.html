@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZibbyOS — Company, Project, Team detail and integrations</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<link rel="stylesheet" href="./detail.css">
+<link rel="stylesheet" href="./entity.css">
+</helmet>
+<div class="bz" data-theme="{{ theme }}">
+  <nav class="vt" aria-label="Views">
+    <span class="lbl">ZibbyOS — Firma · Projekt · Tým</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="6">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <span style="flex:1"></span>
+    <div class="seg" role="group" aria-label="Theme">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+  {{ page }}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme": {"editor": "enum", "default": "dark", "options": ["dark", "light"], "tsType": "string", "section": "View"}, "view": {"editor": "enum", "default": "company", "options": ["company", "project", "team", "wizard", "states", "spec"], "tsType": "string", "section": "View"}}'>
+class Component extends DCLogic {
+  state = { view: null, theme: null, ptab: null, w: null, failSim: false };
+  view() { return this.state.view || this.props.view || 'company'; }
+
+  /* ---------- data ---------- */
+  B = {
+    jira: { n: 'Jira', c: '#2684ff', g: 'JR' },
+    github: { n: 'GitHub', c: 'var(--ink)', g: 'GH' },
+    gitlab: { n: 'GitLab', c: '#fc6d26', g: 'GL' },
+    slack: { n: 'Slack', c: '#e01e5a', g: 'SL' },
+    email: { n: 'Email', c: 'var(--sky)', g: '@' },
+    gcal: { n: 'Google Calendar', c: '#4285f4', g: '31' },
+    sentry: { n: 'Sentry', c: '#8f6bd8', g: 'SN' }
+  };
+  RIB_P = [['company', 'Acme Logistics'], ['team', 'Platform'], ['project', 'checkout-api', true]];
+  T_CO = [
+    { k: 'jira', src: 'own', st: 'ok', m: 'synced 2 min ago', m2: 'API token · 41 d left', serves: '4 projects' },
+    { k: 'slack', src: 'own', st: 'err', stl: 'Token revoked', m: '3 h ago · nothing syncs', serves: '5 projects' },
+    { k: 'gcal', src: 'own', st: 'ok', m: 'synced 9 min ago', m2: 'service account', serves: '2 teams' },
+    { k: 'sentry', src: 'own', st: 'ok', m: 'synced 1 min ago', m2: 'org acme', serves: '1 project' },
+    { k: 'email', src: 'own', st: 'warn', stl: 'Expires in 6 d', m: 'IMAP + SMTP ok', m2: 'app password', serves: '1 project' }
+  ];
+  T_PR = [
+    { k: 'github', src: 'own', st: 'ok', m: 'synced 30 s ago', m2: 'webhook live' },
+    { k: 'sentry', src: 'own', st: 'ok', m: 'project checkout-api', m2: 'overrides Acme' },
+    { k: 'gcal', src: 'team', from: 'Platform', st: 'ok', m: 'on-call rota', m2: 'read-only' },
+    { k: 'jira', src: 'company', from: 'Acme', st: 'ok', m: 'routes CHK · checkout', m2: 'synced 2 min ago' },
+    { k: 'slack', src: 'company', from: 'Acme', st: 'err', stl: 'Revoked at Acme', m: 'fix on company page' }
+  ];
+  T_TM = [
+    { k: 'gcal', src: 'own', st: 'ok', m: 'on-call rota', m2: 'synced 9 min ago', serves: '3 projects' },
+    { k: 'jira', src: 'company', from: 'Acme', st: 'ok', m: 'synced 2 min ago' },
+    { k: 'slack', src: 'company', from: 'Acme', st: 'err', stl: 'Revoked at Acme', m: 'fix on company page' },
+    { k: 'sentry', src: 'company', from: 'Acme', st: 'ok', m: 'synced 1 min ago' },
+    { k: 'email', src: 'company', from: 'Acme', st: 'warn', stl: 'Expires in 6 d', m: 'IMAP + SMTP ok' }
+  ];
+
+  /* ---------- small parts ---------- */
+  bl(k, cls) { const b = this.B[k]; return this.h('span', { className: 'bl ' + (cls || ''), 'aria-hidden': 'true', style: { '--b': b.c } }, b.g); }
+  sd(st) { return this.h('span', { className: 'sd ' + st, 'aria-hidden': 'true' }); }
+  rib(list) {
+    const h = this.h, I = { company: 'comp', team: 'team', project: 'folder' };
+    return h('nav', { className: 'rib', 'aria-label': 'Inheritance chain' }, list.map(([k, l, cur], i) => [
+      i ? h('span', { className: 's', key: 's' + i, 'aria-hidden': 'true' }, this.ic('chevr', 13)) : null,
+      cur ? h('span', { className: 'cur', key: i, 'aria-current': 'page' }, this.ic(I[k], 13), h('span', { className: 'k' }, k), l)
+        : h('a', { href: '#', onClick: this.pd, key: i }, this.ic(I[k], 13), h('span', { className: 'k' }, k), l)]));
+  }
+  ctile(t) {
+    const h = this.h, b = this.B[t.k], own = t.src === 'own';
+    const stl = t.stl || { ok: 'Connected', err: 'Error', warn: 'Attention', off: 'Disconnected' }[t.st];
+    return h('a', { href: '#', onClick: this.pd, key: t.k + t.src, className: 'ct ' + (own ? 'own' : 'inh') + (t.st === 'err' ? ' bad' : ''), style: { '--b': b.c }, 'aria-label': b.n + ', ' + stl + ', ' + (own ? 'own connection' : 'inherited from ' + t.src + ' ' + t.from) + '. Open' },
+      h('div', { className: 'ct-1' }, this.bl(t.k), h('b', null, b.n)),
+      h('div', { className: 'ct-m' }, h('span', { className: 'st ' + t.st }, this.sd(t.st), stl), h('span', null, t.m), t.m2 ? h('span', null, t.m2) : null),
+      h('div', { className: 'ct-src' }, own ? h('span', { className: 'src own' }, 'Own') : h('span', { className: 'src inh' }, this.ic(t.src === 'company' ? 'comp' : 'team', 12), 'From ' + t.from), t.serves ? h('span', null, '→ ' + t.serves) : null));
+  }
+  addTile() {
+    const h = this.h;
+    return h('button', { className: 'ct add', key: 'add' }, h('span', { className: 'pl', 'aria-hidden': 'true' }, this.ic('plus', 16, 2.2)), h('b', null, 'Connect'), h('small', null, 'Jira, GitHub, GitLab, Slack, Email, Calendar, Sentry'));
+  }
+  conn(o) {
+    const h = this.h;
+    return h('section', { className: 'conn', 'aria-label': 'Connections' },
+      h('div', { className: 'conn-h' }, h('span', { className: 'k' }, 'Connections'), h('span', null, o.sum), h('span', { className: 'sp' }),
+        h('span', { className: 'lgd', 'aria-hidden': 'true' }, h('span', null, h('i', { className: 'f' }), 'own'), h('span', null, h('i', { className: 'o' }), 'inherited')),
+        this.rib(o.rib)),
+      h('div', { className: 'conn-g' }, o.empty || [o.tiles.map(t => this.ctile(t)), this.addTile()]));
+  }
+  ring(p) {
+    const h = this.h, r = 36, c = 2 * Math.PI * r;
+    return h('svg', { width: 84, height: 84, viewBox: '0 0 84 84', 'aria-hidden': 'true' },
+      h('circle', { cx: 42, cy: 42, r, fill: 'none', style: { stroke: 'var(--line2)' }, strokeWidth: 7 }),
+      h('circle', { cx: 42, cy: 42, r, fill: 'none', style: { stroke: p > .8 ? 'var(--amber)' : 'var(--ink)' }, strokeWidth: 7, strokeLinecap: 'round', strokeDasharray: (c * p).toFixed(1) + ' ' + c.toFixed(1) }));
+  }
+  bar(p) { return this.h('div', { className: 'mbar', role: 'img', 'aria-label': Math.round(p * 100) + ' % used' }, this.h('i', { className: p > .8 ? 'hot' : '', style: { width: Math.round(p * 100) + '%' } })); }
+  spark(vals, w, ht, col) {
+    const h = this.h, mx = Math.max(...vals), mn = Math.min(...vals), st = w / (vals.length - 1);
+    const pts = vals.map((v, i) => (i * st).toFixed(1) + ',' + (ht - 2 - ((v - mn) / ((mx - mn) || 1)) * (ht - 4)).toFixed(1)).join(' ');
+    return h('svg', { width: w, height: ht, viewBox: '0 0 ' + w + ' ' + ht, 'aria-hidden': 'true' }, h('polyline', { points: pts, fill: 'none', style: { stroke: col || 'var(--ink2)' }, strokeWidth: 1.5, strokeLinejoin: 'round', strokeLinecap: 'round' }));
+  }
+  pnl(title, n, right, body, cls) {
+    const h = this.h;
+    return h('section', { className: 'pnl ' + (cls || ''), 'aria-label': title }, h('div', { className: 'pnl-h' }, title, n != null ? h('span', { className: 'n' }, n) : null, h('span', { className: 'sp' }), right), body);
+  }
+  page(o, inner) {
+    const h = this.h;
+    return h('div', { className: 'dstage', style: { width: 1440, height: o.ht } }, this.chrome({ sec: 'Portfolio' }),
+      h('div', { className: 'tc-ctx' }, this.crumbs(o.crumbs),
+        h('div', { className: 'tc-acts' }, h('button', { className: 'ib', 'aria-label': 'More: copy id, export' }, this.ic('more', 16)))),
+      inner);
+  }
+  acts(extra) {
+    const h = this.h;
+    return h('div', { className: 'acts' }, extra, h('button', { className: 'btn gh', key: 'e' }, this.ic('edit', 14), 'Edit'), h('button', { className: 'ib', key: 'm', 'aria-label': 'More: archive, delete' }, this.ic('more', 16)));
+  }
+
+  /* ---------- COMPANY ---------- */
+  coHero() {
+    const h = this.h;
+    return h('div', { className: 'hx co' },
+      h('span', { className: 'co-logo', 'aria-hidden': 'true' }, 'Al'),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'eb' }, h('span', { className: 'tag mono' }, 'company'), h('span', { className: 'mono' }, 'acme-logistics'), h('span', null, '·'), h('span', null, 'since Mar 2026')),
+        h('h1', null, 'Acme Logistics'),
+        h('p', { className: 'lede' }, 'Freight booking and warehouse software. Owns the checkout, routing and billing products; Zibby works for two of their teams.'),
+        h('div', { className: 'hx-sum' }, h('span', null, h('b', null, '4 integrations connected'), ', ', h('span', { className: 'att' }, '1 needs attention'), h('span', { className: 'dim' }, '  ·  2 teams · 5 projects · 4 contacts')))),
+      h('div', { className: 'bgauge', role: 'group', 'aria-label': 'Monthly budget' },
+        h('div', { className: 'gv' }, this.ring(.62), h('b', null, '62%')),
+        h('div', { className: 'gl2' }, h('span', null, 'Budget · November'), h('span', { className: 'n' }, '$1 240', h('small', null, ' / $2 000')), h('div', { className: 'r' }, h('span', null, 'Runs'), h('span', { className: 'mono', style: { color: 'var(--ink2)' } }, '318 / 500')), this.bar(.64))),
+      this.acts());
+  }
+  coBody() {
+    const h = this.h;
+    const P = [['checkout-api', 'Platform', 'github.com/acme/checkout-api', [['github', 'own'], ['sentry', 'own'], ['gcal', 'inh'], ['jira', 'inh'], ['slack', 'inh']], '142'],
+      ['routing-engine', 'Platform', 'github.com/acme/routing-engine', [['github', 'own'], ['gcal', 'inh'], ['jira', 'inh'], ['slack', 'inh']], '88'],
+      ['billing-web', 'Payments', 'gitlab.com/acme/billing-web', [['gitlab', 'own'], ['jira', 'inh'], ['slack', 'inh'], ['sentry', 'inh']], '51'],
+      ['warehouse-sync', 'Platform', 'github.com/acme/warehouse-sync', [['gcal', 'inh'], ['jira', 'inh'], ['slack', 'inh']], '23'],
+      ['driver-app', 'Payments', 'github.com/acme/driver-app', [['github', 'own'], ['slack', 'inh'], ['email', 'inh']], '14']];
+    const projects = this.pnl('Projects', '5', h('button', { className: 'btn sm gh' }, this.ic('plus', 13), 'Add existing'),
+      h('table', { className: 'etab' }, h('thead', null, h('tr', null, ['Project', 'Team', 'Repository', 'Integrations · filled = own', 'Runs · 30 d'].map(t => h('th', { key: t }, t)))),
+        h('tbody', null, P.map(r => h('tr', { key: r[0] },
+          h('td', null, h('a', { href: '#', className: 'nm', onClick: this.pd }, r[0])),
+          h('td', null, h('a', { href: '#', className: 'lk', onClick: this.pd }, r[1])),
+          h('td', { className: 'mono' }, r[2]),
+          h('td', null, h('span', { className: 'bls', role: 'img', 'aria-label': r[3].map(([k, s]) => this.B[k].n + (s === 'own' ? ' own' : ' inherited')).join(', ') }, r[3].map(([k, s]) => h('span', { key: k }, this.bl(k, 'xs ' + s))))),
+          h('td', { className: 'mono' }, r[4]))))));
+    const C = [['JN', 'Jana Nováková', 'Head of Product', 'jana.novakova@acme.cz', true], ['PS', 'Petr Svoboda', 'CTO', 'petr.svoboda@acme.cz', true], ['LD', 'Lucie Dvořáková', 'QA lead', 'lucie.d@acme.cz', false], ['TK', 'Tomáš Král', 'Ops on-call', 'ops@acme.cz', false]];
+    const contacts = this.pnl('Contacts', '4', h('small', null, 'VIP: Zibby always escalates their messages to you'),
+      h('div', null, C.map(c => h('div', { className: 'crow', key: c[1] }, this.ava({ ini: c[0] }, 28), h('span', null, c[1], h('small', null, c[2])), h('span', { className: 'mono' }, c[3]), h('button', { className: 'vip', 'aria-pressed': c[4], 'aria-label': 'VIP ' + c[1] }, this.ic('star', 12), 'VIP'))),
+        h('div', { className: 'crow add' }, h('span', { className: 'ava', 'aria-hidden': 'true', style: { borderStyle: 'dashed', color: 'var(--ink3)' } }, this.ic('plus', 13)), h('input', { className: 'inp', placeholder: 'Full name', 'aria-label': 'New contact name' }), h('input', { className: 'inp mono', placeholder: 'name@acme.cz', 'aria-label': 'New contact e-mail' }), h('button', { className: 'btn sm' }, 'Add'))));
+    const BR = [['Daily', '14', '25', '$48', '$100'], ['Weekly', '92', '150', '$310', '$600'], ['Monthly', '318', '500', '$1 240', '$2 000']];
+    const budget = this.pnl('Budget caps', null, h('button', { className: 'ib', 'aria-label': 'Edit budget caps' }, this.ic('edit', 14)),
+      [h('div', { className: 'pnl-b', key: 'b' }, h('table', { className: 'bt' }, h('thead', null, h('tr', null, h('th', null, ''), h('th', null, 'Runs'), h('th', null, 'Spend (USD)'))),
+        h('tbody', null, BR.map(r => { const a = +r[1] / +r[2], b2 = parseFloat(r[3].replace(/[$ ]/g, '')) / parseFloat(r[4].replace(/[$ ]/g, '')); return h('tr', { key: r[0] }, h('td', { style: { color: 'var(--ink2)', width: 64 } }, r[0]), h('td', null, h('span', { className: 'v' }, r[1], h('small', null, ' / ' + r[2])), this.bar(a)), h('td', null, h('span', { className: 'v' }, r[3], h('small', null, ' / ' + r[4])), this.bar(b2))); })))),
+      h('div', { className: 'pnl-f', key: 'f' }, 'Teams and projects can lower these caps, never raise them.')]);
+    const about = this.pnl('About', null, null,
+      [h('div', { className: 'pnl-b', key: 'b' }, h('dl', { className: 'kv2' }, h('dt', null, 'Slug'), h('dd', { className: 'mono' }, 'acme-logistics'), h('dt', null, 'Teams'), h('dd', null, h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Platform'), ', ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Payments')), h('dt', null, 'Owner'), h('dd', null, 'Karel Zíbar'), h('dt', null, 'Created'), h('dd', null, '3 Mar 2026'))),
+      h('a', { href: '#', className: 'linkrow', key: 't', onClick: this.pd, style: { borderTop: '1px solid var(--line)' } }, this.ic('work', 15), 'Tasks for Acme', h('span', { className: 'sp' }), h('span', { className: 'tag mono' }, '12 open'), this.ic('chevr', 14))]);
+    return h('div', { className: 'eb2' }, h('div', { className: 'col' }, projects, contacts), h('div', { className: 'col' }, budget, about));
+  }
+  coPage(ht) {
+    return this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Companies' }, { l: 'Acme Logistics' }], ht },
+      [this.coHero(), this.conn({ tiles: this.T_CO, sum: '4 connected · 1 needs attention · shared down to 2 teams and 5 projects', rib: [['company', 'Acme Logistics', true], ['team', '2 teams'], ['project', '5 projects']] }), this.coBody()]);
+  }
+
+  /* ---------- PROJECT ---------- */
+  prHero(o) {
+    const h = this.h; o = o || {};
+    return h('div', { className: 'hx pr' },
+      h('span', { className: 'pico', 'aria-hidden': 'true' }, this.ic('folder', 24)),
+      h('div', { style: { minWidth: 0 } },
+        h('h1', null, o.name || 'checkout-api', h('small', null, o.repo || 'github.com/acme/checkout-api')),
+        o.empty ? h('div', { className: 'chips' }, h('span', { className: 'tag' }, this.sd('off'), 'No CI yet'), h('span', { className: 'tag mono' }, 'created 2 min ago'))
+          : h('div', { className: 'chips' }, h('span', { className: 'tag ok' }, this.sd('ok'), 'CI passing'), h('a', { href: '#', className: 'tag', onClick: this.pd }, this.ic('pr', 12), '3 open PRs'), h('span', { className: 'tag mono' }, 'main · deployed 2 h ago'), h('span', { className: 'tag warn' }, this.ic('warn', 12), 'No local clone')),
+        o.empty ? h('div', { className: 'hx-sum' }, h('span', null, h('b', null, 'No integrations yet'), h('span', { className: 'dim' }, ' — nothing to inherit either: Personal has none.')))
+          : h('div', { className: 'hx-sum' }, h('span', null, h('b', null, '5 integrations'), ' — 2 own, 1 from Platform, 2 from Acme · ', h('span', { className: 'bad' }, 'Slack is down at Acme')))),
+      o.empty ? h('span', null) : h('div', { className: 'pulse', role: 'group', 'aria-label': 'Runs in the last 24 hours: 37, 2 running' }, h('div', { className: 'r' }, h('span', null, 'Runs · last 24 h'), h('span', { className: 'live' }, this.sd('run'), '2 running')), h('div', { className: 'r' }, h('span', { className: 'n' }, '37'), this.spark([2, 1, 3, 2, 4, 3, 5, 2, 1, 3, 4, 6, 5, 3, 2, 4, 3, 5, 6, 4], 150, 26, 'var(--violet)'))),
+      this.acts(h('button', { className: 'btn', key: 'r' }, this.ic('play', 13), 'Run')));
+  }
+  prTabs(cur, int) {
+    const h = this.h, T = [['overview', 'Overview'], ['integrations', 'Integrations', '5'], ['profile', 'Profile'], ['env', 'Environment', '4'], ['roadmap', 'Roadmap', '7']];
+    return h('div', { style: { padding: '0 28px' } }, h('div', { className: 'tabsx', role: 'tablist', 'aria-label': 'Project sections' }, T.map(([k, l, n]) => h('button', { key: k, role: 'tab', 'aria-selected': cur === k, onClick: int ? () => this.setState({ ptab: k }) : undefined }, l, n ? h('span', { className: 'n' }, n) : null))));
+  }
+  chipin(list, ph) {
+    const h = this.h;
+    return h('div', { className: 'chipin' }, list.map(t => h('span', { className: 'tag mono', key: t }, t, h('button', { 'aria-label': 'Remove ' + t }, this.ic('x', 11)))), h('input', { placeholder: ph || 'Add…', 'aria-label': 'Add value' }));
+  }
+  igRow(k, name, line, chips, st, stl, ra, extra) {
+    const h = this.h;
+    return h('div', { className: 'ig-r', key: k + name },
+      this.bl(k), h('div', { style: { minWidth: 0 } }, h('b', null, name), h('div', { className: 'ln' }, line), chips ? h('div', { className: 'sc' }, chips.map(c => h('span', { className: 'tag mono', key: c }, c))) : null),
+      h('span', { className: 'stt ' + st }, this.sd(st), stl), h('div', { className: 'ra' }, ra), extra || null);
+  }
+  prInt() {
+    const h = this.h;
+    const route = h('div', { className: 'route', role: 'group', 'aria-label': 'Jira routing for checkout-api' },
+      h('div', { className: 'rh' }, this.ic('fork', 14), h('b', null, 'Routing for checkout-api'), h('span', null, '— only matching issues become tasks here'), h('span', { className: 'sp' }), h('span', { className: 'tag ok' }, 'matches 23 open issues')),
+      h('div', { className: 'g3' }, this.fld('Project key', this.inp('CHK', 'Jira project key', 'mono'), 'From Acme’s Jira'), this.fld('Components', this.chipin(['checkout', 'payments-ui'])), this.fld('Labels', this.chipin(['customer-facing']))),
+      this.fld('JQL (advanced, optional)', h('div', { className: 'jql', role: 'textbox', 'aria-label': 'JQL', tabIndex: 0 }, h('span', { className: 'k' }, 'project'), ' = ', h('span', { className: 's' }, 'CHK'), h('span', { className: 'k' }, ' AND component in'), ' (', h('span', { className: 's' }, 'checkout'), ', ', h('span', { className: 's' }, 'payments-ui'), ')', h('span', { className: 'k' }, ' AND statusCategory'), ' != ', h('span', { className: 's' }, 'Done')), 'Generated from the fields above; editing it switches to manual mode.'),
+      h('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } }, h('button', { className: 'btn sm gh' }, 'Reset to Acme default'), h('button', { className: 'btn sm' }, this.ic('eye', 13), 'Preview matches'), h('button', { className: 'btn sm ink' }, 'Save routing')));
+    const g = (mark, title, sub, act, rows) => h('div', { className: 'ig-g', key: title }, h('div', { className: 'ig-gh' }, h('i', { className: 'sw2 ' + mark, 'aria-hidden': 'true' }), h('b', null, title), h('span', null, sub), h('span', { className: 'sp' }), act), rows);
+    const edit = (n) => h('button', { className: 'btn sm gh', key: 'e' }, this.ic('edit', 13), 'Edit');
+    const more = (n) => h('button', { className: 'ib', key: 'm', 'aria-label': 'More for ' + n + ': test again, disconnect' }, this.ic('more', 15));
+    const ovr = h('button', { className: 'btn sm', key: 'o' }, 'Override with own');
+    const left = h('div', { className: 'ig' },
+      g('f', 'Own', '2 · configured on this project', h('button', { className: 'btn sm' }, this.ic('plus', 13), 'Connect'), [
+        this.igRow('github', 'GitHub', 'acme/checkout-api · PRs, CI status, code-owner reviews', ['webhook live', 'fine-grained token · 58 d'], 'ok', 'Connected', [edit(), more('GitHub')]),
+        this.igRow('sentry', 'Sentry', 'acme / checkout-api · new issues and regressions become tasks', ['overrides Acme’s Sentry'], 'ok', 'Connected', [edit(), h('button', { className: 'btn sm gh', key: 'r' }, 'Revert to Acme'), more('Sentry')])]),
+      g('o', 'From team Platform', '1', h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'Manage at Platform →'), [
+        this.igRow('gcal', 'Google Calendar', 'Platform on-call rota · read-only', null, 'ok', 'Connected', [ovr])]),
+      g('o', 'From company Acme Logistics', '2 · routing is set per project', h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'Manage at Acme →'), [
+        this.igRow('jira', 'Jira', 'acme.atlassian.net · as zibby@acme.cz', ['CHK', 'checkout', 'payments-ui'], 'ok', 'Connected', [h('button', { className: 'btn sm gh', key: 'c', 'aria-expanded': true }, 'Routing', this.ic('up', 13)), ovr], route),
+        this.igRow('slack', 'Slack', 'acme-hq workspace · watches 2 channels for this project', ['#checkout-alerts', '#incidents'], 'err', 'Token revoked at Acme', [h('a', { href: '#', className: 'btn sm', key: 'f', onClick: this.pd }, 'Fix on Acme', this.ic('ext', 12)), h('button', { className: 'btn sm gh', key: 'r' }, 'Routing', this.ic('chev', 13))])]));
+    const F = [['jira', 'CHK-412 Card declined on retry', 'routed here — component checkout', '4 min'], ['sentry', 'TypeError in PaymentForm.submit', '31 events · new since deploy #918', '12 min'], ['github', 'PR #418 opened by dependabot', 'Bump stripe-node 14.2 → 14.3', '40 min'], ['slack', 'Missed messages in #checkout-alerts', 'Slack disconnected at Acme 3 h ago', '3 h', 'warn'], ['gcal', 'Karel on call from 18:00', 'Platform on-call rota', '5 h']];
+    const feed = this.pnl('Inbox & activity', null, this.seg([['a', 'All'], ['y', 'Needs you']], 'a', 'Filter activity'),
+      h('div', { className: 'feed' }, F.map(f => h('div', { className: 'fi' + (f[4] ? ' ' + f[4] : ''), key: f[1] }, this.bl(f[0], 'xs'), h('span', null, h('b', { style: { fontWeight: 500 } }, f[1]), h('small', null, f[2])), h('span', { className: 't' }, f[3])))));
+    const help = this.pnl('How inheritance works', null, null, h('div', { className: 'pnl-b', style: { fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.55 } }, 'Acme → Platform → checkout-api. A connection made higher up is used here unless you ', h('b', { style: { color: 'var(--ink)', fontWeight: 500 } }, 'override'), ' it with your own. Routing (which issues, which channels) is always per project.'));
+    return h('div', { className: 'eb2' }, left, h('div', { className: 'col' }, feed, help));
+  }
+  prOver() {
+    const h = this.h;
+    const k = (l, n, s, sp, col) => h('div', { className: 'kpi', key: l }, h('div', { className: 'l' }, l), h('div', { className: 'n' }, n, s ? h('small', null, s) : null), sp ? this.spark(sp, 200, 26, col) : null);
+    const PR = [['#418', 'Bump stripe-node 14.2 → 14.3', 'dependabot · 40 min ago', 'ok', 'checks passed'], ['#415', 'Retry declined cards once with backoff', 'implementer · 2 h ago', 'warn', 'review requested'], ['#409', 'Extract PaymentForm validation', 'draft · yesterday', 'off', 'draft']];
+    const prs = this.pnl('Open pull requests', '3', h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'All on GitHub →'),
+      h('div', null, PR.map(p => h('div', { className: 'prr', key: p[0] }, h('span', { style: { color: 'var(--ink3)' } }, this.ic('pr', 15)), h('span', null, h('span', { className: 'mono', style: { color: 'var(--ink3)', marginRight: 6 } }, p[0]), p[1], h('small', null, p[2])), h('span', { className: 'tag ' + (p[3] === 'ok' ? 'ok' : p[3] === 'warn' ? 'warn' : '') }, p[4]), p[3] === 'ok' ? h('button', { className: 'btn sm' }, this.ic('check', 13), 'Merge') : h('button', { className: 'btn sm gh' }, 'Open')))));
+    const R = [['#4821', 'Feature delivery', 'pass', '6m 12s', '$1.42', '18 min ago'], ['#4817', 'Hotfix · CHK-399', 'pass', '2m 40s', '$0.48', '2 h ago'], ['#4809', 'Dependency bump', 'fail', '1m 58s', '$0.21', '5 h ago']];
+    const runs = this.pnl('Recent runs', null, h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'Monitoring →'),
+      h('table', { className: 'rtab' }, h('tbody', null, R.map(r => h('tr', { key: r[0] }, h('td', { className: 'mono' }, r[0]), h('td', null, r[1]), h('td', null, h('span', { className: 'tag ' + (r[2] === 'pass' ? 'ok' : 'err') }, r[2])), h('td', { className: 'mono' }, r[3]), h('td', { className: 'mono' }, r[4]), h('td', { className: 'dim' }, r[5]))))));
+    const basics = this.pnl('Basics', null, h('button', { className: 'ib', 'aria-label': 'Edit basics' }, this.ic('edit', 14)),
+      h('div', { className: 'pnl-b' }, h('dl', { className: 'kv2' }, h('dt', null, 'Git remote'), h('dd', { className: 'mono' }, 'git@github.com:acme/checkout-api'), h('dt', null, 'Default branch'), h('dd', { className: 'mono' }, 'main'), h('dt', null, 'PR mode'), h('dd', null, 'Draft PR · auto-merge off'), h('dt', null, 'Budget'), h('dd', null, h('span', { className: 'mono' }, '$400 / mo'), h('span', { className: 'dim' }, 'within Acme caps')))));
+    const team = this.pnl('Team', null, h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'Platform →'),
+      h('div', { className: 'people' }, [['KZ', 'Karel Zíbar', 'Code owner'], ['JN', 'Jana Nováková', 'Product'], ['Rv', 'Reviewer', 'agent · opus']].map(p => h('div', { key: p[1] }, this.ava({ ini: p[0] }, 26), h('span', null, p[1], h('small', null, p[2])), h('span', null)))));
+    return h('div', null,
+      h('div', { style: { padding: '0 28px' } }, h('div', { className: 'kpis' }, k('Runs · 30 days', '142', '', [3, 5, 4, 6, 8, 7, 9, 8, 11, 10, 9, 12]), k('Success rate', '91', '%', [86, 88, 90, 87, 92, 90, 91, 93, 89, 91, 92, 91], 'var(--emerald)'), k('Spend · November', '$212', ' / $400', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), k('Open PRs', '3', '', [2, 3, 4, 3, 5, 4, 3, 2, 3, 4, 3, 3]), k('Integrations', '5', ' · 1 down'))),
+      h('div', { className: 'eb2' }, h('div', { className: 'col' }, prs, runs),
+        h('div', { className: 'col' },
+          h('div', { className: 'notice amb', role: 'status' }, h('span', { className: 'ic' }, this.ic('warn', 16)), h('span', null, h('b', null, 'No local clone. '), 'Runs clone on demand (+40 s).'), h('span', { className: 'sp' }), h('button', { className: 'btn sm amb' }, 'Clone now')),
+          basics, team,
+          h('div', { className: 'notice info' }, h('span', { className: 'ic' }, this.ic('key', 16)), h('span', null, h('b', null, 'Secrets moved to Environment. '), 'Integration tokens live with their integration.')))));
+  }
+  prPage(tab, int, ht) {
+    const prconn = { tiles: this.T_PR, sum: '5 connected · 1 down (inherited)', rib: this.RIB_P };
+    return this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Acme Logistics' }, { l: 'checkout-api' }], ht },
+      [this.prHero(), this.conn(prconn), this.prTabs(tab, int), tab === 'overview' ? this.prOver() : this.prInt()]);
+  }
+
+  /* ---------- TEAM ---------- */
+  tmPage() {
+    const h = this.h;
+    const hero = h('div', { className: 'hx tm' },
+      h('span', { className: 'tico2', 'aria-hidden': 'true' }, this.ic('team', 24)),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'eb' }, h('span', { className: 'tag mono' }, 'team'), h('a', { href: '#', className: 'lk', onClick: this.pd }, 'Acme Logistics'), h('span', null, '·'), h('span', { className: 'mono' }, 'code owner @acme/platform')),
+        h('h1', null, 'Platform'),
+        h('p', { className: 'lede' }, 'Shared infrastructure, checkout and routing. Knows the codebase conventions, on-call rota and every ADR since 2024.'),
+        h('div', { className: 'hx-sum' }, h('span', null, h('b', null, '5 integrations'), ' — 1 own, 4 from Acme · ', h('span', { className: 'bad' }, 'Slack is down at Acme')))),
+      h('div', { className: 'vault', role: 'group', 'aria-label': 'Knowledge vault' },
+        h('span', { className: 'vi', 'aria-hidden': 'true' }, this.ic('know', 20)),
+        h('b', null, 'Knowledge vault', h('span', { className: 'tag ok' }, this.sd('ok'), 'indexed')), h('span', null),
+        h('span', { className: 'mono' }, 'vault/acme/platform'),
+        h('small', null, h('span', { className: 'mono' }, '214 notes'), '·', '12 ADRs', '·', 'indexed 12 min ago', '·', h('span', { className: 'mono' }, 'git@github.com:acme/kb'))),
+      this.acts());
+    const P = [['checkout-api', 'github.com/acme/checkout-api', ['github', 'sentry'], 'ok', 'CI passing'], ['routing-engine', 'github.com/acme/routing-engine', ['github'], 'ok', 'CI passing'], ['warehouse-sync', 'github.com/acme/warehouse-sync', [], 'err', 'CI failing']];
+    const projects = this.pnl('Projects', '3', h('button', { className: 'btn sm gh' }, this.ic('plus', 13), 'Add existing'),
+      h('div', { className: 'ecg' }, P.map(p => h('a', { href: '#', className: 'ecard', key: p[0], onClick: this.pd }, h('b', null, this.ic('folder', 14), p[0]), h('span', { className: 'mono' }, p[1]), h('div', { className: 'r' }, h('span', { className: 'bls' }, p[2].map(k => h('span', { key: k }, this.bl(k, 'xs own'))), ['gcal', 'jira', 'slack'].map(k => h('span', { key: k }, this.bl(k, 'xs inh')))), h('span', { className: 'sp' }), h('span', { style: { display: 'inline-flex', gap: 6, alignItems: 'center', color: p[3] === 'err' ? 'var(--rose)' : null } }, this.sd(p[3]), p[4]))))));
+    const N = [['ADR-031 · Idempotent payment retries', 'adr/031-idempotent-retries.md', '2 h ago'], ['Checkout: error budget & SLOs', 'runbooks/checkout-slo.md', 'yesterday'], ['On-call handbook', 'oncall/handbook.md', '3 d ago'], ['Code review checklist', 'conventions/review.md', '1 wk ago']];
+    const kb = this.pnl('Recently updated knowledge', null, h('a', { href: '#', className: 'lk', onClick: this.pd, style: { fontSize: 12 } }, 'Open in Knowledge →'),
+      h('div', { className: 'feed' }, N.map(n => h('div', { className: 'fi', key: n[1] }, h('span', { style: { color: 'var(--ink3)' } }, this.ic('file', 15)), h('span', null, h('b', { style: { fontWeight: 500 } }, n[0]), h('small', { className: 'mono' }, n[1])), h('span', { className: 't' }, n[2])))));
+    const about = this.pnl('Team', null, h('button', { className: 'ib', 'aria-label': 'Edit team' }, this.ic('edit', 14)),
+      [h('div', { className: 'pnl-b', key: 'b' }, h('dl', { className: 'kv2' }, h('dt', null, 'Company'), h('dd', null, h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Acme Logistics')), h('dt', null, 'Code owner'), h('dd', { className: 'mono' }, '@acme/platform'), h('dt', null, 'Jira'), h('dd', null, h('span', { className: 'dim' }, 'from Acme’s connection')), h('dt', null, 'Budget'), h('dd', null, h('span', { className: 'mono' }, '$900 / mo'), h('span', { className: 'dim' }, 'of Acme’s $2 000')))),
+      h('div', { className: 'people', key: 'p', style: { borderTop: '1px solid var(--line)' } }, [['KZ', 'Karel Zíbar', 'Lead'], ['LD', 'Lucie Dvořáková', 'QA'], ['Rv', 'Reviewer', 'agent']].map(p => h('div', { key: p[1] }, this.ava({ ini: p[0] }, 26), h('span', null, p[1], h('small', null, p[2])), h('span', null))))]);
+    return this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Acme Logistics' }, { l: 'Platform' }] },
+      [hero, this.conn({ tiles: this.T_TM, sum: '5 connected · 1 down (inherited) · own calendar shared with 3 projects', rib: [['company', 'Acme Logistics'], ['team', 'Platform', true], ['project', '3 projects']] }),
+        h('div', { className: 'eb2', key: 'b' }, h('div', { className: 'col' }, projects, kb), h('div', { className: 'col' }, about))]);
+  }
+
+  /* ---------- WIZARD ---------- */
+  SN = {
+    jira: { d: 'Route issues to projects; agents read, comment and move tickets.', need: 'Site URL, account e-mail, API token', sub: 'Jira Cloud', acc: 'acme.atlassian.net · karel@acme.cz' },
+    github: { d: 'Repos, pull requests, CI status and code-owner reviews.', need: 'Fine-grained token or GitHub App', sub: 'github.com', acc: 'owner acme · token of karel-z' },
+    gitlab: { d: 'Merge requests, pipelines and issues — self-hosted or gitlab.com.', need: 'Instance URL, project access token', sub: 'gitlab.com or self-hosted', acc: 'gitlab.com · project token' },
+    slack: { d: 'Watch channels, post run summaries, ask for approvals.', need: 'A Slack app and its user token (xoxp-)', sub: 'workspace app', acc: 'acme-hq · karel@acme.cz' },
+    email: { d: 'Read an inbox over IMAP, send replies over SMTP.', need: 'Address, hosts & ports, app password', sub: 'IMAP + SMTP', acc: 'support@acme.cz · Google Workspace' },
+    gcal: { d: 'On-call rotas, deadlines and meeting context for agents.', need: 'Service-account JSON key, calendar ID', sub: 'service account', acc: 'zibby-cal service account' },
+    sentry: { d: 'New issues and regressions become tasks automatically.', need: 'Organisation slug, auth token', sub: 'sentry.io or self-hosted', acc: 'sentry.io · org acme' }
+  };
+  INH = { jira: 'Acme Logistics', slack: 'Acme Logistics', gcal: 'Platform' };
+  wsteps(step) {
+    const h = this.h, S = ['Pick service', 'Connect', 'Scope & save'];
+    return h('ol', { className: 'wsteps', 'aria-label': 'Steps' }, S.map((s, i) => [i ? h('span', { className: 'ln2', key: 'l' + i, 'aria-hidden': 'true' }) : null, h('li', { key: s, className: i + 1 < step ? 'dn' : i + 1 === step ? 'on' : '', 'aria-current': i + 1 === step ? 'step' : undefined }, h('i', null, i + 1 < step ? this.ic('check', 11, 2.4) : i + 1), s)]));
+  }
+  wz(o) {
+    const h = this.h, b = o.svc ? this.B[o.svc] : null;
+    return [h('div', { className: 'wz-scrim', key: 's' }),
+      h('aside', { className: 'wz', key: 'w', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wzt-' + (o.id || 'x'), style: b ? { '--b': b.c } : null },
+        h('div', { className: 'wz-h' },
+          h('div', { className: 'wz-t' }, b ? this.bl(o.svc, 'lg') : h('span', { className: 'pl', 'aria-hidden': 'true' }, this.ic('plus', 18, 2.2)), h('div', null, h('h3', { id: 'wzt-' + (o.id || 'x') }, o.title), h('small', null, o.sub)), h('span', { className: 'sp' }), h('button', { className: 'ib', 'aria-label': 'Close', onClick: o.close }, this.ic('x', 16))),
+          this.wsteps(o.step)),
+        h('div', { className: 'wz-b' + (o.side ? '' : ' one') }, h('div', { className: 'wz-main' }, o.main), o.side ? h('div', { className: 'wz-side' }, o.side) : null),
+        h('div', { className: 'wz-f' }, o.foot))];
+  }
+  wstage(cap, d, wzo, ctl) {
+    const h = this.h;
+    return [this.cap(cap, d), ctl || null, this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Acme Logistics' }, { l: 'checkout-api' }], ht: 900 },
+      h('div', { style: { position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' } }, this.prHero(), this.conn({ tiles: this.T_PR, sum: '5 connected · 1 down (inherited)', rib: this.RIB_P }), this.prTabs('integrations'), this.wz(wzo)))];
+  }
+  f2(label, ctl, o) {
+    const h = this.h; o = o || {};
+    return h('div', { className: 'fld' }, h('span', { className: 'lb' }, label, h('span', { className: 'rq ' + (o.req ? 'req' : 'opt') }, o.req ? 'Required' : 'Optional')), ctl,
+      o.err ? h('span', { className: 'err', role: 'alert' }, this.ic('warn', 13), o.err) : null,
+      o.help ? h('span', { className: 'hint' }, o.help, o.link ? [' ', h('a', { href: '#', className: 'lk u', onClick: this.pd, key: 'l' }, o.link)] : null) : null);
+  }
+  tin(v, ph, label, cls) { return this.h('input', { className: 'inp ' + (cls || ''), defaultValue: v || undefined, placeholder: ph, 'aria-label': label }); }
+  secret(v, label, bad) {
+    const h = this.h;
+    return h('div', { className: 'inp secr' + (bad ? ' bad' : '') }, this.ic('lock', 13), h('input', { type: 'password', defaultValue: v, 'aria-label': label }), h('button', { className: 'ib', 'aria-label': 'Show ' + label }, this.ic('eye', 14)));
+  }
+  chk(items) {
+    const h = this.h;
+    return h('ol', { className: 'chk' }, items.map(([t, s, st], i) => h('li', { key: t, className: st || '' }, h('i', { 'aria-hidden': 'true' }, st === 'dn' ? this.ic('check', 12, 2.4) : st === 'no' ? this.ic('x', 11, 2.4) : i + 1), h('span', null, h('b', null, t), s ? h('small', null, s) : null))));
+  }
+  tst(kind, title, ms, rows, fix) {
+    const h = this.h, ico = { ok: 'check', fail: 'warn', run: 'refresh', idle: 'bolt' }[kind];
+    return h('div', { className: 'tst ' + kind, role: 'status', 'aria-live': 'polite' },
+      h('div', { className: 'tst-h' }, this.ic(ico, 15), title, h('span', { className: 'sp' }), h('span', { className: 'mono' }, ms)),
+      rows.map(([s, t, m]) => h('div', { className: 'tst-r' + (s === 'sk' ? ' sk' : ''), key: t }, s === 'run' ? h('span', { className: 'vi2 sk', 'aria-label': 'running' }, this.sd('run')) : h('span', { className: 'vi2 ' + s, 'aria-label': s === 'ok' ? 'passed' : s === 'no' ? 'failed' : 'not run' }, this.ic(s === 'ok' ? 'check' : s === 'no' ? 'x' : 'minus', 11, 2.4)), h('span', null, t), h('span', { className: 'mono' }, m || ''))),
+      fix || null);
+  }
+  wsec(n, t, kids, extra) { const h = this.h; return h('div', { className: 'wsec', key: 's' + n }, h('h4', null, h('span', { className: 'n' }, n), t, extra || null), kids); }
+  scp(list, mono) { const h = this.h; return h('div', { className: 'scopes' }, list.map(s => h('span', { className: 'tag' + (mono === false ? '' : ' mono'), key: s }, s))); }
+
+  /* per-service step 2 */
+  connectDef(k, fail, bad) {
+    const h = this.h, name = (v, ph) => this.wsec(3, 'Name it', this.f2('Display name', this.tin(v || '', ph, 'Display name'), { help: 'Shown on tiles. Defaults to the account name.' }));
+    if (k === 'jira') return {
+      main: [this.wsec(1, 'Where is your Jira?', this.f2('Site URL', this.tin('https://acme.atlassian.net', 'https://your-company.atlassian.net', 'Site URL', 'mono'), { req: true, help: 'The address you open Jira at. Jira Server / Data Center is not supported yet.' })),
+        this.wsec(2, 'Sign in', h('div', { className: 'g2' },
+          this.f2('Atlassian account e-mail', this.tin(fail ? 'zibby@acme.cz' : 'karel@acme.cz', 'you@company.com', 'Atlassian account e-mail', fail ? 'mono bad' : 'mono'), { req: true, help: 'The account that created the token.' }),
+          this.f2('Atlassian API token', this.secret('ATATT3xFfGF0q8sLm2v', 'Atlassian API token', fail), { req: true, help: 'id.atlassian.com › Security › API tokens.', link: 'Where do I find this?' }))),
+        name('', 'Acme Jira')],
+      chk: [['Create an API token', 'id.atlassian.com › Security › API tokens › Create'], ['Paste it with the e-mail of that account', 'Token and e-mail must match'], ['Test the connection', 'Checks site, sign-in and project access']], failAt: 1,
+      permT: 'Permissions used', perms: ['Browse projects', 'Create issues', 'Edit issues', 'Add comments'], pmono: false, guide: 'Jira setup guide',
+      checks: ['Reach the site', 'Sign in with e-mail + token', 'Browse projects and edit issues'],
+      ok: [['ok', 'Reached acme.atlassian.net', '96 ms'], ['ok', 'Signed in as Karel Zíbar (karel@acme.cz)', '118 ms'], ['ok', 'Can browse 12 projects, create and edit issues', '182 ms']],
+      failT: 'Authentication failed', failMs: '401 · 214 ms', failNote: 'Fix sign-in to continue',
+      fail: [['ok', 'Reached acme.atlassian.net', '96 ms'], ['no', 'Signed in as zibby@acme.cz', '401 Unauthorized'], ['sk', 'Can browse projects', 'skipped']],
+      fix: ['An Atlassian API token only works with the e-mail of the account that created it. Change the e-mail to that account, or sign in as ', h('span', { className: 'mono', key: 'm' }, 'zibby@acme.cz'), ' and create a new token there.'], fixBtn: 'Open Atlassian API tokens'
+    };
+    if (k === 'github') return {
+      main: [this.wsec(1, 'How should Zibby sign in?', [this.seg([['pat', 'Fine-grained token'], ['app', 'GitHub App']], 'pat', 'Sign-in method'), h('span', { className: 'hint', key: 'h', style: { fontSize: 11.5, color: 'var(--ink3)' } }, 'GitHub App is better for organisations — installed once, not tied to a person. ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Compare'))]),
+        this.wsec(2, 'Token', [h('div', { className: 'g2', key: 'g' },
+          this.f2('Repository owner', this.tin('acme', 'your-org or username', 'Repository owner', 'mono'), { req: true, help: 'Organisation or user that owns the repos.' }),
+          this.f2('Fine-grained access token', this.secret('github_pat_11ABCDEF0', 'GitHub fine-grained token', fail), { req: true, help: 'Settings › Developer settings › Fine-grained tokens › Generate. Resource owner: acme.', link: 'Where do I find this?' })),
+          h('div', { className: 'fld', key: 'p' }, h('span', { className: 'lb' }, 'Repository permissions to grant'), this.scp(['Contents · read', 'Pull requests · read & write', 'Checks · read', 'Metadata · read', 'Issues · read'], false), h('span', { className: 'hint' }, 'Nothing else — the test tells you if one is missing.'))]),
+        name('', 'GitHub · acme')],
+      chk: [['Generate a fine-grained token', 'Resource owner acme, only the repos Zibby needs'], ['Grant the 5 permissions', 'Listed on the left, nothing more'], ['Paste it and test', 'Checks owner, repos and permissions']], failAt: 1,
+      permT: 'API access', perms: ['contents:read', 'pull_requests:write', 'checks:read', 'metadata:read'], guide: 'GitHub setup guide',
+      checks: ['Reach api.github.com', 'Token is valid for owner acme', 'Read repos, write pull requests'],
+      ok: [['ok', 'Reached api.github.com', '88 ms'], ['ok', 'Token of karel-z for acme · expires in 90 d', '104 ms'], ['ok', 'Can read 4 repos and write pull requests', '231 ms']],
+      failT: 'Missing permission', failMs: '403 · 240 ms', failNote: 'Add the permission to continue',
+      fail: [['ok', 'Reached api.github.com', '88 ms'], ['ok', 'Token of karel-z for acme', '104 ms'], ['no', 'Write pull requests on acme/checkout-api', '403 Forbidden']],
+      fix: 'The token can read code but not open pull requests. Edit the token on GitHub, set Pull requests → Read and write and save — the token string stays the same, so just test again.', fixBtn: 'Edit token on GitHub'
+    };
+    if (k === 'gitlab') return {
+      main: [this.wsec(1, 'Where is your GitLab?', this.f2('Instance URL', this.tin(fail ? 'https://gitlab.acme.internal' : 'https://gitlab.com', 'https://gitlab.your-company.com', 'Instance URL', fail ? 'mono bad' : 'mono'), { req: true, help: 'gitlab.com or your self-hosted address (GitLab 15 or newer).' })),
+        this.wsec(2, 'Token', [this.f2('Project access token', this.secret('glpat-x8KdQ2mN7v', 'GitLab project access token'), { req: true, help: 'Project › Settings › Access tokens › Add new token. Role Developer, scopes below, set an expiry.', link: 'Where do I find this?' }),
+          h('div', { className: 'fld', key: 'p' }, h('span', { className: 'lb' }, 'Scopes to tick'), this.scp(['api', 'read_repository']))]),
+        name('', 'GitLab · billing-web')],
+      chk: [['Open the project’s Access tokens', 'Settings › Access tokens'], ['Role Developer, scopes api + read_repository', 'We remind you before it expires'], ['Paste it and test', 'Checks instance, token and project']], failAt: 2,
+      permT: 'Scopes used', perms: ['api', 'read_repository'], guide: 'GitLab setup guide',
+      checks: ['Reach the instance', 'Token is valid', 'Read merge requests and pipelines'],
+      ok: [['ok', 'Reached gitlab.com · GitLab 17.5', '120 ms'], ['ok', 'Token for acme/billing-web · Developer · expires 12 Feb 2027', '98 ms'], ['ok', 'Can read merge requests and pipelines', '176 ms']],
+      failT: 'Instance not reachable', failMs: 'timeout 10 s', failNote: 'Fix the URL to continue',
+      fail: [['no', 'Reached gitlab.acme.internal', 'timed out'], ['sk', 'Token is valid', 'skipped'], ['sk', 'Read merge requests', 'skipped']],
+      fix: 'gitlab.acme.internal only resolves inside your VPN, and this Zibby runs outside it. Use the public address of your GitLab, or run Zibby on a machine in that network.', fixBtn: 'Network requirements'
+    };
+    if (k === 'slack') return {
+      main: [h('div', { className: 'helpbox', key: 'h' }, this.ic('bolt', 16), h('span', null, h('b', null, 'No Slack app yet?'), 'Create one from our manifest — scopes are pre-filled.'), h('span', { className: 'sp' }), h('button', { className: 'btn sm' }, this.ic('copy', 13), 'Copy manifest'), h('a', { href: '#', className: 'btn sm gh', onClick: this.pd }, 'api.slack.com/apps', this.ic('ext', 12))),
+        this.wsec(1, 'Token', [bad ? this.f2('Slack user OAuth token', this.secret('xoxb-7741-2291-AbCd', 'Slack user OAuth token', true), { req: true, err: 'That’s a bot token (xoxb-). Paste the User OAuth Token — it starts with xoxp-.', help: 'Slack app › OAuth & Permissions › User OAuth Token.', link: 'Where do I find this?' })
+          : this.f2('Slack user OAuth token', this.secret('xoxp-7741-2291-9910-ef', 'Slack user OAuth token'), { req: true, help: 'Slack app › OAuth & Permissions › User OAuth Token (starts with xoxp-).', link: 'Where do I find this?' }),
+          h('div', { className: 'fld', key: 'p' }, h('span', { className: 'lb' }, 'Scopes the token must have'), this.scp(['channels:history', 'channels:read', 'groups:read', 'chat:write', 'users:read', 'im:write']), h('span', { className: 'hint' }, 'Included in the manifest. Missing ones are listed by the test.'))]),
+        this.wsec(2, 'Name it', this.f2('Display name', this.tin('', 'acme-hq (checkout)', 'Display name'), { help: 'Workspace name is filled in after the test.' }))],
+      chk: [['Create the app from manifest', 'Copy manifest › Create New App › From manifest'], ['Install to workspace', 'Then copy the User OAuth Token (xoxp-…)'], ['Paste it and test', 'We check scopes and list your channels']], failAt: 1,
+      chkBad: ['dn', 'on', ''],
+      side2: [h('h4', { key: 'w' }, 'Why a user token?'), h('p', { key: 'wp', style: { margin: 0, color: 'var(--ink2)', lineHeight: 1.5 } }, 'Zibby reads channels as you, so it sees what you see. Bot tokens are coming later.')],
+      checks: ['Token is a valid user token', 'All 6 scopes granted', 'List channels'],
+      ok: [['ok', 'Workspace acme-hq · signed in as karel@acme.cz', '140 ms'], ['ok', 'All 6 scopes granted', '—'], ['ok', 'Found 48 channels you can read', '310 ms']],
+      failT: 'Missing scope', failMs: 'missing_scope', failNote: 'Reinstall the app to continue',
+      fail: [['ok', 'Workspace acme-hq · signed in as karel@acme.cz', '140 ms'], ['no', 'Scope channels:history', 'not granted'], ['sk', 'List channels', 'skipped']],
+      fix: 'Add channels:history under OAuth & Permissions › User Token Scopes, click Reinstall to workspace and copy the token again — reinstalling issues a new one.', fixBtn: 'Open OAuth & Permissions'
+    };
+    if (k === 'email') return {
+      main: [this.wsec(1, 'Address & provider', [this.f2('E-mail address', this.tin('support@acme.cz', 'inbox@company.com', 'E-mail address', 'mono'), { req: true }),
+          h('div', { className: 'fld', key: 'pv' }, h('span', { className: 'lb' }, 'Provider'), this.seg([['g', 'Google Workspace'], ['m', 'Microsoft 365'], ['o', 'Other (IMAP/SMTP)']], 'g', 'Provider'), h('span', { className: 'hint' }, 'Fills in servers and ports for you.'))]),
+        this.wsec(2, 'Servers', h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 110px minmax(0,1fr) 110px', gap: 10 } },
+          this.f2('IMAP host', this.tin('imap.gmail.com', 'imap.company.com', 'IMAP host', 'mono'), { req: true }), this.f2('Port', this.tin('993', '993', 'IMAP port', 'mono'), { req: true, help: 'SSL/TLS' }),
+          this.f2('SMTP host', this.tin('smtp.gmail.com', 'smtp.company.com', 'SMTP host', 'mono'), { req: true }), this.f2('Port', this.tin('465', '465', 'SMTP port', 'mono'), { req: true, help: 'SSL/TLS' }))),
+        this.wsec(3, 'Sign in', h('div', { className: 'g2' },
+          this.f2('Username', this.tin('', 'support@acme.cz', 'Username', 'mono'), { help: 'Leave empty to use the address.' }),
+          this.f2('App password', this.secret(fail ? 'Heslo2026!' : 'abcd efgh ijkl mnop', 'App password', fail), { req: true, help: 'Google Account › Security › App passwords. Your normal password won’t work.', link: 'Where do I find this?' })))],
+      chk: [['Turn on 2-step verification', 'Required by Google for app passwords'], ['Create an app password', 'Name it “Zibby”, copy the 16 letters'], ['Paste it and test', 'Checks IMAP and SMTP']], failAt: 1,
+      permT: 'Access', perms: ['read mail (IMAP)', 'send mail (SMTP)'], pmono: false, guide: 'Email setup guide',
+      checks: ['Sign in to IMAP', 'List folders', 'SMTP accepts the sender'],
+      ok: [['ok', 'IMAP imap.gmail.com:993 · signed in', '210 ms'], ['ok', 'Found 4 folders · 1 284 messages', '380 ms'], ['ok', 'SMTP smtp.gmail.com:465 accepts support@acme.cz', '190 ms']],
+      failT: 'Sign-in rejected', failMs: 'AUTHENTICATIONFAILED', failNote: 'Use an app password to continue',
+      fail: [['no', 'IMAP sign in as support@acme.cz', 'AUTHENTICATIONFAILED'], ['sk', 'List folders', 'skipped'], ['sk', 'SMTP', 'skipped']],
+      fix: 'Google rejects normal passwords over IMAP. Create an app password (needs 2-step verification) and paste that 16-letter code instead.', fixBtn: 'Open App passwords'
+    };
+    if (k === 'gcal') { const em = 'zibby-cal@acme-ops.iam.gserviceaccount.com'; return {
+      main: [this.wsec(1, 'Service-account key', [h('div', { className: 'fcard', key: 'f' }, h('div', { className: 'fcard-h' }, this.ic('file', 15), h('span', { className: 'mono' }, 'acme-ops-4f2a91c0.json'), h('span', { className: 'tag ok' }, this.ic('check', 11), 'valid key'), h('span', { className: 'sp' }), h('button', { className: 'btn sm gh' }, this.ic('upload', 13), 'Replace'), h('button', { className: 'btn sm gh' }, 'Paste JSON instead')),
+          h('dl', { className: 'kv2' }, h('dt', null, 'Client e-mail'), h('dd', { className: 'mono' }, em, h('button', { className: 'ib', 'aria-label': 'Copy client e-mail', style: { width: 24, height: 24 } }, this.ic('copy', 13))), h('dt', null, 'Project'), h('dd', { className: 'mono' }, 'acme-ops'), h('dt', null, 'Private key'), h('dd', null, 'present · RSA 2048 · stored encrypted'))),
+          h('span', { className: 'hint', key: 'h', style: { fontSize: 11.5, color: 'var(--ink3)' } }, 'Drop the .json from Google Cloud › IAM › Service accounts › Keys. ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Where do I find this?'))], h('span', { className: 'rq req' }, 'Required')),
+        this.wsec(2, 'Which calendar', [this.f2('Calendar ID', this.tin('c_platform-oncall@group.calendar.google.com', 'c_…@group.calendar.google.com or name@company.com', 'Calendar ID', 'mono'), { req: true, help: 'Google Calendar › the calendar’s Settings › Integrate calendar › Calendar ID.' }),
+          h('div', { className: 'notice amb', key: 'n' }, h('span', { className: 'ic' }, this.ic('warn', 16)), h('span', null, h('b', null, 'Share the calendar with the service account. '), 'Add ', h('span', { className: 'mono' }, em), ' with “See all event details”.'), h('span', { className: 'sp' }), h('button', { className: 'btn sm' }, this.ic('copy', 13), 'Copy e-mail'))])],
+      chk: [['Create a service account', 'Google Cloud › IAM › Service accounts'], ['Download a JSON key', 'Keys › Add key › JSON'], ['Share the calendar with it', 'Calendar settings › Share with specific people'], ['Test', 'Reads upcoming events']], failAt: 2,
+      permT: 'Access used', perms: ['calendar.readonly'], guide: 'Google Calendar setup guide',
+      checks: ['Google accepts the key', 'Calendar is shared with the service account', 'Read upcoming events'],
+      ok: [['ok', 'Key accepted by Google', '140 ms'], ['ok', 'Calendar shared with the service account', '210 ms'], ['ok', 'Read 14 upcoming events from “Platform on-call”', '260 ms']],
+      failT: 'Calendar not shared', failMs: '404 notFound', failNote: 'Share the calendar to continue',
+      fail: [['ok', 'Key accepted by Google', '140 ms'], ['no', 'Calendar shared with the service account', '404 notFound'], ['sk', 'Read upcoming events', 'skipped']],
+      fix: ['Google answers “not found” when the calendar isn’t shared. Share it with ', h('span', { className: 'mono', key: 'm' }, em), ' (“See all event details”); it applies within a minute.'], fixBtn: 'Open calendar settings'
+    }; }
+    return {
+      main: [this.wsec(1, 'Where is Sentry?', h('div', { className: 'g2' },
+          this.f2('Sentry URL', this.tin('https://sentry.io', 'https://sentry.your-company.com', 'Sentry URL', 'mono'), { req: true, help: 'sentry.io or your self-hosted address.' }),
+          this.f2('Organisation slug', this.tin(fail ? 'acme-logistics' : 'acme', 'acme', 'Organisation slug', fail ? 'mono bad' : 'mono'), { req: true, help: 'From the URL: sentry.io/organizations/‹slug›/' }))),
+        this.wsec(2, 'Token', [this.f2('Organisation auth token', this.secret('sntrys_eyJpYXQiOjE3', 'Sentry auth token'), { req: true, help: 'Settings › Developer settings › Organization tokens › Create new token.', link: 'Where do I find this?' }),
+          h('div', { className: 'fld', key: 'p' }, h('span', { className: 'lb' }, 'Scopes'), this.scp(['org:read', 'project:read', 'event:read']), h('span', { className: 'hint' }, 'Organisation tokens have these by default.'))]),
+        name('', 'Sentry · acme')],
+      chk: [['Create an organisation token', 'Settings › Developer settings › Organization tokens'], ['Copy it right away', 'Sentry shows it only once'], ['Paste it and test', 'Checks organisation and projects']], failAt: 0,
+      permT: 'Scopes used', perms: ['org:read', 'project:read', 'event:read'], guide: 'Sentry setup guide',
+      checks: ['Reach Sentry', 'Token belongs to the organisation', 'Read projects and events'],
+      ok: [['ok', 'Reached sentry.io', '92 ms'], ['ok', 'Token for organisation acme', '110 ms'], ['ok', 'Can read 6 projects and their events', '205 ms']],
+      failT: 'Wrong organisation', failMs: '404 · 202 ms', failNote: 'Fix the slug to continue',
+      fail: [['ok', 'Reached sentry.io', '92 ms'], ['no', 'Organisation acme-logistics', '404 — token belongs to “acme”'], ['sk', 'Read projects', 'skipped']],
+      fix: 'The slug is the part of the URL after /organizations/. Your token belongs to “acme”.', fixBtn: 'Use “acme”'
+    };
+  }
+  connectW(k, test, act, bad) {
+    const h = this.h, a = act || {}, D = this.connectDef(k, test === 'fail', bad), N = D.chk.length;
+    const st = i => bad ? D.chkBad[i] : test === 'fail' ? (i === D.failAt ? 'no' : i < D.failAt ? 'dn' : i === N - 1 ? 'on' : 'dn') : i < N - 1 ? 'dn' : test === 'ok' ? 'dn' : 'on';
+    const fixN = test === 'fail' ? h('div', { className: 'fix' }, h('b', null, 'How to fix'), h('span', null, D.fix), h('div', { className: 'r' }, h('a', { href: '#', className: 'btn sm', onClick: this.pd }, D.fixBtn, this.ic('ext', 12)), h('button', { className: 'btn sm gh', onClick: a.test }, this.ic('refresh', 13), 'Test again'))) : null;
+    const tnode = bad ? null : test === 'ok' ? this.tst('ok', 'Connection works', 'tested just now', D.ok) : test === 'fail' ? this.tst('fail', D.failT, D.failMs, D.fail, fixN) : test === 'run' ? this.tst('run', 'Testing…', '', D.checks.map(c => ['run', c, '…'])) : this.tst('idle', 'Not tested yet', D.checks.length + ' checks', D.checks.map(c => ['sk', c, '']));
+    const note = bad ? h('span', { className: 'note', key: 'n' }, 'Fix the token to test') : test === 'ok' ? h('span', { className: 'note ok', key: 'n' }, this.ic('check', 13), 'Tested just now') : test === 'fail' ? h('span', { className: 'note', key: 'n', style: { color: 'var(--rose)' } }, this.ic('warn', 13), D.failNote) : test === 'run' ? h('span', { className: 'note', key: 'n', style: { color: 'var(--violet)' } }, 'Testing…') : h('span', { className: 'note', key: 'n' }, 'Test before you continue');
+    const side = [h('h4', { key: 'h' }, 'Checklist'), h('div', { key: 'c' }, this.chk(D.chk.map((c, i) => [c[0], c[1], st(i)])))];
+    if (D.perms) side.push(h('h4', { key: 'h2' }, D.permT), h('div', { key: 'p' }, this.scp(D.perms, D.pmono)));
+    if (D.side2) side.push(D.side2);
+    side.push(h('a', { href: '#', className: 'lk u', key: 'g', onClick: this.pd, style: { fontSize: 12 } }, (D.guide || this.B[k].n + ' setup guide') + ' ↗'));
+    return this.wz({ id: k + (test || '') + (bad ? 'b' : ''), step: 2, svc: k, close: a.reset, title: 'Connect ' + this.B[k].n, sub: this.SN[k].sub + (this.INH[k] ? ' · override for checkout-api' : ' · for checkout-api'),
+      main: [D.main, tnode ? h('div', { key: 't' }, tnode) : null], side,
+      foot: [h('button', { className: 'btn gh', key: 'b', onClick: a.back }, this.ic('back', 14), 'Back'), h('span', { className: 'sp', key: 'sp' }), note, h('button', { className: 'btn', key: 't', disabled: !!bad || test === 'run', onClick: a.test }, this.ic('refresh', 13), test === 'ok' || test === 'fail' ? 'Test again' : 'Test connection'), h('button', { className: 'btn ink', key: 'x', disabled: test !== 'ok', onClick: a.next }, 'Continue', this.ic('chevr', 13))] });
+  }
+
+  /* step 1 */
+  pickW(act, hov) {
+    const h = this.h, a = act || {};
+    const BD = { jira: h('span', { className: 'tag' }, 'From Acme'), github: h('span', { className: 'tag ok' }, this.sd('ok'), 'Connected here'), gitlab: h('span', { className: 'tag vio' }, 'New'), slack: h('span', { className: 'tag err' }, this.sd('err'), 'Down at Acme'), gcal: h('span', { className: 'tag' }, 'From Platform'), sentry: h('span', { className: 'tag ok' }, this.sd('ok'), 'Connected here') };
+    return this.wz({ id: 'p' + (act ? 'i' : ''), step: 1, title: 'Connect a service', sub: 'to checkout-api', close: a.reset,
+      main: [h('div', { className: 'ctx', key: 'c' }, 'Connecting from', this.rib(this.RIB_P), h('span', { className: 'dim' }, 'You choose the exact scope in step 3.')),
+        h('div', { className: 'inp', key: 's' }, this.ic('search', 14), h('input', { className: 'bare', placeholder: 'Search services — e.g. “issues”, “calendar”', 'aria-label': 'Search services' })),
+        h('div', { className: 'svcg', key: 'g', role: 'list' }, Object.keys(this.SN).map(k => h('button', { key: k, className: 'svc' + (hov === k ? ' hov' : ''), style: { '--b': this.B[k].c }, role: 'listitem', onClick: a.pick ? () => a.pick(k) : undefined }, this.bl(k, 'lg'), h('span', null, h('b', null, this.B[k].n), h('p', null, this.SN[k].d), h('span', { className: 'need' }, 'You’ll need: ', h('span', null, this.SN[k].need))), BD[k] ? h('span', { className: 'bd' }, BD[k]) : null))),
+        h('p', { className: 'dim', key: 'm', style: { fontSize: 12, margin: 0 } }, 'Picking a service that is inherited creates an override for this project only. ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'Missing a service?'))],
+      foot: [h('button', { className: 'btn gh', key: 'c', onClick: a.reset }, 'Cancel'), h('span', { className: 'sp', key: 'sp' }), h('span', { className: 'note', key: 'n' }, 'Pick a service to continue'), h('button', { className: 'btn ink', key: 'x', disabled: true }, 'Continue', this.ic('chevr', 13))] });
+  }
+
+  /* step 3 */
+  scopeDef(k) {
+    const h = this.h;
+    const D = {
+      jira: { t: 'Which Jira projects?', q: 'Search 14 projects', L: [['CHK · Checkout', '23 open issues', true], ['RTE · Routing', '41 open issues'], ['BIL · Billing', '12 open issues'], ['OPS · Operations', 'your account can’t browse it', false, true]],
+        x: h('div', { className: 'g2' }, this.fld('Only these components', this.chipin(['checkout', 'payments-ui'])), this.fld('Only these labels (optional)', this.chipin([], 'e.g. customer-facing'))), w: 'CHK · components checkout, payments-ui', short: '1 project · 2 components' },
+      github: { t: 'Which repositories?', L: [['acme/checkout-api', 'detected from git remote', true], ['acme/checkout-e2e', 'end-to-end tests', true], ['acme/routing-engine', ''], ['acme/infra', 'token has no access', false, true]],
+        x: this.fld('Events to follow', h('div', { className: 'tchips' }, [['Pull requests', true], ['CI checks', true], ['Code-owner reviews', true], ['Issues', false]].map(([t, on]) => h('button', { key: t, 'aria-pressed': on }, t)))), w: 'acme/checkout-api, acme/checkout-e2e · PRs, CI, reviews', short: '2 repos · 3 events' },
+      gitlab: { t: 'Which projects?', L: [['acme/billing-web', 'detected from git remote', true], ['acme/billing-worker', ''], ['acme/billing-infra', 'token is project-scoped', false, true]],
+        x: this.fld('Events to follow', h('div', { className: 'tchips' }, [['Merge requests', true], ['Pipelines', true], ['Issues', false]].map(([t, on]) => h('button', { key: t, 'aria-pressed': on }, t)))), w: 'acme/billing-web · MRs, pipelines', short: '1 project · 2 events' },
+      slack: { t: 'Which channels?', q: 'Search 48 channels', L: [['checkout-alerts', '18 members · ~400 msgs / wk', true, false, '#'], ['incidents', '64 members · Acme-wide', true, false, '#'], ['checkout-dev', '9 members', false, false, '#'], ['payments', '22 members', false, false, '#'], ['platform-oncall', 'private — invite @zibby first', false, true]],
+        x: h('div', { className: 'g2' }, this.fld('Post run summaries to', this.sel('#checkout-dev', 'Post run summaries to')), this.fld('Approvals', this.sel('DM me (karel)', 'Approvals'))), w: '#checkout-alerts, #incidents · posts to #checkout-dev', short: '2 channels' },
+      email: { t: 'Which folders?', L: [['INBOX', '1 204 messages', true], ['Support', '68 messages', true], ['Newsletters', 'skipped by default'], ['Sent', 'used for threading only', false, true]],
+        x: [h('div', { className: 'swrow', key: 'a' }, h('span', null, 'Only messages from Acme contacts', h('small', null, 'Everything else stays unread and ignored')), this.sw(true, 'Only messages from Acme contacts')), h('div', { className: 'g2', key: 'b' }, this.fld('Send replies as', this.sel('support@acme.cz', 'Send replies as')), this.fld('Replies need approval', this.seg([['y', 'Always'], ['v', 'VIP only'], ['n', 'Never']], 'y', 'Replies need approval')))], w: 'INBOX, Support · Acme contacts only', short: '2 folders' },
+      gcal: { t: 'Which calendars?', L: [['Platform on-call', 'shared · 14 upcoming events', true], ['Release train', 'shared · 3 upcoming', true], ['Karel — personal', 'not shared with the service account', false, true]],
+        x: h('div', { className: 'swrow' }, h('span', null, 'Route alerts to whoever is on call', h('small', null, 'Uses the on-call calendar to pick the person to ping')), this.sw(true, 'Route alerts to whoever is on call')), w: 'Platform on-call, Release train', short: '2 calendars' },
+      sentry: { t: 'Which Sentry projects?', L: [['checkout-api', '31 unresolved issues', true], ['checkout-web', '8 unresolved'], ['routing-engine', '2 unresolved']],
+        x: h('div', { className: 'g2' }, this.fld('Environments', this.chipin(['production'])), this.fld('Minimum level', this.seg(['warning', 'error', 'fatal'], 'error', 'Minimum level'))), w: 'checkout-api · production · error and above', short: '1 project · production' }
+    };
+    return D[k];
+  }
+  scopeW(k, act, where) {
+    const h = this.h, a = act || {}, S = this.scopeDef(k), wh = where || 'project';
+    const W = [['company', 'comp', 'Acme Logistics', '5 projects use it' + (this.INH[k] === 'Acme Logistics' ? ' — replaces Acme’s current one.' : '.')], ['team', 'team', 'Platform', '3 projects of this team.'], ['project', 'folder', 'checkout-api only', this.INH[k] ? 'Override just here. Others keep ' + this.INH[k] + '’s.' : 'Only this project.']];
+    const whl = { company: 'Acme Logistics (5 projects)', team: 'Platform (3 projects)', project: 'checkout-api' }[wh];
+    return this.wz({ id: 'sc' + k + (act ? 'i' : ''), step: 3, svc: k, close: a.reset, title: this.B[k].n + ' · scope & save', sub: this.SN[k].acc,
+      main: [
+        this.wsec(1, S.t, [S.q ? h('div', { className: 'inp', key: 's' }, this.ic('search', 14), h('input', { className: 'bare', placeholder: S.q, 'aria-label': S.q })) : null,
+          h('div', { className: 'chlist', role: 'group', 'aria-label': S.t, key: 'l' }, S.L.map(([n, s, on, dis, px]) => h('button', { className: 'chr', role: 'checkbox', 'aria-checked': !!on, 'aria-disabled': dis || undefined, key: n }, h('span', { className: 'cb', 'aria-hidden': 'true' }, on ? this.ic('check', 11, 2.6) : null), h('span', { className: 'nm' }, dis ? this.ic('lock', 13) : px ? h('span', { className: 'hs' }, px) : null, n), h('small', null, s)))),
+          h('div', { key: 'x' }, S.x)]),
+        this.wsec(2, 'Where does it apply?', h('div', { className: 'where', role: 'radiogroup', 'aria-label': 'Applies to' }, W.map(([key, ic, n, s]) => h('button', { role: 'radio', 'aria-checked': wh === key, key, onClick: a.where ? () => a.where(key) : undefined }, h('span', { className: 'k' }, this.ic(ic, 12), key), n, h('small', null, s))))),
+        h('div', { className: 'sum', key: 'c' }, h('dl', { className: 'kv2' }, h('dt', null, 'Service'), h('dd', null, this.bl(k, 'xs'), this.B[k].n + ' · ' + this.SN[k].acc), h('dt', null, 'Watches'), h('dd', { className: 'mono' }, S.w), h('dt', null, 'Applies to'), h('dd', null, whl, this.INH[k] && wh === 'project' ? h('span', { className: 'tag' }, 'overrides ' + this.INH[k]) : null)))],
+      side: [h('h4', { key: 'h' }, 'Done so far'), h('div', { key: 'c' }, this.chk([['Service picked', this.B[k].n, 'dn'], ['Connected & tested', 'all checks passed', 'dn'], ['Scope', S.short + ' · ' + whl, 'on']])),
+        h('h4', { key: 'h2' }, 'After saving'), h('p', { key: 'p', style: { margin: 0, color: 'var(--ink2)', lineHeight: 1.5 } }, 'A filled (own) tile appears in Connections' + (this.INH[k] ? '; you can revert to ' + this.INH[k] + '’s in one click.' : '.'))],
+      foot: [h('button', { className: 'btn gh', key: 'b', onClick: a.back }, this.ic('back', 14), 'Back'), h('span', { className: 'sp', key: 'sp' }), h('button', { className: 'btn ink', key: 'x', onClick: a.save }, this.ic('check', 13), 'Save integration')] });
+  }
+
+  /* after save */
+  doneW(k, act) {
+    const h = this.h, a = act || {}, S = this.scopeDef(k);
+    return this.wz({ id: 'd' + k + (act ? 'i' : ''), step: 4, svc: k, close: a.reset, title: this.B[k].n + ' connected', sub: this.SN[k].acc,
+      main: h('div', { className: 'done' },
+        h('span', { className: 'okc', 'aria-hidden': 'true' }, this.ic('check', 28, 2.4)),
+        h('h3', null, this.B[k].n + ' is connected to checkout-api'),
+        h('p', null, 'Watching ', h('span', { className: 'mono' }, S.w), '. The first sync is running — results land in Inbox & activity within a minute.'),
+        h('div', { className: 'dtile' }, this.ctile({ k, src: 'own', st: 'ok', m: 'connected just now', m2: 'first sync running' })),
+        h('ul', { className: 'nextl' }, h('li', null, this.ic('clock', 14), 'We remind you 7 days before the token expires.'), h('li', null, this.ic('edit', 14), 'Change scope or routing any time from the tile.'), this.INH[k] ? h('li', null, this.ic('back', 14), 'Revert to ' + this.INH[k] + '’s ' + this.B[k].n + ' from the tile’s menu.') : null)),
+      foot: [h('button', { className: 'btn gh', key: 'a', onClick: a.reset }, this.ic('plus', 13), 'Connect another'), h('span', { className: 'sp', key: 'sp' }), h('button', { className: 'btn ink', key: 'x', onClick: a.reset }, 'Done')] });
+  }
+
+  /* interactive prototype */
+  wint() {
+    const h = this.h, W = this.state.w || { step: 1 }, fail = !!this.state.failSim;
+    const set = p => this.setState({ w: Object.assign({}, this.state.w || { step: 1 }, p) });
+    const act = {
+      pick: k => set({ step: 2, svc: k, test: 'idle', where: 'project' }),
+      test: () => { set({ test: 'run' }); setTimeout(() => set({ test: this.state.failSim ? 'fail' : 'ok' }), 900); },
+      next: () => set({ step: 3 }),
+      back: () => set(W.step === 2 ? { step: 1, svc: null, test: 'idle' } : { step: W.step - 1 }),
+      save: () => set({ step: 4 }),
+      reset: () => this.setState({ w: { step: 1 } }),
+      where: k => set({ where: k })
+    };
+    const ctl = h('div', { style: { display: 'flex', gap: 10, width: 1440, maxWidth: 'calc(100% - 40px)', margin: '10px auto 0', fontSize: 12, color: 'var(--ink3)', alignItems: 'center' } },
+      'Test result', h('div', { className: 'seg2', role: 'group', 'aria-label': 'Simulated test result', style: { width: 'auto' } }, h('button', { 'aria-pressed': !fail, onClick: () => this.setState({ failSim: false }) }, 'Passes'), h('button', { 'aria-pressed': fail, onClick: () => this.setState({ failSim: true }) }, 'Fails')),
+      h('span', null, 'Step ' + Math.min(W.step, 3) + ' of 3' + (W.svc ? ' · ' + this.B[W.svc].n : '')),
+      h('button', { className: 'btn sm gh', onClick: act.reset }, this.ic('refresh', 13), 'Restart'));
+    const wzo = W.step === 1 ? this.pickW(act) : W.step === 2 ? this.connectW(W.svc, W.test || 'idle', act) : W.step === 3 ? this.scopeW(W.svc, act, W.where) : this.doneW(W.svc, act);
+    return this.wstage('Try it — clickable prototype', 'Pick any of the 7 services, Test connection, Continue, choose scope, Save. Switch “Test result” to see each service’s failure and its fix.', wzo, ctl);
+  }
+  wizPage() {
+    const h = this.h;
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'Connect a service — a 3-step side sheet'), h('p', null, 'Replaces the generic dialog with a “Kind” select. ', h('b', null, 'Step 1'), ' shows all seven services as cards with what they do and what you’ll need — no default. ', h('b', null, 'Step 2'), ' is a form written for each service: real labels, concrete placeholders, Required / Optional on every field, “Where do I find this?”, a checklist on the side and a live test with one row per check. ', h('b', null, 'Step 3'), ' picks what to watch by name and where it applies. Then a confirmation with the new tile.')),
+      this.wint(),
+      this.wstage('1 · Pick service', 'Badges say what already exists here: GitHub and Sentry are own, Jira comes from Acme, Slack is down at Acme.', this.pickW(null, 'jira')),
+      this.wstage('2 · Connect Jira — not tested yet', 'Fields in the order you get them. Each check of the test is listed before it runs; Continue unlocks only after a pass.', this.connectW('jira', 'idle')),
+      this.wstage('2 · Connect GitHub — tested', 'Token method or GitHub App; the exact 5 repository permissions to grant are listed, nothing more.', this.connectW('github', 'ok')),
+      this.wstage('2 · Connect Slack — wrong token pasted', 'The label says what the schema really needs (user token, xoxp-). A bot token is caught on paste, before any request.', this.connectW('slack', 'idle', null, true)),
+      this.wstage('2 · Connect Email — tested', 'Provider preset fills hosts and ports; app password explained, since a normal password always fails.', this.connectW('email', 'ok')),
+      this.wstage('2 · Connect Google Calendar — tested', 'The service-account JSON gets a drop zone and is parsed on the spot; the e-mail you must share the calendar with has a copy button.', this.connectW('gcal', 'ok')),
+      this.wstage('2 · Connect GitLab — instance unreachable', 'New service. The failing check says why (VPN-only host) and what to do.', this.connectW('gitlab', 'fail')),
+      this.wstage('2 · Connect Sentry — wrong organisation', 'The test reads which organisation the token belongs to and offers it as a one-click fix.', this.connectW('sentry', 'fail')),
+      this.wstage('3 · Scope & save — Slack', 'Channels by name with member counts, private channels explained. Where it applies is an explicit choice, with the override spelled out.', this.scopeW('slack')),
+      this.wstage('3 · Scope & save — GitHub', 'Repositories by name, the one from git remote pre-ticked; repos the token can’t reach are shown, not hidden.', this.scopeW('github', null, 'project')),
+      this.wstage('Done', 'Confirmation with the new tile exactly as it will appear in Connections.', this.doneW('jira')),
+      this.notes([['No default service', 'Today the dialog opens on Slack. Here Continue stays disabled until you pick — a wrong default is the easiest way to create a broken integration.'], ['Test is part of the flow', 'Every check is listed (reach, sign-in, permission) with timing. Continue unlocks only after a pass; Save never stores an untested token.'], ['Same sheet everywhere', 'Company, team and project open the same sheet; only the pre-selected scope in step 3 differs.']]));
+  }
+  /* ---------- STATES ---------- */
+  statesPage() {
+    const h = this.h;
+    const empty = h('div', { className: 'emp' }, h('span', { className: 'pl', 'aria-hidden': 'true' }, this.ic('plus', 20, 2.2)),
+      h('div', null, h('b', null, 'Connect your first service'), h('p', null, 'Integrations let Zibby see issues, PRs, alerts and messages for this project. Nothing is inherited — Personal has no connections.'),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 12 } }, h('div', { className: 'sugg' }, this.bl('github'), h('span', null, h('b', { style: { fontSize: 13, display: 'inline' } }, 'GitHub'), h('span', { className: 'dim' }, ' — detected from ', h('span', { className: 'mono' }, 'github.com/karel/lab-sandbox'))), h('button', { className: 'btn sm ink' }, 'Connect')))),
+      h('button', { className: 'btn amb' }, this.ic('plus', 13, 2.2), 'Connect a service'));
+    const emptyPage = this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Personal' }, { l: 'lab-sandbox' }], ht: 520 },
+      [this.prHero({ empty: true, name: 'lab-sandbox', repo: 'github.com/karel/lab-sandbox' }), this.conn({ sum: 'none yet', rib: [['company', 'Personal'], ['project', 'lab-sandbox', true]], empty }), this.prTabs('integrations')]);
+    const del = [h('div', { className: 'scrim', key: 's' }), h('div', { className: 'dlg', role: 'alertdialog', 'aria-labelledby': 'dlgx', key: 'd' }, h('div', { className: 'dlg-b' }, h('h3', { id: 'dlgx' }, 'Disconnect Slack from Acme?'), h('p', null, '5 projects inherit it. They will stop watching channels and posting summaries until they connect their own:'),
+      h('div', { className: 'card', style: { padding: '4px 12px' } }, ['checkout-api · #checkout-alerts, #incidents', 'routing-engine · #routing', 'billing-web · #billing-alerts', 'warehouse-sync · #wh-ops', 'driver-app · #mobile'].map(t => h('div', { key: t, className: 'frow' }, this.ic('folder', 13), h('span', null, t), h('span', null)))),
+      h('p', { style: { fontSize: 12.5 } }, 'The token is deleted from the vault. Routing rules are kept, so reconnecting restores everything.')), h('div', { className: 'dlg-f' }, h('button', { className: 'btn' }, 'Cancel'), h('button', { className: 'btn dangerf' }, this.ic('x', 13), 'Disconnect Slack')))];
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'States')),
+      this.wstage('1 · Test failed', 'Each check gets its own row; the failing one says what the server answered, and “How to fix” turns the 401 into the concrete mismatch. Continue stays disabled.', this.connectW('jira', 'fail')),
+      this.cap('2 · Empty — no integrations', 'The whole strip becomes one call to action, with a suggestion derived from the git remote. Inheritance ribbon still shows there is nothing above.'),
+      emptyPage,
+      this.cap('3 · Disconnect confirm (company)', 'Dialogs are only for create and confirm. Disconnecting at company level lists every project that inherits it.'),
+      this.page({ crumbs: [{ l: 'Portfolio', icon: 'chevl' }, { l: 'Companies' }, { l: 'Acme Logistics' }], ht: 760 }, h('div', { style: { position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' } }, this.coHero(), this.conn({ tiles: this.T_CO, sum: '4 connected · 1 needs attention', rib: [['company', 'Acme Logistics', true], ['team', '2 teams'], ['project', '5 projects']] }), del)));
+  }
+
+  /* ---------- SPEC ---------- */
+  specPage() {
+    const h = this.h;
+    const live = h('div', { className: 'spec-live' },
+      h('div', null, h('div', { className: 'lbl2' }, 'ConnectionTile — own · inherited · error · expiring · add'),
+        h('div', { className: 'conn-g' }, this.ctile(this.T_PR[0]), this.ctile(this.T_PR[3]), this.ctile(this.T_CO[1]), this.ctile(this.T_CO[4]), this.ctile(this.T_PR[2]), this.addTile())),
+      h('div', { className: 'row' },
+        h('div', null, h('div', { className: 'lbl2' }, 'InheritanceRibbon'), this.rib(this.RIB_P)),
+        h('div', null, h('div', { className: 'lbl2' }, 'BrandMark (IconTile) · lg / md / xs own / xs inherited'), h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } }, Object.keys(this.B).map(k => h('span', { key: k, style: { display: 'inline-flex', gap: 4, alignItems: 'center' } }, this.bl(k, 'lg'), this.bl(k), this.bl(k, 'xs own'), this.bl(k, 'xs inh'))))),
+        h('div', null, h('div', { className: 'lbl2' }, 'StatusDot'), h('div', { style: { display: 'flex', gap: 14, alignItems: 'center', fontSize: 12.5, color: 'var(--ink2)' } }, [['ok', 'connected'], ['warn', 'attention'], ['err', 'error'], ['off', 'disconnected'], ['run', 'running']].map(([s, l]) => h('span', { key: s, style: { display: 'inline-flex', gap: 7, alignItems: 'center' } }, this.sd(s), l))))),
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 } },
+        h('div', null, h('div', { className: 'lbl2' }, 'SecretDropZone — empty'), h('div', { className: 'drop' }, h('span', { className: 'ic', 'aria-hidden': 'true' }, this.ic('upload', 18)), h('b', null, 'Drop service-account .json'), h('span', null, 'or ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'choose a file'), ' · ', h('a', { href: '#', className: 'lk u', onClick: this.pd }, 'paste its contents')), h('span', { className: 'dim', style: { fontSize: 11.5 } }, 'Parsed locally; only the key is stored, encrypted.'))),
+        h('div', null, h('div', { className: 'lbl2' }, 'Field — required / optional / error'), h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } }, this.f2('Atlassian API token', this.secret('ATATT3xFfGF0', 'token'), { req: true, help: 'id.atlassian.com › Security › API tokens.', link: 'Where do I find this?' }), this.f2('Display name', this.tin('', 'Acme Jira', 'Display name'), { help: 'Shown on tiles.' })))));
+    const C = [['Panel', 'existing', '.pnl (was card)', 'Every body block. Header: title · count · one action on the right. Never nested.'], ['Tag', 'existing', '.tag ok/warn/err/vio, .src own/inh', 'Source tags: filled ink = Own, outlined = From X.'], ['StatusDot', 'existing', '.sd ok/warn/err/off/run', 'Always paired with a text label — colour is never the only signal.'], ['EntityCard', 'existing', '.ecard', 'Click navigates to the entity. Shows repo, integration marks and CI.'], ['MetricStrip', 'existing', '.kpis / .kpi, .bgauge', 'Project overview KPIs; company header budget gauge.'], ['Tabs', 'existing', '.tabsx', 'Project only. Company and Team are short enough to stay one page.'], ['IconTile', 'existing', '.co-logo, .pico, .tico2, .bl', 'Silhouette per entity: rounded square (company, large), square (project), circle (team).'], ['ConnectionsStrip', 'new', '.conn, .conn-g', 'Directly under the identity header on all three pages. 6 columns; last is always + Connect.'], ['ConnectionTile', 'new', '.ct own / inh / bad, .ct.add', 'Brand mark, name, status + last sync, token expiry, source tag, “→ serves N”.'], ['InheritanceRibbon', 'new', '.rib', 'Company › Team › Project; current node in ink. Replaces the “Effective data” list.'], ['ServiceCard', 'new', '.svc', 'Step 1 of the wizard: what it does + “You’ll need”.'], ['WizardSheet', 'new', '.wz, .wz-h, .wsteps, .wz-side', '800 px side sheet; header tinted with the service accent; checklist sidebar.'], ['TestResult', 'new', '.tst ok / fail, .tst-r, .fix', 'One row per check; failing row says what the server answered; How to fix.'], ['SecretField', 'new', '.inp.secr', 'Masked, mono, reveal button. Validates prefixes (xoxp-, ATATT, glpat-) on paste.'], ['RoutingEditor', 'new', '.route, .chipin, .jql', 'Per-project rule for inherited Jira / Slack. Fields generate the JQL.'], ['ChannelPicker', 'new', '.chlist, .chr', 'Names, member counts, private channels explained. No raw ids.']];
+    const TK = [['--b (per tile)', 'Service accent; used only by brand mark, own-tile top edge, wizard header tint and its 3 px rule'], ['Jira', '#2684ff'], ['GitHub', 'var(--ink)'], ['GitLab', '#fc6d26'], ['Slack', '#e01e5a'], ['Email', 'var(--sky)'], ['Google Calendar', '#4285f4'], ['Sentry', '#8f6bd8'], ['Own tile', 'background var(--p2), border var(--line2)'], ['Inherited tile', 'transparent, border var(--line2)'], ['Add tile', '1.5px dashed var(--line2); hover var(--amber) — the autopilot accent marks the one action']];
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'Components & tokens'), h('p', null, 'Everything maps to the existing kit (bridge.css + detail.css); new pieces live in ', h('b', null, 'entity.css'), '. Brand colour is confined to the brand mark and the service’s own surfaces; the rest stays in the dark HUD palette.')),
+      h('div', { className: 'dstage', style: { width: 1440 } }, live),
+      h('div', { className: 'spec2', style: { margin: '0 auto 60px', width: 1440, maxWidth: 'calc(100% - 40px)' } },
+        h('h3', null, 'Components'), h('table', null, h('thead', null, h('tr', null, ['Component', 'Status', 'Class', 'Use'].map(t => h('th', { key: t }, t)))), h('tbody', null, C.map(c => h('tr', { key: c[0] }, h('td', null, c[0]), h('td', null, h('span', { className: 'tag ' + (c[1] === 'new' ? 'vio' : '') }, c[1])), h('td', null, h('code', null, c[2])), h('td', null, c[3]))))),
+        h('h3', null, 'Tokens'), h('table', null, h('tbody', null, TK.map(t => h('tr', { key: t[0] }, h('td', null, t[0]), h('td', null, h('code', null, t[1])))))),
+        h('h3', null, 'Interaction grammar'), h('p', null, h('strong', null, 'Edit'), ' is always top-right in the identity header. ', h('strong', null, 'Clicking a card or tile navigates'), ' (tile → the integration’s detail). ', h('strong', null, 'Dialogs only for create and confirm'), ' — connecting is a side sheet, deleting is a confirm. ', h('strong', null, 'No icon-only button without a label'), ' (aria-label everywhere, visible text on primary actions).')));
+  }
+
+  /* ---------- pages ---------- */
+  companyPage() {
+    const h = this.h;
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'Company — editorial header, connections first'), h('p', null, 'Today Integrations is a second tab and nothing says which project uses what. Here the ', h('b', null, 'Connections strip'), ' sits right under the header: status, last sync, token expiry and ', h('b', null, '“→ serves N projects”'), ' on every tile. The projects table shows each project’s marks — filled = own, outlined = inherited. Six budget text fields become one caps table with usage bars.')),
+      this.cap('1 · Acme Logistics', 'Wide header with the large logo and a budget gauge. The Slack tile is in error, so the sentence says “1 needs attention”.'),
+      this.coPage(),
+      this.notes([['One sentence, not a dashboard', '“4 integrations connected, 1 needs attention” is the first thing you read; the tile in error is the second.'], ['Answers “who uses this?”', 'Each company tile says how far it reaches; the table shows it from the other side, per project.'], ['Budget as caps', 'Daily / weekly / monthly × runs / USD with live usage. Editing opens inline via the pencil; lower levels can only tighten.']]));
+  }
+  projectPage() {
+    const h = this.h, tab = this.state.ptab || 'integrations';
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'Project — operational header, integrations by origin'), h('p', null, 'The eight-panel Overview is split: a compact ', h('b', null, 'Overview'), ' tab (KPIs, PRs with Merge, runs, basics) and an ', h('b', null, 'Integrations'), ' tab grouped Own / From team / From company, with the Jira and Slack routing editor inline. Secrets move to ', h('b', null, 'Environment'), ' so they are never confused with integration tokens.')),
+      this.cap('1 · checkout-api — Integrations tab (interactive tabs)', 'Ribbon Acme › Platform › checkout-api. Inherited tiles are outlined, own are filled; the inherited Slack error points to where it can be fixed.'),
+      this.prPage(tab, true),
+      this.cap('2 · checkout-api — Overview tab', 'What used to be eight stacked panels: KPI strip, open PRs with Merge, recent runs, basics, team. “Effective data” is gone — the strip and ribbon say it.'),
+      this.prPage('overview'),
+      this.notes([['Origin is a layout, not a label', 'Rows are grouped by where they come from; each group links to where it is managed.'], ['Override, don’t edit upstream', '“Override with own” opens the wizard pre-scoped to this project; “Revert to Acme” undoes it.'], ['Routing stays local', 'Project key, components, labels, JQL and channels are per project even for inherited Jira and Slack; the editor shows how many issues match.']]));
+  }
+  teamPage() {
+    const h = this.h;
+    return h('div', { className: 'dw' },
+      h('div', { className: 'dw-intro' }, h('h2', null, 'Team — knowledge-oriented header, now with connections'), h('p', null, 'Teams had no integrations at all. Now they get the same strip (one own calendar, four from Acme) and a header built around the ', h('b', null, 'knowledge vault'), ': path, notes, ADRs, last index and git remote. Projects are EntityCards with their integration marks and CI.')),
+      this.cap('1 · Platform', 'Same grid and components as Company and Project; only the header silhouette changes (round icon, vault block instead of gauge or pulse).'),
+      this.tmPage(),
+      this.notes([['Jira base moves out', 'The team’s Jira base URL was a text field; it is now just the inherited Jira connection.'], ['Team-level connections', 'A team calendar (on-call rota) serves its 3 projects — the middle link of the ribbon finally has content.'], ['Knowledge first', 'Recently updated notes sit next to projects, because that is what agents of this team read before working.']]));
+  }
+  renderVals() {
+    const v = this.view();
+    const VL = [['company', 'Company'], ['project', 'Project'], ['team', 'Team'], ['wizard', 'Connect wizard'], ['states', 'States'], ['spec', 'Components']];
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => this.setState({ view: k }) })),
+      themes: [['dark', 'Dark'], ['light', 'Light']].map(([k, l]) => ({ label: l, on: this.theme() === k, pick: () => this.setTheme(k) })),
+      theme: this.theme(),
+      page: v === 'project' ? this.projectPage() : v === 'team' ? this.teamPage() : v === 'wizard' ? this.wizPage() : v === 'states' ? this.statesPage() : v === 'spec' ? this.specPage() : this.companyPage()
+    };
+  }
+
+  /* ---------- shared helpers (same as Agent detail) ---------- */
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  pd = e => { if (e && e.preventDefault) e.preventDefault(); };
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  P = {
+    dash: ['M4 4h7v7H4z', 'M13 4h7v4h-7z', 'M13 10h7v10h-7z', 'M4 13h7v7H4z'],
+    work: ['M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z', 'M8.5 12l2.5 2.5 5-5'],
+    comp: ['M4 20V6.5L11 4v16', 'M11 20h9V9.5L11 7', 'M3 20h18', 'M7 9h1', 'M7 13h1', 'M7 16.5h1', 'M14.5 12.5h2', 'M14.5 16h2'],
+    team: ['M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M2.5 20a6.5 6.5 0 0 1 13 0', 'M16 4.5a3.5 3.5 0 0 1 0 6.5', 'M18 14a6.5 6.5 0 0 1 3.5 6'],
+    know: ['M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15H7.5A2.5 2.5 0 0 0 5 20.5z', 'M5 20.5V5.5', 'M9 7.5h6'],
+    gov: ['M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z', 'M9 12l2 2 4-4'],
+    search: ['M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z', 'M15.5 15.5L20 20'],
+    plus: ['M12 5v14', 'M5 12h14'],
+    minus: ['M5 12h14'],
+    chev: ['M7 10l5 5 5-5'],
+    chevr: ['M10 7l5 5-5 5'],
+    chevl: ['M14 7l-5 5 5 5'],
+    up: ['M6 15l6-6 6 6'],
+    bell: ['M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z', 'M10 20.5a2 2 0 0 0 4 0'],
+    more: ['M6 12h.01', 'M12 12h.01', 'M18 12h.01'],
+    sliders: ['M4 7h9', 'M17 7h3', 'M15 5v4', 'M4 17h3', 'M11 17h9', 'M9 15v4'],
+    x: ['M6 6l12 12', 'M18 6L6 18'],
+    check: ['M5 12.5l4.5 4.5L19 7.5'],
+    play: ['M8 5.5v13l10.5-6.5z'],
+    edit: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4'],
+    copy: ['M8.5 8.5h11v11h-11z', 'M5 15.5V4.5h11'],
+    pr: ['M6 3.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', 'M6 7.5v9', 'M6 16.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', 'M18 16.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', 'M18 16.5V9a3 3 0 0 0-3-3h-4', 'M13 3.5L10.5 6 13 8.5'],
+    lock: ['M7.5 11V8a4.5 4.5 0 0 1 9 0v3', 'M5.5 11h13v9h-13z'],
+    file: ['M6 3.5h8.5L19 8v12.5H6z', 'M14 3.5V8h5'],
+    folder: ['M3.5 6.5A1.5 1.5 0 0 1 5 5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z'],
+    warn: ['M12 4L2.5 20h19z', 'M12 10v4', 'M12 17h.01'],
+    eye: ['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z'],
+    key: ['M14.5 4a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z', 'M10.5 13L4 19.5', 'M6.5 17l2 2'],
+    fork: ['M6 4v16', 'M6 12h5a4 4 0 0 0 4-4V4', 'M6 12h5a4 4 0 0 1 4 4v4'],
+    back: ['M19 12H5', 'M11 6l-6 6 6 6'],
+    ext: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v6H4V6h6'],
+    user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4.5 20a7.5 7.5 0 0 1 15 0'],
+    bolt: ['M13 3L5 13.5h6L10 21l8-10.5h-6z'],
+    star: ['M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z'],
+    upload: ['M12 15V4', 'M7.5 8.5L12 4l4.5 4.5', 'M4.5 15v4.5h15V15'],
+    refresh: ['M19.5 12a7.5 7.5 0 1 1-2.2-5.3', 'M19.5 4v4h-4'],
+    clock: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 8v4.5l3 1.5']
+  };
+  ic(n, s, sw) { const h = this.h; s = s || 16; return h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: sw || (n === 'more' ? 2.8 : 1.7), strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', flex: 'none' } }, (this.P[n] || []).map((d, i) => h('path', { d, key: i }))); }
+  mark(size, st) {
+    const h = this.h, col = { idle: 'var(--ink3)', working: 'var(--violet)', needs: 'var(--amber)' }[st || 'working'];
+    const wing = d => h('path', { d, fill: 'currentColor', stroke: 'currentColor', strokeWidth: 6, strokeLinejoin: 'round' });
+    return h('svg', { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': 'true', focusable: 'false', style: { display: 'block', overflow: 'visible', flex: 'none' } },
+      wing('M8 16L28.5 30V34L8 48Z'), wing('M56 16L35.5 30V34L56 48Z'),
+      h('circle', { cx: 32, cy: 32, r: 9.2, fill: 'var(--p1)' }),
+      h('circle', { cx: 32, cy: 32, r: 6.6, fill: col, className: st === 'idle' ? null : 'tc-node ' + st }));
+  }
+  chrome(o) {
+    const h = this.h, att = !!o.att;
+    const secs = [['Dashboard', 'dash'], ['Work', 'work'], ['Portfolio', 'comp'], ['Workforce', 'team'], ['Knowledge', 'know'], ['Governance', 'gov']];
+    return h('header', { className: 'tc-h' },
+      h('a', { href: '#', className: 'tc-brand', 'aria-label': 'ZibbyOS, go to Dashboard', onClick: this.pd }, this.mark(22, att ? 'needs' : 'working'), h('span', { className: 'tc-wm' }, 'ZibbyOS')),
+      h('nav', { 'aria-label': 'Sections' }, h('div', { className: 'tc-sec' }, secs.map(([l, i]) => h('a', { href: '#', key: l, 'aria-current': l === o.sec ? 'page' : undefined, onClick: this.pd }, this.ic(i, 15), l)))),
+      h('span', { className: 'tc-sp' }),
+      h('button', { className: 'tc-cmd', 'aria-label': 'Search and commands, ⌘K' }, this.ic('search', 14), h('span', null, 'Search'), h('span', { className: 'kbd' }, '⌘K')),
+      h('button', { className: 'tc-new', 'aria-label': 'Create' }, this.ic('plus', 14, 2.2), 'New'),
+      h('button', { className: 'tc-zib', 'aria-label': 'Ask Zibby, ⌘J' }, h('span', { className: 'tc-orb', style: { width: 18, height: 18 }, 'aria-hidden': 'true' }), 'Zibby'),
+      h('span', { className: 'tc-div', 'aria-hidden': 'true' }),
+      h('button', { className: 'tc-stat', 'aria-label': 'System status: 3 agents working' }, h('span', { className: 'dot working', style: { width: 7, height: 7 } }), h('span', { className: 'n' }, '3')),
+      h('button', { className: 'tc-ib tc-bell', 'aria-label': 'Notifications, 5 unread' }, this.ic('bell', 17), h('b', { 'aria-hidden': 'true' }, '5')),
+      h('button', { className: 'tc-ib', 'aria-label': 'Preferences and settings' }, this.ic('sliders', 17)));
+  }
+  crumbs(list) {
+    const h = this.h, parts = [];
+    list.forEach((c, i) => {
+      if (i) parts.push(h('li', { key: 's' + i, 'aria-hidden': 'true', className: 'sl' }, '/'));
+      parts.push(h('li', { key: i }, i === list.length - 1 ? h('span', { 'aria-current': 'page', style: { color: 'var(--ink)', fontWeight: 500, padding: '3px 5px', whiteSpace: 'nowrap' } }, c.l) : h('a', { href: '#', onClick: this.pd }, c.icon ? this.ic(c.icon, 13) : null, c.l)));
+    });
+    return h('nav', { className: 'tc-crumbs', 'aria-label': 'Breadcrumb' }, h('ol', null, parts));
+  }
+  cap(t, d) { const h = this.h; return h('div', { className: 'cap' }, h('b', null, t), h('span', null, d)); }
+  notes(list) { const h = this.h; return h('div', { className: 'dnotes', style: { width: 1440, maxWidth: 'calc(100% - 40px)' } }, list.map(([t, d], i) => h('div', { key: i }, h('b', null, t), d))); }
+  ava(n, size) { const h = this.h; size = size || 28; return h('span', { className: 'ava', 'aria-hidden': 'true', style: { width: size, height: size, fontSize: size < 26 ? 9 : 10, borderRadius: size < 26 ? 6 : 8 } }, n.ini); }
+  seg(opts, cur, label, cls) { const h = this.h; return h('div', { className: cls || 'seg2', role: 'group', 'aria-label': label, style: cls ? null : { width: 'auto' } }, opts.map(o => { const k = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return h('button', { key: k, 'aria-pressed': k === cur }, l); })); }
+  fld(label, ctl, hint, err) { const h = this.h; return h('div', { className: 'fld' }, h('span', { className: 'lb' }, label), ctl, hint ? h('span', { className: 'hint' }, hint) : null, err ? h('span', { className: 'err', role: 'alert' }, this.ic('warn', 13), err) : null); }
+  sel(v, label, cls) { const h = this.h; return h('button', { className: 'inp ' + (cls || ''), 'aria-haspopup': 'listbox', 'aria-label': label + ': ' + v }, h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, v), h('span', { className: 'cv' }, this.ic('chev', 14))); }
+  sw(on, label) { return this.h('button', { className: 'sw', role: 'switch', 'aria-checked': !!on, 'aria-label': label }); }
+  inp(v, label, cls) { return this.h('input', { className: 'inp ' + (cls || ''), defaultValue: v, 'aria-label': label }); }
+}
+</script>
+</body>
+</html>

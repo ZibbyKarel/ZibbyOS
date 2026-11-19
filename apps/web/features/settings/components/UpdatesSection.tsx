@@ -1,6 +1,14 @@
 "use client";
 
-import { Button, Divider, Panel, Stack, TextLink, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  Divider,
+  SettingsPanel,
+  Stack,
+  TextLink,
+  Typography,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useCheckAppUpdateMutation, useSelfStatusQuery } from "../../self";
@@ -58,64 +66,66 @@ export function UpdatesSection() {
   };
 
   return (
-    <Panel data-testid={UpdatesSectionTestId.Root} header={t("title")} padding="300">
-      <Stack gap="150">
-        <InfoRow label={t("current")} value={version(status?.appVersion)} />
-        <Divider />
-        <InfoRow label={t("latest")} value={version(status?.latestAppVersion)} />
-        {status?.appUpdateAvailable && (
-          <>
-            <Divider />
-            <Stack data-testid={UpdatesSectionTestId.Available} gap="75">
-              <Typography tone="warn" type="text" weight="medium">
-                {t("available", { version: version(status.latestAppVersion) })}
-              </Typography>
-              {status.latestAppReleaseUrl && (
-                <TextLink href={status.latestAppReleaseUrl} rel="noreferrer" target="_blank">
-                  <Typography size="sm" type="note">
-                    {t("releaseNotes")}
-                  </Typography>
-                </TextLink>
-              )}
-            </Stack>
-          </>
-        )}
-        <Divider />
-        <Stack align="center" direction="row" gap="150">
-          <Button
-            data-testid={UpdatesSectionTestId.Check}
-            intent="secondary"
-            loading={check.isPending}
-            onClick={handleCheck}
-            size="sm"
-          >
-            {t("check")}
-          </Button>
+    <SettingsPanel id="updates" title={t("title")}>
+      <Container data-testid={UpdatesSectionTestId.Root} padding="250">
+        <Stack gap="150">
+          <InfoRow label={t("current")} value={version(status?.appVersion)} />
+          <Divider />
+          <InfoRow label={t("latest")} value={version(status?.latestAppVersion)} />
           {status?.appUpdateAvailable && (
+            <>
+              <Divider />
+              <Stack data-testid={UpdatesSectionTestId.Available} gap="75">
+                <Typography tone="warn" type="text" weight="medium">
+                  {t("available", { version: version(status.latestAppVersion) })}
+                </Typography>
+                {status.latestAppReleaseUrl && (
+                  <TextLink href={status.latestAppReleaseUrl} rel="noreferrer" target="_blank">
+                    <Typography size="sm" type="note">
+                      {t("releaseNotes")}
+                    </Typography>
+                  </TextLink>
+                )}
+              </Stack>
+            </>
+          )}
+          <Divider />
+          <Stack align="center" direction="row" gap="150">
             <Button
-              data-testid={UpdatesSectionTestId.Install}
-              icon="upgrade"
-              intent="primary"
-              loading={installing}
-              onClick={handleInstall}
+              data-testid={UpdatesSectionTestId.Check}
+              intent="secondary"
+              loading={check.isPending}
+              onClick={handleCheck}
               size="sm"
             >
-              {t("install")}
+              {t("check")}
             </Button>
-          )}
-          <Typography
-            aria-live="polite"
-            as="span"
-            data-testid={UpdatesSectionTestId.Status}
-            role="status"
-            size="xs"
-            tone={checked === "failed" ? "bad" : undefined}
-            type="note"
-          >
-            {checked && t(checked)}
-          </Typography>
+            {status?.appUpdateAvailable && (
+              <Button
+                data-testid={UpdatesSectionTestId.Install}
+                icon="upgrade"
+                intent="primary"
+                loading={installing}
+                onClick={handleInstall}
+                size="sm"
+              >
+                {t("install")}
+              </Button>
+            )}
+            <Typography
+              aria-live="polite"
+              as="span"
+              data-testid={UpdatesSectionTestId.Status}
+              role="status"
+              size="xs"
+              tone={checked === "failed" ? "bad" : undefined}
+              type="note"
+            >
+              {checked && t(checked)}
+            </Typography>
+          </Stack>
         </Stack>
-      </Stack>
-    </Panel>
+      </Container>
+    </SettingsPanel>
   );
 }

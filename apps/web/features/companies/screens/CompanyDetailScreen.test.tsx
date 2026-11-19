@@ -32,7 +32,12 @@ vi.mock("../mutations", () => ({
 let projects: { id: string; name: string; path: string; companyId?: string }[] = [];
 vi.mock("../../projects", () => ({
   useProjectsQuery: () => ({ data: projects }),
+  useBudgetQuery: () => ({ data: undefined }),
 }));
+
+vi.mock("../../runs", () => ({ useRunsQuery: () => ({ runs: [] }) }));
+vi.mock("../../teams/queries", () => ({ useTeamsQuery: () => ({ data: [] }) }));
+vi.mock("../../integrations", () => ({ useIntegrationsQuery: () => ({ data: [] }) }));
 
 vi.mock("../../projects/mutations", () => ({
   useUpdateProjectMutation: () => ({ mutate: updateProjectMutate, isPending: false }),
@@ -62,6 +67,7 @@ describe("CompanyDetailScreen (ZB-06)", () => {
 
   it("saves the core record via the update mutation", async () => {
     render(<CompanyDetailScreen companyId="acme" />);
+    await userEvent.click(screen.getByTestId("entity-edit"));
     await userEvent.click(screen.getByTestId("save-basics"));
     expect(updateMutate).toHaveBeenCalledWith(
       expect.objectContaining({

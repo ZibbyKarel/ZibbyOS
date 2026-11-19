@@ -41,6 +41,12 @@ describe("Button", () => {
     expect(screen.getByTestId(ButtonTestId.Root)).not.toHaveClass("bg-bad");
   });
 
+  it("renders the solid ink intent as a labelled button", () => {
+    render(<Button intent="ink">Aktualizovat vše</Button>);
+    expect(screen.getByTestId(ButtonTestId.Root)).toHaveRole("button");
+    expect(screen.getByTestId(ButtonTestId.Root)).toHaveAccessibleName("Aktualizovat vše");
+  });
+
   it("renders no dot on non-destructive intents", () => {
     render(<Button intent="secondary">Edit</Button>);
     expect(screen.queryByTestId(ButtonTestId.Dot)).toBeNull();

@@ -1,21 +1,19 @@
 import type { BrainSource } from "../brainModel";
 
-/** Tone tokens a team KB cycles through; the vault is always the accent. */
-const KB_COLORS = ["var(--color-ok)", "var(--color-run)", "var(--color-state-think)"];
+/** The vault is violet, every team KB teal (the mockup's two hemispheres; no per-KB hue). */
+export const VAULT_COLOR = "var(--color-state-work)";
+export const KB_COLOR = "var(--color-state-done)";
 
-/** CSS colour for a source id: the vault is the accent, KBs cycle `KB_COLORS` in registry order. */
-export function sourceColorFor(sources: readonly BrainSource[]): (sourceId: string) => string {
-  const kbs = sources.filter((s) => s.kind === "kb").map((s) => s.id);
-  return (id) =>
-    id === "vault"
-      ? "var(--color-accent)"
-      : (KB_COLORS[Math.max(0, kbs.indexOf(id)) % KB_COLORS.length] ?? "var(--color-ok)");
+/** CSS colour for a source id: violet for the vault, teal for any team KB. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function sourceColorFor(_sources: readonly BrainSource[]): (sourceId: string) => string {
+  return (id) => (id === "vault" ? VAULT_COLOR : KB_COLOR);
 }
 
 export interface SourceShapeProps {
   color: string;
   /** vault = circle, kb = rounded square, hub = double ring, ring = an outline (open question). */
-  shape: "vault" | "kb" | "hub" | "ring";
+  shape: "vault" | "kb" | "hub" | "ring" | "dashed" | "line";
 }
 
 /** A 14px swatch of a source's graph marker, drawn as SVG (no inline style on DOM nodes in the app). */
@@ -29,6 +27,18 @@ export function SourceShape({ color, shape }: SourceShapeProps) {
         </>
       ) : shape === "ring" ? (
         <circle cx={7} cy={7} fill="none" r={5.5} stroke={color} strokeWidth={1.6} />
+      ) : shape === "dashed" ? (
+        <circle
+          cx={7}
+          cy={7}
+          fill="none"
+          r={4.5}
+          stroke={color}
+          strokeDasharray="1.8 1.8"
+          strokeWidth={1.3}
+        />
+      ) : shape === "line" ? (
+        <rect fill={color} height={2} rx={1} width={14} x={0} y={6} />
       ) : shape === "vault" ? (
         <circle cx={7} cy={7} fill={color} r={5} />
       ) : (

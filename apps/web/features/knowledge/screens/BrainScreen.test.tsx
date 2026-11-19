@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import cs from "../../../i18n/messages/cs.json";
 import { AppearanceProvider } from "../../../state/appearance";
 import type { BrainData } from "../hooks/useBrainData";
+import { TreeDockTestId } from "../components/TreeDock";
 import { BrainScreen, BrainScreenTestId } from "./BrainScreen";
 
 const messages = cs;
@@ -48,27 +49,21 @@ function renderScreen(ui: ReactElement) {
 }
 
 describe("BrainScreen", () => {
-  it("renders the three zones, the failed-source banner and the pending count", () => {
+  it("renders the three zones, and the failed-source banner", () => {
     current = brain;
     renderScreen(<BrainScreen />);
     expect(screen.getByTestId(BrainScreenTestId.GraphZone)).toBeInTheDocument();
     expect(screen.getByTestId(BrainScreenTestId.TreeZone)).toBeInTheDocument();
     expect(screen.getByTestId(BrainScreenTestId.NoteZone)).toBeInTheDocument();
     expect(screen.getByTestId(BrainScreenTestId.FailedBanner)).toHaveTextContent("Tým");
-    expect(screen.getByText("1 věcí čeká na tebe")).toBeInTheDocument();
   });
 
-  it("resizes the tree zone from the keyboard splitter", async () => {
+  it("keeps the tree collapsed to a rail and opens it on click", async () => {
     current = brain;
     renderScreen(<BrainScreen />);
-    const zone = screen.getByTestId(BrainScreenTestId.TreeZone);
-    const before = zone.className + zone.getAttribute("style");
-    const splitter = within(zone.parentElement as HTMLElement).getAllByRole(
-      "separator",
-    )[0] as HTMLElement;
-    splitter.focus();
-    await userEvent.keyboard("{ArrowRight}");
-    expect(zone.className + zone.getAttribute("style")).not.toBe(before);
+    expect(screen.queryByTestId(TreeDockTestId.Close)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(TreeDockTestId.Rail));
+    expect(screen.getByTestId(TreeDockTestId.Close)).toBeInTheDocument();
   });
 
   it("shows the empty state when the brain has no notes", () => {

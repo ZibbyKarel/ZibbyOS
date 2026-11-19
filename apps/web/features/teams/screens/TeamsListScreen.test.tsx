@@ -2,6 +2,7 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Team } from "@zibby/contracts";
+import { ListToolbarTestId } from "@zibby/design-system";
 import { TeamsListScreen } from "./TeamsListScreen";
 
 const push = vi.fn();
@@ -17,6 +18,9 @@ const { hooks } = vi.hoisted(() => ({
 
 vi.mock("../queries", () => ({
   useTeamsQuery: () => hooks.teams,
+}));
+vi.mock("../../companies/queries", () => ({
+  useCompaniesQuery: () => ({ data: [{ id: "zc", name: "ZibbyCorp" }] }),
 }));
 
 describe("TeamsListScreen (ZB-06)", () => {
@@ -38,8 +42,13 @@ describe("TeamsListScreen (ZB-06)", () => {
 
   it("the header add action navigates to /teams/new", async () => {
     render(<TeamsListScreen />);
-    await userEvent.click(screen.getByRole("button", { name: "Přidat tým" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nový tým" }));
     expect(push).toHaveBeenCalledWith("/teams/new");
+  });
+
+  it("renders the filter toolbar when teams exist", () => {
+    render(<TeamsListScreen />);
+    expect(screen.getAllByTestId(ListToolbarTestId.Chip).length).toBeGreaterThan(0);
   });
 
   it("shows the empty state when there are no teams", () => {

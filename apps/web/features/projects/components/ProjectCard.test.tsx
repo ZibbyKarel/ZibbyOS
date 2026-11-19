@@ -1,5 +1,5 @@
 import type { Project, ProjectBudgetStatus, TaskRun, TaskRunStatus } from "@zibby/contracts";
-import { IconTileTestId, StatTestId } from "@zibby/design-system";
+import { BudgetBarsTestId, IconTileTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render, screen, within } from "../../../test/render";
 import { ProjectCard } from "./ProjectCard";
@@ -50,58 +50,47 @@ const status = (over: Partial<ProjectBudgetStatus> = {}): ProjectBudgetStatus =>
 });
 
 describe("ProjectCard budget", () => {
-  it("shows the daily run-count bar with used/cap when a budget is set", () => {
+  it("shows a usage bar per capped window with the exact numbers as tooltip", () => {
     render(<ProjectCard budget={status()} project={project({ budget: { dailyRuns: 2 } })} />);
-    expect(screen.getByText("1/2")).toBeInTheDocument();
+    const items = screen.getAllByTestId(BudgetBarsTestId.Item);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveAttribute("title", "1/2");
+    expect(items[0]).toHaveTextContent("50 %");
   });
 
-  it("hides budget bars entirely when the project has no budget", () => {
-    render(<ProjectCard budget={undefined} project={project()} />);
-    expect(screen.queryByText(/\/2$/)).not.toBeInTheDocument();
-  });
-
-  it("surfaces a held count when the engagement has tasks held over budget", () => {
-    render(
-      <ProjectCard budget={status({ held: 2 })} project={project({ budget: { dailyRuns: 1 } })} />,
-    );
-    expect(screen.getByText("2")).toBeInTheDocument();
-  });
-});
-
-describe("ProjectCard cost bars (Phase 12)", () => {
-  it("shows the daily cost bar with spent/cap when a dollar cap is set", () => {
+  it("prefers the dollar cap over the run cap for the same window", () => {
     render(
       <ProjectCard
         budget={status({ dailyCost: { spentUsd: 1.5, capUsd: 5 } })}
-        project={project({ budget: { dailyCostCapUsd: 5 } })}
+        project={project({ budget: { dailyRuns: 2, dailyCostCapUsd: 5 } })}
       />,
     );
-    expect(screen.getByText("$1.50 / $5.00")).toBeInTheDocument();
+    expect(screen.getByTestId(BudgetBarsTestId.Item)).toHaveAttribute(
+      "title",
+      "1/2 · $1.50 / $5.00",
+    );
   });
 
-  it("hides a cost bar when its window has no dollar cap set (even with spend > 0)", () => {
+  it("hides budget bars entirely when the project has no budget", () => {
+    render(<ProjectCard budget={status()} project={project()} />);
+    expect(screen.queryByTestId(BudgetBarsTestId.Root)).toBeNull();
+  });
+
+  it("surfaces the held count when tasks are held over budget", () => {
     render(
-      <ProjectCard
-        budget={status({ dailyCost: { spentUsd: 1.5 } })}
-        project={project({ budget: { dailyRuns: 2 } })}
-      />,
+      <ProjectCard budget={status({ held: 2 })} project={project({ budget: { dailyRuns: 1 } })} />,
     );
-    expect(screen.queryByText(/\$1\.50/)).not.toBeInTheDocument();
-  });
-
-  it("hides all cost bars entirely when the project has no budget", () => {
-    render(<ProjectCard budget={undefined} project={project()} />);
-    expect(screen.queryByText(/^\$/)).not.toBeInTheDocument();
+    expect(screen.getByText(/pozdrženo 2/)).toBeInTheDocument();
   });
 });
 
 function statValue(key: string): string {
   const link = screen.getByTestId(`project-card-stat-${key}`);
-  return within(link).getByTestId(StatTestId.Value).textContent ?? "";
+  return within(link).getByText(/^\d+$/).textContent ?? "";
 }
 
 describe("ProjectCard task stats (Phase 52)", () => {
-  it("shows the per-status task counts (bucketed) but no 'Celkem' total", () => {
+  it("shows the per-status task counts (bucketed) plus the total", () => {
     feed = [
       taskRun("alpha", "running"),
       taskRun("alpha", "done"),
@@ -117,8 +106,7 @@ describe("ProjectCard task stats (Phase 52)", () => {
     expect(statValue("done")).toBe("2");
     expect(statValue("error")).toBe("0");
     expect(statValue("parked")).toBe("0");
-    // The detail's "Celkem" total is intentionally excluded from the card.
-    expect(screen.queryByTestId("project-card-stat-total")).toBeNull();
+    expect(statValue("total")).toBe("5");
   });
 
   it("deep-links each stat into /activity/runs pre-filtered to this project and the bucket's states (F8d — /runs is deleted; /activity/runs doesn't yet read these params, a pre-existing F2 gap)", () => {

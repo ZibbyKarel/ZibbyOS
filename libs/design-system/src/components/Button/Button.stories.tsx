@@ -9,7 +9,7 @@ const meta: Meta<typeof Button> = {
   argTypes: {
     intent: {
       control: "select",
-      options: ["primary", "secondary", "outline", "ghost", "danger"],
+      options: ["primary", "secondary", "outline", "ghost", "danger", "ink"],
     },
     size: { control: "select", options: ["sm", "md"] },
   },
@@ -19,7 +19,7 @@ export default meta;
 
 type Story = StoryObj<typeof Button>;
 
-const intents = ["primary", "secondary", "outline", "ghost", "danger"] as const;
+const intents = ["primary", "secondary", "outline", "ghost", "danger", "ink"] as const;
 
 export const Overview: Story = {
   render: () => (

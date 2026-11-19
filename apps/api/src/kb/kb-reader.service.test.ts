@@ -136,6 +136,15 @@ describe("KbReaderService", () => {
     expect(g.edges).toEqual([{ from: "wiki/INDEX.md", to: "wiki/notes/partner-portal.md" }]);
   });
 
+  it("flags notes under inbox/ as raw on the graph", async () => {
+    await fs.mkdir(path.join(root, "inbox"), { recursive: true });
+    await fs.writeFile(path.join(root, "inbox", "q.md"), "---\ntitle: Q\n---\nUnsorted.\n", "utf8");
+    const g = await reader.graph(source);
+    expect(g.nodes.find((n) => n.id === "inbox/q.md")?.raw).toBe(true);
+    expect(g.nodes.find((n) => n.id === "team-context.md")?.raw).toBeUndefined();
+    await fs.rm(path.join(root, "inbox"), { recursive: true });
+  });
+
   it("returns nothing for a query that matches nothing", async () => {
     expect(await reader.search(source, "zzzz-nothing")).toEqual([]);
   });

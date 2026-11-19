@@ -2,14 +2,15 @@
 
 import {
   Button,
-  Chip,
   Container,
-  Grid,
+  Icon,
   Panel,
   Row,
+  SegmentedControl,
   Stack,
   TextInputField,
   Typography,
+  type ZibbyMode,
   ZibbyOrb,
   ZibbyToast,
 } from "@zibby/design-system";
@@ -20,12 +21,11 @@ import { useTeamsQuery } from "../../teams";
 import type { AutopilotAutomation } from "@zibby/contracts";
 import { AutomatConfirmDialog, NeverList } from "../components/AutomatConfirmDialog";
 import { AutonomyMatrix } from "../components/AutonomyMatrix";
-import { ZibbyModeCards } from "../components/ZibbyModeCards";
-import { EMPTY_AUTOMATION, LANES, anyCapOn, buildScopes, exceptionsOf } from "../autonomy";
+import { EMPTY_AUTOMATION, anyCapOn, buildScopes, exceptionsOf } from "../autonomy";
 import { saveOperatorToken, useHasOperatorToken } from "../hooks/useHasOperatorToken";
 import { useModeSwitch } from "../hooks/useModeSwitch";
 import { useSaveAutomation } from "../hooks/useSaveAutomation";
-import { MODE_ORB } from "../modeMeta";
+import { MODES, MODE_ORB, MODE_TONE } from "../modeMeta";
 import { useAutopilotQuery } from "../queries";
 
 export enum AutonomyScreenTestId {
@@ -33,8 +33,6 @@ export enum AutonomyScreenTestId {
   Unlock = "autonomy-unlock",
   UnlockInput = "autonomy-unlock-input",
   UnlockSave = "autonomy-unlock-save",
-  Lane = "autonomy-lane-head",
-  CapNote = "autonomy-cap-note",
   Never = "autonomy-never",
   Toast = "autonomy-toast",
 }
@@ -112,20 +110,37 @@ export function AutonomyScreen() {
               {t("pageIntro")}
             </Typography>
           </Stack>
-          <Container width="380px">
-            <ZibbyModeCards mode={sw.mode} onSelect={sw.select} />
-          </Container>
+          <Panel padding="100" radius="lg">
+            <Row wrap align="center" gap="100">
+              <Typography size="sm" type="text" variant="secondary">
+                {t("zibbyModeLabel")}
+              </Typography>
+              <SegmentedControl
+                ariaLabel={t("zibbyModeLabel")}
+                items={MODES.map((m) => ({
+                  value: m,
+                  label: t(`mode_${m}`),
+                  leading: <ZibbyOrb size={14} state={MODE_ORB[m]} />,
+                  tone: MODE_TONE[m] === "neutral" ? undefined : MODE_TONE[m],
+                  disabled: m === "manual",
+                }))}
+                onChange={(m) => sw.select(m as ZibbyMode)}
+                value={sw.mode}
+              />
+            </Row>
+          </Panel>
         </Row>
 
         {!hasToken ? (
-          <Panel padding="200">
-            <Stack data-testid={AutonomyScreenTestId.Unlock} gap="100">
-              <Typography type="label">{t("readOnlyTitle")}</Typography>
+          <Panel padding="100">
+            <Row wrap align="center" data-testid={AutonomyScreenTestId.Unlock} gap="100">
+              <Icon name="lock" size="sm" />
               <Typography size="sm" type="text" variant="secondary">
-                {t("readOnlyHint")}
+                {t("readOnlyLine")}
               </Typography>
-              <Row align="end" gap="100">
+              <Container width="220px">
                 <TextInputField
+                  hideLabel
                   autoComplete="off"
                   data-testid={AutonomyScreenTestId.UnlockInput}
                   label={t("operatorToken")}
@@ -134,40 +149,22 @@ export function AutonomyScreen() {
                   type="password"
                   value={typed}
                 />
-                <Button
-                  data-testid={AutonomyScreenTestId.UnlockSave}
-                  disabled={typed.trim() === ""}
-                  intent="primary"
-                  onClick={() => {
-                    saveOperatorToken(typed);
-                    setTyped("");
-                  }}
-                >
-                  {t("unlock")}
-                </Button>
-              </Row>
-            </Stack>
+              </Container>
+              <Button
+                data-testid={AutonomyScreenTestId.UnlockSave}
+                disabled={typed.trim() === ""}
+                intent="primary"
+                onClick={() => {
+                  saveOperatorToken(typed);
+                  setTyped("");
+                }}
+                size="sm"
+              >
+                {t("unlock")}
+              </Button>
+            </Row>
           </Panel>
         ) : null}
-
-        <Grid cols={3} gap="100">
-          {LANES.map((lane) => (
-            <Stack data-testid={`${AutonomyScreenTestId.Lane}-${lane}`} gap="25" key={lane}>
-              <Row gap="75">
-                <ZibbyOrb size={24} state={MODE_ORB[lane]} />
-                <Typography type="label">{t(`mode_${lane}`)}</Typography>
-              </Row>
-              <Typography size="xs" type="note" variant="tertiary">
-                {t(`lane_${lane}`)}
-              </Typography>
-              {lane === "auto" && autoCapped ? (
-                <Row>
-                  <Chip data-testid={AutonomyScreenTestId.CapNote}>{t("cappedNote")}</Chip>
-                </Row>
-              ) : null}
-            </Stack>
-          ))}
-        </Grid>
 
         <AutonomyMatrix
           autoCapped={autoCapped}
@@ -178,10 +175,11 @@ export function AutonomyScreen() {
         />
 
         <Panel padding="150">
-          <Stack data-testid={AutonomyScreenTestId.Never} gap="100">
+          <Row wrap align="center" data-testid={AutonomyScreenTestId.Never} gap="100">
+            <Icon name="lock" size="sm" />
             <Typography type="label">{t("alwaysAsksEveryMode")}</Typography>
             <NeverList />
-          </Stack>
+          </Row>
         </Panel>
       </Stack>
 

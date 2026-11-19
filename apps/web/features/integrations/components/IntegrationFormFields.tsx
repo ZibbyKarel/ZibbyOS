@@ -382,6 +382,8 @@ export interface IntegrationFormFieldsProps {
   form: IntegrationFormState;
   /** Lock kind + id — they name/shape the backing entity (edit surface). */
   kindLocked?: boolean;
+  /** Hide the kind + id rows entirely (the connect wizard already picked the kind and derives the id). */
+  hideKind?: boolean;
   /** Whether a secret is already stored server-side (drives the placeholder). */
   hasCredentials?: boolean;
 }
@@ -396,6 +398,7 @@ export interface IntegrationFormFieldsProps {
 export function IntegrationFormFields({
   form,
   kindLocked = false,
+  hideKind = false,
   hasCredentials = false,
 }: IntegrationFormFieldsProps) {
   const t = useTranslations();
@@ -415,7 +418,7 @@ export function IntegrationFormFields({
 
   return (
     <Stack direction="col" gap="150">
-      {kindLocked ? (
+      {hideKind ? null : kindLocked ? (
         <Field label={t("integrations.kindLabel")}>
           {() => (
             <Typography mono data-testid={IntegrationFormTestId.Kind} size="base" type="note">
@@ -440,7 +443,7 @@ export function IntegrationFormFields({
         />
       )}
 
-      {!kindLocked && (
+      {!kindLocked && !hideKind && (
         <TextInputField
           data-testid="integration-id"
           error={form.idError ?? undefined}

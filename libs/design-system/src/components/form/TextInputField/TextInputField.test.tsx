@@ -25,4 +25,9 @@ describe("TextInputField", () => {
       "true",
     );
   });
+
+  it("renders the dense control at size sm", () => {
+    render(<TextInputField label="Název" size="sm" />);
+    expect(screen.getByTestId(TextInputFieldTestId.Control)).toHaveClass("py-1.5", "text-sm");
+  });
 });

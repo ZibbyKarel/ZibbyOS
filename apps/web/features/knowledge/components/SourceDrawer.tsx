@@ -10,6 +10,7 @@ export enum SourceDrawerTestId {
   UpdateAll = "source-drawer-update-all",
   /** Suffixed with the source id. */
   Row = "source-drawer-row",
+  Pending = "source-drawer-pending",
   State = "source-drawer-state",
   Retry = "source-drawer-retry",
 }
@@ -25,6 +26,9 @@ export interface SourceDrawerProps {
   onUpdateAll: () => void;
   /** Re-run the sync of one source. */
   onRetrySync: (id: string) => void;
+  /** Open questions waiting for the operator; 0 hides the link to Údržba. */
+  pending?: number;
+  onOpenMaintenance?: () => void;
 }
 
 /**
@@ -41,6 +45,8 @@ export function SourceDrawer({
   running,
   onUpdateAll,
   onRetrySync,
+  pending = 0,
+  onOpenMaintenance,
 }: SourceDrawerProps) {
   const t = useTranslations("knowledge.brain.sources");
   const tk = useTranslations();
@@ -65,6 +71,16 @@ export function SourceDrawer({
       title={t("title")}
     >
       <Stack gap="200">
+        {pending > 0 && onOpenMaintenance && (
+          <Button
+            data-testid={SourceDrawerTestId.Pending}
+            intent="secondary"
+            onClick={onOpenMaintenance}
+            size="sm"
+          >
+            {t("pending", { count: pending })}
+          </Button>
+        )}
         {sources.map((s) => {
           const run = sync[s.id];
           const phase = run?.phase;

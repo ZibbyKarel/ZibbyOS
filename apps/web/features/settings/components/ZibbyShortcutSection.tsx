@@ -1,8 +1,16 @@
 "use client";
 
-import { Alert, Button, Panel, Stack, Typography } from "@zibby/design-system";
+import {
+  Button,
+  SettingsNote,
+  SettingsPanel,
+  SettingsRow,
+  Stack,
+  Typography,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { useSettingsReadOnly } from "../draft/SettingsDraftProvider";
 import {
   DEFAULT_ZIBBY_SHORTCUT_ALIAS,
   shortcutCollision,
@@ -35,6 +43,8 @@ export function ZibbyShortcutSection() {
   const platform = useShortcutPlatform();
   const [recording, setRecording] = useState(false);
   const [needsModifier, setNeedsModifier] = useState(false);
+  const [kept, setKept] = useState(false);
+  const readOnly = useSettingsReadOnly();
 
   useEffect(() => {
     if (!recording) return;
@@ -72,88 +82,92 @@ export function ZibbyShortcutSection() {
   const showAlias = isDefault && platform !== "mac";
 
   return (
-    <Panel header={t("title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("hint")}
-        </Typography>
-
-        <Stack wrap align="center" direction="row" gap="200">
-          <Typography type="text" weight="medium">
-            {t("current")}
-          </Typography>
-          {recording ? (
-            <Typography
-              data-testid={ZibbyShortcutSectionTestId.Recording}
-              type="text"
-              variant="secondary"
-            >
-              {t("recording")}
-            </Typography>
-          ) : (
-            <Stack inline data-testid={ZibbyShortcutSectionTestId.Current}>
-              <ZibbyShortcutKbd />
-            </Stack>
-          )}
-        </Stack>
-
-        {showAlias && (
-          <Stack
-            wrap
-            align="center"
-            data-testid={ZibbyShortcutSectionTestId.Alias}
-            direction="row"
-            gap="100"
+    <SettingsPanel
+      description={t("panelHint")}
+      id="shortcuts"
+      title={t("title")}
+      tone={collision && !kept ? "attention" : "default"}
+    >
+      <SettingsRow hint={t("hint")} label={t("current")}>
+        {recording ? (
+          <Typography
+            data-testid={ZibbyShortcutSectionTestId.Recording}
+            type="text"
+            variant="secondary"
           >
-            <Typography leading="snug" type="note" variant="secondary">
-              {t("alias")}
-            </Typography>
-            <ZibbyShortcutKbd shortcut={DEFAULT_ZIBBY_SHORTCUT_ALIAS} />
+            {t("recording")}
+          </Typography>
+        ) : (
+          <Stack inline data-testid={ZibbyShortcutSectionTestId.Current}>
+            <ZibbyShortcutKbd />
           </Stack>
         )}
+        <Button
+          data-testid={ZibbyShortcutSectionTestId.Record}
+          disabled={readOnly}
+          icon="run"
+          intent="secondary"
+          onClick={() => {
+            setNeedsModifier(false);
+            setKept(false);
+            setRecording((r) => !r);
+          }}
+          size="sm"
+        >
+          {recording ? t("cancel") : t("record")}
+        </Button>
+        <Button
+          data-testid={ZibbyShortcutSectionTestId.Reset}
+          disabled={isDefault || readOnly}
+          icon="retry"
+          intent="ghost"
+          onClick={() => {
+            setRecording(false);
+            setKept(false);
+            reset();
+          }}
+          size="sm"
+        >
+          {t("reset")}
+        </Button>
+      </SettingsRow>
 
-        {needsModifier && recording && (
-          <Typography leading="snug" type="note" variant="secondary">
-            {t("needsModifier")}
-          </Typography>
-        )}
+      {showAlias && (
+        <SettingsRow label={t("alias")}>
+          <Stack inline data-testid={ZibbyShortcutSectionTestId.Alias}>
+            <ZibbyShortcutKbd shortcut={DEFAULT_ZIBBY_SHORTCUT_ALIAS} />
+          </Stack>
+        </SettingsRow>
+      )}
 
-        {collision && (
-          <Alert
-            data-testid={ZibbyShortcutSectionTestId.Collision}
-            severity="warn"
-            title={t("collisionTitle")}
-          >
-            {t(`collision.${collision}`)}
-          </Alert>
-        )}
+      {needsModifier && recording && <SettingsNote tone="err">{t("needsModifier")}</SettingsNote>}
 
-        <Stack direction="row" gap="100">
-          <Button
-            data-testid={ZibbyShortcutSectionTestId.Record}
-            intent="secondary"
-            onClick={() => {
-              setNeedsModifier(false);
-              setRecording((r) => !r);
-            }}
-            size="sm"
-          >
-            {recording ? t("cancel") : t("record")}
-          </Button>
-          <Button
-            data-testid={ZibbyShortcutSectionTestId.Reset}
-            disabled={isDefault}
-            intent="ghost"
-            onClick={() => {
-              setRecording(false);
-              reset();
-            }}
-            size="sm"
-          >
-            {t("reset")}
-          </Button>
-        </Stack>
-      </Stack>
-    </Panel>
+      {collision && !recording && !kept && (
+        <SettingsNote
+          actions={
+            <>
+              <Button
+                intent="ghost"
+                onClick={() => {
+                  setNeedsModifier(false);
+                  setRecording(true);
+                }}
+                size="sm"
+              >
+                {t("recordAnother")}
+              </Button>
+              <Button intent="ghost" onClick={() => setKept(true)} size="sm">
+                {t("keepAnyway")}
+              </Button>
+            </>
+          }
+          tone="wait"
+        >
+          <span data-testid={ZibbyShortcutSectionTestId.Collision}>
+            <b>{t("collisionTitle")}</b> {t(`collision.${collision}`)}
+          </span>
+        </SettingsNote>
+      )}
+    </SettingsPanel>
   );
 }

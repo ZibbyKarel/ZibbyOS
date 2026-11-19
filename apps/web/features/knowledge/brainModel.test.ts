@@ -9,6 +9,7 @@ import {
   buildBrainGraph,
   buildBrainTree,
   filterBrain,
+  isFiltering,
   legacyBrainNote,
   matchTitles,
   parseBrainId,
@@ -37,7 +38,7 @@ const kb: MemoryGraph = {
 const build = () =>
   buildBrainGraph({
     vault,
-    kbs: [{ teamId: "devrel", graph: kb }],
+    kbs: [{ teamId: "devrel", name: "DevRel KB", graph: kb }],
     openIds: new Set([brainId("devrel", "readme.md")]),
   });
 
@@ -50,12 +51,15 @@ describe("buildBrainGraph", () => {
     expect(g.edges).not.toContainEqual({ from: "vault:log", to: "vault:ghost" });
   });
 
-  it("links the hub to the best-connected note of each source", () => {
+  it("links the hub to the vault root and, through a bridge node, to each team KB root", () => {
     const g = build();
     const hubTargets = g.edges.filter((e) => e.from === HUB_ID).map((e) => e.to);
     expect(hubTargets).toHaveLength(2);
     expect(hubTargets).toContain("vault:log"); // degree tie, alphabetical
-    expect(hubTargets.every((t) => t.startsWith("vault:") || t.startsWith("devrel:"))).toBe(true);
+    expect(hubTargets).toContain("bridge:devrel");
+    const bridge = g.nodes.find((n) => n.id === "bridge:devrel");
+    expect(bridge).toMatchObject({ hub: true, bridgeOf: "devrel", label: "Most · DevRel KB" });
+    expect(g.edges.filter((e) => e.from === "bridge:devrel")).toHaveLength(1);
   });
 
   it("has no hub for an empty brain", () => {
@@ -100,6 +104,49 @@ describe("filterBrain", () => {
       { ...NO_FILTER, orphansOnly: true },
     );
     expect(none.nodes).toEqual([]);
+  });
+});
+
+describe("unsorted (raw) notes", () => {
+  const graph = () =>
+    buildBrainGraph({
+      vault: {
+        nodes: [
+          { id: "heap", label: "Heap", tier: "knowledge", raw: true },
+          { id: "sorted", label: "Sorted", tier: "memory" },
+        ],
+        edges: [],
+      },
+      kbs: [
+        {
+          teamId: "devrel",
+          graph: {
+            nodes: [
+              { id: "inbox/q.md", label: "Q", tier: "knowledge", raw: true },
+              { id: "wiki/a.md", label: "A", tier: "knowledge" },
+            ],
+            edges: [],
+          },
+        },
+      ],
+    });
+
+  it("carries raw onto graph nodes from both sources", () => {
+    const raw = graph()
+      .nodes.filter((n) => n.raw)
+      .map((n) => n.id);
+    expect(raw.sort()).toEqual(["devrel:inbox/q.md", "vault:heap"]);
+  });
+
+  it("unsortedOnly keeps just the raw notes", () => {
+    const g = filterBrain(graph(), { ...NO_FILTER, unsortedOnly: true });
+    expect(
+      g.nodes
+        .filter((n) => !n.hub)
+        .map((n) => n.id)
+        .sort(),
+    ).toEqual(["devrel:inbox/q.md", "vault:heap"]);
+    expect(isFiltering({ ...NO_FILTER, unsortedOnly: true })).toBe(true);
   });
 });
 

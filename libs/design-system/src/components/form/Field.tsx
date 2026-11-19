@@ -82,6 +82,16 @@ export const fieldControlClass =
   `${focusRing} focus-visible:border-ink-3 ` +
   'aria-[invalid="true"]:border-bad aria-[invalid="true"]:focus-visible:ring-bad';
 
+/** Field control density: `md` is the default form field, `sm` the dense ~30px row used by
+ *  side cards and inspectors. */
+export type FieldControlSize = "sm" | "md";
+
+/** {@link fieldControlClass} at the given density. */
+export const fieldControlClassFor = (size: FieldControlSize = "md") =>
+  size === "sm"
+    ? fieldControlClass.replace("px-3.5 py-2.5", "px-2.5 py-1.5").replace("text-base", "text-sm")
+    : fieldControlClass;
+
 /**
  * Generic form-field wrapper. Owns the parts every control shares — label, hint,
  * error message, the id/aria plumbing — and lays them out per `layout`. The

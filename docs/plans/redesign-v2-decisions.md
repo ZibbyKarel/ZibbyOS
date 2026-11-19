@@ -72,3 +72,14 @@ Deferred: custom chat personas (C-ST-04, needs persona records + chat engine cha
 ### Brand
 Build: diff `BrandMark` timings/variants against the mockup and fix (C-BR-01), state-driven favicon (C-BR-02: amber = waits for you, violet = running, grey = calm; client hook generating an SVG data URI), splash greeting if an operator name exists in config (C-BR-03), manifest colours + maskable 512 icon (C-BR-04). Verify desktop icon assets (C-BR-08) — report only.
 Skip: rejected marks, design-board chrome (C-BR-05/06).
+
+## Operator decisions 2026-11-19 (Znalosti motion)
+- Cursor repulsion as in the mockup, BUT smaller max displacement (approved deviation: the mockup's nodes flee too far and are hard to hover). The node under the cursor never moves.
+- Hover on a node animates the detail display (as in the mockup Hover view).
+- Selecting a note keeps the current zoom and smoothly pans to the note; it never jumps back to fit-all.
+- New note in Brain header opens the same NoteDock as topbar "Nový → Nová poznámka".
+- Click on empty graph space and a reader ✕ button both deselect the note.
+- Raw heap: reuse the existing mechanism (no new `_raw` folder): vault quick-capture notes carry `raw: true` and the nightly triage (memory-distiller, Fáze 107) categorises them; team-KB notes land in the KB's `inbox/` and team-kb-ingest processes them. Surfaced as the design's "Neroztříděné · N" chip. A physical `_raw/` folder in the vault is an open operator option.
+- Goal: Pass criteria deferred (needs a `criteria` field on goals + per-criterion verdicts) — operator decision pending. Name field removed from create (rename via ⋯).
+- Agent: Enabled toggle not built (schema has no enabled field).
+- Operator 2026-11-19: Goal Pass criteria — skip for now. Goal create keeps the Name field (same as edit). Agent "Enabled" concept dropped entirely (no toggle, no static indicator).

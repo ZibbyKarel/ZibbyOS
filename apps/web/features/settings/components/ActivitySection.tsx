@@ -1,25 +1,26 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { RadioMatrix, SettingsPanel, Tag } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
-import { ButtonGroup, Container, Divider, Panel, Stack, Typography } from "@zibby/design-system";
+import { useEffect, useState } from "react";
 import {
   ACTIVITY_GROUPS,
   type ActivityGroup,
   type ActivityView,
   type ActivityViewMode,
 } from "@zibby/contracts";
-import { useActivityViewQuery } from "../queries";
 import { useSetActivityViewMutation } from "../mutations";
+import { useActivityViewQuery } from "../queries";
+import { useSettingsReadOnly } from "../draft/SettingsDraftProvider";
 
 /** The display modes offered per group, in order. Labels come from i18n. */
 const MODES: ActivityViewMode[] = ["visible", "grouped", "hidden"];
 
 /**
- * Settings → Activity: which activity groups the right-rail live log shows as
- * individual lines (`visible`), collapses into a counted row (`grouped`), or hides
- * entirely (`hidden`). Persisted on the file-backed activity-view doc and read live
- * by the rail. The whole document is PUT on every change (the mandate/chat posture).
+ * General → Live log (was the Activity page): which activity groups the right-rail live
+ * log shows as individual lines (`visible`), collapses into a counted row (`grouped`), or
+ * hides entirely (`hidden`). A collapsible matrix panel (`#live-log`); each radio applies
+ * instantly — the whole file-backed document is PUT (the mandate/chat posture).
  */
 export function ActivitySection() {
   const { data: view } = useActivityViewQuery();
@@ -30,7 +31,16 @@ export function ActivitySection() {
 function ActivityEditor({ view }: { view: ActivityView }) {
   const t = useTranslations("settings");
   const setView = useSetActivityViewMutation();
+  const readOnly = useSettingsReadOnly();
   const [local, setLocal] = useState<ActivityView>(view);
+  // The panel only mounts after the config loaded client-side, so reading the hash here is safe.
+  const [open, setOpen] = useState(() => window.location.hash === "#live-log");
+
+  // Deep link `#live-log` opens the panel and brings it into view once it has mounted.
+  useEffect(() => {
+    if (window.location.hash !== "#live-log") return;
+    requestAnimationFrame(() => document.getElementById("live-log")?.scrollIntoView());
+  }, []);
 
   const choose = (group: ActivityGroup, mode: ActivityViewMode) => {
     const next: ActivityView = { ...local, [group]: mode };
@@ -38,34 +48,35 @@ function ActivityEditor({ view }: { view: ActivityView }) {
     setView.mutate({ body: next });
   };
 
-  return (
-    <Panel header={t("activity.title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("activity.hint")}
-        </Typography>
+  const count = (mode: ActivityViewMode) => ACTIVITY_GROUPS.filter((g) => local[g] === mode).length;
 
-        {ACTIVITY_GROUPS.map((group, i) => (
-          <Fragment key={group}>
-            {i > 0 && <Divider />}
-            <Stack align="center" direction="row" gap="250" justify="between">
-              <Container minW0>
-                <Typography type="text" weight="medium">
-                  {t(`activity.groups.${group}`)}
-                </Typography>
-              </Container>
-              <Container shrink={false}>
-                <ButtonGroup
-                  ariaLabel={t(`activity.groups.${group}`)}
-                  onChange={(v) => choose(group, v as ActivityViewMode)}
-                  options={MODES.map((m) => ({ id: m, label: t(`activity.modes.${m}`) }))}
-                  value={local[group]}
-                />
-              </Container>
-            </Stack>
-          </Fragment>
-        ))}
-      </Stack>
-    </Panel>
+  return (
+    <SettingsPanel
+      collapsible
+      badge={<Tag>{t("activity.was")}</Tag>}
+      description={t("activity.summary", {
+        visible: count("visible"),
+        grouped: count("grouped"),
+        hidden: count("hidden"),
+      })}
+      id="live-log"
+      onOpenChange={setOpen}
+      open={open}
+      title={t("activity.liveLog")}
+    >
+      <RadioMatrix
+        ariaLabel={t("activity.liveLog")}
+        caption={t("activity.hint")}
+        columns={MODES.map((m) => ({ id: m, label: t(`activity.modes.${m}`) }))}
+        disabled={readOnly}
+        onChange={(group, mode) => choose(group as ActivityGroup, mode as ActivityViewMode)}
+        rowHeader={t("activity.groupHeader")}
+        rows={ACTIVITY_GROUPS.map((g) => ({
+          id: g,
+          label: t(`activity.groups.${g}`),
+          value: local[g],
+        }))}
+      />
+    </SettingsPanel>
   );
 }

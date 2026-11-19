@@ -22,13 +22,14 @@ import { BrainFilters } from "../components/BrainFilters";
 import { BrainGraph } from "../components/BrainGraph";
 import { BrainHeader } from "../components/BrainHeader";
 import { BrainTree } from "../components/BrainTree";
+import { TreeDock } from "../components/TreeDock";
 import { ImportDialog } from "../components/ImportDialog";
-import { NoteEditorDialog } from "../components/NoteEditorDialog";
 import { NotePane } from "../components/NotePane";
 import { QuickCapture } from "../components/QuickCapture";
 import { SourceDrawer } from "../components/SourceDrawer";
 import { sourceColorFor } from "../components/SourceShape";
 import { NO_FILTER, VAULT_SOURCE_ID, brainId, filterBrain, matchTitles } from "../brainModel";
+import { useOpenNoteDock } from "../noteDockContext";
 import { useBrainData } from "../hooks/useBrainData";
 import { useNarrowViewport } from "../hooks/useNarrowViewport";
 import { useSyncAllSources } from "../hooks/useSyncAllSources";
@@ -42,12 +43,10 @@ export enum BrainScreenTestId {
   GraphZone = "brain-zone-graph",
   TreeZone = "brain-zone-tree",
   NoteZone = "brain-zone-note",
-  TreeSplitter = "brain-splitter-tree",
   NoteSplitter = "brain-splitter-note",
 }
 
-const TREE_W = { init: 260, min: 200, max: 480 };
-const NOTE_W = { init: 460, min: 320, max: 800 };
+const NOTE_W = { init: 540, min: 340, max: 820 };
 
 type NarrowTab = "brain" | "notes" | "note";
 
@@ -55,7 +54,7 @@ type NarrowTab = "brain" | "notes" | "note";
  * Mozek: the whole second brain on one page — graph, read-only tree and note pane over one
  * unified set of notes (the vault plus every team KB, fanned out client-side). Selecting in any
  * zone selects the same note (`?note=<source>:<id>`); the splitters between zones resize with
- * the mouse or the arrow keys. At ≤1100px the zones become tabs Mozek / Poznámky / Poznámka.
+ * the mouse or the arrow keys. At phone width (≤800px) the zones become tabs Mozek / Poznámky / Poznámka.
  */
 export function BrainScreen() {
   const t = useTranslations("knowledge.brain");
@@ -74,11 +73,11 @@ export function BrainScreen() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(NO_FILTER);
-  const [treeW, setTreeW] = useState(TREE_W.init);
+  const [treeOpen, setTreeOpen] = useState(false);
   const [noteW, setNoteW] = useState(NOTE_W.init);
   const [tab, setTab] = useState<NarrowTab>("brain");
   const [drawer, setDrawer] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const openNoteDock = useOpenNoteDock();
   const [quickCapturing, setQuickCapturing] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -94,6 +93,14 @@ export function BrainScreen() {
       setTab("note");
     },
     [router],
+  );
+
+  const deselect = useCallback(() => {
+    router.replace("/knowledge/brain" as Route, { scroll: false });
+  }, [router]);
+  const unsortedCount = useMemo(
+    () => brain.graph.nodes.filter((n) => n.raw).length,
+    [brain.graph.nodes],
   );
 
   const filtered = useMemo(() => filterBrain(brain.graph, filter), [brain.graph, filter]);
@@ -128,13 +135,11 @@ export function BrainScreen() {
       hits={matchIds ? matchIds.size : null}
       noteCount={noteCount}
       onImport={() => setImporting(true)}
-      onNewNote={() => setCreating(true)}
-      onOpenMaintenance={() => router.push("/knowledge/maintenance" as Route)}
+      onNewNote={openNoteDock}
       onOpenSources={() => setDrawer(true)}
       onQuickCapture={() => setQuickCapturing(true)}
       onSearch={setSearch}
       onUpdateAll={() => void sync.runAll()}
-      pending={brain.openQuestions.length}
       search={search}
       sources={brain.sources}
       updating={sync.running}
@@ -145,20 +150,16 @@ export function BrainScreen() {
     <>
       <SourceDrawer
         onClose={() => setDrawer(false)}
+        onOpenMaintenance={() => router.push("/knowledge/maintenance" as Route)}
         onRetrySync={(id) => void sync.retry(id)}
         onUpdateAll={() => void sync.runAll()}
         open={drawer}
+        pending={brain.openQuestions.length}
         running={sync.running}
         sourceColor={sourceColor}
         sources={brain.sources}
         sync={sync.state}
       />
-      {creating && (
-        <NoteEditorDialog
-          onClose={() => setCreating(false)}
-          onSaved={(id) => select(brainId(VAULT_SOURCE_ID, id))}
-        />
-      )}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}
     </>
   );
@@ -183,7 +184,7 @@ export function BrainScreen() {
             actionLabel={tm("newNote")}
             description={t("empty.description")}
             glyph="brain"
-            onAction={() => setCreating(true)}
+            onAction={openNoteDock}
             title={t("empty.title")}
           />
           <Stack align="center" direction="row" gap="100">
@@ -216,6 +217,7 @@ export function BrainScreen() {
       <BrainGraph
         graph={filtered}
         matchIds={matchIds}
+        onDeselect={deselect}
         onSelect={select}
         selectedId={selectedId}
         sourceColor={sourceColor}
@@ -235,21 +237,23 @@ export function BrainScreen() {
     const note = (
       <NotePane
         graph={brain.graph}
+        onClose={deselect}
         onSelect={select}
         openQuestions={brain.openQuestions}
         selectedId={selectedId}
+        sourceColor={sourceColor}
+        sourceName={sourceName}
       />
     );
     const filters = (
-      <Container padding={["0", "200", "100", "200"]}>
-        <BrainFilters
-          departments={departments}
-          filter={filter}
-          onChange={setFilter}
-          sourceColor={sourceColor}
-          sources={brain.sources}
-        />
-      </Container>
+      <BrainFilters
+        departments={departments}
+        filter={filter}
+        onChange={setFilter}
+        sourceColor={sourceColor}
+        sources={brain.sources}
+        unsortedCount={unsortedCount}
+      />
     );
 
     body = narrow ? (
@@ -260,7 +264,7 @@ export function BrainScreen() {
           <Tab value="note">{t("tabs.note")}</Tab>
         </TabList>
         <TabPanel value="brain">
-          {filters}
+          <Container padding={["0", "200", "100", "200"]}>{filters}</Container>
           <Container height="60dvh" minHeight="320px">
             {graph}
           </Container>
@@ -271,53 +275,41 @@ export function BrainScreen() {
         <TabPanel value="note">{note}</TabPanel>
       </Tabs>
     ) : (
-      <>
-        {filters}
-        <Stack grow minH0 direction="row">
-          <Container
-            grow
-            minW0
-            data-testid={BrainScreenTestId.GraphZone}
-            overflow="hidden"
-            position="relative"
-          >
-            {graph}
+      <Stack grow minH0 direction="row">
+        <Container
+          grow
+          minW0
+          data-testid={BrainScreenTestId.GraphZone}
+          overflow="hidden"
+          position="relative"
+        >
+          {graph}
+          <Container left="12px" position="absolute" right="52px" top="10px" zIndex={3}>
+            {filters}
           </Container>
-          <Splitter
-            label={t("splitter.tree")}
-            max={TREE_W.max}
-            min={TREE_W.min}
-            onChange={setTreeW}
-            pane="end"
-            value={treeW}
-          />
-          <Container
-            data-testid={BrainScreenTestId.TreeZone}
-            overflowY="auto"
-            padding="75"
-            shrink={false}
-            width={`${treeW}px`}
-          >
+        </Container>
+        <Container data-testid={BrainScreenTestId.TreeZone} shrink={false}>
+          <TreeDock onToggle={() => setTreeOpen((v) => !v)} open={treeOpen}>
             {tree}
-          </Container>
-          <Splitter
-            label={t("splitter.note")}
-            max={NOTE_W.max}
-            min={NOTE_W.min}
-            onChange={setNoteW}
-            pane="end"
-            value={noteW}
-          />
-          <Container
-            data-testid={BrainScreenTestId.NoteZone}
-            overflowY="auto"
-            shrink={false}
-            width={`${noteW}px`}
-          >
-            {note}
-          </Container>
-        </Stack>
-      </>
+          </TreeDock>
+        </Container>
+        <Splitter
+          label={t("splitter.note")}
+          max={NOTE_W.max}
+          min={NOTE_W.min}
+          onChange={setNoteW}
+          pane="end"
+          value={noteW}
+        />
+        <Container
+          data-testid={BrainScreenTestId.NoteZone}
+          overflowY="auto"
+          shrink={false}
+          width={`${noteW}px`}
+        >
+          {note}
+        </Container>
+      </Stack>
     );
   }
 

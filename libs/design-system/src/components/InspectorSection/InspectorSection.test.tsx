@@ -32,4 +32,16 @@ describe("InspectorSection", () => {
     // controlled: stays open until the parent says otherwise
     expect(screen.getByTestId(InspectorSectionTestId.Body)).toBeInTheDocument();
   });
+
+  it("shows an ordinal and hides the summary while open when asked", async () => {
+    render(
+      <InspectorSection hideSummaryWhenOpen index={3} summary="1 in" title="Files">
+        body
+      </InspectorSection>,
+    );
+    expect(screen.getByTestId(InspectorSectionTestId.Index)).toHaveTextContent("3");
+    expect(screen.getByTestId(InspectorSectionTestId.Summary)).toHaveTextContent("1 in");
+    await userEvent.click(screen.getByTestId(InspectorSectionTestId.Header));
+    expect(screen.queryByTestId(InspectorSectionTestId.Summary)).toBeNull();
+  });
 });

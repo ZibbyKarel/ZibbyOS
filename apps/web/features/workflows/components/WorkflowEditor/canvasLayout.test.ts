@@ -52,6 +52,12 @@ describe("canvasLayout", () => {
     expect(fitView({ x: 0, y: 0, w: 100, h: 100 }, 1000, 600).zoom).toBe(1);
   });
 
+  it("keeps a readable minimum zoom and left-aligns an overflowing flow", () => {
+    const v = fitView({ x: 0, y: 0, w: 4000, h: 400 }, 1000, 600, 72, 0.8);
+    expect(v.zoom).toBe(0.8);
+    expect(v.x).toBe(72);
+  });
+
   it("zooms around an anchor and round-trips world/screen points", () => {
     const v = zoomAt({ x: 10, y: 20, zoom: 1 }, 2, { x: 200, y: 100 });
     expect(toWorld(v, toScreen(v, { x: 33, y: 44 }))).toEqual({ x: 33, y: 44 });

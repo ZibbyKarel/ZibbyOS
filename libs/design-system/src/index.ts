@@ -324,6 +324,8 @@ export { DropZoneField } from "./components/form/DropZoneField/DropZoneField";
 export type { DropZoneFieldProps } from "./components/form/DropZoneField/DropZoneField";
 
 export { MarkdownEditor, MarkdownEditorTestId } from "./components/MarkdownEditor/MarkdownEditor";
+export { SourceEditor, SourceEditorTestId } from "./components/SourceEditor/SourceEditor";
+export type { SourceEditorProps } from "./components/SourceEditor/SourceEditor";
 export type {
   MarkdownEditorProps,
   WikilinkTarget,
@@ -934,8 +936,204 @@ export {
   type LaneCellTone,
 } from "./components/LaneCell/LaneCell";
 export {
+  LaneMatrix,
+  LaneHead,
+  LaneMatrixTestId,
+  type LaneMatrixProps,
+  type LaneMatrixColumn,
+  type LaneMatrixRow,
+  type LaneHeadProps,
+  type LaneHeadTone,
+} from "./components/LaneMatrix/LaneMatrix";
+export {
   UnsavedBar,
   UnsavedBarTestId,
   type UnsavedBarProps,
 } from "./components/UnsavedBar/UnsavedBar";
 export { KpiTile, KpiTileTestId, type KpiTileProps } from "./components/KpiTile/KpiTile";
+export {
+  ListHeader,
+  ListHeaderTestId,
+  type ListHeaderProps,
+  type ListHeaderTone,
+} from "./components/ListHeader/ListHeader";
+export {
+  ListToolbar,
+  ListToolbarTestId,
+  type ListToolbarProps,
+  type ListToolbarChip,
+} from "./components/ListToolbar/ListToolbar";
+export {
+  ListSection,
+  ListSectionTestId,
+  type ListSectionProps,
+} from "./components/ListSection/ListSection";
+export {
+  CardSkeleton,
+  CardSkeletonTestId,
+  type CardSkeletonProps,
+} from "./components/CardSkeleton/CardSkeleton";
+export {
+  SegmentedRing,
+  SegmentedRingTestId,
+  type SegmentedRingProps,
+} from "./components/SegmentedRing/SegmentedRing";
+export {
+  GoalLoopCard,
+  GoalLoopCardTestId,
+  type GoalLoopCardProps,
+  type GoalLoopCardParty,
+} from "./components/GoalLoopCard/GoalLoopCard";
+export {
+  PluginShelf,
+  PluginShelfTestId,
+  type PluginShelfProps,
+} from "./components/PluginShelf/PluginShelf";
+export {
+  MarketplaceCard,
+  MarketplaceCardTestId,
+  type MarketplaceCardProps,
+} from "./components/MarketplaceCard/MarketplaceCard";
+export { SkillTile, SkillTileTestId, type SkillTileProps } from "./components/SkillTile/SkillTile";
+export {
+  RegistryList,
+  RegistryListTestId,
+  type RegistryListProps,
+} from "./components/RegistryList/RegistryList";
+export {
+  RegistryRow,
+  RegistryRowTestId,
+  type RegistryRowProps,
+} from "./components/RegistryRow/RegistryRow";
+export { ListCard, ListCardTestId, type ListCardProps } from "./components/ListCard/ListCard";
+export { SemiGauge, SemiGaugeTestId, type SemiGaugeProps } from "./components/SemiGauge/SemiGauge";
+export {
+  AvatarStack,
+  AvatarStackTestId,
+  type AvatarStackProps,
+} from "./components/AvatarStack/AvatarStack";
+export { MiniTree, MiniTreeTestId, type MiniTreeProps } from "./components/MiniTree/MiniTree";
+export {
+  SegmentedBar,
+  SegmentedBarTestId,
+  type SegmentedBarProps,
+} from "./components/SegmentedBar/SegmentedBar";
+export { CountGrid, CountGridTestId, type CountGridProps } from "./components/CountGrid/CountGrid";
+export { StatCells, StatCellsTestId, type StatCellsProps } from "./components/StatCells/StatCells";
+export { OrgChart, OrgChartTestId, type OrgChartProps } from "./components/OrgChart/OrgChart";
+export { CodeTile, CodeTileTestId, type CodeTileProps } from "./components/CodeTile/CodeTile";
+export type { AvatarStackItem } from "./components/AvatarStack/AvatarStack";
+export type { MiniTreeRow } from "./components/MiniTree/MiniTree";
+export type { SegmentedBarSegment, SegmentedBarTone } from "./components/SegmentedBar/SegmentedBar";
+export type { CountGridItem } from "./components/CountGrid/CountGrid";
+export type { StatCellsItem } from "./components/StatCells/StatCells";
+
+export {
+  ConnectionTile,
+  ConnectionAddTile,
+  ConnectionTileTestId,
+  type ConnectionTileProps,
+  type ConnectionAddTileProps,
+  type ConnectionTileOrigin,
+  type ConnectionTileHealth,
+} from "./components/ConnectionTile/ConnectionTile";
+export {
+  ConnectionRibbon,
+  ConnectionRibbonTestId,
+  type ConnectionRibbonProps,
+  type ConnectionRibbonItem,
+} from "./components/ConnectionRibbon/ConnectionRibbon";
+export {
+  ConnectionStrip,
+  ConnectionStripTestId,
+  type ConnectionStripProps,
+} from "./components/ConnectionStrip/ConnectionStrip";
+export {
+  EntityHeader,
+  EntityLogo,
+  EntityLogoTestId,
+  type EntityLogoProps,
+  EntityHeaderTestId,
+  type EntityHeaderProps,
+  type EntityHeaderVariant,
+} from "./components/EntityHeader/EntityHeader";
+export {
+  BudgetBars,
+  BudgetBarsTestId,
+  type BudgetBarsProps,
+  type BudgetBarsItem,
+} from "./components/BudgetBars/BudgetBars";
+export {
+  ListEmptyRow,
+  ListEmptyRowTestId,
+  type ListEmptyRowProps,
+} from "./components/ListEmptyRow/ListEmptyRow";
+export {
+  Monogram,
+  MonogramTestId,
+  monogramHue,
+  monogramInitials,
+  type MonogramProps,
+} from "./components/Monogram/Monogram";
+export {
+  PortraitCard,
+  PortraitCardTestId,
+  type PortraitCardProps,
+  type PortraitCardStat,
+} from "./components/PortraitCard/PortraitCard";
+export {
+  WorkflowPipelineCard,
+  WorkflowPipelineCardTestId,
+  type WorkflowPipelineCardProps,
+  type WorkflowPipelineNode,
+} from "./components/WorkflowPipelineCard/WorkflowPipelineCard";
+export {
+  FlowTilePair,
+  FlowTilePairTestId,
+  type FlowTilePairProps,
+  type FlowTile,
+} from "./components/FlowTilePair/FlowTilePair";
+export {
+  MiniTimeline,
+  MiniTimelineTestId,
+  type MiniTimelineProps,
+} from "./components/MiniTimeline/MiniTimeline";
+
+// Settings kit (redesign v2) — page frame, panel, row, note, badge
+export { SettingsLayout, SettingsLayoutTestId } from "./components/SettingsLayout/SettingsLayout";
+export type {
+  SettingsLayoutAnchor,
+  SettingsLayoutLinkComponent,
+  SettingsLayoutNavItem,
+  SettingsLayoutProps,
+} from "./components/SettingsLayout/SettingsLayout";
+export { SettingsPanel, SettingsPanelTestId } from "./components/SettingsPanel/SettingsPanel";
+export type {
+  SettingsPanelProps,
+  SettingsPanelTone,
+} from "./components/SettingsPanel/SettingsPanel";
+export { SettingsRow, SettingsRowTestId } from "./components/SettingsRow/SettingsRow";
+export type { SettingsRowProps } from "./components/SettingsRow/SettingsRow";
+export { SettingsNote, SettingsNoteTestId } from "./components/SettingsNote/SettingsNote";
+export type { SettingsNoteProps, SettingsNoteTone } from "./components/SettingsNote/SettingsNote";
+export { StatusBadge, StatusBadgeTestId } from "./components/StatusBadge/StatusBadge";
+export type { StatusBadgeProps, StatusBadgeTone } from "./components/StatusBadge/StatusBadge";
+export {
+  BudgetGauge,
+  BudgetGaugeTestId,
+  type BudgetGaugeProps,
+  type BudgetGaugeRow,
+} from "./components/BudgetGauge/BudgetGauge";
+export {
+  DenseRow,
+  DenseRowList,
+  DenseRowTestId,
+  type DenseRowProps,
+  type DenseRowListProps,
+} from "./components/DenseRow/DenseRow";
+export { RadioMatrix, RadioMatrixTestId } from "./components/RadioMatrix/RadioMatrix";
+export type {
+  RadioMatrixColumn,
+  RadioMatrixProps,
+  RadioMatrixRow,
+} from "./components/RadioMatrix/RadioMatrix";

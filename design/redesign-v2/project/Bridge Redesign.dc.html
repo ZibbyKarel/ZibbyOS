@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Můstek — redesign</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<link rel="stylesheet" href="./orb.css">
+<script src="./orb.js"></script>
+<link rel="stylesheet" href="./zibby.css">
+</helmet>
+<div class="bz" data-theme="{{ theme }}" style="--rowpad:{{ rowpad }}">
+  <nav class="vt" aria-label="Pohledy redesignu">
+    <span class="lbl">Můstek · redesign</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="6">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <sc-if value="{{ canZ }}" hint-placeholder-val="{{ true }}">
+      <button class="btn sm pri" onClick="{{ zOpen }}" style="margin-left:10px">✦ Vyvolat Zibbyho · ⌥ Space</button>
+    </sc-if>
+    <span class="sp"></span>
+    <span class="dim" style="font-size:12px;margin-right:6px">Hustota</span>
+    <div class="seg" role="group" aria-label="Hustota">
+      <sc-for list="{{ dens }}" as="d" hint-placeholder-count="3">
+        <button aria-pressed="{{ d.on }}" onClick="{{ d.pick }}">{{ d.label }}</button>
+      </sc-for>
+    </div>
+    <div class="seg" role="group" aria-label="Téma" style="margin-left:8px">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    {{ dash }}
+  </sc-if>
+
+  <sc-if value="{{ isSpec }}" hint-placeholder-val="{{ false }}">
+    <article class="spec">
+      <h1>Můstek — specifikace redesignu</h1>
+      <p class="lede">Jedna věta: <strong>barva říká stav, tvar říká typ, úroveň říká prioritu.</strong> Dnes má všech 13 widgetů stejný rám, stejnou hlavičku a stejné řádky, takže oko nemá kam sednout. Redesign drží paletu, rohy 10 px i 12sloupcovou volnou mřížku, ale každému widgetu dává vlastní „druh“ a nad tím jednoduchý algoritmus, který rozhodne, co je nahlas a co potichu.</p>
+
+      <h2>1. Co se mění proti současnému vzhledu</h2>
+      <ul>
+        <li><strong>Pryč s verzálkami a prostrkaným monospace v hlavičkách.</strong> Nadpisy jsou ve větném tvaru (Geist 13–15 px, 600). Mono zůstává jen pro ID, čísla, časy a větve.</li>
+        <li><strong>Pryč s barevnými levými proužky u řádků.</strong> Stav nese malý glyf (CI čtverec, stavová tečka), ne svislá čára přes celý řádek.</li>
+        <li><strong>Méně rámečků.</strong> Ambientní widgety nemají žádný kontejner; rámeček se ukáže jen při hoveru (kvůli drag &amp; resize).</li>
+        <li><strong>Ovládání widgetu (sync, filtr, +, nastavení, sbalit) je skryté</strong> a ukáže se při hoveru nebo focusu. Klávesnicí je vždy dosažitelné.</li>
+        <li><strong>Avatary jsou malé (16 px) a neutrální</strong> — žádné fotky 40 px, které dnes dominují seznamu PR.</li>
+        <li><strong>Briefing přestává být karta.</strong> Je to hero bez chrome: pozdrav, jedna věta, velké číslice.</li>
+      </ul>
+
+      <h2>2. Úrovně kontejneru (tier)</h2>
+      <div class="tiers">
+        <div style="border:1px dashed var(--line2)"><b>T0 · Hero</b>Bez pozadí i rámu. Display typografie, velké číslice. Jen Briefing. Vždy nahoře, přes celou šířku.</div>
+        <div style="background:linear-gradient(180deg,var(--t1-from),var(--t1-to));border:1px solid color-mix(in srgb,var(--amber) 25%,transparent);box-shadow:var(--shadow-t1)"><b>T1 · Primární</b>Zvednutý povrch #171b23→#12151a, jantarová hrana 20 %, jantarový přechod na horní hraně, stín. Titulek 15/600. Max 2 na layout.</div>
+        <div style="background:var(--p1);border:1px solid var(--line)"><b>T2 · Standardní</b>Panel #0f1114, linka 6 %. Titulek 13/600. Widgety s obsahem pro tebe, které se nevešly do T1.</div>
+        <div style="border:1px solid var(--line)"><b>T3 · Ambientní</b>Bez pozadí a bez rámu (rám jen při hoveru). Titulek 12/500 ink2. Kontext, který se jen čte.</div>
+        <div style="border:1px dashed var(--line2)"><b>Sbaleno · ALL CLEAR</b>Jen hlavička 38 px, přerušovaná linka, „Vše v pořádku“ šedě. Tělo zmizí, výška se vrátí na min.</div>
+      </div>
+
+      <h2>3. Hlavička widgetu</h2>
+      <p>Pořadí slotů zleva: <code>grip</code> (jen při hoveru) · <code>titulek</code> · <code>počet</code> (mono, šedý, bez nul na začátku u T3) · <code>N na tebe</code> (jantarová pilulka s tečkou — jediný jantarový prvek hlavičky) · <code>mezera</code> · <code>aside</code> (šedý text, např. „Vše v pořádku“, „další za 11 min“) · <code>ovládání</code> (opacity 0 → 1 při <code>:hover</code> / <code>:focus-within</code>). Pod 4 sloupci šířky se ovládání schová do jednoho tlačítka „⋯“.</p>
+
+      <h2>4. Druhy widgetů</h2>
+      <table>
+        <thead><tr><th>Widget</th><th>Druh</th><th>Tvar těla</th><th>Min–max (sl×ř)</th><th>Prázdný stav</th></tr></thead>
+        <tbody>
+          <tr><td>Briefing</td><td>Hero</td><td>Pozdrav, odstavec, 3–5 číslic 42/300 tabular</td><td>6×2 – 12×4</td><td>„Klidný den.“ + jen číslice</td></tr>
+          <tr><td>Pull requests</td><td>Stack list</td><td>CI čtverec · #id + název · meta · stav review; stacky odsazené se spojnicí</td><td>3×6 – 12×24</td><td>glyf PR</td></tr>
+          <tr><td>Issues</td><td>Seskupený seznam</td><td>Hlavička epiku s progress barem a zlomkem, pod ní položky s tracker glyfem</td><td>3×6 – 12×24</td><td>glyf issue</td></tr>
+          <tr><td>Runs</td><td>Stavová kolejnice</td><td>„Teď“ řádek, zaparkované jako akční bloky, fronta a hotové na svislé ose se stavovými tečkami (pulz = běží)</td><td>3×6 – 6×24</td><td>„Nic neběží“</td></tr>
+          <tr><td>Automation runs</td><td>Časová osa</td><td>24h osa od teď, kosočtverce = starty, pod tím krátký seznam</td><td>3×3 – 12×6</td><td>prázdná osa</td></tr>
+          <tr><td>Project status</td><td>Mřížka dlaždic</td><td>Dlaždice: tečka + projekt + větev; chyba = růžový nádech celé dlaždice</td><td>2×3 – 6×8</td><td>glyf projektu</td></tr>
+          <tr><td>Budgets &amp; limits</td><td>Měřáky</td><td>Popisek, hodnota, tenký bar; nad 85 % jantar + predikce „dojde za…“</td><td>2×3 – 6×10</td><td>—</td></tr>
+          <tr><td>Proposals</td><td>Rozhodovací karty</td><td>Kontext, titulek, zdůvodnění, cena, akce Schválit / Zamítnout / Upravit</td><td>3×4 – 8×16</td><td>sbaleno · ALL CLEAR</td></tr>
+          <tr><td>Mentions</td><td>Feed</td><td>Zdrojový glyf (GH, JI, #, @), kdo, jeden řádek, stáří; nepřečtené tučně</td><td>3×6 – 8×24</td><td>glyf zmínky</td></tr>
+          <tr><td>Team knowledge</td><td>Čtecí seznam</td><td>Otázky 13.5 px s řádkováním 1.45, oddělené linkou, odkaz „Vyřešit“ potichu</td><td>3×6 – 8×20</td><td>glyf knihy</td></tr>
+          <tr><td>TODO</td><td>Papír</td><td>Linkovaný povrch, checkboxy, inline přidání, @zmínky modře</td><td>2×4 – 6×16</td><td>jen řádek pro přidání</td></tr>
+          <tr><td>Quick actions</td><td>Paleta tlačítek</td><td>Pilulky s play glyfem, čárkovaná „Přidat“</td><td>2×2 – 12×4</td><td>jen „Přidat“</td></tr>
+          <tr><td>Pinned</td><td>Launcher</td><td>Mřížka ikon 36 px s popiskem</td><td>2×3 – 6×8</td><td>glyf špendlíku</td></tr>
+        </tbody>
+      </table>
+
+      <h2>5. Typová škála</h2>
+      <table>
+        <thead><tr><th>Token</th><th>Velikost / řádkování / řez</th><th>Použití</th></tr></thead>
+        <tbody>
+          <tr><td><code>display</code></td><td>42 / 42 / 300, −0.04em, tabular</td><td>Číslice v hero</td></tr>
+          <tr><td><code>title-xl</code></td><td>30 / 35 / 500, −0.03em</td><td>Pozdrav v hero (telefon 24)</td></tr>
+          <tr><td><code>title-l</code></td><td>22 / 28 / 600, −0.025em</td><td>Název stránky „Můstek“</td></tr>
+          <tr><td><code>widget-t1</code></td><td>15 / 20 / 600</td><td>Titulek primárního widgetu</td></tr>
+          <tr><td><code>widget-t2</code></td><td>13 / 18 / 600</td><td>Titulek standardního widgetu</td></tr>
+          <tr><td><code>widget-t3</code></td><td>12 / 16 / 500, ink2</td><td>Titulek ambientního widgetu</td></tr>
+          <tr><td><code>body</code></td><td>13 / 20 / 450</td><td>Názvy řádků</td></tr>
+          <tr><td><code>reading</code></td><td>13.5 / 20 / 400</td><td>Team knowledge, zdůvodnění návrhů</td></tr>
+          <tr><td><code>meta</code></td><td>12 / 16 / 400, ink3</td><td>Autor, repo, stáří</td></tr>
+          <tr><td><code>mono</code></td><td>11.5 / 16 / Geist Mono</td><td>ID, časy, větve, zlomky</td></tr>
+          <tr><td><code>overline</code></td><td>11 / 14 / 500, verzálky, +0.06em</td><td>Jen dělicí sekce uvnitř widgetu („Zaparkováno“)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>6. Jak se rozhoduje hierarchie</h2>
+      <p>Každý widget hlásí z dat jedno skóre. Skóre nemění pozici v mřížce (layout je tvůj), mění jen <strong>úroveň kontejneru</strong>.</p>
+      <pre>score = 3 × youCount          // položky s badge „na tebe“
+      + 3 × blockedRuns       // zaparkované / blokované běhy
+      + 3 × pendingProposals  // návrhy čekající na rozhodnutí
+      + 2 × errors            // selhané CI na hlavní větvi, chybové běhy
+      + 1 × budgetsOver85
+
+tier =
+  widget.kind === 'briefing'          → 'hero'
+  score === 0 &amp;&amp; isEmpty            → 'collapsed'   // ALL CLEAR ustoupí
+  score &gt; 0 &amp;&amp; rank(score) ≤ 2      → 'primary'     // max 2 T1
+  score &gt; 0                         → 'standard'    // + jantarová pilulka
+  jinak                             → 'ambient'
+
+// uživatel může v nastavení widgetu tier připnout (override)</pre>
+      <ol>
+        <li><strong>„Na tebe“ táhne oko třikrát:</strong> T1 kontejner, jantarová pilulka v hlavičce, jantarově zvýrazněná položka v těle (zaparkovaný běh, pilulka „Tvoje review“).</li>
+        <li><strong>ALL CLEAR ustupuje:</strong> widget se sbalí na hlavičku s přerušovanou linkou. Na desktopu drží místo v mřížce (min výška), na telefonu jde do sekce „Ostatní“ jako jeden souhrnný řádek.</li>
+        <li><strong>Jantar je vyhrazený</strong> pro „čeká na tebe“ a primární CTA. Žádná dekorace.</li>
+        <li><strong>Telefon:</strong> jeden sloupec, pořadí = hero → T1 → T2 → (T3 a sbalené jako souhrnné řádky „Stav projektů · 1 selhává ›“). V rámci tieru drží pořadí z desktopového layoutu. Tap naviguje na stránku, žádný sheet, žádný drag.</li>
+      </ol>
+
+      <h2>7. Barvy a tokeny (tmavé / světlé)</h2>
+      <p>Všechny barvy jdou přes tokeny; komponenty nesmí mít barvu natvrdo. Tinty povrchů a stavové výplně se počítají z tokenů: <code>color-mix(in srgb, var(--ink) 4%, transparent)</code>, <code>color-mix(in srgb, var(--rose) 12%, transparent)</code> — proto stejné CSS funguje v obou tématech. Strojově čitelně v <code>tokens.json</code> a <code>tokens.css</code>.</p>
+      <table>
+        <thead><tr><th>Token</th><th>Tmavé</th><th>Světlé</th><th>Použití</th></tr></thead>
+        <tbody>
+          <tr><td><code>--canvas</code></td><td class="mono"><span class="sw" style="background:var(--canvas);border:1px solid var(--line2)"></span>#07080a</td><td class="mono"><span class="sw" style="background:#e8e8e4;border:1px solid var(--line2)"></span>#e8e8e4</td><td>Plocha za aplikací / mimo stage</td></tr>
+          <tr><td><code>--bg</code></td><td class="mono"><span class="sw" style="background:var(--on-ink);border:1px solid var(--line2)"></span>#0a0b0d</td><td class="mono"><span class="sw" style="background:#f5f5f2;border:1px solid var(--line2)"></span>#f5f5f2</td><td>Pozadí aplikace</td></tr>
+          <tr><td><code>--p1</code></td><td class="mono"><span class="sw" style="background:#0f1114;border:1px solid var(--line2)"></span>#0f1114</td><td class="mono"><span class="sw" style="background:#ffffff;border:1px solid var(--line2)"></span>#ffffff</td><td>Panel T2, inputy</td></tr>
+          <tr><td><code>--p2</code></td><td class="mono"><span class="sw" style="background:#151820;border:1px solid var(--line2)"></span>#151820</td><td class="mono"><span class="sw" style="background:#f0f0ec;border:1px solid var(--line2)"></span>#f0f0ec</td><td>Zvednutý prvek, chip, karta</td></tr>
+          <tr><td><code>--p3</code></td><td class="mono"><span class="sw" style="background:#1c2029;border:1px solid var(--line2)"></span>#1c2029</td><td class="mono"><span class="sw" style="background:#e6e6e1;border:1px solid var(--line2)"></span>#e6e6e1</td><td>Hover, aktivní segment</td></tr>
+          <tr><td><code>--sheet</code></td><td class="mono"><span class="sw" style="background:var(--sheet);border:1px solid var(--line2)"></span>#12151b</td><td class="mono"><span class="sw" style="background:#ffffff;border:1px solid var(--line2)"></span>#ffffff</td><td>Plocha detailu (sheet)</td></tr>
+          <tr><td><code>--sheet-2</code></td><td class="mono"><span class="sw" style="background:var(--sheet-2);border:1px solid var(--line2)"></span>#161a21</td><td class="mono"><span class="sw" style="background:#f7f7f4;border:1px solid var(--line2)"></span>#f7f7f4</td><td>Sticky hlavičky v sheetu (diff soubor, vlákno)</td></tr>
+          <tr><td><code>--paper</code></td><td class="mono"><span class="sw" style="background:var(--paper);border:1px solid var(--line2)"></span>#13151a</td><td class="mono"><span class="sw" style="background:#fffdf6;border:1px solid var(--line2)"></span>#fffdf6</td><td>TODO papír</td></tr>
+          <tr><td><code>--device</code></td><td class="mono"><span class="sw" style="background:var(--device);border:1px solid var(--line2)"></span>#1b1e25</td><td class="mono"><span class="sw" style="background:#d4d4cf;border:1px solid var(--line2)"></span>#d4d4cf</td><td>Rámeček telefonu v mockupu</td></tr>
+          <tr><td><code>--t1-from</code></td><td class="mono"><span class="sw" style="background:#171b23;border:1px solid var(--line2)"></span>#171b23</td><td class="mono"><span class="sw" style="background:#ffffff;border:1px solid var(--line2)"></span>#ffffff</td><td>Primární widget — přechod nahoře</td></tr>
+          <tr><td><code>--t1-to</code></td><td class="mono"><span class="sw" style="background:#12151a;border:1px solid var(--line2)"></span>#12151a</td><td class="mono"><span class="sw" style="background:#fffaf0;border:1px solid var(--line2)"></span>#fffaf0</td><td>Primární widget — přechod dole</td></tr>
+          <tr><td><code>--t1-under</code></td><td class="mono"><span class="sw" style="background:#14171e;border:1px solid var(--line2)"></span>#14171e</td><td class="mono"><span class="sw" style="background:#fffcf5;border:1px solid var(--line2)"></span>#fffcf5</td><td>Barva pod tečkami v T1 (prstenec)</td></tr>
+          <tr><td><code>--line</code></td><td class="mono"><span class="sw" style="background:color-mix(in srgb,var(--ink) 6%,transparent);border:1px solid var(--line2)"></span>rgba(255,255,255,.06)</td><td class="mono"><span class="sw" style="background:rgba(20,22,26,.09);border:1px solid var(--line2)"></span>rgba(20,22,26,.09)</td><td>Jemná linka</td></tr>
+          <tr><td><code>--line2</code></td><td class="mono"><span class="sw" style="background:color-mix(in srgb,var(--ink) 11%,transparent);border:1px solid var(--line2)"></span>rgba(255,255,255,.11)</td><td class="mono"><span class="sw" style="background:rgba(20,22,26,.16);border:1px solid var(--line2)"></span>rgba(20,22,26,.16)</td><td>Výraznější linka, okraj sheetu</td></tr>
+          <tr><td><code>--ink</code></td><td class="mono"><span class="sw" style="background:#eceef2;border:1px solid var(--line2)"></span>#eceef2</td><td class="mono"><span class="sw" style="background:#15171b;border:1px solid var(--line2)"></span>#15171b</td><td>Primární text; zároveň základ pro tinty</td></tr>
+          <tr><td><code>--ink2</code></td><td class="mono"><span class="sw" style="background:#a6acb7;border:1px solid var(--line2)"></span>#a6acb7</td><td class="mono"><span class="sw" style="background:#4a4f58;border:1px solid var(--line2)"></span>#4a4f58</td><td>Sekundární text</td></tr>
+          <tr><td><code>--ink3</code></td><td class="mono"><span class="sw" style="background:#80868f;border:1px solid var(--line2)"></span>#80868f</td><td class="mono"><span class="sw" style="background:#686d77;border:1px solid var(--line2)"></span>#686d77</td><td>Terciární text, meta (min. 4.5:1 na bg)</td></tr>
+          <tr><td><code>--on-ink</code></td><td class="mono"><span class="sw" style="background:var(--on-ink);border:1px solid var(--line2)"></span>#0a0b0d</td><td class="mono"><span class="sw" style="background:#ffffff;border:1px solid var(--line2)"></span>#ffffff</td><td>Text na plné ink ploše (aktivní pilulka)</td></tr>
+          <tr><td><code>--on-amber</code></td><td class="mono"><span class="sw" style="background:var(--on-amber);border:1px solid var(--line2)"></span>#1a1204</td><td class="mono"><span class="sw" style="background:var(--on-amber);border:1px solid var(--line2)"></span>#1a1204</td><td>Text na jantarovém tlačítku</td></tr>
+          <tr><td><code>--on-status</code></td><td class="mono"><span class="sw" style="background:var(--on-ink);border:1px solid var(--line2)"></span>#0a0b0d</td><td class="mono"><span class="sw" style="background:#ffffff;border:1px solid var(--line2)"></span>#ffffff</td><td>Ikona na plné stavové barvě (checkbox)</td></tr>
+          <tr><td><code>--av-ink</code></td><td class="mono"><span class="sw" style="background:var(--on-ink);border:1px solid var(--line2)"></span>#0a0b0d</td><td class="mono"><span class="sw" style="background:#15171b;border:1px solid var(--line2)"></span>#15171b</td><td>Iniciály v avataru</td></tr>
+          <tr><td><code>--amber</code></td><td class="mono"><span class="sw" style="background:#f5a524;border:1px solid var(--line2)"></span>#f5a524</td><td class="mono"><span class="sw" style="background:#f5a524;border:1px solid var(--line2)"></span>#f5a524</td><td>Brand + potřebuje mě — výplně, tečky, primární CTA</td></tr>
+          <tr><td><code>--amber-hover</code></td><td class="mono"><span class="sw" style="background:var(--amber-hover);border:1px solid var(--line2)"></span>#ffb43d</td><td class="mono"><span class="sw" style="background:#f7b23f;border:1px solid var(--line2)"></span>#f7b23f</td><td>Hover primárního CTA</td></tr>
+          <tr><td><code>--amber-fg</code></td><td class="mono"><span class="sw" style="background:#f5a524;border:1px solid var(--line2)"></span>#f5a524</td><td class="mono"><span class="sw" style="background:#9a5500;border:1px solid var(--line2)"></span>#9a5500</td><td>Jantar pro TEXT a ikony (ve světlém ztmavený kvůli kontrastu)</td></tr>
+          <tr><td><code>--violet</code></td><td class="mono"><span class="sw" style="background:#a78bfa;border:1px solid var(--line2)"></span>#a78bfa</td><td class="mono"><span class="sw" style="background:#7c3aed;border:1px solid var(--line2)"></span>#7c3aed</td><td>Pracuje / běží</td></tr>
+          <tr><td><code>--sky</code></td><td class="mono"><span class="sw" style="background:#7dd3fc;border:1px solid var(--line2)"></span>#7dd3fc</td><td class="mono"><span class="sw" style="background:#0369a1;border:1px solid var(--line2)"></span>#0369a1</td><td>Přemýšlí / checks běží / @zmínka</td></tr>
+          <tr><td><code>--rose</code></td><td class="mono"><span class="sw" style="background:#fb7185;border:1px solid var(--line2)"></span>#fb7185</td><td class="mono"><span class="sw" style="background:#e11d48;border:1px solid var(--line2)"></span>#e11d48</td><td>Chyba</td></tr>
+          <tr><td><code>--emerald</code></td><td class="mono"><span class="sw" style="background:#34d399;border:1px solid var(--line2)"></span>#34d399</td><td class="mono"><span class="sw" style="background:#047857;border:1px solid var(--line2)"></span>#047857</td><td>Hotovo / prošlo / schváleno / přidané řádky</td></tr>
+          <tr><td><code>--idle</code></td><td class="mono"><span class="sw" style="background:#6b7280;border:1px solid var(--line2)"></span>#6b7280</td><td class="mono"><span class="sw" style="background:#9ca3af;border:1px solid var(--line2)"></span>#9ca3af</td><td>Klid / ve frontě</td></tr>
+          <tr><td><code>--bar</code></td><td class="mono"><span class="sw" style="background:var(--bar);border:1px solid var(--line2)"></span>rgba(7,8,10,.86)</td><td class="mono"><span class="sw" style="background:rgba(245,245,242,.86);border:1px solid var(--line2)"></span>rgba(245,245,242,.86)</td><td>Sticky lišta (s blur)</td></tr>
+          <tr><td><code>--bar-2</code></td><td class="mono"><span class="sw" style="background:rgba(13,15,18,.94);border:1px solid var(--line2)"></span>rgba(13,15,18,.94)</td><td class="mono"><span class="sw" style="background:color-mix(in srgb,var(--ink) 94%,transparent);border:1px solid var(--line2)"></span>rgba(255,255,255,.94)</td><td>Spodní lišta telefonu</td></tr>
+          <tr><td><code>--sunk</code></td><td class="mono"><span class="sw" style="background:rgba(0,0,0,.16);border:1px solid var(--line2)"></span>rgba(0,0,0,.16)</td><td class="mono"><span class="sw" style="background:rgba(20,22,26,.025);border:1px solid var(--line2)"></span>rgba(20,22,26,.025)</td><td>Zapuštěná patička sheetu, composer</td></tr>
+          <tr><td><code>--code-bg</code></td><td class="mono"><span class="sw" style="background:var(--code-bg);border:1px solid var(--line2)"></span>rgba(0,0,0,.35)</td><td class="mono"><span class="sw" style="background:#f3f3ef;border:1px solid var(--line2)"></span>#f3f3ef</td><td>Blok kódu / chyby</td></tr>
+          <tr><td><code>--diff-no</code></td><td class="mono"><span class="sw" style="background:var(--diff-no);border:1px solid var(--line2)"></span>#5b616b</td><td class="mono"><span class="sw" style="background:#9aa0a8;border:1px solid var(--line2)"></span>#9aa0a8</td><td>Čísla řádků v diffu</td></tr>
+          <tr><td><code>--diff-ink</code></td><td class="mono"><span class="sw" style="background:var(--diff-ink);border:1px solid var(--line2)"></span>#c9cdd4</td><td class="mono"><span class="sw" style="background:#24292f;border:1px solid var(--line2)"></span>#24292f</td><td>Text kódu</td></tr>
+          <tr><td><code>--diff-add-no</code></td><td class="mono"><span class="sw" style="background:var(--diff-add-no);border:1px solid var(--line2)"></span>#6fae95</td><td class="mono"><span class="sw" style="background:#2f7a60;border:1px solid var(--line2)"></span>#2f7a60</td><td>Číslo přidaného řádku</td></tr>
+          <tr><td><code>--diff-del-no</code></td><td class="mono"><span class="sw" style="background:var(--diff-del-no);border:1px solid var(--line2)"></span>#b77b86</td><td class="mono"><span class="sw" style="background:#a8475a;border:1px solid var(--line2)"></span>#a8475a</td><td>Číslo odebraného řádku</td></tr>
+          <tr><td><code>--syn-k</code></td><td class="mono"><span class="sw" style="background:var(--syn-k);border:1px solid var(--line2)"></span>#9fb6d8</td><td class="mono"><span class="sw" style="background:#2f5a94;border:1px solid var(--line2)"></span>#2f5a94</td><td>Syntax: klíčové slovo (ocel)</td></tr>
+          <tr><td><code>--syn-s</code></td><td class="mono"><span class="sw" style="background:var(--syn-s);border:1px solid var(--line2)"></span>#b3c79a</td><td class="mono"><span class="sw" style="background:#4b7a26;border:1px solid var(--line2)"></span>#4b7a26</td><td>Syntax: řetězec (šalvěj)</td></tr>
+          <tr><td><code>--syn-c</code></td><td class="mono"><span class="sw" style="background:var(--syn-c);border:1px solid var(--line2)"></span>#6b717b</td><td class="mono"><span class="sw" style="background:#8a9099;border:1px solid var(--line2)"></span>#8a9099</td><td>Syntax: komentář</td></tr>
+          <tr><td><code>--syn-t</code></td><td class="mono"><span class="sw" style="background:var(--syn-t);border:1px solid var(--line2)"></span>#d9c9a6</td><td class="mono"><span class="sw" style="background:#7a5d1f;border:1px solid var(--line2)"></span>#7a5d1f</td><td>Syntax: JSX tag (khaki)</td></tr>
+        </tbody>
+      </table>
+      <h2>7b. Pravidla světlého tématu</h2>
+      <ul>
+        <li><strong>Hierarchie zůstává stejná, mění se jen nosič:</strong> T1 je bílá karta s teplým přechodem, jantarovou hranou a měkkým teplým stínem; T2 je bílý panel na šedém <code>bg</code>; T3 bez kontejneru.</li>
+        <li><strong>Jantar má dvě role.</strong> <code>--amber</code> je výplň (tlačítko, tečka, badge) a v obou tématech je stejný. <code>--amber-fg</code> je jantar pro text a ikony — ve světlém ztmavený na #9a5500, aby měl kontrast 5.7:1.</li>
+        <li><strong>Stavové barvy jsou ve světlém o stupeň tmavší</strong> (rose 600, emerald 700, sky 700, violet 600), aby fungovaly jako text i tečka na bílé.</li>
+        <li><strong>Stíny místo linek.</strong> Ve světlém nesou elevaci hlavně stíny (sheet, T1), linky jsou jemnější.</li>
+        <li><strong>Kód a diff</strong> mají vlastní tokeny (<code>--diff-*</code>, <code>--syn-*</code>); syntax zůstává tlumená a nekoliduje se stavovými barvami.</li>
+        <li>Téma se přepíná atributem <code>data-theme="light"</code> na kořeni; výchozí je tmavé. V aplikaci: systém → uložená volba uživatele.</li>
+      </ul>
+
+      <h2>8. Interakce, které zůstávají</h2>
+      <ul>
+        <li><strong>Drag &amp; resize:</strong> chytá se za hlavičku (grip se ukáže při hoveru), roh vpravo dole. U T3 se rámeček objeví při hoveru, aby bylo vidět, co táhneš. Min/max podle druhu (tabulka výše).</li>
+        <li><strong>Detail:</strong> sheet 470 px se otevře hned vedle widgetu, vybraný řádek dostane jantarový obrys. <code>J</code>/<code>K</code> posouvá výběr a sheet se aktualizuje, <code>Esc</code> zavírá.</li>
+        <li><strong>Hustota:</strong> mění jen vertikální padding řádků (<code>--rowpad</code> 4 / 8 / 12 px), typová škála zůstává.</li>
+        <li><strong>Prázdný widget:</strong> glyf druhu 28 px, ink3, uprostřed.</li>
+      </ul>
+
+      <h2>9. Mapování na primitives</h2>
+      <pre>type WidgetTier = 'hero' | 'primary' | 'standard' | 'ambient' | 'collapsed';
+type WidgetSpecies =
+  | 'hero' | 'stackList' | 'groupedList' | 'statusRail' | 'timeline'
+  | 'tileGrid' | 'meters' | 'decisionCards' | 'feed' | 'readingList'
+  | 'paper' | 'chipPalette' | 'launcher';
+
+interface WidgetFrameProps {
+  tier: WidgetTier;            // z useWidgetPriority(widgetId)
+  species: WidgetSpecies;      // statické, z registry widgetů
+  title: string;
+  count?: number;
+  youCount?: number;           // → &lt;YouBadge /&gt;
+  aside?: ReactNode;
+  controls?: WidgetControl[];  // sync | filter | add | settings | collapse
+  emptyGlyph: IconName;
+}
+
+// Tailwind: tier → třídy na rámu
+const frame = cva('relative flex flex-col min-w-0 rounded-[10px]', {
+  variants: { tier: {
+    primary:   'bg-gradient-to-b from-[#171b23] to-[#12151a] border border-amber-500/20 shadow-xl',
+    standard:  'bg-surface-1 border border-white/[.06]',
+    ambient:   'border border-transparent hover:border-white/[.06]',
+    collapsed: 'border border-dashed border-white/10',
+    hero:      '',
+  } },
+});</pre>
+      <p>Pořadí implementace: (1) <code>tier</code> + <code>cva</code> na existujícím rámu a skrytí ovládání do hoveru — největší vizuální zisk za den práce; (2) nová hlavička a typová škála; (3) druhy jeden po druhém, začít Runs (kolejnice) a Project status (dlaždice), protože jsou nejvíc „tabulkové“ a nejméně čitelné; (4) priority hook a sbalení ALL CLEAR.</p>
+    </article>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"tsType":"string","section":"Pohled"},"view":{"editor":"enum","default":"a-default","options":["a-default","a-review","a-phone","b-queue","c-edition","spec"],"tsType":"string","section":"Pohled"},"density":{"editor":"enum","default":"comfortable","options":["compact","comfortable","spacious"],"tsType":"string","section":"Pohled"}}'>
+class Component extends DCLogic {
+  state = { view: null, sel: undefined, density: null, todo: { t3: true }, prf: 'all' };
+
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+
+  P = {
+    sync: 'M20 11a8 8 0 0 0-14.3-4.9M4 13a8 8 0 0 0 14.3 4.9M20 4v5h-5M4 20v-5h5',
+    filter: 'M4 5h16l-6 8v5l-4 2v-7z',
+    plus: 'M12 5v14M5 12h14',
+    set: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+    chev: 'M6 9l6 6 6-6',
+    chevr: 'M9 6l6 6-6 6',
+    check: 'M5 12.5l4.5 4.5L19 7',
+    x: 'M6 6l12 12M18 6L6 18',
+    branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+    spin: 'M12 3a9 9 0 1 0 9 9',
+    play: 'M8 5.5v13l10-6.5z',
+    pin: 'M9 4h6l-1 6 4 3H6l4-3zM12 13v8',
+    spark: 'M12 3l2 7 7 2-7 2-2 7-2-7-7-2 7-2z',
+    bell: 'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4',
+    search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    bot: 'M5 9h14v10H5zM12 5v4M9 13v1.5M15 13v1.5',
+    flow: 'M4 4h6v6H4zM14 14h6v6h-6zM10 7h3a3 3 0 0 1 3 3v4',
+    book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5',
+    shield: 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z',
+    stack: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+    pause: 'M9 5v14M15 5v14',
+    pr: 'M6 4v11M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 15V9a3 3 0 0 0-3-3h-4M13 3l-3 3 3 3',
+    issue: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16v.5',
+    more: 'M5 12h.01M12 12h.01M19 12h.01',
+    ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    home: 'M4 11l8-7 8 7v9H4z',
+    inbox: 'M4 13l3-8h10l3 8v6H4zM4 13h5l1 2h4l1-2h5',
+    note: 'M5 4h14v16H5zM8 9h8M8 13h8M8 17h5',
+    layout: 'M4 4h16v16H4zM4 10h16M10 10v10',
+    lines: 'M4 6h16M4 12h16M4 18h16',
+    clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
+    mic: 'M9 4a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3',
+    send: 'M5 12h14M13 6l6 6-6 6',
+    pen: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
+    trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
+    clip: 'M20 11.5l-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8',
+    chevl: 'M15 6l-6 6 6 6',
+    panel: 'M4 4h16v16H4zM9 4v16'
+  };
+  ic = (n, s) => this.h('svg', { width: s || 14, height: s || 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { display: 'block', flex: 'none' } }, this.h('path', { d: this.P[n] }));
+  pad = n => String(n).padStart(2, '0');
+
+
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  // ---------- data (z aktuálního stavu ZibbyOS) ----------
+  PEOPLE = { TB: ['Tomáš Beneš', '#d6d3d1'], KZ: ['Karel Zíbar', '#cbd5e1'] };
+  PRS = [
+    { sec: 'review', id: '47714', key: 'CZ3TDR1-571', t: 'Cut over PartnerServiceAdd and delete its Smarty render', ini: 'TB', repo: 'cms4', age: '1d 9h', ci: 'ok', rv: 'approved', add: 412, del: 1290,
+      stack: [{ id: '48051', key: 'CZ3TDR1-896', t: 'Add the addon detail and ratings to the Partner Portal', ini: 'TB', repo: 'cms4', age: '1d 4h', ci: 'fail', rv: 'you', add: 388, del: 12 }] },
+    { sec: 'review', id: '48102', key: 'CZ3PUR1-815', t: 'Migrate partner-cli CI to GitLab pipelines', agent: 'delivery', repo: 'partner-cli', age: '3h', ci: 'run', rv: 'you', add: 214, del: 96 },
+    { sec: 'mine', id: '47385', key: 'CZ3TDR1-856', t: 'Portal account settings: API access credentials', ini: 'KZ', repo: 'cms4', age: '1d 5h', ci: 'conflict', rv: 'approved', add: 640, del: 88,
+      stack: [{ id: '47546', key: 'CZ3TDR1-855', t: 'Portal account settings: partner company and billing details', ini: 'KZ', repo: 'cms4', age: '4d 6h', ci: 'fail', rv: 'changes', add: 902, del: 141 }] },
+    { sec: 'mine', id: '47858', key: 'CZ3TDR1-852', t: 'Create a Partner Portal addon in one transaction', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'waiting', add: 233, del: 57 },
+    { sec: 'mine', id: '47977', key: 'CZ3TDR1-769', t: 'Move partner portal shop list to its own page and empty the portal root', ini: 'KZ', repo: 'cms4', age: '2d 8h', ci: 'ok', rv: 'approved', add: 318, del: 402 }
+  ];
+  RV = { approved: ['Schváleno', 'ok'], you: ['Tvoje review', 'you'], changes: ['Změny', 'warn'], waiting: ['Čeká na review', ''], pending: ['Rozpracováno', ''] };
+  CIL = { ok: 'CI prošlo', fail: 'CI selhalo', conflict: 'Konflikt s base', run: 'CI běží' };
+  CII = { ok: 'check', fail: 'x', conflict: 'branch', run: 'spin' };
+  PARK = [
+    { t: 'Rebase shoptet/cms4#47385', k: 'PR rebase · workflow', time: '21 h', why: 'Zastavil se na konfliktu v composer.lock. Vyber verzi, nebo to předej rebase-resolveru.', act: 'Předat agentovi' },
+    { t: 'Fix CI shoptet/cms4#47546', k: 'rebase-resolver · agent', time: '22 h', why: 'Oprava 3 e2e testů je připravená, potřebuje povolit force-push do větve.', act: 'Povolit' }
+  ];
+  QUEUE = [
+    { t: 'Fix base-branch CI: shoptet/cli', k: 'delivery · workflow', time: 'za 11 min', s: 'idle' },
+    { t: 'Fix CI shoptet/cms4#47385', k: 'naplánováno', time: '1d 4h', s: 'idle' },
+    { t: 'Code review (browser) shoptet/cms4', k: 'naplánováno', time: '1d 4h', s: 'idle' }
+  ];
+  DONE = [
+    { t: 'CI triage shoptet/cms4#47385', k: 'PR CI triage · workflow', time: '1d 6h', s: 'done' },
+    { t: 'CI triage shoptet/cms4#47546', k: 'PR CI triage · workflow', time: '1d 6h', s: 'done' },
+    { t: 'Code review (browser) shoptet/cms4', k: 'PR review — thorough + browser', time: '1d 22h', s: 'done' },
+    { t: 'Fix CI shoptet/cms4#47977', k: 'PR fix CI · workflow', time: '2d 8h', s: 'error' }
+  ];
+  EPICS = [
+    { key: 'CZ3TDR1-618', nm: '[Portal] Addons — dev & testing', d: 18, n: 47, items: [
+      { k: 'CZ3TDR1-852', t: 'Creating an addon with a marketing code fails but still saves a draft', st: 'Čeká na tebe', you: true, pr: '#47858', trk: 'JI' },
+      { k: 'CZ3TDR1-670', t: 'Move Account settings to Partner Portal', st: 'To review', age: '8d 7h', trk: 'JI' }] },
+    { key: 'CZ3TDR1-620', nm: '[Portal] Partner access to CMS', d: 1, n: 2, items: [
+      { k: 'CZ3TDR1-769', t: '[Portal] Store access: move the shop list to its own page', st: 'Čeká na tebe', you: true, pr: '#47977', trk: 'JI' }] },
+    { key: 'CZ3PUR1-784', nm: 'Migrate non-cms4 related repos', d: 1, n: 52, items: [
+      { k: 'CZ3PUR1-815', t: 'Migrate partner-cli to GitLab', st: 'Request', age: '9d 6h', trk: 'JI' }] },
+    { key: null, nm: 'Bez epicu', items: [
+      { k: 'CZ3TDR1-893', t: 'Stop ModalForm submit from bubbling into an enclosing form', st: 'In progress', trk: 'GH' },
+      { k: 'CZ3TDR1-855', t: '[Portal] Account settings page: partner company and billing', st: 'To review', pr: '#47546', trk: 'JI' },
+      { k: 'CZ3TDR1-856', t: '[Portal] Account settings page: API access credentials', st: 'To review', pr: '#47385', trk: 'JI' }] }
+  ];
+  AUTO = [{ t: 'Destilace paměti', at: '03:00', in: 'za 6 h', h: 6.17 }, { t: 'Obnova sebeznalosti', at: '03:30', in: 'za 7 h', h: 6.67 }, { t: 'Lint vaultu', at: '03:30', in: 'za 7 h', h: 6.67 }];
+  PROJ = [{ nm: 'cms4', br: 'master', s: 'done', note: 'zelená' }, { nm: 'Shoptet Partner CLI', br: 'develop · padá 3 h', s: 'error', err: true }, { nm: 'DevRel knowledge base', br: 'main', s: 'idle' }, { nm: 'sit-and-park', br: 'main', s: 'idle' }];
+  BUD = [{ l: 'Shoptet Partner CLI', v: '$18 / $20', p: 90, hot: true, note: 'Dojde za ~2 dny při současném tempu' }, { l: 'cms4', v: '$41 / $60', p: 68 }, { l: 'Firma Shoptet · měsíc', v: '$212 / $400', p: 53 }, { l: 'Osobní', v: '$6 / $40', p: 15 }];
+  FEED = [
+    { src: 'GH', who: 'ZibbyKarel · cms4', t: '#47977 Move partner portal shop list to its own page and empty the portal root', age: '3d', un: true },
+    { src: '#', who: 'Tomáš Beneš · #cms4-portal', t: '@karel mrkneš prosím na ratingy v detailu addonu?', age: '3d', un: true },
+    { src: 'GH', who: 'benest99 · cms4', t: '#47714 Cut over PartnerServiceAdd and delete its Smarty render', age: '4d' },
+    { src: 'JI', who: 'Jira · CZ3TDR1-852', t: 'Poznámky ke změně — CZ3TDR1-852', age: '4d' },
+    { src: '@', who: 'GitLab', t: 'Pipeline failed for partner-cli · develop', age: '5d' }
+  ];
+  KN = [
+    { q: 'Kdy a s jakým go-to-market se práce obnoví?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Kdo kromě autora první verze se bude podílet na dalším rozvoji?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Je cílem projektu MVP podle návrhu, nebo i fáze závislé na platformě?', s: 'Shoptet CLI · 30. 10.' },
+    { q: 'Jaké cílové hodnoty mají definovat „předvídatelné“ review a kdo je bude měřit?', s: 'Předvídatelné review doplňků · 30. 10.' },
+    { q: 'Stack PR má nejvýš 3 úrovně, hlubší se rozdělí do epiku.', s: 'Dohoda · cms4 · 2. 11.', ag: true }
+  ];
+  TODO = [{ id: 't1', x: ['Zeptat se ', ['@Tomáš', 1], ' na stack #48051 před mergem'] }, { id: 't2', x: ['Projít review checklist pro Partner Portal'] }, { id: 't3', x: ['Poslat odhad partner-cli migrace'] }, { id: 't4', x: [['@zibby', 1], ' připrav standup na pondělí'] }];
+  PINS = [['flow', 'PR review'], ['bot', 'rebase-resolver'], ['book', 'Vault'], ['layout', 'Portal epic'], ['shield', 'Pravidla'], ['note', 'Souhrny']];
+
+  // ---------- lifecycle ----------
+  view() { return this.state.view || this.props.view || 'a-default'; }
+  allPRs() { const o = []; this.PRS.forEach(p => { o.push(p); (p.stack || []).forEach(k => o.push(k)); }); return o; }
+  selId() { const v = this.view(); if (this.state.sel !== undefined) return this.state.sel; return v === 'a-review' ? '48051' : null; }
+  componentDidMount() {
+    this.onKey = e => {
+      const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      const v = this.view(); if (v !== 'a-default' && v !== 'a-review') return;
+      const k = (e.key || '').toLowerCase();
+      if (k === 'j' || k === 'k') {
+        const ids = this.allPRs().map(p => p.id); let i = ids.indexOf(this.selId());
+        i = i < 0 ? 0 : (k === 'j' ? Math.min(ids.length - 1, i + 1) : Math.max(0, i - 1));
+        this.setState({ sel: ids[i] });
+      } else if (e.key === 'Escape') this.setState({ sel: null });
+    };
+    window.addEventListener('keydown', this.onKey);
+    this.onZ = e => {
+      const p = this.state.zp || 'closed', v = this.view();
+      if (v === 'a-phone' || v === 'spec') return;
+      const inField = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (e.type === 'keydown') {
+        if (e.code === 'Space' && (e.altKey || e.ctrlKey)) { e.preventDefault(); if (e.repeat) return; if (p === 'closed') this.zsummon(true); else if (p === 'open') { this.zheld = true; this.zstart(); } return; }
+        if (p === 'closed') return;
+        if (e.altKey && e.code === 'KeyH') { e.preventDefault(); this.setState({ zhopen: !this.state.zhopen }); return; }
+        if (e.key === 'Escape') {
+          e.preventDefault(); e.stopPropagation();
+          if (inField) { if (this.state.zren) this.setState({ zren: null }); else e.target.blur(); return; }
+          if (this.state.zmenu) this.setState({ zmenu: false }); else if (this.state.zhopen) this.setState({ zhopen: false }); else this.zdismiss();
+          return;
+        }
+        if (e.code === 'Space' && !inField) { e.preventDefault(); if (e.repeat) return; if (this.ztalk && this.state.zmode === 'hands') this.zstop(true); else this.zstart(); }
+      } else if (e.code === 'Space') { this.zheld = false; if (this.ztalk && !this.zauto) this.zstop(); }
+    };
+    window.addEventListener('keydown', this.onZ, true); window.addEventListener('keyup', this.onZ, true);
+    this.onWinDrag = e => {
+      const v = this.view(), p = this.state.zp || 'closed';
+      if (v === 'a-phone' || v === 'spec' || !this.zhasFiles(e)) return;
+      if (e.type === 'dragenter' && p === 'closed') { this.zsummon(false); this.setState({ zdrag: true }); }
+      if (p !== 'closed' || e.type === 'dragenter') e.preventDefault();
+      if (e.type === 'drop' && p !== 'closed') { this.zaddFiles(e.dataTransfer.files); this.setState({ zdrag: false }); }
+    };
+    ['dragenter', 'dragover', 'drop'].forEach(t => window.addEventListener(t, this.onWinDrag));
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); window.removeEventListener('keydown', this.onZ, true); window.removeEventListener('keyup', this.onZ, true); ['dragenter', 'dragover', 'drop'].forEach(t => window.removeEventListener(t, this.onWinDrag)); this.zclear(); }
+
+  // ---------- primitives ----------
+  av(p) { const h = this.h; if (p.agent) return h('span', { className: 'av bot' }, this.ic('bot', 10)); const pp = this.PEOPLE[p.ini]; return h('span', { className: 'av', style: { background: pp[1] } }, p.ini); }
+  who(p) { return p.agent ? 'agent ' + p.agent : this.PEOPLE[p.ini][0]; }
+  widget(o) {
+    const h = this.h, tier = o.tier || 't2';
+    const ctl = (o.controls || ['sync', 'filter', 'set', 'chev']).map(c => h('button', { className: 'ib', 'aria-label': { sync: 'Synchronizovat', filter: 'Filtr', plus: 'Přidat', set: 'Nastavení', chev: 'Sbalit' }[c] }, this.ic(c, 14)));
+    return h('section', { className: 'w ' + tier + (o.cls ? ' ' + o.cls : ''), style: o.span ? { gridColumn: 'span ' + o.span } : null, 'aria-label': o.title },
+      h('header', { className: 'wh' },
+        h('span', { className: 'grip', 'aria-hidden': 'true' }, '⋮⋮'),
+        h('h3', { className: 'wt' }, o.title),
+        o.count != null ? h('span', { className: 'cnt' }, tier === 't3' || tier === 'cl' ? String(o.count) : this.pad(o.count)) : null,
+        o.you ? h('span', { className: 'you' }, h('i', { className: 'd' }), o.you + ' na tebe') : null,
+        h('span', { className: 'sp' }),
+        o.aside ? h('span', { className: 'aside' }, o.aside) : null,
+        h('span', { className: 'ctl' }, ctl)),
+      o.body ? h('div', { className: 'wb' }, o.body) : null,
+      h('span', { className: 'rz', 'aria-hidden': 'true' }));
+  }
+
+  // ---------- species ----------
+  prRow(p, mode, kid) {
+    const h = this.h, sel = this.selId() === p.id, rv = this.RV[p.rv];
+    return h('button', { className: 'row' + (sel ? ' sel' : ''), 'aria-pressed': sel, onClick: () => this.setState({ sel: sel ? null : p.id }) },
+      h('span', { className: 'ci ' + p.ci, title: this.CIL[p.ci] }, this.ic(this.CII[p.ci], 12)),
+      h('span', { style: { minWidth: 0, display: 'block' } },
+        h('span', { className: 'l1' }, h('span', { className: 'id' }, '#' + p.id), h('span', { className: 't' }, p.t)),
+        h('span', { className: 'meta' }, this.av(p), h('span', null, this.who(p)), h('span', { className: 'sep' }), h('span', null, p.repo), h('span', { className: 'sep' }), h('span', null, p.age),
+          p.stack && !kid ? [h('span', { className: 'sep' }), h('span', { className: 'stk' }, this.ic('stack', 11), 'stack ' + (p.stack.length + 1))] : null,
+          mode === 'review' ? [h('span', { className: 'sep' }), h('span', { className: 'mono', style: { color: 'var(--emerald)' } }, '+' + p.add), h('span', { className: 'mono', style: { color: 'var(--rose)' } }, '−' + p.del), h('span', { className: 'sep' }), h('span', { className: 'mono' }, p.key)] : null)),
+      h('span', { className: 'chip ' + rv[1] }, rv[0]));
+  }
+  prStack(p, mode) { const h = this.h; return h('div', null, this.prRow(p, mode), p.stack ? h('div', { className: 'kids' }, p.stack.map(k => this.prRow(k, mode, true))) : null); }
+  prBody(mode) {
+    const h = this.h, f = this.state.prf;
+    let list = this.PRS;
+    if (mode === 'review' && f !== 'all') list = list.filter(p => f === 'you' ? (p.rv === 'you' || (p.stack || []).some(k => k.rv === 'you')) : f === 'mine' ? p.sec === 'mine' : f === 'agent' ? !!p.agent : (p.ci === 'fail' || (p.stack || []).some(k => k.ci === 'fail')));
+    const chips = mode === 'review' ? h('div', { className: 'fchips', role: 'group', 'aria-label': 'Filtr PR' },
+      [['all', 'Vše', 37], ['you', 'Na tebe', 2], ['mine', 'Moje', 5], ['agent', 'Od agentů', 1], ['fail', 'CI selhává', 3]].map(([k, l, n]) => h('button', { 'aria-pressed': f === k, onClick: () => this.setState({ prf: k }) }, l, h('span', { className: 'n' }, n)))) : null;
+    const rv = list.filter(p => p.sec === 'review'), mine = list.filter(p => p.sec === 'mine');
+    return h('div', { className: mode === 'review' ? 'rev' : '' }, chips,
+      rv.length ? [h('div', { className: 'sec amb' }, 'Ke kontrole', h('span', { className: 'n' }, '02')), rv.map(p => this.prStack(p, mode))] : null,
+      mine.length ? [h('div', { className: 'sec' }, 'Moje', h('span', { className: 'n' }, '05')), mine.map(p => this.prStack(p, mode))] : null,
+      h('button', { className: 'more' }, 'Dalších 30 PR (29 k review od týmu) →'));
+  }
+  ri(r) { const h = this.h; return h('div', { className: 'ri' + (r.s === 'done' ? ' mini' : '') }, h('span', { className: 'dot ' + r.s }), h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 't' }, r.t), h('span', { className: 'k' }, r.k)), h('span', { className: 'tm mono' }, r.time)); }
+  park(r) { const h = this.h; return h('div', { className: 'park' }, h('div', { className: 'pt' }, h('span', { className: 'dot blocked' }), h('span', { className: 't' }, r.t), h('span', { className: 'tm mono' }, r.time)), h('div', { className: 'pk' }, r.k), h('div', { className: 'why' }, r.why), h('div', { className: 'acts' }, h('button', { className: 'btn sm pri' }, r.act), h('button', { className: 'btn sm' }, 'Detail'))); }
+  runsBody(compact, noPark) {
+    const h = this.h;
+    return h('div', null,
+      h('div', { className: 'now' }, h('span', { className: 'dot idle' }), 'Teď nic neběží', h('span', { className: 'sp' }), h('span', { className: 'mono dim', style: { fontSize: '11.5px' } }, 'další za 11 min')),
+      noPark ? null : [h('div', { className: 'sec amb' }, 'Zaparkováno', h('span', { className: 'n' }, '02')), this.PARK.map(r => this.park(r))],
+      h('div', { className: 'sec' }, 'Ve frontě', h('span', { className: 'n' }, '03')),
+      h('div', { className: 'rail' }, this.QUEUE.slice(0, compact ? 2 : 3).map(r => this.ri(r))),
+      h('div', { className: 'sec' }, 'Dokončené', h('span', { className: 'n' }, '10')),
+      h('div', { className: 'rail' }, this.DONE.slice(0, compact ? 2 : 4).map(r => this.ri(r))),
+      h('button', { className: 'more' }, 'Všechny běhy →'));
+  }
+  issueRow(it) {
+    const h = this.h;
+    return h('button', { className: 'row' },
+      h('span', { className: 'trk' }, it.trk),
+      h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'l1' }, h('span', { className: 'id' }, it.k), h('span', { className: 't' }, it.t)),
+        h('span', { className: 'meta' }, it.you ? h('span', null, it.st === 'Čeká na tebe' ? 'odpověď v review' : it.st) : h('span', null, it.st), it.pr ? [h('span', { className: 'sep' }), h('span', { className: 'mono' }, it.pr)] : null, it.age ? [h('span', { className: 'sep' }), h('span', null, it.age)] : null)),
+      it.you ? h('span', { className: 'chip you' }, 'Na tebe') : h('span', null));
+  }
+  issuesBody(compact) {
+    const h = this.h;
+    if (compact) {
+      const you = []; this.EPICS.forEach(e => e.items.forEach(i => { if (i.you) you.push(i); }));
+      return h('div', null, h('div', { className: 'sec amb' }, 'Na tebe', h('span', { className: 'n' }, '02')), you.map(i => this.issueRow(i)), h('button', { className: 'more' }, 'Dalších 5 ve 4 epicích →'));
+    }
+    return h('div', null, this.EPICS.map(e => [
+      h('button', { className: 'epic' }, h('span', { className: 'dim' }, this.ic('chev', 12)),
+        h('span', { className: 'nm' }, e.key ? h('span', { className: 'id' }, e.key) : null, e.nm),
+        e.n ? h('span', { className: 'bar', 'aria-hidden': 'true' }, h('i', { style: { width: Math.max(4, e.d / e.n * 100) + '%' } })) : h('span'),
+        h('span', { className: 'f' }, e.n ? e.d + '/' + e.n : this.pad(e.items.length))),
+      e.items.map(i => this.issueRow(i))]));
+  }
+  decide() {
+    const h = this.h;
+    return h('div', { className: 'decide' },
+      h('div', { className: 'eb' }, this.ic('spark', 12), 'Automatizace · CI triage · před 40 min'),
+      h('h4', null, 'Spouštět noční CI triage i pro shoptet/partner-cli'),
+      h('p', null, 'Develop padá třetí den po sobě. Triage by běžel ve 02:00 a ráno by čekal souhrn příčin. Odhad $0,40 za běh.'),
+      h('div', { className: 'acts' }, h('button', { className: 'btn sm pri' }, 'Schválit'), h('button', { className: 'btn sm' }, 'Zamítnout'), h('button', { className: 'btn sm gh' }, 'Upravit')));
+  }
+  tiles() { const h = this.h; return h('div', { className: 'tiles' }, this.PROJ.map(p => h('button', { className: 'tile' + (p.err ? ' err' : '') }, h('span', { className: 'nm' }, h('span', { className: 'dot ' + p.s, style: { width: 7, height: 7, boxShadow: 'none' } }), h('span', null, p.nm)), h('span', { className: 'br' }, p.br)))); }
+  timeline() {
+    const h = this.h, pct = x => (x / 24 * 100) + '%';
+    const ticks = [[3.17, '00'], [9.17, '06'], [15.17, '12'], [21.17, '18']];
+    return h('div', null,
+      h('div', { className: 'tl', role: 'img', 'aria-label': 'Časová osa příštích 24 hodin: 3 starty kolem 03:00' },
+        h('span', { className: 'ax' }), h('span', { className: 'nw' }),
+        ticks.map(([x, l]) => h('span', { className: 'tk', style: { left: pct(x) } }, l)),
+        [6.17, 6.67].map(x => h('span', { className: 'mk', style: { left: pct(x) } }))),
+      this.AUTO.map(a => h('div', { className: 'al' }, h('span', null, a.t), h('span', { className: 'mono' }, a.at), h('span', { className: 'dim', style: { fontSize: '11.5px' } }, a.in))));
+  }
+  meters(n) { const h = this.h; return h('div', null, this.BUD.slice(0, n || 4).map(b => h('div', { className: 'mt' + (b.hot ? ' hot' : '') }, h('span', null, b.l), h('span', { className: 'v' }, b.v), h('span', { className: 'bar', role: 'img', 'aria-label': b.p + ' %' }, h('i', { style: { width: b.p + '%' } })), b.hot ? h('span', { className: 'note' }, b.note) : null))); }
+  quick() { const h = this.h; return h('div', { className: 'qa' }, h('button', null, h('span', { className: 'pl' }, this.ic('play', 10)), 'Standup ', h('small', null, 'general')), h('button', null, h('span', { className: 'pl' }, this.ic('play', 10)), 'Dětské omalovánky'), h('button', { className: 'add' }, this.ic('plus', 12), 'Přidat')); }
+  pins() { const h = this.h; return h('div', { className: 'lz' }, this.PINS.map(([i, l]) => h('button', null, h('span', { className: 'lg' }, this.ic(i, 16)), l))); }
+  feed(n) { const h = this.h; return h('div', null, this.FEED.slice(0, n || 5).map(f => h('button', { className: 'fd' + (f.un ? ' un' : '') }, h('span', { className: 'src' }, f.src), h('span', { style: { minWidth: 0, display: 'block' } }, h('span', { className: 'who' }, f.who), h('span', { className: 'tx' }, f.t)), h('span', { className: 'tm mono' }, f.age, f.un ? h('span', { className: 'ud', 'aria-label': 'nepřečteno' }) : null)))); }
+  know(n) { const h = this.h; return h('div', null, this.KN.slice(0, n || 5).map(k => h('div', { className: 'kn' + (k.ag ? ' ag' : '') }, h('div', null, h('div', { className: 'q' }, k.ag ? h('span', { style: { color: 'var(--emerald)', marginRight: 6 } }, '✓') : null, k.q), h('span', { className: 's' }, k.s)), k.ag ? h('span') : h('button', { className: 'lk' }, 'Vyřešit')))); }
+  todo() {
+    const h = this.h, done = this.state.todo;
+    return h('div', { style: { paddingTop: 2 } }, this.TODO.map(t => h('button', { className: 'td' + (done[t.id] ? ' done' : ''), 'aria-pressed': !!done[t.id], onClick: () => this.setState({ todo: Object.assign({}, done, { [t.id]: !done[t.id] }) }) },
+      h('span', { className: 'cb' + (done[t.id] ? ' on' : '') }, done[t.id] ? this.ic('check', 10) : null),
+      h('span', { className: 'x' }, t.x.map(s => Array.isArray(s) ? h('span', { className: 'mn' }, s[0]) : s)))),
+      h('label', { className: 'tdadd' }, this.ic('plus', 14), h('input', { placeholder: 'Přidat poznámku… @ pro zmínku', 'aria-label': 'Nová poznámka' })));
+  }
+  sheet(p) {
+    const h = this.h, rv = this.RV[p.rv];
+    const checks = p.ci === 'fail' ? [['ok', 'lint'], ['ok', 'unit · 1 284 testů'], ['fail', 'e2e · PartnerPortal', 'addon detail › renders ratings: timeout 30 s'], ['ok', 'phpstan']]
+      : p.ci === 'conflict' ? [['ok', 'lint'], ['ok', 'unit'], ['conflict', 'rebase na master', 'konflikt v composer.lock']]
+      : p.ci === 'run' ? [['ok', 'lint'], ['run', 'pipeline gitlab-ci · 4/7']] : [['ok', 'lint'], ['ok', 'unit'], ['ok', 'e2e'], ['ok', 'phpstan']];
+    const parent = this.PRS.find(x => (x.stack || []).some(k => k.id === p.id));
+    return h('aside', { className: 'sheet', 'aria-label': 'Detail #' + p.id },
+      h('div', { className: 'sh' }, h('span', { className: 'ci ' + p.ci }, this.ic(this.CII[p.ci], 12)), h('span', { className: 'mono dim', style: { fontSize: 12 } }, '#' + p.id + ' · ' + p.key), h('span', { style: { flex: 1 } }), h('span', { className: 'kbd' }, 'J'), h('span', { className: 'kbd' }, 'K'), h('button', { className: 'ib', 'aria-label': 'Zavřít detail', onClick: () => this.setState({ sel: null }) }, this.ic('x', 14))),
+      h('div', { className: 'bd' },
+        h('h3', null, p.t),
+        h('div', { className: 'meta' }, this.av(p), h('span', null, this.who(p)), h('span', { className: 'sep' }), h('span', null, 'shoptet/' + p.repo), h('span', { className: 'sep' }), h('span', null, p.age)),
+        h('dl', { className: 'kv' },
+          h('dt', null, 'Review'), h('dd', null, h('span', { className: 'chip ' + rv[1] }, rv[0])),
+          h('dt', null, 'CI'), h('dd', null, this.CIL[p.ci]),
+          parent || p.stack ? [h('dt', null, 'Stack'), h('dd', { className: 'mono', style: { fontSize: 12 } }, parent ? '#' + parent.id + ' → #' + p.id : '#' + p.id + ' → ' + p.stack.map(k => '#' + k.id).join(', '))] : null,
+          h('dt', null, 'Změny'), h('dd', { className: 'mono', style: { fontSize: 12 } }, h('span', { style: { color: 'var(--emerald)' } }, '+' + p.add), h('span', { style: { color: 'var(--rose)' } }, '−' + p.del))),
+        checks.map(c => h('div', { className: 'chk' }, h('span', { className: 'ci ' + c[0], style: { width: 18, height: 18 } }, this.ic(this.CII[c[0]], 10)), h('span', null, c[1], c[2] ? h('span', { className: 'm' }, c[2]) : null), h('span', { className: 'dim', style: { fontSize: 11.5 } }, c[0] === 'run' ? 'běží' : c[0] === 'ok' ? '✓' : 'log ↗'))),
+        p.ci === 'fail' || p.ci === 'conflict' ? h('div', { className: 'sug' }, h('b', null, 'rebase-resolver'), ' navrhuje: ', p.ci === 'fail' ? 'zvednout timeout a čekat na načtení ratingů místo pevného sleepu. Oprava je v 1 souboru.' : 'vzít composer.lock z master a znovu spustit composer update pro dotčené balíčky.', h('div', { className: 'acts', style: { marginTop: 10 } }, h('button', { className: 'btn sm' }, h('span', { className: 'dot working', style: { width: 7, height: 7 } }), 'Spustit opravu')))
+          : null),
+      h('div', { className: 'ft' }, h('button', { className: 'btn pri' }, p.rv === 'you' ? 'Otevřít review' : 'Otevřít PR'), h('button', { className: 'btn' }, 'GitHub', this.ic('ext', 12)), h('span', { className: 'sp' }), h('span', { className: 'dim', style: { fontSize: 11.5 } }, 'Esc zavře')));
+  }
+
+  // ---------- chrome ----------
+  top() {
+    const h = this.h;
+    const ring = (pct) => h('svg', { width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': 'true' }, h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'color-mix(in srgb,var(--ink) 10%,transparent)', strokeWidth: 2.5 }), h('circle', { cx: 12, cy: 12, r: 9, fill: 'none', stroke: 'var(--ink2)', strokeWidth: 2.5, strokeDasharray: (pct / 100 * 56.5) + ' 56.5', transform: 'rotate(-90 12 12)', strokeLinecap: 'round' }));
+    return h('div', { className: 'top' },
+      h('div', { className: 'logo' }, this.bow(28, (this.state.zp || 'closed') !== 'closed'), h('span', { className: 'lw' }, 'zibby', h('i', null, '.')), h('small', null, 'v0.9')),
+      h('nav', { className: 'nav', 'aria-label': 'Hlavní' }, ['Přehled', 'Práce', 'Firmy', 'AI', 'Aktivita', 'Znalosti', 'Pravidla', 'Nastavení'].map((l, i) => h('button', { className: i === 0 ? 'on' : '' }, l))),
+      h('button', { className: 'zchip', onClick: () => this.zsummon(false), 'aria-label': 'Vyvolat Zibbyho (⌥ Space)' }, this.orb(20, (this.state.zp || 'closed') === 'closed' ? 'needs' : (this.state.zs || 'ready')), 'Zibby', h('span', { className: 'kbd' }, '⌥ Space')),
+      h('button', { className: 'search', style: { marginLeft: 0 } }, this.ic('search', 14), h('span', null, 'Hledat nebo zadat úkol…'), h('span', { className: 'kbd' }, '⌘K')),
+      h('div', { className: 'quota' }, ring(3), h('span', null, '5 h · 0 %', h('small', null, 'reset za 2 h 31 m'))),
+      h('div', { className: 'quota' }, ring(15), h('span', null, 'Týden · 15 %', h('small', null, 'reset za 5 d 16 h'))),
+      h('button', { className: 'bell', 'aria-label': 'Oznámení, 5 nových' }, this.ic('bell', 16), h('b', null, '5')));
+  }
+  sub(layout) {
+    const h = this.h, v = this.view();
+    const L = [['a-default', 'Výchozí'], ['a-review', 'Review']];
+    return h('div', { className: 'sub' },
+      h('h1', null, 'Můstek'),
+      h('div', { className: 'tabs' }, h('button', null, 'Inbox'), h('button', null, 'Issues', h('span', { className: 'n' }, '3')), h('button', null, 'Pull requesty', h('span', { className: 'n' }, '29')), h('button', null, 'Souhrny')),
+      h('span', { className: 'sp' }),
+      layout === 'queue' ? h('div', { className: 'seg' }, h('button', { 'aria-pressed': true }, 'Fronta')) :
+        h('div', { className: 'seg', role: 'group', 'aria-label': 'Layout' }, L.map(([k, l]) => h('button', { 'aria-pressed': v === k, onClick: () => this.setState({ view: k, sel: undefined }) }, l)), h('button', { 'aria-label': 'Nový layout' }, this.ic('plus', 12))),
+      h('button', { className: 'btn' }, this.ic('note', 13), 'Nová poznámka'),
+      h('button', { className: 'btn pri' }, this.ic('plus', 13), 'Nový úkol'));
+  }
+  hero() {
+    const h = this.h;
+    const C = [['03', 'Na tebe', 'amber'], ['00', 'Běží', 'dim'], ['37', 'Otevřené PR', ''], ['29', 'K review', ''], ['01', 'Selhává', 'rose']];
+    return h('section', { className: 'hero', 'aria-label': 'Briefing' },
+      h('div', null,
+        h('div', { className: 'eb' }, 'Sobota 14. listopadu · 20:50'),
+        h('h2', null, 'Dobrý večer, Karle.'),
+        h('p', null, 'Tři věci čekají na tebe — ', h('strong', { className: 'a' }, '1 schválení'), ' a ', h('strong', { className: 'a' }, '2 zaparkované běhy'), '. Jinak klid: nic neběží, cms4 je zelená a jen ', h('strong', null, 'Shoptet Partner CLI'), ' padá na develop.')),
+      h('div', { className: 'ctrs' }, C.map(([n, l, c]) => h('div', { className: 'ctr ' + c }, h('span', { className: 'n' }, n), h('span', { className: 'l' }, l)))));
+  }
+
+  ORBST = [
+    ['sleep', 'Spí', 'Zibby je zavřený a žije jako uzel v motýlku v hlavičce.', 'Menší, tmavá, skoro hladká síť.', 'Velmi pomalá rotace, částice kolem téměř zhasnou.'],
+    ['ready', 'Připraven', 'Vyvolaný, čeká, až promluvíš.', 'Hustá síť jemně zvlněná jako živá blána, gradient modrá → fialová → magenta.', 'Klidná rotace, povrch pomalu „dýchá“, kolem se vznáší oblak částic.'],
+    ['wake', 'Probouzí se', 'Vyskakuje z uzlu motýlku po zkratce.', 'Síť se roztřese a nafoukne.', 'Rychlá rotace, jantarový záblesk, částice vystřelí ven.'],
+    ['listen', 'Poslouchá', 'Držíš mezerník a mluvíš.', 'Po síti běží jemné vodorovné vlny.', 'Vlny jedou nahoru v rytmu hlasu, částice kolem pulzují.'],
+    ['think', 'Přemýšlí', 'Po odeslání, než začne odpovídat.', 'Síť se zkroutí do víru, vrstvy rotují proti sobě.', 'Rychlé přelévání povrchu, výraznější záře.'],
+    ['search', 'Hledá', 'Prochází běhy, PR, zmínky a vault.', 'Klidná koule, přes kterou jede svítící pás.', 'Skenovací pás přejíždí nahoru a dolů a rozsvěcuje rovnoběžky.'],
+    ['work', 'Pracuje', 'Spustil agenty nebo akci.', 'Menší síť, kolem obíhají satelity propojené vláknem.', 'Satelit = agent; každý táhne stopu a drží spojení se sítí.'],
+    ['speak', 'Mluví', 'Odpovídá hlasem, text se přepisuje do vlákna.', 'Teplá síť, která se roztahuje po slabikách.', 'Rytmické nadechování podle řeči, částice pulzují s ní.'],
+    ['needs', 'Čeká na tebe', 'Potřebuje rozhodnutí nebo schválení.', 'Jantarová síť vysílá prstence teček.', 'Prstence se šíří od rovníku ven, koule lehce poskakuje.'],
+    ['done', 'Hotovo', 'Akce se povedla.', 'Dokonale hladká zelená koule.', 'Vlnění ustane, přes síť jednou přejede světlý poledník.'],
+    ['error', 'Chyba', 'Něco nejde: blokace, selhání, zamítnutí.', 'Rozbitá síť s trhlinami a výčnělky.', 'Uzly cukají, linky se trhají, pásy se posouvají.'],
+    ['paused', 'Pozastaveno', 'Limit, offline nebo ztlumeno.', 'Šedá, prořídlá kostra sítě.', 'Rotace stojí, nic se nehýbe.']
+  ];
+  orb(size, st, extra) {
+    const h = this.h, lbl = (this.ORBST.find(s => s[0] === st) || [st, st])[1];
+    return h('div', Object.assign({ className: 'orb', style: { '--s': size + 'px' }, role: 'img', 'aria-label': 'Zibby · ' + lbl }, extra || {}), h('canvas', { className: 'zorb', 'data-st': st, 'data-size': size, 'aria-hidden': 'true' }));
+  }
+  // ---------- Zibby: vyvolání + hlasová konverzace (náhrada chatu) ----------
+  zref = React.createRef();
+  zfileRef = React.createRef();
+  zt = [];
+  ZS = [
+    { q: 'Co mě dneska čeká?', steps: [['think', 900], ['search', 1400, 'Procházím běhy, PR a zmínky…']], a: 'Tři věci. Schválení noční CI triage pro partner-cli a dva zaparkované běhy: rebase #47385 a fix CI #47546. Jinak je klid, nic neběží.', card: 'today', end: 'needs' },
+    { q: 'Schval tu triage.', steps: [['think', 700], ['work', 1700, 'Schvaluji návrh a plánuji automatizaci…'], ['done', 900, 'Schváleno']], a: 'Hotovo. Triage poběží od dnešní noci ve dvě a ráno ti dám souhrn příčin do briefingu.', card: 'triage', end: 'ready' },
+    { q: 'A ten rebase předej agentovi.', steps: [['think', 700], ['work', 1500, 'Předávám rebase-resolveru…']], a: 'Předáno. Rebase-resolver vezme composer.lock z masteru a pustí testy, ozvu se zhruba za deset minut.', card: 'handoff', end: 'ready' },
+    { q: 'Mergni 48051.', steps: [['think', 800], ['search', 900, 'Kontroluji checks a review…'], ['error', 1400, 'Merge je zablokovaný']], a: 'To teď nejde. E2E test na #48051 padá a tvoje review ještě chybí. Mám spustit opravu testu?', card: 'merge', end: 'needs' },
+    { q: 'Jo, spusť opravu.', steps: [['think', 600], ['work', 1600, 'Spouštím Fix CI…']], a: 'Běží. Rebase-resolver opravuje timeout v e2e testu, výsledek uvidíš na Můstku i tady.', card: 'fix', end: 'ready' }
+  ];
+  ZSEED = [
+    { id: 'c0', title: 'Nový rozhovor', group: 'Dnes', time: 'teď', msgs: [] },
+    { id: 'c1', title: 'Partner Portal — ratingy v detailu addonu', group: 'Dnes', time: '10:12', msgs: [
+      { who: 'me', text: 'Proč padá e2e na ratingách v #48051?', t: '10:11', voice: true },
+      { who: 'z', text: 'Test čeká pevné tři sekundy místo na data. Stačí čekat na rating-summary, opravu má připravenou rebase-resolver.' }] },
+    { id: 'c2', title: 'Migrace partner-cli na GitLab', group: 'Včera', time: '16:40', msgs: [
+      { who: 'me', text: 'Spusť migraci CI partner-cli na GitLab.', t: '16:38', voice: true },
+      { who: 'z', text: 'Spustil jsem Delivery workflow. Implementace je ve druhém kole, publikace bude chtít tvoje schválení.' }] },
+    { id: 'c3', title: 'Standup a plán týdne', group: 'Včera', time: '9:05', msgs: [
+      { who: 'me', text: 'Připrav standup.', t: '9:04', voice: true },
+      { who: 'z', text: 'Včera tři PR v Partner Portalu a triage CI. Dnes review #48051 a migrace partner-cli. Bloker: runner shoptet-podman je offline.' }] },
+    { id: 'c4', title: 'Rozpočet Shoptet · listopad', group: 'Tento týden', time: 'st', msgs: [
+      { who: 'me', text: 'Kolik jsme v listopadu utratili za agenty?', t: '14:20', voice: false },
+      { who: 'z', text: 'Za Shoptet 212 $ ze 400 $. Partner CLI je na 90 % a při tomhle tempu dojde zhruba za dva dny.' }] },
+    { id: 'c5', title: 'Review checklist pro Partner Portal', group: 'Tento týden', time: 'po', msgs: [
+      { who: 'me', text: 'Sepiš mi z toho checklist na review Portalu.', t: '11:02', voice: true, files: [{ n: 'portal-review-notes.md', s: 4200, k: 'code' }] },
+      { who: 'z', text: 'Hotovo, checklist má 12 bodů a uložil jsem ho do vaultu jako „Portal · review checklist“.' }] },
+    { id: 'c6', title: 'Dětské omalovánky — nápady', group: 'Starší', time: '3. 11.', msgs: [
+      { who: 'me', text: 'Vymysli deset motivů na omalovánky s dinosaury.', t: '19:30', voice: true },
+      { who: 'z', text: 'Mám jich deset, od triceratopse na houpačce po stegosaura, který peče dort. Přidal jsem je do Rychlých akcí.' }] },
+    { id: 'c7', title: 'Nastavení zkratek', group: 'Starší', time: '28. 10.', msgs: [
+      { who: 'me', text: 'Změň zkratku pro Zibbyho na Option mezerník.', t: '8:15', voice: true },
+      { who: 'z', text: 'Nastaveno: ⌥ Space vyvolá, podržení rovnou poslouchá.' }] }
+  ];
+  ZLBL = { ready: ['Jsem tady · drž mezerník a mluv', 'idle'], listen: ['Poslouchám…', 'thinking'], think: ['Přemýšlím…', 'working'], search: ['Hledám…', 'thinking'], work: ['Pracuji…', 'working'], speak: ['Mluvím · mezerníkem mě přerušíš', 'working'], done: ['Hotovo', 'done'], needs: ['Čekám na tvoje rozhodnutí', 'blocked'], error: ['Nejde to', 'error'], wake: ['', 'idle'] };
+  zlater(ms, fn) { const t = setTimeout(fn, ms); this.zt.push(t); return t; }
+  zclear() { this.zt.forEach(t => clearTimeout(t)); this.zt = []; clearInterval(this.zrev); clearInterval(this.zstream); this.zhandsT = null; }
+  zclock() { const d = new Date(); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  zhasFiles(e) { try { return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') >= 0); } catch (x) { return false; } }
+  zstill(ms) { return (ms || []).map(m => m.streaming ? Object.assign({}, m, { text: m.text + '…', streaming: false }) : m); }
+
+  // --- rozhovory ---
+  convs() { return this.state.zconvs || this.ZSEED; }
+  zcid() { return this.state.zcid || 'c0'; }
+  zcur() { return this.convs().find(c => c.id === this.zcid()) || { title: 'Nový rozhovor' }; }
+  zfresh() { return { id: 'n' + Date.now(), title: 'Nový rozhovor', group: 'Dnes', time: 'teď', msgs: [] }; }
+  zstored() { const cur = this.zcid(), msgs = this.zstill(this.state.zmsgs); return this.convs().map(c => c.id === cur ? Object.assign({}, c, { msgs }) : c).filter(c => !(c.id === cur && !msgs.length)); }
+  zopenConv = id => {
+    if (id === this.zcid()) return;
+    this.zclear(); this.ztalk = false; this.zauto = false;
+    const cs = this.zstored(), tg = cs.find(c => c.id === id); if (!tg) return;
+    this.setState({ zconvs: cs, zcid: id, zmsgs: tg.msgs, zs: 'ready', zstatus: '', zlive: '', zmenu: false, zatt: [], zren: null });
+  };
+  znew = () => {
+    this.zclear(); this.ztalk = false; this.zauto = false;
+    const had = (this.state.zmsgs || []).length > 0, n = this.zfresh();
+    this.setState({ zconvs: [n].concat(this.zstored()), zcid: n.id, zmsgs: [], zs: 'ready', zstatus: '', zlive: '', zmenu: false, zatt: [], zi: 0, zren: null });
+    if (had) this.ztoast('Předchozí rozhovor je uložený v historii');
+  };
+  zclearConv = () => {
+    this.zclear(); this.ztalk = false;
+    const old = this.zstill(this.state.zmsgs), title = this.zcur().title, cid = this.zcid();
+    this.setState({ zmsgs: [], zs: 'ready', zstatus: '', zlive: '', zmenu: false, zi: 0, zconvs: this.convs().map(c => c.id === cid ? Object.assign({}, c, { title: 'Nový rozhovor', msgs: [] }) : c) });
+    this.ztoast('Konverzace vyčištěna', () => this.setState({ zmsgs: old, zconvs: this.convs().map(c => c.id === cid ? Object.assign({}, c, { title }) : c) }));
+  };
+  zdel = id => {
+    const cs = this.convs(), idx = cs.findIndex(c => c.id === id); if (idx < 0) return;
+    const isCur = id === this.zcid(), item = Object.assign({}, cs[idx], isCur ? { msgs: this.zstill(this.state.zmsgs) } : {});
+    let next = cs.filter(c => c.id !== id); const extra = { zmenu: false, zren: null };
+    if (isCur) { this.zclear(); this.ztalk = false; const n = this.zfresh(); next = [n].concat(next); Object.assign(extra, { zcid: n.id, zmsgs: [], zs: 'ready', zstatus: '', zlive: '' }); }
+    this.setState(Object.assign({ zconvs: next }, extra));
+    if (item.msgs && item.msgs.length) this.ztoast('Smazáno „' + item.title + '“', () => { const c2 = this.convs().slice(); c2.splice(Math.min(idx, c2.length), 0, item); this.setState({ zconvs: c2 }); });
+  };
+  zrenameStart = id => { const rid = id.replace('top:', ''); this.setState({ zren: id, zrenv: (this.convs().find(c => c.id === rid) || {}).title || '', zmenu: false }); };
+  zrenameCommit = () => { const id = (this.state.zren || '').replace('top:', ''), v = (this.state.zrenv || '').trim(); const patch = { zren: null }; if (id && v) patch.zconvs = this.convs().map(c => c.id === id ? Object.assign({}, c, { title: v }) : c); this.setState(patch); };
+  ztoast(t, undo) { clearTimeout(this.ttt); this.setState({ ztoast: { t, undo: undo ? () => { clearTimeout(this.ttt); undo(); this.setState({ ztoast: null }); } : null } }); this.ttt = setTimeout(() => this.setState({ ztoast: null }), 5000); }
+
+  // --- přílohy ---
+  zkind(n, type) { const e = (n.split('.').pop() || '').toLowerCase(); if ((type || '').indexOf('image') === 0 || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].indexOf(e) >= 0) return 'img'; if (e === 'pdf') return 'pdf'; if (['ts', 'tsx', 'js', 'jsx', 'json', 'md', 'yml', 'yaml', 'css', 'html', 'py', 'php', 'sh', 'log', 'txt'].indexOf(e) >= 0) return 'code'; if (['csv', 'xlsx', 'xls'].indexOf(e) >= 0) return 'sheet'; return 'file'; }
+  zaddFiles = list => {
+    const add = Array.from(list || []).slice(0, 10).map(f => { const k = this.zkind(f.name, f.type); let url = null; if (k === 'img') { try { url = URL.createObjectURL(f); } catch (e) {} } return { n: f.name, s: f.size, k, url }; });
+    if (add.length) this.setState({ zatt: (this.state.zatt || []).concat(add), zdrag: false });
+  };
+  zdemoFile = () => this.setState({ zatt: (this.state.zatt || []).concat([{ n: 'pipeline-8815.log', s: 48200, k: 'code' }]) });
+  zsize(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' kB'; }
+  zchipEl(f, i, removable) {
+    const h = this.h, lab = { pdf: 'PDF', code: '</>', sheet: 'XLS', file: 'FILE', img: 'IMG' }[f.k];
+    return h('span', { className: 'zat-c' }, f.k === 'img' && f.url ? h('img', { src: f.url, alt: '' }) : h('span', { className: 'zat-i' }, lab), h('span', { className: 'zat-n' }, f.n), h('span', { className: 'zat-s' }, this.zsize(f.s)),
+      removable ? h('button', { className: 'zat-x', 'aria-label': 'Odebrat ' + f.n, onClick: () => this.setState({ zatt: (this.state.zatt || []).filter((_, j) => j !== i) }) }, '×') : null);
+  }
+
+  // --- vyvolání a mluvení ---
+  zsummon = (hold) => {
+    const p = this.state.zp || 'closed';
+    if (p === 'open') return this.zdismiss();
+    if (p !== 'closed') return;
+    this.zheld = hold === true;
+    this.setState({ zp: 'fly', zs: 'wake', zlive: '', zhint: '', zshocked: false, zstatus: '', zmenu: false });
+    this.zlater(850, () => { this.setState({ zp: 'open', zs: 'ready' }); if (this.zheld) this.zstart(); });
+  };
+  zdismiss = () => { this.zclear(); this.ztalk = false; this.zauto = false; this.setState({ zp: 'leave', zs: 'wake', zlive: '', zmsgs: this.zstill(this.state.zmsgs), zmenu: false, zdrag: false, zren: null }); this.zlater(520, () => this.setState({ zp: 'closed', zs: 'sleep' })); };
+  zstart = () => {
+    if ((this.state.zp || 'closed') !== 'open' || this.ztalk) return;
+    this.zclear();
+    const line = this.ZS[(this.state.zi || 0) % this.ZS.length], words = line.q.split(' ');
+    this.ztalk = true; this.zt0 = Date.now(); this.zline = line; this.zw = 0;
+    this.setState({ zs: 'listen', zlive: '', zmsgs: this.zstill(this.state.zmsgs), zhint: '', zstatus: '', zmenu: false });
+    this.zrev = setInterval(() => {
+      if (this.zw < words.length) { this.zw++; this.setState({ zlive: words.slice(0, this.zw).join(' ') }); }
+      else if ((this.state.zmode === 'hands' || this.zauto) && !this.zhandsT) this.zhandsT = this.zlater(this.zauto ? 450 : 800, () => { this.zhandsT = null; this.zstop(true); });
+    }, 230);
+  };
+  zstop = (force) => {
+    if (!this.ztalk) return;
+    if (this.state.zmode === 'hands' && force !== true) return;
+    this.ztalk = false; this.zauto = false; clearInterval(this.zrev);
+    if (Date.now() - this.zt0 < 300) { this.setState({ zs: 'ready', zlive: '', zhint: 'Drž mezerník po celou dobu, co mluvíš.' }); return; }
+    this.zsend(this.zline.q, this.zline);
+  };
+  zsay = () => { if (this.ztalk) return; this.zauto = true; this.zstart(); };
+  zsend(text, line) {
+    this.zclear();
+    const files = (this.state.zatt || []).slice(), cid = this.zcid(), cur = this.zcur();
+    const msgs = (this.state.zmsgs || []).concat([{ who: 'me', text, t: this.zclock(), voice: !!line, files: files.length ? files : null }]);
+    const patch = { zmsgs: msgs, zlive: '', zatt: [], zi: (this.state.zi || 0) + (line && !files.length ? 1 : 0) };
+    if (cur.title === 'Nový rozhovor') patch.zconvs = this.convs().map(c => c.id === cid ? Object.assign({}, c, { title: (text || files[0].n).slice(0, 48), time: this.zclock() }) : c);
+    this.setState(patch);
+    let L = line || { steps: [['think', 1000]], a: 'Rozumím: „' + text + '“. V téhle ukázce odpovídám jen na připravené věty, zkus mezerník.', end: 'ready' };
+    if (files.length) L = { steps: [['think', 600], ['search', 1500, 'Čtu ' + (files.length === 1 ? 'přílohu' : files.length + ' přílohy') + '…']], a: 'Mám to. ' + (files.length === 1 ? 'Soubor ' + files[0].n + ' jsem si přečetl' : 'Přečetl jsem ' + files.length + ' soubory') + ' a uložil k téhle konverzaci. Mám to shrnout, založit z toho úkol, nebo přiložit k PR?', card: 'files', cardData: files, end: 'ready' };
+    let t = 0;
+    L.steps.forEach(([st, ms, note]) => { this.zlater(t, () => this.setState({ zs: st, zstatus: note || '' })); t += ms; });
+    this.zlater(t, () => this.zspeak(L));
+  }
+  zspeak(L) {
+    const words = L.a.split(' '); let i = 0;
+    this.setState({ zs: 'speak', zstatus: '', zmsgs: (this.state.zmsgs || []).concat([{ who: 'z', text: '', streaming: true }]) });
+    this.zstream = setInterval(() => {
+      i++;
+      const ms = (this.state.zmsgs || []).slice(), last = Object.assign({}, ms[ms.length - 1]);
+      last.text = words.slice(0, i).join(' ');
+      if (i >= words.length) { clearInterval(this.zstream); last.streaming = false; last.card = L.card; last.cardData = L.cardData; this.setState({ zmsgs: ms.slice(0, -1).concat([last]), zs: L.end }); return; }
+      this.setState({ zmsgs: ms.slice(0, -1).concat([last]) });
+    }, 115);
+  }
+  zcardEl(k, data) {
+    const h = this.h;
+    const row = (dot, t, s, act, a2) => h('div', { className: 'ci2' }, h('span', { className: 'dot ' + dot }), h('span', { style: { minWidth: 0 } }, t, h('span', { className: 'k' }, s)), h('span', { className: 'acts' }, a2 ? h('button', { className: 'btn sm gh' }, a2) : null, h('button', { className: 'btn sm' + (dot === 'blocked' || dot === 'error' ? ' pri' : '') }, act)));
+    const C = {
+      today: [row('blocked', 'Schválit noční CI triage', 'Návrh automatizace · partner-cli', 'Schválit'), row('blocked', 'Rebase #47385', 'Zaparkováno 21 h · konflikt v composer.lock', 'Předat'), row('blocked', 'Fix CI #47546', 'Zaparkováno 22 h · čeká na force-push', 'Povolit')],
+      triage: [row('done', 'Noční CI triage · partner-cli', 'každý den ve 02:00 · ~$0,40 za běh', 'Otevřít')],
+      handoff: [row('working', 'Rebase #47385 → rebase-resolver', 'běží · odhad 10 min', 'Sledovat')],
+      merge: [row('error', '#48051 nejde mergnout', 'e2e selhává · chybí tvoje review', 'Spustit Fix CI', 'Otevřít PR')],
+      fix: [row('working', 'Fix CI #48051', 'rebase-resolver · běží', 'Otevřít běh')],
+      files: data ? [row('done', (data.length === 1 ? '1 příloha' : data.length + ' přílohy') + ' u rozhovoru', data.map(f => f.n).join(', '), 'Shrnout', 'Založit úkol')] : null
+    };
+    return C[k] ? h('div', { className: 'zcard' }, C[k]) : null;
+  }
+  zmsgEl(m) {
+    const h = this.h;
+    if (m.who === 'me') return h('div', { className: 'zm me' }, m.text || null, m.files ? h('div', { className: 'zat in' }, m.files.map((f, i) => this.zchipEl(f, i, false))) : null, h('small', null, m.voice ? this.ic('mic', 11) : null, (m.voice ? 'přepis' : 'napsáno') + ' · ' + m.t));
+    return h('div', { className: 'zm z' }, this.orb(28, m.streaming ? 'speak' : 'ready'), h('div', null, h('div', { className: 'tx' }, m.text, m.streaming ? h('span', { className: 'cur', 'aria-hidden': 'true' }) : null), m.card ? this.zcardEl(m.card, m.cardData) : null));
+  }
+  bow(size, hollow) {
+    const h = this.h, id = 'bw' + size;
+    return h('svg', { width: size, height: size, viewBox: '0 0 64 64', 'aria-hidden': 'true', style: { display: 'block', overflow: 'visible' } },
+      h('defs', null, h('mask', { id }, h('rect', { x: -8, y: -8, width: 80, height: 80, fill: '#fff' }), h('circle', { cx: 32, cy: 32, r: 8.6, fill: '#000' }))),
+      h('g', { mask: 'url(#' + id + ')', fill: 'var(--ink)', stroke: 'var(--ink)', strokeWidth: 4, strokeLinejoin: 'round' }, h('path', { d: 'M8 16L28.5 30V34L8 48Z' }), h('path', { d: 'M56 16L35.5 30V34L56 48Z' })),
+      hollow ? h('circle', { cx: 32, cy: 32, r: 5.6, fill: 'none', stroke: 'var(--amber)', strokeWidth: 2, opacity: .7 }) : h('circle', { cx: 32, cy: 32, r: 6.2, fill: 'var(--amber)' }));
+  }
+
+  // --- historie (postranní panel) ---
+  zhl(text, q) { if (!q || !text) return text; const i = text.toLowerCase().indexOf(q); if (i < 0) return text; return [text.slice(0, i), this.h('mark', null, text.slice(i, i + q.length)), text.slice(i + q.length)]; }
+  zhItem(c, snip, q) {
+    const h = this.h, on = c.id === this.zcid();
+    if (this.state.zren === c.id) return h('div', { className: 'zh-i on' }, h('input', { className: 'zh-ren', autoFocus: true, value: this.state.zrenv || '', 'aria-label': 'Nový název rozhovoru', onChange: e => this.setState({ zrenv: e.target.value }), onKeyDown: e => { if (e.key === 'Enter') this.zrenameCommit(); }, onBlur: this.zrenameCommit }));
+    return h('div', { className: 'zh-i' + (on ? ' on' : '') },
+      h('button', { className: 'zh-b', onClick: () => this.zopenConv(c.id), onDoubleClick: () => this.zrenameStart(c.id), 'aria-current': on ? 'true' : null },
+        h('span', { className: 'zh-t' }, this.zhl(c.title, q)), h('span', { className: 'zh-tm' }, on && !c.msgs.length ? 'teď' : c.time), h('span', { className: 'zh-sn' }, this.zhl(snip, q))),
+      h('span', { className: 'zh-a' }, h('button', { className: 'ib', 'aria-label': 'Přejmenovat „' + c.title + '“', onClick: () => this.zrenameStart(c.id) }, this.ic('pen', 13)), h('button', { className: 'ib', 'aria-label': 'Smazat „' + c.title + '“', onClick: () => this.zdel(c.id) }, this.ic('trash', 13))));
+  }
+  zhistEl() {
+    const h = this.h, open = !!this.state.zhopen, raw = this.state.zhq || '', q = raw.trim().toLowerCase(), cid = this.zcid();
+    const cs = this.convs().map(c => c.id === cid ? Object.assign({}, c, { msgs: this.state.zmsgs || [] }) : c);
+    const list = cs.filter(c => (c.id === cid || c.msgs.length) && (!q || c.title.toLowerCase().indexOf(q) >= 0 || c.msgs.some(m => (m.text || '').toLowerCase().indexOf(q) >= 0)));
+    const snip = c => { const hit = q ? c.msgs.find(m => (m.text || '').toLowerCase().indexOf(q) >= 0) : null, m = hit || c.msgs[c.msgs.length - 1]; return m ? (m.who === 'me' ? 'Ty: ' : '') + (m.text || (m.files ? '📎 ' + m.files.map(f => f.n).join(', ') : '')) : 'Prázdný · drž mezerník a mluv'; };
+    return h('aside', { className: 'zh' + (open ? ' on' : ''), 'aria-label': 'Historie rozhovorů', 'aria-hidden': open ? null : 'true' },
+      h('div', { className: 'zh-h' }, h('b', null, 'Rozhovory'), h('span', { className: 'cnt' }, String(cs.filter(c => c.msgs.length).length)), h('span', { className: 'sp' }), h('button', { className: 'ib', 'aria-label': 'Zavřít historii (⌥ H)', onClick: () => this.setState({ zhopen: false }) }, this.ic('chevl', 15))),
+      h('button', { className: 'btn zh-new', onClick: this.znew }, this.ic('plus', 13), 'Nový rozhovor'),
+      h('label', { className: 'zh-s' }, this.ic('search', 13), h('input', { placeholder: 'Hledat v rozhovorech…', value: raw, 'aria-label': 'Hledat v rozhovorech', onChange: e => this.setState({ zhq: e.target.value }) }), raw ? h('button', { className: 'zat-x', 'aria-label': 'Vymazat hledání', onClick: () => this.setState({ zhq: '' }) }, '×') : null),
+      h('div', { className: 'zh-l' }, list.length ? ['Dnes', 'Včera', 'Tento týden', 'Starší'].map(g => { const it = list.filter(c => c.group === g); return it.length ? [h('div', { className: 'zh-g' }, g), it.map(c => this.zhItem(c, snip(c), q))] : null; }) : h('div', { className: 'zh-e' }, 'Nic nenalezeno pro „' + raw + '“')),
+      h('div', { className: 'zh-f' }, 'Ukládá se automaticky · ', h('span', { className: 'kbd' }, '⌥ H'), ' otevře a zavře · dvojklik přejmenuje'));
+  }
+
+  // --- overlay ---
+  zLayer() {
+    const h = this.h, p = this.state.zp || 'closed'; if (p === 'closed') return null;
+    const st = this.state.zs || 'wake', msgs = this.state.zmsgs || [], hands = this.state.zmode === 'hands', talking = st === 'listen', att = this.state.zatt || [], drag = !!this.state.zdrag;
+    const next = this.ZS[(this.state.zi || 0) % this.ZS.length], cid = this.zcid(), cur = this.zcur();
+    const lw = (this.state.zlive || '').split(' ');
+    const lbl = drag ? ['Pusť soubory, přečtu je', 'thinking'] : (this.ZLBL[st] || ['', 'idle']);
+    const sendTyped = () => { const q = (this.state.zq || '').trim(); if (!q && !att.length) return; this.setState({ zq: '' }); this.zsend(q, null); };
+    return h('div', { className: 'zl ' + p, role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Zibby',
+        onDragEnter: e => { if (this.zhasFiles(e)) { e.preventDefault(); if (!drag) this.setState({ zdrag: true }); } },
+        onDragOver: e => { if (this.zhasFiles(e)) { e.preventDefault(); try { e.dataTransfer.dropEffect = 'copy'; } catch (x) {} if (!this.state.zdrag) this.setState({ zdrag: true }); } },
+        onDragLeave: e => { if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) this.setState({ zdrag: false }); },
+        onDrop: e => { e.preventDefault(); this.zaddFiles(e.dataTransfer && e.dataTransfer.files); this.setState({ zdrag: false }); } },
+      h('div', { className: 'zbd', onClick: () => { if (this.state.zmenu) this.setState({ zmenu: false }); else if (this.state.zhopen) this.setState({ zhopen: false }); else this.zdismiss(); } }),
+      h('div', { className: 'zfly' + (p === 'fly' ? ' in' : p === 'leave' ? ' out' : '') }, h('div', { className: 'zfy' }, h('div', { className: 'zfs' }, h('div', { className: 'zsc' }, this.orb(140, drag ? 'listen' : st))))),
+      p === 'open' && !this.state.zshocked ? h('span', { className: 'zshock', onAnimationEnd: () => this.setState({ zshocked: true }) }) : null,
+      h('div', { className: 'ztop' + (p === 'open' ? ' on' : '') },
+        h('button', { className: 'btn sm' + (this.state.zhopen ? ' on' : ''), 'aria-expanded': !!this.state.zhopen, onClick: () => this.setState({ zhopen: !this.state.zhopen }) }, this.ic('panel', 14), 'Historie', h('span', { className: 'kbd' }, '⌥ H')),
+        this.state.zren === 'top:' + cid
+          ? h('input', { className: 'zttl-in', autoFocus: true, value: this.state.zrenv || '', 'aria-label': 'Název rozhovoru', onChange: e => this.setState({ zrenv: e.target.value }), onKeyDown: e => { if (e.key === 'Enter') this.zrenameCommit(); }, onBlur: this.zrenameCommit })
+          : h('button', { className: 'zttl', title: 'Přejmenovat', onClick: () => this.zrenameStart('top:' + cid) }, cur.title),
+        h('span', { className: 'sp' }),
+        h('button', { className: 'btn sm gh', onClick: this.znew }, this.ic('plus', 13), 'Nový rozhovor'),
+        h('div', { className: 'zmw' }, h('button', { className: 'ib', 'aria-label': 'Další akce s rozhovorem', 'aria-haspopup': 'menu', 'aria-expanded': !!this.state.zmenu, onClick: () => this.setState({ zmenu: !this.state.zmenu }) }, this.ic('more', 16)),
+          this.state.zmenu ? h('div', { className: 'zmenu', role: 'menu' },
+            h('button', { role: 'menuitem', onClick: () => this.zrenameStart('top:' + cid) }, this.ic('pen', 13), 'Přejmenovat'),
+            h('button', { role: 'menuitem', onClick: this.zclearConv, disabled: !msgs.length }, this.ic('sync', 13), 'Vyčistit a začít znovu'),
+            h('button', { role: 'menuitem', className: 'danger', onClick: () => this.zdel(cid) }, this.ic('trash', 13), 'Smazat rozhovor')) : null),
+        h('button', { className: 'ib', 'aria-label': 'Zavřít (Esc)', onClick: this.zdismiss }, this.ic('x', 15))),
+      this.zhistEl(),
+      h('div', { className: 'zcol' + (p === 'open' ? ' on' : '') },
+        h('div', { className: 'zstl', 'aria-live': 'polite' }, lbl[0] ? h('span', { className: 'dot ' + lbl[1] }) : null, drag ? lbl[0] : (this.state.zstatus || lbl[0])),
+        h('div', { className: 'zlive', 'aria-live': 'polite' }, talking && this.state.zlive ? [lw.slice(0, -1).join(' ') + (lw.length > 1 ? ' ' : ''), h('span', { className: 'p' }, lw[lw.length - 1])] : null),
+        h('div', { className: 'zhint' }, this.state.zhint || ''),
+        h('div', { className: 'zth', ref: this.zref }, msgs.length ? msgs.map(m => this.zmsgEl(m)) : h('div', { className: 'zempty' }, 'Drž mezerník a mluv, nebo sem přetáhni soubory. Puštěním mezerníku se zpráva sama odešle a Zibby odpoví hlasem i textem.')),
+        h('div', { className: 'ztry' }, 'Zkus říct:', h('button', { onClick: this.zsay }, '„' + next.q + '“'), 'nebo přilož:', h('button', { onClick: this.zdemoFile }, this.ic('clip', 12), ' pipeline-8815.log')),
+        att.length ? h('div', { className: 'zat' }, att.map((f, i) => this.zchipEl(f, i, true))) : null,
+        h('div', { className: 'zc' },
+          h('button', { className: 'ptt' + (talking ? ' on' : ''), 'aria-label': hands ? 'Ťukni a mluv' : 'Drž a mluv', 'aria-pressed': talking,
+            onPointerDown: e => { e.preventDefault(); if (hands && this.ztalk) this.zstop(true); else this.zstart(); },
+            onPointerUp: () => { if (!hands && !this.zauto) this.zstop(); }, onPointerLeave: () => { if (this.ztalk && !hands && !this.zauto) this.zstop(); } },
+            h('span', { className: 'mi' }, this.ic('mic', 17)),
+            talking ? [h('span', { className: 'wv', 'aria-hidden': 'true' }, [0, 1, 2, 3, 4].map(i => h('i', { style: { animationDelay: (i * .11) + 's' } }))), hands ? 'Ťukni pro konec' : 'Pusť a odešle se'] : (hands ? ['Ťukni a mluv'] : ['Drž ', h('span', { className: 'kbd' }, 'Space'), ' a mluv'])),
+          h('button', { className: 'ib', 'aria-label': 'Přiložit soubory', onClick: () => this.zfileRef.current && this.zfileRef.current.click() }, this.ic('clip', 16)),
+          h('input', { type: 'file', multiple: true, ref: this.zfileRef, style: { display: 'none' }, onChange: e => { this.zaddFiles(e.target.files); e.target.value = ''; } }),
+          h('input', { className: 'zin', placeholder: att.length ? 'Napiš, co s tím…' : 'nebo napiš…', value: this.state.zq || '', 'aria-label': 'Napsat Zibbymu', onChange: e => this.setState({ zq: e.target.value }), onKeyDown: e => { if (e.key === 'Enter') sendTyped(); } }),
+          h('button', { className: 'btn sm pri', onClick: sendTyped, 'aria-label': 'Odeslat' }, this.ic('send', 13))),
+        h('div', { className: 'zft' },
+          h('div', { className: 'seg', role: 'group', 'aria-label': 'Režim mluvení' }, h('button', { 'aria-pressed': !hands, onClick: () => this.setState({ zmode: 'ptt' }) }, 'Drž mezerník'), h('button', { 'aria-pressed': hands, onClick: () => this.setState({ zmode: 'hands' }) }, 'Hands-free')),
+          h('button', { className: 'btn sm gh', 'aria-pressed': !!this.state.zmute, onClick: () => this.setState({ zmute: !this.state.zmute }) }, this.state.zmute ? 'Hlas vypnutý · jen text' : 'Hlas zapnutý'),
+          h('span', { className: 'sp' }),
+          h('span', null, 'Esc zavře · ⌥ Space vyvolá · soubory přetáhni kamkoli')),
+        drag ? h('div', { className: 'zdrop', 'aria-hidden': 'true' }, h('div', null, this.ic('clip', 30), h('b', null, 'Pusť soubory sem'), h('span', null, 'Zibby je přečte a přiloží k rozhovoru · obrázky, PDF, kód, tabulky'))) : null,
+        this.state.ztoast ? h('div', { className: 'ztoast', role: 'status' }, this.state.ztoast.t, this.state.ztoast.undo ? h('button', { onClick: this.state.ztoast.undo }, 'Vrátit') : null) : null));
+  }
+  withZ(stage) {
+    if (!stage || !stage.props) return stage;
+    return React.cloneElement(stage, null, React.Children.toArray(stage.props.children).concat([React.createElement(React.Fragment, { key: 'zl' }, this.zLayer())]));
+  }
+  componentDidUpdate() { const el = this.zref.current; if (el && this._zlen !== JSON.stringify((this.state.zmsgs || []).map(m => m.text.length))) { el.scrollTop = el.scrollHeight; this._zlen = JSON.stringify((this.state.zmsgs || []).map(m => m.text.length)); } }
+
+  // ---------- views ----------
+  aDefault() {
+    const h = this.h, sel = this.selId(), sp = sel && this.allPRs().find(p => p.id === sel);
+    return h('div', { className: 'stage' }, this.top(), this.sub(),
+      h('div', { className: 'g' },
+        this.hero(),
+        h('div', { className: 'rel', style: { gridColumn: 'span 5' } },
+          this.widget({ tier: 't1', title: 'Pull requesty', count: 37, you: 2, body: this.prBody('default'), controls: ['sync', 'filter', 'set', 'chev'] }),
+          sp ? this.sheet(sp) : null),
+        this.widget({ tier: 't1', span: 4, title: 'Běhy', count: 10, you: 2, body: this.runsBody(false), controls: ['set', 'chev'] }),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Návrhy', count: 1, you: 1, body: this.decide(), controls: ['set', 'chev'] }),
+          this.widget({ tier: 't3', title: 'Stav projektů', count: 4, aside: h('span', { style: { color: 'var(--rose)' } }, '1 selhává'), body: this.tiles(), controls: ['set'] }),
+          this.widget({ tier: 't3', title: 'Automatizace · 24 h', count: 3, body: this.timeline(), controls: ['set'] })),
+        this.widget({ tier: 't2', span: 5, title: 'Issues', count: 7, you: 2, body: this.issuesBody(false) }),
+        h('div', { className: 'col', style: { gridColumn: 'span 4' } },
+          this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(5), controls: ['filter', 'set'] }),
+          this.widget({ tier: 't3', title: 'Tým — znalosti', count: 39, body: this.know(4), controls: ['set'] })),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't3', title: 'Rozpočty a limity', aside: h('span', { style: { color: 'var(--amber-fg)' } }, '1 nad 85 %'), body: this.meters(4), controls: ['set'] }),
+          this.widget({ tier: 'paper', cls: 'paper', title: 'TODO', count: 4, body: this.todo(), controls: ['plus', 'set'] }),
+          this.widget({ tier: 't3', title: 'Rychlé akce', count: 2, body: this.quick(), controls: ['plus', 'set'] }),
+          this.widget({ tier: 't3', title: 'Připnuté', count: 6, body: this.pins(), controls: ['set'] }))));
+  }
+  aReview() {
+    const h = this.h, sel = this.selId(), sp = sel && this.allPRs().find(p => p.id === sel);
+    return h('div', { className: 'stage' }, this.top(), this.sub(),
+      h('div', { className: 'g' },
+        h('section', { className: 'hero slim', 'aria-label': 'Briefing' },
+          h('h2', null, '29 PR čeká na review týmu, ', h('span', { style: { color: 'var(--amber-fg)' } }, '2 přímo na tebe'), '. Jeden stack padá na e2e.'),
+          h('div', { className: 'ctrs' }, [['02', 'Na tebe', 'amber'], ['37', 'Otevřené', ''], ['03', 'CI selhává', 'rose'], ['01', 'Konflikt', '']].map(([n, l, c]) => h('div', { className: 'ctr ' + c }, h('span', { className: 'n' }, n), h('span', { className: 'l' }, l))))),
+        h('div', { className: 'rel', style: { gridColumn: 'span 6' } },
+          this.widget({ tier: 't1', title: 'Pull requesty', count: 37, you: 2, aside: 'seřazeno podle priority', body: this.prBody('review') }),
+          sp ? this.sheet(sp) : null),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Issues', count: 7, you: 2, body: this.issuesBody(true) }),
+          this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(3), controls: ['filter', 'set'] })),
+        h('div', { className: 'col', style: { gridColumn: 'span 3' } },
+          this.widget({ tier: 't2', title: 'Běhy', count: 10, you: 2, body: this.runsBody(true), controls: ['set', 'chev'] }),
+          this.widget({ tier: 'cl', title: 'Návrhy', count: 0, aside: h('span', null, h('span', { style: { color: 'var(--emerald)', opacity: .7 } }, '✓'), 'Vše v pořádku'), controls: ['set'] }),
+          this.widget({ tier: 't3', title: 'Stav projektů', count: 4, aside: h('span', { style: { color: 'var(--rose)' } }, '1 selhává'), body: this.tiles(), controls: ['set'] }))));
+  }
+  aPhone() {
+    const h = this.h;
+    const youPR = this.allPRs().filter(p => p.rv === 'you');
+    const sums = [
+      ['grid', 'Stav projektů', h('span', { className: 'v', style: { color: 'var(--rose)' } }, h('span', { className: 'dot error', style: { width: 7, height: 7 } }), '1 selhává')],
+      ['clock', 'Automatizace', h('span', { className: 'v' }, '3 v noci · 03:00')],
+      ['lines', 'Rozpočty', h('span', { className: 'v', style: { color: 'var(--amber-fg)' } }, 'Partner CLI 90 %')],
+      ['bell', 'Zmínky', h('span', { className: 'v' }, '2 nepřečtené')],
+      ['book', 'Tým — znalosti', h('span', { className: 'v' }, '4 otázky')],
+      ['note', 'TODO', h('span', { className: 'v' }, '3 otevřené')],
+      ['spark', 'Návrhy', h('span', { className: 'v' }, 'po schválení prázdné')]
+    ];
+    return h('div', { className: 'stage phone' }, h('div', { className: 'ph' }, h('div', { className: 'scr' },
+      h('div', { className: 'sbar' }, h('span', null, '20:50'), h('span', { className: 'mono', style: { fontSize: 12 } }, '5G ▮▮▮')),
+      h('div', { className: 'ab' }, h('div', { className: 'logo' }, this.bow(26, false)), h('h1', null, 'Můstek'), h('span', { className: 'sp' }), h('button', { className: 'bell', 'aria-label': 'Hledat' }, this.ic('search', 17)), h('button', { className: 'bell', 'aria-label': 'Oznámení, 5 nových' }, this.ic('bell', 17), h('b', null, '5'))),
+      h('div', { className: 'hero2' }, h('div', { className: 'eb' }, 'Sobota 14. 11. · 20:50'), h('h2', null, 'Dobrý večer, Karle.'), h('p', null, 'Tři věci čekají na tebe — ', h('span', { className: 'a' }, '1 schválení a 2 zaparkované běhy'), '. Jinak klid.')),
+      h('div', { className: 'ctrs2' }, [['03', 'Na tebe', 'amber'], ['00', 'Běží', ''], ['29', 'K review', ''], ['01', 'Selhává', 'rose']].map(([n, l, c]) => h('div', { className: 'ctr2 ' + c }, h('div', { className: 'n' }, n), h('div', { className: 'l' }, l)))),
+      h('div', { className: 'zl' }, h('span', { className: 'you' }, h('i', { className: 'd' }), 'Na tebe · 3'), h('span', { className: 'sp' })),
+      h('div', { className: 'zone' },
+        this.widget({ tier: 't1', title: 'Návrhy', count: 1, body: this.decide(), controls: [] }),
+        this.widget({ tier: 't1', title: 'Běhy', count: 10, aside: '2 zaparkované', body: h('div', null, this.PARK.map(r => this.park(r)), h('button', { className: 'more' }, 'Fronta 3 · Dokončené 10 →')), controls: [] })),
+      h('div', { className: 'zl' }, 'Ke kontrole'),
+      h('div', { className: 'zone' },
+        this.widget({ tier: 't2', title: 'Pull requesty', count: 37, you: 2, body: h('div', null, youPR.map(p => this.prRow(p, 'default', true)), this.prRow(this.PRS[2], 'default'), h('button', { className: 'more' }, 'Všech 37 →')), controls: [] }),
+        this.widget({ tier: 't2', title: 'Issues', count: 7, you: 2, body: this.issuesBody(true), controls: [] })),
+      h('div', { className: 'zl' }, 'Ostatní'),
+      h('div', { className: 'zone' }, h('div', { className: 'w t2', style: { padding: '2px 8px' } }, sums.map(([i, l, v]) => h('button', { className: 'sum' }, h('span', { className: 'dim' }, this.ic(i, 16)), h('b', null, l), v, h('span', { className: 'dim' }, this.ic('chevr', 14)))))),
+      h('div', { className: 'zl' }, 'Rychlé akce'),
+      h('div', { style: { padding: '0 16px 20px' } }, this.quick())),
+      h('nav', { className: 'tabbar', 'aria-label': 'Navigace' }, [['home', 'Můstek', 1], ['inbox', 'Inbox', 0, '3'], ['grid', 'Práce'], ['search', 'Hledat']].map(([i, l, on, b]) => h('button', { className: on ? 'on' : '' }, this.ic(i, 20), l, b ? h('b', null, b) : null))),
+      h('span', { className: 'home', 'aria-hidden': 'true' })));
+  }
+  bQueue() {
+    const h = this.h;
+    const Q = [
+      { sg: 'spark', hot: true, src: 'Návrhy · automatizace', t: 'Spouštět noční CI triage i pro shoptet/partner-cli', p: 'Develop padá třetí den. Odhad $0,40 za běh.', a: ['Schválit', 'Zamítnout'] },
+      { sg: 'pause', hot: true, src: 'Běhy · PR rebase · 21 h', t: 'Rebase cms4#47385 se zastavil na konfliktu', p: 'composer.lock — vyber verzi, nebo předej rebase-resolveru.', a: ['Předat agentovi', 'Otevřít'] },
+      { sg: 'pause', hot: true, src: 'Běhy · rebase-resolver · 22 h', t: 'Fix CI cms4#47546 čeká na povolení force-push', p: 'Oprava 3 e2e testů je připravená.', a: ['Povolit', 'Detail'] },
+      { sg: 'pr', src: 'Pull requesty · agent delivery · 3 h', t: '#48102 Migrate partner-cli CI to GitLab pipelines', p: 'Požádal tě o review · CI běží · +214 −96', a: ['Otevřít review'] },
+      { sg: 'pr', src: 'Pull requesty · Tomáš Beneš · 1d 4h', t: '#48051 Add the addon detail and ratings to the Partner Portal', p: 'Stack nad #47714 · e2e selhává na ratingách', a: ['Otevřít review'] },
+      { sg: 'issue', src: 'Issues · CZ3TDR1-852 + CZ3TDR1-769', t: '2 issues čekají na tvou odpověď v review', p: 'Portal Addons · Partner access to CMS', a: ['Projít'] }
+    ];
+    const mine = this.PRS.filter(p => p.sec === 'mine');
+    return h('div', { className: 'stage' }, this.top(), this.sub('queue'),
+      h('div', { className: 'g' },
+        h('div', { style: { gridColumn: 'span 8', minWidth: 0 } },
+          h('div', { className: 'qh' }, h('h2', null, 'Na tahu'), h('span', null, '3 blokují práci · 3 čekají na review · ~25 min'), h('span', { className: 'sp' }), h('button', { className: 'btn gh' }, 'Vyřídit postupně', h('span', { className: 'kbd' }, '↵'))),
+          h('div', { className: 'qlist' }, Q.map(q => h('div', { className: 'q' + (q.hot ? ' hot' : '') },
+            h('span', { className: 'sg' }, this.ic(q.sg, 17)),
+            h('div', { style: { minWidth: 0 } }, h('div', { className: 'src3' }, q.src), h('h4', null, q.t), h('p', null, q.p)),
+            h('div', { className: 'acts' }, q.a.map((a, i) => h('button', { className: 'btn sm' + (i === 0 && q.hot ? ' pri' : i === 0 ? '' : ' gh') }, a)))))),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 28, marginTop: 30 } },
+            this.widget({ tier: 't3', title: 'Moje PR', count: 5, body: h('div', null, mine.map(p => this.prStack(p, 'default'))), controls: ['filter', 'set'] }),
+            this.widget({ tier: 't3', title: 'Zmínky', count: 50, aside: '2 nepřečtené', body: this.feed(5), controls: ['set'] }))),
+        h('div', { style: { gridColumn: 'span 4', minWidth: 0 } },
+          h('div', { className: 'inst' },
+            h('div', null, h('h3', null, h('span', null, 'Projekty'), h('span', { style: { color: 'var(--rose)' } }, '1 selhává')), h('div', { style: { marginTop: 10 } }, this.tiles())),
+            h('div', null, h('h3', null, h('span', null, 'Běhy'), h('span', null, '0 běží')), h('div', { style: { margin: '4px -10px 0' } }, this.runsBody(true, true))),
+            h('div', null, h('h3', null, h('span', null, 'Dnes v noci'), h('span', null, '3 automatizace')), this.timeline()),
+            h('div', null, h('h3', null, h('span', null, 'Rozpočty'), h('span', { style: { color: 'var(--amber-fg)' } }, '1 nad 85 %')), this.meters(3)),
+            h('div', { style: { paddingBottom: 10 } }, h('h3', { style: { marginBottom: 10 } }, h('span', null, 'Rychlé akce'), h('span')), this.quick())))));
+  }
+  cEdition() {
+    const h = this.h;
+    const N = [['01', 'Schválit noční CI triage pro partner-cli', 'Návrh automatizace'], ['02', 'Rozhodnout konflikt v rebase #47385', 'Zaparkovaný běh · 21 h'], ['03', 'Povolit force-push pro Fix CI #47546', 'Zaparkovaný běh · 22 h']];
+    const it = (k, t, s, dot) => h('div', { className: 'it' }, h('div', { className: 'k' }, dot ? h('span', { className: 'dot ' + dot, style: { width: 6, height: 6, boxShadow: 'none' } }) : null, k), h('div', { className: 'tt' }, t), s ? h('div', { className: 's' }, s) : null);
+    return h('div', { className: 'stage' }, this.top(),
+      h('div', { className: 'ed' },
+        h('div', { className: 'mast' }, h('h1', { style: { fontSize: 22, fontWeight: 600, letterSpacing: '-.025em' } }, 'Můstek'), h('span', { className: 'nm' }, 'Večerní vydání'), h('span', { className: 'sp' }), h('span', { className: 'nm' }, 'Sobota 14. listopadu 2026 · 20:50'), h('button', { className: 'btn pri' }, this.ic('plus', 13), 'Nový úkol')),
+        h('div', { className: 'lead' },
+          h('div', null, h('div', { className: 'eb' }, 'Na tebe'), h('h2', null, 'Tři věci čekají na tebe.'),
+            N.map(([n, t, s]) => h('button', { className: 'nd' }, h('span', { className: 'no' }, n), h('span', null, h('span', { className: 'tt', style: { display: 'block' } }, t), h('span', { className: 's' }, s)), h('span', { className: 'dim' }, this.ic('chevr', 16))))),
+          h('div', { className: 'figs' }, [['37', 'otevřených PR', ''], ['29', 'čeká na review týmu', ''], ['0', 'běží právě teď', 'dim'], ['1', 'projekt selhává na CI', 'rose']].map(([n, l, c]) => h('div', { className: 'fig ' + c }, h('div', { className: 'n' }, n), h('div', { className: 'l' }, l))))),
+        h('div', { className: 'cols' },
+          h('div', null, h('h3', null, h('span', null, 'Kód'), h('span', { className: 'mono' }, '37')),
+            it('#48051 · TOMÁŠ BENEŠ', 'Add the addon detail and ratings to the Partner Portal', 'Tvoje review · e2e selhává', 'error'),
+            it('#48102 · AGENT DELIVERY', 'Migrate partner-cli CI to GitLab pipelines', 'Tvoje review · CI běží', 'thinking'),
+            it('#47385 · MOJE', 'Portal account settings: API access credentials', 'Schváleno · konflikt s master', 'blocked'),
+            it('#47977 · MOJE', 'Move partner portal shop list to its own page', 'Schváleno · připraveno k merge', 'done')),
+          h('div', null, h('h3', null, h('span', null, 'Práce'), h('span', { className: 'mono' }, '7')),
+            this.EPICS.slice(0, 3).map(e => it(e.key + ' · ' + e.d + '/' + e.n, e.nm, e.items.filter(i => i.you).length ? e.items.filter(i => i.you).length + ' čeká na tebe' : e.items.length + ' otevřené')),
+            it('BEZ EPICU · 3', 'ModalForm, Account settings ×2', '2 k review')),
+          h('div', null, h('h3', null, h('span', null, 'Stroje'), h('span', null, 'nic neběží')),
+            h('h5', null, 'Ve frontě'), this.QUEUE.map(r => it(r.time.toUpperCase(), r.t, null, 'idle')),
+            h('h5', null, 'Dnes v noci'), it('03:00 · 03:30', 'Destilace paměti, Obnova sebeznalosti, Lint vaultu'),
+            h('h5', null, 'Projekty'), h('div', { className: 'it' }, h('div', { className: 'tt', style: { fontSize: 13.5 } }, 'cms4 zelená. ', h('span', { style: { color: 'var(--rose)' } }, 'Partner CLI padá na develop.'), ' DevRel a sit-and-park v klidu.'))),
+          h('div', null, h('h3', null, h('span', null, 'Tým'), h('span', null, '2 nepřečtené')),
+            this.FEED.slice(0, 2).map(f => it(f.src + ' · ' + f.age, f.t, f.who)),
+            h('h5', null, 'Otevřené otázky'), this.KN.slice(0, 2).map(k => it(k.s.toUpperCase(), k.q)))),
+        h('div', { className: 'foot' }, h('span', { className: 'dim' }, 'Rozpočty'),
+          this.BUD.map(b => h('span', { className: 'm' + (b.hot ? '' : '') }, b.l, h('span', { className: 'bar', style: { display: 'inline-block' } }, h('i', { style: { width: b.p + '%', background: b.hot ? 'var(--amber)' : undefined } })), h('span', { className: 'mono', style: { color: b.hot ? 'var(--amber)' : 'var(--ink3)' } }, b.p + ' %'))),
+          h('span', { style: { flex: 1 } }), h('button', { className: 'btn sm' }, this.ic('play', 10), 'Standup'), h('button', { className: 'btn sm' }, this.ic('play', 10), 'Dětské omalovánky'))));
+  }
+
+  CAPS = {
+    'a-default': ['A · Tichý briefing — výchozí layout', 'Briefing jako hero bez rámu, dvě primární (T1) karty s jantarovou hranou pro to, co čeká na tebe, zbytek ambientně bez chrome. Klikni na PR — detail se otevře vedle; J/K prochází, Esc zavírá. Ovládání widgetů se ukáže při najetí.'],
+    'a-review': ['A · Tichý briefing — layout REVIEW', 'PR na 6 sloupců s filtry, diffem a otevřeným detailem vedle řádku. Návrhy jsou prázdné, takže se sbalily na jednu tichou hlavičku (ALL CLEAR ustupuje).'],
+    'a-phone': ['A · Telefon 390 px', 'Jeden sloupec, hierarchie zachovaná: hero → „Na tebe“ (T1) → ke kontrole (T2) → ostatní jako souhrnné řádky. Tap naviguje, žádný drag.'],
+    'b-queue': ['B · Fronta — alternativní směr', 'Všechno „na tebe“ se z widgetů vytáhne do jedné fronty rozhodnutí vlevo. Widgety vpravo se stanou tichým „přístrojovým“ sloupcem. Méně svobody v layoutu, víc „inbox zero“.'],
+    'c-edition': ['C · Vydání — alternativní směr', 'Žádné karty: Můstek jako titulní strana novin. Velká typografie, sloupce oddělené linkou, čísla jako infografika. Nejklidnější, ale drag mřížka by žila jen v režimu úprav.']
+  };
+
+  renderVals() {
+    const v = this.view(), dn = this.state.density || this.props.density || 'comfortable';
+    const VL = [['a-default', 'A · Výchozí'], ['a-review', 'A · Review'], ['a-phone', 'A · Telefon'], ['b-queue', 'B · Fronta'], ['c-edition', 'C · Vydání'], ['spec', 'Spec']];
+    const isSpec = v === 'spec';
+    let dash = null;
+    if (!isSpec) {
+      const h = this.h, cap = this.CAPS[v] || this.CAPS['a-default'];
+      const body = v === 'a-review' ? this.aReview() : v === 'a-phone' ? this.aPhone() : v === 'b-queue' ? this.bQueue() : v === 'c-edition' ? this.cEdition() : this.aDefault();
+      dash = h('div', null, h('div', { className: 'cap' + (v === 'a-phone' ? ' ph' : '') }, h('b', null, cap[0]), h('span', null, cap[1], v === 'a-phone' ? '' : ' Zkus ⌥ Space (podrž a rovnou mluv) nebo tlačítko „Zibby“ v hlavičce.')), v === 'a-phone' ? body : this.withZ(body));
+    }
+    return {
+      views: VL.map(([k, l]) => ({ label: l, on: v === k, pick: () => { this.zclear(); this.ztalk = false; this.setState({ view: k, sel: undefined, zp: 'closed' }); } })),
+      canZ: !isSpec && v !== 'a-phone', zOpen: () => { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} this.zsummon(false); },
+      dens: [['compact', 'Kompaktní'], ['comfortable', 'Normální'], ['spacious', 'Vzdušná']].map(([k, l]) => ({ label: l, on: dn === k, pick: () => this.setState({ density: k }) })),
+      rowpad: { compact: '4px', comfortable: '8px', spacious: '12px' }[dn] || '8px',
+      isDash: !isSpec, isSpec, dash,
+      theme: this.theme(), themes: [['dark', 'Tmavé'], ['light', 'Světlé']].map(([k, l]) => ({ label: l, on: this.theme() === k, pick: () => this.setTheme(k) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

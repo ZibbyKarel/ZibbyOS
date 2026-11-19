@@ -133,6 +133,20 @@ describe("VaultService write paths", () => {
     expect(graph.nodes.some((n) => n.id === "fresh")).toBe(true);
   });
 
+  it("flags raw (halda) notes on graph nodes and leaves triaged ones unflagged", async () => {
+    await vault.createNote({
+      id: "heap-note",
+      tier: "knowledge",
+      title: "Heap",
+      body: "x",
+      frontmatter: { raw: true },
+    });
+    await vault.createNote({ id: "sorted-note", tier: "knowledge", title: "Sorted", body: "y" });
+    const graph = await vault.graph();
+    expect(graph.nodes.find((n) => n.id === "heap-note")?.raw).toBe(true);
+    expect(graph.nodes.find((n) => n.id === "sorted-note")?.raw).toBeUndefined();
+  });
+
   it("carries the owning project on graph nodes and search hits (Fáze 11)", async () => {
     await vault.createNote({
       id: "alpha-note",

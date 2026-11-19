@@ -16,6 +16,14 @@ export interface LayoutOptions {
   height?: number;
   /** Seed position of the i-th node; defaults to a circle. Must be deterministic. */
   seed?: (id: string, i: number, n: number) => { x: number; y: number };
+  /** Strength of the pull towards the target (default 0.01). */
+  pullStrength?: number;
+  /** Per-node pull target (default: the canvas centre). */
+  pull?: (id: string) => { x: number; y: number } | undefined;
+  /** Nodes that never move (the Index hub, the bridges). */
+  fixed?: ReadonlySet<string>;
+  /** Replaces the canvas clamp (e.g. keep a node inside its zone ellipse). */
+  clamp?: (p: Pos) => void;
 }
 
 export const DEFAULT_WIDTH = 560;
@@ -89,9 +97,19 @@ export function simulate(graph: LayoutGraph, opts: LayoutOptions = {}): Pos[] {
       b.y -= uy * disp;
     }
     for (const p of pos) {
-      p.x += (width / 2 - p.x) * CENTER_PULL;
-      p.y += (height / 2 - p.y) * CENTER_PULL;
+      const c = opts.pull?.(p.id) ?? { x: width / 2, y: height / 2 };
+      const pull = opts.pullStrength ?? CENTER_PULL;
+      p.x += (c.x - p.x) * pull;
+      p.y += (c.y - p.y) * pull;
     }
+    if (opts.fixed || opts.clamp)
+      for (const p of pos) {
+        if (opts.fixed?.has(p.id)) {
+          const s0 = seed(p.id, idx.get(p.id) ?? 0, n);
+          p.x = s0.x;
+          p.y = s0.y;
+        } else opts.clamp?.(p);
+      }
   }
   for (let i = 0; i < pos.length; i++) {
     const p = pos[i];
@@ -101,52 +119,126 @@ export function simulate(graph: LayoutGraph, opts: LayoutOptions = {}): Pos[] {
       p.x = s.x;
       p.y = s.y;
     }
-    p.x = Math.max(MARGIN, Math.min(width - MARGIN, p.x));
-    p.y = Math.max(MARGIN, Math.min(height - MARGIN, p.y));
+    if (!opts.clamp) {
+      p.x = Math.max(MARGIN, Math.min(width - MARGIN, p.x));
+      p.y = Math.max(MARGIN, Math.min(height - MARGIN, p.y));
+    }
   }
   return pos;
 }
 
-/** World (SVG viewBox) size for `n` nodes: roomier as the brain grows so nodes do not pile up. */
-export function worldSize(n: number): { width: number; height: number } {
-  const k = Math.max(1, Math.sqrt(n / 120));
-  return { width: Math.round(1000 * k), height: Math.round(680 * k) };
+/** One halo of the zoned brain: the vault (left), the team KBs (right) or the bridge strip (centre). */
+export interface BrainZone {
+  kind: "vault" | "kb" | "bridge";
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
 }
 
-/**
- * Lay the unified brain out in "hemispheres": each source's notes are seeded on a small circle
- * around its own anchor on a ring (the vault on the left, team KBs spreading right), the Index hub
- * in the middle, then the spring simulation relaxes them. Deterministic.
- */
-export function layoutBrain(graph: BrainGraphData): {
+export interface BrainLayout {
   pos: Map<string, Pos>;
-  width: number;
-  height: number;
-} {
-  const { width, height } = worldSize(graph.nodes.length);
-  const sources = [...new Set(graph.nodes.filter((n) => !n.hub).map((n) => n.sourceId))];
-  const bySource = new Map<string, string[]>();
-  for (const n of graph.nodes) {
-    if (n.hub) continue;
-    bySource.set(n.sourceId, [...(bySource.get(n.sourceId) ?? []), n.id]);
+  zones: BrainZone[];
+  /** Bounding box of every placed node (world units, origin = the Index hub). */
+  bounds: { x0: number; y0: number; x1: number; y1: number };
+}
+
+/** Phyllotaxis point `i` of `n` inside a disc of radius `r` — an even, deterministic fill. */
+const disc = (i: number, n: number, r: number) => {
+  const a = i * 2.399963;
+  const d = r * Math.sqrt((i + 0.5) / n);
+  return { x: Math.cos(a) * d, y: Math.sin(a) * d };
+};
+
+/**
+ * Lay the unified brain out as three zones around the Index hub at the origin: the vault ellipse
+ * on the left, the team-KB ellipse on the right (several KBs share it as sub-clusters), and the
+ * bridge strip in the middle ("Most · <KB>" nodes). Notes are seeded per cluster (vault: department
+ * shelf, else tier; KB: source), pulled to their cluster and clamped inside their zone, then relaxed
+ * by the spring simulation. Deterministic.
+ */
+export function layoutBrain(graph: BrainGraphData): BrainLayout {
+  const notes = graph.nodes.filter((n) => !n.hub);
+  const k = Math.max(1, Math.sqrt(notes.length / 260));
+  const vz: BrainZone = { kind: "vault", cx: -315 * k, cy: 15, rx: 335 * k, ry: 290 * k };
+  const kz: BrainZone = { kind: "kb", cx: 315 * k, cy: 30, rx: 335 * k, ry: 290 * k };
+  const bridges = graph.nodes.filter((n) => n.bridgeOf);
+  const zones: BrainZone[] = [vz, kz];
+  if (bridges.length > 0) zones.push({ kind: "bridge", cx: 0, cy: 0, rx: 90, ry: 160 });
+
+  // clusters: key → members, and the cluster centre inside its zone
+  const clusters = new Map<string, { zone: BrainZone; ids: string[] }>();
+  const keyOf = (n: BrainGraphData["nodes"][number]) =>
+    n.sourceId === "vault" ? `v:${n.department ?? n.tier ?? "-"}` : `k:${n.sourceId}`;
+  for (const n of notes) {
+    const key = keyOf(n);
+    const c = clusters.get(key) ?? { zone: n.sourceId === "vault" ? vz : kz, ids: [] };
+    c.ids.push(n.id);
+    clusters.set(key, c);
   }
+  const centreOf = new Map<string, { x: number; y: number }>();
   const seeds = new Map<string, { x: number; y: number }>();
-  const ring = 0.22 * Math.min(width, height);
-  sources.forEach((sid, s) => {
-    const a = Math.PI + (s * Math.PI * 2) / sources.length;
-    const cx = width / 2 + Math.cos(a) * ring;
-    const cy = height / 2 + Math.sin(a) * ring;
-    const ids = bySource.get(sid) ?? [];
-    const r = Math.min(0.2 * Math.min(width, height), 18 * Math.sqrt(ids.length));
-    ids.forEach((id, i) => {
-      const t = (i / ids.length) * Math.PI * 2;
-      seeds.set(id, { x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r });
+  for (const zone of [vz, kz]) {
+    const keys = [...clusters.entries()].filter(([, c]) => c.zone === zone).map(([key]) => key);
+    keys.forEach((key, gi) => {
+      const m = keys.length;
+      const a = -Math.PI / 2 + (gi / Math.max(1, m)) * Math.PI * 2 + (zone === kz ? 0.6 : 0);
+      const ring = m === 1 ? 0 : 0.5;
+      const c = {
+        x: zone.cx + Math.cos(a) * zone.rx * ring,
+        y: zone.cy + Math.sin(a) * zone.ry * ring,
+      };
+      const ids = clusters.get(key)?.ids ?? [];
+      centreOf.set(key, c);
+      const r = Math.min(zone.ry * 0.62, 16 * Math.sqrt(ids.length) + 20);
+      ids.forEach((id, i) => {
+        const d = disc(i, ids.length, r);
+        seeds.set(id, { x: c.x + d.x, y: c.y + d.y });
+      });
     });
+  }
+  const keyById = new Map(notes.map((n) => [n.id, keyOf(n)]));
+  const zoneById = new Map(notes.map((n) => [n.id, n.sourceId === "vault" ? vz : kz]));
+  const fixed = new Set<string>();
+  graph.nodes.forEach((n) => {
+    if (!n.hub) return;
+    fixed.add(n.id);
+    const bi = bridges.findIndex((b) => b.id === n.id);
+    seeds.set(
+      n.id,
+      bi < 0
+        ? { x: 0, y: 0 }
+        : { x: 0, y: bridges.length === 1 ? -100 : -100 + bi * (200 / (bridges.length - 1)) },
+    );
   });
+
   const positions = simulate(graph, {
-    width,
-    height,
-    seed: (id) => seeds.get(id) ?? { x: width / 2, y: height / 2 },
+    width: 1,
+    height: 1,
+    seed: (id) => seeds.get(id) ?? { x: 0, y: 0 },
+    pullStrength: 0.035,
+    pull: (id) => centreOf.get(keyById.get(id) ?? ""),
+    fixed,
+    clamp: (p) => {
+      const z = zoneById.get(p.id);
+      if (!z) return;
+      const dx = (p.x - z.cx) / (z.rx * 0.94);
+      const dy = (p.y - z.cy) / (z.ry * 0.94);
+      const d = Math.hypot(dx, dy);
+      if (d > 1) {
+        p.x = z.cx + (dx / d) * z.rx * 0.94;
+        p.y = z.cy + (dy / d) * z.ry * 0.94;
+      }
+    },
   });
-  return { pos: new Map(positions.map((p) => [p.id, p])), width, height };
+  const pos = new Map(positions.map((p) => [p.id, p]));
+  const xs = positions.map((p) => p.x);
+  const ys = positions.map((p) => p.y);
+  const bounds = {
+    x0: Math.min(0, ...xs),
+    y0: Math.min(0, ...ys),
+    x1: Math.max(0, ...xs),
+    y1: Math.max(0, ...ys),
+  };
+  return { pos, zones, bounds };
 }

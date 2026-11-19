@@ -5,6 +5,10 @@ import { groupVaultNodes } from "./groupVault";
 export const VAULT_SOURCE_ID = "vault";
 /** The synthetic "Index" hub node every source hangs off. */
 export const HUB_ID = "index";
+/** Id prefix of a synthetic "Most · <KB>" bridge node between the Index hub and a team KB. */
+export const BRIDGE_PREFIX = "bridge:";
+/** The synthetic Index hub or a bridge — structural nodes, never notes. */
+export const isStructural = (id: string) => id === HUB_ID || id.startsWith(BRIDGE_PREFIX);
 
 export interface BrainSource {
   id: string;
@@ -20,9 +24,13 @@ export interface BrainNode {
   label: string;
   tier?: MemoryTier;
   department?: DepartmentId;
+  /** Unsorted "halda": a vault note flagged raw, or a team KB note under `inbox/`. */
+  raw?: boolean;
   /** A team KB note that carries an open question (digest). */
   open?: boolean;
   hub?: boolean;
+  /** Set on a "Most · <KB>" bridge node: the team KB source it links to. */
+  bridgeOf?: string;
 }
 
 export interface BrainGraphData {
@@ -41,7 +49,7 @@ export function parseBrainId(id: string): { sourceId: string; localId: string } 
 
 export interface BrainInput {
   vault?: MemoryGraph;
-  kbs: { teamId: string; graph?: MemoryGraph }[];
+  kbs: { teamId: string; name?: string; graph?: MemoryGraph }[];
   /** Unified ids of notes with an open question. */
   openIds?: ReadonlySet<string>;
 }
@@ -54,9 +62,9 @@ export interface BrainInput {
 export function buildBrainGraph({ vault, kbs, openIds }: BrainInput): BrainGraphData {
   const nodes: BrainNode[] = [];
   const edges: BrainGraphData["edges"] = [];
-  const roots: string[] = [];
+  const roots: { sourceId: string; id: string; name?: string }[] = [];
 
-  const add = (sourceId: string, graph: MemoryGraph, withTiers: boolean) => {
+  const add = (sourceId: string, graph: MemoryGraph, withTiers: boolean, name?: string) => {
     const ids = new Set<string>();
     const degree = new Map<string, number>();
     for (const n of graph.nodes) {
@@ -69,6 +77,7 @@ export function buildBrainGraph({ vault, kbs, openIds }: BrainInput): BrainGraph
         label: n.label,
         ...(withTiers ? { tier: n.tier, department: n.department } : {}),
         ...(openIds?.has(id) ? { open: true } : {}),
+        ...(n.raw ? { raw: true } : {}),
       });
     }
     for (const e of graph.edges) {
@@ -82,15 +91,31 @@ export function buildBrainGraph({ vault, kbs, openIds }: BrainInput): BrainGraph
     const root = [...ids].sort(
       (a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0) || a.localeCompare(b),
     )[0];
-    if (root) roots.push(root);
+    if (root) roots.push({ sourceId, id: root, name });
   };
 
   if (vault) add(VAULT_SOURCE_ID, vault, true);
-  for (const kb of kbs) if (kb.graph) add(kb.teamId, kb.graph, false);
+  for (const kb of kbs) if (kb.graph) add(kb.teamId, kb.graph, false, kb.name);
 
   if (nodes.length > 0) {
     nodes.unshift({ id: HUB_ID, localId: HUB_ID, sourceId: HUB_ID, label: "Index", hub: true });
-    for (const r of roots) edges.push({ from: HUB_ID, to: r });
+    for (const r of roots) {
+      if (r.sourceId === VAULT_SOURCE_ID) {
+        edges.push({ from: HUB_ID, to: r.id });
+        continue;
+      }
+      // a team KB hangs off the hub through its own "Most · <KB>" bridge node
+      const bridge = `${BRIDGE_PREFIX}${r.sourceId}`;
+      nodes.push({
+        id: bridge,
+        localId: bridge,
+        sourceId: HUB_ID,
+        label: `Most · ${r.name ?? r.sourceId}`,
+        hub: true,
+        bridgeOf: r.sourceId,
+      });
+      edges.push({ from: HUB_ID, to: bridge }, { from: bridge, to: r.id });
+    }
   }
   return { nodes, edges };
 }
@@ -104,6 +129,8 @@ export interface BrainFilter {
   department: DepartmentId | null;
   /** Only notes without any link (hub edges do not count). */
   orphansOnly: boolean;
+  /** Only unsorted ("Neroztříděné") notes. */
+  unsortedOnly: boolean;
 }
 
 export const NO_FILTER: BrainFilter = {
@@ -111,27 +138,34 @@ export const NO_FILTER: BrainFilter = {
   tiers: null,
   department: null,
   orphansOnly: false,
+  unsortedOnly: false,
 };
 
 export const isFiltering = (f: BrainFilter) =>
-  f.sources !== null || f.tiers !== null || f.department !== null || f.orphansOnly;
+  f.sources !== null ||
+  f.tiers !== null ||
+  f.department !== null ||
+  f.orphansOnly ||
+  f.unsortedOnly;
 
 /** Apply the filter; the hub stays while any note does, and edges follow their endpoints. Pure. */
 export function filterBrain(graph: BrainGraphData, f: BrainFilter): BrainGraphData {
   if (!isFiltering(f)) return graph;
   const linked = new Set<string>();
   for (const e of graph.edges) {
-    if (e.from === HUB_ID || e.to === HUB_ID) continue;
+    if (isStructural(e.from) || isStructural(e.to)) continue;
     linked.add(e.from);
     linked.add(e.to);
   }
   const keep = graph.nodes.filter((n) => {
+    if (n.bridgeOf) return !f.sources || f.sources.has(n.bridgeOf);
     if (n.hub) return true;
     if (f.sources && !f.sources.has(n.sourceId)) return false;
     if (f.tiers && n.tier && !f.tiers.has(n.tier)) return false;
     if (f.department && n.sourceId === VAULT_SOURCE_ID && n.department !== f.department)
       return false;
     if (f.orphansOnly && linked.has(n.id)) return false;
+    if (f.unsortedOnly && !n.raw) return false;
     return true;
   });
   const ids = new Set(keep.map((n) => n.id));

@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode, Ref } from "react";
 import { Container } from "../Container/Container";
 import { Card, type CardProps, Corners, type CornersTone } from "../Card/Card";
 import type { Padding } from "../../tokens";
+import { cn } from "../../utils/cn";
 
 export enum PanelTestId {
   Root = "panel-root",
@@ -14,6 +15,8 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLDivElement>, "classN
   header?: ReactNode;
   /** Right-aligned header content (meta, status, actions). */
   headerEnd?: ReactNode;
+  /** Draw the rule under the header (default). `false` = a quiet header: no rule, tighter, muted `headerEnd`. */
+  headerRule?: boolean;
   /** Body padding token; omit to let the body content own its spacing. */
   padding?: Padding;
   /** Live panel: corner brackets in the live color; reserve for running/awaiting content. */
@@ -49,6 +52,7 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLDivElement>, "classN
 export function Panel({
   header,
   headerEnd,
+  headerRule = true,
   padding,
   live = false,
   liveTone = "run",
@@ -78,11 +82,18 @@ export function Panel({
       {!tone && live && <Corners inset="100" tone={liveTone} />}
       {(header || headerEnd) && (
         <div
-          className="flex items-center gap-2 border-b border-line px-4 py-2.5 font-sans text-widget-t2 text-ink"
+          className={cn(
+            "flex items-center gap-2 px-4 font-sans text-widget-t2 text-ink",
+            headerRule ? "border-b border-line py-2.5" : "pt-3.5",
+          )}
           data-testid={PanelTestId.Header}
         >
           {header}
-          {headerEnd && <span className="ml-auto">{headerEnd}</span>}
+          {headerEnd && (
+            <span className={cn("ml-auto", !headerRule && "text-meta text-ink-3")}>
+              {headerEnd}
+            </span>
+          )}
         </div>
       )}
       {padding !== undefined ? (

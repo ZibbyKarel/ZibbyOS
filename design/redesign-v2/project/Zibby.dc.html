@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zibby — orb a konverzace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<link rel="stylesheet" href="./orb.css">
+<script src="./orb.js"></script>
+<style>
+.zp{width:1440px;max-width:calc(100% - 40px);margin:24px auto 72px}
+.zhero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);border:1px solid var(--line2);border-radius:20px;overflow:hidden;background:var(--p1);margin-bottom:32px}
+.zstage{position:relative;min-height:600px;display:grid;place-items:center;background:radial-gradient(520px 380px at 50% 50%,color-mix(in srgb,var(--og,#888) 0%,transparent),transparent),var(--bg);overflow:hidden}
+.zstage .grid{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(400px 300px at 50% 50%,#000,transparent 75%);mask-image:radial-gradient(400px 300px at 50% 50%,#000,transparent 75%);opacity:.6}
+.zstage .lab{position:absolute;left:22px;bottom:20px;display:flex;gap:10px;align-items:center;font-size:13px;color:var(--ink2)}
+.zstage .lab b{color:var(--ink);font-weight:500}
+.zside{padding:30px 32px;display:flex;flex-direction:column;gap:20px;border-left:1px solid var(--line2)}
+.zside h2{font-size:34px;font-weight:600;letter-spacing:-.04em;margin:0}
+.zside .sub{font-size:15px;color:var(--ink2);line-height:1.55;margin:0}
+.chipz{display:flex;flex-wrap:wrap;gap:6px}
+.chipz button{height:30px;padding:0 12px;border-radius:99px;border:1px solid var(--line2);font-size:12.5px;color:var(--ink2);display:inline-flex;align-items:center;gap:7px}
+.chipz button:hover{color:var(--ink);border-color:var(--ink3)}
+.chipz [aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.desc{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px 14px;font-size:13.5px;padding:16px;border-radius:12px;background:var(--p2);border:1px solid var(--line)}
+.desc dt{color:var(--ink3);font-size:12px;padding-top:1px}
+.desc dd{margin:0;color:var(--ink)}
+.keys{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.k{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--line2);border-bottom-width:2px;background:var(--p2);font-family:'Geist Mono';font-size:12px;color:var(--ink)}
+.sh{font-size:20px;font-weight:600;letter-spacing:-.02em;margin:40px 0 6px}
+.shp{color:var(--ink2);font-size:14px;margin:0 0 18px;max-width:760px}
+.sgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.scard{border:1px solid var(--line2);border-radius:16px;background:var(--p1);overflow:hidden;display:flex;flex-direction:column}
+.scard .st{height:220px;display:grid;place-items:center;background:var(--bg);border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.scard .tx{padding:14px 16px 16px;font-size:12.5px;color:var(--ink2);display:flex;flex-direction:column;gap:6px}
+.scard .tx b{font-size:14.5px;color:var(--ink);font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.scard .tx b .mono{font-size:10.5px;color:var(--ink3);font-weight:400}
+.scard .tx i{font-style:normal;color:var(--ink3)}
+.sizes2{display:flex;align-items:flex-end;gap:44px;padding:30px;border:1px solid var(--line2);border-radius:16px;background:var(--bg)}
+.sizes2 figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:14px}
+.sizes2 figcaption{font-size:12px;color:var(--ink3);text-align:center}
+.tchip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 6px;border-radius:99px;border:1px solid var(--line2);background:var(--p1);font-size:13px;color:var(--ink)}
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.fstep{border:1px solid var(--line2);border-radius:14px;background:var(--p1);padding:14px;font-size:12.5px;color:var(--ink2)}
+.fstep b{display:block;color:var(--ink);font-size:13.5px;font-weight:600;margin:10px 0 3px}
+.fstep .mono{font-size:11px;color:var(--ink3)}
+.fstep .mini{height:110px;border-radius:10px;background:var(--bg);border:1px solid var(--line);position:relative;overflow:hidden}
+.mini .bar{position:absolute;left:0;right:0;top:0;height:14px;border-bottom:1px solid var(--line);background:var(--p1)}
+.mini .knot{position:absolute;left:10px;top:4px;width:6px;height:6px;border-radius:50%;background:var(--amber)}
+.mini .dim{position:absolute;inset:14px 0 0;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(2px)}
+.mini .ob{position:absolute;transform:translate(-50%,-50%)}
+.mini .ln{position:absolute;height:5px;border-radius:3px;background:var(--line2)}
+/* phone conversation mock */
+.phwrap{display:flex;gap:44px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.pc{height:100%;display:flex;flex-direction:column;background:var(--bg)}
+.pc .top2{display:flex;align-items:center;gap:10px;padding:2px 14px 6px}
+.pc .orbz{display:grid;place-items:center;padding:6px 0 4px}
+.pc .stl{text-align:center;font-size:12.5px;color:var(--ink2);margin-bottom:6px}
+.pc .th{flex:1;overflow-y:auto;padding:6px 14px;display:flex;flex-direction:column;gap:12px}
+.pc .me{align-self:flex-end;max-width:80%;padding:9px 13px;border-radius:16px 16px 4px 16px;background:var(--p2);border:1px solid var(--line2);font-size:14px}
+.pc .me small{display:block;font-size:10.5px;color:var(--ink3);margin-top:3px}
+.pc .zz{display:grid;grid-template-columns:22px minmax(0,1fr);gap:9px;font-size:14.5px;line-height:1.5}
+.pc .live{font-size:19px;text-align:center;padding:4px 18px;color:var(--ink);min-height:30px}
+.pc .live span{color:var(--ink3)}
+.pc .pttbar{padding:10px 16px 30px;display:flex;flex-direction:column;align-items:center;gap:8px;border-top:1px solid var(--line);background:var(--bar-2)}
+.pc .pttbig{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--sky) 20%,var(--p2));border:2px solid var(--sky);color:var(--ink);box-shadow:0 0 0 8px color-mix(in srgb,var(--sky) 12%,transparent)}
+.pc .pttbar small{font-size:11.5px;color:var(--ink3)}
+</style>
+</helmet>
+<div class="bz" data-theme="{{ theme }}">
+  <nav class="vt" aria-label="Zibby">
+    <span class="lbl">Zibby · orb a konverzace</span>
+    <span style="flex:1"></span>
+    <div class="seg" role="group" aria-label="Téma">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+  {{ page }}
+
+  <article class="spec">
+    <h1>Zibby — specifikace</h1>
+    <p class="lede"><strong>Zibby nahrazuje chat.</strong> Je to hlasová, obousměrná konverzace s komorníkem, kterou vyvoláš kdekoli. Orb je jeho tvář: barva říká stav (stejná paleta jako Můstek), <strong>tvar a pohyb říkají, co právě dělá</strong>. Přepis toho, co říkáš ty, i jeho odpovědí je vždy vidět ve vlákně.</p>
+
+    <h2>1. Vyvolání</h2>
+    <ul>
+      <li><strong>Globální zkratka, výchozí <code>⌥ Space</code></strong> (Windows/Linux <code>Ctrl Space</code>). Funguje na každé stránce, i když je fokus v inputu. Mění se v Nastavení → Zkratky: nahrání kombinace, varování při kolizi se systémem nebo prohlížečem, tlačítko „Obnovit výchozí“.</li>
+      <li><strong>Ťuknutí</strong> = otevře Zibbyho ve stavu Připraven. <strong>Podržení</strong> = vysílačka: otevře a rovnou poslouchá, puštěním se řeč odešle. Jedno gesto od myšlenky k odpovědi.</li>
+      <li><strong>Animace vyvolání (850 ms):</strong> jantarový uzel motýlku v hlavičce se „utrhne“ (pop 0→16 %), vyskočí po oblouku (x ease-out, y ease-in) do středu, roste z 6 % na 100 %, v letu je ve stavu Probouzí se. Dashboard se během letu ztlumí a rozostří (blur 10 px). Při dopadu rázová vlna a orb přejde do stavu Připraven. V motýlku mezitím zůstane prázdný kroužek — Zibby „odešel“ z loga.</li>
+      <li><strong>Zavření:</strong> Esc nebo klik mimo. Orb odletí zpět do uzlu (500 ms), motýlek se znovu „rozsvítí“. Rozhovor zůstává, příští vyvolání na něj navazuje; „Nový rozhovor“ ho uzavře do historie.</li>
+    </ul>
+
+    <h2>2. Konverzace hlasem</h2>
+    <ul>
+      <li><strong>Push-to-talk: drž mezerník a mluv.</strong> Během mluvení se pod orbem v reálném čase zobrazuje přepis (potvrzená slova bíle, rozpracované šedě). Puštěním se zpráva automaticky odešle — žádný Enter.</li>
+      <li>Kratší podržení než 300 ms se nebere jako řeč (ochrana proti náhodnému ťuknutí), ukáže se nápověda.</li>
+      <li><strong>Hands-free režim</strong> (přepínač v composeru): jedno ťuknutí spustí poslech, konec věty pozná Zibby sám po ~0,8 s ticha. Vhodné na delší diktování.</li>
+      <li><strong>Přerušení:</strong> když Zibby mluví a ty zmáčkneš mezerník, okamžitě přestane, odpověď ve vlákně se ukončí „…“ a poslouchá tebe.</li>
+      <li><strong>Odpověď</strong> jde současně hlasem i textem; text se ve vlákně objevuje v tempu řeči. Přepínač „Ztlumit“ = jen text.</li>
+      <li><strong>Akce v odpovědi</strong> (schválit, předat, otevřít) jsou karty přímo ve vlákně a dají se odkliknout i hlasem („jo, schval to“).</li>
+      <li><strong>Psaní zůstává</strong> jako záloha: pole „nebo napiš…“ v composeru; když je v něm fokus, mezerník píše mezeru.</li>
+      <li>Moje bubliny mají značku „přepis“ a dají se po kliknutí opravit a odeslat znovu.</li>
+    </ul>
+
+    <h2>2b. Rozhovory, historie a přílohy</h2>
+    <ul>
+      <li><strong>Zibby je plná náhrada chatu.</strong> Každé vyvolání pokračuje v aktuálním rozhovoru; vše se ukládá automaticky.</li>
+      <li><strong>Hlavička overlaye:</strong> vlevo „Historie“ (<code>⌥ H</code>), uprostřed název rozhovoru (klik = přejmenovat; nový rozhovor se pojmenuje podle první věty), vpravo „Nový rozhovor“ (aktuální se uloží do historie), menu ⋯ (Přejmenovat, Vyčistit a začít znovu, Smazat) a zavřít.</li>
+      <li><strong>Historie = postranní panel vlevo</strong>, ve výchozím stavu zavřený. Hledání v názvech i obsahu se zvýrazněním shody a ukázkou nalezené věty; skupiny Dnes / Včera / Tento týden / Starší; aktivní rozhovor je zvýrazněný. Na řádku (při hoveru nebo fokusu) tužka = přejmenovat (také dvojklik), koš = smazat. Prázdné rozhovory se do historie neukládají.</li>
+      <li><strong>Vyčistit a smazat jdou vrátit:</strong> toast „Konverzace vyčištěna · Vrátit“ / „Smazáno … · Vrátit“ na 5 s, bez potvrzovacích dialogů.</li>
+      <li><strong>Přílohy:</strong> přetažením souborů <em>kamkoli</em> na aplikaci (když je Zibby zavřený, sám se otevře a ukáže zónu „Pusť soubory sem“), přes sponku v composeru nebo vložením ze schránky. Max 10 souborů najednou; čipy s náhledem obrázku nebo typem (PDF, kód, tabulka), názvem, velikostí a ×. Přílohy se odešlou s další zprávou — mluvenou i psanou, nebo samotné. Ve vlákně zůstávají u mé bubliny.</li>
+      <li>Zibby na přílohy reaguje akční kartou (Shrnout, Založit úkol, Přiložit k PR); přílohy se ukládají k rozhovoru a jsou dohledatelné v historii.</li>
+    </ul>
+
+    <h2>3. Stav orbu ← události</h2>
+    <table>
+      <thead><tr><th>Událost</th><th>Stav</th><th>Hlasitost</th></tr></thead>
+      <tbody>
+        <tr><td>Zavřeno</td><td>Spí (uzel v motýlku nese stav systému)</td><td>tiché</td></tr>
+        <tr><td>Zkratka</td><td>Probouzí se → Připraven</td><td>krátký záblesk</td></tr>
+        <tr><td>Mezerník dole / hlas</td><td>Poslouchá (amplituda řídí „dech“)</td><td>reaktivní</td></tr>
+        <tr><td>Odesláno, LLM běží</td><td>Přemýšlí</td><td>střední</td></tr>
+        <tr><td>Tool call: čtení dat</td><td>Hledá</td><td>střední</td></tr>
+        <tr><td>Tool call: akce / agenti</td><td>Pracuje (satelit = 1 agent)</td><td>střední</td></tr>
+        <tr><td>TTS přehrává</td><td>Mluví (amplituda TTS řídí pulz)</td><td>reaktivní</td></tr>
+        <tr><td>Odpověď čeká na rozhodnutí</td><td>Čeká na tebe</td><td>hlasité (jantar)</td></tr>
+        <tr><td>Akce dokončena</td><td>Hotovo → po 1,5 s Připraven</td><td>krátké</td></tr>
+        <tr><td>Chyba / zamítnuto</td><td>Chyba → Připraven</td><td>krátké, výrazné</td></tr>
+        <tr><td>Limit, offline, ztlumený mikrofon</td><td>Pozastaveno</td><td>tiché</td></tr>
+      </tbody>
+    </table>
+
+    <h2>4. Implementace</h2>
+    <pre>&lt;ZibbyOrb state="listen" size={140} level={micLevel} /&gt;   // level 0–1 škáluje „dech“ (Poslouchá, Mluví)
+
+useZibby()  // zustand store: phase (closed|summoning|open|leaving), orbState, thread[], mode (ptt|handsfree)
+  summon({ hold })  dismiss()  startTalk()  stopTalk()  send(text, files)  interrupt()
+  conversations: newConversation()  open(id)  rename(id, title)  clear()  remove(id)  undo()  search(q)
+  attachments:   addFiles(FileList)  removeFile(i)   // drop kdekoli v aplikaci → summon + drop zóna
+
+// hlas — vyměnitelné adaptéry
+SpeechToText: streaming (partial + final), CZ first  → onPartial / onFinal
+TextToSpeech: streaming audio + časování slov       → onWord (synchronizace textu)
+Zkratka: globální listener (Electron globalShortcut / v prohlížeči keydown na window)</pre>
+    <ul>
+      <li><strong>Orb je síťovaná koule</strong> vykreslená na <code>&lt;canvas&gt;</code> (2D, bez WebGL): mřížka rovnoběžek a poledníků (hustota podle velikosti, 10–58 rovnoběžek), deformovaná vrstveným šumem; gradient přes celou kouli, kruhová záře, dvojí tah na okraji (fresnel), tečky v uzlech a oblak částic. Jeden sdílený <code>requestAnimationFrame</code> pro všechny orby, mimo obrazovku se nekreslí. Parametry stavů (rotace, amplituda, frekvence, vlny, twist, pás, satelity, prstence, glitch) a barvy se mezi stavy interpolují, takže přechody jsou plynulé. Referenční implementace: <code>orb.js</code>; v aplikaci jako <code>&lt;ZibbyOrb state size level /&gt;</code> (hook nad canvasem), později lze vyměnit za shader bez změny API.</li>
+      <li>Zibby kompletně nahrazuje chat (původní COO dock vpravo dole). Historie rozhovorů je v postranním panelu overlaye; store <code>useZibby</code> drží rozhovory, aktivní id a koncepty příloh.</li>
+      <li><strong>Přístupnost:</strong> orb má <code>role="img"</code> a textový stav v <code>aria-live</code> pod sebou; panel je dialog s fokus trapem; při <code>prefers-reduced-motion</code> se tvar nemění, stav nese jen barva a text; push-to-talk jde i myší/dotykem (podržení tlačítka mikrofonu).</li>
+    </ul>
+  </article>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"tsType":"string","section":"Pohled"}}'>
+class Component extends DCLogic {
+  state = { theme: null, sel: 'ready', auto: false, ai: 0 };
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  ORBST = [
+    ['sleep', 'Spí', 'Zibby je zavřený a žije jako uzel v motýlku v hlavičce.', 'Menší, tmavá, skoro hladká síť.', 'Velmi pomalá rotace, částice kolem téměř zhasnou.'],
+    ['ready', 'Připraven', 'Vyvolaný, čeká, až promluvíš.', 'Hustá síť jemně zvlněná jako živá blána, gradient modrá → fialová → magenta.', 'Klidná rotace, povrch pomalu „dýchá“, kolem se vznáší oblak částic.'],
+    ['wake', 'Probouzí se', 'Vyskakuje z uzlu motýlku po zkratce.', 'Síť se roztřese a nafoukne.', 'Rychlá rotace, jantarový záblesk, částice vystřelí ven.'],
+    ['listen', 'Poslouchá', 'Držíš mezerník a mluvíš.', 'Po síti běží jemné vodorovné vlny.', 'Vlny jedou nahoru v rytmu hlasu, částice kolem pulzují.'],
+    ['think', 'Přemýšlí', 'Po odeslání, než začne odpovídat.', 'Síť se zkroutí do víru, vrstvy rotují proti sobě.', 'Rychlé přelévání povrchu, výraznější záře.'],
+    ['search', 'Hledá', 'Prochází běhy, PR, zmínky a vault.', 'Klidná koule, přes kterou jede svítící pás.', 'Skenovací pás přejíždí nahoru a dolů a rozsvěcuje rovnoběžky.'],
+    ['work', 'Pracuje', 'Spustil agenty nebo akci.', 'Menší síť, kolem obíhají satelity propojené vláknem.', 'Satelit = agent; každý táhne stopu a drží spojení se sítí.'],
+    ['speak', 'Mluví', 'Odpovídá hlasem, text se přepisuje do vlákna.', 'Teplá síť, která se roztahuje po slabikách.', 'Rytmické nadechování podle řeči, částice pulzují s ní.'],
+    ['needs', 'Čeká na tebe', 'Potřebuje rozhodnutí nebo schválení.', 'Jantarová síť vysílá prstence teček.', 'Prstence se šíří od rovníku ven, koule lehce poskakuje.'],
+    ['done', 'Hotovo', 'Akce se povedla.', 'Dokonale hladká zelená koule.', 'Vlnění ustane, přes síť jednou přejede světlý poledník.'],
+    ['error', 'Chyba', 'Něco nejde: blokace, selhání, zamítnutí.', 'Rozbitá síť s trhlinami a výčnělky.', 'Uzly cukají, linky se trhají, pásy se posouvají.'],
+    ['paused', 'Pozastaveno', 'Limit, offline nebo ztlumeno.', 'Šedá, prořídlá kostra sítě.', 'Rotace stojí, nic se nehýbe.']
+  ];
+  orb(size, st, extra) {
+    const h = this.h, lbl = (this.ORBST.find(s => s[0] === st) || [st, st])[1];
+    return h('div', Object.assign({ className: 'orb', style: { '--s': size + 'px' }, role: 'img', 'aria-label': 'Zibby · ' + lbl }, extra || {}), h('canvas', { className: 'zorb', 'data-st': st, 'data-size': size, 'aria-hidden': 'true' }));
+  }
+
+  SCEN = [['sleep', 1600], ['wake', 900], ['ready', 1400], ['listen', 2400], ['think', 1500], ['search', 1600], ['speak', 2600], ['needs', 2400], ['listen', 1800], ['think', 1000], ['work', 2400], ['done', 1600], ['speak', 2000], ['ready', 1600]];
+  play = () => { clearTimeout(this.at); if (this.state.auto) return this.setState({ auto: false }); this.setState({ auto: true, ai: 0, sel: this.SCEN[0][0] }); this.tick(0); };
+  tick(i) { this.at = setTimeout(() => { if (!this.state.auto) return; const n = (i + 1) % this.SCEN.length; this.setState({ ai: n, sel: this.SCEN[n][0] }); this.tick(n); }, this.SCEN[i][1]); }
+  componentWillUnmount() { clearTimeout(this.at); }
+  mic(s) { return this.h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', 'aria-hidden': 'true' }, this.h('path', { d: 'M9 4a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3' })); }
+  bow(s) { const h = this.h; return h('svg', { width: s, height: s, viewBox: '0 0 64 64', 'aria-hidden': 'true' }, h('defs', null, h('mask', { id: 'zbm' }, h('rect', { x: -8, y: -8, width: 80, height: 80, fill: '#fff' }), h('circle', { cx: 32, cy: 32, r: 8.6, fill: '#000' }))), h('g', { mask: 'url(#zbm)', fill: 'var(--ink)', stroke: 'var(--ink)', strokeWidth: 4, strokeLinejoin: 'round' }, h('path', { d: 'M8 16L28.5 30V34L8 48Z' }), h('path', { d: 'M56 16L35.5 30V34L56 48Z' })), h('circle', { cx: 32, cy: 32, r: 6.2, fill: 'var(--amber)' })); }
+
+  hero() {
+    const h = this.h, cur = this.ORBST.find(s => s[0] === this.state.sel);
+    return h('section', { className: 'zhero', 'aria-label': 'Zibby orb' },
+      h('div', { className: 'zstage' }, h('div', { className: 'grid', 'aria-hidden': 'true' }), this.orb(300, this.state.sel),
+        h('div', { className: 'lab', 'aria-live': 'polite' }, h('span', { className: 'dot ' + ({ needs: 'blocked', error: 'error', done: 'done', work: 'working', think: 'working', listen: 'thinking', search: 'thinking' }[this.state.sel] || 'idle') }), h('b', null, cur[1]), h('span', null, '· ' + cur[2]))),
+      h('div', { className: 'zside' },
+        h('div', null, h('h2', null, 'Zibby'), h('p', { className: 'sub' }, 'Tvůj komorník. Vyvoláš ho kdekoli zkratkou a mluvíš s ním: drž mezerník, mluv, pusť. Odpoví hlasem i textem a umí rovnou jednat.')),
+        h('div', { className: 'keys' }, h('span', { className: 'k' }, '⌥'), h('span', { className: 'k' }, 'Space'), h('span', null, 'vyvolat (nastavitelné)'), h('span', { style: { width: 14 } }), h('span', { className: 'k' }, 'Space'), h('span', null, 'držet = mluvit')),
+        h('div', null, h('div', { style: { fontSize: 12, color: 'var(--ink3)', marginBottom: 8 } }, 'Stavy'), h('div', { className: 'chipz', role: 'group', 'aria-label': 'Stav orbu' }, this.ORBST.map(s => h('button', { 'aria-pressed': this.state.sel === s[0], onClick: () => { clearTimeout(this.at); this.setState({ sel: s[0], auto: false }); } }, s[1])))),
+        h('dl', { className: 'desc' }, h('dt', null, 'Kdy'), h('dd', null, cur[2]), h('dt', null, 'Tvar'), h('dd', null, cur[3]), h('dt', null, 'Pohyb'), h('dd', null, cur[4])),
+        h('div', null, h('button', { className: 'btn' + (this.state.auto ? '' : ' pri'), onClick: this.play }, this.state.auto ? '■ Zastavit scénář' : '▶ Přehrát konverzaci'), h('span', { className: 'dim', style: { fontSize: 12, marginLeft: 10 } }, 'spí → probudí se → poslouchá → přemýšlí → hledá → mluví → čeká na tebe → pracuje → hotovo'))));
+  }
+  grid() {
+    const h = this.h;
+    return h('div', { className: 'sgrid' }, this.ORBST.map((s, i) => h('div', { className: 'scard' }, h('div', { className: 'st' }, this.orb(124, s[0])), h('div', { className: 'tx' }, h('b', null, s[1], h('span', { className: 'mono' }, s[0])), h('span', null, s[2]), h('i', null, 'Tvar: ' + s[3]), h('i', null, 'Pohyb: ' + s[4])))));
+  }
+  sizes() {
+    const h = this.h;
+    return h('div', { className: 'sizes2' },
+      h('figure', null, h('span', { className: 'tchip' }, this.orb(20, 'needs'), 'Zibby', h('span', { className: 'k', style: { height: 20, minWidth: 0, fontSize: 10.5 } }, '⌥ Space')), h('figcaption', null, '20 · tlačítko v hlavičce')),
+      h('figure', null, this.orb(28, 'speak'), h('figcaption', null, '28 · avatar ve vlákně')),
+      h('figure', null, this.orb(64, 'work'), h('figcaption', null, '64 · notifikace / toast')),
+      h('figure', null, this.orb(140, 'listen'), h('figcaption', null, '140 · konverzace')),
+      h('figure', null, this.orb(220, 'ready'), h('figcaption', null, '220+ · splash / prázdný stav')));
+  }
+  flow() {
+    const h = this.h, st = (t, b, d, inner) => h('div', { className: 'fstep' }, h('div', { className: 'mini' }, inner), h('b', null, b), h('span', { className: 'mono' }, t), h('div', null, d));
+    const lines = h('div', null, h('span', { className: 'ln', style: { left: 10, top: 28, width: 80 } }), h('span', { className: 'ln', style: { left: 10, top: 40, width: 120 } }), h('span', { className: 'ln', style: { left: 150, top: 28, width: 60 } }), h('span', { className: 'ln', style: { left: 150, top: 40, width: 50 } }));
+    return h('div', { className: 'flow' },
+      st('0 ms', 'Zkratka', 'Uzel motýlku se rozsvítí a utrhne.', [h('div', { className: 'bar' }), h('span', { className: 'knot', style: { boxShadow: '0 0 10px var(--amber)' } }), lines]),
+      st('0–850 ms', 'Výskok po oblouku', 'Orb letí do středu a roste, stav Probouzí se. Dashboard se rozostří.', [h('div', { className: 'bar' }), lines, h('div', { className: 'dim' }), h('span', { className: 'ob', style: { left: '38%', top: '42%' } }, this.orb(26, 'wake'))]),
+      st('850 ms', 'Dopad', 'Rázová vlna, stav Připraven, pod orbem vyjede vlákno a composer.', [h('div', { className: 'bar' }), h('div', { className: 'dim' }), h('span', { className: 'ob', style: { left: '50%', top: '40%' } }, this.orb(42, 'ready'))]),
+      st('drž Space', 'Mluvíš', 'Poslouchá, živý přepis pod orbem.', [h('div', { className: 'bar' }), h('div', { className: 'dim' }), h('span', { className: 'ob', style: { left: '50%', top: '36%' } }, this.orb(38, 'listen')), h('span', { className: 'ln', style: { left: '25%', top: 78, width: '50%', background: 'var(--ink2)' } })]),
+      st('pusť Space', 'Odpověď', 'Odeslání bez Enteru → přemýšlí → mluví, text se píše do vlákna.', [h('div', { className: 'bar' }), h('div', { className: 'dim' }), h('span', { className: 'ob', style: { left: '50%', top: '30%' } }, this.orb(34, 'speak')), h('span', { className: 'ln', style: { left: '18%', top: 62, width: '55%' } }), h('span', { className: 'ln', style: { left: '18%', top: 74, width: '40%' } }), h('span', { className: 'ln', style: { right: '14%', top: 90, width: '30%', background: 'var(--ink3)' } })]));
+  }
+  phone() {
+    const h = this.h;
+    const frame = (inner) => h('div', { className: 'stage phone', style: { margin: 0 } }, h('div', { className: 'pc' }, h('div', { className: 'sbar' }, h('span', null, '17:34'), h('span', { className: 'mono', style: { fontSize: 12 } }, '5G ▮▮▮')), inner));
+    const head = h('div', { className: 'top2' }, this.bow(22), h('b', { style: { fontWeight: 600 } }, 'Zibby'), h('span', { style: { flex: 1 } }), h('button', { className: 'btn sm gh' }, 'Hotovo'));
+    const thread = h('div', { className: 'th' },
+      h('div', { className: 'me' }, 'Co mě dneska čeká?', h('small', null, '🎙 přepis · 17:33')),
+      h('div', { className: 'zz' }, this.orb(22, 'ready'), h('div', null, 'Tři věci: schválení noční CI triage pro partner-cli a dva zaparkované běhy. Jinak klid.')),
+      h('div', { className: 'me' }, 'Schval tu triage.', h('small', null, '🎙 přepis · 17:34')),
+      h('div', { className: 'zz' }, this.orb(22, 'done'), h('div', null, 'Hotovo. Poběží od dnešní noci ve dvě.')));
+    return h('div', { className: 'phwrap' },
+      h('div', null, h('p', { className: 'lbl2', style: { textAlign: 'center', fontSize: 12, color: 'var(--ink3)' } }, 'Telefon · mluvíš (drž tlačítko)'),
+        frame([head, h('div', { className: 'orbz' }, this.orb(120, 'listen')), h('div', { className: 'stl' }, 'Poslouchám…'), h('div', { className: 'live' }, 'A ten rebase předej ', h('span', null, 'agentovi')), thread,
+          h('div', { className: 'pttbar' }, h('div', { className: 'pttbig' }, this.mic(28)), h('small', null, 'Pusť a odešle se')) ])),
+      h('div', null, h('p', { className: 'lbl2', style: { textAlign: 'center', fontSize: 12, color: 'var(--ink3)' } }, 'Telefon · Zibby odpovídá'),
+        frame([head, h('div', { className: 'orbz' }, this.orb(120, 'speak')), h('div', { className: 'stl' }, 'Mluvím · ťukni a přeruš mě'), thread,
+          h('div', { className: 'pttbar' }, h('div', { className: 'pttbig', style: { borderColor: 'var(--line2)', background: 'var(--p2)', boxShadow: 'none' } }, this.mic(28)), h('small', null, 'Drž a mluv')) ])));
+  }
+  renderVals() {
+    const h = this.h;
+    return {
+      theme: this.theme(), themes: [['dark', 'Tmavé'], ['light', 'Světlé']].map(([k, l]) => ({ label: l, on: this.theme() === k, pick: () => this.setTheme(k) })),
+      page: h('div', { className: 'zp' }, this.hero(),
+        h('h3', { className: 'sh' }, 'Všechny stavy'), h('p', { className: 'shp' }, '12 stavů síťované koule. Barva říká stav (stejná paleta jako Můstek), deformace sítě a pohyb říkají, co Zibby právě dělá. Mezi stavy se tvar i barvy plynule přelévají.'), this.grid(),
+        h('h3', { className: 'sh' }, 'Vyvolání'), h('p', { className: 'shp' }, 'Orb vyskočí z jantarového uzlu motýlku v hlavičce. Živá ukázka je na stránce Bridge Redesign (⌥ Space nebo tlačítko „Zibby“).'), this.flow(),
+        h('h3', { className: 'sh' }, 'Velikosti'), this.sizes(),
+        h('h3', { className: 'sh' }, 'Telefon'), h('p', { className: 'shp' }, 'Na telefonu je Zibby celá obrazovka: orb nahoře, živý přepis, vlákno a velké tlačítko „drž a mluv“ dole.'), this.phone())
+    };
+  }
+}
+</script>
+</body>
+</html>

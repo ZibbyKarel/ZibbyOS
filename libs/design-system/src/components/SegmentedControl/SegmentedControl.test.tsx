@@ -75,4 +75,32 @@ describe("SegmentedControl", () => {
     );
     expect(screen.getAllByTestId(SegmentedControlTestId.Dot)).toHaveLength(1);
   });
+
+  it("skips a disabled item on arrow keys and does not select it on click", async () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        ariaLabel="Mode"
+        items={[
+          { value: "a", label: "A", disabled: true },
+          { value: "b", label: "B", tone: "violet" },
+          { value: "c", label: "C" },
+        ]}
+        onChange={onChange}
+        value="b"
+      />,
+    );
+    await userEvent.click(screen.getByTestId(`${SegmentedControlTestId.Item}-a`));
+    expect(onChange).not.toHaveBeenCalled();
+    screen.getByTestId(`${SegmentedControlTestId.Item}-b`).focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(onChange).toHaveBeenCalledWith("c");
+  });
+
+  it("fill stretches the group", () => {
+    render(
+      <SegmentedControl fill items={[{ value: "a", label: "A" }]} onChange={() => {}} value="a" />,
+    );
+    expect(screen.getByTestId(SegmentedControlTestId.Root)).toHaveClass("w-full");
+  });
 });

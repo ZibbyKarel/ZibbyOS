@@ -7,6 +7,7 @@ export enum InspectorSectionTestId {
   Root = "inspector-section-root",
   Header = "inspector-section-header",
   Summary = "inspector-section-summary",
+  Index = "inspector-section-index",
   Body = "inspector-section-body",
 }
 
@@ -16,6 +17,10 @@ export interface InspectorSectionProps {
   summary?: ReactNode;
   /** Paints the summary as a problem (rose). */
   invalid?: boolean;
+  /** Mono ordinal shown before the title ("1", "2", …) — numbered inspector grammar. */
+  index?: number;
+  /** Show the summary only while the section is collapsed. */
+  hideSummaryWhenOpen?: boolean;
   /** Uncontrolled initial state. */
   defaultOpen?: boolean;
   /** Controlled state — pair with `onOpenChange`. */
@@ -32,6 +37,8 @@ export function InspectorSection({
   title,
   summary,
   invalid = false,
+  index,
+  hideSummaryWhenOpen = false,
   defaultOpen = false,
   open: controlled,
   onOpenChange,
@@ -40,6 +47,7 @@ export function InspectorSection({
   const [local, setLocal] = useState(defaultOpen);
   const open = controlled ?? local;
   const bodyId = useId();
+  const showSummary = summary !== undefined && summary !== "" && !(hideSummaryWhenOpen && open);
   const toggle = () => {
     onOpenChange?.(!open);
     if (controlled === undefined) setLocal(!open);
@@ -58,8 +66,16 @@ export function InspectorSection({
         onClick={toggle}
         type="button"
       >
+        {index !== undefined && (
+          <span
+            className="w-3.5 font-mono text-[11px] font-medium text-ink-3"
+            data-testid={InspectorSectionTestId.Index}
+          >
+            {index}
+          </span>
+        )}
         <span>{title}</span>
-        {summary !== undefined && summary !== "" && (
+        {showSummary && (
           <span
             className={cn(
               "ml-auto flex max-w-[190px] items-center gap-1.5 truncate text-[12px] font-normal",
@@ -74,7 +90,7 @@ export function InspectorSection({
           aria-hidden="true"
           className={cn(
             "text-ink-3 transition-transform motion-reduce:transition-none",
-            summary === undefined || summary === "" ? "ml-auto" : "",
+            showSummary ? "" : "ml-auto",
             open && "rotate-180",
           )}
         >

@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderSettings as render, screen } from "../testing/renderSettings";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ActivityView, DEFAULT_ACTIVITY_VIEW } from "@zibby/contracts";
@@ -17,20 +17,22 @@ beforeEach(() => {
   view = DEFAULT_ACTIVITY_VIEW;
 });
 
+async function openPanel() {
+  const header = screen.queryByRole("button", { expanded: false });
+  if (header) await userEvent.click(header);
+}
+
 describe("ActivitySection", () => {
-  it("reflects the current mode per group (tasks default = visible)", () => {
+  it("reflects the current mode per group (tasks default = visible)", async () => {
     render(<ActivitySection />);
-    // ButtonGroup option ids are `button-group-option-<id>`; tasks default visible.
-    expect(screen.getAllByTestId("button-group-option-visible")[0]).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await openPanel();
+    expect(screen.getByTestId("radio-matrix-cell-tasks-visible")).toBeChecked();
   });
 
   it("changing a group's mode PUTs the whole view with only that group changed", async () => {
     render(<ActivitySection />);
-    // The first group row is `tasks`; flip it to hidden.
-    await userEvent.click(screen.getAllByTestId("button-group-option-hidden")[0]!);
+    await openPanel();
+    await userEvent.click(screen.getByTestId("radio-matrix-cell-tasks-hidden"));
     expect(setView).toHaveBeenCalledWith({ body: { ...DEFAULT_ACTIVITY_VIEW, tasks: "hidden" } });
   });
 });

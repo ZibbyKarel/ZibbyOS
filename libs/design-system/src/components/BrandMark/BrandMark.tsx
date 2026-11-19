@@ -33,6 +33,9 @@ export interface BrandMarkProps {
   /** Accessible name. Omit when the mark sits beside the wordmark — it is then
    *  decorative and hidden from assistive tech. */
   label?: string;
+  /** Single-colour cut (mockup `mono`): the knot takes `currentColor` and the
+   *  glow is dropped — for one-ink contexts (print, emboss, tinted chrome). */
+  mono?: boolean;
   ref?: Ref<SVGSVGElement>;
 }
 
@@ -50,14 +53,15 @@ export function BrandMark({
   live = false,
   intro = false,
   label,
+  mono = false,
   ref,
 }: BrandMarkProps) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const maskId = `zb-mark-cut-${uid}`;
   const blurId = `zb-mark-blur-${uid}`;
   const small = size <= 24;
-  const glow = size >= 40;
-  const knot = stateToneVar[state];
+  const glow = size >= 40 && !mono;
+  const knot = mono ? "currentColor" : stateToneVar[state];
   const ring = intro || (live && state === "blocked");
 
   return (

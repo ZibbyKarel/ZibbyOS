@@ -7,14 +7,9 @@ import { Alert, Button, Grid, Panel, Stack, Typography } from "@zibby/design-sys
 import type { Integration, IntegrationKind, IntegrationRoutingRule } from "@zibby/contracts";
 import { ProjectInheritedIntegrations } from "./ProjectInheritedIntegrations";
 import { IntegrationCard } from "../../integrations/components/IntegrationCard";
+import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
 import {
-  type IntegrationCreateDraft,
-  IntegrationFormDialog,
-} from "../../integrations/components/IntegrationFormDialog";
-import {
-  useCreateIntegrationMutation,
   useIntegrationsQuery,
-  useSetCredentialsMutation,
   useTestIntegrationMutation,
   useUpdateIntegrationMutation,
 } from "../../integrations";
@@ -26,6 +21,8 @@ export interface ProjectIntegrationsPanelProps {
   routing?: IntegrationRoutingRule[];
   /** The project's `gitRemote` (GitHub routing is implicit from it). */
   gitRemote?: string | undefined;
+  /** Display name for the connect wizard. */
+  ownerName?: string;
 }
 
 /**
@@ -40,6 +37,7 @@ export function ProjectIntegrationsPanel({
   projectId,
   routing = [],
   gitRemote,
+  ownerName,
 }: ProjectIntegrationsPanelProps) {
   const t = useTranslations();
   const router = useRouter();
@@ -54,30 +52,8 @@ export function ProjectIntegrationsPanel({
     null,
   );
 
-  const create = useCreateIntegrationMutation();
   const update = useUpdateIntegrationMutation();
-  const setCredentials = useSetCredentialsMutation();
   const test = useTestIntegrationMutation();
-
-  const onCreate = ({ create: body, secret }: IntegrationCreateDraft) => {
-    create.mutate(
-      { body },
-      {
-        onSuccess: () => {
-          if (secret) {
-            setCredentials.mutate({
-              params: { id: body.id },
-              // Email authenticates with a password; Slack/Jira/GitHub all carry a token.
-              body: body.kind === "email" ? { password: secret } : { token: secret },
-            });
-          }
-          setCreating(false);
-          setOverrideKind(undefined);
-          router.push(`/projects/${projectId}/integrations/${body.id}`);
-        },
-      },
-    );
-  };
 
   const onTest = (integration: Integration) => {
     setTestResult(null);
@@ -162,14 +138,15 @@ export function ProjectIntegrationsPanel({
       />
 
       {creating && (
-        <IntegrationFormDialog
+        <ConnectWizardSheet
           initialKind={overrideKind}
           onClose={() => {
             setCreating(false);
             setOverrideKind(undefined);
           }}
-          onCreate={onCreate}
-          projectId={projectId}
+          onOpenIntegration={(iid) => router.push(`/projects/${projectId}/integrations/${iid}`)}
+          owner={{ projectId }}
+          ownerName={ownerName ?? projectId}
         />
       )}
     </Panel>

@@ -80,6 +80,7 @@ export function GoalToolbar({
                     runs.findIndex((r) => r.runId === selectedRunId),
                   ),
               })}
+              {run ? ` · ${tone(goalStateTone(run.status))}` : ""}
             </Button>
           )}
         />

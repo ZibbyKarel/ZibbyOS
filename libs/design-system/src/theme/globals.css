@@ -1522,3 +1522,20 @@
     }
   }
 }
+
+/* Markdown `compact`: tight reading rhythm over the primer theme. */
+.md-compact .wmde-markdown p,
+.md-compact .wmde-markdown ul,
+.md-compact .wmde-markdown ol {
+  margin: 0 0 0.6em;
+}
+.md-compact .wmde-markdown ul,
+.md-compact .wmde-markdown ol {
+  padding-left: 1em;
+}
+.md-compact .wmde-markdown li > p {
+  margin: 0;
+}
+.md-compact .wmde-markdown li + li {
+  margin-top: 0.25em;
+}

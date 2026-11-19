@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DataTableTestId, EntityCardTestId, SubNavTestId } from "@zibby/design-system";
+import {
+  DataTableTestId,
+  EntityCardTestId,
+  SkillTileTestId,
+  SubNavTestId,
+} from "@zibby/design-system";
 import { renderWithProviders as render, screen, within } from "../../../test/render";
 import { AgentsByDepartmentTestId } from "../../agents/components/AgentsByDepartment";
 import userEvent from "@testing-library/user-event";
@@ -84,6 +89,7 @@ vi.mock("../../mcp/queries", () => ({
 vi.mock("../../mcp/mutations", () => ({
   useCreateMcpServerMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useSetMcpCredentialsMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateMcpServerMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("../../hooks/queries", () => ({
@@ -125,9 +131,9 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
     );
     expect(within(sections[1]!).getByText("zibby:todo")).toBeInTheDocument();
     expect(within(sections[0]!).getByText("security-audit")).toBeInTheDocument();
-    const cards = within(sections[2]!).getAllByTestId(EntityCardTestId.Root);
+    const cards = within(sections[2]!).getAllByTestId(SkillTileTestId.Root);
     expect(cards).toHaveLength(1);
-    expect(within(cards[0]!).getByText("Code review")).toBeInTheDocument();
+    expect(within(cards[0]!).getByTestId(SkillTileTestId.Name)).toHaveTextContent("code-review");
     // Derived from the mocked bindings — department codes render as Tags in the footer.
     const boundIn = within(cards[0]!).getByTestId(RegistriesScreenTestId.BoundIn);
     expect(within(boundIn).getByText("DEV")).toBeInTheDocument();
@@ -139,7 +145,7 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
   it("a card click opens the skill's detail page", async () => {
     render(<RegistriesScreen kind="skills" />);
     const local = screen.getByTestId(`${RegistriesScreenTestId.SkillSection}-local`);
-    const open = within(local).getByTestId(EntityCardTestId.Open);
+    const open = within(local).getByTestId(SkillTileTestId.Open);
     expect(open).toHaveAccessibleName("Otevřít Code review");
     await userEvent.click(open);
     expect(push).toHaveBeenCalledWith("/system/registries/skills/code-review");
@@ -160,9 +166,9 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("leaves kind navigation to the shell sub-nav (no inline SubNav)", () => {
+  it("renders the in-page kind sub-nav", () => {
     render(<RegistriesScreen kind="skills" />);
-    expect(screen.queryByTestId(SubNavTestId.Root)).toBeNull();
+    expect(screen.getByTestId(SubNavTestId.Root)).toBeInTheDocument();
   });
 
   it("openCreateOnMount pre-opens the create dialog", () => {
@@ -179,11 +185,10 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
     },
   );
 
-  it("an external skill card shows its owner and last update", () => {
+  it("an external skill card shows its owner", () => {
     render(<RegistriesScreen kind="skills" />);
     expect(screen.getByText("security-audit")).toBeInTheDocument();
     expect(screen.getByText("cloudflare")).toBeInTheDocument();
-    expect(screen.getByTestId("external-skill-source-updated")).not.toBeEmptyDOMElement();
   });
 
   it("the skills header installs from a repo and syncs all with a counting toast", async () => {

@@ -48,3 +48,25 @@ at the same time.
 5. New gaps or questions for the operator (design-only items you skipped, things missing in the
    design that you kept and restyled), each with one line of context.
 6. Validation results (tsc for your files, tests run and their result).
+
+## Visual parity (mandatory — added after operator feedback 2026-11-19)
+The operator rejected wave 1 because pages did not LOOK like the mockups. Reading the HTML is not
+enough: you must compare screenshots and keep iterating until the structure and look match.
+
+- Serve the mockups: `cd design/redesign-v2/project && python3 -m http.server 8765 --bind 127.0.0.1`
+  (the orchestrator usually has it running already; check with `curl -sI http://127.0.0.1:8765/`).
+- Shoot every design view: `node docs/plans/redesign-v2-shoot-design.mjs 8765 "<Page>.dc.html" <out-prefix>`
+  → `<out-prefix>-<i>.png` per view button in the mockup's top bar (also dark/light buttons).
+- Shoot the app (dev server on :3000 runs on the operator's LIVE data):
+  `node docs/plans/redesign-v2-shoot-app.mjs <route> <out.png>`; copy and adapt the script (in your
+  scratch dir) for 390px phone width, clicking to open a panel, or `page.route` fixtures.
+- SAFETY: screenshots only. Never click Save / drag / sync / "Aktualizovat vše" / approve / delete
+  against the live app. States the live data does not have → `page.route` fixtures.
+- Compare structure first: same regions, same order, same component shapes (segmented vs cards,
+  bordered table vs list, column headers, chip style, empty-cell rendering, panel widths), then
+  spacing/typography/colour. The design's board furniture (view switcher, simulation chips, design
+  notes/rationale sections) is not built.
+- Content differs (live data) — compare shape, not text.
+- Final reply must list the screenshot pairs (design view → app png) you ended on, and every
+  remaining visible difference with the reason.
+- Nav/subnav icons must match the mockups (operator 2026-11-19: "na to zapomínáš") — every parity pass checks the page's subnav icons too.

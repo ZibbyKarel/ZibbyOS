@@ -138,4 +138,13 @@ describe("NoteView (N4g) — in-place edit mode", () => {
     expect(updateNote).not.toHaveBeenCalled();
     expect(screen.getByText("The map of what ZIBBY knows.")).toBeInTheDocument();
   });
+
+  it("bare header shows a close button only when onClose is given", async () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<NoteView bare note={note} onSelect={onSelect} />);
+    expect(screen.queryByTestId(NoteViewTestId.Close)).not.toBeInTheDocument();
+    rerender(<NoteView bare note={note} onClose={onClose} onSelect={onSelect} />);
+    await userEvent.click(screen.getByTestId(NoteViewTestId.Close));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

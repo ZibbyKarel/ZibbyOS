@@ -23,7 +23,11 @@ const push = vi.fn();
 
 vi.mock("../queries", () => ({
   useTeamQuery: () => ({ data: team, isPending: false, isError: false }),
+  useTeamKbDigestQuery: () => ({ data: undefined }),
 }));
+
+vi.mock("../../knowledge/queries", () => ({ useTeamKbNotesQuery: () => ({ data: [] }) }));
+vi.mock("../../integrations", () => ({ useIntegrationsQuery: () => ({ data: [] }) }));
 
 vi.mock("../mutations", () => ({
   useCreateTeamMutation: () => ({ mutate: createMutate, isPending: false }),
@@ -67,6 +71,7 @@ describe("TeamDetailScreen (ZB-06)", () => {
 
   it("saves the core record via the update mutation", async () => {
     render(<TeamDetailScreen teamId="platform" />);
+    await userEvent.click(screen.getByTestId("entity-edit"));
     await userEvent.click(screen.getByTestId("save-basics"));
     expect(updateMutate).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -22,4 +22,11 @@ describe("LaneChip", () => {
     render(<LaneChip inherited>Review</LaneChip>);
     expect(screen.queryByTestId(LaneChipTestId.Own)).toBeNull();
   });
+
+  it("shows the drag grip only when editable", () => {
+    const { rerender } = render(<LaneChip>Review</LaneChip>);
+    expect(screen.getByTestId(LaneChipTestId.Grip)).toBeInTheDocument();
+    rerender(<LaneChip locked>Review</LaneChip>);
+    expect(screen.queryByTestId(LaneChipTestId.Grip)).toBeNull();
+  });
 });

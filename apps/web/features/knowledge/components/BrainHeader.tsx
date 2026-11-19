@@ -1,6 +1,16 @@
 "use client";
 
-import { Button, Container, SearchInput, Stack, StatusDot, Typography } from "@zibby/design-system";
+import { useEffect, useRef } from "react";
+import {
+  Button,
+  Container,
+  Icon,
+  Kbd,
+  SearchInput,
+  Stack,
+  StatusDot,
+  Typography,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import type { BrainSourceInfo } from "../hooks/useBrainData";
 
@@ -11,7 +21,6 @@ export enum BrainHeaderTestId {
   NewNote = "vault-note-new",
   Import = "vault-import-open",
   UpdateAll = "brain-update-all",
-  Pending = "brain-pending",
 }
 
 export interface BrainHeaderProps {
@@ -21,14 +30,11 @@ export interface BrainHeaderProps {
   onSearch: (value: string) => void;
   /** Hit count while a search is active, else null. */
   hits: number | null;
-  /** Open questions waiting for the operator (Údržba badge). */
-  pending: number;
   onOpenSources: () => void;
   onQuickCapture: () => void;
   onNewNote: () => void;
   onImport: () => void;
   onUpdateAll: () => void;
-  onOpenMaintenance: () => void;
   updating: boolean;
 }
 
@@ -39,29 +45,42 @@ export function BrainHeader({
   search,
   onSearch,
   hits,
-  pending,
   onOpenSources,
   onQuickCapture,
   onNewNote,
   onImport,
   onUpdateAll,
-  onOpenMaintenance,
   updating,
 }: BrainHeaderProps) {
   const t = useTranslations("knowledge.brain.header");
   const tm = useTranslations("memory");
   const failed = sources.filter((s) => s.state === "failed").length;
+  const search$ = useRef<HTMLInputElement>(null);
+
+  // "/" jumps to the search field, unless the operator is already typing somewhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
+      e.preventDefault();
+      search$.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <Container padding={["150", "200"]}>
-      <Stack wrap align="center" direction="row" gap="200" justify="between">
+      <Stack wrap align="center" direction="row" gap="200">
         <Stack gap="25">
           <Typography type="title">{t("title")}</Typography>
           <Stack align="center" direction="row" gap="100">
-            <Typography size="sm" type="note" variant="tertiary">
+            <Typography mono size="sm" type="note" variant="tertiary">
               {t("count", { notes: noteCount, sources: sources.length })}
             </Typography>
             <Button
+              aria-label={failed > 0 ? t("sourcesFailed", { count: failed }) : t("sources")}
               data-testid={BrainHeaderTestId.Sources}
               intent="ghost"
               onClick={onOpenSources}
@@ -75,34 +94,28 @@ export function BrainHeader({
                     tone={s.state === "failed" ? "bad" : s.state === "loading" ? "idle" : "ok"}
                   />
                 ))}
-                {failed > 0 ? t("sourcesFailed", { count: failed }) : t("sources")}
+                <Icon name="chevron" size="sm" tone="faint" />
               </Stack>
             </Button>
           </Stack>
         </Stack>
 
-        <Container grow maxWidth="440px" minWidth="200px">
+        <Container grow maxWidth="440px" minWidth="240px">
           <SearchInput
             ariaLabel={t("searchLabel")}
             count={hits ?? undefined}
             data-testid={BrainHeaderTestId.Search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
+            ref={search$}
+            trailing={<Kbd>/</Kbd>}
             value={search}
           />
         </Container>
 
+        <Container grow />
+
         <Stack wrap align="center" direction="row" gap="100">
-          {pending > 0 && (
-            <Button
-              data-testid={BrainHeaderTestId.Pending}
-              intent="ghost"
-              onClick={onOpenMaintenance}
-              size="sm"
-            >
-              {t("pending", { count: pending })}
-            </Button>
-          )}
           <Button
             data-testid={BrainHeaderTestId.QuickCapture}
             icon="bolt"
@@ -124,7 +137,7 @@ export function BrainHeader({
           <Button
             data-testid={BrainHeaderTestId.NewNote}
             icon="plus"
-            intent="secondary"
+            intent="ghost"
             onClick={onNewNote}
             size="sm"
           >
@@ -133,7 +146,7 @@ export function BrainHeader({
           <Button
             data-testid={BrainHeaderTestId.UpdateAll}
             icon="retry"
-            intent="primary"
+            intent="ink"
             loading={updating}
             onClick={onUpdateAll}
             size="sm"

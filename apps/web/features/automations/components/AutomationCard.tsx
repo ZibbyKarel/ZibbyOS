@@ -6,15 +6,18 @@ import {
   Container,
   Divider,
   EngineBadge,
+  FlowTilePair,
   Icon,
   type IconName,
-  IconTile,
+  MiniTimeline,
   Stack,
   StatusDot,
   Toggle,
   Typography,
 } from "@zibby/design-system";
 import type { Automation, Target } from "@zibby/contracts";
+import { fireDots, timelinePosition } from "../automationListModel";
+import { useAutomationFiresQuery } from "../queries";
 import { nextCronRun, relativeLabel } from "../schedule";
 import { useAutomationEngineBadge } from "../useAutomationEngineBadge";
 import { useCronLabel } from "../useCronLabel";
@@ -81,9 +84,9 @@ export interface AutomationCardProps {
 }
 
 /**
- * One automation as a HUD card: status + name + enable toggle on top, the
- * trigger → target flow in the middle, and a footer carrying the last/next run
- * (human-readable, never raw cron) plus the edit / run-now actions.
+ * One automation as a list card: status dot + name + big enable switch on top, the
+ * trigger -> target tile pair (dashed and dimmed while off), a last/now/next mini
+ * timeline (or 7-day fire dots for an event trigger) and the edit / run-now footer.
  */
 export function AutomationCard({
   automation,
@@ -108,16 +111,16 @@ export function AutomationCard({
         ? trigger.kind
         : trigger.events.join(", ");
 
-  const next = useMemo(
-    () => (trigger.type === "cron" ? nextCronRun(trigger.expr, new Date()) : null),
-    [trigger],
-  );
-
-  // Captured once at mount — these labels are coarse (minutes/hours) and the
-  // card is short-lived, so freezing "now" avoids an impure render-time read.
+  // Captured once at mount; the labels are coarse (minutes/hours) and the card is
+  // short-lived, so freezing "now" avoids an impure render-time read.
   const [now] = useState(() => Date.now());
-  const lastLabel = automation.lastFiredAt
-    ? t("lastRun", { ago: relativeLabel(Date.parse(automation.lastFiredAt), now, locale) })
+  const next = useMemo(
+    () => (trigger.type === "cron" ? nextCronRun(trigger.expr, new Date(now)) : null),
+    [trigger, now],
+  );
+  const lastMs = automation.lastFiredAt ? Date.parse(automation.lastFiredAt) : null;
+  const lastLabel = lastMs
+    ? t("lastRun", { ago: relativeLabel(lastMs, now, locale) })
     : t("neverRun");
   // A disabled automation won't fire, so it must not advertise a phantom next-run —
   // honest status (North Star "always accountable").
@@ -152,11 +155,14 @@ export function AutomationCard({
                         ? (targetName ?? target.target?.name ?? t("targetTask"))
                         : (targetName ?? targetIdOf(target));
 
+  const glyph =
+    targetGlyph ?? (target.type === "task" ? taskGlyph(target) : TARGET_GLYPH[target.type]);
+
   return (
     <Card background="surface" data-testid={AutomationCardTestId.Root}>
       <Container padding="200">
-        <Stack gap="150">
-          {/* header: status + name + enable toggle */}
+        <Stack gap="200">
+          {/* header: status + name + enable switch */}
           <Stack align="center" direction="row" gap="200" justify="between">
             <Stack align="center" direction="row" gap="100">
               <StatusDot tone={enabled ? "ok" : "idle"} />
@@ -180,7 +186,7 @@ export function AutomationCard({
                 data-testid={AutomationCardTestId.Toggle}
                 label={t("toggleLabel", { name })}
                 onChange={onToggle}
-                size="sm"
+                size="md"
               />
             </Stack>
           </Stack>
@@ -191,45 +197,50 @@ export function AutomationCard({
             </Typography>
           ) : null}
 
-          {/* trigger → target flow */}
-          <Stack align="center" direction="row" gap="100">
-            <FlowBox
-              glyph={TRIGGER_GLYPH[trigger.type]}
-              kind={t(
-                trigger.type === "cron"
-                  ? "triggerCron"
-                  : trigger.type === "signal"
-                    ? "triggerSignal"
-                    : "triggerEvent",
-              )}
-              testid={AutomationCardTestId.Schedule}
-              value={scheduleText}
+          {/* trigger -> target */}
+          <FlowTilePair
+            off={!enabled}
+            target={{
+              icon: (
+                <EngineBadge {...engineBadge}>
+                  <Icon name={glyph} size="md" />
+                </EngineBadge>
+              ),
+              kicker: t(targetKindKey(target.type)),
+              title: targetText,
+              testId: AutomationCardTestId.Target,
+            }}
+            trigger={{
+              icon: <Icon name={TRIGGER_GLYPH[trigger.type]} size="md" />,
+              kicker: t(trigger.type === "cron" ? "list.when" : "list.whenEvent"),
+              title: scheduleText,
+              ...(trigger.type === "cron" ? { code: trigger.expr } : {}),
+              testId: AutomationCardTestId.Schedule,
+            }}
+          />
+
+          {trigger.type === "cron" && (
+            <MiniTimeline
+              last={lastMs !== null}
+              leftLabel={lastLabel}
+              next={enabled && next !== null}
+              now={timelinePosition(lastMs, next?.getTime() ?? null, now) ?? (lastMs ? 100 : 0)}
+              nowLabel={t("list.now")}
+              off={!enabled}
+              rightLabel={nextLabel}
             />
-            <Icon name="arrow" size="sm" tone="faint" />
-            <FlowBox
-              badge={engineBadge}
-              glyph={
-                targetGlyph ??
-                (target.type === "task" ? taskGlyph(target) : TARGET_GLYPH[target.type])
-              }
-              kind={t(targetKindKey(target.type))}
-              testid={AutomationCardTestId.Target}
-              value={targetText}
-            />
-          </Stack>
+          )}
+          {trigger.type === "event" && (
+            <EventTimeline automationId={automation.id} now={now} off={!enabled} />
+          )}
 
           <Divider />
 
-          {/* footer: last / next run + actions */}
+          {/* footer: last run for non-cron + actions */}
           <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Stack wrap align="center" direction="row" gap="150">
-              <Typography mono size="2xs" type="micro" variant="tertiary">
-                {lastLabel}
-              </Typography>
-              <Typography mono size="2xs" type="micro" variant="tertiary">
-                {nextLabel}
-              </Typography>
-            </Stack>
+            <Typography mono size="2xs" type="micro" variant="tertiary">
+              {trigger.type === "cron" ? "" : lastLabel}
+            </Typography>
             <Stack align="center" direction="row" gap="100">
               <Button
                 data-testid={AutomationCardTestId.Edit}
@@ -243,7 +254,7 @@ export function AutomationCard({
               <Button
                 data-testid={AutomationCardTestId.Run}
                 icon="play"
-                intent="primary"
+                intent="secondary"
                 loading={triggering}
                 onClick={onTrigger}
                 size="sm"
@@ -258,42 +269,27 @@ export function AutomationCard({
   );
 }
 
-/** A bordered trigger/target tile: glyph + uppercase kind + the spec value. */
-function FlowBox({
-  badge,
-  glyph,
-  kind,
-  value,
-  testid,
+/** 7-day fire dots of an event trigger; renders nothing until fires exist. */
+function EventTimeline({
+  automationId,
+  now,
+  off,
 }: {
-  badge?: { engine: "claude" | "openai" | "opencode"; label: string } | undefined;
-  glyph: IconName;
-  kind: string;
-  value: string;
-  testid?: string;
+  automationId: string;
+  now: number;
+  off: boolean;
 }) {
+  const t = useTranslations("automations");
+  const { data } = useAutomationFiresQuery(automationId);
+  const dots = fireDots(data ?? [], now);
+  if (dots.length === 0) return null;
   return (
-    <Container grow minW0>
-      <Card background="background" radius="default">
-        <Container padding={["100", "150"]}>
-          <Stack align="center" direction="row" gap="100">
-            <EngineBadge {...badge}>
-              <IconTile glyph={glyph} size="sm" />
-            </EngineBadge>
-            <Container grow minW0>
-              <Stack gap="25">
-                <Typography size="2xs" type="label" variant="tertiary">
-                  {kind}
-                </Typography>
-                <Typography mono truncate data-testid={testid} size="caption" type="note">
-                  {value}
-                </Typography>
-              </Stack>
-            </Container>
-          </Stack>
-        </Container>
-      </Card>
-    </Container>
+    <MiniTimeline
+      fires={dots}
+      leftLabel={t("list.sevenDaysAgo")}
+      off={off}
+      rightLabel={t("list.firesInWeek", { count: dots.length })}
+    />
   );
 }
 

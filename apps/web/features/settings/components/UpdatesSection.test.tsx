@@ -56,7 +56,9 @@ describe("UpdatesSection", () => {
   });
 
   it("check reports up to date after a fresh lookup", async () => {
-    checkMock.mockImplementation((_vars: unknown, opts: Options) => opts.onSuccess?.({ body: BASE }));
+    checkMock.mockImplementation((_vars: unknown, opts: Options) =>
+      opts.onSuccess?.({ body: BASE }),
+    );
     renderWithProviders(<UpdatesSection />);
     await userEvent.click(screen.getByTestId(UpdatesSectionTestId.Check));
     expect(checkMock).toHaveBeenCalledWith({ body: {} }, expect.anything());

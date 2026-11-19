@@ -28,6 +28,8 @@ export interface UnsavedBarProps {
   saveDisabled?: boolean;
   /** Save failure shown in the bar; the changes stay kept. */
   error?: string;
+  /** Pin inside its column (sticky, full width) instead of floating over the viewport. */
+  sticky?: boolean;
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -47,18 +49,24 @@ export function UnsavedBar({
   saving = false,
   saveDisabled = false,
   error,
+  sticky = false,
   ref,
 }: UnsavedBarProps) {
   return (
     <div
-      className="fixed bottom-[18px] left-1/2 z-20 flex max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col gap-[6px] rounded-[12px] border border-line-2 bg-panel-2 py-[8px] pr-[8px] pl-[14px] text-[12.5px] shadow-[var(--shadow-pop)]"
+      className={
+        (sticky
+          ? "sticky bottom-[18px] z-20 mt-1 "
+          : "fixed bottom-[18px] left-1/2 z-20 max-w-[calc(100vw-32px)] -translate-x-1/2 ") +
+        "flex flex-col gap-[6px] rounded-[12px] border border-line-2 bg-panel-2 py-[8px] pr-[8px] pl-[14px] text-[12.5px] shadow-[var(--shadow-pop)]"
+      }
       data-testid={UnsavedBarTestId.Root}
       ref={ref}
       role="status"
     >
       <div className="flex items-center gap-[12px]">
         <span aria-hidden="true" className="size-[6px] shrink-0 rounded-full bg-ink-2" />
-        <span className="min-w-0 truncate">
+        <span className={sticky ? "min-w-0 flex-1 truncate" : "min-w-0 truncate"}>
           <b className="font-medium text-ink" data-testid={UnsavedBarTestId.Title}>
             {title}
           </b>

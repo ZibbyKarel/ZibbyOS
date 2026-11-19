@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, Ref } from "react";
-import { Field, fieldControlClass } from "../Field";
+import { Field, type FieldControlSize, fieldControlClassFor } from "../Field";
 
 export enum NumberFieldTestId {
   Control = "number-field-control",
@@ -10,11 +10,13 @@ export enum NumberFieldTestId {
 
 export interface NumberFieldProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "id" | "className" | "type" | "value" | "onChange"
+  "id" | "className" | "type" | "value" | "onChange" | "size"
 > {
   label: string;
   hint?: string;
   error?: string;
+  /** Control density; `sm` is the dense ~30px row. Default `md`. */
+  size?: FieldControlSize;
   /** Current value, or `null` when the field is empty. */
   value: number | null;
   /** Fires with the parsed number, or `null` when the field is cleared. */
@@ -32,6 +34,7 @@ export function NumberField({
   label,
   hint,
   error,
+  size,
   value,
   onValueChange,
   ref,
@@ -43,7 +46,7 @@ export function NumberField({
         <input
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          className={fieldControlClass}
+          className={fieldControlClassFor(size)}
           data-testid={NumberFieldTestId.Control}
           id={id}
           inputMode="numeric"

@@ -239,6 +239,8 @@ export interface TypographyProps extends Omit<HTMLAttributes<HTMLElement>, "clas
   uppercase?: boolean;
   truncate?: boolean;
   nowrap?: boolean;
+  /** `line-through` — a superseded value (an overridden rule). */
+  strike?: boolean;
   /** `overflow-wrap: anywhere` — wraps long unbroken tokens (branch names, URLs). */
   wrapAnywhere?: boolean;
   align?: TypographyAlign;
@@ -259,6 +261,7 @@ export function Typography({
   uppercase,
   truncate,
   nowrap,
+  strike,
   wrapAnywhere,
   align,
   as,
@@ -313,6 +316,7 @@ export function Typography({
         caps ? "font-sans uppercase" : (mono ?? preset.mono) && "font-mono",
         truncate && "truncate",
         nowrap && "whitespace-nowrap",
+        strike && "line-through",
         wrapAnywhere && "wrap-anywhere",
       )}
       data-testid={TypographyTestId.Root}

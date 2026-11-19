@@ -118,4 +118,11 @@ describe("Splash", () => {
     expect(el).toHaveRole("status");
     expect(el).toHaveAccessibleName("Booting");
   });
+
+  it("shows the greeting only when given one", () => {
+    const { rerender } = render(<Splash ready={false} />);
+    expect(screen.queryByTestId(SplashTestId.Greeting)).toBeNull();
+    rerender(<Splash greeting="Good evening, Karel." ready={false} />);
+    expect(screen.getByTestId(SplashTestId.Greeting)).toHaveTextContent("Good evening, Karel.");
+  });
 });

@@ -11,6 +11,8 @@ import type { Route } from "next";
 export interface SubTabConfig {
   id: string;
   href: Route;
+  /** Leading glyph, only where the redesign mockups show one (Znalosti). */
+  icon?: IconName;
   /** Path prefix owning this tab when `href` is only its first sub-page
    *  (e.g. `/foo` for a tab at `/foo/first`); defaults to `href`. */
   matchPrefix?: string;
@@ -33,7 +35,7 @@ export interface SectionConfig {
 export const SECTIONS = [
   {
     id: "dashboard",
-    glyph: "compass",
+    glyph: "dashboard",
     href: "/dashboard" as Route,
     tabs: [
       { id: "map", href: "/dashboard" as Route },
@@ -46,7 +48,7 @@ export const SECTIONS = [
   },
   {
     id: "work",
-    glyph: "flow",
+    glyph: "tasks",
     // todo-14: the Tasks list merged into `/activity/runs`; `/work/tasks` redirects there.
     href: "/work/goals" as Route,
     tabs: [
@@ -57,7 +59,7 @@ export const SECTIONS = [
   },
   {
     id: "companies",
-    glyph: "grid",
+    glyph: "portfolio",
     href: "/companies" as Route,
     tabs: [
       { id: "companies", href: "/companies" as Route },
@@ -67,12 +69,12 @@ export const SECTIONS = [
   },
   {
     id: "workforce",
-    glyph: "bot",
+    glyph: "users",
     href: "/workforce/agents" as Route,
-    // Departments have no tab — the dashboard map is their entry point.
     // Registries keep their `/system/registries/*` routes but belong to this section.
     tabs: [
       { id: "agents", href: "/workforce/agents" as Route },
+      { id: "departments", href: "/workforce/departments" as Route },
       { id: "skills", href: "/system/registries/skills" as Route },
       { id: "commands", href: "/system/registries/commands" as Route },
       { id: "mcp", href: "/system/registries/mcp" as Route },
@@ -96,16 +98,16 @@ export const SECTIONS = [
   },
   {
     id: "knowledge",
-    glyph: "brain",
+    glyph: "knowledge",
     href: "/knowledge/brain" as Route,
     tabs: [
-      { id: "brain", href: "/knowledge/brain" as Route },
-      { id: "maintenance", href: "/knowledge/maintenance" as Route },
+      { id: "brain", href: "/knowledge/brain" as Route, icon: "graph" },
+      { id: "maintenance", href: "/knowledge/maintenance" as Route, icon: "refresh" },
     ],
   },
   {
     id: "governance",
-    glyph: "shield",
+    glyph: "shieldCheck",
     href: "/governance/gates" as Route,
     tabs: [
       { id: "gates", href: "/governance/gates" as Route },
@@ -117,16 +119,17 @@ export const SECTIONS = [
   },
   {
     id: "system",
-    glyph: "gear",
+    glyph: "cog",
     href: "/system/settings/general" as Route,
-    // The four settings sections, promoted from the old in-screen tab row.
+    // The five settings pages (redesign v2: `ai-models` → `ai-engines`, `activity` folded into
+    // General as the live-log panel, new `access` page). Icons match the settings left rail.
     tabs: [
-      { id: "general", href: "/system/settings/general" as Route },
-      { id: "runtime", href: "/system/settings/runtime" as Route },
-      { id: "ai-models", href: "/system/settings/ai-models" as Route },
-      { id: "activity", href: "/system/settings/activity" as Route },
-      { id: "status", href: "/system/settings/status" as Route },
-      { id: "inventory", href: "/system/inventory" as Route },
+      { id: "general", href: "/system/settings/general" as Route, icon: "gear" },
+      { id: "access", href: "/system/settings/access" as Route, icon: "lock" },
+      { id: "ai-engines", href: "/system/settings/ai-engines" as Route, icon: "sparkles" },
+      { id: "runtime", href: "/system/settings/runtime" as Route, icon: "cog" },
+      { id: "status", href: "/system/settings/status" as Route, icon: "pulse" },
+      { id: "inventory", href: "/system/inventory" as Route, icon: "server" },
     ],
   },
 ] as const satisfies readonly SectionConfig[];

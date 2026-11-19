@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Agent, UpdateWorkflowInput } from "@zibby/contracts";
 import type { Workflow } from "../../domain";
 import { OperatorTokenNoticeTestId } from "../ai-providers/components/OperatorTokenNotice";
-import { WorkflowCardTestId } from "./components/WorkflowCard/WorkflowCard";
+import { WorkflowPipelineCardTestId as WorkflowCardTestId } from "@zibby/design-system";
 import { InspectorTestId } from "./components/WorkflowEditor/Inspector";
 import { PhaseCardTestId } from "./components/WorkflowEditor/PhaseCard";
 import { WorkflowBarTestId } from "./components/WorkflowEditor/WorkflowBar";
@@ -85,10 +85,11 @@ vi.mock("./mutations", () => ({
   useCreateWorkflowMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateWorkflowMutation: () => ({ mutate: hooks.update, isPending: false }),
   useDuplicateWorkflowMutation: () => hooks.duplicate,
+  useDeleteWorkflowMutation: () => ({ mutate: vi.fn(), isPending: false }),
   duplicateWorkflowBody: vi.fn(),
 }));
 vi.mock("../agents", () => ({ useAgentsQuery: () => ({ data: AGENTS }) }));
-vi.mock("../tasks", () => ({ useNewTask: () => ({ open: vi.fn() }) }));
+vi.mock("../tasks", () => ({ NewTaskForm: () => null }));
 vi.mock("../departments/useDepartmentLookup", () => ({
   useDepartmentLookup: () => ({
     list: [],
@@ -120,7 +121,7 @@ describe("workflows Screen — list and detail route", () => {
     expect(groups[1]).toHaveTextContent("Build Feature");
     expect(screen.getAllByTestId(WorkflowCardTestId.Root)).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "Workflow" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Přidat workflow" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nové workflow" })).toBeInTheDocument();
   });
 
   it("clicking a card navigates to its detail route", async () => {
@@ -175,9 +176,18 @@ describe("workflows Screen — page editing", () => {
     expect(screen.queryByTestId(WorkflowBarTestId.Save)).toBeNull();
   });
 
+  it("Run opens the anchored run sheet, Esc closes it", async () => {
+    open();
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Run));
+    expect(screen.getByTestId("wd-run-sheet")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByTestId("wd-run-sheet")).toBeNull();
+  });
+
   it("Edit opens the palette; Save stays disabled until something changes", async () => {
     open();
     await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-open"));
     expect(screen.getByTestId(WorkflowBarTestId.Save)).toBeDisabled();
     expect(screen.getByTestId("workflow-palette-agent-tester")).toBeInTheDocument();
     expect(cards()).toHaveLength(2);
@@ -189,6 +199,7 @@ describe("workflows Screen — page editing", () => {
       opts?.onSuccess?.(),
     );
     await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-open"));
     await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
     expect(cards()).toHaveLength(3);
     expect(screen.getByTestId(WorkflowBarTestId.Dirty)).toBeInTheDocument();
@@ -206,6 +217,7 @@ describe("workflows Screen — page editing", () => {
   it("Cancel discards the in-progress edit", async () => {
     open();
     await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-open"));
     await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
     expect(cards()).toHaveLength(3);
     await userEvent.click(screen.getByTestId(WorkflowBarTestId.Cancel));
@@ -219,12 +231,14 @@ describe("workflows Screen — page editing", () => {
     expect(screen.getByTestId("wd-phase-koder")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByTestId("wd-phase-koder")).toBeNull();
-    expect(screen.getByTestId(InspectorTestId.Settings)).toBeInTheDocument();
+    // Read mode has no inspector at all once the selection is cleared.
+    expect(screen.queryByTestId(InspectorTestId.Settings)).toBeNull();
   });
 
   it("a problem disables Save and surfaces the problems menu", async () => {
     open();
     await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-open"));
     await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
     expect(screen.queryByTestId(WorkflowBarTestId.Problems)).toBeNull();
 

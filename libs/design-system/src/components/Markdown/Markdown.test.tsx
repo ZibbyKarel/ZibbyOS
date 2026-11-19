@@ -99,4 +99,11 @@ describe("Markdown", () => {
       expect(screen.queryAllByTestId(MarkdownTestId.Mark)).toHaveLength(0);
     });
   });
+
+  it("adds the compact class only when asked", () => {
+    const { rerender } = render(<Markdown source="a" />);
+    expect(screen.getByTestId(MarkdownTestId.Root)).not.toHaveClass("md-compact");
+    rerender(<Markdown compact source="a" />);
+    expect(screen.getByTestId(MarkdownTestId.Root)).toHaveClass("md-compact");
+  });
 });

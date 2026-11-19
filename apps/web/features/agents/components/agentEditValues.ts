@@ -133,3 +133,27 @@ export function applyFormValues(agent: Agent, values: AgentEditValues): Agent {
   if (values.optionalTools.length || agent.optionalTools) out.optionalTools = values.optionalTools;
   return out;
 }
+
+/** A read-only sketch of the YAML frontmatter the backend generates from the settings cards. */
+export function frontmatterPreview(v: AgentEditValues): string {
+  const scalar = (k: string, val: string) => (val ? [`${k}: ${val}`] : []);
+  const list = (k: string, val: string[]) => (val.length ? [`${k}: [${val.join(", ")}]`] : []);
+  return [
+    "---",
+    ...scalar("name", v.name),
+    ...scalar("displayName", v.displayName),
+    ...scalar("title", v.title),
+    ...scalar("department", v.department),
+    ...scalar("category", v.category),
+    ...scalar("model", v.model),
+    ...scalar("thinking", v.thinking),
+    ...scalar("engine", v.engine),
+    ...scalar("engineModel", v.engineModel),
+    ...list("tools", v.tools),
+    ...list("gateRuleIds", v.gateRuleIds),
+    ...(v.gates.length
+      ? [`gates: ${v.gates.length} own rule${v.gates.length === 1 ? "" : "s"}`]
+      : []),
+    "---",
+  ].join("\n");
+}

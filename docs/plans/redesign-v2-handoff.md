@@ -58,3 +58,20 @@ Read this file + decisions + GAPS.md; `git log --oneline` shows committed pages
 - Znalosti open items: layout height `calc(100dvh - 8rem)` is a guess (check visually); graph layout O(n²) above ~700 nodes; "Connect team KB" empty-state action goes to `/teams`; not built: minimap, motion toggle, "Nové a upravené"/"Neroztříděné" filters (no data), editor dirty-discard confirm.
 - Agent Detail open items: `useDetailT` can be tightened to `useTranslations("agents.detail")`; Runs & stats count only agent-type runs in the live feed; `openCreateOnMount` in RegistriesScreen unused for agents.
 - Autonomy leftovers: unused i18n keys in `autopilot.*` (modeApprove, modeAutopilot, help*, turnOn, dialog*, tableTitle…) and `shell.autopilotBanner*`/`modeGroupAria` can be pruned in the final sweep.
+
+## Wave 1 committed 533b31bb2 — then operator feedback
+Operator (2026-11-19): Autonomy table and Znalosti page "do not look like the design at all", Workflow detail side panel differs. Cause: agents built from HTML without visual comparison. New method: orchestrator shoots design view vs app route (scripts `docs/plans/redesign-v2-shoot-{design,app}.mjs`), writes a numbered structural diff list, sonnet agent fixes and re-shoots, orchestrator reviews the pair before commit. Rules: "Visual parity" section in agent-rules. Order: Autonomy pilot → Znalosti, Workflow → Goal, Agent rework → Entity, Settings, Brand, Seznamy (each with visual parity from the start).
+
+### Parity wave (started 2026-11-19 ~10:45)
+Diff lists: docs/plans/parity/{autonomy,knowledge,workflow}.md. Three sonnet agents running in parallel (autonomy, knowledge, workflow). Dev servers started by orchestrator (pnpm api:dev, pnpm web:dev). Design shots in session scratchpad shots/. Next: review each agent's final screenshot pairs myself before committing; then Goal + Agent parity, then Entity, Settings, Brand, Seznamy.
+
+- 11:10 Autonomy + Znalosti parity done & reviewed, i18n merged (autonomy-parity, knowledge-parity, -2, workflow-parity). request.ts/render.tsx pending hacks reverted. Workflow agent on round 2 (decisions delegated: build Auto-layout + anchored Run sheet reusing existing run flow; skip grid snap). DS: TextInputField/TextAreaField size="sm" added by orchestrator. Agent + Goal parity agents launched (docs/plans/parity/{agent,goal}.md). Commit all after workflow round 2 (shared DS files).
+
+- 11:40 Goal + Agent parity done & reviewed (agent-parity merged). Workflow done. Znalosti round 4 running (NoteDock from header, deselect, Neroztříděné/raw). Nav+subnav icons agent running. Next: Entity, Settings, Brand, Seznamy diff lists (design shots en-*, st-*, br-*, sz-* in scratchpad shots/).
+
+## Status 12:30 (parity wave, round 2)
+- Done (uncommitted, on disk): Znalosti round 4 (NoteDock opener via OpenNoteDockProvider, deselect on empty click + ✕, "Neroztříděné · N" chip with `raw?` on graph nodes), nav section icons + subnav icons (AppShell passes `tab.icon`), Goal create Name field restored, Agent "Zapnutý" removed (`agents.detail.enabled` key deleted). i18n knowledge-parity-4 merged.
+- Running (sonnet, background): Entity Detail (pending slug `entity`), Seznamy (`lists`), Settings (`settings`), Brand (`brand`).
+- Next: when all four idle → merge their pending i18n, review shot pairs, commit the whole parity wave (`git commit -- <paths>` if needed, `pnpm self-knowledge:generate` on drift), then final sweep (decisions/handoff "Pending" list) → full validation → `pnpm release:minor`.
+- Brand done + i18n `brand` merged (12:50). Operator asked (2026-11-19): after everything is finished, review ~/AI/Vault/projects/ZibbyOS/TODO.md (zibby:todo skill) and remove items the redesign made obsolete.
+- Seznamy done (13:20): i18n `lists` merged; added workforce tab "departments" → /workforce/departments (config.ts + nav.subtab.workforce.departments + config.test.ts). Verified /companies + /workforce/departments shots render with labels. Leftovers for final sweep: unused DS GoalCard + apps/web WorkflowCard.tsx (delete if no refs), phone app bar not built on lists (open), 2 lint warnings automations/Screen.tsx.

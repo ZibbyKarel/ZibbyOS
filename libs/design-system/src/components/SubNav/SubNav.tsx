@@ -1,6 +1,7 @@
 import type { AnchorHTMLAttributes, ComponentType, ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import { focusRingInset } from "../../utils/focus";
+import { Icon, type IconName } from "../Icon/Icon";
 
 export enum SubNavTestId {
   Root = "subnav-root",
@@ -15,6 +16,8 @@ export enum SubNavTestId {
 export interface SubNavItem {
   href: string;
   label: string;
+  /** Optional leading glyph (mockup: Znalosti tabs). Omit for none. */
+  icon?: IconName;
   active?: boolean;
   /** Counter pill after the label (e.g. open items). Omit for none. */
   count?: number | string;
@@ -103,6 +106,7 @@ export function SubNav({
           href={item.href}
           key={item.href}
         >
+          {item.icon && <Icon name={item.icon} size="md" />}
           {item.label}
           {item.count != null && (
             <span

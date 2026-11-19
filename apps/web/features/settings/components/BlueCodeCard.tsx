@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   ConfirmDeleteButton,
-  Panel,
+  Container,
+  SettingsPanel,
   Stack,
   TextInputField,
   Typography,
@@ -53,75 +54,77 @@ export function BlueCodeCard() {
   const refresh = () => set.mutate({ body: { baseUrl } });
 
   return (
-    <Panel header={t("title")} padding="300">
-      <Stack gap="200">
-        <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-          {t("hint")}
-        </Typography>
-        <Typography
-          data-testid={BlueCodeCardTestId.Status}
-          size="sm"
-          tone={bluecode?.configured ? undefined : "bad"}
-          type="text"
-        >
-          {bluecode?.configured
-            ? t("configured", {
-                hint: bluecode.keyHint ?? "",
-                url: bluecode.baseUrl ?? "",
-                count: bluecode.modelCount ?? 0,
-              })
-            : t("notConfigured")}
-        </Typography>
-        <TextInputField
-          autoComplete="off"
-          data-testid={BlueCodeCardTestId.BaseUrl}
-          label={t("baseUrlLabel")}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder={bluecode?.baseUrl ?? "https://bluecode.ai.team.blue/projects/<id>/v1"}
-          value={url}
-        />
-        <TextInputField
-          autoComplete="off"
-          data-testid={BlueCodeCardTestId.Key}
-          label={t("keyLabel")}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-…"
-          type="password"
-          value={key}
-        />
-        {set.isError && (
-          <Typography size="sm" tone="bad" type="text">
-            {saveError(set.error) ?? t("saveFailed")}
+    <SettingsPanel id="bluecode" title={t("title")}>
+      <Container padding="250">
+        <Stack gap="200">
+          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
+            {t("hint")}
           </Typography>
-        )}
-        <Stack align="center" direction="row" gap="100">
-          <Button
-            data-testid={BlueCodeCardTestId.Save}
-            disabled={baseUrl === "" || key.trim() === "" || set.isPending}
-            intent="primary"
-            onClick={save}
+          <Typography
+            data-testid={BlueCodeCardTestId.Status}
+            size="sm"
+            tone={bluecode?.configured ? undefined : "bad"}
+            type="text"
           >
-            {t("save")}
-          </Button>
-          {bluecode?.configured && (
-            <>
-              <Button
-                data-testid={BlueCodeCardTestId.Refresh}
-                disabled={baseUrl === "" || set.isPending}
-                onClick={refresh}
-              >
-                {t("refresh")}
-              </Button>
-              <ConfirmDeleteButton
-                confirmLabel={t("clearConfirm")}
-                disabled={clear.isPending}
-                label={t("clear")}
-                onConfirm={() => clear.mutate({})}
-              />
-            </>
+            {bluecode?.configured
+              ? t("configured", {
+                  hint: bluecode.keyHint ?? "",
+                  url: bluecode.baseUrl ?? "",
+                  count: bluecode.modelCount ?? 0,
+                })
+              : t("notConfigured")}
+          </Typography>
+          <TextInputField
+            autoComplete="off"
+            data-testid={BlueCodeCardTestId.BaseUrl}
+            label={t("baseUrlLabel")}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={bluecode?.baseUrl ?? "https://bluecode.ai.team.blue/projects/<id>/v1"}
+            value={url}
+          />
+          <TextInputField
+            autoComplete="off"
+            data-testid={BlueCodeCardTestId.Key}
+            label={t("keyLabel")}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="sk-…"
+            type="password"
+            value={key}
+          />
+          {set.isError && (
+            <Typography size="sm" tone="bad" type="text">
+              {saveError(set.error) ?? t("saveFailed")}
+            </Typography>
           )}
+          <Stack align="center" direction="row" gap="100">
+            <Button
+              data-testid={BlueCodeCardTestId.Save}
+              disabled={baseUrl === "" || key.trim() === "" || set.isPending}
+              intent="primary"
+              onClick={save}
+            >
+              {t("save")}
+            </Button>
+            {bluecode?.configured && (
+              <>
+                <Button
+                  data-testid={BlueCodeCardTestId.Refresh}
+                  disabled={baseUrl === "" || set.isPending}
+                  onClick={refresh}
+                >
+                  {t("refresh")}
+                </Button>
+                <ConfirmDeleteButton
+                  confirmLabel={t("clearConfirm")}
+                  disabled={clear.isPending}
+                  label={t("clear")}
+                  onConfirm={() => clear.mutate({})}
+                />
+              </>
+            )}
+          </Stack>
         </Stack>
-      </Stack>
-    </Panel>
+      </Container>
+    </SettingsPanel>
   );
 }

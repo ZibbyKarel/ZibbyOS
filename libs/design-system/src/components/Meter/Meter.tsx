@@ -30,17 +30,30 @@ export interface MeterProps {
   barLabel?: string;
   /** Small line under the bar (amber when `hot`): "runs out in 2 h", "3 held over cap". */
   note?: ReactNode;
+  /** Quiet label: small and muted (the value stays mono) — for dense budget rows. */
+  quiet?: boolean;
 }
 
 /** Meters species row: label, mono value, thin bar. Phrasing-only, so it can sit inside a link. */
-export function Meter({ label, value, pct, tone = "ok", barLabel, note }: MeterProps) {
+export function Meter({
+  label,
+  value,
+  pct,
+  tone = "ok",
+  barLabel,
+  note,
+  quiet = false,
+}: MeterProps) {
   const p = pct === undefined ? undefined : Math.max(0, Math.min(100, pct));
   return (
     <span
       className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-[10px] gap-y-[5px] px-[2px] py-[var(--rowpad)]"
       data-testid={MeterTestId.Root}
     >
-      <span className="min-w-0 truncate text-body text-ink" data-testid={MeterTestId.Label}>
+      <span
+        className={cn("min-w-0 truncate", quiet ? "text-meta text-ink-3" : "text-body text-ink")}
+        data-testid={MeterTestId.Label}
+      >
         {label}
       </span>
       <span className="font-mono text-mono text-ink-2" data-testid={MeterTestId.Value}>

@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent, Ref } from "react";
+import type { KeyboardEvent, ReactNode, Ref } from "react";
 import type { StateTone } from "../../stateTone";
 import { cn } from "../../utils/cn";
 import { focusRingInset } from "../../utils/focus";
@@ -13,6 +13,11 @@ export interface SegmentedControlItem {
   label: string;
   /** Leading status dot, tinted by the canonical state vocabulary. */
   dot?: StateTone;
+  /** Leading glyph (e.g. an orb) shown before the label. */
+  leading?: ReactNode;
+  /** Tints the selected item instead of the neutral fill: violet (work) or amber (autopilot). */
+  tone?: "violet" | "amber";
+  disabled?: boolean;
 }
 
 export enum SegmentedControlTestId {
@@ -29,6 +34,8 @@ export interface SegmentedControlProps {
   size?: SegmentedControlSize;
   /** Regular weight at the surrounding letter-spacing (inside a mono bar) instead of the semibold default. */
   plain?: boolean;
+  /** Stretch to the container width with equal-width items (inspector fields). */
+  fill?: boolean;
   /** Accessible label for the radiogroup. */
   ariaLabel?: string;
   /** Id of an external label element — wins over `ariaLabel`. */
@@ -61,6 +68,7 @@ export function SegmentedControl({
   onChange,
   size = "md",
   plain = false,
+  fill = false,
   ariaLabel,
   ariaLabelledby,
   ref,
@@ -68,16 +76,19 @@ export function SegmentedControl({
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const all = queryItems(e.currentTarget);
     if (all.length === 0) return;
+    // Disabled items are skipped: `all` and `enabled` line up index for index.
+    const enabled = items.filter((i) => !i.disabled);
+    const at = enabled.indexOf(items[index] as SegmentedControlItem);
     let nextIndex: number | null = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") nextIndex = (index + 1) % items.length;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") nextIndex = (at + 1) % enabled.length;
     else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
-      nextIndex = (index - 1 + items.length) % items.length;
+      nextIndex = (at - 1 + enabled.length) % enabled.length;
     else if (e.key === "Home") nextIndex = 0;
-    else if (e.key === "End") nextIndex = items.length - 1;
+    else if (e.key === "End") nextIndex = enabled.length - 1;
     if (nextIndex === null) return;
     e.preventDefault();
     const target = all[nextIndex];
-    const nextItem = items[nextIndex];
+    const nextItem = enabled[nextIndex];
     if (!target || !nextItem) return;
     target.focus();
     onChange(nextItem.value);
@@ -87,7 +98,10 @@ export function SegmentedControl({
     <div
       aria-label={ariaLabelledby ? undefined : ariaLabel}
       aria-labelledby={ariaLabelledby}
-      className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-[9px] border border-line bg-panel p-[3px]"
+      className={cn(
+        "max-w-full gap-0.5 overflow-x-auto rounded-[9px] border border-line bg-panel p-[3px]",
+        fill ? "flex w-full" : "inline-flex",
+      )}
       data-testid={SegmentedControlTestId.Root}
       ref={ref}
       role="radiogroup"
@@ -99,12 +113,21 @@ export function SegmentedControl({
             aria-checked={active}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-sm border-none font-sans transition-colors motion-reduce:transition-none",
+              fill && "flex-1 justify-center whitespace-nowrap",
               plain ? "font-normal" : "font-medium",
               focusRingInset,
               sizeClass[size],
-              active ? "bg-raised text-ink" : "bg-transparent text-ink-3 hover:text-ink",
+              active
+                ? item.tone === "violet"
+                  ? "bg-state-work/[0.16] text-state-work"
+                  : item.tone === "amber"
+                    ? "bg-accent/[0.18] text-accent-fg"
+                    : "bg-raised text-ink"
+                : "bg-transparent text-ink-3 hover:text-ink",
+              item.disabled && "cursor-not-allowed opacity-50",
             )}
             data-testid={`${SegmentedControlTestId.Item}-${item.value}`}
+            disabled={item.disabled}
             key={item.value}
             onClick={() => onChange(item.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
@@ -112,6 +135,7 @@ export function SegmentedControl({
             tabIndex={active ? 0 : -1}
             type="button"
           >
+            {item.leading}
             {item.dot && (
               <StateDot data-testid={SegmentedControlTestId.Dot} px={6} state={item.dot} />
             )}

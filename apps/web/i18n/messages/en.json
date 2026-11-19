@@ -47,7 +47,9 @@
         "ai-models": "AI models",
         "activity": "Activity",
         "status": "Status",
-        "inventory": "Machine inventory"
+        "inventory": "Machine inventory",
+        "access": "Access & notifications",
+        "ai-engines": "AI engines"
       },
       "dashboard": {
         "map": "Bridge",
@@ -63,6 +65,7 @@
       },
       "workforce": {
         "agents": "Agents",
+        "departments": "Departments",
         "skills": "Skills",
         "commands": "Commands",
         "mcp": "MCP",
@@ -193,12 +196,12 @@
     },
     "brain": {
       "header": {
-        "title": "Brain",
+        "title": "Knowledge",
         "count": "{notes} notes · {sources} sources",
         "sources": "Sources",
         "sourcesFailed": "{count} source failed",
         "searchLabel": "Search the brain",
-        "searchPlaceholder": "Search notes…",
+        "searchPlaceholder": "Search the whole brain — title, path, tag",
         "pending": "{count} items waiting for you",
         "updateAll": "Update all",
         "updating": "Updating…"
@@ -227,22 +230,52 @@
         "fit": "Fit to view",
         "links": "{count} links",
         "openQuestion": "Open question",
-        "legendHub": "Index"
+        "legendHub": "Index, MOC · hub",
+        "zoneVault": "VAULT",
+        "zoneKb": "TEAM KBS",
+        "zoneBridge": "BRIDGE · INDEX",
+        "legendVault": "Vault · circle",
+        "legendKb": "Team KB · square",
+        "legendOpen": "Open question · waiting for you",
+        "legendUnsorted": "Unsorted",
+        "legendLink": "Link · highlights on hover",
+        "minimap": "minimap",
+        "labels": "Labels",
+        "labelsAuto": "Auto",
+        "labelsAll": "All",
+        "labelsOff": "Off",
+        "minimapToggle": "Minimap",
+        "physicsToggle": "Node drift",
+        "linksInOut": "{in} link here · {out} link out"
       },
       "tree": {
         "index": "Index",
         "label": "Notes tree",
-        "shelfGeneral": "General"
+        "shelfGeneral": "General",
+        "rail": "Tree",
+        "openTree": "Open tree",
+        "closeTree": "Collapse tree"
       },
       "filters": {
         "department": "Department",
         "allDepartments": "All departments",
-        "orphans": "Orphans",
-        "clear": "Clear filters"
+        "orphans": "Orphans only",
+        "clear": "Clear filters",
+        "unsorted": "Unsorted"
       },
       "note": {
         "empty": "Pick a note in the graph or the tree.",
-        "openQuestions": "Open questions"
+        "openQuestions": "Open questions",
+        "emptyTitle": "Pick a note",
+        "emptyHint": "Click a node in the brain or an item in the tree.",
+        "popular": "Best-connected notes",
+        "copyPath": "Copy path",
+        "neighbourhood": "Neighbourhood in the brain",
+        "linksIn": "Linked from",
+        "linksOut": "Links out",
+        "edit": "Edit",
+        "updated": "updated {date}",
+        "close": "Close note"
       },
       "inbox": {
         "open": "Propose to inbox",
@@ -275,14 +308,18 @@
         "current": "up to date",
         "pulling": "Pulling changes",
         "failedGeneric": "Update failed.",
-        "retry": "Retry"
+        "retry": "Retry",
+        "pending": "{count} items waiting for you"
       }
     },
     "maintenance": {
       "title": "Maintenance",
       "pending": "{count} items waiting for you",
       "questions": "Open questions",
-      "ingest": "Ingest: {name}"
+      "ingest": "Ingest: {name}",
+      "scope": "Scope",
+      "scopeAll": "All",
+      "scopeVault": "Vault"
     }
   },
   "common": {
@@ -467,7 +504,60 @@
       "noRunsTitle": "No runs yet",
       "noRunsBody": "This goal hasn't been dispatched yet — hand it a task to start the loop."
     },
-    "newGoal": "New goal"
+    "newGoal": "New goal",
+    "list": {
+      "section": "Work",
+      "title": "Goals",
+      "count": {
+        "total": "{count, plural, one {# goal} other {# goals}}",
+        "active": "{count} working",
+        "parked": "{count} waiting for you",
+        "error": "{count} failed",
+        "done": "{count} done"
+      },
+      "filter": {
+        "all": "All",
+        "active": "Active",
+        "parked": "Parked",
+        "done": "Done",
+        "error": "Error"
+      },
+      "state": {
+        "working": "Working",
+        "thinking": "Thinking",
+        "blocked": "Parked",
+        "error": "Error",
+        "done": "Done",
+        "idle": "Idle"
+      },
+      "action": {
+        "openRun": "Open run",
+        "edit": "Edit goal",
+        "openError": "Open error",
+        "retry": "Try again",
+        "history": "Iteration history",
+        "start": "Start loop"
+      },
+      "maker": "Maker",
+      "verifier": "Verifier",
+      "budgetPct": "{pct} % of iteration budget",
+      "ringCaption": "of {max} iterations",
+      "ringAria": "{used} of {max} iterations",
+      "openAria": "Open goal {name}",
+      "verdict": {
+        "head": "Verdict · iteration {n}",
+        "none": "No verdict yet",
+        "noneText": "The loop has not run yet.",
+        "noText": "The verifier returned no text.",
+        "outcome": {
+          "running": "Running",
+          "passed": "Passed",
+          "failed": "Failed",
+          "parked": "Waiting for you",
+          "error": "Error"
+        }
+      }
+    }
   },
   "tasksWork": {
     "state": {
@@ -789,7 +879,46 @@
       "stay": "Stay",
       "discardLeave": "Discard & leave",
       "leaveTitle": "Leave without saving?",
-      "leaveBody": "{count, plural, one {# unsaved change} other {# unsaved changes}} will be lost."
+      "leaveBody": "{count, plural, one {# unsaved change} other {# unsaved changes}} will be lost.",
+      "frontmatter": "Frontmatter",
+      "expandEditor": "Expand editor",
+      "moreActions": "More",
+      "copyFile": "Copy file name",
+      "iconInitials": "Initials",
+      "rulesIntro": "Evaluated top to bottom; a lower layer can tighten a higher one but never loosen a system rule.",
+      "systemTitle": "System",
+      "systemSub": "always on · read-only",
+      "sourceSystem": "system",
+      "catalogTitle": "From catalog",
+      "catalogSub": "{count} linked from Governance › Gates",
+      "sourceCatalog": "catalog",
+      "linkFromCatalog": "Link from catalog",
+      "tightenedBelow": "tightened below",
+      "ownTitle": "Own rules",
+      "ownSub": "this agent only",
+      "engineGlobal": "Global"
+    },
+    "list": {
+      "section": "Workforce",
+      "all": "All",
+      "newAgent": "New agent",
+      "count": "{count, plural, one {# agent} other {# agents}} in {depts, plural, one {# department} other {# departments}}",
+      "working": "{count} working",
+      "failing": "{count, plural, one {# error} other {# errors}}",
+      "searchPlaceholder": "Search agent or tool",
+      "statusWorking": "Working",
+      "statusError": "Error",
+      "now": "Now: {task}",
+      "effort": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "statRuns": "Runs 7 d",
+      "statSuccess": "Success",
+      "statCost": "Cost 7 d",
+      "noMatchTitle": "No agent matches",
+      "noMatchBody": "Try a different search or engine."
     }
   },
   "integrations": {
@@ -972,7 +1101,26 @@
     "outputFolderToError": "Absolute path or starts with ~/",
     "outputRemove": "Remove",
     "outputAdd": "Add output",
-    "outputFolder": "copies folder {from} to {to}/[run]"
+    "outputFolder": "copies folder {from} to {to}/[run]",
+    "list": {
+      "section": "Work",
+      "all": "All",
+      "newWorkflow": "New workflow",
+      "count": "{count, plural, one {# workflow} other {# workflows}}",
+      "running": "Running {min} min · phase {phase} of {total}",
+      "runningShort": "Running {min} min",
+      "finished": "{ago} · {min} min",
+      "failed": "{ago} · failed",
+      "waiting": "Waiting for your approval",
+      "neverRun": "Never ran",
+      "outputPr": "Pull request",
+      "outputFile": "File",
+      "searchPlaceholder": "Search workflow or agent",
+      "runningCount": "{count} running",
+      "waitingCount": "{count} waiting for approval",
+      "noMatchTitle": "No workflow matches",
+      "noMatchBody": "Try a different search or department."
+    }
   },
   "phase": {
     "modelTitle": "model (override per-run)",
@@ -1359,7 +1507,10 @@
       "browserDevtools": "F12 opens the browser developer tools.",
       "commandPalette": "Cmd/Ctrl K opens this app's command palette.",
       "newTask": "A bare N opens New Task in this app."
-    }
+    },
+    "panelHint": "One global key combination brings Zibby up from anywhere in ZibbyOS.",
+    "recordAnother": "Record another",
+    "keepAnyway": "Keep anyway"
   },
   "settings": {
     "operatorToken": "Operator token",
@@ -1387,7 +1538,8 @@
         "jarvis": "A butler with character — warm, human, dry wit and foresight. Default.",
         "concise": "Minimal words, no filler, straight to the point.",
         "formal": "Neutral and professional, matter-of-fact and polite, no humour."
-      }
+      },
+      "panelHint": "How Zibby talks to you in chat, voice and briefings. Agents' work is unaffected."
     },
     "automations": {
       "desc": {
@@ -1521,7 +1673,10 @@
       "unsupported": "This browser does not support push notifications (the desktop app has none either).",
       "denied": "Notifications are blocked in this browser. Allow them in the site settings.",
       "error": "Could not turn push on or off. Try again.",
-      "tokenRequired": "Set the operator token in Settings first."
+      "tokenRequired": "Set the operator token in Settings first.",
+      "on": "On",
+      "off": "Off",
+      "panelHint": "Notifications on this device. Each browser and phone subscribes separately."
     },
     "appearance": {
       "title": "Appearance",
@@ -1533,7 +1688,8 @@
         "system": "System"
       },
       "motionLabel": "Reduced motion",
-      "motionHint": "Turns off glyph and status animations in this browser, on top of your OS's own reduced-motion setting."
+      "motionHint": "Turns off glyph and status animations in this browser, on top of your OS's own reduced-motion setting.",
+      "hint": "How the interface looks on this device."
     },
     "activity": {
       "title": "Activity",
@@ -1552,7 +1708,11 @@
         "channels": "Channels",
         "integrations": "Integrations",
         "briefing": "Briefing"
-      }
+      },
+      "was": "was Activity",
+      "summary": "What shows up in the live log. {visible} visible · {grouped} grouped · {hidden} hidden",
+      "groupHeader": "Event group",
+      "liveLog": "Live log"
     },
     "updates": {
       "title": "Updates",
@@ -1580,6 +1740,61 @@
       "ensureProject": "Edit ZIBBY as a project",
       "failed": "Registering the ZIBBY project failed",
       "installTreeWarning": "The ZIBBY project points at the running install itself — the runbook (Builder ≠ Subject) recommends a separate clone. Change the project's path."
+    },
+    "onThisPage": "On this page",
+    "pagesLabel": "Settings pages",
+    "pages": {
+      "general": {
+        "title": "General",
+        "question": "How do I want ZibbyOS to look and feel?"
+      },
+      "access": {
+        "title": "Access & notifications",
+        "question": "How does Zibby reach me, and how do I prove it's me?"
+      },
+      "aiEngines": {
+        "title": "AI engines",
+        "question": "Which brain runs the agents?"
+      },
+      "runtime": {
+        "title": "Runtime",
+        "question": "How does this machine run?"
+      },
+      "status": {
+        "title": "Status & updates",
+        "question": "Is everything healthy, and what version am I on?"
+      }
+    },
+    "draft": {
+      "offline": "The daemon is offline — settings are read-only until it is back.",
+      "unsaved": "{count, plural, one {# unsaved change} other {# unsaved changes}}",
+      "discard": "Discard",
+      "saveChanges": "Save changes",
+      "saveFailed": "Couldn't save — {reason}",
+      "stay": "Stay",
+      "discardLeave": "Discard & leave",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "{count, plural, one {# unsaved change} other {# unsaved changes}} will be lost."
+    },
+    "languagePanel": {
+      "hint": "Agents still reply in whatever language you write to them.",
+      "interface": "Interface language",
+      "title": "Language",
+      "rowHint": "Labels, dates and number formats. Saved for this browser."
+    },
+    "railTitle": "Settings",
+    "access": {
+      "tokenMeta": "Set {at} in {browser}",
+      "tokenStored": "Stored token",
+      "replace": "Replace",
+      "remove": "Remove",
+      "tokenPaste": "Paste the operator token",
+      "tokenNote": "Stored in this browser only. Never sent anywhere except the Zibby API on approval decisions.",
+      "paused": "Paused",
+      "masterHint": "Master switch. Your event choices are kept while it is off."
+    },
+    "runtimePanel": {
+      "thisMac": "This Mac"
     }
   },
   "runs": {
@@ -2288,6 +2503,25 @@
         "integrationsTitle": "Effective integrations",
         "noIntegrations": "No integrations (company or project)."
       }
+    },
+    "section": "Projects",
+    "countLine": "{count} projects",
+    "runsRunningTotal": "{count} running",
+    "needsYouTotal": "{count} waiting for you",
+    "runningCount": "{count} running",
+    "needsYouCount": "{count} waiting for you",
+    "categoryAction": "Categories",
+    "filterAll": "All",
+    "filterRunning": "Running",
+    "filterNeedsYou": "Waiting for you",
+    "filterOverBudget": "Over budget",
+    "searchPlaceholder": "Search projects",
+    "noMatch": "No project matches the filter.",
+    "statusRatioAria": "Run status ratio of {name}",
+    "budgetWindow": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
     }
   },
   "companies": {
@@ -2371,7 +2605,15 @@
       "add": "Add integration",
       "hint": "Shared by every project of this company. Each project routes the items it owns with its own routing rules, and can override an integration with one of its own.",
       "empty": "No company integrations yet — add Jira, GitHub or Slack once and share it across the company's projects."
-    }
+    },
+    "section": "Companies",
+    "countCompanies": "{count} companies",
+    "projectsCount": "{count} projects",
+    "teamsCount": "{count} teams",
+    "gaugeAria": "Company budget {name}",
+    "gaugeCaption": "today {spent} of {cap}",
+    "defaultBudget": "Default budget",
+    "perDay": "{amount} / day"
   },
   "teams": {
     "title": "Teams",
@@ -2436,7 +2678,14 @@
     },
     "metrics": {
       "projects": "Projects"
-    }
+    },
+    "section": "Teams",
+    "countTeams": "{count} teams",
+    "inCompanies": "in {count} companies",
+    "filterAll": "All",
+    "filterNoCompany": "No company",
+    "searchPlaceholder": "Search teams",
+    "noMatch": "No team matches the filter."
   },
   "automations": {
     "title": "Automations",
@@ -2547,7 +2796,33 @@
     "runDialogTitle": "Run automation",
     "runPromptLabel": "Additional prompt (optional)",
     "runPromptPlaceholder": "e.g. I want to go through yesterday",
-    "runPromptHint": "Sent only with this run; the automation itself is unchanged."
+    "runPromptHint": "Sent only with this run; the automation itself is unchanged.",
+    "list": {
+      "section": "Work",
+      "all": "All",
+      "on": "On",
+      "off": "Off",
+      "newAutomation": "New automation",
+      "triggers": "{count, plural, one {# trigger} other {# triggers}}",
+      "enabledCount": "{count} on",
+      "systemCount": "{count} system",
+      "nextRunIn": "next run {when}",
+      "searchPlaceholder": "Search automations",
+      "cronTitle": "Time triggers",
+      "eventTitle": "Event triggers",
+      "systemTitle": "System automations",
+      "when": "When",
+      "whenEvent": "On",
+      "now": "now",
+      "sevenDaysAgo": "7 days ago",
+      "firesInWeek": "{count}× in 7 days",
+      "approvalsNote": "Automations that touch production or money stop in the Approvals queue before they run and wait for you.",
+      "approvalsLink": "Queue",
+      "approvalsLinkCount": "Queue · {count} waiting",
+      "noMatchTitle": "No automation matches",
+      "noMatchBody": "Try a different search or filter.",
+      "runShort": "Run"
+    }
   },
   "hooks": {
     "title": "Hooks",
@@ -2926,7 +3201,8 @@
     },
     "registryLink": "Manage in registry →",
     "registryDescription": "This list is managed in the global registry, not per department.",
-    "registryTitle": "Managed in the registry"
+    "registryTitle": "Managed in the registry",
+    "openDepartment": "Open department {name}"
   },
   "pins": {
     "pin": "Pin",
@@ -3357,7 +3633,9 @@
       "activity": "Activity",
       "runtime": "Runtime",
       "ai-models": "AI models",
-      "status": "Status"
+      "status": "Status",
+      "access": "Access & notifications",
+      "ai-engines": "AI engines"
     },
     "gateSection": {
       "global": "Global rules",
@@ -3419,7 +3697,28 @@
     "emptyHooks": "No hooks yet.",
     "emptyCommands": "No commands yet.",
     "emptyAgents": "No agents yet.",
-    "openAria": "Open {name}"
+    "openAria": "Open {name}",
+    "list": {
+      "section": "Workforce",
+      "title": "Registry",
+      "searchPlaceholder": "Search registries",
+      "count": {
+        "skills": "{count, plural, one {# skill} other {# skills}}",
+        "external": "{count} external",
+        "marketplaces": "{count} from marketplaces",
+        "local": "{count} local",
+        "commands": "{count, plural, one {# command} other {# commands}}",
+        "hooks": "{count, plural, one {# hook} other {# hooks}}",
+        "mcp": "{count, plural, one {# MCP server} other {# MCP servers}}",
+        "mcpOn": "{count} enabled"
+      },
+      "noMatch": "Nothing found for “{q}”",
+      "noMatchBody": "Try another word or clear the search.",
+      "nowhere": "nowhere",
+      "updateAvailable": "Update",
+      "toggleMcp": "Enable {name}",
+      "terminalTitle": "~/.zibby/commands"
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -4437,7 +4736,24 @@
     "mcpServers": "MCP servers",
     "hooksYes": "Yes",
     "hooksNo": "No",
-    "none": "None"
+    "none": "None",
+    "list": {
+      "section": "Workforce",
+      "title": "Marketplaces",
+      "count": {
+        "catalogs": "{count, plural, one {# catalog} other {# catalogs}}",
+        "installed": "{installed} of {total} plugins installed"
+      },
+      "filter": {
+        "all": "All",
+        "dev": "Dev",
+        "regular": "Regular"
+      },
+      "installedBefore": "Installed ",
+      "installedAfter": " of {total} plugins",
+      "browse": "Browse",
+      "noMatch": "No catalog in this filter"
+    }
   },
   "autopilot": {
     "label": "Autopilot",
@@ -4536,7 +4852,12 @@
     "tokenReplace": "Enter another",
     "switchToAuto": "Switch to Auto",
     "lane_manual": "Nothing starts on its own. You start what belongs here.",
-    "semiCellDisabled": "Not available yet: start, but always wait"
+    "semiCellDisabled": "Not available yet: start, but always wait",
+    "laneMeaning_manual": "Never starts on its own",
+    "laneMeaning_semi": "Does it, waits for approval",
+    "laneMeaning_auto": "Does it and sends a report",
+    "teamsCount": "{count, plural, one {# team} other {# teams}}",
+    "readOnlyLine": "Read-only: changing levels needs the operator token (stored in this browser only)."
   },
   "prsPage": {
     "title": "Open PRs",
@@ -4904,6 +5225,227 @@
       "then": "Loop continuation points nowhere",
       "when": "Condition must name an earlier phase",
       "outputs": "Complete the outputs"
+    },
+    "parity": {
+      "kind_agent": "Agent phase · {n} of {total}",
+      "kind_tool": "Tool step · {n} of {total}",
+      "kind_workflow": "Sub-workflow · {n} of {total}",
+      "kind_system": "System step · {n} of {total}",
+      "nothingSelected": "Nothing selected · applies to every run",
+      "more": "More",
+      "change": "Change",
+      "whereRuns": "Where it runs",
+      "runsDefault": "Default",
+      "tier": "Model tier",
+      "thinking": "Thinking",
+      "low": "low",
+      "medium": "medium",
+      "high": "high",
+      "overrides": "Overrides agent default",
+      "reset": "Reset",
+      "runsWorkflow": "Runs workflow",
+      "loopFail": "Fail run",
+      "commandsCount": "{n, plural, one {# command} other {# commands}}",
+      "askMe": "Ask me",
+      "advisorSummary": "{model} · {n, plural, one {# call} other {# calls}}",
+      "runDefaults": "Run defaults",
+      "askAtRun": "Ask at run time",
+      "requires": "Requires",
+      "budgetSummary": "${cost} · warn {pct}%",
+      "maxCost": "Max cost (USD)",
+      "warnAt": "Warn at (%)",
+      "defaultAdvisor": "Default advisor",
+      "workflowInstructions": "Workflow instructions",
+      "nameAria": "Workflow name",
+      "noProblems": "No problems",
+      "discard": "Discard",
+      "settings": "Workflow settings",
+      "runHistory": "Run history",
+      "export": "Export",
+      "deleteWorkflow": "Delete workflow…",
+      "cancel": "Cancel",
+      "deleteConfirm": "Delete workflow",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": "The workflow file is removed. Past runs keep their history.",
+      "phasesCount": "{n, plural, one {# phase} other {# phases}}",
+      "loopLabel": "⇄ up to {n}×",
+      "fitShort": "Fit",
+      "expandCanvas": "Expand canvas",
+      "autoLayout": "Auto-layout",
+      "autoLayoutHint": "Re-run the automatic layout and fit the view",
+      "runSheetAria": "Run workflow",
+      "runSheetTitle": "Run {name}"
+    }
+  },
+  "brand": {
+    "splashGreeting": {
+      "morning": "Good morning, {name}.",
+      "afternoon": "Good afternoon, {name}.",
+      "evening": "Good evening, {name}."
+    }
+  },
+  "departmentsList": {
+    "section": "Departments",
+    "title": "Departments",
+    "countDepartments": "{count} departments",
+    "countWorking": "{count} working",
+    "countWaiting": "{count} waiting",
+    "countFailing": "{count} failing",
+    "rootMonogram": "Z",
+    "rootLabel": "ZIBBY",
+    "emptyTitle": "No departments yet",
+    "emptyDescription": "Departments appear once ZIBBY creates them."
+  },
+  "entity": {
+    "connections": {
+      "label": "Connections",
+      "channels": "{count, plural, one {# channel} other {# channels}}",
+      "down": "{service} ({owner}) is down",
+      "expired": "Token expired",
+      "error": "Connection error",
+      "expires": "Expires in {days} d",
+      "disconnected": "Disconnected",
+      "disabled": "Disabled",
+      "connected": "Connected",
+      "synced": "synced {ago} ago",
+      "neverSynced": "never synced",
+      "ownChip": "Own",
+      "from": "From {name}",
+      "serves": "serves {count, plural, one {# project} other {# projects}}",
+      "inheritedLegend": "inherited",
+      "ownLegend": "own",
+      "ribbonAria": "Connection scope",
+      "summaryAttention": "{connected} connected, {count} needs attention",
+      "summary": "{connected} connected",
+      "connectHint": "Jira, GitHub, GitLab, Slack, Email, Calendar, Sentry",
+      "connect": "Connect"
+    },
+    "wizard": {
+      "title": "Connect a service",
+      "titleFor": "Connect {service}",
+      "stepPick": "Service",
+      "stepConnect": "Connect",
+      "stepTest": "Test",
+      "back": "Back",
+      "connect": "Connect {service}",
+      "openSettings": "Open settings",
+      "done": "Done",
+      "contextCompany": "Connecting for {name}; {count, plural, one {# project inherits} other {# projects inherit}} it.",
+      "contextProject": "Connecting for the project {name} only.",
+      "need": "You will need",
+      "testing": "Testing the connection...",
+      "testOk": "Connection works",
+      "testFail": "The test failed",
+      "retest": "Test again",
+      "doneCompany": "Saved. {count, plural, one {# project inherits} other {# projects inherit}} this connection.",
+      "doneProject": "Saved for this project.",
+      "failHint": "The connection was saved. Check the settings and test again.",
+      "createFailed": "Could not create the connection",
+      "kind": {
+        "slack": {
+          "desc": "Channels, mentions and replies",
+          "need": "a bot token"
+        },
+        "email": {
+          "desc": "Inbox over IMAP and SMTP",
+          "need": "an app password"
+        },
+        "jira": {
+          "desc": "Issues and boards",
+          "need": "an API token"
+        },
+        "github": {
+          "desc": "Repositories, PRs and CI",
+          "need": "a personal access token"
+        },
+        "gitlab": {
+          "desc": "Repositories, merge requests and CI",
+          "need": "a personal access token"
+        },
+        "calendar": {
+          "desc": "Meetings and availability",
+          "need": "a service account"
+        },
+        "sentry": {
+          "desc": "Errors and releases",
+          "need": "an auth token"
+        }
+      }
+    },
+    "company": {
+      "edit": "Edit",
+      "kind": "company",
+      "summary": {
+        "attention": "{count} needs attention",
+        "counts": "{teams, plural, one {# team} other {# teams}} · {projects, plural, one {# project} other {# projects}} · {contacts, plural, one {# contact} other {# contacts}}"
+      },
+      "gauge": {
+        "caption": "Budget · {month}",
+        "runs": "Runs"
+      },
+      "ribbon": {
+        "teams": "{count, plural, one {# team} other {# teams}}",
+        "projects": "{count, plural, one {# project} other {# projects}}"
+      },
+      "vipNote": "VIP: Zibby always escalates their messages to you",
+      "projects": {
+        "title": "Projects",
+        "project": "Project",
+        "team": "Team",
+        "repo": "Repository",
+        "marks": "Integrations",
+        "runs": "Runs · 30d",
+        "addExisting": "Add existing",
+        "empty": "No projects linked yet."
+      },
+      "caps": {
+        "title": "Budget caps",
+        "edit": "Edit caps",
+        "runs": "Runs",
+        "spend": "Spend (USD)",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "note": "Teams and projects can lower these caps, never raise them."
+      },
+      "about": {
+        "title": "About",
+        "slug": "Slug",
+        "teams": "Teams",
+        "tasks": "Tasks for this company"
+      }
+    },
+    "project": {
+      "kpi": {
+        "runs": "Runs · 30 days",
+        "success": "Success rate",
+        "spend": "Spend · month",
+        "prs": "Open PRs",
+        "integrations": "Integrations",
+        "down": "{count} down"
+      },
+      "pulse": {
+        "caption": "Runs · last 24 h",
+        "running": "{count} running"
+      },
+      "noLocalClone": "No local clone",
+      "summary": "{total, plural, one {# integration} other {# integrations}} — {own} own, {inherited} inherited",
+      "down": "{count} down",
+      "tabs": {
+        "secrets": "Environment"
+      }
+    },
+    "team": {
+      "kind": "team",
+      "codeOwner": "code owner @{slug}",
+      "vault": {
+        "title": "Knowledge vault",
+        "indexed": "indexed",
+        "notes": "{count, plural, one {# note} other {# notes}}"
+      },
+      "feed": {
+        "title": "Recently updated knowledge"
+      }
     }
   }
 }

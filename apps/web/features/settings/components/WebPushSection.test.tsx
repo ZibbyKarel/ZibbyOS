@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen, waitFor } from "../../../test/render";
+import { renderSettings as render, screen, waitFor } from "../testing/renderSettings";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebPushSection } from "./WebPushSection";

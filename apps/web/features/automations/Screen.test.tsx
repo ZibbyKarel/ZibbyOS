@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { RunAutomationDialogTestId } from "./components/RunAutomationDialog";
 import { fireEvent, renderWithProviders as render, screen } from "../../test/render";
 import { GridTestId } from "@zibby/design-system";
-import { Screen } from "./Screen";
+import { Screen, ScreenTestId } from "./Screen";
 import { AutomationCardTestId } from "./components/AutomationCard";
 import { AutomationFormTestId } from "./components/AutomationFormFields";
 import { SystemAutomationRowTestId } from "../settings/components/SystemAutomationRow";
@@ -47,7 +47,9 @@ vi.mock("./queries", () => ({
     isError: query.isError,
     refetch,
   }),
+  useAutomationFiresQuery: () => ({ data: [] }),
 }));
+vi.mock("../approvals/queries", () => ({ useApprovalsQuery: () => ({ data: [] }) }));
 vi.mock("../agents/queries", () => ({ useAgentsQuery: () => ({ data: [] }) }));
 vi.mock("../workflows/queries", () => ({ useWorkflowsQuery: () => ({ data: [] }) }));
 vi.mock("./mutations", () => ({
@@ -98,7 +100,7 @@ describe("Automations Screen", () => {
   it("shows the honest loading state while the primary query is pending (Phase 18.2)", () => {
     query.isPending = true;
     render(<Screen />);
-    expect(screen.getByText("Načítání…")).toBeInTheDocument();
+    expect(screen.getByTestId(ScreenTestId.Skeletons)).toBeInTheDocument();
     expect(screen.queryByTestId(AutomationCardTestId.Root)).not.toBeInTheDocument();
   });
 
@@ -115,9 +117,8 @@ describe("Automations Screen", () => {
     render(<Screen />);
     expect(screen.getByTestId(AutomationCardTestId.Root)).toBeInTheDocument();
     expect(screen.getByText("Ranní standup")).toBeInTheDocument();
-    // "0 7 * * *" → cs "Denně v 07:00", and the raw expression is never shown.
+    // "0 7 * * *" → cs "Denně v 07:00"; the raw expression appears only as the mono code under the tile title.
     expect(screen.getByTestId(AutomationCardTestId.Schedule)).toHaveTextContent("Denně v 07:00");
-    expect(screen.queryByText("0 7 * * *")).not.toBeInTheDocument();
   });
 
   it("runs an automation now via the run dialog", async () => {
@@ -225,7 +226,7 @@ describe("Automations Screen — user + system automations in one list", () => {
     expect(screen.queryByText("Zatím žádné automatizace")).not.toBeInTheDocument();
     expect(screen.getByTestId(SystemAutomationRowTestId.Root)).toBeInTheDocument();
   });
-  it("lays every section out in up to three responsive columns (todo-4)", () => {
+  it("lays user cards out in up to two responsive columns and system rows in a dense list", () => {
     const eventAutomation: Automation = {
       ...automation,
       id: "on-ci-red",
@@ -234,14 +235,12 @@ describe("Automations Screen — user + system automations in one list", () => {
     };
     query.automations = [automation, eventAutomation, systemAutomation];
     render(<Screen />);
-    const items = [
-      ...screen.getAllByTestId(AutomationCardTestId.Root),
-      screen.getByTestId(SystemAutomationRowTestId.Root),
-    ];
-    expect(items).toHaveLength(3);
-    for (const item of items) {
-      const grid = item.closest(`[data-testid="${GridTestId.Root}"]`);
-      expect(grid).toHaveClass("grid-cols-1", "sm:grid-cols-2", "lg:grid-cols-3");
+    const cards = screen.getAllByTestId(AutomationCardTestId.Root);
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      const grid = card.closest(`[data-testid="${GridTestId.Root}"]`);
+      expect(grid).toHaveClass("grid-cols-1", "lg:grid-cols-2");
     }
+    expect(screen.getByTestId(SystemAutomationRowTestId.Root)).toBeInTheDocument();
   });
 });

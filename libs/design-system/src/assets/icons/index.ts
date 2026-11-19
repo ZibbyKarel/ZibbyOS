@@ -73,6 +73,17 @@ import { jira } from "./jira";
 import { claude } from "./claude";
 import { openai } from "./openai";
 import { opencode } from "./opencode";
+import { globe } from "./globe";
+import { building } from "./building";
+import { users } from "./users";
+import { refresh } from "./refresh";
+import { graph } from "./graph";
+import { cog } from "./cog";
+import { shieldCheck } from "./shieldCheck";
+import { knowledge } from "./knowledge";
+import { portfolio } from "./portfolio";
+import { tasks } from "./tasks";
+import { dashboard } from "./dashboard";
 
 /** Every glyph available in the dashboard icon set. */
 export const iconNames = [
@@ -149,6 +160,17 @@ export const iconNames = [
   "claude",
   "openai",
   "opencode",
+  "globe",
+  "building",
+  "users",
+  "refresh",
+  "graph",
+  "cog",
+  "shieldCheck",
+  "knowledge",
+  "portfolio",
+  "tasks",
+  "dashboard",
 ] as const;
 
 export type IconName = (typeof iconNames)[number];
@@ -228,4 +250,15 @@ export const paths: Record<IconName, ReactNode> = {
   claude,
   openai,
   opencode,
+  globe,
+  building,
+  users,
+  dashboard,
+  tasks,
+  portfolio,
+  knowledge,
+  shieldCheck,
+  cog,
+  graph,
+  refresh,
 };

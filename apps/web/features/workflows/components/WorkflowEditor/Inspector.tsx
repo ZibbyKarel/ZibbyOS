@@ -2,6 +2,7 @@
 import {
   type Agent,
   type Department,
+  MODEL_TIERS,
   OPENAI_TEXT_MODELS,
   type OpenAiTextModel,
 } from "@zibby/contracts";
@@ -9,12 +10,16 @@ import type { ModelTier } from "@zibby/contracts";
 import {
   Button,
   Container,
+  Grid,
   InspectorSection,
+  MenuButton,
+  SegmentedControl,
   SelectField,
   Stack,
-  Stepper,
+  Tag,
   TextAreaField,
   TextInputField,
+  ToggleChip,
   ToggleField,
   Typography,
 } from "@zibby/design-system";
@@ -22,6 +27,7 @@ import { type PointerEvent as ReactPointerEvent, useRef } from "react";
 import { stepEngineChoice } from "../../../../utils/engine";
 import type { Workflow } from "../../../../domain";
 import { AiEngineModelPicker, useAiEnginesQuery, useThinkingHint } from "../../../ai-providers";
+import { useProjectsQuery } from "../../../projects/queries";
 import { useSkillsQuery } from "../../../skills";
 import { CommandLine } from "../../../tasks/components/CommandLine/CommandLine";
 import { OutputsEditor } from "../OutputsEditor/OutputsEditor";
@@ -36,15 +42,19 @@ import {
   setLoop,
 } from "../WorkflowDialog/workflow-graph";
 import { AdvisorFields } from "./AdvisorFields";
+import { InspectorHeader } from "./InspectorHeader";
 import { LoopFields } from "./LoopFields";
+import { PhaseAvatar } from "./PhaseAvatar";
 import type { SetGraph } from "./useGraphHistory";
 import { usePhaseLabel } from "./usePhaseLabel";
 import { useWdT } from "./useWdT";
 import type { WorkflowDraft } from "./workflowDraft";
 
 export const PROMPT_LIMIT = 20_000;
-export const INSPECTOR_MIN = 300;
+export const INSPECTOR_MIN = 320;
 export const INSPECTOR_MAX = 640;
+/** The design's default inspector width. */
+export const INSPECTOR_DEFAULT = 392;
 
 export enum InspectorTestId {
   Root = "wd-inspector",
@@ -53,6 +63,13 @@ export enum InspectorTestId {
   Delete = "wd-inspector-delete",
   PromptCount = "wd-prompt-count",
   Settings = "wd-workflow-settings",
+  Overrides = "wd-inspector-overrides",
+  Reset = "wd-inspector-reset",
+  Engine = "wd-inspector-engine",
+  Tier = "wd-inspector-tier",
+  Thinking = "wd-inspector-thinking",
+  Who = "wd-inspector-who",
+  Change = "wd-inspector-change",
 }
 
 export interface InspectorProps {
@@ -69,15 +86,19 @@ export interface InspectorProps {
   onDraftChange: (draft: WorkflowDraft) => void;
   width: number;
   onWidthChange: (width: number) => void;
+  /** Close the inspector (✕ / Esc): deselects the phase, or hides the workflow settings. */
   onClose: () => void;
 }
 
 const COMPLEXITIES = ["light", "standard", "deep"] as const;
+const THINKING = ["low", "medium", "high"] as const;
+const RUNS_ON = ["default", "claude", "opencode", "openai"] as const;
 
 /** Right inspector: the selected phase's sections, or the workflow-level settings when nothing is. */
 export function Inspector(props: InspectorProps) {
   const { width, onWidthChange, selectedId, graph, editing, onClose } = props;
   const t = useWdT("workflowDetail.inspector");
+  const tp = useWdT("workflowDetail.parity");
   const node = selectedId ? graph.nodes.find((n) => n.id === selectedId) : undefined;
   const drag = useRef<{ x: number; w: number } | null>(null);
   const clampW = (w: number) => Math.min(INSPECTOR_MAX, Math.max(INSPECTOR_MIN, w));
@@ -105,6 +126,10 @@ export function Inspector(props: InspectorProps) {
         width,
         borderLeft: "1px solid var(--color-border)",
         background: "var(--color-background-deep)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        zIndex: 7,
       }}
     >
       <Container
@@ -131,39 +156,82 @@ export function Inspector(props: InspectorProps) {
         tabIndex={0}
         top="0"
       />
-      <Container height="100%" overflowY="auto">
-        <Container padding="150">
-          <Stack align="center" direction="row" gap="100" justify="between">
-            <Typography truncate size="sm" type="note" weight="semibold">
-              {node ? <PhaseTitle agents={props.agents} node={node} /> : t("workflowTitle")}
-            </Typography>
-            {node && (
-              <Button
-                aria-label={t("close")}
-                data-testid={InspectorTestId.Close}
-                icon="x"
-                intent="ghost"
-                onClick={onClose}
-                size="sm"
-              />
-            )}
-          </Stack>
-        </Container>
-        <Container inert={!editing || undefined}>
-          {node ? <PhaseSections {...props} node={node} /> : <WorkflowSettings {...props} />}
-        </Container>
-      </Container>
+      {node ? (
+        <PhaseInspector {...props} node={node} onClose={onClose} />
+      ) : (
+        <>
+          <InspectorHeader
+            closeLabel={t("close")}
+            glyph="gear"
+            menuLabel={tp("more")}
+            onClose={onClose}
+            subtitle={tp("nothingSelected")}
+            title={t("workflowTitle")}
+          />
+          <Container grow minHeight="0" overflowY="auto">
+            <Container inert={!editing || undefined}>
+              <WorkflowSettings {...props} />
+            </Container>
+          </Container>
+        </>
+      )}
     </Container>
   );
 }
 
-function PhaseTitle({ node, agents }: { node: GraphNode; agents: readonly Agent[] }) {
-  const label = usePhaseLabel(agents);
-  return <>{label(node)}</>;
+function PhaseInspector({ node, ...p }: InspectorProps & { node: GraphNode }) {
+  const t = useWdT("workflowDetail.inspector");
+  const tp = useWdT("workflowDetail.parity");
+  const label = usePhaseLabel(p.agents);
+  const order = orderNodes(p.graph);
+  const agent = p.agents.find((a) => a.id === node.agent);
+  const kind = tp(`kind_${node.type}`, {
+    n: order.findIndex((n) => n.id === node.id) + 1,
+    total: order.length,
+  });
+  return (
+    <>
+      <InspectorHeader
+        closeLabel={t("close")}
+        lead={<PhaseAvatar agent={agent} departments={p.departments} node={node} size="lg" />}
+        menu={[
+          {
+            id: "delete",
+            label: t("delete"),
+            icon: "trash",
+            danger: true,
+            disabled: !p.editing,
+            onSelect: () => {
+              p.setGraph((g) => removeNode(g, node.id));
+              p.onClose();
+            },
+          },
+        ]}
+        menuLabel={tp("more")}
+        onClose={p.onClose}
+        subtitle={kind}
+        title={label(node)}
+      />
+      <Container grow minHeight="0" overflowY="auto">
+        <Container inert={!p.editing || undefined}>
+          <PhaseSections {...p} node={node} />
+        </Container>
+      </Container>
+    </>
+  );
 }
+
+/** A section's number comes from its place in the list, so hidden sections never leave a gap. */
+function useCounter() {
+  let n = 0;
+  return () => ++n;
+}
+
+const CLAUDE_LABEL = "Claude Code";
 
 function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
   const t = useWdT("workflowDetail.inspector");
+  const tp = useWdT("workflowDetail.parity");
   const label = usePhaseLabel(p.agents);
   const { data: skills = [], isSuccess: skillsReady } = useSkillsQuery();
   const { data: engines } = useAiEnginesQuery();
@@ -188,20 +256,32 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
     tier: node.model as ModelTier,
     thinking: node.thinking,
   });
+  const runsOn = node.openaiModel ? "openai" : (node.engine ?? "default");
+  const cleared = {
+    engine: undefined,
+    engineModel: undefined,
+    openaiModel: undefined,
+    include: undefined,
+  } satisfies Partial<GraphNode>;
   const setRunsOn = (v: string) => {
-    const cleared = {
-      engine: undefined,
-      engineModel: undefined,
-      openaiModel: undefined,
-      include: undefined,
-    } satisfies Partial<GraphNode>;
     if (v === "claude" || v === "opencode") return patch({ ...cleared, engine: v });
-    if (v) {
+    if (v === "openai") {
       const keep = node.openaiModel ? { include: node.include } : {};
-      return patch({ ...cleared, ...keep, openaiModel: v as OpenAiTextModel });
+      return patch({
+        ...cleared,
+        ...keep,
+        openaiModel: node.openaiModel ?? (OPENAI_TEXT_MODELS[0]?.id as OpenAiTextModel),
+      });
     }
     return patch(cleared);
   };
+  const agentDefault = `${agent?.engine === "opencode" ? "opencode" : CLAUDE_LABEL} · ${agent?.model ?? node.model} · ${agent?.thinking ?? node.thinking}`;
+  const overridden =
+    node.engine !== undefined ||
+    node.openaiModel !== undefined ||
+    node.engineModel !== undefined ||
+    (agent?.model !== undefined && agent.model !== node.model) ||
+    (agent?.thinking !== undefined && agent.thinking !== node.thinking);
   const childOptions = p.workflows
     .filter((w) => w.id !== p.workflow.id)
     .map((w) => ({ value: w.id, label: w.name }));
@@ -217,50 +297,176 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
           : { ...rest, advisor },
     });
   };
+  const advisor = node.extra?.advisor;
+  const advisorSummary =
+    advisor === false
+      ? t("off")
+      : advisor
+        ? tp("advisorSummary", { model: advisor.model ?? "opus", n: advisor.maxCalls ?? 3 })
+        : t("none");
+  const num = useCounter();
+  const loopTarget = loop ? loop.to : undefined;
+  const loopName = loopTarget
+    ? loopTarget === "fail"
+      ? tp("loopFail")
+      : label(order.find((n) => n.id === loopTarget) ?? node)
+    : "";
 
   return (
     <Stack data-testid={`wd-phase-${node.id}`} gap="0">
-      <InspectorSection
-        defaultOpen
-        invalid={problemKinds.has("agent") || problemKinds.has("workflow")}
-        title={t("who")}
-      >
-        <Stack gap="100">
-          {node.type === "agent" && (
-            <SelectField
-              label={t("agent")}
-              onValueChange={(a) => patch({ agent: a })}
-              options={p.agents.map((a) => ({ value: a.id, label: a.name ?? a.id }))}
-              value={node.agent}
+      {node.type === "agent" && (
+        <InspectorSection
+          defaultOpen
+          hideSummaryWhenOpen
+          index={num()}
+          invalid={problemKinds.has("agent")}
+          summary={`${agent?.name ?? node.agent} · ${node.model} · ${node.thinking}`}
+          title={t("who")}
+        >
+          <Stack data-testid={InspectorTestId.Who} gap="150">
+            <WhoCard
+              agent={agent}
+              agents={p.agents}
+              departments={p.departments}
+              node={node}
+              onPick={(a) => patch({ agent: a })}
             />
-          )}
-          {node.type === "workflow" && (
-            <SelectField
-              label={t("workflowLink")}
-              onValueChange={(workflow) => patch({ workflow })}
-              options={[{ value: "", label: t("workflowPick") }, ...childOptions]}
-              value={node.workflow ?? ""}
-            />
-          )}
-          {node.type === "system" && (
-            <Typography mono size="xs" type="note" variant="tertiary">
-              {t("systemAction", { action: node.action ?? "" })}
-            </Typography>
-          )}
-          {node.type === "tool" && (
-            <Typography size="xs" type="note" variant="tertiary">
-              {t("toolHint")}
-            </Typography>
-          )}
-        </Stack>
-      </InspectorSection>
+            <FieldBlock label={tp("whereRuns")}>
+              <SegmentedControl
+                fill
+                ariaLabel={tp("whereRuns")}
+                items={RUNS_ON.map((v) => ({
+                  value: v,
+                  label: v === "default" ? tp("runsDefault") : RUN_LABEL[v],
+                }))}
+                onChange={setRunsOn}
+                size="sm"
+                value={runsOn}
+              />
+            </FieldBlock>
+            {node.engine === "opencode" && (
+              <AiEngineModelPicker
+                clearable
+                quiet
+                label={t("exactModel")}
+                loaded={engines !== undefined}
+                models={opencodeModels}
+                onChange={(engineModel) => patch({ engineModel: engineModel || undefined })}
+                value={node.engineModel ?? ""}
+              />
+            )}
+            {node.openaiModel && (
+              <SelectField
+                label={t("exactModel")}
+                onValueChange={(m) => patch({ openaiModel: m as OpenAiTextModel })}
+                options={OPENAI_TEXT_MODELS.map((m) => ({ value: m.id, label: m.id }))}
+                size="xs"
+                value={node.openaiModel}
+              />
+            )}
+            {!node.openaiModel && (
+              <>
+                <FieldBlock label={tp("tier")}>
+                  <SegmentedControl
+                    fill
+                    ariaLabel={tp("tier")}
+                    items={MODEL_TIERS.map((m) => ({ value: m, label: m }))}
+                    onChange={(m) => patch({ model: m as ModelTier })}
+                    size="sm"
+                    value={node.model}
+                  />
+                </FieldBlock>
+                <FieldBlock label={tp("thinking")}>
+                  <SegmentedControl
+                    fill
+                    ariaLabel={tp("thinking")}
+                    items={THINKING.map((v) => ({ value: v, label: tp(v) }))}
+                    onChange={(v) => patch({ thinking: v as GraphNode["thinking"] })}
+                    size="sm"
+                    value={node.thinking}
+                  />
+                </FieldBlock>
+                {thinkingHint && (
+                  <Typography leading="snug" size="2xs" type="note" variant="tertiary">
+                    {thinkingHint}
+                  </Typography>
+                )}
+              </>
+            )}
+            {overridden && agent && (
+              <Stack
+                align="center"
+                data-testid={InspectorTestId.Overrides}
+                direction="row"
+                gap="75"
+                justify="between"
+              >
+                <Typography size="xs" type="note" variant="tertiary">
+                  {`${tp("overrides")} `}
+                  <Typography as="span" size="xs" type="note" variant="secondary" weight="medium">
+                    {agentDefault}
+                  </Typography>
+                </Typography>
+                <Button
+                  data-testid={InspectorTestId.Reset}
+                  intent="ghost"
+                  onClick={() =>
+                    patch({
+                      ...cleared,
+                      model: agent.model ?? node.model,
+                      thinking: agent.thinking ?? node.thinking,
+                    })
+                  }
+                  size="sm"
+                >
+                  {tp("reset")}
+                </Button>
+              </Stack>
+            )}
+          </Stack>
+        </InspectorSection>
+      )}
+
+      {node.type === "workflow" && (
+        <InspectorSection
+          defaultOpen
+          hideSummaryWhenOpen
+          index={num()}
+          invalid={problemKinds.has("workflow")}
+          summary={childOptions.find((o) => o.value === node.workflow)?.label}
+          title={t("workflowLink")}
+        >
+          <SelectField
+            label={tp("runsWorkflow")}
+            onValueChange={(workflow) => patch({ workflow })}
+            options={[{ value: "", label: t("workflowPick") }, ...childOptions]}
+            size="xs"
+            value={node.workflow ?? ""}
+          />
+        </InspectorSection>
+      )}
+
+      {node.type === "system" && (
+        <InspectorSection defaultOpen index={num()} title={t("who")}>
+          <Typography mono size="xs" type="note" variant="tertiary">
+            {t("systemAction", { action: node.action ?? "" })}
+          </Typography>
+        </InspectorSection>
+      )}
 
       {node.type === "agent" && (
-        <InspectorSection defaultOpen summary={t("chars", { n: promptLen })} title={t("prompt")}>
+        <InspectorSection
+          defaultOpen
+          hideSummaryWhenOpen
+          index={num()}
+          summary={t("chars", { n: promptLen })}
+          title={t("prompt")}
+        >
           <Stack gap="75">
             <Container key={skillsReady ? "ready" : "loading"}>
               <CommandLine
                 allowSkillMentions
+                hideLabel
                 allowTargetMentions={false}
                 autoFocus={false}
                 chrome={false}
@@ -305,7 +511,16 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
       )}
 
       {node.type === "tool" && (
-        <InspectorSection defaultOpen invalid={problemKinds.has("commands")} title={t("commands")}>
+        <InspectorSection
+          defaultOpen
+          hideSummaryWhenOpen
+          index={num()}
+          invalid={problemKinds.has("commands")}
+          summary={tp("commandsCount", {
+            n: node.commands.split("\n").filter((c) => c.trim()).length,
+          })}
+          title={t("commands")}
+        >
           <TextAreaField
             data-testid={`wd-commands-${node.id}`}
             hint={t("commandsHint")}
@@ -320,6 +535,8 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
 
       {(node.type === "agent" || node.type === "tool") && (
         <InspectorSection
+          hideSummaryWhenOpen
+          index={num()}
           invalid={problemKinds.has("produces")}
           summary={node.produces}
           title={t("files")}
@@ -349,8 +566,10 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
       )}
 
       <InspectorSection
+        hideSummaryWhenOpen
+        index={num()}
         invalid={problemKinds.has("rework") || problemKinds.has("then")}
-        summary={loop ? t("loopSummary", { n: loop.maxRetries ?? 1 }) : t("none")}
+        summary={loop ? `→ ${loopName} · ${loop.maxRetries ?? 1}×` : t("none")}
         title={t("loop")}
       >
         {loop ? (
@@ -389,7 +608,9 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
       </InspectorSection>
 
       <InspectorSection
-        summary={node.approval === "ask" ? t("on") : t("off")}
+        hideSummaryWhenOpen
+        index={num()}
+        summary={node.approval === "ask" ? tp("askMe") : t("off")}
         title={t("checkpoint")}
       >
         <ToggleField
@@ -405,153 +626,235 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
       </InspectorSection>
 
       {node.type === "agent" && (
-        <InspectorSection title={t("advanced")}>
-          <Stack gap="150">
-            <SelectField
-              label={t("runsOn")}
-              onValueChange={setRunsOn}
-              options={[
-                { value: "", label: t("runsOnAgent") },
-                { value: "claude", label: "Claude Code" },
-                { value: "opencode", label: "OpenCode" },
-                ...OPENAI_TEXT_MODELS.map((m) => ({ value: m.id, label: `OpenAI · ${m.id}` })),
-              ]}
-              value={node.openaiModel ?? node.engine ?? ""}
+        <InspectorSection
+          hideSummaryWhenOpen
+          index={num()}
+          summary={advisorSummary}
+          title={t("advanced")}
+        >
+          <Stack gap="75">
+            <Typography size="xs" type="note" weight="semibold">
+              {t("advisor")}
+            </Typography>
+            <AdvisorFields
+              phaseLevel
+              forkTargets={order
+                .slice(0, Math.max(idx, 0))
+                .map((n) => ({ id: n.id, label: label(n) }))}
+              onChange={setAdvisor}
+              value={advisor}
             />
-            {node.engine === "opencode" && (
-              <AiEngineModelPicker
-                clearable
-                quiet
-                label={t("exactModel")}
-                loaded={engines !== undefined}
-                models={opencodeModels}
-                onChange={(engineModel) => patch({ engineModel: engineModel || undefined })}
-                value={node.engineModel ?? ""}
-              />
-            )}
-            {thinkingHint && !node.openaiModel && (
-              <Typography leading="snug" size="2xs" type="note" variant="tertiary">
-                {thinkingHint}
-              </Typography>
-            )}
-            <Stack gap="75">
-              <Typography size="xs" type="note" weight="semibold">
-                {t("advisor")}
-              </Typography>
-              <AdvisorFields
-                phaseLevel
-                forkTargets={order
-                  .slice(0, Math.max(idx, 0))
-                  .map((n) => ({ id: n.id, label: label(n) }))}
-                onChange={setAdvisor}
-                value={node.extra?.advisor}
-              />
-            </Stack>
           </Stack>
         </InspectorSection>
       )}
-
-      <Container padding="150">
-        <Button
-          data-testid={InspectorTestId.Delete}
-          icon="trash"
-          intent="danger"
-          onClick={() => {
-            setGraph((g) => removeNode(g, node.id));
-            p.onClose();
-          }}
-          size="sm"
-        >
-          {t("delete")}
-        </Button>
-      </Container>
     </Stack>
+  );
+}
+
+const RUN_LABEL = { claude: CLAUDE_LABEL, opencode: "opencode", openai: "OpenAI" } as const;
+
+/** A small muted label over a control — the inspector's low-chrome field. */
+function FieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Stack gap="75">
+      <Typography size="xs" type="note" variant="secondary" weight="medium">
+        {label}
+      </Typography>
+      {children}
+    </Stack>
+  );
+}
+
+function WhoCard({
+  agent,
+  agents,
+  departments,
+  node,
+  onPick,
+}: {
+  agent: Agent | undefined;
+  agents: readonly Agent[];
+  departments: readonly Department[];
+  node: GraphNode;
+  onPick: (agentId: string) => void;
+}) {
+  const t = useWdT("workflowDetail.parity");
+  const sub = [agent?.displayName ?? agent?.title, agent?.category].filter(Boolean).join(" · ");
+  return (
+    <Container
+      style={{
+        border: "1px solid var(--color-border-strong)",
+        borderRadius: 10,
+        background: "var(--color-background)",
+        padding: 10,
+      }}
+    >
+      <Stack align="center" direction="row" gap="125">
+        <PhaseAvatar agent={agent} departments={departments} node={node} size="lg" />
+        <Container grow minW0>
+          <Typography truncate size="sm" type="note" weight="semibold">
+            {agent?.name ?? node.agent}
+          </Typography>
+          {sub && (
+            <Typography truncate size="xs" type="note" variant="tertiary">
+              {sub}
+            </Typography>
+          )}
+          {(agent?.tools?.length ?? 0) > 0 && (
+            <Stack wrap direction="row" gap="50" style={{ marginTop: 4 }}>
+              {agent?.tools?.slice(0, 4).map((tool) => (
+                <Tag key={tool}>
+                  <Typography mono as="span" size="2xs" type="note">
+                    {tool}
+                  </Typography>
+                </Tag>
+              ))}
+            </Stack>
+          )}
+        </Container>
+        <MenuButton
+          ariaLabel={t("change")}
+          items={agents.map((a) => ({
+            id: a.id,
+            label: a.name ?? a.id,
+            onSelect: () => onPick(a.id),
+          }))}
+          renderTrigger={(props) => (
+            <Button {...props} data-testid={InspectorTestId.Change} intent="ghost" size="sm">
+              {t("change")} ▾
+            </Button>
+          )}
+        />
+      </Stack>
+    </Container>
   );
 }
 
 function WorkflowSettings(p: InspectorProps) {
   const t = useWdT("workflowDetail.inspector");
+  const tp = useWdT("workflowDetail.parity");
   const { draft, onDraftChange, departments } = p;
+  const { data: projects = [] } = useProjectsQuery();
   const set = (change: Partial<WorkflowDraft>) => onDraftChange({ ...draft, ...change });
   const order = orderNodes(p.graph);
   const label = usePhaseLabel(p.agents);
+  const num = useCounter();
+  const dept = departments.find((d) => d.id === draft.department)?.name;
+  const adv = draft.advisor;
   return (
     <Stack data-testid={InspectorTestId.Settings} gap="0">
-      <InspectorSection defaultOpen title={t("general")}>
-        <Stack gap="100">
-          <TextInputField
-            label={t("name")}
-            onChange={(e) => set({ name: e.target.value })}
-            value={draft.name}
-          />
-          <TextAreaField
-            label={t("description")}
-            onChange={(e) => set({ desc: e.target.value })}
-            rows={2}
-            value={draft.desc}
-          />
-          <SelectField
-            label={t("department")}
-            onValueChange={(department) => set({ department })}
-            options={[
-              { value: "", label: t("noDepartment") },
-              ...departments.map((d) => ({ value: d.id, label: d.name })),
-            ]}
-            value={draft.department}
-          />
-          <SelectField
-            label={t("complexity")}
-            onValueChange={(c) => set({ complexity: c as WorkflowDraft["complexity"] })}
-            options={COMPLEXITIES.map((c) => ({ value: c, label: t(`complexity_${c}`) }))}
-            value={draft.complexity}
-          />
-          <TextInputField
-            hint={t("projectHint")}
-            label={t("project")}
-            onChange={(e) => set({ project: e.target.value })}
-            value={draft.project}
-          />
-          <ToggleField
-            checked={draft.requiresWeb}
-            label={t("requiresWeb")}
-            onChange={(requiresWeb) => set({ requiresWeb })}
-            size="sm"
-          />
-        </Stack>
+      <InspectorSection
+        defaultOpen
+        hideSummaryWhenOpen
+        index={num()}
+        summary={dept}
+        title={t("general")}
+      >
+        <TextAreaField
+          label={t("description")}
+          onChange={(e) => set({ desc: e.target.value })}
+          rows={2}
+          value={draft.desc}
+        />
+        <SelectField
+          label={t("department")}
+          onValueChange={(department) => set({ department })}
+          options={[
+            { value: "", label: t("noDepartment") },
+            ...departments.map((d) => ({ value: d.id, label: d.name })),
+          ]}
+          size="xs"
+          value={draft.department}
+        />
       </InspectorSection>
 
       <InspectorSection
-        summary={draft.maxCostUsd === null ? t("none") : `$${draft.maxCostUsd}`}
+        defaultOpen
+        hideSummaryWhenOpen
+        index={num()}
+        summary={t(`complexity_${draft.complexity}`)}
+        title={tp("runDefaults")}
+      >
+        <FieldBlock label={t("complexity")}>
+          <SegmentedControl
+            fill
+            ariaLabel={t("complexity")}
+            items={COMPLEXITIES.map((c) => ({ value: c, label: t(`complexity_${c}`) }))}
+            onChange={(c) => set({ complexity: c as WorkflowDraft["complexity"] })}
+            size="sm"
+            value={draft.complexity}
+          />
+        </FieldBlock>
+        <SelectField
+          hint={t("projectHint")}
+          label={t("project")}
+          onValueChange={(project) => set({ project })}
+          options={[
+            { value: "", label: tp("askAtRun") },
+            ...projects.map((x) => ({ value: x.id, label: x.name })),
+          ]}
+          size="xs"
+          value={draft.project}
+        />
+        <FieldBlock label={tp("requires")}>
+          <Stack wrap direction="row" gap="75">
+            <ToggleChip
+              onClick={() => set({ requiresWeb: !draft.requiresWeb })}
+              pressed={draft.requiresWeb}
+              title={t("requiresWeb")}
+            >
+              web
+            </ToggleChip>
+          </Stack>
+        </FieldBlock>
+      </InspectorSection>
+
+      <InspectorSection
+        defaultOpen
+        hideSummaryWhenOpen
+        index={num()}
+        summary={
+          draft.maxCostUsd === null
+            ? t("none")
+            : tp("budgetSummary", { cost: draft.maxCostUsd.toFixed(2), pct: draft.warnAtPct })
+        }
         title={t("budget")}
       >
-        <Stack gap="100">
+        <Grid cols={2} gap="100">
           <TextInputField
-            hint={t("budgetHint")}
             inputMode="decimal"
-            label={t("maxCost")}
+            label={tp("maxCost")}
             onChange={(e) => {
               const n = Number.parseFloat(e.target.value);
               set({ maxCostUsd: Number.isFinite(n) && n > 0 ? n : null });
             }}
             value={draft.maxCostUsd === null ? "" : String(draft.maxCostUsd)}
           />
-          <Stack align="center" direction="row" gap="100" justify="between">
-            <Typography size="sm" type="note">
-              {t("warnAt")}
-            </Typography>
-            <Stepper
-              aria-label={t("warnAt")}
-              max={100}
-              min={1}
-              onChange={(warnAtPct) => set({ warnAtPct })}
-              step={5}
-              value={draft.warnAtPct}
-            />
-          </Stack>
-        </Stack>
+          <TextInputField
+            inputMode="numeric"
+            label={tp("warnAt")}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10);
+              set({ warnAtPct: Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1 });
+            }}
+            value={String(draft.warnAtPct)}
+          />
+        </Grid>
+        <Typography leading="snug" size="xs" type="note" variant="tertiary">
+          {t("budgetHint")}
+        </Typography>
       </InspectorSection>
 
-      <InspectorSection title={t("advisor")}>
+      <InspectorSection
+        hideSummaryWhenOpen
+        index={num()}
+        summary={
+          adv === undefined
+            ? t("none")
+            : tp("advisorSummary", { model: adv.model ?? "opus", n: adv.maxCalls ?? 3 })
+        }
+        title={tp("defaultAdvisor")}
+      >
         <AdvisorFields
           forkTargets={order.map((n) => ({ id: n.id, label: label(n) }))}
           onChange={(v) => set({ advisor: v === false ? undefined : v })}
@@ -560,7 +863,12 @@ function WorkflowSettings(p: InspectorProps) {
         />
       </InspectorSection>
 
-      <InspectorSection title={t("instructions")}>
+      <InspectorSection
+        hideSummaryWhenOpen
+        index={num()}
+        summary={t("chars", { n: draft.instructions.length })}
+        title={tp("workflowInstructions")}
+      >
         <TextAreaField
           hint={t("instructionsHint")}
           label={t("instructions")}
@@ -570,7 +878,12 @@ function WorkflowSettings(p: InspectorProps) {
         />
       </InspectorSection>
 
-      <InspectorSection summary={String(draft.outputs.length)} title={t("outputs")}>
+      <InspectorSection
+        hideSummaryWhenOpen
+        index={num()}
+        summary={String(draft.outputs.length)}
+        title={t("outputs")}
+      >
         <OutputsEditor
           onChange={(outputs) => set({ outputs })}
           outputs={draft.outputs}

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { NextIntlClientProvider } from "next-intl";
-import { renderWithProviders, screen } from "../../test/render";
+import { renderWithProviders, screen, within } from "../../test/render";
 import csMessages from "../../i18n/messages/cs.json";
 import { UnsavedBarTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
@@ -123,9 +123,9 @@ describe("agents DetailScreen (N4c grammar)", () => {
       opts?.onError?.({ status: 401 }),
     );
     render(<DetailScreen agentId="koder" />);
-    await userEvent.click(screen.getByTestId("button-group-option-opencode"));
-    expect(screen.getByTestId("button-group-option-opencode")).toHaveAttribute(
-      "aria-pressed",
+    await userEvent.click(screen.getByTestId("segmented-control-item-opencode"));
+    expect(screen.getByTestId("segmented-control-item-opencode")).toHaveAttribute(
+      "aria-checked",
       "true",
     );
     await userEvent.click(screen.getByTestId(AgentDetailScreenTestId.Save));
@@ -134,8 +134,8 @@ describe("agents DetailScreen (N4c grammar)", () => {
       "href",
       "/system/settings/general",
     );
-    expect(screen.getByTestId("button-group-option-global")).toHaveAttribute(
-      "aria-pressed",
+    expect(screen.getByTestId("segmented-control-item-global")).toHaveAttribute(
+      "aria-checked",
       "true",
     );
   });
@@ -162,5 +162,37 @@ describe("agents DetailScreen (N4c grammar)", () => {
       name: "Kodér",
       glyph: "bot",
     });
+  });
+
+  it("the Frontmatter toggle previews the generated YAML block", async () => {
+    render(<DetailScreen agentId="koder" />);
+    expect(screen.queryByTestId(AgentDetailScreenTestId.Frontmatter)).toBeNull();
+    await userEvent.click(screen.getByTestId(AgentDetailScreenTestId.FrontmatterToggle));
+    expect(screen.getByTestId(AgentDetailScreenTestId.Frontmatter)).toHaveTextContent(
+      "model: sonnet",
+    );
+  });
+
+  it("shows the breadcrumb bar with the agent name", () => {
+    render(<DetailScreen agentId="koder" />);
+    expect(screen.getByTestId(AgentDetailScreenTestId.Crumbs)).toHaveTextContent("Kodér");
+  });
+
+  it("presses tool chips case-insensitively and keeps unknown tools as chips", () => {
+    hooks.agent.data = { ...AGENT, tools: ["Read", "Grep"] };
+    render(<DetailScreen agentId="koder" />);
+    const chips = screen.getByRole("group", { name: /nástroje/i });
+    expect(within(chips).getByRole("button", { name: "read" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(chips).getByRole("button", { name: "Grep" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(chips).getByRole("button", { name: "git" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });

@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZibbyOS — seznamy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="./bridge.css">
+<style>
+/* ---------- popisky nad pódiem ---------- */
+.ls-cap{width:1440px;max-width:calc(100% - 40px);margin:28px auto 0}
+.ls-cap .t{display:flex;align-items:baseline;gap:14px}
+.ls-cap h2{font-size:24px;font-weight:600;letter-spacing:-.03em}
+.ls-cap .r{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink3)}
+.ls-rat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2);line-height:1.55;text-wrap:pretty}
+.ls-rat b{display:block;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px}
+.ls-lbl{width:1440px;max-width:calc(100% - 40px);margin:26px auto 0;font-size:12px;color:var(--ink3);display:flex;gap:8px}
+.ls-phs{display:flex;justify-content:center;margin:14px auto 64px}
+.ls-phs .stage.phone{margin:0}
+
+/* ---------- společný rám stránky ---------- */
+.ls-app{background:var(--bg)}
+.ls-top{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;background:var(--p1);border-bottom:1px solid var(--line)}
+.ls-brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:-.03em;font-size:14.5px;color:var(--ink);margin-right:6px}
+.ls-nav{display:flex;gap:2px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--ink) 3.5%,transparent);border:1px solid var(--line)}
+.ls-nav a{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:7px;color:var(--ink3);font-size:12.5px;font-weight:500;text-decoration:none}
+.ls-nav a:hover{color:var(--ink)}
+.ls-nav a[aria-current=page]{color:var(--ink);background:var(--p3);box-shadow:0 0 0 1px var(--line2)}
+.bz[data-theme=light] .ls-nav a[aria-current=page]{background:var(--p1);box-shadow:0 1px 2px rgba(20,22,26,.08),0 0 0 1px var(--line2)}
+.ls-sp{flex:1;min-width:8px}
+.ls-cmd{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 10px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink3);font-size:12.5px;width:260px}
+.ls-cmd span:first-of-type{flex:1}
+.ls-me{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--p3);border:1px solid var(--line2);font-size:10.5px;font-weight:600}
+.ls-head{display:flex;align-items:flex-end;gap:10px;padding:28px 32px 0}
+.ls-head .tt{flex:1;min-width:0}
+.ls-crumb{font-size:12px;color:var(--ink3);margin-bottom:6px}
+.ls-head h1{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.15}
+.ls-cnt{font-size:13px;color:var(--ink3);margin-top:5px;min-height:20px}
+.ls-cnt .a{color:var(--amber-fg);font-weight:500}
+.ls-cnt .v{color:var(--violet);font-weight:500}
+.ls-cnt .r{color:var(--rose);font-weight:500}
+.bz .ls-new{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px 0 11px;border-radius:8px;background:var(--ink);color:var(--on-ink);font-size:13px;font-weight:500;white-space:nowrap;text-align:center}
+.bz .ls-new:hover{background:color-mix(in srgb,var(--ink) 84%,var(--bg))}
+.bz .ls-new.io{width:36px;height:36px;padding:0;justify-content:center;border-radius:11px}
+.bz .ls-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid var(--line2);color:var(--ink);white-space:nowrap;background:transparent;text-align:center}
+.bz .ls-btn:hover{background:var(--p2)}
+.bz .ls-btn.sm{height:28px;padding:0 10px;font-size:12px}
+.bz .ls-btn.amb{background:var(--amber);border-color:var(--amber);color:var(--on-amber)}
+.bz .ls-btn.amb:hover{background:var(--amber-hover)}
+.bz .ls-btn.gh{border-color:transparent;color:var(--ink2)}
+.bz .ls-btn.gh:hover{color:var(--ink)}
+.bz .ls-btn.dng{color:var(--rose)}
+.bz .ls-btn[aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.ls-fbar{display:flex;align-items:center;gap:10px;padding:18px 32px 0;flex-wrap:wrap}
+.ls-q{display:flex;align-items:center;gap:8px;height:32px;width:280px;padding:0 10px;border-radius:8px;background:var(--p1);border:1px solid var(--line);color:var(--ink3)}
+.ls-q:focus-within{border-color:var(--ink3)}
+.ls-q input{flex:1;min-width:0;background:transparent;border:0;outline:0;font:inherit;color:var(--ink)}
+.ls-q input::placeholder{color:var(--ink3)}
+.ls-chips{display:flex;gap:6px;flex-wrap:wrap}
+.bz .ls-chips button{height:28px;padding:0 11px;border-radius:999px;font-size:12px;color:var(--ink2);border:1px solid var(--line);white-space:nowrap}
+.bz .ls-chips button:hover{border-color:var(--line2);color:var(--ink)}
+.bz .ls-chips button[aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.ls-chips .n{font-family:'Geist Mono',monospace;font-size:11px;margin-left:5px;opacity:.65}
+.ls-body{padding:22px 32px 48px}
+.ls-pab{display:flex;align-items:center;gap:8px;padding:2px 12px 2px}
+.ls-ib{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:var(--ink2)}
+.ls-pc{font-size:13px;color:var(--ink3)}
+
+/* ---------- mřížky, sekce ---------- */
+.ls-g1{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.ls-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.ls-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.ls-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.ls-g5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.ls-sh{display:flex;align-items:center;gap:10px;margin:28px 0 12px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.ls-sh:first-child{margin-top:0}
+.ls-sh .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);color:var(--ink2)}
+.ls-sh .code{font-family:'Geist Mono',monospace;font-size:11.5px;font-weight:500;color:var(--ink2);padding:2px 7px;border-radius:6px;border:1px solid var(--line2)}
+.ls-sh .n{font-family:'Geist Mono',monospace;font-weight:400;font-size:12px;color:var(--ink3)}
+.ls-sh .ln{flex:1;height:1px;background:var(--line)}
+
+/* ---------- karta: jeden fokusový cíl ---------- */
+.ls-c{position:relative;min-width:0;background:var(--p1);border:1px solid var(--line);border-radius:12px;transition:border-color .15s,box-shadow .15s}
+.ls-c:hover,.ls-c.hov{border-color:var(--line2);box-shadow:0 16px 32px -22px rgba(0,0,0,.75)}
+.bz[data-theme=light] .ls-c:hover,.bz[data-theme=light] .ls-c.hov{box-shadow:0 16px 32px -22px rgba(20,22,26,.35)}
+.ls-c.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.ls-r{position:relative;list-style:none}
+.ls-r:hover,.ls-r.hov{background:color-mix(in srgb,var(--ink) 3.5%,transparent)}
+.ls-r.sel{background:color-mix(in srgb,var(--ink) 5%,transparent);box-shadow:inset 2px 0 0 var(--ink)}
+.ls-cover{position:absolute;inset:0;border-radius:inherit;z-index:1}
+.ls-cover:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.ls-c a:not(.ls-cover),.ls-c button,.ls-r a:not(.ls-cover),.ls-r button{position:relative;z-index:2}
+.ls-stt{position:absolute;top:-9px;right:12px;z-index:3;font:500 10px/1 'Geist Mono',monospace;padding:4px 6px;border-radius:5px;background:var(--sky);color:var(--on-status);pointer-events:none}
+.ls-r .ls-stt{top:4px;right:auto;left:4px}
+.ls-c h3{font-size:15px;font-weight:600;letter-spacing:-.015em;line-height:1.3}
+.ls-lk{color:inherit;text-decoration:none;border-radius:5px}
+.ls-lk:hover{color:var(--ink)}
+.ls-lk:focus-visible,.ls-c a:focus-visible,.ls-r a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* ---------- drobné prvky ---------- */
+.ls-av{display:inline-grid;place-items:center;border-radius:50%;font-weight:600;color:var(--av-ink);flex:none;letter-spacing:-.02em;line-height:1}
+.ls-av.bot{border-radius:30%}
+.ls-stack{display:inline-flex}
+.ls-stack>.ls-av{box-shadow:0 0 0 2px var(--p1)}
+.ls-stack>.ls-av+.ls-av{margin-left:-7px}
+.ls-eng{display:inline-grid;place-items:center;padding:0 3px;border-radius:5px;font-family:'Geist Mono',monospace;font-weight:600;background:var(--p3);color:var(--ink);border:1px solid var(--line2);flex:none;line-height:1}
+.ls-chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11.5px;color:var(--ink2);background:color-mix(in srgb,var(--ink) 5%,transparent);white-space:nowrap}
+.ls-chip.mono{font-family:'Geist Mono',monospace;font-size:11px}
+.ls-chip.ol{background:transparent;border:1px solid var(--line2)}
+.ls-pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px 0 8px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap;color:var(--ink2);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.ls-pill .dot{width:6px;height:6px}
+.ls-pill.working{color:var(--violet);background:color-mix(in srgb,var(--violet) 13%,transparent)}
+.ls-pill.thinking{color:var(--sky);background:color-mix(in srgb,var(--sky) 12%,transparent)}
+.ls-pill.parked{color:var(--amber-fg);background:var(--amb-s)}
+.ls-pill.error{color:var(--rose);background:color-mix(in srgb,var(--rose) 12%,transparent)}
+.ls-pill.done{color:var(--emerald);background:color-mix(in srgb,var(--emerald) 12%,transparent)}
+.ls-bar{display:block;height:5px;border-radius:99px;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden}
+.ls-bar i{display:block;height:100%;border-radius:99px;background:var(--ink2)}
+.ls-bar.hot i{background:var(--amber)}
+.ls-bar.over i{background:var(--rose)}
+.bz .ls-sw{width:32px;height:20px;border-radius:99px;background:color-mix(in srgb,var(--ink) 18%,transparent);position:relative;flex:none;transition:background .15s}
+.bz .ls-sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.35);transition:transform .15s}
+.bz .ls-sw[aria-checked=true]{background:var(--ink)}
+.bz .ls-sw[aria-checked=true]::after{background:var(--p1);transform:translateX(12px)}
+.bz .ls-sw.big{width:46px;height:26px}
+.bz .ls-sw.big::after{width:22px;height:22px}
+.bz .ls-sw.big[aria-checked=true]::after{transform:translateX(20px)}
+.bz .ls-sw:disabled{opacity:.45;cursor:not-allowed}
+.bz .ls-sw:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.mono{font-family:'Geist Mono',monospace}
+
+/* ---------- 1 · Firmy ---------- */
+.co{padding:22px 22px 0;display:flex;flex-direction:column}
+.co-h{display:flex;align-items:center;gap:14px}
+.co-mono{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;font-weight:700;font-size:17px;letter-spacing:-.04em;background:var(--ink);color:var(--on-ink);flex:none}
+.co-t{flex:1;min-width:0}
+.co h3{font-size:20px;letter-spacing:-.025em}
+.co-t .mono{font-size:12px;color:var(--ink3)}
+.co-ppl{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ink2)}
+.co-d{margin:14px 0 0;color:var(--ink2);font-size:13.5px;line-height:1.55;max-width:560px;text-wrap:pretty}
+.co-body{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:24px;align-items:center;margin-top:18px;padding:16px 0;border-top:1px solid var(--line)}
+.co-root{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--ink3)}
+.co-tree ul{list-style:none;margin:6px 0 0 6px;padding:0 0 0 16px;border-left:1px solid var(--line2)}
+.co-tree li{position:relative;display:flex;align-items:center;gap:12px;padding:5px 0}
+.co-tree li::before{content:'';position:absolute;left:-16px;top:50%;width:11px;height:1px;background:var(--line2)}
+.co-tm{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--ink);min-width:130px}
+.co-pj{display:inline-flex;align-items:center;gap:4px;color:var(--ink3);font-size:11.5px}
+.co-pj i{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--ink3)}
+.co-pj .mono{margin-left:4px}
+.co-g{display:flex;flex-direction:column;align-items:center;gap:2px}
+.co-g small{font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.co-f{display:flex;align-items:center;gap:8px;padding:12px 0 14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
+.co-f b{color:var(--ink);font-weight:500}
+
+/* ---------- 2 · Týmy ---------- */
+.tm{padding:18px;display:flex;flex-direction:column;gap:14px}
+.tm-crumb{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--line);font-size:11.5px;color:var(--ink2);align-self:flex-start}
+.tm-n{display:flex;align-items:baseline;gap:8px}
+.tm-n .mono{font-size:11.5px;color:var(--ink3)}
+.tm-d{font-size:13px;color:var(--ink2);line-height:1.5;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:39px}
+.tm-people{display:flex;align-items:center;gap:5px}
+.tm-more{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:11.5px;font-weight:600;color:var(--ink2);border:1px dashed var(--line2)}
+.tm-cnt{margin-left:auto;font-size:12px;color:var(--ink3)}
+.tm-kb{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:10px;background:color-mix(in srgb,var(--ink) 3%,transparent);border:1px solid var(--line)}
+.tm-kb .bk{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line2);color:var(--ink)}
+.tm-kb b{display:block;font-weight:500;font-size:12.5px}
+.tm-kb small{display:block;color:var(--ink3);font-size:11.5px}
+.tm-spark{display:flex;align-items:flex-end;gap:2px;height:22px}
+.tm-spark i{width:4px;border-radius:1.5px;background:var(--ink3)}
+
+/* ---------- 3 · Projekty ---------- */
+.pj{padding:16px 16px 14px;display:flex;flex-direction:column;gap:12px}
+.pj-h{display:flex;align-items:flex-start;gap:10px}
+.pj-h .tt{flex:1;min-width:0}
+.pj-path{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;margin-top:2px}
+.pj-live{display:flex;gap:10px;font-size:11.5px;font-weight:500;margin-top:5px}
+.pj-live span{display:inline-flex;align-items:center;gap:5px}
+.pj-live .v{color:var(--violet)}
+.pj-live .a{color:var(--amber-fg)}
+.pj-strip{display:flex;height:8px;border-radius:3px;overflow:hidden;gap:2px}
+.pj-strip i{display:block;height:100%}
+.pj-c{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 4px;margin:-4px -6px 0}
+.pj-c a{display:flex;align-items:center;justify-content:space-between;gap:6px;height:26px;padding:0 6px;border-radius:7px;text-decoration:none;color:var(--ink2);font-size:11.5px}
+.pj-c a:hover{background:color-mix(in srgb,var(--ink) 5%,transparent);color:var(--ink)}
+.pj-c a span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.pj-c b{font-family:'Geist Mono',monospace;font-weight:500;font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.pj-c a.z b{color:var(--ink3);font-weight:400}
+.pj-c .sq{width:7px;height:7px;border-radius:2px;flex:none}
+.pj-sp{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink3)}
+.pj-sp b{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);font-weight:500;white-space:nowrap}
+.pj-bud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pj-bud>div{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--ink3)}
+.pj-bud .l{display:flex;justify-content:space-between}
+.pj-bud .l .mono{color:var(--ink2)}
+.pj-bud .hot .l .mono{color:var(--amber-fg)}
+.pj-bud .over .l .mono{color:var(--rose)}
+.pj-emp{display:flex;align-items:center;gap:12px;padding:18px;border:1px dashed var(--line2);border-radius:12px;color:var(--ink3);font-size:13px}
+
+/* ---------- 4 · Agenti ---------- */
+.ag{display:flex;flex-direction:column;overflow:hidden}
+.ag-top{position:relative;height:96px;background:linear-gradient(180deg,color-mix(in srgb,var(--hue) 20%,transparent),color-mix(in srgb,var(--hue) 4%,transparent));border-bottom:1px solid var(--line);border-radius:11px 11px 0 0}
+.ag-st{position:absolute;top:10px;left:10px}
+.ag-dep{position:absolute;top:12px;right:12px;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ink3)}
+.ag-av{position:absolute;left:50%;bottom:-38px;transform:translateX(-50%)}
+.ag-av>.ls-av{box-shadow:0 0 0 4px var(--p1)}
+.ag-eb{position:absolute;right:-8px;bottom:-2px}
+.ag-eb .ls-eng{box-shadow:0 0 0 3px var(--p1)}
+.ag-b{padding:48px 14px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.ag-b h3{font-size:16px}
+.ag-b p{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.ag-now{font-size:12px;color:var(--violet);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-now.thinking{color:var(--sky)}
+.ag-badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.ag-think{display:inline-flex;gap:2px;align-items:flex-end;height:10px}
+.ag-think i{width:3px;border-radius:1px;background:color-mix(in srgb,var(--ink) 20%,transparent)}
+.ag-think i.on{background:var(--ink2)}
+.ag-tools{display:flex;gap:4px}
+.ag-tools span{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:color-mix(in srgb,var(--ink) 5%,transparent);color:var(--ink2)}
+.ag-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line);margin-top:auto}
+.ag-stats div{padding:9px 6px;text-align:center;font-size:10.5px;color:var(--ink3)}
+.ag-stats div+div{border-left:1px solid var(--line)}
+.ag-stats b{display:block;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);font-weight:500}
+
+/* ---------- 5 · Workflow ---------- */
+.wf{display:grid;grid-template-columns:300px minmax(0,1fr)}
+.wf-l{padding:18px;display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--line)}
+.wf-l .hd{display:flex;align-items:center;gap:10px}
+.wf-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line2);color:var(--ink);flex:none}
+.wf-l p{font-size:12.5px;color:var(--ink2);line-height:1.5;text-wrap:pretty}
+.wf-meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink3);flex-wrap:wrap}
+.wf-last{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.wf-last .mono{margin-left:auto;font-size:11.5px;color:var(--ink3)}
+.wf-r{padding:20px 22px;display:flex;align-items:center;overflow-x:auto;background-image:radial-gradient(color-mix(in srgb,var(--ink) 11%,transparent) 1px,transparent 1.2px);background-size:16px 16px;border-radius:0 11px 11px 0}
+.wf-pipe{display:flex;align-items:center;min-width:max-content}
+.wf-n{display:flex;flex-direction:column;gap:7px;width:150px;padding:10px 11px;border-radius:10px;background:var(--p1);border:1px solid var(--line2)}
+.wf-n .no{display:flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink3)}
+.wf-n .ok{color:var(--emerald);display:inline-flex}
+.wf-n .no .dot{width:7px;height:7px}
+.wf-ph{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf-n .r1{display:flex;align-items:center;gap:6px;min-width:0}
+.wf-who{flex:1;min-width:0;font-size:11.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf-n.done{background:color-mix(in srgb,var(--p1) 70%,transparent)}
+.wf-n.act{border-color:color-mix(in srgb,var(--violet) 65%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 14%,transparent)}
+.wf-a{width:30px;height:2px;background:var(--line2);position:relative;flex:none;margin-right:6px}
+.wf-a::after{content:'';position:absolute;right:-6px;top:-4px;border:5px solid transparent;border-left:6px solid var(--line2);border-right:0}
+.wf-a.done{background:var(--ink3)}
+.wf-a.done::after{border-left-color:var(--ink3)}
+.wf-out{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 13px;border-radius:999px;border:1px dashed var(--line2);background:var(--p1);font-size:12px;color:var(--ink2);white-space:nowrap}
+
+/* ---------- 6 · Automatizace ---------- */
+.au-note{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--amber) 6%,transparent);border:1px solid color-mix(in srgb,var(--amber) 24%,transparent);font-size:13px;color:var(--ink2);margin-bottom:24px}
+.au-note .sh{color:var(--amber-fg);display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--amb-s);flex:none}
+.au-note b{color:var(--ink);font-weight:500}
+.au-note a{margin-left:auto;color:var(--amber-fg);font-weight:500;text-decoration:none;white-space:nowrap;border-radius:5px}
+.au{padding:16px;display:flex;flex-direction:column;gap:14px}
+.au-h{display:flex;align-items:center;gap:10px}
+.au-h h3{flex:1;min-width:0}
+.au-onl{font-size:12px;color:var(--ink3)}
+.au-dia{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);align-items:stretch;transition:opacity .2s}
+.au-t{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);min-width:0}
+.au-t .i{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);color:var(--ink);flex:none}
+.au-t .k{font-size:10.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:1px}
+.au-t b{display:block;font-weight:500;font-size:13px;line-height:1.3}
+.au-t code{display:block;font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.au-ar{position:relative}
+.au-ar::before{content:'';position:absolute;left:4px;right:10px;top:calc(50% - 1px);height:2px;background:var(--ink2)}
+.au-ar::after{content:'';position:absolute;right:4px;top:calc(50% - 5px);border:5px solid transparent;border-left:7px solid var(--ink2);border-right:0}
+.au.off .au-ar::before{background:repeating-linear-gradient(90deg,var(--line2) 0 4px,transparent 4px 8px)}
+.au.off .au-ar::after{border-left-color:var(--line2)}
+.au.off .au-dia,.au.off .au-tl{opacity:.55}
+.au-tl{position:relative;height:34px;margin:0 6px}
+.au-tl .ax{position:absolute;left:0;right:0;top:7px;height:2px;border-radius:2px;background:var(--line2)}
+.au-tl .past{position:absolute;left:0;top:7px;height:2px;border-radius:2px;background:var(--ink3)}
+.au-tl .now{position:absolute;top:1px;width:2px;height:14px;margin-left:-1px;background:var(--ink);border-radius:2px}
+.au-tl .mk{position:absolute;top:3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;box-shadow:0 0 0 2px var(--p1)}
+.au-tl .mk.nx{background:var(--p1);border:2px solid var(--ink2)}
+.au-tl .fr{position:absolute;top:4px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--ink2);box-shadow:0 0 0 2px var(--p1)}
+.au-tl .lb{position:absolute;top:19px;font-size:11px;color:var(--ink3);white-space:nowrap}
+.au-tl .lb.r{right:0}
+.au-tl .lb.n{transform:translateX(-50%);color:var(--ink2);font-weight:500}
+.au-f{display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink2)}
+.au-f .st{display:inline-flex;align-items:center;gap:7px}
+.rg-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--p1);overflow:hidden}
+.rg-list>.ls-r+.ls-r{border-top:1px solid var(--line)}
+.au-r{display:grid;grid-template-columns:10px minmax(0,1fr) 220px 150px 34px;gap:14px;align-items:center;padding:11px 16px;font-size:13px}
+.au-r b{font-weight:500}
+.au-r .mono{font-size:11.5px;color:var(--ink3)}
+.au-r .w{color:var(--ink2);font-size:12.5px}
+
+/* ---------- 7 · Cíle ---------- */
+.go{display:grid;grid-template-columns:132px minmax(0,1fr);gap:20px;padding:18px}
+.go-ring{position:relative;width:132px;height:132px}
+.go-ring svg{display:block;width:100%;height:100%}
+.go-ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.go-ring b{font-size:34px;font-weight:300;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.go-ring small{font-size:11px;color:var(--ink3);margin-top:4px}
+.go-cur{animation:lscur 1.6s ease-in-out infinite}
+@keyframes lscur{50%{opacity:.4}}
+.go-r{display:flex;flex-direction:column;gap:10px;min-width:0}
+.go-top{display:flex;align-items:center;gap:8px}
+.go-top .mono{margin-left:auto;font-size:11.5px;color:var(--ink3)}
+.go-pair{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.go-pair .p{display:flex;align-items:center;gap:7px;min-width:0}
+.go-pair .p small{display:block;font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;line-height:1.2}
+.go-pair .x{color:var(--ink3);font-size:16px}
+.go-v{padding:9px 11px;border-radius:9px;background:color-mix(in srgb,var(--ink) 3%,transparent);border-left:2px solid var(--line2);font-size:12.5px;color:var(--ink2);line-height:1.45;text-wrap:pretty}
+.go-v .k{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--ink3);margin-bottom:3px}
+.go-v .k b{font-weight:500;color:var(--ink2)}
+.go-v.parked{border-left-color:var(--amber)}
+.go-v.parked .k b{color:var(--amber-fg)}
+.go-v.error{border-left-color:var(--rose)}
+.go-v.error .k b{color:var(--rose)}
+.go-v.done{border-left-color:var(--emerald)}
+.go-v.done .k b{color:var(--emerald)}
+.go-acts{display:flex;gap:6px;margin-top:auto}
+
+/* ---------- 8 · Oddělení ---------- */
+.dp-org{display:flex;flex-direction:column;align-items:center}
+.dp-root{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 6px;border-radius:999px;background:var(--p1);border:1px solid var(--line2);font-size:13px;font-weight:500}
+.dp-root .m{width:26px;height:26px;border-radius:8px;background:var(--ink);color:var(--on-ink);display:grid;place-items:center;font-size:10px;font-weight:700}
+.dp-stem{width:1px;height:16px;background:var(--line2)}
+.dp-rail{position:relative;width:calc((200% + 32px) / 3);height:18px;border:1px solid var(--line2);border-bottom:0;border-radius:8px 8px 0 0}
+.dp-rail::after{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line2)}
+.dp{display:flex;flex-direction:column}
+.dp-h{display:flex;gap:12px;padding:16px 16px 0;align-items:flex-start}
+.dp-code{width:54px;height:54px;border-radius:13px;display:grid;place-items:center;font-family:'Geist Mono',monospace;font-weight:600;font-size:15px;border:1px solid var(--line2);background:var(--p2);flex:none}
+.dp-lead{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);margin-top:5px}
+.dp-man{font-size:12.5px;color:var(--ink2);line-height:1.5;padding:12px 16px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:49px}
+.dp-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:14px 16px 0;border:1px solid var(--line);border-radius:10px}
+.dp-kpi>div{padding:9px 10px;min-width:0}
+.dp-kpi>div+div{border-left:1px solid var(--line)}
+.dp-kpi b{display:block;font-size:20px;font-weight:400;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.dp-kpi small{font-size:10.5px;color:var(--ink3);line-height:1.25;display:block;margin-top:3px}
+.dp-kpi .a small i{font-style:normal;color:var(--amber-fg);display:block}
+.dp-tabs{display:flex;flex-wrap:wrap;gap:2px 12px;padding:12px 16px 14px;margin-top:14px;border-top:1px solid var(--line);font-size:12px}
+.dp-tabs a{color:var(--ink3);text-decoration:none}
+.dp-tabs a:hover{color:var(--ink)}
+
+/* ---------- 9 · Registry ---------- */
+.rg-sub{display:flex;align-items:center;gap:4px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+.bz .rg-sub button{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 12px;font-size:13px;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0}
+.bz .rg-sub button:hover{color:var(--ink)}
+.bz .rg-sub button[aria-pressed=true]{color:var(--ink);border-bottom-color:var(--ink);font-weight:500}
+.rg-sub .n{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink3)}
+.sk{padding:11px 12px;display:flex;flex-direction:column;gap:8px;border-radius:10px}
+.sk-h{display:flex;align-items:center;gap:9px;min-width:0}
+.sk-gl{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-family:'Geist Mono',monospace;font-size:10px;font-weight:600;background:var(--p2);border:1px solid var(--line);color:var(--ink2);flex:none}
+.sk-h b{font-family:'Geist Mono',monospace;font-size:12.5px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sk-src{font-size:10.5px;color:var(--ink3);padding:1px 6px;border:1px solid var(--line);border-radius:5px;white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
+.sk p{font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sk-b{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink3);padding-top:7px;border-top:1px solid var(--line);flex-wrap:wrap}
+.sk-b code{font-family:'Geist Mono',monospace;font-size:10px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink2)}
+.sk-b .no{font-style:italic}
+.cm{border:1px solid var(--line);border-radius:12px;background:var(--p1);overflow:hidden}
+.cm-bar{display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-bottom:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink3);background:var(--code-bg)}
+.cm-bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.cm-list{list-style:none;margin:0;padding:0}
+.cm-r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:11px 16px}
+.cm-list>.ls-r+.ls-r{border-top:1px dashed var(--line2)}
+.cm-l{font-family:'Geist Mono',monospace;font-size:13.5px;display:flex;gap:10px;align-items:baseline;min-width:0;flex-wrap:wrap}
+.cm-l .pr{color:var(--ink3)}
+.cm-l .nm{color:var(--ink);font-weight:500}
+.cm-l .arg{color:var(--syn-k)}
+.cm-d{flex-basis:100%;font-family:'Geist',system-ui,sans-serif;font-size:12px;color:var(--ink3);padding-left:20px}
+.cm-p{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:11.5px;font-weight:500;white-space:nowrap}
+.cm-p.auto{background:var(--ink);color:var(--on-ink)}
+.cm-p.man{border:1px solid var(--line2);color:var(--ink3);font-weight:400}
+.hk{display:grid;grid-template-columns:210px 28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 16px}
+.hk-ev{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px 0 9px;border-radius:999px;border:1px solid var(--line2);font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink);justify-self:start;background:var(--bg)}
+.hk-ev svg{color:var(--ink3)}
+.hk-ar{color:var(--ink3);display:grid;place-items:center}
+.hk-cmd{font-family:'Geist Mono',monospace;font-size:12px;padding:6px 10px;border-radius:7px;background:var(--code-bg);border:1px solid var(--line);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hk-m{display:flex;flex-direction:column;align-items:flex-end;font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.mc{display:grid;grid-template-columns:38px minmax(0,1fr) 64px minmax(0,1.4fr) 90px 34px;gap:14px;align-items:center;padding:12px 16px}
+.mc-s{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line);position:relative;color:var(--ink2)}
+.mc-s .dot{position:absolute;right:-4px;bottom:-4px;width:12px;height:12px;box-shadow:0 0 0 2.5px var(--p1)}
+.mc-s .dot.live{animation:lsping 2.4s ease-out infinite}
+@keyframes lsping{0%{box-shadow:0 0 0 2.5px var(--p1),0 0 0 2.5px color-mix(in srgb,var(--emerald) 55%,transparent)}100%{box-shadow:0 0 0 2.5px var(--p1),0 0 0 9px transparent}}
+.mc-n b{display:block;font-weight:500;font-size:13.5px}
+.mc-n small{display:block;font-size:11.5px;color:var(--ink3)}
+.mc-n small.on{color:var(--emerald)}
+.mc-n small.err{color:var(--rose)}
+.mc-tr{font-family:'Geist Mono',monospace;font-size:11px;padding:2px 7px;border-radius:5px;border:1px solid var(--line2);color:var(--ink2);justify-self:start}
+.mc-u{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc-t{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink3)}
+
+/* ---------- 10 · Marketplace ---------- */
+.mk{display:flex;flex-direction:column}
+.mk-shelf{display:flex;align-items:flex-end;gap:6px;height:88px;padding:0 16px 10px;border-bottom:2px solid var(--line2);background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--ink) 3.5%,transparent));border-radius:11px 11px 0 0}
+.mk-shelf span{width:32px;border-radius:7px;display:grid;place-items:center;font-family:'Geist Mono',monospace;font-size:9.5px;font-weight:600}
+.mk-shelf .in{background:var(--p3);border:1px solid var(--line2);color:var(--ink)}
+.mk-shelf .out{border:1px dashed var(--line2);color:var(--ink3)}
+.mk-shelf .more{width:auto;font-size:11px;color:var(--ink3);margin-left:4px;align-self:center;font-weight:400}
+.mk-b{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.mk-h{display:flex;align-items:center;gap:8px}
+.mk-h h3{flex:1;font-family:'Geist Mono',monospace;font-size:14px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-tag{font-size:11px;padding:2px 7px;border-radius:5px;font-weight:500}
+.mk-tag.dev{border:1px dashed var(--ink3);color:var(--ink)}
+.mk-tag.reg{background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink2)}
+.mk-src{display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink3);align-self:flex-start;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mk-p .l{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-bottom:6px}
+.mk-p .l b{font-weight:600;color:var(--ink)}
+.mk-p .mono{color:var(--ink3);font-size:11.5px}
+.mk-f{display:flex;align-items:center;gap:8px;padding:10px 16px 12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink3);margin-top:auto}
+
+/* ---------- prázdno a načítání ---------- */
+.ls-sk{display:block;border-radius:6px;background:color-mix(in srgb,var(--ink) 7%,transparent);position:relative;overflow:hidden;flex:none}
+.ls-sk::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ink) 8%,transparent),transparent);animation:lssh 1.4s ease-in-out infinite}
+@keyframes lssh{to{transform:translateX(100%)}}
+.ls-skc{background:var(--p1);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden}
+.ls-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:44px 24px 56px;border:1px dashed var(--line2);border-radius:16px}
+.ls-ghost{display:grid;gap:10px;width:min(560px,100%);margin-bottom:10px}
+.ls-ghost>div{border:1.5px dashed var(--line2);border-radius:10px}
+.ls-eic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--p2);border:1px solid var(--line2);color:var(--ink)}
+.ls-empty h2{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.ls-empty p{font-size:13.5px;color:var(--ink2);max-width:460px;line-height:1.55;text-wrap:pretty}
+.ls-empty .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+
+/* ---------- přehled rodiny ---------- */
+.ov{width:1440px;max-width:calc(100% - 40px);margin:30px auto 80px}
+.ov h2.h{font-size:30px;font-weight:500;letter-spacing:-.035em}
+.ov .lead2{color:var(--ink2);font-size:14.5px;max-width:860px;margin:8px 0 24px;line-height:1.6;text-wrap:pretty}
+.ov-rule{display:grid;grid-template-columns:380px minmax(0,1fr);gap:36px;padding:24px;border:1px solid var(--line2);border-radius:16px;background:var(--p1);margin-bottom:32px}
+.ov-rule h3{font-size:15px;font-weight:600;margin-bottom:10px}
+.ov-rule ul{margin:0;padding-left:18px;color:var(--ink2);font-size:13px;line-height:1.7}
+.ov-rule li b{color:var(--ink);font-weight:500}
+.ov table{width:100%;border-collapse:collapse;font-size:12.5px}
+.ov th{text-align:left;font-weight:500;color:var(--ink3);padding:7px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.ov td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+.ov td:first-child{color:var(--ink);font-weight:500;white-space:nowrap}
+.ov-bar{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+.ov-bar h3{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.ov-bar span{color:var(--ink3);font-size:13px}
+.ov-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.ov-t{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--p1)}
+.ov-th{height:300px;overflow:hidden;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
+.ov-th>.sc{width:1440px;transform:scale(.32);transform-origin:0 0;pointer-events:none;transition:filter .3s}
+.ov.sil .ov-th>.sc{filter:grayscale(1) blur(3px)}
+.ov-tf{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.ov-tf b{font-weight:600}
+.ov-tf small{display:block;color:var(--ink3);font-size:12px}
+
+/* ---------- telefon ---------- */
+.vw-ph .ls-head{padding:4px 16px 0}
+.vw-ph .ls-head h1{font-size:30px}
+.vw-ph .ls-fbar{padding:12px 16px 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.vw-ph .ls-q{display:none}
+.vw-ph .ls-chips{flex-wrap:nowrap}
+.vw-ph .ls-body{padding:14px 12px 40px}
+.vw-ph .ls-g2,.vw-ph .ls-g3,.vw-ph .ls-g4{grid-template-columns:minmax(0,1fr);gap:12px}
+.vw-ph .ls-g4.ag-g{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vw-ph .ls-g5{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vw-ph .ls-sh{margin:22px 4px 10px}
+.vw-ph .co{padding:16px 16px 0}
+.vw-ph .co h3{font-size:17px}
+.vw-ph .co-ppl>span:last-child{display:none}
+.vw-ph .co-body{grid-template-columns:minmax(0,1fr);gap:14px}
+.vw-ph .co-g{flex-direction:row;gap:12px;justify-content:flex-start}
+.vw-ph .co-f .lbl{display:none}
+.vw-ph .ag-stats,.vw-ph .ag-dep,.vw-ph .ag-tools{display:none}
+.vw-ph .ag-b{padding:46px 10px 12px;gap:8px}
+.vw-ph .ag-b h3{font-size:14px}
+.vw-ph .ag-badges .ls-chip:last-child{display:none}
+.vw-ph .ag-st{left:8px;top:8px}
+.vw-ph .wf{grid-template-columns:minmax(0,1fr)}
+.vw-ph .wf-l{border-right:0;border-bottom:1px solid var(--line)}
+.vw-ph .wf-r{padding:14px;border-radius:0 0 11px 11px}
+.vw-ph .au-note{flex-wrap:wrap}
+.vw-ph .au-note a{margin-left:42px}
+.vw-ph .au-dia{grid-template-columns:minmax(0,1fr)}
+.vw-ph .au-ar{height:24px}
+.vw-ph .au-ar::before{left:calc(50% - 1px);right:auto;top:3px;bottom:9px;width:2px;height:auto}
+.vw-ph .au-ar::after{left:calc(50% - 5px);right:auto;top:auto;bottom:3px;border:5px solid transparent;border-top:7px solid var(--ink2);border-bottom:0}
+.vw-ph .au.off .au-ar::after{border-top-color:var(--line2);border-left-color:transparent}
+.vw-ph .au-r{grid-template-columns:10px minmax(0,1fr) 34px}
+.vw-ph .hp{display:none}
+.vw-ph .go{grid-template-columns:86px minmax(0,1fr);gap:14px;padding:14px}
+.vw-ph .go-ring{width:86px;height:86px}
+.vw-ph .go-ring b{font-size:22px}
+.vw-ph .go-ring small{font-size:9.5px}
+.vw-ph .go-pair .p small,.vw-ph .go-top .mono{display:none}
+.vw-ph .dp-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vw-ph .dp-kpi>div:nth-child(3){border-left:0;border-top:1px solid var(--line)}
+.vw-ph .dp-kpi>div:nth-child(4){border-top:1px solid var(--line)}
+.vw-ph .rg-sub{overflow-x:auto;scrollbar-width:none}
+.vw-ph .rg-sub button{flex:none}
+.vw-ph .sk-src{display:none}
+.vw-ph .cm-r{grid-template-columns:minmax(0,1fr)}
+.vw-ph .cm-p{justify-self:start;margin-left:20px}
+.vw-ph .hk{grid-template-columns:minmax(0,1fr);gap:8px}
+.vw-ph .hk-ar{display:none}
+.vw-ph .hk-m{flex-direction:row;gap:8px;align-items:center}
+.vw-ph .mc{grid-template-columns:38px minmax(0,1fr) auto 34px}
+.vw-ph .ls-empty{padding:28px 16px 36px}
+@media (prefers-reduced-motion:reduce){.go-cur,.mc-s .dot.live,.ls-sk::after{animation:none!important}}
+</style>
+</helmet>
+<div class="bz" data-theme="{{ theme }}">
+  <nav class="vt" aria-label="Stránky seznamů">
+    <span class="lbl">ZibbyOS · seznamy</span>
+    <sc-for list="{{ views }}" as="v" hint-placeholder-count="11">
+      <button class="vtb" aria-pressed="{{ v.on }}" onClick="{{ v.pick }}">{{ v.label }}</button>
+    </sc-for>
+    <span style="flex:1"></span>
+    <sc-if value="{{ isPage }}" hint-placeholder-val="{{ false }}">
+      <div class="seg" role="group" aria-label="Stav stránky" style="margin-right:8px">
+        <sc-for list="{{ modes }}" as="t" hint-placeholder-count="4">
+          <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <div class="seg" role="group" aria-label="Zařízení" style="margin-right:8px">
+        <sc-for list="{{ devs }}" as="t" hint-placeholder-count="3">
+          <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <div class="seg" role="group" aria-label="Téma">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+        <button aria-pressed="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </nav>
+  {{ page }}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"tsType":"string","section":"Pohled"},"view":{"editor":"enum","default":"overview","options":["overview","companies","teams","projects","agents","workflows","automations","goals","departments","registries","marketplaces"],"tsType":"string","section":"Pohled"}}'>
+class Component extends DCLogic {
+  state = { view: null, theme: null, mode: 'full', dev: 'both', reg: 'skills', sil: false, on: {} };
+  h = (t, p, ...c) => React.createElement(t, p, ...c.flat(Infinity));
+  noop = e => { if (e && e.preventDefault) e.preventDefault(); };
+  ci = 0; hl = false;
+
+  theme() { if (this.state.theme) return this.state.theme; let t = null; try { t = localStorage.getItem('bridge-theme'); } catch (e) {} return t || this.props.theme || 'dark'; }
+  setTheme = t => { try { localStorage.setItem('bridge-theme', t); } catch (e) {} this.setState({ theme: t }); };
+  view() { return this.state.view || this.props.view || 'overview'; }
+
+  // ================= DATA =================
+  PAGES = ['companies', 'teams', 'projects', 'agents', 'workflows', 'automations', 'goals', 'departments', 'registries', 'marketplaces'];
+  LBL = { overview: 'Rodina', companies: 'Firmy', teams: 'Týmy', projects: 'Projekty', agents: 'Agenti', workflows: 'Workflow', automations: 'Automatizace', goals: 'Cíle', departments: 'Oddělení', registries: 'Registry', marketplaces: 'Marketplace' };
+
+  CO = [
+    { id: 'zibbycorp', mono: 'ZC', name: 'ZibbyCorp', desc: 'Mateřská firma pro vlastní produkty a interní nástroje. Drží sdílený tým agentů a výchozí rozpočet pro všechny své projekty.', people: 14, members: ['Karel Zíbar', 'Architekt', 'Kodér', 'Recenzent', 'Dispečer'], budget: { v: 40, per: 'den', used: .31, today: 12.4 }, teams: [['Platforma', 3], ['Růst', 0], ['Provoz', 2]] },
+    { id: 'nordlicht', mono: 'NL', name: 'Nordlicht s.r.o.', desc: 'Klient — e-shop se skandinávským nábytkem. Web, katalog a obsah pro sociální sítě.', people: 6, members: ['Jana Malá', 'Copywriter', 'Analytik', 'Tester'], budget: { v: 15, per: 'den', used: .58, today: 8.7 }, teams: [['Web a e-shop', 1], ['Obsah', 0]] },
+    { id: 'orech', mono: 'KO', name: 'Kavárna Ořech', desc: 'Menší klient. Rezervace stolů, týdenní menu a newsletter pro stálé hosty.', people: 3, members: ['Petr Novák', 'Copywriter', 'Dispečer'], budget: { v: 5, per: 'den', used: .86, today: 4.3 }, teams: [['Provoz kavárny', 1]] }
+  ];
+  TM = [
+    { id: 'platforma', name: 'Platforma', co: 'ZibbyCorp', desc: 'Jádro ZibbyOS: orchestrátor, běhy, Můstek a mobilní aplikace.', members: ['Karel Zíbar', 'Architekt', 'Kodér', 'Recenzent', 'Tester', 'Dispečer', 'Analytik', 'Copywriter', 'Účetní'], kb: 148, ago: 'před 2 h', sp: [3, 5, 2, 8, 6, 9, 4] },
+    { id: 'rust', name: 'Růst', co: 'ZibbyCorp', desc: 'Akvizice, landing pages, onboarding a měření konverzí.', members: ['Karel Zíbar', 'Copywriter', 'Analytik', 'Kodér'], kb: 62, ago: 'včera', sp: [1, 2, 2, 0, 3, 1, 2] },
+    { id: 'provoz', name: 'Provoz', co: 'ZibbyCorp', desc: 'Faktury, uzávěrky, dohled nad rozpočty a ranní briefing.', members: ['Dispečer', 'Účetní', 'Karel Zíbar'], kb: 211, ago: 'před 20 min', sp: [6, 7, 5, 8, 9, 7, 10] },
+    { id: 'nl-web', name: 'Web a e-shop', co: 'Nordlicht s.r.o.', desc: 'Next.js storefront, katalog produktů, výkon a SEO.', members: ['Jana Malá', 'Kodér', 'Tester', 'Recenzent', 'Analytik', 'Copywriter'], kb: 37, ago: 'před 3 dny', sp: [0, 1, 0, 2, 1, 0, 1] },
+    { id: 'nl-obsah', name: 'Obsah', co: 'Nordlicht s.r.o.', desc: 'Produktové texty, Instagram a sezónní kampaně.', members: ['Jana Malá', 'Copywriter'], kb: 19, ago: 'před týdnem', sp: [0, 0, 1, 0, 0, 2, 0] },
+    { id: 'orech-provoz', name: 'Provoz kavárny', co: 'Kavárna Ořech', desc: 'Rezervace, týdenní menu a newsletter pro stálé hosty.', members: ['Petr Novák', 'Copywriter', 'Dispečer'], kb: 8, ago: 'před 5 dny', sp: [1, 0, 0, 1, 0, 0, 0] }
+  ];
+  PJ = [
+    { cat: 'Produkty', ic: 'grid', items: [
+      { name: 'ZibbyOS', path: '~/code/zibby/os', r: { t: 412, run: 2, wait: 1, done: 389, err: 6, park: 14 }, sp: [3, 4, 6, 5, 8, 7, 9, 6, 11, 8, 10, 12, 9, 14], today: 14.2, b: [.71, .64, .58] },
+      { name: 'Můstek mobil', path: '~/code/zibby/mobile', r: { t: 96, run: 1, wait: 0, done: 88, err: 2, park: 5 }, sp: [1, 2, 1, 3, 2, 2, 4, 3, 2, 5, 4, 3, 4, 3], today: 3.1, b: [.32, .41, .38] },
+      { name: 'Dokumentace', path: '~/code/zibby/docs', r: { t: 41, run: 0, wait: 0, done: 41, err: 0, park: 0 }, sp: [0, 1, 0, 0, 2, 1, 0, 0, 1, 0, 0, 1, 0, 0], today: 0, b: [0, .05, .12] }] },
+    { cat: 'Klienti', ic: 'users', items: [
+      { name: 'nordlicht-web', path: '~/clients/nordlicht/web', r: { t: 158, run: 0, wait: 2, done: 139, err: 9, park: 8 }, sp: [5, 6, 4, 7, 9, 8, 7, 10, 9, 12, 11, 13, 15, 16], today: 9.4, b: [.94, .83, .67] },
+      { name: 'orech-rezervace', path: '~/clients/orech/booking', r: { t: 23, run: 0, wait: 0, done: 21, err: 1, park: 1 }, sp: [0, 1, 1, 0, 2, 1, 1, 0, 1, 2, 1, 1, 0, 1], today: 5.4, b: [1.08, .52, .31] }] },
+    { cat: 'Interní', ic: 'term', items: [
+      { name: 'infra', path: '~/code/zibby/infra', r: { t: 64, run: 0, wait: 0, done: 60, err: 3, park: 1 }, sp: [2, 1, 2, 3, 1, 2, 2, 1, 3, 2, 1, 2, 2, 1], today: 1.2, b: [.24, .3, .27] },
+      { name: 'code-audit', path: '~/code/zibby/audit', r: { t: 18, run: 1, wait: 0, done: 15, err: 1, park: 1 }, sp: [0, 0, 0, 0, 0, 3, 4, 2, 0, 0, 5, 6, 4, 5], today: 4.6, b: [.46, .38, .2] }] },
+    { cat: 'Archiv', ic: 'file', items: [] }
+  ];
+  AG = [
+    { dep: 'ENG', depn: 'Vývoj', items: [
+      { n: 'Architekt', role: 'Návrh a rozpad práce', e: 'claude', m: 'opus-5.5', th: 3, tools: ['term', 'git', 'file', 'search'], st: 'working', now: 'Plán · #482 Fronta běhů', s: [42, '96 %', '$18'] },
+      { n: 'Kodér', role: 'Implementace a refaktoring', e: 'opencode', m: 'qwen3-coder', th: 2, tools: ['term', 'git', 'file'], st: 'working', now: 'Implementace · feat/run-queue', s: [118, '91 %', '$9'] },
+      { n: 'Recenzent', role: 'Code review a bezpečnost', e: 'claude', m: 'sonnet-5.5', th: 3, tools: ['git', 'search', 'file'], st: 'idle', s: [57, '99 %', '$6'] },
+      { n: 'Tester', role: 'Testy a CI', e: 'bluecode', m: 'blue-2', th: 1, tools: ['term', 'file'], st: 'error', s: [73, '84 %', '$3'] }] },
+    { dep: 'MKT', depn: 'Marketing', items: [
+      { n: 'Copywriter', role: 'Texty, newslettery, sítě', e: 'openai', m: 'gpt-5', th: 2, tools: ['web', 'file', 'mail'], st: 'idle', s: [24, '100 %', '$4'] },
+      { n: 'Analytik', role: 'Data, konverze, reporty', e: 'claude', m: 'sonnet-5.5', th: 2, tools: ['db', 'web', 'search'], st: 'thinking', now: 'Analýza · funnel za říjen', s: [31, '97 %', '$7'] }] },
+    { dep: 'OPS', depn: 'Provoz', items: [
+      { n: 'Dispečer', role: 'Triage, briefing, plánování', e: 'claude', m: 'haiku-5.5', th: 1, tools: ['mail', 'cal', 'search'], st: 'idle', s: [210, '99 %', '$2'] },
+      { n: 'Účetní', role: 'Faktury a uzávěrky', e: 'openai', m: 'gpt-5-mini', th: 1, tools: ['file', 'db', 'mail'], st: 'idle', s: [12, '100 %', '$1'] }] }
+  ];
+  WF = [
+    { dep: 'ENG', depn: 'Vývoj', items: [
+      { n: 'Od issue k PR', desc: 'Z issue s labelem „ready“ udělá naplánovanou, otestovanou a zrecenzovanou změnu.', owner: 'ENG', ph: [['Plán', 'Architekt', 'claude'], ['Implementace', 'Kodér', 'opencode'], ['Testy', 'Tester', 'bluecode'], ['Review', 'Recenzent', 'claude']], out: 'Pull request', act: 1, last: ['working', 'Běží 12 min · fáze 2 ze 4', '$0.84'] },
+      { n: 'Hotfix', desc: 'Rychlá oprava chyby z produkce s povinným review před nasazením.', owner: 'ENG', ph: [['Diagnóza', 'Architekt', 'claude'], ['Oprava', 'Kodér', 'opencode'], ['Review', 'Recenzent', 'claude']], out: 'PR + nasazení', act: -1, last: ['done', 'Před 2 dny · 9 min', '$0.31'] }] },
+    { dep: 'MKT', depn: 'Marketing', items: [
+      { n: 'Týdenní newsletter', desc: 'Rešerše novinek, návrh, korektura a naplánování odeslání.', owner: 'MKT', ph: [['Rešerše', 'Analytik', 'claude'], ['Návrh', 'Copywriter', 'openai'], ['Korektura', 'Recenzent', 'claude'], ['Plán odeslání', 'Dispečer', 'claude']], out: 'Koncept v e-mailu', act: -1, last: ['blocked', 'Čeká na tvé schválení', '$0.22'] }] },
+    { dep: 'OPS', depn: 'Provoz', items: [
+      { n: 'Měsíční uzávěrka', desc: 'Sběr faktur z e-mailu, párování s bankovním výpisem a report.', owner: 'OPS', ph: [['Sběr faktur', 'Dispečer', 'claude'], ['Párování', 'Účetní', 'openai'], ['Report', 'Účetní', 'openai']], out: 'Report PDF', act: -1, last: ['done', '1. 11. · 14 min', '$0.12'] },
+      { n: 'Triage příchozích', desc: 'Roztřídí zprávy z kanálů podle tieru a založí úkoly.', owner: 'OPS', ph: [['Klasifikace', 'Dispečer', 'claude'], ['Založení úkolu', 'Dispečer', 'claude']], out: 'Úkol v Inboxu', act: -1, last: ['error', 'Před 40 min · selhalo', '$0.02'] }] }
+  ];
+  AU = {
+    cron: [
+      { id: 'a1', n: 'Ranní briefing', h: 'Každý den v 8:00', code: '0 8 * * *', tk: 'agent', tn: 'Dispečer', te: 'claude', last: 'před 3 h', ls: 'done', next: 'za 21 h', p: .13 },
+      { id: 'a2', n: 'Noční audit závislostí', h: 'Po–pá ve 2:00', code: '0 2 * * 1-5', tk: 'skill', tn: 'deps-audit', te: 'claude', last: 'před 9 h', ls: 'error', next: 'za 15 h', p: .38 },
+      { id: 'a3', n: 'Týdenní newsletter', h: 'Každé pondělí v 9:00', code: '0 9 * * 1', tk: 'workflow', tn: 'Týdenní newsletter', te: 'openai', last: 'včera 9:00', ls: 'done', next: 'za 6 dní', p: .15 },
+      { id: 'a4', n: 'Měsíční uzávěrka', h: '1. den v měsíci v 7:00', code: '0 7 1 * *', tk: 'workflow', tn: 'Měsíční uzávěrka', te: 'openai', last: '1. 11.', ls: 'done', next: '1. 12.', p: .53, off: true }],
+    ev: [
+      { id: 'e1', n: 'Bug z GitHubu → hotfix', h: 'Issue dostal label „bug“', code: 'github.issue.labeled', tk: 'workflow', tn: 'Hotfix', te: 'claude', last: 'před 2 dny', ls: 'done', fires: [.05, .4, .71], freq: '3× za 7 dní' },
+      { id: 'e2', n: 'Žádost o review', h: 'PR čeká na review', code: 'github.pr.review_requested', tk: 'agent', tn: 'Recenzent', te: 'claude', last: 'před 40 min', ls: 'done', fires: [.1, .22, .3, .48, .55, .7, .86, .97], freq: '8× za 7 dní' },
+      { id: 'e3', n: 'Selhání CI', h: 'Pipeline skončila chybou', code: 'ci.failed', tk: 'agent', tn: 'Tester', te: 'bluecode', last: 'před 5 h', ls: 'error', fires: [.62, .93], freq: '2× za 7 dní', off: true }],
+    sys: [
+      { n: 'Úklid worktree', h: 'Každou hodinu', code: '0 * * * *', last: 'před 12 min' },
+      { n: 'Synchronizace skills', h: 'Každý den ve 3:00', code: '0 3 * * *', last: 'dnes 3:00' },
+      { n: 'Archivace běhů', h: 'Každou neděli ve 4:00', code: '0 4 * * 0', last: '16. 11.' },
+      { n: 'Kontrola rozpočtů', h: 'Každých 15 minut', code: '*/15 * * * *', last: 'před 4 min' }]
+  };
+  GO = [
+    { n: 'Pokrytí testy jádra na 80 %', st: 'working', u: 7, m: 12, mk: 'Kodér', vf: 'Tester', v: ['Neprošlo', 'Pokrytí 74 % — chybí testy pro scheduler a retry.'] },
+    { n: 'Lighthouse ≥ 95 na webu Nordlicht', st: 'parked', u: 9, m: 10, mk: 'Kodér', vf: 'Analytik', v: ['Čeká na tebe', 'Výkon 93. LCP blokuje hero obrázek — rozhodni, jestli přejít na CDN.'] },
+    { n: 'Cold start pod 1 s', st: 'thinking', u: 2, m: 10, mk: 'Architekt', vf: 'Tester', v: ['Neprošlo', '1,6 s — většinu času zabere načtení paměti.'] },
+    { n: 'Přepsat onboarding texty', st: 'done', u: 4, m: 8, mk: 'Copywriter', vf: 'Recenzent', v: ['Prošlo', 'Tón odpovídá brand guidu, každý krok do 40 slov.'] },
+    { n: 'Migrace na Next 16', st: 'error', u: 3, m: 15, mk: 'Kodér', vf: 'Recenzent', v: ['Chyba', 'Build selhal: middleware používá odstraněné API.'] },
+    { n: 'Zmenšit bundle o 20 %', st: 'idle', u: 0, m: 10, mk: 'Kodér', vf: 'Analytik', v: null }
+  ];
+  DP = [
+    { c: 'ENG', n: 'Vývoj', man: 'Staví a udržuje produkty od issue po nasazení. Hlídá kvalitu kódu a bezpečnost.', lead: 'Architekt', k: [9, 4, 23, '$36'], wait: 1, act: 2 },
+    { c: 'QA', n: 'Kvalita', man: 'Testy, CI, regresní běhy a ověřování cílů ve smyčkách maker ⇄ verifier.', lead: 'Tester', k: [3, 1, 11, '$3'], wait: 0, act: 0 },
+    { c: 'MKT', n: 'Marketing', man: 'Obsah, newslettery a kampaně pro všechny firmy.', lead: 'Copywriter', k: [6, 2, 4, '$5'], wait: 1, act: 1 },
+    { c: 'OPS', n: 'Provoz', man: 'Triage příchozích, ranní briefing, plánování a dohled nad rozpočty.', lead: 'Dispečer', k: [5, 1, 38, '$2'], wait: 0, act: 0 },
+    { c: 'FIN', n: 'Finance', man: 'Faktury, párování plateb a měsíční uzávěrky.', lead: 'Účetní', k: [2, 1, 3, '$1'], wait: 0, act: 0 },
+    { c: 'SUP', n: 'Podpora', man: 'Odpovědi klientům a eskalace na lidi, když agent neví.', lead: 'Dispečer', k: [6, 1, 9, '$1'], wait: 2, act: 0 }
+  ];
+  SK = [
+    ['Externí', 'globe', [['pdf', 'anthropic', 'Čtení, tvorba a slučování PDF', ['FIN', 'OPS']], ['xlsx', 'anthropic', 'Tabulky, vzorce a grafy', ['FIN']], ['frontend-design', 'anthropic', 'Vizuální směr nových UI', ['ENG', 'MKT']]]],
+    ['Z marketplaces', 'store', [['nx-generators', 'zibby-dev', 'Generátory knihoven a aplikací v NX', ['ENG']], ['tanstack-query', 'zibby-dev', 'Vzory pro dotazy a cache', ['ENG']], ['czech-copy', 'komunita-cz', 'Česká typografie a skloňování', ['MKT', 'SUP']], ['seo-audit', 'komunita-cz', 'Audit metadat a výkonu', ['MKT']], ['stripe-billing', 'anthropic-official', 'Předplatné a faktury přes Stripe', []]]],
+    ['Lokální', 'file', [['release-notes', 'lokální', 'Poznámky k vydání z PR', ['ENG']], ['deps-audit', 'lokální', 'Noční kontrola závislostí', ['ENG', 'QA']], ['ranni-brief', 'lokální', 'Sestaví ranní briefing', ['OPS']], ['faktury-ocr', 'lokální', 'Vytěží data z faktur', ['FIN']]]]
+  ];
+  CM = [['plan', '<issue>', 'Rozplánuje issue na podúkoly a přiřadí agenty', true], ['ship', '[--dry]', 'Vytvoří PR ze stacku a spustí CI', true], ['review', '<pr>', 'Pošle PR Recenzentovi', true], ['brief', '', 'Ranní briefing hned teď', true], ['budget', '<projekt>', 'Stav rozpočtu projektu', true], ['park', '<běh>', 'Zaparkuje běh a uvolní agenta', false], ['purge-worktrees', '', 'Smaže osiřelé worktree', false], ['zibby', '<otázka>', 'Zeptej se Zibbyho', true]];
+  HK = [['SessionStart', 'zibby ctx load --project $PROJECT', 'vše', 41], ['UserPromptSubmit', 'zibby redact --secrets', 'vše', 63], ['PreToolUse', 'zibby guard --tool $TOOL', 'Bash, Write', 218], ['PostToolUse', 'prettier --write $FILE', 'Write, Edit', 96], ['SubagentStop', 'zibby cost log', 'vše', 27], ['Stop', 'zibby notify --if-longer 5m', 'vše', 12]];
+  MC = [['github', 'http', 'https://api.githubcopilot.com/mcp', 'online', 42, '120 ms'], ['filesystem', 'stdio', 'npx @modelcontextprotocol/server-filesystem ~/code', 'online', 11, '8 ms'], ['linear', 'http', 'https://mcp.linear.app/sse', 'online', 23, '210 ms'], ['playwright', 'stdio', 'npx @playwright/mcp@0.0.41', 'online', 21, '45 ms'], ['postgres', 'stdio', 'uvx mcp-server-postgres $DATABASE_URL', 'offline', 0, '—'], ['slack', 'http', 'https://mcp.slack.com/mcp', 'off', 0, '—']];
+  MK = [
+    { id: 'zibby-dev', src: 'github.com/zibby/plugins', dev: true, i: 7, t: 12, upd: 'před 2 h', pl: ['nx', 'tq', 'rn', 'da', 'zb', 'ui'] },
+    { id: 'anthropic-official', src: 'github.com/anthropics/claude-plugins', dev: false, i: 3, t: 18, upd: 'před 3 dny', pl: ['pdf', 'xl', 'fd', 'st', 'dc', 'pp'] },
+    { id: 'komunita-cz', src: 'github.com/komunita-cz/plugins', dev: false, i: 2, t: 9, upd: 'před týdnem', pl: ['cz', 'seo', 'id', 'dph', 'ar', 'ok'] },
+    { id: 'nordlicht-internal', src: 'git.nordlicht.cz/agents', dev: true, i: 4, t: 4, upd: 'včera', pl: ['cat', 'img', 'pim', 'fx'] },
+    { id: 'awesome-agents', src: 'github.com/awesome-agents/market', dev: false, i: 0, t: 41, upd: 'před měsícem', pl: ['gh', 'ln', 'nt', 'sl', 'fg', 'jr'] }
+  ];
+
+  RAT = {
+    companies: ['Žádný rychlý — firma je stabilní kořen. Jediný „živý“ údaj je tichý budík: kolik z výchozího rozpočtu dnes spotřebovaly všechny projekty pod firmou.', 'Miniaturní strom firma → týmy → projekty (čtverečky = projekty) a skládané avatary lidí i agentů.', 'Firem je 1–5, takže si můžou dovolit velkou kartu po dvou v řadě. Je to jediná stránka s tak širokou a vzdušnou kartou — silueta se nedá splést.'],
+    teams: ['Čerstvost znalostní báze: počet poznámek, kdy naposled a sloupečky úprav za 7 dní.', 'Řada obličejů. Tým je o lidech, proto jsou avatary hrdina karty a mají vlastní řádek s „+3“.', 'Střední karta po třech. Breadcrumb firmy nahoře odliší tým od firmy a řada kruhů je vidět i v rozmazaném náhledu.'],
+    projects: ['Živý stav běhů a spalování peněz. Segmentový proužek ukazuje poměr stavů, čísla pod ním jsou odkazy na filtrované Běhy.', 'Dashboard v kartě: proužek → mřížka 3 × 2 počtů → sparkline útraty → tři rozpočtové pruhy.', 'Projekt je operativní stránka, operátor sem chodí zjistit „hoří něco?“. Nejhustší karta v rodině; jantar a růžová se objeví jen při překročení.'],
+    agents: ['Kdo právě pracuje: fialová pilulka a řádek „právě: …“. Jinak engine, model a úroveň thinkingu.', 'Kartička hráče: barevný pruh, velký monogram s engine odznakem, statistiky dole ve třech políčkách.', 'Agenti jsou „lidé“ systému. Portrétní orientace (vyšší než širší) je v rodině jen tady; po čtyřech v řadě, na telefonu po dvou.'],
+    workflows: ['Která fáze právě běží: fialový uzel, hotové fáze odškrtnuté, šipky za nimi plné.', 'Řetěz uzlů na tečkované „kreslicí ploše“ — fáze s agentem a enginem, na konci výstup.', 'Workflow je tvar, ne název. Široká vodorovná karta přes celou šířku je jen tady a odpovídá tomu, jak o workflow přemýšlíš.'],
+    automations: ['Natažená spoušť: velký přepínač, poslední a příští běh na mini časové ose, u událostí tečky spuštění za 7 dní.', 'Dvě destičky spouštěč → cíl propojené šipkou; vypnutá automatizace má šipku přerušovanou.', 'Automatizace je kabeláž. Diagram „odkud kam“ je čitelný i bez textu a přepínač odpovídá na první otázku: běží to?'],
+    goals: ['Kolik iterací z rozpočtu smyčky padlo a co řekl verifier. Barva prstence = stav (fialová pracuje, jantar čeká na tebe).', 'Segmentovaný kruh — každý dílek je jedna iterace. Vedle dvojice maker ⇄ verifier.', 'Cíl je smyčka, tak je i nakreslený jako smyčka. Kruh je v celé rodině jen tady.'],
+    departments: ['Provoz oddělení dnes: otevřené podúkoly (jantarově kolik čeká na tebe), agenti, běhy a útrata.', 'Organizační diagram: kořen firmy a linky dolů ke kartám, velký mono kód oddělení jako „cedulka na dveřích“.', 'Index oddělení zatím neexistuje. Karta je rozcestník: dole odkazy přímo do záložek detailu.'],
+    registries: ['Jen tam, kde dává smysl: MCP má živou tečku online/offline s pulzem. Ostatní tři druhy jsou statické konfigurace.', 'Hustota místo karet: dlaždice-štítky pro skills, terminál pro příkazy, „událost → příkaz“ pro hooky, stavové řádky pro MCP.', 'Položek je řádově víc, takže velké karty by plýtvaly. Čtyři druhy sdílí podnavigaci, ale každý má vlastní řádkový tvar.'],
+    marketplaces: ['Kolik z katalogu máš nainstalováno — pruh X z Y a stáří posledního stažení.', 'Regál: produkty jako krabičky na polici, plné = nainstalované, čárkované = k dispozici.', 'Marketplace je obchod. Police nahoře je čitelná i jako silueta a odliší katalog od registru skills.']
+  };
+  AX = [
+    ['Firmy', 'Velká vzdušná karta, 2 v řadě', 'Budík výchozího rozpočtu', 'Strom firma → týmy → projekty'],
+    ['Týmy', 'Střední karta, 3 v řadě', 'Čerstvost znalostní báze', 'Řada obličejů + kniha'],
+    ['Projekty', 'Hustá dashboard karta, 3 v řadě, kategorie', 'Proužek stavů běhů, útrata, rozpočty', 'Segmentový proužek + sparkline'],
+    ['Agenti', 'Portrét na výšku, 4 v řadě', 'Kdo právě pracuje (fialová)', 'Kartička hráče s monogramem'],
+    ['Workflow', 'Plná šířka, vodorovná', 'Aktivní fáze', 'Řetěz uzlů a šipek'],
+    ['Automatizace', 'Karta s diagramem, 2 v řadě + řádky', 'Zapnuto/vypnuto, poslední a příští běh', 'Spouštěč → cíl'],
+    ['Cíle', 'Kruh + text, 2 v řadě', 'Iterace z rozpočtu, verdikt', 'Segmentovaná smyčka'],
+    ['Oddělení', 'Org diagram nad mřížkou 3', 'KPI dnes, čeká na tebe', 'Kořen a linky, mono kód'],
+    ['Registry', 'Husté štítky a řádky', 'Online/offline (MCP)', 'Terminál, událost → příkaz'],
+    ['Marketplace', 'Obchodní karta, 3 v řadě', 'Nainstalováno X z Y', 'Regál s krabičkami']
+  ];
+  EM = {
+    companies: ['org', 'Zatím tu není žádná firma', 'Firma je kořen celé hierarchie: drží týmy, projekty a výchozí rozpočet. Začni jednou — klidně jen pro sebe.', 'Importovat z GitHub organizace'],
+    teams: ['users', 'Žádné týmy', 'Tým spojuje lidi a agenty kolem jedné znalostní báze. Dokud žádný není, sdílí všichni projekty celé firmy.', 'Vytvořit z oddělení'],
+    projects: ['flow', 'Žádné projekty', 'Projekt je repozitář, ve kterém agenti pracují. Přidej cestu k repozitáři a nastav denní rozpočet.', 'Naklonovat z GitHubu'],
+    agents: ['users', 'Žádní agenti', 'Agent je role s enginem, modelem a sadou nástrojů. Nejrychlejší start je trojice Architekt, Kodér a Recenzent.', 'Použít šablony'],
+    workflows: ['flow', 'Žádné workflow', 'Workflow řetězí agenty do fází: plán → implementace → testy → review. Každá fáze má svého agenta.', 'Začít ze šablony „Od issue k PR“'],
+    automations: ['clock', 'Nic není natažené', 'Automatizace spustí agenta, workflow nebo skill podle času nebo události. Systémové úlohy běží i tak.', 'Ranní briefing v 8:00'],
+    goals: ['loop', 'Žádné cíle', 'Cíl je smyčka: maker zkouší, verifier hodnotí — dokud není splněno nebo nedojde rozpočet iterací.', 'Vyzkoušet ukázkový cíl'],
+    departments: ['org', 'Žádná oddělení', 'Oddělení drží mandát, agenty, workflow a dovednosti jedné oblasti práce.', 'Navrhnout z existujících agentů'],
+    registries: ['grid', 'Registr je prázdný', 'Skills, příkazy, hooky a MCP servery se tu objeví po instalaci z marketplace nebo po synchronizaci.', 'Synchronizovat'],
+    marketplaces: ['store', 'Žádný marketplace', 'Marketplace je katalog pluginů v git repozitáři. Přidej oficiální katalog, nebo vlastní repozitář.', 'Přidat oficiální katalog']
+  };
+  GH = { companies: 120, teams: 96, projects: 110, agents: 150, workflows: 64, automations: 96, goals: 90, departments: 110, registries: 30, marketplaces: 100 };
+  SKL = { companies: [2, 2, 'co'], teams: [3, 6, 'tm'], projects: [3, 6, 'pj'], agents: [4, 8, 'ag'], workflows: [1, 3, 'wf'], automations: [2, 4, 'au'], goals: [2, 4, 'go'], departments: [3, 6, 'dp'], registries: [1, 8, 'row'], marketplaces: [3, 6, 'mk'] };
+  ST = {
+    working: { l: 'Pracuje', c: 'working', d: 'working', col: 'var(--violet)' },
+    thinking: { l: 'Přemýšlí', c: 'thinking', d: 'thinking', col: 'var(--sky)' },
+    parked: { l: 'Zaparkováno', c: 'parked', d: 'blocked', col: 'var(--amber)' },
+    blocked: { l: 'Čeká na tebe', c: 'parked', d: 'blocked', col: 'var(--amber)' },
+    error: { l: 'Chyba', c: 'error', d: 'error', col: 'var(--rose)' },
+    done: { l: 'Hotovo', c: 'done', d: 'done', col: 'var(--emerald)' },
+    idle: { l: 'Nečinný', c: '', d: 'idle', col: 'var(--ink3)' }
+  };
+  ENG = { claude: ['C', 'Claude'], openai: ['O', 'OpenAI'], opencode: ['OC', 'OpenCode'], bluecode: ['BC', 'BlueCode'] };
+  TOOLN = { term: 'Terminál', git: 'Git', file: 'Soubory', search: 'Vyhledávání', web: 'Web', mail: 'E-mail', cal: 'Kalendář', db: 'Databáze' };
+  IC = {
+    org: 'M9 3h6v5H9zM3 16h6v5H3zM15 16h6v5h-6zM12 8v4M6 16v-4h12v4',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5',
+    clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+    bolt: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+    flow: 'M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM19 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 7v3a4 4 0 0 0 4 4h6a4 4 0 0 1 4 3',
+    server: 'M3 4h18v6H3zM3 14h18v6H3zM7 7h.01M7 17h.01',
+    plus: 'M12 5v14M5 12h14',
+    search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
+    arrow: 'M5 12h14M13 6l6 6-6 6',
+    term: 'M4 17l6-6-6-6M12 19h8',
+    store: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
+    users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+    play: 'M7 4l13 8-13 8z',
+    stop: 'M6 6h12v12H6z',
+    back: 'M15 6l-6 6 6 6',
+    trash: 'M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3',
+    shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+    globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
+    file: 'M14 3H6v18h12V7zM14 3v4h4',
+    db: 'M12 8c4.4 0 8-1.3 8-3s-3.6-3-8-3-8 1.3-8 3 3.6 3 8 3zM4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
+    git: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+    sync: 'M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5M3 21v-5h5',
+    loop: 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3',
+    mail: 'M3 5h18v14H3zM3 6l9 7 9-7',
+    cal: 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',
+    check: 'M5 12l5 5 9-10',
+    edit: 'M4 20h4L19 9l-4-4L4 16z'
+  };
+
+  // ================= HELPERS =================
+  ic(n, s) { s = s || 16; return this.h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { flex: 'none', display: 'block' } }, this.h('path', { d: this.IC[n] || '' })); }
+  pl(n, a, b, c) { return n === 1 ? a : (n >= 2 && n <= 4) ? b : c; }
+  HUES = [200, 165, 135, 18, 330, 185, 105, 225, 350, 150];
+  hue(s) { let x = 0; for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) >>> 0; return this.HUES[x % this.HUES.length]; }
+  initials(n) { const p = n.split(' '); return p.length > 1 ? (p[0][0] + p[1][0]).toUpperCase() : n[0].toUpperCase() + n[1]; }
+  av(n, s) { const person = n.indexOf(' ') > 0; return this.h('span', { className: 'ls-av' + (person ? '' : ' bot'), title: n, style: { width: s, height: s, fontSize: Math.round(s * .38), background: 'hsl(' + this.hue(n) + ' 38% 66%)' } }, this.initials(n)); }
+  eng(e, s) { s = s || 18; const E = this.ENG[e]; return this.h('span', { className: 'ls-eng', role: 'img', 'aria-label': 'Engine ' + E[1], title: E[1], style: { height: s, minWidth: s, fontSize: Math.round(s * .46) } }, E[0]); }
+  think(n) { return this.h('span', { className: 'ag-think', 'aria-hidden': 'true' }, [1, 2, 3].map(i => this.h('i', { className: i <= n ? 'on' : '', style: { height: 3 + i * 2.4 } }))); }
+  mark(s) {
+    const h = this.h;
+    return h('svg', { width: s, height: s, viewBox: '0 0 64 64', 'aria-hidden': 'true', style: { display: 'block' } },
+      h('path', { d: 'M8 16L28.5 30V34L8 48Z', fill: 'currentColor', stroke: 'currentColor', strokeWidth: 4, strokeLinejoin: 'round' }),
+      h('path', { d: 'M56 16L35.5 30V34L56 48Z', fill: 'currentColor', stroke: 'currentColor', strokeWidth: 4, strokeLinejoin: 'round' }),
+      h('circle', { cx: 32, cy: 32, r: 8.6, fill: 'var(--p1)' }),
+      h('circle', { cx: 32, cy: 32, r: 6.2, fill: 'var(--amber)' }));
+  }
+  isOn(id, def) { const v = this.state.on[id]; return v == null ? def : v; }
+  toggle(id, def) { this.setState(s => { const o = Object.assign({}, s.on); o[id] = !(o[id] == null ? def : o[id]); return { on: o }; }); }
+  sw(id, def, label, big, dis) { return this.h('button', { className: 'ls-sw' + (big ? ' big' : ''), role: 'switch', 'aria-checked': this.isOn(id, def), 'aria-label': label, disabled: dis || null, title: dis ? 'Systémová automatizace — nelze vypnout' : null, onClick: dis ? null : () => this.toggle(id, def) }); }
+  btn(icon, label, cls) { return this.h('button', { className: 'ls-btn ' + (cls || '') }, icon ? this.ic(icon, 14) : null, label); }
+
+  // Karta = jeden fokusový cíl (stretched link); vnitřní odkazy a tlačítka mají z-index nad ním.
+  card(cls, label, kids, o) {
+    const h = this.h; o = o || {};
+    const i = this.ci++, hov = this.hl && i === 0, sel = this.hl && i === 1;
+    return h(o.tag || 'article', { className: (o.base || 'ls-c') + ' ' + cls + (hov ? ' hov' : '') + (sel ? ' sel' : ''), style: o.style || null, 'aria-label': label },
+      hov ? h('span', { className: 'ls-stt', 'aria-hidden': 'true' }, 'hover') : null,
+      sel ? h('span', { className: 'ls-stt', 'aria-hidden': 'true' }, 'vybráno') : null,
+      h('a', { className: 'ls-cover', href: '#', onClick: this.noop, 'aria-label': 'Otevřít: ' + label, 'aria-current': sel ? 'true' : null }),
+      kids);
+  }
+  sec(icon, name, n, extra) {
+    const h = this.h;
+    return h('div', { className: 'ls-sh' }, icon, h('span', null, name), n != null ? h('span', { className: 'n' }, n) : null, h('span', { className: 'ln' }), extra || null);
+  }
+
+  // ================= RÁM =================
+  spec(k) {
+    const h = this.h, A = t => h('span', { className: 'a' }, t), V = t => h('span', { className: 'v' }, t), R = t => h('span', { className: 'r' }, t);
+    const reg = this.state.reg;
+    const RG = {
+      skills: ['12 skills · 3 externí · 5 z marketplaces · 4 lokální', 'Přidat skill', [this.btn('sync', 'Synchronizovat vše', 'gh'), this.btn('git', 'Instalovat z GitHubu')]],
+      commands: ['8 příkazů · 6 v ⌘K automaticky', 'Přidat příkaz', null],
+      hooks: ['6 hooků · 457 spuštění dnes', 'Přidat hook', null],
+      mcp: [['6 serverů · 4 online · ', R('1 offline'), ' · 1 vypnutý'], 'Přidat server', null]
+    }[reg];
+    const S = {
+      companies: { title: 'Firmy', route: '/companies', sec: 'Organizace', cta: 'Nová firma', count: '3 firmy · 23 lidí a agentů · 7 projektů', zero: 'Žádné firmy' },
+      teams: { title: 'Týmy', route: '/teams', sec: 'Organizace', cta: 'Nový tým', count: '6 týmů ve 3 firmách · 485 poznámek ve znalostních bázích', zero: 'Žádné týmy', q: 'Hledat tým nebo člena', chips: [['Všechny', 6], ['ZibbyCorp', 3], ['Nordlicht', 2], ['Kavárna Ořech', 1]] },
+      projects: { title: 'Projekty', route: '/projects', sec: 'Organizace', cta: 'Nový projekt', count: ['7 projektů ve 4 kategoriích · ', V('4 běhy běží'), ' · ', A('3 čekají na tebe')], zero: 'Žádné projekty', q: 'Hledat projekt nebo cestu', chips: [['Vše', 7], ['Běží', 3], ['Čeká na tebe', 2], ['Přes rozpočet', 1]], extra: [this.btn('plus', 'Kategorie', 'gh')] },
+      agents: { title: 'Agenti', route: '/workforce/agents', sec: 'Pracovníci', cta: 'Nový agent', count: ['8 agentů ve 3 odděleních · ', V('2 pracují'), ' · 1 přemýšlí'], zero: 'Žádní agenti', q: 'Hledat agenta nebo nástroj', chips: [['Vše', 8], ['Claude', 4], ['OpenAI', 2], ['OpenCode', 1], ['BlueCode', 1]] },
+      workflows: { title: 'Workflow', route: '/work/workflows', sec: 'Práce', cta: 'Nové workflow', count: ['5 workflow · ', V('1 běží'), ' · ', A('1 čeká na schválení')], zero: 'Žádná workflow', q: 'Hledat workflow nebo agenta', chips: [['Vše', 5], ['ENG', 2], ['MKT', 1], ['OPS', 2]] },
+      automations: { title: 'Automatizace', route: '/work/automations', sec: 'Práce', cta: 'Nová automatizace', count: '7 spouštěčů · 5 zapnuto · 4 systémové · příští běh za 42 min', zero: 'Žádné automatizace', q: 'Hledat automatizaci', chips: [['Vše', 11], ['Zapnuté', 9], ['Vypnuté', 2]] },
+      goals: { title: 'Cíle', route: '/work/goals', sec: 'Práce', cta: 'Nový cíl', count: ['6 cílů · ', V('1 pracuje'), ' · ', A('1 čeká na tebe'), ' · 1 hotový'], zero: 'Žádné cíle', chips: [['Vše', 6], ['Aktivní', 2], ['Zaparkované', 1], ['Hotové', 1], ['Chyba', 1]] },
+      departments: { title: 'Oddělení', route: '/workforce/departments', sec: 'Pracovníci', cta: 'Nové oddělení', count: ['6 oddělení · 31 otevřených podúkolů · ', A('4 čekají na tebe')], zero: 'Žádná oddělení' },
+      registries: { title: 'Registry', route: '/system/registries/' + reg, sec: 'Systém', cta: RG[1], count: RG[0], zero: 'Prázdný registr', q: 'Hledat v registrech', extra: RG[2] },
+      marketplaces: { title: 'Marketplace', route: '/workforce/marketplaces', sec: 'Pracovníci', cta: 'Přidat marketplace', count: '5 katalogů · 16 z 84 pluginů nainstalováno', zero: 'Žádné katalogy', chips: [['Vše', 5], ['Dev', 2], ['Běžné', 3]], extra: [this.btn('sync', 'Aktualizovat vše', 'gh')] }
+    };
+    return S[k];
+  }
+  topbar(sec) {
+    const h = this.h, S = ['Můstek', 'Práce', 'Aktivita', 'Organizace', 'Pracovníci', 'Systém'];
+    return h('div', { className: 'ls-top' },
+      h('span', { className: 'ls-brand' }, this.mark(22), 'ZibbyOS'),
+      h('nav', { className: 'ls-nav', 'aria-label': 'Sekce' }, S.map(s => h('a', { href: '#', onClick: this.noop, 'aria-current': s === sec ? 'page' : null }, s))),
+      h('span', { className: 'ls-sp' }),
+      h('span', { className: 'ls-cmd' }, this.ic('search', 14), h('span', null, 'Hledat nebo spustit…'), h('span', { className: 'kbd' }, '⌘K')),
+      h('span', { className: 'ls-me', role: 'img', 'aria-label': 'Karel Zíbar' }, 'KZ'));
+  }
+  frame(spec, body, ph, mode) {
+    const h = this.h;
+    const cnt = mode === 'load' ? h('span', { className: 'ls-sk', style: { width: ph ? 180 : 320, height: 12, display: 'inline-block', marginTop: 4 } }) : mode === 'empty' ? spec.zero : spec.count;
+    const chips = spec.chips ? h('div', { className: 'ls-chips', role: 'group', 'aria-label': 'Filtr' }, spec.chips.map((c, i) => h('button', { 'aria-pressed': i === 0 }, c[0], h('span', { className: 'n' }, c[1])))) : null;
+    const fbar = (spec.chips || spec.q) && mode !== 'empty' ? h('div', { className: 'ls-fbar' }, spec.q ? h('label', { className: 'ls-q' }, this.ic('search', 14), h('input', { type: 'search', placeholder: spec.q, 'aria-label': spec.q })) : null, chips) : null;
+    if (ph) return h('div', { className: 'ph vw-ph' }, h('div', { className: 'scr' },
+      h('div', { className: 'sbar' }, h('span', null, '9:41'), h('span', { style: { fontSize: 12, color: 'var(--ink3)' } }, '5G')),
+      h('div', { className: 'ls-pab' }, h('a', { href: '#', className: 'ls-ib', 'aria-label': 'Zpět', onClick: this.noop }, this.ic('back', 20)), h('span', { className: 'ls-pc' }, spec.sec), h('span', { className: 'ls-sp' }), h('button', { className: 'ls-new io', 'aria-label': spec.cta }, this.ic('plus', 18))),
+      h('header', { className: 'ls-head' }, h('div', { className: 'tt' }, h('h1', null, spec.title), h('p', { className: 'ls-cnt' }, cnt))),
+      fbar,
+      h('div', { className: 'ls-body' }, body)));
+    return h('div', { className: 'ls-app' },
+      this.topbar(spec.sec),
+      h('header', { className: 'ls-head' },
+        h('div', { className: 'tt' }, h('div', { className: 'ls-crumb' }, spec.sec + ' / ', h('span', { className: 'mono' }, spec.route)), h('h1', null, spec.title), h('p', { className: 'ls-cnt' }, cnt)),
+        spec.extra || null,
+        h('button', { className: 'ls-new' }, this.ic('plus', 14), spec.cta)),
+      fbar,
+      h('div', { className: 'ls-body' }, body));
+  }
+  body(k, ph, mode) {
+    this.ci = 0; this.hl = mode === 'hover';
+    const pre = k === 'registries' ? this.regSub() : null;
+    if (mode === 'empty') return [pre, this.empty(k, ph)];
+    if (mode === 'load') return [pre, this.skel(k, ph)];
+    return this['p_' + k](ph);
+  }
+
+  // ================= 1 · FIRMY =================
+  gauge(b) {
+    const h = this.h, p = Math.round(b.used * 100), hot = b.used >= .8;
+    return h('div', { className: 'co-g' },
+      h('svg', { width: 130, height: 72, viewBox: '0 0 130 72', role: 'img', 'aria-label': 'Dnes utraceno ' + p + ' % výchozího rozpočtu' },
+        h('path', { d: 'M12 64 A53 53 0 0 1 118 64', stroke: 'color-mix(in srgb, var(--ink) 9%, transparent)', strokeWidth: 8, fill: 'none', strokeLinecap: 'round' }),
+        h('path', { d: 'M12 64 A53 53 0 0 1 118 64', stroke: hot ? 'var(--amber)' : 'var(--ink2)', strokeWidth: 8, fill: 'none', strokeLinecap: 'round', pathLength: 100, strokeDasharray: p + ' 100' }),
+        h('text', { x: 65, y: 60, textAnchor: 'middle', fill: hot ? 'var(--amber-fg)' : 'var(--ink)', style: { font: '300 24px Geist, sans-serif', letterSpacing: '-.03em' } }, p + ' %')),
+      h('small', null, 'dnes $' + b.today.toFixed(2) + ' z $' + b.v));
+  }
+  p_companies(ph) {
+    const h = this.h;
+    return h('div', { className: 'ls-g2' }, this.CO.map(c => {
+      const np = c.teams.reduce((a, t) => a + t[1], 0);
+      return this.card('co', c.name, [
+        h('div', { className: 'co-h' },
+          h('span', { className: 'co-mono', 'aria-hidden': 'true' }, c.mono),
+          h('div', { className: 'co-t' }, h('h3', null, c.name), h('span', { className: 'mono' }, c.id)),
+          h('div', { className: 'co-ppl' }, h('span', { className: 'ls-stack' }, c.members.slice(0, 4).map(m => this.av(m, 26))), h('span', null, c.people + ' osob'))),
+        h('p', { className: 'co-d' }, c.desc),
+        h('div', { className: 'co-body' },
+          h('div', { className: 'co-tree' },
+            h('span', { className: 'co-root' }, this.ic('org', 13), c.id),
+            h('ul', { 'aria-label': 'Týmy a projekty' }, c.teams.map(t => h('li', null,
+              h('a', { href: '#', className: 'ls-lk co-tm', onClick: this.noop }, this.ic('grid', 12), t[0]),
+              h('span', { className: 'co-pj' }, Array.from({ length: t[1] }).map(() => h('i', null)), h('span', { className: 'mono' }, t[1] + ' ' + this.pl(t[1], 'projekt', 'projekty', 'projektů'))))))),
+          this.gauge(c.budget)),
+        h('div', { className: 'co-f' }, this.ic('users', 13), h('span', null, c.teams.length + ' ' + this.pl(c.teams.length, 'tým', 'týmy', 'týmů') + ' · ' + np + ' ' + this.pl(np, 'projekt', 'projekty', 'projektů')), h('span', { className: 'ls-sp' }), h('span', { className: 'lbl' }, 'Výchozí rozpočet'), h('b', { className: 'mono' }, '$' + c.budget.v + ' / ' + c.budget.per))
+      ]);
+    }));
+  }
+
+  // ================= 2 · TÝMY =================
+  p_teams(ph) {
+    const h = this.h, MAX = ph ? 6 : 5;
+    return h('div', { className: 'ls-g3' }, this.TM.map(t => {
+      const more = t.members.length - MAX, mx = Math.max.apply(null, t.sp.concat([1]));
+      return this.card('tm', t.name, [
+        h('a', { href: '#', className: 'ls-lk tm-crumb', onClick: this.noop }, this.ic('org', 12), t.co),
+        h('div', null, h('div', { className: 'tm-n' }, h('h3', null, t.name), h('span', { className: 'mono' }, t.id)), h('p', { className: 'tm-d' }, t.desc)),
+        h('div', { className: 'tm-people', role: 'group', 'aria-label': t.members.length + ' členů' }, t.members.slice(0, MAX).map(m => this.av(m, 34)), more > 0 ? h('span', { className: 'tm-more' }, '+' + more) : null, h('span', { className: 'tm-cnt' }, t.members.length + ' ' + this.pl(t.members.length, 'člen', 'členové', 'členů'))),
+        h('div', { className: 'tm-kb' },
+          h('span', { className: 'bk' }, this.ic('book', 16)),
+          h('span', null, h('b', null, 'Znalostní báze'), h('small', null, t.kb + ' poznámek · ' + t.ago)),
+          h('span', { className: 'tm-spark', role: 'img', 'aria-label': 'Úpravy za 7 dní' }, t.sp.map(v => h('i', { style: { height: Math.max(2, Math.round(v / mx * 22)), opacity: v ? 1 : .4 } }))))
+      ]);
+    }));
+  }
+
+  // ================= 3 · PROJEKTY =================
+  spark(arr, w, hh) {
+    const h = this.h, mx = Math.max.apply(null, arr.concat([1])), st = w / (arr.length - 1);
+    const pts = arr.map((v, i) => [i * st, hh - 2 - (v / mx) * (hh - 5)]);
+    const d = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+    return h('svg', { width: '100%', height: hh, viewBox: '0 0 ' + w + ' ' + hh, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Útrata za 14 dní', style: { display: 'block' } },
+      h('path', { d: d + ' L' + w + ' ' + hh + ' L0 ' + hh + ' Z', fill: 'color-mix(in srgb, var(--ink) 7%, transparent)' }),
+      h('path', { d: d, stroke: 'var(--ink2)', strokeWidth: 1.5, fill: 'none', vectorEffect: 'non-scaling-stroke' }));
+  }
+  projCard(p, cat) {
+    const h = this.h, r = p.r;
+    const S = [['run', 'Běží', 'var(--violet)'], ['wait', 'Čeká', 'var(--amber)'], ['done', 'Hotovo', 'var(--emerald)'], ['err', 'Chyba', 'var(--rose)'], ['park', 'Zaparkováno', 'var(--idle)']];
+    const strip = h('div', { className: 'pj-strip', 'aria-hidden': 'true' }, S.map(s => r[s[0]] ? h('i', { style: { flex: Math.max(r[s[0]], r.t * .03) + ' 0 0', background: s[2] } }) : null));
+    const slug = p.name.toLowerCase().replace(/\s+/g, '-');
+    return this.card('pj', p.name, [
+      h('div', { className: 'pj-h' },
+        h('div', { className: 'tt' }, h('h3', null, p.name), h('span', { className: 'pj-path' }, p.path),
+          (r.run || r.wait) ? h('div', { className: 'pj-live' }, r.run ? h('span', { className: 'v' }, h('span', { className: 'dot working', style: { width: 6, height: 6 } }), r.run + ' ' + this.pl(r.run, 'běží', 'běží', 'běží')) : null, r.wait ? h('span', { className: 'a' }, h('span', { className: 'dot blocked', style: { width: 6, height: 6 } }), r.wait + ' ' + this.pl(r.wait, 'čeká', 'čekají', 'čeká') + ' na tebe') : null) : null),
+        h('span', { className: 'ls-chip' }, cat)),
+      strip,
+      h('div', { className: 'pj-c' }, [['t', 'Celkem', null]].concat(S).map(s => {
+        const n = r[s[0]];
+        return h('a', { href: '/activity/runs?project=' + slug + (s[0] === 't' ? '' : '&status=' + s[0]), onClick: this.noop, className: n ? '' : 'z', 'aria-label': s[1] + ': ' + n + ' běhů, otevřít Běhy' },
+          h('span', null, s[2] ? h('i', { className: 'sq', style: { background: s[2] } }) : null, s[1]), h('b', null, n));
+      })),
+      h('div', { className: 'pj-sp' }, h('span', null, 'Útrata 14 d'), this.spark(p.sp, 160, 26), h('b', null, '$' + p.today.toFixed(2) + ' dnes')),
+      h('div', { className: 'pj-bud' }, [['Den', p.b[0]], ['Týden', p.b[1]], ['Měsíc', p.b[2]]].map(x => {
+        const c = x[1] >= 1 ? 'over' : x[1] >= .8 ? 'hot' : '';
+        return h('div', { className: c }, h('span', { className: 'l' }, h('span', null, x[0]), h('span', { className: 'mono' }, Math.round(x[1] * 100) + ' %')), h('span', { className: 'ls-bar ' + c, role: 'img', 'aria-label': x[0] + ' rozpočet ' + Math.round(x[1] * 100) + ' %' }, h('i', { style: { width: Math.min(100, x[1] * 100) + '%' } })));
+      }))
+    ]);
+  }
+  p_projects(ph) {
+    const h = this.h;
+    return h('div', null, this.PJ.map(c => [
+      this.sec(h('span', { className: 'ic' }, this.ic(c.ic, 13)), c.cat, c.items.length, c.items.length ? null : this.btn('trash', 'Smazat kategorii', 'gh dng sm')),
+      c.items.length ? h('div', { className: 'ls-g3' }, c.items.map(p => this.projCard(p, c.cat))) : h('div', { className: 'pj-emp' }, this.ic('file', 16), 'Prázdná kategorie. Přetáhni sem projekt, nebo ji smaž.')
+    ]));
+  }
+
+  // ================= 4 · AGENTI =================
+  p_agents(ph) {
+    const h = this.h;
+    return h('div', null, this.AG.map(d => [
+      this.sec(h('span', { className: 'code' }, d.dep), d.depn, d.items.length),
+      h('div', { className: 'ls-g4 ag-g' }, d.items.map(a => {
+        const S = this.ST[a.st];
+        return this.card('ag', a.n, [
+          h('div', { className: 'ag-top', style: { '--hue': 'hsl(' + this.hue(a.n) + ' 45% 60%)' } },
+            a.st !== 'idle' ? h('span', { className: 'ls-pill ag-st ' + S.c }, h('span', { className: 'dot ' + S.d }), S.l) : null,
+            h('span', { className: 'ag-dep' }, d.dep),
+            h('span', { className: 'ag-av' }, this.av(a.n, 76), h('span', { className: 'ag-eb' }, this.eng(a.e, ph ? 22 : 24)))),
+          h('div', { className: 'ag-b' },
+            h('div', null, h('h3', null, a.n), h('p', null, a.role)),
+            a.now ? h('div', { className: 'ag-now ' + a.st }, 'Právě: ' + a.now) : null,
+            h('div', { className: 'ag-badges' }, h('span', { className: 'ls-chip mono' }, a.m), h('span', { className: 'ls-chip', title: 'Úroveň thinkingu' }, this.think(a.th), ['nízká', 'střední', 'vysoká'][a.th - 1])),
+            h('div', { className: 'ag-tools', role: 'list', 'aria-label': 'Nástroje' }, a.tools.map(t => h('span', { role: 'listitem', title: this.TOOLN[t], 'aria-label': this.TOOLN[t] }, this.ic(t, 13))))),
+          h('div', { className: 'ag-stats' }, [['Běhy 7 d', a.s[0]], ['Úspěšnost', a.s[1]], ['Cena 7 d', a.s[2]]].map(x => h('div', null, h('b', null, x[1]), x[0])))
+        ]);
+      }))
+    ]));
+  }
+
+  // ================= 5 · WORKFLOW =================
+  p_workflows(ph) {
+    const h = this.h;
+    return h('div', null, this.WF.map(d => [
+      this.sec(h('span', { className: 'code' }, d.dep), d.depn, d.items.length),
+      h('div', { className: 'ls-g1' }, d.items.map(w => {
+        const run = w.act >= 0, L = this.ST[w.last[0]];
+        const nodes = [];
+        w.ph.forEach((p, i) => {
+          const cls = run ? (i < w.act ? 'done' : i === w.act ? 'act' : '') : '';
+          if (i) nodes.push(h('span', { className: 'wf-a' + (run && i <= w.act ? ' done' : ''), 'aria-hidden': 'true' }));
+          nodes.push(h('div', { className: 'wf-n ' + cls, role: 'listitem', 'aria-label': 'Fáze ' + (i + 1) + ': ' + p[0] + ', ' + p[1] + (cls === 'act' ? ', právě běží' : cls === 'done' ? ', hotovo' : '') },
+            h('span', { className: 'no' }, String(i + 1).padStart(2, '0'), cls === 'done' ? h('span', { className: 'ok' }, this.ic('check', 11)) : null, cls === 'act' ? h('span', { className: 'dot working' }) : null),
+            h('span', { className: 'wf-ph' }, p[0]),
+            h('span', { className: 'r1' }, this.av(p[1], 20), h('span', { className: 'wf-who' }, p[1]), this.eng(p[2], 18))));
+        });
+        nodes.push(h('span', { className: 'wf-a', 'aria-hidden': 'true' }));
+        nodes.push(h('div', { className: 'wf-out', role: 'listitem' }, this.ic('file', 13), w.out));
+        return this.card('wf', w.n, [
+          h('div', { className: 'wf-l' },
+            h('div', { className: 'hd' }, h('span', { className: 'wf-ic' }, this.ic('flow', 16)), h('h3', null, w.n)),
+            h('p', null, w.desc),
+            h('div', { className: 'wf-meta' }, h('a', { href: '#', className: 'ls-lk ls-chip ol mono', onClick: this.noop }, w.owner), h('span', null, w.ph.length + ' ' + this.pl(w.ph.length, 'fáze', 'fáze', 'fází'))),
+            h('div', { className: 'wf-last' }, h('span', { className: 'dot ' + L.d }), h('span', null, w.last[1]), h('span', { className: 'mono' }, w.last[2]))),
+          h('div', { className: 'wf-r' }, h('div', { className: 'wf-pipe', role: 'list', 'aria-label': 'Fáze workflow' }, nodes))
+        ]);
+      }))
+    ]));
+  }
+
+  // ================= 6 · AUTOMATIZACE =================
+  auCard(a, kind) {
+    const h = this.h, on = this.isOn(a.id, !a.off), L = this.ST[a.ls];
+    const tgtIcon = a.tk === 'agent' ? this.av(a.tn, 32) : h('span', { className: 'i' }, this.ic(a.tk === 'workflow' ? 'flow' : 'grid', 15));
+    const tl = kind === 'cron'
+      ? h('div', { className: 'au-tl', role: 'img', 'aria-label': 'Naposledy ' + a.last + ', příští běh ' + (on ? a.next : 'neplánován') },
+          h('span', { className: 'ax' }), h('span', { className: 'past', style: { width: a.p * 100 + '%' } }),
+          h('span', { className: 'mk', style: { left: '0%', background: L.col } }),
+          h('span', { className: 'now', style: { left: a.p * 100 + '%' } }),
+          h('span', { className: 'mk nx', style: { left: '100%' } }),
+          h('span', { className: 'lb', style: { left: 0 } }, 'naposledy ' + a.last),
+          h('span', { className: 'lb n', style: { left: a.p * 100 + '%' } }, 'teď'),
+          h('span', { className: 'lb r' }, on ? 'příští ' + a.next : 'vypnuto'))
+      : h('div', { className: 'au-tl', role: 'img', 'aria-label': 'Spuštěno ' + a.freq + ', naposledy ' + a.last },
+          h('span', { className: 'ax' }),
+          a.fires.map(f => h('span', { className: 'fr', style: { left: f * 100 + '%' } })),
+          h('span', { className: 'now', style: { left: '100%' } }),
+          h('span', { className: 'lb', style: { left: 0 } }, 'před 7 dny'),
+          h('span', { className: 'lb r' }, a.freq));
+    return this.card('au' + (on ? '' : ' off'), a.n, [
+      h('div', { className: 'au-h' },
+        h('span', { className: 'dot ' + (on ? (a.ls === 'error' ? 'error' : 'done') : 'idle') }),
+        h('h3', null, a.n),
+        h('span', { className: 'au-onl', 'aria-hidden': 'true' }, on ? 'Zapnuto' : 'Vypnuto'),
+        this.sw(a.id, !a.off, 'Zapnuto: ' + a.n, true)),
+      h('div', { className: 'au-dia' },
+        h('div', { className: 'au-t' }, h('span', { className: 'i' }, this.ic(kind === 'cron' ? 'clock' : 'bolt', 15)), h('span', { style: { minWidth: 0 } }, h('span', { className: 'k' }, kind === 'cron' ? 'Kdy' : 'Když'), h('b', null, a.h), h('code', null, a.code))),
+        h('div', { className: 'au-ar', 'aria-hidden': 'true' }),
+        h('div', { className: 'au-t' }, tgtIcon, h('span', { style: { minWidth: 0, flex: 1 } }, h('span', { className: 'k' }, { agent: 'Agent', workflow: 'Workflow', skill: 'Skill' }[a.tk]), h('b', null, a.tn)), this.eng(a.te, 20))),
+      tl,
+      h('div', { className: 'au-f' },
+        h('span', { className: 'st' }, h('span', { className: 'dot ' + L.d }), a.ls === 'error' ? 'Poslední běh selhal' : 'Poslední běh v pořádku'),
+        h('span', { className: 'ls-sp' }),
+        this.btn('edit', 'Upravit', 'sm gh'),
+        this.btn('play', 'Spustit teď', 'sm'))
+    ]);
+  }
+  p_automations(ph) {
+    const h = this.h, AU = this.AU;
+    return h('div', null,
+      h('div', { className: 'au-note', role: 'note' }, h('span', { className: 'sh' }, this.ic('shield', 16)), h('span', null, h('b', null, 'Automatizace, které sahají na produkci nebo peníze,'), ' se před spuštěním zastaví ve frontě Schvalování a čekají na tebe.'), h('a', { href: '/activity/approvals', onClick: this.noop }, 'Fronta · 2 čekají →')),
+      this.sec(h('span', { className: 'ic' }, this.ic('clock', 13)), 'Časové spouštěče', 'cron · ' + AU.cron.length),
+      h('div', { className: 'ls-g2' }, AU.cron.map(a => this.auCard(a, 'cron'))),
+      this.sec(h('span', { className: 'ic' }, this.ic('bolt', 13)), 'Událostní spouštěče', 'event · ' + AU.ev.length),
+      h('div', { className: 'ls-g2' }, AU.ev.map(a => this.auCard(a, 'ev'))),
+      this.sec(h('span', { className: 'ic' }, this.ic('server', 13)), 'Systémové automatizace', AU.sys.length),
+      h('ul', { className: 'rg-list', 'aria-label': 'Systémové automatizace' }, AU.sys.map(s => this.card('au-r', s.n, [
+        h('span', { className: 'dot done' }),
+        h('b', null, s.n),
+        h('span', { className: 'hp' }, h('span', { className: 'w' }, s.h), ' ', h('span', { className: 'mono' }, s.code)),
+        h('span', { className: 'mono hp' }, 'naposledy ' + s.last),
+        this.sw('sys-' + s.n, true, s.n, false, true)
+      ], { tag: 'li', base: 'ls-r' }))));
+  }
+
+  // ================= 7 · CÍLE =================
+  ring(u, m, col, st) {
+    const h = this.h, R = 56, cx = 66, cy = 66, gap = m > 12 ? 5 : 7, seg = 360 / m;
+    const P = a => [cx + R * Math.cos((a - 90) * Math.PI / 180), cy + R * Math.sin((a - 90) * Math.PI / 180)];
+    const live = st === 'working' || st === 'thinking';
+    return h('svg', { viewBox: '0 0 132 132', role: 'img', 'aria-label': u + ' z ' + m + ' iterací' },
+      Array.from({ length: m }).map((_, i) => {
+        const a0 = i * seg + gap / 2, a1 = (i + 1) * seg - gap / 2, p0 = P(a0), p1 = P(a1);
+        return h('path', { d: 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 ' + (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2), stroke: i < u ? col : 'color-mix(in srgb, var(--ink) 11%, transparent)', strokeWidth: 9, fill: 'none', className: live && i === u - 1 ? 'go-cur' : null });
+      }));
+  }
+  goActs(g) {
+    if (g.st === 'parked') return [this.btn('play', 'Pokračovat', 'sm amb'), this.btn('edit', 'Upravit cíl', 'sm gh')];
+    if (g.st === 'working' || g.st === 'thinking') return [this.btn('stop', 'Zastavit', 'sm'), this.btn(null, 'Otevřít běh', 'sm gh')];
+    if (g.st === 'error') return [this.btn(null, 'Otevřít chybu', 'sm'), this.btn('sync', 'Zkusit znovu', 'sm gh')];
+    if (g.st === 'done') return [this.btn(null, 'Historie iterací', 'sm gh')];
+    return [this.btn('play', 'Spustit smyčku', 'sm')];
+  }
+  p_goals(ph) {
+    const h = this.h;
+    return h('div', { className: 'ls-g2' }, this.GO.map(g => {
+      const S = this.ST[g.st];
+      return this.card('go', g.n, [
+        h('div', { className: 'go-ring' }, this.ring(g.u, g.m, S.col, g.st), h('div', { className: 'c', 'aria-hidden': 'true' }, h('b', null, g.u), h('small', null, 'z ' + g.m + ' iterací'))),
+        h('div', { className: 'go-r' },
+          h('div', { className: 'go-top' }, h('span', { className: 'ls-pill ' + S.c }, h('span', { className: 'dot ' + S.d }), S.l), h('span', { className: 'mono' }, Math.round(g.u / g.m * 100) + ' % rozpočtu iterací')),
+          h('h3', null, g.n),
+          h('div', { className: 'go-pair' },
+            h('span', { className: 'p' }, this.av(g.mk, 26), h('span', null, h('small', null, 'Maker'), g.mk)),
+            h('span', { className: 'x', role: 'img', 'aria-label': 'střídají se' }, '⇄'),
+            h('span', { className: 'p' }, this.av(g.vf, 26), h('span', null, h('small', null, 'Verifier'), g.vf))),
+          g.v ? h('div', { className: 'go-v ' + g.st }, h('span', { className: 'k' }, 'Verdikt · iterace ' + g.u, h('b', null, g.v[0])), g.v[1]) : h('div', { className: 'go-v' }, h('span', { className: 'k' }, 'Zatím bez verdiktu'), 'Smyčka ještě neběžela.'),
+          h('div', { className: 'go-acts' }, this.goActs(g)))
+      ]);
+    }));
+  }
+
+  // ================= 8 · ODDĚLENÍ =================
+  p_departments(ph) {
+    const h = this.h;
+    return h('div', null,
+      ph ? null : h('div', { className: 'dp-org', 'aria-hidden': 'true' }, h('span', { className: 'dp-root' }, h('span', { className: 'm' }, 'ZC'), 'ZibbyCorp · 6 oddělení'), h('span', { className: 'dp-stem' }), h('span', { className: 'dp-rail' })),
+      h('div', { className: 'ls-g3' }, this.DP.map(d => this.card('dp', d.c + ' · ' + d.n, [
+        h('div', { className: 'dp-h' },
+          h('span', { className: 'dp-code', 'aria-hidden': 'true' }, d.c),
+          h('div', { style: { minWidth: 0, flex: 1 } }, h('h3', null, d.n), h('span', { className: 'dp-lead' }, this.av(d.lead, 18), 'vede ' + d.lead)),
+          d.act ? h('span', { className: 'ls-pill working' }, h('span', { className: 'dot working' }), d.act + ' ' + this.pl(d.act, 'pracuje', 'pracují', 'pracuje')) : null),
+        h('p', { className: 'dp-man' }, d.man),
+        h('div', { className: 'dp-kpi' }, [['Otevřené podúkoly', d.k[0], d.wait], ['Agenti', d.k[1]], ['Běhy dnes', d.k[2]], ['Útrata dnes', d.k[3]]].map(x => h('div', { className: x[2] ? 'a' : '' }, h('b', null, x[1]), h('small', null, x[0], x[2] ? h('i', null, x[2] + ' na tebe') : null)))),
+        h('nav', { className: 'dp-tabs', 'aria-label': 'Detail oddělení ' + d.n }, ['Tým', 'Podúkoly', 'Workflow', 'Dovednosti', 'Integrace', 'Automatizace', 'Hooky'].map(t => h('a', { href: '/workforce/departments/' + d.c.toLowerCase() + '#' + t, onClick: this.noop, className: 'ls-lk' }, t)))
+      ]))));
+  }
+
+  // ================= 9 · REGISTRY =================
+  regSub() {
+    const h = this.h, reg = this.state.reg;
+    return h('nav', { className: 'rg-sub', 'aria-label': 'Druh registru' }, [['skills', 'Skills', 12], ['commands', 'Příkazy', 8], ['hooks', 'Hooky', 6], ['mcp', 'MCP servery', 6]].map(x => h('button', { 'aria-pressed': reg === x[0], onClick: () => this.setState({ reg: x[0] }) }, x[1], h('span', { className: 'n' }, x[2]))));
+  }
+  p_registries(ph) {
+    const h = this.h, reg = this.state.reg;
+    let body;
+    if (reg === 'skills') body = this.SK.map(g => [
+      this.sec(h('span', { className: 'ic' }, this.ic(g[1], 13)), g[0], g[2].length),
+      h('div', { className: 'ls-g5' }, g[2].map(s => this.card('sk', s[0], [
+        h('div', { className: 'sk-h' }, h('span', { className: 'sk-gl', 'aria-hidden': 'true' }, s[0].slice(0, 2)), h('b', null, s[0]), h('span', { className: 'sk-src' }, s[1])),
+        h('p', null, s[2]),
+        h('div', { className: 'sk-b' }, h('span', null, 'Napojeno na'), s[3].length ? s[3].map(c => h('code', null, c)) : h('span', { className: 'no' }, 'nikam'))
+      ])))]);
+    else if (reg === 'commands') body = h('div', { className: 'cm' },
+      h('div', { className: 'cm-bar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('span', { style: { marginLeft: 6 } }, '~/.zibby/commands')),
+      h('ul', { className: 'cm-list' }, this.CM.map(c => this.card('cm-r', '/' + c[0], [
+        h('div', { className: 'cm-l' }, h('span', { className: 'pr', 'aria-hidden': 'true' }, '›'), h('span', { className: 'nm' }, '/' + c[0]), c[1] ? h('span', { className: 'arg' }, c[1]) : null, h('span', { className: 'cm-d' }, c[2])),
+        h('span', { className: 'cm-p ' + (c[3] ? 'auto' : 'man') }, c[3] ? '⌘K · automaticky' : 'Jen ručně')
+      ], { tag: 'li', base: 'ls-r' }))));
+    else if (reg === 'hooks') body = h('ul', { className: 'rg-list' }, this.HK.map(k => this.card('hk', k[0], [
+      h('span', { className: 'hk-ev' }, this.ic('bolt', 12), k[0]),
+      h('span', { className: 'hk-ar', 'aria-hidden': 'true' }, this.ic('arrow', 16)),
+      h('code', { className: 'hk-cmd' }, k[1]),
+      h('span', { className: 'hk-m' }, h('span', null, 'na: ' + k[2]), h('span', null, k[3] + '× dnes'))
+    ], { tag: 'li', base: 'ls-r' })));
+    else body = h('ul', { className: 'rg-list' }, this.MC.map(m => {
+      const st = m[3], dc = st === 'online' ? 'done live' : st === 'offline' ? 'error' : 'idle';
+      return this.card('mc', m[0], [
+        h('span', { className: 'mc-s' }, this.ic('server', 16), h('span', { className: 'dot ' + dc })),
+        h('span', { className: 'mc-n' }, h('b', null, m[0]), h('small', { className: st === 'online' ? 'on' : st === 'offline' ? 'err' : '' }, st === 'online' ? 'Online · ' + m[4] + ' nástrojů' : st === 'offline' ? 'Offline · neodpovídá 6 min' : 'Vypnuto')),
+        h('span', { className: 'mc-tr' }, m[1]),
+        h('span', { className: 'mc-u hp' }, m[2]),
+        h('span', { className: 'mc-t hp' }, st === 'online' ? 'p95 ' + m[5] : '—'),
+        this.sw('mcp-' + m[0], st !== 'off', 'Zapnout ' + m[0])
+      ], { tag: 'li', base: 'ls-r' });
+    }));
+    return h('div', null, this.regSub(), body);
+  }
+
+  // ================= 10 · MARKETPLACE =================
+  p_marketplaces(ph) {
+    const h = this.h, HT = [40, 50, 36, 46, 32, 44];
+    return h('div', { className: 'ls-g3' }, this.MK.map(m => this.card('mk', m.id, [
+      h('div', { className: 'mk-shelf', 'aria-hidden': 'true' }, m.pl.map((p, i) => h('span', { className: i < m.i ? 'in' : 'out', style: { height: HT[i % 6] } }, p)), m.t > m.pl.length ? h('span', { className: 'more' }, '+' + (m.t - m.pl.length)) : null),
+      h('div', { className: 'mk-b' },
+        h('div', { className: 'mk-h' }, h('h3', null, m.id), h('span', { className: 'mk-tag ' + (m.dev ? 'dev' : 'reg') }, m.dev ? 'dev' : 'běžný')),
+        h('a', { href: '#', className: 'ls-lk mk-src', onClick: this.noop }, this.ic('git', 13), m.src),
+        h('div', { className: 'mk-p' }, h('div', { className: 'l' }, h('span', null, 'Nainstalováno ', h('b', null, m.i), ' z ' + m.t + ' pluginů'), h('span', { className: 'mono' }, Math.round(m.i / m.t * 100) + ' %')), h('span', { className: 'ls-bar', role: 'img', 'aria-label': 'Nainstalováno ' + m.i + ' z ' + m.t }, h('i', { style: { width: (m.i / m.t * 100) + '%' } })))),
+      h('div', { className: 'mk-f' }, h('span', null, 'aktualizováno ' + m.upd), h('span', { className: 'ls-sp' }), this.btn(null, 'Procházet', 'sm'))
+    ])));
+  }
+
+  // ================= PRÁZDNO / NAČÍTÁNÍ =================
+  empty(k, ph) {
+    const h = this.h, e = this.EM[k], sp = this.spec(k), c = this.SKL[k][0];
+    const cols = ph ? 1 : Math.min(c, 3), n = ph ? 2 : (c === 1 ? 3 : cols);
+    return h('div', { className: 'ls-empty' },
+      h('div', { className: 'ls-ghost', 'aria-hidden': 'true', style: { gridTemplateColumns: 'repeat(' + cols + ',minmax(0,1fr))' } }, Array.from({ length: n }).map((_, i) => h('div', { style: { height: Math.round(this.GH[k] * (ph ? .6 : 1)), opacity: 1 - i * .28 } }))),
+      h('span', { className: 'ls-eic' }, this.ic(e[0], 20)),
+      h('h2', null, e[1]),
+      h('p', null, e[2]),
+      h('div', { className: 'acts' }, h('button', { className: 'ls-new' }, this.ic('plus', 14), sp.cta), this.btn(null, e[3])));
+  }
+  sk(w, hh, st) { return this.h('span', { className: 'ls-sk', style: Object.assign({ width: w, height: hh }, st || {}) }); }
+  skelCard(t, ph) {
+    const h = this.h, s = (w, hh, st) => this.sk(w, hh, st);
+    const R = (...c) => h('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } }, c);
+    const C = (...c) => h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 } }, c);
+    const sp = () => h('span', { style: { flex: 1 } });
+    if (t === 'co') return h('div', { className: 'ls-skc', style: { padding: 22, gap: 14 } }, R(s(50, 50, { borderRadius: 14 }), C(s('40%', 16), s('22%', 10)), s(96, 26, { borderRadius: 99 })), s('85%', 10), s('60%', 10), h('div', { style: { display: 'grid', gridTemplateColumns: ph ? '1fr' : '1fr 130px', gap: 20, alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--line)' } }, C(s('28%', 10), s('45%', 12, { marginLeft: 18 }), s('38%', 12, { marginLeft: 18 }), s('42%', 12, { marginLeft: 18 })), s(120, 60, { borderRadius: '60px 60px 6px 6px' })));
+    if (t === 'tm') return h('div', { className: 'ls-skc', style: { padding: 18, gap: 12 } }, s(100, 20), s('45%', 16), s('85%', 10), R(...[0, 1, 2, 3, 4].map(() => s(34, 34, { borderRadius: '50%' }))), s('100%', 56, { borderRadius: 10 }));
+    if (t === 'pj') return h('div', { className: 'ls-skc' }, R(C(s('55%', 16), s('40%', 10)), s(60, 22)), s('100%', 8, { borderRadius: 3 }), h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 } }, [0, 1, 2, 3, 4, 5].map(() => s('100%', 14))), s('100%', 28), R(s('33%', 5), s('33%', 5), s('33%', 5)));
+    if (t === 'ag') return h('div', { className: 'ls-skc', style: { padding: 0, gap: 0 } }, s('100%', 96, { borderRadius: 0 }), h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 16px 18px', marginTop: -38 } }, s(76, 76, { borderRadius: '50%', boxShadow: '0 0 0 4px var(--p1)' }), s('50%', 14), s('65%', 10), R(s(70, 22), s(70, 22)), R(s(26, 26), s(26, 26), s(26, 26))));
+    if (t === 'wf') return h('div', { className: 'ls-skc', style: { padding: 0, gap: 0, display: 'grid', gridTemplateColumns: ph ? '1fr' : '300px 1fr' } }, h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 18 } }, R(s(32, 32, { borderRadius: 9 }), s('50%', 14)), s('90%', 10), s('70%', 10), s(60, 20)), h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: 18, overflow: 'hidden' } }, [0, 1, 2, 3].map(i => [i ? s(30, 2) : null, s(150, 74, { borderRadius: 10 })])));
+    if (t === 'au') return h('div', { className: 'ls-skc', style: { gap: 14 } }, R(s(8, 8, { borderRadius: '50%' }), s('45%', 14), sp(), s(46, 26, { borderRadius: 99 })), h('div', { style: { display: 'grid', gridTemplateColumns: ph ? '1fr' : '1fr 48px 1fr', alignItems: 'center', gap: ph ? 10 : 0 } }, s('100%', 64, { borderRadius: 10 }), ph ? null : s(30, 2, { justifySelf: 'center' }), s('100%', 64, { borderRadius: 10 })), s('100%', 2), R(s(110, 10), sp(), s(70, 28), s(90, 28)));
+    if (t === 'go') return h('div', { className: 'ls-skc', style: { display: 'grid', gridTemplateColumns: (ph ? 86 : 132) + 'px 1fr', gap: 18, padding: 18 } }, s(ph ? 86 : 132, ph ? 86 : 132, { borderRadius: '50%' }), C(s(90, 22, { borderRadius: 99 }), s('70%', 16), R(s(26, 26, { borderRadius: '50%' }), s(60, 10), s(26, 26, { borderRadius: '50%' }), s(60, 10)), s('100%', 46, { borderRadius: 9 }), R(s(100, 28), s(80, 28))));
+    if (t === 'dp') return h('div', { className: 'ls-skc' }, R(s(54, 54, { borderRadius: 13 }), C(s('45%', 16), s('30%', 10))), s('90%', 10), s('70%', 10), s('100%', 58, { borderRadius: 10 }), R(s(30, 10), s(50, 10), s(50, 10), s(60, 10)));
+    if (t === 'mk') return h('div', { className: 'ls-skc', style: { padding: 0, gap: 0 } }, h('div', { style: { display: 'flex', gap: 6, alignItems: 'flex-end', height: 88, padding: '0 16px 10px', borderBottom: '2px solid var(--line)' } }, [40, 50, 36, 46, 32, 44].map(x => s(32, x, { borderRadius: 7 }))), h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16 } }, s('50%', 14), s('70%', 10), s('100%', 5)));
+    if (t === 'sk') return h('div', { className: 'ls-skc', style: { padding: 12, gap: 8 } }, R(s(26, 26, { borderRadius: 7 }), s('55%', 12)), s('85%', 9), s('50%', 9));
+    return null;
+  }
+  skel(k, ph) {
+    const h = this.h;
+    let c = this.SKL[k][0], n = this.SKL[k][1], t = this.SKL[k][2];
+    if (k === 'registries' && this.state.reg === 'skills') { c = 5; n = 10; t = 'sk'; }
+    if (ph) n = Math.min(n, t === 'ag' || t === 'sk' ? 4 : 3);
+    const live = { role: 'status', 'aria-live': 'polite', 'aria-label': 'Načítám' };
+    if (t === 'row') return h('ul', Object.assign({ className: 'rg-list' }, live), Array.from({ length: n }).map(() => h('li', { className: 'ls-r', style: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px' } }, this.sk(38, 38, { borderRadius: 11 }), h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, flex: 1 } }, this.sk('30%', 12), this.sk('18%', 9)), ph ? null : this.sk(60, 18), ph ? null : this.sk('30%', 12), this.sk(32, 20, { borderRadius: 99 }))));
+    const cls = ph ? (t === 'ag' || t === 'sk' ? 'ls-g4 ag-g' : 'ls-g1') : 'ls-g' + c;
+    return h('div', Object.assign({ className: ph && t === 'sk' ? 'ls-g5' : cls }, live), Array.from({ length: n }).map(() => this.skelCard(t, ph)));
+  }
+
+  // ================= STRÁNKY =================
+  showPage(k) {
+    const h = this.h, spec = this.spec(k), dev = this.state.dev, r = this.RAT[k], mode = this.state.mode;
+    const ML = { full: 'naplněno', empty: 'prázdný stav', load: 'načítání', hover: 'hover a vybraná karta (modré štítky jsou anotace)' };
+    return h('div', null,
+      h('div', { className: 'ls-cap' },
+        h('div', { className: 't' }, h('h2', null, spec.title), h('span', { className: 'r' }, spec.route)),
+        h('div', { className: 'ls-rat' }, h('div', null, h('b', null, 'Živý signál'), r[0]), h('div', null, h('b', null, 'Motiv'), r[1]), h('div', null, h('b', null, 'Proč'), r[2]))),
+      dev !== 'phone' ? [h('div', { className: 'ls-lbl' }, h('span', null, 'Desktop · 1440'), h('span', null, '·'), h('span', null, ML[mode])), h('div', { className: 'stage' }, this.frame(spec, this.body(k, false, mode), false, mode))] : null,
+      dev !== 'desk' ? [h('div', { className: 'ls-lbl' }, h('span', null, 'Telefon · 390'), h('span', null, '·'), h('span', null, ML[mode])), h('div', { className: 'ls-phs' }, h('div', { className: 'stage phone' }, this.frame(spec, this.body(k, true, mode), true, mode)))] : null);
+  }
+  overview() {
+    const h = this.h, sil = this.state.sil;
+    const inert = el => { if (el) el.setAttribute('inert', ''); };
+    return h('div', { className: 'ov' + (sil ? ' sil' : '') },
+      h('h2', { className: 'h' }, 'Rodina seznamů'),
+      h('p', { className: 'lead2' }, 'Deset stránek, které dnes sdílejí jeden generický EntityCard. Každá dostala vlastní tvar karty, jeden živý signál a podpisový motiv. Všechny ale stojí na stejném rámu stránky, typové škále, mřížce 4/8, tokenech a stavech hover/focus/výběr. Zapni test siluety: i rozmazané a bez barvy se dají od sebe rozeznat.'),
+      h('section', { className: 'ov-rule', 'aria-label': 'Pravidlo rodiny' },
+        h('div', null,
+          h('h3', null, 'Co je společné (rodina)'),
+          h('ul', null,
+            h('li', null, h('b', null, 'Rám stránky:'), ' sekce / cesta, titulek 26/600, řádek počtů, primární tlačítko vpravo nahoře (ink, ne jantar), volitelná lišta s hledáním a čipy filtrů, pak mřížka nebo seznam.'),
+            h('li', null, h('b', null, 'Karta:'), ' p1, hairline line, radius 12, nadpis 15/600. Hover = line2 + měkký stín, výběr = ink prstenec, focus = jantarový obrys 2 px.'),
+            h('li', null, h('b', null, 'Jeden fokusový cíl:'), ' celá karta je odkaz (roztažený přes kartu), vnitřní odkazy a přepínače leží nad ním, mají vlastní focus a kartu neotevřou.'),
+            h('li', null, h('b', null, 'Barvy:'), ' jantar jen „čeká na tebe“ a překročení, fialová jen agenti, kteří právě pracují. Barva nikdy není jediný rozdíl mezi stránkami.'),
+            h('li', null, h('b', null, 'Monogramy místo log:'), ' lidé kruh, agenti zaoblený čtverec, enginy jako mono zkratky C / O / OC / BC.'),
+            h('li', null, h('b', null, 'Stavy:'), ' prázdný stav ukazuje čárkovanou siluetu karty dané stránky, načítání je skeleton ve stejném tvaru — silueta platí i bez dat.'))),
+        h('div', null,
+          h('h3', null, 'Co se liší (tři osy)'),
+          h('table', null, h('thead', null, h('tr', null, h('th', null, 'Stránka'), h('th', null, 'Tvar a hustota'), h('th', null, 'Živý signál'), h('th', null, 'Motiv'))),
+            h('tbody', null, this.AX.map(r => h('tr', null, r.map(c => h('td', null, c)))))))),
+      h('div', { className: 'ov-bar' }, h('h3', null, 'Vedle sebe'), h('span', null, 'naplněný stav, desktop'), h('span', { className: 'ls-sp' }), h('button', { className: 'ls-btn', 'aria-pressed': sil, onClick: () => this.setState({ sil: !sil }) }, sil ? 'Vypnout test siluety' : 'Test siluety')),
+      h('div', { className: 'ov-grid' }, this.PAGES.map(k => {
+        const spec = this.spec(k);
+        return h('div', { className: 'ov-t' },
+          h('div', { className: 'ov-th', 'aria-hidden': 'true' }, h('div', { className: 'sc', ref: inert }, this.frame(spec, this.body(k, false, 'full'), false, 'full'))),
+          h('div', { className: 'ov-tf' }, h('span', null, h('b', null, spec.title), h('small', null, this.AX[this.PAGES.indexOf(k)][3])), h('span', { className: 'ls-sp' }), h('button', { className: 'ls-btn sm', onClick: () => this.setState({ view: k }) }, 'Otevřít')));
+      })),
+      h('section', { className: 'ov-rule', style: { marginTop: 32, gridTemplateColumns: '380px minmax(0,1fr)' }, 'aria-label': 'Stránky, které už jsou odlišné' },
+        h('div', null, h('h3', null, 'Už odlišné — jen lehký restyle'), h('p', { style: { color: 'var(--ink2)', fontSize: 13, lineHeight: 1.6 } }, 'Tyhle stránky mají vlastní tvar a neměníme ho. Dostanou jen společný rám stránky a tokeny, aby patřily do stejné rodiny.')),
+        h('table', null, h('thead', null, h('tr', null, h('th', null, 'Stránka'), h('th', null, 'Zůstává'), h('th', null, 'Sjednotit'))),
+          h('tbody', null, [
+            ['Běhy', 'Tabulka, filtry v URL, nekonečný scroll', 'Rám, stavové tečky z rodiny, čísla mono'],
+            ['Schvalování', 'Fronta ApprovalCard + historie', 'Jantar jen pro čekající, karta = jeden fokusový cíl'],
+            ['Pull requesty', 'Tabulka se stacky, CI, review', 'Kolejnice stacků z Můstku, čipy ok/warn/err'],
+            ['Inbox', 'Issues po epicích, PR master–detail', 'Hover a výběr řádků jako .ls-r'],
+            ['Pravidla', 'Kanban ask / deny / notify / allow', 'Hlavičky sloupců jako sekce rodiny'],
+            ['Rozpočty a Útrata', 'Metry a okna 5 h / týden', 'Stejné rozpočtové pruhy jako Projekty (jantar ≥ 80 %, růžová ≥ 100 %)'],
+            ['Vault, Briefingy', 'Tři panely, dokument z panelů', 'Jen rám a typová škála']
+          ].map(r => h('tr', null, r.map(c => h('td', null, c))))))));
+  }
+
+  renderVals() {
+    const v = this.view(), m = this.state.mode, d = this.state.dev;
+    return {
+      views: ['overview'].concat(this.PAGES).map(k => ({ label: this.LBL[k], on: v === k, pick: () => this.setState({ view: k }) })),
+      modes: [['full', 'Naplněno'], ['empty', 'Prázdné'], ['load', 'Načítání'], ['hover', 'Hover · výběr']].map(x => ({ label: x[1], on: m === x[0], pick: () => this.setState({ mode: x[0] }) })),
+      devs: [['both', 'Obojí'], ['desk', 'Desktop'], ['phone', 'Telefon']].map(x => ({ label: x[1], on: d === x[0], pick: () => this.setState({ dev: x[0] }) })),
+      themes: [['dark', 'Tmavé'], ['light', 'Světlé']].map(x => ({ label: x[1], on: this.theme() === x[0], pick: () => this.setTheme(x[0]) })),
+      theme: this.theme(),
+      isPage: v !== 'overview',
+      page: v === 'overview' ? this.overview() : this.showPage(v)
+    };
+  }
+}
+</script>
+</body>
+</html>

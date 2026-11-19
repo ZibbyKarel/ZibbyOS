@@ -32,7 +32,30 @@ export interface LoopDiagramProps {
   forwardLabel: ReactNode;
   /** Caption on the back arrow ("verdict + feedback → retry"). */
   backLabel: ReactNode;
+  /**
+   * Board look: a dotted-grid backdrop, and the live arrow drawn as an animated dashed flow
+   * instead of a pulsing solid line. Off by default.
+   */
+  board?: boolean;
+  /** A small preview: narrow middle, arrows always drawn, no arrow captions. Pair with `mini` nodes. */
+  mini?: boolean;
   ref?: Ref<HTMLDivElement>;
+}
+
+const BOARD_BG =
+  "bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-ink)_9%,transparent)_1px,transparent_1.4px)] bg-[length:20px_20px]";
+
+/** Marching dashes for the live arrow of a `board` diagram. */
+function Flow() {
+  return (
+    <animate
+      attributeName="stroke-dashoffset"
+      dur="1s"
+      from="0"
+      repeatCount="indefinite"
+      to="-11"
+    />
+  );
 }
 
 const FORWARD = "M0,40 C30,4 70,4 100,40";
@@ -71,45 +94,63 @@ export function LoopDiagram({
   countLabel,
   forwardLabel,
   backLabel,
+  board = false,
+  mini = false,
   ref,
 }: LoopDiagramProps) {
+  const show = mini ? "block" : "hidden md:block";
   return (
     <div
       aria-label="Loop"
-      className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-[6px] rounded-lg border border-line bg-bg px-[10px] py-[14px] md:min-h-[250px] md:grid-cols-[minmax(0,270px)_minmax(0,1fr)_minmax(0,270px)] md:gap-0 md:px-[40px]"
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-[6px] rounded-lg border border-line bg-bg px-[10px] py-[14px] md:min-h-[250px] md:grid-cols-[minmax(0,270px)_minmax(0,1fr)_minmax(0,270px)] md:gap-0 md:px-[40px]",
+        mini &&
+          "min-h-[130px] grid-cols-[minmax(0,1fr)_104px_minmax(0,1fr)] gap-[4px] px-[10px] py-[10px] md:min-h-[130px] md:grid-cols-[minmax(0,1fr)_104px_minmax(0,1fr)] md:gap-[4px] md:px-[10px]",
+        board && BOARD_BG,
+      )}
       data-testid={LoopDiagramTestId.Root}
       ref={ref}
       role="group"
     >
       <div data-testid={LoopDiagramTestId.Maker}>{maker}</div>
-      <div className="relative flex flex-col items-center justify-center md:h-[190px]">
+      <div
+        className={cn(
+          "relative flex flex-col items-center justify-center md:h-[190px]",
+          mini && "h-[90px] md:h-[90px]",
+        )}
+      >
         <svg
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden h-full w-full md:block"
+          className={cn("pointer-events-none absolute inset-0 h-full w-full", show)}
           preserveAspectRatio="none"
           viewBox="0 0 100 100"
         >
           <path
-            className={active === "forward" ? "animate-pulse" : undefined}
+            className={active === "forward" && !board ? "animate-pulse" : undefined}
             d={FORWARD}
             data-testid={LoopDiagramTestId.ForwardArrow}
             fill="none"
             stroke={stroke(active === "forward")}
+            strokeDasharray={board && active === "forward" ? "5 6" : undefined}
             strokeWidth={1.6}
             vectorEffect="non-scaling-stroke"
-          />
+          >
+            {board && active === "forward" ? <Flow /> : null}
+          </path>
           <path
-            className={active === "back" ? "animate-pulse" : undefined}
+            className={active === "back" && !board ? "animate-pulse" : undefined}
             d={BACK}
             data-testid={LoopDiagramTestId.BackArrow}
             fill="none"
             stroke={stroke(active === "back")}
-            strokeDasharray={paused ? "4 4" : undefined}
+            strokeDasharray={paused ? "4 4" : board && active === "back" ? "5 6" : undefined}
             strokeWidth={1.6}
             vectorEffect="non-scaling-stroke"
-          />
+          >
+            {board && active === "back" && !paused ? <Flow /> : null}
+          </path>
         </svg>
-        <span className="hidden md:block">
+        <span className={show}>
           <Head
             className="top-[40%] right-0 rotate-[40deg]"
             on={active === "forward"}
@@ -122,18 +163,24 @@ export function LoopDiagram({
           />
         </span>
         <span
-          className="absolute top-[8%] hidden whitespace-nowrap rounded-full bg-bg px-[8px] text-meta text-ink-3 md:block"
+          className={cn(
+            "absolute top-[8%] hidden whitespace-nowrap rounded-full bg-bg px-[8px] text-meta text-ink-3",
+            !mini && "md:block",
+          )}
           data-testid={LoopDiagramTestId.ForwardLabel}
         >
           {forwardLabel}
         </span>
         <span
-          className="absolute bottom-[6%] hidden whitespace-nowrap rounded-full bg-bg px-[8px] text-meta text-ink-3 md:block"
+          className={cn(
+            "absolute bottom-[6%] hidden whitespace-nowrap rounded-full bg-bg px-[8px] text-meta text-ink-3",
+            !mini && "md:block",
+          )}
           data-testid={LoopDiagramTestId.BackLabel}
         >
           {backLabel}
         </span>
-        <span aria-hidden="true" className="font-mono text-ink-3 md:hidden">
+        <span aria-hidden="true" className={cn("font-mono text-ink-3 md:hidden", mini && "hidden")}>
           ⇄
         </span>
         <div
@@ -141,7 +188,14 @@ export function LoopDiagram({
           className="relative z-[1] flex flex-col items-center gap-[2px]"
           data-testid={LoopDiagramTestId.Count}
         >
-          <span className="font-mono text-[18px] font-medium text-ink md:text-[22px]">{count}</span>
+          <span
+            className={cn(
+              "font-mono text-[18px] font-medium text-ink md:text-[22px]",
+              mini && "text-[14px] md:text-[14px]",
+            )}
+          >
+            {count}
+          </span>
           <span className="text-meta text-ink-3">{countLabel}</span>
         </div>
       </div>
@@ -175,6 +229,8 @@ export interface LoopDiagramNodeProps {
   onClick?: () => void;
   /** Accessible name of the button ("Maker: Writer Dev. Change maker"). */
   ariaLabel?: string;
+  /** Preview size: tighter padding, smaller text, no status line. */
+  mini?: boolean;
 }
 
 const NODE_STATE: Record<LoopDiagramNodeState, string> = {
@@ -193,6 +249,7 @@ export function LoopDiagramNode({
   state = "rest",
   onClick,
   ariaLabel,
+  mini = false,
 }: LoopDiagramNodeProps) {
   const body = (
     <>
@@ -221,7 +278,7 @@ export function LoopDiagramNode({
           ) : null}
         </span>
       </span>
-      {line ? (
+      {line && !mini ? (
         <span
           className="flex items-center gap-[6px] border-t border-line pt-[9px] text-meta text-ink-2"
           data-testid={LoopDiagramNodeTestId.Line}
@@ -233,6 +290,7 @@ export function LoopDiagramNode({
   );
   const cls = cn(
     "flex w-full min-w-0 flex-col gap-[10px] rounded-[14px] border bg-panel p-[14px] text-left",
+    mini && "gap-[4px] rounded-[10px] p-[8px] text-[11px]",
     NODE_STATE[state],
   );
   return onClick ? (

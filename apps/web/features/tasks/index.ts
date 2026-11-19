@@ -1,6 +1,6 @@
 export { NewTaskProvider, useNewTask, NEW_TASK_SHORTCUT } from "./TaskContext";
 export { NEW_TASK_PAGE_HREF, useNewTaskPageHotkey } from "./hooks/useNewTaskPageHotkey";
-export { NewTaskDialog } from "./components/NewTaskDialog";
+export { NewTaskDialog, NewTaskForm } from "./components/NewTaskDialog";
 export {
   TaskCommandLine,
   TaskCommandLineTestId,

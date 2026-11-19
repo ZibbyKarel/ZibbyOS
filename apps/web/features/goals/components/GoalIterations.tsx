@@ -51,8 +51,11 @@ function markerTone(it: GoalIteration, verdict: Verdict): IterationTimelineTone 
 export function GoalIterations({ run, makerId, nowMs }: GoalIterationsProps) {
   const t = useTranslations("goalPage");
   const [newestFirst, setNewestFirst] = useState(true);
-  const [open, setOpen] = useState<number | null>(null);
   const iterations = run?.iterations ?? [];
+  // The running iteration opens by default so its live log is visible.
+  const runningIndex = iterations.find((it) => it.status === "running")?.index ?? null;
+  const [openState, setOpen] = useState<number | null | undefined>(undefined);
+  const open = openState === undefined ? runningIndex : openState;
   const totals = run ? runTotals(run, nowMs) : undefined;
   const parkedIndex = run?.status === "parked" ? run.goalParked?.iteration : undefined;
   const ordered = newestFirst ? [...iterations].reverse() : iterations;

@@ -12,6 +12,7 @@ import { StatusDot } from "../StatusDot/StatusDot";
  *   secondary — `--line2` hairline, `--ink` text, `--p2` hover (Bridge `.btn`)
  *   outline   — `--ink` hairline, `--ink` text (the Bridge EDIT LAYOUT toggle; DONE is `primary`)
  *   ghost     — secondary without the hairline (quietest action)
+ *   ink       — solid `--ink` fill, page-coloured text (Bridge `.btn.ink`, the white "primary" of a dark page)
  *   danger    — secondary + a leading `--s-err` dot, never a red fill
  * An icon-only button (no children): 9px side padding.
  * `joined` squares the inner corners of a split-button segment (`DropDownButton`)
@@ -31,6 +32,7 @@ const button = cva(
         secondary: "border-line-2 bg-transparent text-ink hover:bg-panel-2",
         outline: "border-ink bg-transparent text-ink hover:bg-panel-2",
         ghost: "border-transparent bg-transparent text-ink-2 hover:bg-panel-2 hover:text-ink",
+        ink: "border-ink bg-ink text-bg hover:opacity-85",
         danger: "border-line-2 bg-transparent text-ink hover:bg-panel-2",
       },
       // Bridge `.btn` (30px, 12.5px) / `.btn.sm` (26px, 12px).
@@ -61,10 +63,11 @@ const spinnerClass: Record<ButtonIntent, string> = {
   secondary: "border-ink/30 border-t-ink",
   outline: "border-ink/30 border-t-ink",
   ghost: "border-ink-2/30 border-t-ink-2",
+  ink: "border-bg/30 border-t-bg",
   danger: "border-ink/30 border-t-ink",
 };
 
-export type ButtonIntent = "primary" | "secondary" | "outline" | "ghost" | "danger";
+export type ButtonIntent = "primary" | "secondary" | "outline" | "ghost" | "danger" | "ink";
 export type ButtonSize = "sm" | "md";
 
 export enum ButtonTestId {

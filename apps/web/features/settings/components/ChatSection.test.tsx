@@ -1,4 +1,5 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderSettings as render, screen } from "../testing/renderSettings";
+import cs from "../../../i18n/messages/cs.json";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type SystemConfig, SystemConfigSchema } from "@zibby/contracts";
@@ -20,15 +21,16 @@ beforeEach(() => {
 describe("ChatSection", () => {
   it("defaults to the jarvis persona selected", () => {
     render(<ChatSection />);
-    expect(screen.getByTestId("button-group-option-jarvis")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("radio", { name: new RegExp(cs.settings.chat.persona.jarvis) }),
+    ).toBeChecked();
   });
 
   it("picking a persona PUTs the whole config with only chatPersona changed", async () => {
     render(<ChatSection />);
-    await userEvent.click(screen.getByTestId("button-group-option-concise"));
+    await userEvent.click(
+      screen.getByRole("radio", { name: new RegExp(cs.settings.chat.persona.concise) }),
+    );
     expect(setConfig).toHaveBeenCalledWith({ body: { ...config, chatPersona: "concise" } });
   });
 });

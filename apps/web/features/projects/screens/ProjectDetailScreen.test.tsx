@@ -52,7 +52,11 @@ vi.mock("../queries", () => ({
   useProjectTaskStats: () => ({ total: 0, groups: [] }),
   useResolvedProjectQuery: () => ({ data: { people: [], integrations: [] } }),
   useProjectPrsQuery: () => ({ data: [] }),
+  useProjectsQuery: () => ({ data: [] }),
+  useBudgetQuery: () => ({ data: undefined }),
 }));
+
+vi.mock("../../runs", () => ({ useRunsQuery: () => ({ runs: [] }) }));
 
 let companies: { id: string; name: string }[] = [];
 vi.mock("../../companies", () => ({ useCompaniesQuery: () => ({ data: companies }) }));
@@ -178,7 +182,7 @@ describe("ProjectDetailScreen (ZB-06)", () => {
 
   it("lists the project's integrations with an add control", () => {
     render(<ProjectDetailScreen projectId="media-vault" tab="integrations" />);
-    expect(screen.getByText("Team Slack")).toBeInTheDocument();
+    expect(screen.getAllByText("Team Slack").length).toBeGreaterThan(0);
     expect(screen.getByTestId("add-integration")).toBeInTheDocument();
   });
 

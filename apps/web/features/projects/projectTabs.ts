@@ -10,5 +10,5 @@
  * build works fine. Splitting the pure constant out of the client component
  * file sidesteps the boundary entirely.
  */
-export const PROJECT_TABS = ["overview", "profile", "secrets", "integrations", "roadmap"] as const;
+export const PROJECT_TABS = ["overview", "integrations", "profile", "secrets", "roadmap"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];

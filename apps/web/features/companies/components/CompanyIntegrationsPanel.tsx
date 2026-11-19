@@ -7,14 +7,9 @@ import type { Route } from "next";
 import { Alert, Button, Grid, Panel, Stack, Typography } from "@zibby/design-system";
 import type { Integration } from "@zibby/contracts";
 import { IntegrationCard } from "../../integrations/components/IntegrationCard";
-import {
-  type IntegrationCreateDraft,
-  IntegrationFormDialog,
-} from "../../integrations/components/IntegrationFormDialog";
+import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
 import {
   useCompanyIntegrationsQuery,
-  useCreateIntegrationMutation,
-  useSetCredentialsMutation,
   useTestIntegrationMutation,
   useUpdateIntegrationMutation,
 } from "../../integrations";
@@ -27,6 +22,9 @@ export enum CompanyIntegrationsPanelTestId {
 
 export interface CompanyIntegrationsPanelProps {
   companyId: string;
+  ownerName?: string;
+  /** Projects that would inherit a new connection. */
+  projectCount?: number;
 }
 
 /**
@@ -36,7 +34,11 @@ export interface CompanyIntegrationsPanelProps {
  * NAVIGATES to the company-nested detail page, the create dialog is create-only and
  * stamps `companyId` as the owner.
  */
-export function CompanyIntegrationsPanel({ companyId }: CompanyIntegrationsPanelProps) {
+export function CompanyIntegrationsPanel({
+  companyId,
+  ownerName,
+  projectCount,
+}: CompanyIntegrationsPanelProps) {
   const t = useTranslations();
   const router = useRouter();
   const integrationsQuery = useCompanyIntegrationsQuery(companyId);
@@ -44,30 +46,10 @@ export function CompanyIntegrationsPanel({ companyId }: CompanyIntegrationsPanel
   const [creating, setCreating] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
 
-  const create = useCreateIntegrationMutation();
   const update = useUpdateIntegrationMutation();
-  const setCredentials = useSetCredentialsMutation();
   const test = useTestIntegrationMutation();
 
   const detailHref = (id: string) => `/companies/${companyId}/integrations/${id}` as Route;
-
-  const onCreate = ({ create: body, secret }: IntegrationCreateDraft) => {
-    create.mutate(
-      { body },
-      {
-        onSuccess: () => {
-          if (secret) {
-            setCredentials.mutate({
-              params: { id: body.id },
-              body: body.kind === "email" ? { password: secret } : { token: secret },
-            });
-          }
-          setCreating(false);
-          router.push(detailHref(body.id));
-        },
-      },
-    );
-  };
 
   const onTest = (integration: Integration) => {
     setTestResult(null);
@@ -141,10 +123,12 @@ export function CompanyIntegrationsPanel({ companyId }: CompanyIntegrationsPanel
       </Stack>
 
       {creating && (
-        <IntegrationFormDialog
-          companyId={companyId}
+        <ConnectWizardSheet
+          inheritingCount={projectCount}
           onClose={() => setCreating(false)}
-          onCreate={onCreate}
+          onOpenIntegration={(iid) => router.push(detailHref(iid))}
+          owner={{ companyId }}
+          ownerName={ownerName ?? companyId}
         />
       )}
     </Panel>

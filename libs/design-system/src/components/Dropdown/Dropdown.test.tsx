@@ -26,6 +26,19 @@ describe("Dropdown", () => {
     expect(screen.getByTestId(DropdownTestId.Trigger)).toHaveClass("text-base");
   });
 
+  it("plain drops the trigger border", () => {
+    render(
+      <Dropdown
+        plain
+        onChange={() => {}}
+        options={[{ value: "a", label: "A" }]}
+        size="sm"
+        value="a"
+      />,
+    );
+    expect(screen.getByTestId(DropdownTestId.Trigger)).toHaveClass("border-transparent");
+  });
+
   it("is collapsed by default", () => {
     render(<Dropdown onChange={vi.fn()} options={OPTIONS} value="cs" />);
     expect(screen.getByTestId(DropdownTestId.Trigger)).toHaveAttribute("aria-expanded", "false");

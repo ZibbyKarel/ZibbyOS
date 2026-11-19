@@ -13,6 +13,7 @@ export enum SplashTestId {
   ProgressFill = "splash-progress-fill",
   Status = "splash-status",
   Footer = "splash-footer",
+  Greeting = "splash-greeting",
 }
 
 /** The boot sequence's discrete stages — `"done"` means unmounted (the
@@ -62,6 +63,9 @@ export interface SplashProps {
   status?: string;
   /** Small mono line at the bottom, e.g. `zibby os v0.9 · Můstek`. */
   footer?: string;
+  /** Personal line under the status (e.g. "Good evening, Karel."). Fades in once
+   *  the boot steps finish; omit it and nothing is rendered. */
+  greeting?: string;
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -80,6 +84,7 @@ export function Splash({
   steps,
   status = "Booting",
   footer,
+  greeting,
   ref,
 }: SplashProps) {
   // Lazy initializer — computed once, on mount, never re-read during render.
@@ -197,6 +202,17 @@ export function Splash({
             {finished || !hasSteps ? line : `${line}…`}
           </span>
         </div>
+
+        {greeting && (
+          <p
+            className={`max-w-[320px] text-center text-[15px] leading-normal text-ink-2 transition-[opacity,transform] duration-[600ms] ${
+              finished ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-0"
+            }`}
+            data-testid={SplashTestId.Greeting}
+          >
+            {greeting}
+          </p>
+        )}
       </div>
 
       {footer && (

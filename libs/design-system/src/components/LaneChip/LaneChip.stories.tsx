@@ -12,7 +12,7 @@ export const Variants: StoryObj<typeof LaneChip> = {
         Auto, own
       </LaneChip>
       <LaneChip inherited tone="auto">
-        Inherited
+        Inherited (borderless)
       </LaneChip>
     </div>
   ),

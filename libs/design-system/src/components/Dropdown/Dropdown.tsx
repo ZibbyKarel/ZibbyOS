@@ -68,16 +68,19 @@ const toneTextClass: Record<DropdownTone, string> = {
 
 /** Trigger density.
  * - `md` — the default, matching `Button` `md` / form-control height.
+ * - `xs` — a 32px dense field trigger for inspector rows (`field` variant; `inline` falls back to `sm`).
  * - `sm` — a compact trigger sized to sit alongside `Button` `size="sm"` in dense
  *   chrome like the top bar (the language switcher); a `compact` multi trigger is
  *   32px tall instead of 42px (filter bars). */
-export type DropdownSize = "sm" | "md";
+export type DropdownSize = "xs" | "sm" | "md";
 
 interface DropdownBaseProps<T extends string = string> {
   options: DropdownOption<T>[];
   variant?: DropdownVariant;
   /** Trigger density; defaults to `md`. See {@link DropdownSize}. */
   size?: DropdownSize;
+  /** Borderless text trigger with a down chevron (`inline` variant, filter rows). */
+  plain?: boolean;
   /** Trigger element id — lets `Field`'s `<label htmlFor>` target it. */
   id?: string;
   /** Paints the trigger with the danger border/ring. The invalid state is
@@ -134,6 +137,7 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
     options,
     variant = "inline",
     size = "md",
+    plain = false,
     id,
     invalid = false,
     tone,
@@ -404,16 +408,25 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
     "items-center gap-2 cursor-pointer border transition-colors duration-150 motion-reduce:transition-none",
     focusRing,
     isField
-      ? cn("flex w-full rounded-md font-sans", size === "sm" ? "px-3 py-1.5" : "px-3.5 py-2.5")
+      ? cn(
+          "flex w-full rounded-md font-sans",
+          size === "xs"
+            ? "px-2.5 py-1 text-[13px]"
+            : size === "sm"
+              ? "px-3 py-1.5"
+              : "px-3.5 py-2.5",
+        )
       : cn(
           "inline-flex rounded-md font-sans font-medium",
-          size === "sm" ? "px-2.5 py-1 text-sm" : "px-[11px] py-2 text-base",
+          size === "sm" || size === "xs" ? "px-2.5 py-1 text-sm" : "px-[11px] py-2 text-base",
         ),
-    open
-      ? "border-ink-3 bg-panel"
-      : invalid
-        ? "border-bad bg-panel"
-        : (toneClasses ?? "border-line bg-panel"),
+    plain && !isField
+      ? "border-transparent bg-transparent text-ink-3 hover:text-ink !px-1.5 !py-0.5 !text-[12px] !font-normal"
+      : open
+        ? "border-ink-3 bg-panel"
+        : invalid
+          ? "border-bad bg-panel"
+          : (toneClasses ?? "border-line bg-panel"),
     invalid && "focus-visible:ring-bad",
   );
 
@@ -432,7 +445,11 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
     <span
       className={cn(
         "inline-flex text-ink-3 transition-transform duration-150 motion-reduce:transition-none",
-        open && "rotate-90",
+        plain || (isField && size === "xs")
+          ? open
+            ? "-rotate-90"
+            : "rotate-90"
+          : open && "rotate-90",
       )}
     >
       <Icon name="chevron" size="sm" />
@@ -546,10 +563,14 @@ export function Dropdown<T extends string = string>(props: DropdownProps<T>) {
                   <span
                     className={cn(
                       isField
-                        ? "flex-1 text-left text-body text-ink"
+                        ? cn(
+                            "flex-1 text-left text-body text-ink",
+                            size === "xs" && "min-w-0 truncate whitespace-nowrap",
+                          )
                         : cn(
                             tone && !invalid ? toneTextClass[tone] : "text-ink-2",
-                            "font-normal text-caption",
+                            "font-normal",
+                            plain ? "text-[12px]" : "text-caption",
                           ),
                     )}
                   >

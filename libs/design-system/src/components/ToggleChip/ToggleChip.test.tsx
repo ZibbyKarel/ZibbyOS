@@ -14,6 +14,30 @@ describe("ToggleChip", () => {
     expect(root).toHaveClass("border-line");
   });
 
+  it("quiet tone tints a pressed chip instead of filling it with ink", () => {
+    render(
+      <ToggleChip pressed tone="quiet">
+        Vault
+      </ToggleChip>,
+    );
+    const root = screen.getByTestId(ToggleChipTestId.Root);
+    expect(root).toHaveAttribute("aria-pressed", "true");
+    expect(root).not.toHaveClass("bg-ink");
+    expect(root).toHaveClass("bg-ink/[0.10]");
+    expect(root).toHaveClass("border-transparent");
+  });
+
+  it("plain tone has no fill and no border", () => {
+    render(
+      <ToggleChip pressed={false} tone="plain">
+        Jen sirotci
+      </ToggleChip>,
+    );
+    const root = screen.getByTestId(ToggleChipTestId.Root);
+    expect(root).toHaveClass("border-transparent");
+    expect(root.className).not.toMatch(/bg-ink/);
+  });
+
   it("renders the leading slot only when given", () => {
     const { rerender } = render(<ToggleChip pressed={false}>A</ToggleChip>);
     expect(screen.queryByTestId(ToggleChipTestId.Leading)).toBeNull();

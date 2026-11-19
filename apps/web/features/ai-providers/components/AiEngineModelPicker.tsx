@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { SelectField, Typography } from "@zibby/design-system";
+import { type DropdownSize, SelectField, Typography } from "@zibby/design-system";
 import type { AiEngineModel } from "@zibby/contracts";
 
 /** Testids for the opencode model picker. */
@@ -26,6 +26,8 @@ export interface AiEngineModelPickerProps {
   clearable?: boolean;
   /** Skip the list-wide "no models / none free" warnings (when several pickers stack). */
   quiet?: boolean;
+  /** Trigger density of the select (`xs` for dense side cards). */
+  size?: DropdownSize;
 }
 
 /** Whether `value` names a model that is chosen but absent from the engine's list. */
@@ -46,6 +48,7 @@ export function AiEngineModelPicker({
   label,
   clearable = false,
   quiet = false,
+  size,
 }: AiEngineModelPickerProps) {
   const t = useTranslations("aiEngine");
   // Groups: free, Claude subscription, other (paid). Array sort is stable within a group.
@@ -74,6 +77,7 @@ export function AiEngineModelPicker({
         onValueChange={onChange}
         options={options}
         placeholder={t("modelPlaceholder")}
+        size={size}
         value={value}
       />
       {!quiet && loaded && models.length === 0 && (

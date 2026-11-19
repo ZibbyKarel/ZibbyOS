@@ -3,17 +3,20 @@
 import { type AutomationKey, type AutopilotAutomation, NO_AUTOMATION } from "@zibby/contracts";
 import {
   Button,
-  DataTable,
-  type DataTableColumn,
   Icon,
   type IconName,
+  IconTile,
   LaneCell,
   LaneChip,
+  LaneHead,
+  LaneMatrix,
+  type LaneMatrixRow,
   MenuButton,
   type MenuButtonEntry,
   Row,
   Stack,
   Typography,
+  ZibbyOrb,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -30,6 +33,7 @@ import {
   moveCap,
   overrideOf,
 } from "../autonomy";
+import { MODE_ORB } from "../modeMeta";
 
 export enum AutonomyMatrixTestId {
   Root = "autonomy-matrix",
@@ -37,7 +41,6 @@ export enum AutonomyMatrixTestId {
   Lane = "autonomy-matrix-lane",
   Expand = "autonomy-matrix-expand",
   InheritAll = "autonomy-matrix-inherit-all",
-  GlobalNote = "autonomy-matrix-global-note",
 }
 
 const CAP_ICON: Record<AutomationKey, IconName> = {
@@ -48,7 +51,7 @@ const CAP_ICON: Record<AutomationKey, IconName> = {
   autoFixCi: "bug",
 };
 
-interface Row {
+interface MatrixRow {
   scope: AutonomyScope;
   depth: number;
   hasChildren: boolean;
@@ -69,8 +72,8 @@ export interface AutonomyMatrixProps {
 /**
  * The scope × lane matrix: rows = Výchozí, companies and (collapsible) teams, one column per lane.
  * Each capability is a chip in exactly one lane per row, moved by drag, click menu or ←/→ (Manuál
- * ↔ Automat; the Poloautomat cell lane is a disabled target, not representable today). Inherited chips are dashed, own overrides
- * carry a dot. The Výchozí row is locked (the web keeps `global` all-off).
+ * ↔ Automat; the Poloautomat cell lane is a disabled target, not representable today). Inherited chips are plain text, own overrides
+ * carry a fill and a dot. The Výchozí row is locked (the web keeps `global` all-off).
  */
 export function AutonomyMatrix({
   scopes,
@@ -87,7 +90,7 @@ export function AutonomyMatrix({
   const byNode = new Map(scopes.map((s) => [s.node, s]));
   const hasChildren = new Set(scopes.flatMap((s) => (s.parent ? [s.parent] : [])));
 
-  const rows: Row[] = scopes.flatMap((scope) => {
+  const rows: MatrixRow[] = scopes.flatMap((scope) => {
     const parent = scope.parent ? byNode.get(scope.parent) : undefined;
     if (parent?.kind === "company" && closed[parent.node]) return [];
     const kids = hasChildren.has(scope.node) && scope.kind === "company";
@@ -214,59 +217,70 @@ export function AutonomyMatrix({
     );
   };
 
-  const laneColumn = (lane: Lane): DataTableColumn<Row> => ({
-    key: lane,
-    label: t(`mode_${lane}`),
-    width: "flex",
-    render: ({ scope }) => {
-      const cellId = `${scope.node}:${lane}`;
-      const canDrop = editable && lane !== "semi" && drag?.node === scope.node;
-      return (
-        <LaneCell
-          capped={lane === "auto" && autoCapped}
-          data-lane={lane}
-          data-testid={AutonomyMatrixTestId.Lane}
-          dropTarget={over === cellId}
-          empty={lane === "semi" ? t("semiCellDisabled") : t("laneEmpty")}
-          onDragLeave={() => setOver((o) => (o === cellId ? null : o))}
-          onDragOver={
-            canDrop
-              ? (e) => {
-                  e.preventDefault();
-                  setOver(cellId);
-                }
-              : undefined
-          }
-          onDrop={
-            canDrop && drag
-              ? (e) => {
-                  e.preventDefault();
-                  setOver(null);
-                  move(scope, drag.key, lane);
-                  setDrag(null);
-                }
-              : undefined
-          }
-          tone={lane === "manual" ? "neutral" : lane}
-        >
-          {AUTOMATION_KEYS.filter((k) => laneOf(eff[scope.node]?.[k] ?? false) === lane).map((k) =>
-            chip(scope, k),
-          )}
-        </LaneCell>
-      );
-    },
-  });
+  const laneCell = (scope: AutonomyScope, lane: Lane) => {
+    const cellId = `${scope.node}:${lane}`;
+    const canDrop = editable && lane !== "semi" && drag?.node === scope.node;
+    return (
+      <LaneCell
+        capped={lane === "auto" && autoCapped}
+        data-lane={lane}
+        data-testid={AutonomyMatrixTestId.Lane}
+        dropTarget={over === cellId}
+        empty="—"
+        onDragLeave={() => setOver((o) => (o === cellId ? null : o))}
+        onDragOver={
+          canDrop
+            ? (e) => {
+                e.preventDefault();
+                setOver(cellId);
+              }
+            : undefined
+        }
+        onDrop={
+          canDrop && drag
+            ? (e) => {
+                e.preventDefault();
+                setOver(null);
+                move(scope, drag.key, lane);
+                setDrag(null);
+              }
+            : undefined
+        }
+        tone={lane === "manual" ? "neutral" : lane}
+      >
+        {AUTOMATION_KEYS.filter((k) => laneOf(eff[scope.node]?.[k] ?? false) === lane).map((k) =>
+          chip(scope, k),
+        )}
+      </LaneCell>
+    );
+  };
 
-  const columns: DataTableColumn<Row>[] = [
-    {
-      key: "name",
-      label: t("tableName"),
-      width: "xl",
-      render: ({ scope, hasChildren: kids, open }) => {
-        const overridden = overrideOf(automation, scope) !== undefined;
-        return (
-          <Stack gap="25">
-            <Row gap="50">
+  const rowHeader = ({ scope, hasChildren: kids, open }: MatrixRow) => {
+    const overridden = overrideOf(automation, scope) !== undefined;
+    const teamCount = scopes.filter((s) => s.parent === scope.node).length;
+    const glyph: IconName =
+      scope.kind === "global" ? "globe" : scope.kind === "company" ? "building" : "users";
+    return (
+      <Row align="start" gap="100">
+        <IconTile glyph={glyph} size="sm" tone="neutral" />
+        <Stack gap="25">
+          <Typography type="label" variant="primary">
+            {scope.kind === "global" ? t("globalLabel") : scope.label}
+          </Typography>
+          <Typography
+            size="xs"
+            title={scope.kind === "global" ? t("globalLocked") : undefined}
+            type="note"
+            variant="tertiary"
+          >
+            {scope.kind === "global"
+              ? t("globalSub")
+              : scope.kind === "company"
+                ? t("companyKind")
+                : t("teamKind", { company: scope.companyName ?? "" })}
+          </Typography>
+          {kids || (editable && overridden) ? (
+            <Row wrap gap="50">
               {kids ? (
                 <Button
                   aria-expanded={open}
@@ -276,34 +290,15 @@ export function AutonomyMatrix({
                   intent="ghost"
                   onClick={() => setClosed((c) => ({ ...c, [scope.node]: open }))}
                   size="sm"
-                />
+                >
+                  {t("teamsCount", { count: teamCount })}
+                </Button>
               ) : null}
-              {scope.kind === "global" ? <Icon name="lock" size="sm" /> : null}
-              <Typography type="label">
-                {scope.kind === "global" ? t("globalLabel") : scope.label}
-              </Typography>
-            </Row>
-            <Typography size="xs" type="note" variant="tertiary">
-              {scope.kind === "global"
-                ? t("globalSub")
-                : scope.kind === "company"
-                  ? t("companyKind")
-                  : t("teamKind", { company: scope.companyName ?? "" })}
-            </Typography>
-            {scope.kind === "global" ? (
-              <Typography
-                data-testid={AutonomyMatrixTestId.GlobalNote}
-                size="xs"
-                type="note"
-                variant="tertiary"
-              >
-                {t("globalLocked")}
-              </Typography>
-            ) : editable && overridden ? (
-              <Row>
+              {editable && overridden ? (
                 <Button
                   aria-label={`${t("inheritAll")}: ${scope.label}`}
                   data-testid={AutonomyMatrixTestId.InheritAll}
+                  icon="arrow"
                   intent="ghost"
                   onClick={() =>
                     onChange(
@@ -315,23 +310,45 @@ export function AutonomyMatrix({
                 >
                   {t("inheritAll")}
                 </Button>
-              </Row>
-            ) : null}
-          </Stack>
-        );
-      },
-    },
-    ...LANES.map(laneColumn),
-  ];
+              ) : null}
+            </Row>
+          ) : null}
+        </Stack>
+      </Row>
+    );
+  };
 
   return (
     <div data-testid={AutonomyMatrixTestId.Root}>
-      <DataTable
-        stickyHeader
-        columns={columns}
-        getRowDepth={(r) => r.depth}
-        getRowKey={(r) => r.scope.node}
-        rows={rows}
+      <LaneMatrix
+        columns={LANES.map((lane) => ({
+          key: lane,
+          header: (
+            <LaneHead
+              icon={<ZibbyOrb size={16} state={MODE_ORB[lane]} />}
+              meaning={t(`laneMeaning_${lane}`)}
+              note={
+                lane === "auto" && autoCapped
+                  ? t("cappedNote")
+                  : lane === "semi"
+                    ? t("semiCellDisabled")
+                    : undefined
+              }
+              title={t(`mode_${lane}`)}
+              tone={lane === "manual" ? "neutral" : lane}
+            />
+          ),
+        }))}
+        rowHeader={t("tableName")}
+        rows={rows.map(
+          (r): LaneMatrixRow => ({
+            key: r.scope.node,
+            header: rowHeader(r),
+            cells: LANES.map((lane) => laneCell(r.scope, lane)),
+            nested: r.depth > 0,
+            tinted: r.scope.kind === "global",
+          }),
+        )}
       />
     </div>
   );

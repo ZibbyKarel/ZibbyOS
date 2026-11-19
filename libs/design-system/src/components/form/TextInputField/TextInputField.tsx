@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, Ref } from "react";
-import { Field, fieldControlClass } from "../Field";
+import { Field, type FieldControlSize, fieldControlClassFor } from "../Field";
 
 export enum TextInputFieldTestId {
   Control = "text-input-control",
@@ -10,7 +10,7 @@ export enum TextInputFieldTestId {
 
 export interface TextInputFieldProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "id" | "className"
+  "id" | "className" | "size"
 > {
   label: string;
   /** Optional node rendered inline after the label — e.g. a help `Tooltip` trigger. */
@@ -19,6 +19,8 @@ export interface TextInputFieldProps extends Omit<
   error?: string;
   /** See {@link import("../Field").FieldProps.hideLabel}. */
   hideLabel?: boolean;
+  /** Control density; `sm` is the dense side-card row. Default `md`. */
+  size?: FieldControlSize;
   ref?: Ref<HTMLInputElement>;
 }
 
@@ -29,6 +31,7 @@ export function TextInputField({
   hint,
   error,
   hideLabel,
+  size,
   ref,
   ...props
 }: TextInputFieldProps) {
@@ -38,7 +41,7 @@ export function TextInputField({
         <input
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          className={fieldControlClass}
+          className={fieldControlClassFor(size)}
           data-testid={TextInputFieldTestId.Control}
           id={id}
           ref={ref}

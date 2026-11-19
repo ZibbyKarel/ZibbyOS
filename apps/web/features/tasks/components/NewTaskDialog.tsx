@@ -61,12 +61,13 @@ export interface NewTaskDialogProps {
  * to decide whether the Loop editor should appear; the actual dispatch happens
  * inside CommandLine via {@link useTaskSubmit}.
  */
-export function NewTaskDialog({
+export function NewTaskForm({
   onClose,
   initialText,
   initialTarget,
   initialContext,
-}: NewTaskDialogProps) {
+  compact = false,
+}: NewTaskDialogProps & { compact?: boolean }) {
   const t = useTranslations("tasks");
   const { data: projects } = useProjectsQuery();
 
@@ -144,6 +145,66 @@ export function NewTaskDialog({
   // disabled, so the selection can't be silently dropped on submit.
   const outputReady = isLoop || output.outputReady;
 
+  return (
+    <Stack gap="150">
+      {!compact && (
+        <TextInputField
+          label={t("title.label")}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={t("title.placeholder")}
+          value={title}
+        />
+      )}
+
+      {initialContext && <TaskContextPanel context={initialContext} />}
+
+      <TaskCommandLine
+        chrome={false}
+        context={initialContext}
+        disabled={!outputReady}
+        initialTarget={initialTarget}
+        initialText={initialText}
+        isLoop={isLoop}
+        loop={loop}
+        onClose={onClose}
+        onProjectChange={setTaskProjectId}
+        onTargetChange={setTarget}
+        onTextChange={setText}
+        output={output.output}
+        rows={compact ? 4 : 10}
+        title={title}
+        toolGrants={checkedGrants}
+      />
+
+      {!compact && previewRouting && <PlanPreview routing={previewRouting} />}
+
+      {isLoop && <LoopComposer onChange={patchLoop} state={loop} />}
+
+      {!isLoop && (
+        <>
+          <TaskOutputField
+            fileDest={output.fileDest}
+            fileTo={output.fileTo}
+            onFileDestChange={output.setFileDest}
+            onFileToChange={output.setFileTo}
+            onOutputTypeChange={output.setOutputType}
+            outputType={output.outputType}
+          />
+          {!compact && (
+            <ToolGrantsField
+              checked={checkedGrants}
+              onChange={setCheckedGrants}
+              toolIds={proposedGrants}
+            />
+          )}
+        </>
+      )}
+    </Stack>
+  );
+}
+
+export function NewTaskDialog(props: NewTaskDialogProps) {
+  const t = useTranslations("tasks");
   const dialogAria = t("dialogTitle");
   const header = (
     <Stack align="center" direction="row" gap="150">
@@ -161,7 +222,7 @@ export function NewTaskDialog({
 
   const actions = (
     <Stack grow align="center" direction="row" justify="end">
-      <Button icon="x" intent="ghost" onClick={onClose}>
+      <Button icon="x" intent="ghost" onClick={props.onClose}>
         {t("cancel")}
       </Button>
     </Stack>
@@ -173,60 +234,11 @@ export function NewTaskDialog({
       actions={actions}
       ariaLabel={dialogAria}
       closeLabel={t("cancel")}
-      onClose={onClose}
+      onClose={props.onClose}
       title={header}
       width="lg"
     >
-      <Stack gap="150">
-        <TextInputField
-          label={t("title.label")}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("title.placeholder")}
-          value={title}
-        />
-
-        {initialContext && <TaskContextPanel context={initialContext} />}
-
-        <TaskCommandLine
-          chrome={false}
-          context={initialContext}
-          disabled={!outputReady}
-          initialTarget={initialTarget}
-          initialText={initialText}
-          isLoop={isLoop}
-          loop={loop}
-          onClose={onClose}
-          onProjectChange={setTaskProjectId}
-          onTargetChange={setTarget}
-          onTextChange={setText}
-          output={output.output}
-          rows={10}
-          title={title}
-          toolGrants={checkedGrants}
-        />
-
-        {previewRouting && <PlanPreview routing={previewRouting} />}
-
-        {isLoop && <LoopComposer onChange={patchLoop} state={loop} />}
-
-        {!isLoop && (
-          <>
-            <TaskOutputField
-              fileDest={output.fileDest}
-              fileTo={output.fileTo}
-              onFileDestChange={output.setFileDest}
-              onFileToChange={output.setFileTo}
-              onOutputTypeChange={output.setOutputType}
-              outputType={output.outputType}
-            />
-            <ToolGrantsField
-              checked={checkedGrants}
-              onChange={setCheckedGrants}
-              toolIds={proposedGrants}
-            />
-          </>
-        )}
-      </Stack>
+      <NewTaskForm {...props} />
     </Dialog>
   );
 }

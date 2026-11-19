@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Grid,
+  Container,
   IterationGauge,
   Meter,
   type MeterTone,
@@ -31,6 +31,14 @@ export interface GoalHeroProps {
   editing: boolean;
   objective: string;
   onObjectiveChange: (value: string) => void;
+}
+
+/** "13:20" for a run started today, else the short date + time. */
+function startedLabel(startedAt: string, locale: string): string {
+  const d = new Date(startedAt);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString(locale, { timeStyle: "short" })
+    : d.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function meterTone(pct: number): MeterTone {
@@ -67,49 +75,48 @@ export function GoalHero({
     cap ? t("runsOfCap", { n, cap }) : t("runsCount", { n });
 
   return (
-    <Grid gap="300" sidebar="right">
-      <Stack gap="150">
-        <Stack align="center" direction="row" gap="100">
-          <StatePill label={pillLabel} state={tone} />
-          <Typography size="xs" type="note" variant="tertiary">
-            {run
-              ? t("startedAt", {
-                  time: new Date(run.startedAt).toLocaleString(locale, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }),
-                })
-              : t("neverRun")}
-          </Typography>
-        </Stack>
-        {editing ? (
-          <TextAreaField
-            hint={t("objectiveEditHint")}
-            label={t("objective")}
-            onChange={(e) => onObjectiveChange(e.target.value)}
-            rows={3}
-            value={objective}
-          />
-        ) : (
-          <Typography leading="relaxed" size="xl" type="bodyLg">
-            {goal.objective}
-          </Typography>
-        )}
-        <Stack wrap direction="row" gap="100">
-          {projectLabel ? (
-            <Tag icon="stack" tone="neutral">
-              {projectLabel}
+    <Stack wrap align="start" direction="row" gap="500" justify="between">
+      <Container grow minW0 maxWidth="760px">
+        <Stack gap="150">
+          <Stack align="center" direction="row" gap="100">
+            <StatePill label={pillLabel} state={tone} />
+            <Typography size="xs" type="note" variant="tertiary">
+              {run
+                ? t("startedAt", {
+                    time: startedLabel(run.startedAt, locale),
+                  })
+                : t("neverRun")}
+            </Typography>
+          </Stack>
+          {editing ? (
+            <TextAreaField
+              hint={t("objectiveEditHint")}
+              label={t("objective")}
+              onChange={(e) => onObjectiveChange(e.target.value)}
+              rows={3}
+              value={objective}
+            />
+          ) : (
+            <Typography leading="normal" size="xl" type="bodyLg">
+              {goal.objective}
+            </Typography>
+          )}
+          <Stack wrap direction="row" gap="100">
+            {projectLabel ? (
+              <Tag icon="stack" tone="neutral">
+                {projectLabel}
+              </Tag>
+            ) : null}
+            <Tag icon="user" tone="neutral">
+              {makerLabel}
             </Tag>
-          ) : null}
-          <Tag icon="user" tone="neutral">
-            {makerLabel}
-          </Tag>
-          <Tag icon="shield" tone="neutral">
-            {verifierLabel}
-          </Tag>
+            <Tag icon="shield" tone="neutral">
+              {verifierLabel}
+            </Tag>
+          </Stack>
         </Stack>
-      </Stack>
-      <Stack wrap align="center" direction="row" gap="250">
+      </Container>
+      <Stack wrap align="center" direction="row" gap="300">
         <IterationGauge
           ariaLabel={t("gaugeAria", { used, max })}
           caption={t("leftBeforePark", { n: Math.max(0, max - used) })}
@@ -118,41 +125,46 @@ export function GoalHero({
           ofLabel={t("ofMax", { max })}
           used={used}
         />
-        <Stack grow gap="50">
-          <Meter
-            barLabel={t("today")}
-            label={t("today")}
-            pct={dayPct}
-            tone={meterTone(dayPct)}
-            value={runsValue(today, budget?.dailyRuns)}
-          />
-          <Meter
-            barLabel={t("thisWeek")}
-            label={t("thisWeek")}
-            pct={weekPct}
-            tone={meterTone(weekPct)}
-            value={runsValue(week, budget?.weeklyRuns)}
-          />
-          {month !== undefined ? (
+        <Container minWidth="220px">
+          <Stack gap="100">
             <Meter
-              barLabel={t("thisMonth")}
-              label={t("thisMonth")}
-              note={
-                monthPct >= 80 && budget?.monthlyCostCapUsd
-                  ? t("parksAt", { cap: budget.monthlyCostCapUsd })
-                  : undefined
-              }
-              pct={monthPct}
-              tone={meterTone(monthPct)}
-              value={
-                budget?.monthlyCostCapUsd
-                  ? `$${month.toFixed(2)} / $${budget.monthlyCostCapUsd}`
-                  : `$${month.toFixed(2)}`
-              }
+              quiet
+              barLabel={t("today")}
+              label={t("today")}
+              pct={dayPct}
+              tone={meterTone(dayPct)}
+              value={runsValue(today, budget?.dailyRuns)}
             />
-          ) : null}
-        </Stack>
+            <Meter
+              quiet
+              barLabel={t("thisWeek")}
+              label={t("thisWeek")}
+              pct={weekPct}
+              tone={meterTone(weekPct)}
+              value={runsValue(week, budget?.weeklyRuns)}
+            />
+            {month !== undefined ? (
+              <Meter
+                quiet
+                barLabel={t("thisMonth")}
+                label={t("thisMonth")}
+                note={
+                  monthPct >= 80 && budget?.monthlyCostCapUsd
+                    ? t("parksAt", { cap: budget.monthlyCostCapUsd })
+                    : undefined
+                }
+                pct={monthPct}
+                tone={meterTone(monthPct)}
+                value={
+                  budget?.monthlyCostCapUsd
+                    ? `$${month.toFixed(2)} / $${budget.monthlyCostCapUsd}`
+                    : `$${month.toFixed(2)}`
+                }
+              />
+            ) : null}
+          </Stack>
+        </Container>
       </Stack>
-    </Grid>
+    </Stack>
   );
 }

@@ -4,18 +4,16 @@ import { type ReactNode, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useDetailT } from "../useDetailT";
 import {
-  Button,
-  ButtonGroup,
-  Container,
   Grid,
-  type IconName,
-  IconTile,
+  InspectorSection,
   Panel,
+  SegmentPickerField,
   Stack,
   TextInputField,
   ToggleChip,
   Typography,
 } from "@zibby/design-system";
+import type { IconName } from "@zibby/design-system";
 import { type Category, MODEL_TIERS, type ModelTier } from "@zibby/contracts";
 import {
   type Control,
@@ -27,12 +25,7 @@ import {
   FormToggle,
   useWatch,
 } from "@zibby/forms";
-import {
-  AiEngineModelPicker,
-  useAiEnginesQuery,
-  useThinkingHint,
-  useTierLabel,
-} from "../../ai-providers";
+import { AiEngineModelPicker, useAiEnginesQuery, useThinkingHint } from "../../ai-providers";
 import { useSystemConfigQuery } from "../../system";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { AGENT_GLYPHS, AGENT_TOOLS, THINKING_OPTIONS } from "../../../state/config";
@@ -70,9 +63,9 @@ function SideCard({ title, summary, dirty, children }: SideCardProps) {
           </Typography>
         )
       }
-      padding="200"
+      padding="150"
     >
-      <Stack gap="150">{children}</Stack>
+      <Stack gap="100">{children}</Stack>
     </Panel>
   );
 }
@@ -101,14 +94,22 @@ export function IdentityCard({
   const t = useTranslations("agents");
   const td = useDetailT();
   const departments = useDepartmentLookup();
-  const [name, category] = useWatch({ control, name: ["name", "category"] });
+  const [name, category, glyph] = useWatch({ control, name: ["name", "category", "glyph"] });
   const categoryOptions = categories.map((c) => ({ value: c.name, label: c.name }));
   if (category && !categoryOptions.some((o) => o.value === category))
     categoryOptions.push({ value: category, label: category });
 
+  const glyphOptions = [
+    { value: "", label: td("iconInitials") },
+    ...[
+      ...AGENT_GLYPHS,
+      ...(glyph && !AGENT_GLYPHS.includes(glyph as IconName) ? [glyph] : []),
+    ].map((g) => ({ value: g, label: g })),
+  ];
+
   return (
     <SideCard dirty={dirty} summary={name} title={td("identity")}>
-      <Grid cols={2} gap="150">
+      <Grid cols={2} gap="100">
         <FormTextInput<AgentEditValues>
           disabled={nameLocked}
           error={nameError}
@@ -116,56 +117,40 @@ export function IdentityCard({
           label={t("fields.name")}
           name="name"
           placeholder={t("fields.namePlaceholder")}
+          size="sm"
         />
         <FormTextInput<AgentEditValues>
           label={t("fields.displayName")}
           name="displayName"
           placeholder={t("fields.displayNamePlaceholder")}
+          size="sm"
         />
         <FormTextInput<AgentEditValues>
           label={td("role")}
           name="title"
           placeholder={t("fields.jobTitlePlaceholder")}
+          size="sm"
         />
         <FormSelect<string, AgentEditValues>
           label={t("fields.category")}
           name="category"
           options={categoryOptions}
+          size="xs"
         />
         <FormSelect<string, AgentEditValues>
           label={t("fields.department")}
           name="department"
           options={departments.list.map((s) => ({ value: s.id, label: s.name }))}
           placeholder={t("departmentPlaceholder")}
+          size="xs"
+        />
+        <FormSelect<string, AgentEditValues>
+          label={t("fields.icon")}
+          name="glyph"
+          options={glyphOptions}
+          size="xs"
         />
       </Grid>
-      <Controller<AgentEditValues, "glyph">
-        control={control}
-        name="glyph"
-        render={({ field }) => (
-          <Stack gap="75">
-            <Typography size="sm" type="note" variant="secondary">
-              {t("fields.icon")}
-            </Typography>
-            <Stack wrap direction="row" gap="75">
-              {AGENT_GLYPHS.map((g: IconName) => (
-                <IconTile
-                  interactive
-                  aria-label={g}
-                  aria-pressed={field.value === g}
-                  as="button"
-                  glyph={g}
-                  key={g}
-                  onClick={() => field.onChange(g)}
-                  radius="default"
-                  size="sm"
-                  tone={field.value === g ? "accent" : "neutral"}
-                />
-              ))}
-            </Stack>
-          </Stack>
-        )}
-      />
     </SideCard>
   );
 }
@@ -197,12 +182,14 @@ export function RoutingCard({ control, dirty, error }: RoutingCardProps) {
       title={t("routing")}
     >
       <FormTextArea<AgentEditValues>
+        hideLabel
         error={error}
         hint={error ? undefined : t("routingHint")}
         label={t("routing")}
         name="description"
         placeholder={t("routingPlaceholder")}
-        rows={4}
+        rows={3}
+        size="sm"
       />
     </SideCard>
   );
@@ -213,7 +200,6 @@ export function EngineCard({ control, dirty }: AgentSideCardProps) {
   const t = useTranslations("agents");
   const td = useDetailT();
   const tEngine = useTranslations("aiEngine");
-  const tierLabel = useTierLabel();
   const globalEngine = useSystemConfigQuery().data?.aiEngine ?? "claude";
   const engine = useWatch({ control, name: "engine" });
   const [tier, thinking, engineModel] = useWatch({
@@ -223,10 +209,11 @@ export function EngineCard({ control, dirty }: AgentSideCardProps) {
   const { data: engines } = useAiEnginesQuery();
   const thinkingHint = useThinkingHint({ engine, engineModel, tier: tier as ModelTier, thinking });
   const opencodeModels = engines?.engines.find((e) => e.id === "opencode")?.models ?? [];
-  const modelOptions = MODEL_TIERS.map((m) => ({
-    value: m,
-    label: tierLabel(m, engine || globalEngine),
-  }));
+  // Compact segments carry the plain tier names (the resolved model is the exact-model field below).
+  const modelOptions = MODEL_TIERS.map((m) => ({ value: m, label: m }));
+  const thinkingOptions = ["low", "medium", "high"]
+    .map((v) => THINKING_OPTIONS.find((o) => o.value === v))
+    .filter((o) => o !== undefined);
 
   return (
     <SideCard
@@ -235,14 +222,16 @@ export function EngineCard({ control, dirty }: AgentSideCardProps) {
       title={td("engineModel")}
     >
       <FormSegmentPicker<AgentEditValues>
+        compact
         label={t("fields.model")}
         name="model"
         options={modelOptions}
       />
       <FormSegmentPicker<AgentEditValues>
+        compact
         label={t("fields.thinking")}
         name="thinking"
-        options={THINKING_OPTIONS}
+        options={thinkingOptions}
       />
       {thinkingHint && (
         <Typography
@@ -259,21 +248,17 @@ export function EngineCard({ control, dirty }: AgentSideCardProps) {
         control={control}
         name="engine"
         render={({ field }) => (
-          <Stack gap="75">
-            <Typography size="sm" type="note" variant="secondary">
-              {tEngine("agentField")}
-            </Typography>
-            <ButtonGroup
-              ariaLabel={tEngine("agentField")}
-              onChange={(v) => field.onChange(v === "global" ? "" : v)}
-              options={[
-                { id: "global", label: tEngine("useGlobal") },
-                { id: "claude", label: tEngine("engine.claude") },
-                { id: "opencode", label: tEngine("engine.opencode") },
-              ]}
-              value={field.value || "global"}
-            />
-          </Stack>
+          <SegmentPickerField
+            compact
+            label={tEngine("agentField")}
+            onValueChange={(v) => field.onChange(v === "global" ? "" : v)}
+            options={[
+              { value: "global", label: td("engineGlobal") },
+              { value: "claude", label: tEngine("engine.claude") },
+              { value: "opencode", label: tEngine("engine.opencode") },
+            ]}
+            value={field.value || "global"}
+          />
         )}
       />
       {!engine && (
@@ -292,6 +277,7 @@ export function EngineCard({ control, dirty }: AgentSideCardProps) {
               loaded={engines !== undefined}
               models={opencodeModels}
               onChange={field.onChange}
+              size="xs"
               value={field.value}
             />
           )}
@@ -324,15 +310,24 @@ function CsvField({
         )
       }
       onChange={(e) => setDraft(e.target.value)}
+      size="sm"
       value={draft}
     />
   );
 }
 
+/** Tool ids match case-insensitively: agent files say `Read`, the chip list says `read`. */
+export const sameTool = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** The built-in chips plus any tool the agent already has that is not one of them. */
+export function toolChips(current: readonly string[]): string[] {
+  const extras = current.filter((v) => !AGENT_TOOLS.some((t) => sameTool(t, v)));
+  return [...AGENT_TOOLS, ...new Set(extras)];
+}
+
 /** Tools: toggle chips plus an Advanced disclosure for the fields the agent schema carries. */
 export function ToolsCard({ control, dirty }: AgentSideCardProps) {
   const t = useDetailT();
-  const [open, setOpen] = useState(false);
   const [tools, plugins, risk, requiresApproval] = useWatch({
     control,
     name: ["tools", "plugins", "risk", "requiresApproval"],
@@ -346,7 +341,7 @@ export function ToolsCard({ control, dirty }: AgentSideCardProps) {
   return (
     <SideCard
       dirty={dirty}
-      summary={t("toolCount", { n: tools.length, total: AGENT_TOOLS.length })}
+      summary={t("toolCount", { n: tools.length, total: toolChips(tools).length })}
       title={t("tools")}
     >
       <Controller<AgentEditValues, "tools">
@@ -354,77 +349,64 @@ export function ToolsCard({ control, dirty }: AgentSideCardProps) {
         name="tools"
         render={({ field }) => (
           <Stack wrap aria-label={t("allowedTools")} direction="row" gap="75" role="group">
-            {AGENT_TOOLS.map((tool) => (
-              <ToggleChip
-                key={tool}
-                onClick={() =>
-                  field.onChange(
-                    field.value.includes(tool)
-                      ? field.value.filter((x) => x !== tool)
-                      : [...field.value, tool],
-                  )
-                }
-                pressed={field.value.includes(tool)}
-              >
-                {tool}
-              </ToggleChip>
-            ))}
+            {toolChips(field.value).map((tool) => {
+              const on = field.value.some((v) => sameTool(v, tool));
+              return (
+                <ToggleChip
+                  key={tool}
+                  leading={
+                    on ? (
+                      <Typography aria-hidden="true" as="span" size="2xs" tone="ok" type="note">
+                        ●
+                      </Typography>
+                    ) : undefined
+                  }
+                  onClick={() =>
+                    field.onChange(
+                      on ? field.value.filter((v) => !sameTool(v, tool)) : [...field.value, tool],
+                    )
+                  }
+                  pressed={on}
+                >
+                  {tool}
+                </ToggleChip>
+              );
+            })}
           </Stack>
         )}
       />
-      <Button
-        aria-expanded={open}
-        icon={open ? "collapse" : "expand"}
-        intent="ghost"
-        onClick={() => setOpen((o) => !o)}
-        size="sm"
-      >
-        {t("advanced")}
-        {!open && (
-          <Typography as="span" size="2xs" type="note" variant="tertiary">
-            {advSummary}
-          </Typography>
-        )}
-      </Button>
-      {open && (
-        <Container padding={["0", "0", "0", "100"]}>
-          <Stack gap="150">
-            <Controller<AgentEditValues, "optionalTools">
-              control={control}
-              name="optionalTools"
-              render={({ field }) => (
-                <CsvField
-                  label={t("optionalTools")}
-                  onCommit={field.onChange}
-                  value={field.value}
-                />
-              )}
-            />
-            <Controller<AgentEditValues, "plugins">
-              control={control}
-              name="plugins"
-              render={({ field }) => (
-                <CsvField label={t("plugins")} onCommit={field.onChange} value={field.value} />
-              )}
-            />
-            <FormSegmentPicker<AgentEditValues>
-              label={t("risk")}
-              name="risk"
-              options={[
-                { value: "low", label: "low" },
-                { value: "medium", label: "medium" },
-                { value: "high", label: "high" },
-              ]}
-            />
-            <FormToggle<AgentEditValues>
-              hint={t("requiresApprovalHint")}
-              label={t("requiresApproval")}
-              labelCase="normal"
-              name="requiresApproval"
-            />
-          </Stack>
-        </Container>
-      )}
+      <InspectorSection hideSummaryWhenOpen summary={advSummary} title={t("advanced")}>
+        <Controller<AgentEditValues, "optionalTools">
+          control={control}
+          name="optionalTools"
+          render={({ field }) => (
+            <CsvField label={t("optionalTools")} onCommit={field.onChange} value={field.value} />
+          )}
+        />
+        <Controller<AgentEditValues, "plugins">
+          control={control}
+          name="plugins"
+          render={({ field }) => (
+            <CsvField label={t("plugins")} onCommit={field.onChange} value={field.value} />
+          )}
+        />
+        <FormSegmentPicker<AgentEditValues>
+          compact
+          label={t("risk")}
+          name="risk"
+          options={[
+            { value: "low", label: "low" },
+            { value: "medium", label: "medium" },
+            { value: "high", label: "high" },
+          ]}
+        />
+        <FormToggle<AgentEditValues>
+          hint={t("requiresApprovalHint")}
+          label={t("requiresApproval")}
+          labelCase="normal"
+          name="requiresApproval"
+        />
+      </InspectorSection>
     </SideCard>
   );
 }
