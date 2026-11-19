@@ -1,10 +1,12 @@
+/** Generated figures sometimes get an extra tail or arm; every page and cover asks for correct anatomy. */
+const ANATOMY =
+  "anatomically correct: every person has one head, two arms and two legs, every animal its natural number of legs and ears and one tail, no extra, fused, duplicated or floating limbs";
+
 /** Appended to every coloring-page prompt by the real providers. */
-export const COLORING_SUFFIX =
-  "black and white coloring book page, thick clean black outlines, a full scene with foreground, middle ground and background, plenty of open white areas to colour in, white fill inside all shapes, no shading, no gray, no color, no text";
+export const COLORING_SUFFIX = `black and white coloring book page, thick clean black outlines, a full scene with foreground, middle ground and background, plenty of open white areas to colour in, white fill inside all shapes, no shading, no gray, no color, no text, ${ANATOMY}`;
 
 /** Appended to the cover prompt instead: the cover is the one full-colour image. */
-export const COVER_SUFFIX =
-  "full-colour children's book cover illustration, vibrant saturated flat colours, coloured background edge to edge, bold dark outlines, no text, no letters, no words";
+export const COVER_SUFFIX = `full-colour children's book cover illustration, vibrant saturated flat colours, coloured background edge to edge, bold dark outlines, no text, no letters, no words, ${ANATOMY}`;
 
 /** Appended to a title-buddy sticker: one coloured character, cut out from a white background. */
 export const STICKER_SUFFIX =

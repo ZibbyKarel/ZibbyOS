@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { bookDirOf, readJson } from "./ctx.ts";
+import { bookDirOf, readJson, writeJson } from "./ctx.ts";
 import type { CostLine, Ctx } from "./ctx.ts";
+import { KDP_LANGUAGE, buildManifest, readListingPart } from "./publish-manifest.ts";
 import { PlanSchema } from "./schemas.ts";
 
 /** Every costs.jsonl under the run dir (all stage folders). */
@@ -62,10 +63,38 @@ export async function finalize(argv: string[], ctx: Ctx): Promise<number> {
       "",
     ].join("\n"),
   );
+  const notes: string[] = [];
+  let code = 0;
+  fs.rmSync(path.join(book, "publish.json"), { force: true });
+  try {
+    const part = readListingPart(path.join(book, "listing.md"));
+    if (!part) notes.push("No ```json block in the listing: publish.json not written.");
+    else {
+      const pre = readJson(path.join(book, "preflight.json")) as { interiorPages: number };
+      const author = ctx.env.PF_AUTHOR ?? "";
+      writeJson(
+        path.join(book, "publish.json"),
+        buildManifest(part, {
+          language: KDP_LANGUAGE[plan.brief.language] ?? plan.brief.language,
+          trim: plan.brief.trim,
+          bleed: false, // the interior pages are exactly trim size (render.ts PAGE_W_PT x PAGE_H_PT)
+          pageCount: pre.interiorPages,
+          author,
+        }),
+      );
+      notes.push("publish.json written.");
+      if (!author.trim())
+        notes.push("Warning: author missing: set PF_AUTHOR in the publishing project env.");
+    }
+  } catch (e) {
+    notes.push(`publish manifest invalid: ${(e as Error).message}`);
+    code = 1;
+  }
   fs.writeFileSync(
     path.resolve(ctx.cwd, values.report),
-    `# Book ready\n\n${book}\n\nTotal production cost: $${total.toFixed(4)}\n`,
+    `# Book ready\n\n${book}\n\nTotal production cost: $${total.toFixed(4)}\n\n${notes.join("\n")}\n`,
   );
+  for (const n of notes) console.log(`finalize: ${n}`);
   console.log(`finalize: ${book}`);
-  return 0;
+  return code;
 }

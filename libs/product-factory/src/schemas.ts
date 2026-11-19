@@ -126,6 +126,7 @@ export const QaIssueSchema = z.strictObject({
     "margin-violation",
     "unsafe",
     "off-model",
+    "anatomy",
     "busy-zone",
     "judge-error",
   ]),

@@ -9,7 +9,7 @@ import { assertLicensed } from "./licence.ts";
 import { createMfluxImageProvider } from "./mflux.ts";
 import { createOpenAiImageProvider } from "./openai.ts";
 import type { Run } from "./proc.ts";
-import { qaPrompt, strictVerdict } from "./qa-prompt.ts";
+import { anatomyIssues, qaPrompt, strictVerdict } from "./qa-prompt.ts";
 
 const tmp = (): string => fs.mkdtempSync(path.join(os.tmpdir(), "pf-prov-"));
 const item = { key: "p01", prompt: "a cat", seed: 7, width: 1024, height: 1024 };
@@ -233,7 +233,7 @@ describe("haiku", () => {
     });
     expect(v).toMatchObject({ passed: true, costUsd: 0.0042 });
     const args = run.mock.calls[0]?.[1] ?? [];
-    expect(args).toContain("haiku");
+    expect(args[args.indexOf("--model") + 1]).toBe("haiku");
     expect(args[args.indexOf("--setting-sources") + 1]).toBe("");
     expect(args).not.toContain("--dangerously-skip-permissions");
     expect(run.mock.calls[0]?.[2]?.stdin).toContain("/x/a.png");
@@ -286,5 +286,48 @@ describe("sheet verdict counts", () => {
     expect(p).toContain("a suit with buttons and antennae");
     expect(p).not.toMatch(/\b3\b|two antennae/);
     expect(p).toContain("- buttons");
+  });
+});
+
+describe("page anatomy counts", () => {
+  const types = (f: Parameters<typeof anatomyIssues>[0], scene?: string) =>
+    anatomyIssues(f, scene).map((i) => i.description);
+
+  it("flags more parts than the creature has", () => {
+    expect(types([{ what: "girl", kind: "human", heads: 1, arms: 3, legs: 2 }])).toEqual([
+      "girl: 3 arms drawn, at most 2 expected",
+    ]);
+    expect(types([{ what: "dog", kind: "animal", heads: 1, legs: 4, tails: 2 }])).toEqual([
+      "dog: 2 tails drawn, at most 1 expected",
+    ]);
+    expect(types([{ what: "cat", kind: "animal", arms: 2, legs: 3 }])).toHaveLength(1);
+  });
+
+  it("accepts parts hidden by the pose, other kinds and explicit asks", () => {
+    expect(types([{ what: "cat", kind: "animal", heads: 1, legs: 2, tails: 1 }])).toEqual([]);
+    expect(types([{ what: "octopus", kind: "other", arms: 8 }])).toEqual([]);
+    expect(
+      types(
+        [{ what: "dragon", kind: "animal", heads: 3, legs: 4 }],
+        "a friendly three-headed dragon",
+      ),
+    ).toEqual([]);
+  });
+
+  it("an anatomy finding fails a passed haiku verdict", async () => {
+    const result = JSON.stringify({
+      figures: [{ what: "dog", kind: "animal", heads: 1, legs: 4, tails: 2, fingers: null }],
+      passed: true,
+      issues: [],
+    });
+    const run: Run = async () => ({ code: 0, stdout: JSON.stringify({ result }), stderr: "" });
+    const v = await createHaikuVisionProvider({ PF_VISION_MODEL: "sonnet" }, run).judge({
+      file: "/x/a.png",
+      pageNumber: 1,
+      expectedSubjects: [],
+      styleGuide: "",
+    });
+    expect(v.passed).toBe(false);
+    expect(v.issues[0]?.type).toBe("anatomy");
   });
 });

@@ -44,6 +44,7 @@ Put them in the project **env** unless marked **secret**.
 | `PF_CONCURRENCY`                                                  | 1                                          | vision QA concurrency                                                                             |
 | `PF_IMAGE_PROVIDER`                                               | `mock`                                     | `mock`, `mflux`, `fal`, `openai`                                                                  |
 | `PF_VISION_PROVIDER`                                              | `none`                                     | `none`, `mock`, `haiku`                                                                           |
+| `PF_VISION_MODEL`                                                 | `haiku`                                    | model of the `claude -p` judge (`haiku`, `sonnet`); recorded in `costs.jsonl`                     |
 | `PF_IMAGE_MODEL`                                                  | `flux2-klein-4b`                           | mflux model; must be on the licence allow-list                                                    |
 | `PF_IMAGE_LORA`                                                   | –                                          | comma list; only allow-listed LoRAs (list is empty today)                                         |
 | `PF_IMAGE_SIZE`                                                   | 1024                                       | square generation size in px (produce upscales to 300 DPI later)                                  |
@@ -97,6 +98,7 @@ Vision QA runs after all images.
 - **First run seems hung**: it is downloading weights (several GB). Check `~/.cache/huggingface/hub`.
 - **Battery**: mflux stops at 5 % battery by default; pass `-B` through a manual mflux run if needed, but prefer mains power.
 - **`mflux not importable`**: `uv tool install mflux` (or set `PF_MFLUX_PYTHON`).
+- **Vision `anatomy` rejections**: the page judge counts heads, arms, legs, tails, ears, eyes and wings per figure; the tool rejects more than a person/animal/bird naturally has (unless the scene asks, e.g. "three-headed") or a fused/floating/doubled part, and the retry prompt names the finding.
 - **Vision judge-error pages**: model reply was not valid JSON twice; they are blocked, not approved. Re-run.
 - **OpenAI `moderation_blocked`**: the prompt of that page was refused; the error names the item key. Reword the scene.
 - **OpenAI 429**: the provider retries twice with backoff; lower the batch or raise the account tier.

@@ -12,6 +12,7 @@ product-factory reject <pages> [--reason text]                     # un-approve 
 product-factory render [--report f]                               # interior.pdf, cover.pdf, render-manifest.json
 product-factory preflight [--report f]                            # preflight.json, exit 0 pass / 1 fail
 product-factory finalize <listing.md> [--report f]                # listing.md, README.md, report with book path
+product-factory publish-check [dir] [--report f]                 # validate publish.json + PDFs (any folder), exit 0 pass / 1 fail
 product-factory doctor                                            # environment check, always exit 0
 product-factory bakeoff [--prompts f] [--out dir] [--configs model:quantize:steps,...]   # compare models
 ```
@@ -32,8 +33,10 @@ Reports end with `<verdict>pass</verdict>` or `<verdict>gap</verdict>`.
 | `PF_CONCURRENCY`                                                  | 1                                     | vision QA concurrency                                                                          |
 | `PF_IMAGE_PROVIDER`                                               | `mock`                                | `mock`, `mflux` (local), `fal`, `openai` (cloud)                                               |
 | `PF_VISION_PROVIDER`                                              | `none`                                | `none` (pixel QA only), `mock`, `haiku`                                                        |
+| `PF_VISION_MODEL`                                                 | `haiku`                               | `claude -p --model` of the `haiku` judge (e.g. `sonnet`); recorded in `costs.jsonl`            |
 | `PF_MOCK_FAIL_PAGES`                                              | –                                     | e.g. `3,5`: mock emits a gray image for those pages on attempt 1; `0` = a white line-art cover |
 | `PF_SINGLE_SIDED`                                                 | `true`                                | blank back side after each coloring page                                                       |
+| `PF_AUTHOR`                                                       | –                                     | "First Last" for `publish.json` (last word = last name); empty author is a finalize warning    |
 | `PF_CREATED_AT`                                                   | now                                   | timestamp in the book README                                                                   |
 
 Real-provider variables (`PF_IMAGE_MODEL`, `PF_IMAGE_SIZE`, `PF_MFLUX_*`, `FAL_KEY` (secret), `PF_FAL_PRICE_USD`,
@@ -46,7 +49,7 @@ allow-list are in `docs/ops/product-factory.md`.
 book/  plan.json jobs.json illustrations/<NN>/{<NN>-attempt-001.png,<NN>-approved.png,<NN>-meta.json}
        characters/<id>/{attempt-001.png,approved.png,meta.json,superseded-001.png} characters/cast-<ids>.png
        cover-art/{attempt-001.png,approved.png,buddy-<n>.png} qa/<NN>.json render-manifest.json
-       cover-front.png interior.pdf cover.pdf preflight.json listing.md README.md
+       cover-front.png interior.pdf cover.pdf preflight.json listing.md publish.json README.md
 <stage cwd>/costs.jsonl   one JSON line per image/vision call
 ```
 

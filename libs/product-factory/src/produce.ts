@@ -168,9 +168,13 @@ export async function produce(argv: string[], ctx: Ctx): Promise<number> {
     const items = todo.map((u) => {
       const attempt = u.attempts + 1;
       const seed = u.seed !== undefined ? u.seed + attempt - 1 : hashSeed(u.pageNumber, attempt);
+      // A rejected anatomy finding goes back to the model, e.g. "dog: 2 tails drawn, at most 1 expected".
+      const anatomy = u.issues.filter((i) => i.type === "anatomy").map((i) => i.description);
       return {
         key: u.isCover ? "cover" : `p${nn(u.pageNumber)}`,
-        prompt: u.prompt,
+        prompt: anatomy.length
+          ? `${u.prompt}. The previous attempt had wrong anatomy (${anatomy.join("; ")}) - draw every figure with its natural number of body parts`
+          : u.prompt,
         seed,
         width: u.isCover ? coverGenWidth(size) : size,
         height: size,
@@ -276,10 +280,10 @@ export async function produce(argv: string[], ctx: Ctx): Promise<number> {
             pageNumber: j.u.pageNumber,
             expectedSubjects: j.u.subjects,
             styleGuide: plan.styleGuide,
+            scene: j.u.scene,
             ...(j.u.characters.length > 0
               ? {
                   characters: j.u.characters,
-                  scene: j.u.scene,
                   ...(j.u.referenceImages?.[0] ? { referenceImage: j.u.referenceImages[0] } : {}),
                 }
               : {}),

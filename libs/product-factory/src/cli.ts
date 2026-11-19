@@ -5,6 +5,7 @@ import { finalize } from "./finalize.ts";
 import { jobs } from "./jobs.ts";
 import { planCheck } from "./plan-check.ts";
 import { preflight } from "./preflight.ts";
+import { publishCheck } from "./publish-manifest.ts";
 import { produce } from "./produce.ts";
 import { reject } from "./reject.ts";
 import { render } from "./render.ts";
@@ -19,7 +20,8 @@ const HELP = `product-factory <command>
   render [--report f]
   reject <pages e.g. 3,5 (0 = cover)> [--reason text]
   preflight [--report f]
-  finalize <listing.md> [--report f]
+  finalize <listing.md> [--report f]   (also writes publish.json from the listing's json block)
+  publish-check [dir | --from file] [--report f]   (validate publish.json + PDFs; --from: folder named in a text file)
   doctor
   bakeoff [--prompts f] [--out dir] [--configs model:quantize:steps,...]
 
@@ -41,6 +43,7 @@ export async function main(argv: string[], ctx: Ctx): Promise<number> {
     render,
     preflight,
     finalize,
+    "publish-check": publishCheck,
     doctor,
     bakeoff,
   };
