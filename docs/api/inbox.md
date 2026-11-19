@@ -38,6 +38,7 @@ squash-and-merge through the projects merge route. UI spec: `docs/plans/inbox-ui
 | GET    | `/api/inbox/prs/:projectId/:number/diff`                    | —                                                                                                                                  | 200 `{ diff, truncated }`; 404 project/PR; 422 no GitHub link/token rejected; 502 GitHub error                                                                        |
 | GET    | `/api/inbox/prs/:projectId/:number/threads`                 | —                                                                                                                                  | 200 `InboxPrThread[]`; 404 project/PR; 422 no GitHub link/token rejected; 502 GitHub error                                                                            |
 | POST   | `/api/inbox/prs/:projectId/:number/threads/:threadId/reply` | `{ body?, resolve? }` (at least one; `body` 1–65536 chars trimmed)                                                                 | 200 the updated `InboxPrThread`; 404 unknown project or PR/thread GitHub does not know; 422 no GitHub link / token rejected / thread not on this PR; 502 GitHub error |
+| POST   | `/api/inbox/prs/rewrite-reply`                              | `{ body, mode, comment? }` (strict; `body` 1–4000 trimmed, `mode` shorter \| longer, `comment` = the thread context, ≤8000)        | 200 `{ body }` (the rewritten reply, 1–4000 chars); 422 the model call failed or no concrete rewrite came back (502 is declared, unused)                              |
 | GET    | `/api/inbox/prs/:projectId/:number/reviewers`               | —                                                                                                                                  | 200 `InboxPrReviewers` (see Reviewers below); 404/422/502 as threads                                                                                                  |
 | POST   | `/api/inbox/prs/:projectId/:number/reviewers/request`       | `{ login }`                                                                                                                        | 201 the updated `InboxPrReviewers`; GitHub refusal → 422; 404/502 as threads                                                                                          |
 | GET    | `/api/inbox/state`                                          | —                                                                                                                                  | `InboxState`                                                                                                                                                          |
@@ -128,6 +129,8 @@ read). Check-runs matched by the project's `ciIgnoredChecks` (e.g. a review-appr
 fails until approved) are left out; all ignored → `unknown`. With readable checks the PR also carries
 `ciSettled` (≥1 non-ignored check and all `completed`), `ciFailingChecks` (sorted, deduped names of
 failed non-ignored checks) and `ciCompletedAt` (latest `completed_at` among them, omitted if none).
+On a failing PR `ciFailingJobs` (`{ name, status, url? }[]`, optional) lists the same failed check-runs / jobs with
+their conclusion (`failure` / `cancelled` / `timed_out`) and a link to the run (https only; absent when the host gave none).
 `blocker`: ci failing → changes requested → `mergeable === false` → approved
 and passing = `ready-to-merge` → `awaiting-review`.
 
@@ -729,3 +732,10 @@ Rows of my own PRs (`mine`) also carry `unresolvedThreads` (todo-21; GraphQL `re
 Others' PRs carry `myReview` + `myReviewSha` whenever I gave a verdict (latest APPROVED/CHANGES_REQUESTED of mine and its `commit_id`; also on `to-review`, so a re-request or a team request after my review keeps it) — the Bridge PR widget treats an approval as stale once `headSha` moves past `myReviewSha`. Every row carries `authorAvatarUrl` (`user.avatar_url`) and, when the profile has one, `authorName` (`GET /users/<login>`, cached per login for the API's lifetime; a failed read just omits it).
 
 A parked GitLab CI auto-fix keeps `repo#n` as the activity `itemId` like every other inbox service; operator events take the link from the task's `prCiTriage.url`.
+
+## Rewrite a drafted reply (`POST /api/inbox/prs/rewrite-reply`)
+
+One-shot LLM rewrite of a reply the operator is about to post on a review thread: `mode` `shorter` or
+`longer`, optional `comment` (the thread's comment, as context — data, not instructions). The result
+stays concrete: when no usable rewrite comes back — or the model call fails — the call is a 422 (never a
+generic fallback text). Nothing is posted — the web UI puts `{ body }` back into the draft.

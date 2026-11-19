@@ -291,7 +291,12 @@ discriminated union on `kind` carrying only ids/filters (`runRef`, `projectId`, 
 `title`); the web card loads live data through the same queries the dashboard widgets use.
 
 Kinds: `run`, `runs`, `prs`, `issues`, `approvals`, `briefing`, `mentions`,
-`project-status`, `ci`.
+`project-status`, `ci`, `todo`.
+
+`todo` shows a PROJECT's vault `TODO.md` (open items; checkbox ticks the item in the file via
+`PATCH /api/todo/projects/:projectId/items/:number`, play starts a task from its text). `projectId` is
+the project to show (the model passes the discussed / `#`-tagged one); omitted, the card offers a
+project select. The task is not linked back to the item. See `docs/api/todo.md`.
 
 Flow: the MCP handler validates the input against `ChatWidgetSchema` and calls
 `ChatToolResultRegistry.pushWidget(conversationId, widget)`; the running turn

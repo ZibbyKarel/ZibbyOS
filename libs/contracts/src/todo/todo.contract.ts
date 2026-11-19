@@ -1,7 +1,15 @@
 import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { ErrorSchema } from "../common.schema";
-import { CreateTodoBodySchema, TodoItemSchema, TodoListSchema } from "./todo.schema";
+import { ProjectIdSchema } from "../projects/project.schema";
+import {
+  CreateTodoBodySchema,
+  ProjectTodoItemSchema,
+  ProjectTodoListSchema,
+  SetProjectTodoDoneBodySchema,
+  TodoItemSchema,
+  TodoListSchema,
+} from "./todo.schema";
 
 const c = initContract();
 
@@ -31,6 +39,21 @@ export const todoContract = c.router(
       body: c.noBody(),
       responses: { 204: c.noBody(), 404: ErrorSchema },
       summary: "Delete a TODO note",
+    },
+    listProjectTodo: {
+      method: "GET",
+      path: "/todo/projects/:projectId",
+      pathParams: z.object({ projectId: ProjectIdSchema }),
+      responses: { 200: ProjectTodoListSchema },
+      summary: "List the items of a project's vault TODO.md (empty when it has none)",
+    },
+    setProjectTodoDone: {
+      method: "PATCH",
+      path: "/todo/projects/:projectId/items/:number",
+      pathParams: z.object({ projectId: ProjectIdSchema, number: z.coerce.number().int().min(1) }),
+      body: SetProjectTodoDoneBodySchema,
+      responses: { 200: ProjectTodoItemSchema, 404: ErrorSchema },
+      summary: "Tick / untick one item of a project's vault TODO.md in place",
     },
   },
   { pathPrefix: "/api", strictStatusCodes: true },

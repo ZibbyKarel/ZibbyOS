@@ -2897,7 +2897,9 @@
     "retry": "Try again",
     "todo": {
       "title": "TODO",
-      "empty": "No TODO notes",
+      "empty": "No open TODO items",
+      "projectLabel": "Project",
+      "projectPlaceholder": "Pick a project",
       "started": "Task started · open"
     },
     "runs": {
@@ -3722,7 +3724,10 @@
     "healthAnalyze": "Analyze",
     "healthAnalyzeAgain": "Analyze again",
     "healthAnalysisStarted": "Analysis started",
-    "healthActionFailed": "The action failed."
+    "healthActionFailed": "The action failed.",
+    "tokenExpiring": "{name} — token expires in {days, plural, one {# day} other {# days}}",
+    "tokenExpired": "{name} — token expired",
+    "tokenAction": "Open the integration and update the token."
   },
   "inboxPage": {
     "kicker": {

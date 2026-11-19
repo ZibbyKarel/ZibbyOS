@@ -2897,7 +2897,9 @@
     "retry": "Zkusit znovu",
     "todo": {
       "title": "TODO",
-      "empty": "Žádné poznámky v TODO",
+      "empty": "Žádné otevřené položky v TODO",
+      "projectLabel": "Projekt",
+      "projectPlaceholder": "Vyber projekt",
       "started": "Úkol spuštěn · otevřít"
     },
     "runs": {
@@ -3722,7 +3724,10 @@
     "healthAnalyze": "Analyzovat",
     "healthAnalyzeAgain": "Analyzovat znovu",
     "healthAnalysisStarted": "Analýza spuštěna",
-    "healthActionFailed": "Akce se nezdařila."
+    "healthActionFailed": "Akce se nezdařila.",
+    "tokenExpiring": "{name} — token vyprší za {days, plural, one {# den} few {# dny} other {# dní}}",
+    "tokenExpired": "{name} — token vypršel",
+    "tokenAction": "Otevři integraci a aktualizuj token."
   },
   "inboxPage": {
     "kicker": {

@@ -3,12 +3,11 @@
 import { useState } from "react";
 import {
   Button,
-  CellStrip,
   EmptyState,
   HeaderIconButton,
   Icon,
-  Row,
   Sheet,
+  SheetBanner,
   Stack,
   type SubNavLinkComponent,
   TextLink,
@@ -19,6 +18,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatWaited } from "../../approvals/approval";
+import { useNow } from "../../../hooks/useNow";
+import { expiringTokens } from "../../integrations/connectionsModel";
+import { useIntegrationsQuery } from "../../integrations";
 import { formatWhen } from "../../project-health/formatWhen";
 import { apiErrorMessage } from "../../../state/apiErrorMessage";
 import { useAnalyzeProjectHealthMutation } from "../../project-health/mutations";
@@ -36,6 +38,7 @@ export enum NotificationBellTestId {
   HealthAnalyze = "notification-bell-health-analyze",
   HealthLink = "notification-bell-health-link",
   HealthTaskLink = "notification-bell-health-task-link",
+  TokenItem = "notification-bell-token-item",
 }
 
 /** The search param that opens the bell's sheet — so any link (e.g. an error Zibby) can open it. */
@@ -45,7 +48,9 @@ export const NOTIFICATIONS_PARAM = "notifications";
  * The header bell: unread failed runs, each linking to its run detail with its
  * own "mark read", plus down projects (state, not events: no mark-read, they
  * clear on recovery) with an inline Analyze, plus "mark all read". Reading a failure is what clears a
- * department's (and Zibby's) error state.
+ * department's (and Zibby's) error state. Integration tokens near (or past) expiry sit on top,
+ * cannot be marked read, and link to that integration so the token can be replaced. Rows use the
+ * PR sheet's failure banner look (`SheetBanner`).
  */
 export function NotificationBell() {
   const t = useTranslations("notifications");
@@ -74,7 +79,10 @@ export function NotificationBell() {
     );
   };
   const downProjects = healthStatuses.filter((s) => s.state === "down");
-  const total = items.length + downProjects.length;
+  const now = useNow(60_000);
+  const { data: integrations = [] } = useIntegrationsQuery();
+  const tokens = expiringTokens(integrations, now);
+  const total = items.length + downProjects.length + tokens.length;
   const markRead = useMarkNotificationsReadMutation();
   const open = searchParams.has(NOTIFICATIONS_PARAM);
 
@@ -120,6 +128,30 @@ export function NotificationBell() {
           <EmptyState body={t("empty")} title={t("emptyTitle")} />
         ) : (
           <Stack gap="100">
+            {tokens.map(({ integration, daysLeft, expired }) => {
+              const href = integration.projectId
+                ? `/projects/${integration.projectId}/integrations/${integration.id}`
+                : `/companies/${integration.companyId}/integrations/${integration.id}`;
+              const name = integration.name ?? integration.id;
+              return (
+                <Link
+                  data-testid={NotificationBellTestId.TokenItem}
+                  href={href as Route}
+                  key={integration.id}
+                >
+                  <SheetBanner
+                    icon="warn"
+                    text={t("tokenAction")}
+                    title={
+                      expired
+                        ? t("tokenExpired", { name })
+                        : t("tokenExpiring", { name, days: daysLeft })
+                    }
+                    tone={expired ? "error" : "blocked"}
+                  />
+                </Link>
+              );
+            })}
             {downProjects.map((s) => {
               const name = projects.find((p) => p.id === s.projectId)?.name ?? s.projectId;
               const fb = feedback[s.projectId];
@@ -128,29 +160,30 @@ export function NotificationBell() {
                 analyze.isPending && analyze.variables?.params.projectId === s.projectId;
               return (
                 <Stack data-testid={NotificationBellTestId.HealthItem} gap="25" key={s.projectId}>
-                  <Row align="center" gap="100" justify="between">
-                    <Link
-                      data-testid={NotificationBellTestId.HealthLink}
-                      href={`/projects/${s.projectId}` as Route}
-                    >
-                      <Row align="center" gap="100">
-                        <CellStrip cells={["error"]} />
-                        <Typography type="labelSm">
-                          {t("healthDown", { name, since: formatWhen(s.sinceAt) })}
-                        </Typography>
-                      </Row>
-                    </Link>
-                    <Button
-                      data-testid={NotificationBellTestId.HealthAnalyze}
-                      disabled={rowAnalyzing}
-                      icon="search"
-                      intent="ghost"
-                      onClick={() => analyzeProject(s.projectId)}
-                      size="sm"
-                    >
-                      {taskId ? t("healthAnalyzeAgain") : t("healthAnalyze")}
-                    </Button>
-                  </Row>
+                  <SheetBanner
+                    actions={
+                      <Button
+                        data-testid={NotificationBellTestId.HealthAnalyze}
+                        disabled={rowAnalyzing}
+                        icon="search"
+                        intent="ghost"
+                        onClick={() => analyzeProject(s.projectId)}
+                        size="sm"
+                      >
+                        {taskId ? t("healthAnalyzeAgain") : t("healthAnalyze")}
+                      </Button>
+                    }
+                    icon="warn"
+                    title={
+                      <Link
+                        data-testid={NotificationBellTestId.HealthLink}
+                        href={`/projects/${s.projectId}` as Route}
+                      >
+                        {t("healthDown", { name, since: formatWhen(s.sinceAt) })}
+                      </Link>
+                    }
+                    tone="error"
+                  />
                   {taskId && (
                     <TextLink
                       data-testid={NotificationBellTestId.HealthTaskLink}
@@ -169,34 +202,25 @@ export function NotificationBell() {
               );
             })}
             {items.map((n) => (
-              <Row
-                align="center"
-                data-testid={NotificationBellTestId.Item}
-                gap="100"
-                justify="between"
-                key={n.runId}
-              >
-                <Link href={`/activity/runs/${n.runId}` as Route}>
-                  <Row align="center" gap="100">
-                    <CellStrip cells={["error"]} />
-                    <Stack gap="0">
-                      <Typography type="labelSm">{n.title}</Typography>
-                      <Typography type="note" variant="tertiary">
-                        {[n.department, formatWaited(n.failedAt)].filter(Boolean).join(" · ")}
-                      </Typography>
-                    </Stack>
-                  </Row>
-                </Link>
-                <Button
-                  aria-label={t("markRead")}
-                  data-testid={NotificationBellTestId.MarkRead}
-                  disabled={markRead.isPending}
-                  icon="check"
-                  intent="ghost"
-                  onClick={() => markRead.mutate({ body: { runIds: [n.runId] } })}
-                  size="sm"
+              <Stack data-testid={NotificationBellTestId.Item} gap="0" key={n.runId}>
+                <SheetBanner
+                  actions={
+                    <Button
+                      aria-label={t("markRead")}
+                      data-testid={NotificationBellTestId.MarkRead}
+                      disabled={markRead.isPending}
+                      icon="check"
+                      intent="ghost"
+                      onClick={() => markRead.mutate({ body: { runIds: [n.runId] } })}
+                      size="sm"
+                    />
+                  }
+                  icon="warn"
+                  text={[n.department, formatWaited(n.failedAt)].filter(Boolean).join(" · ")}
+                  title={<Link href={`/activity/runs/${n.runId}` as Route}>{n.title}</Link>}
+                  tone="error"
                 />
-              </Row>
+              </Stack>
             ))}
           </Stack>
         )}

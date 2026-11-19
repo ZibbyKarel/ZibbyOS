@@ -53,6 +53,32 @@ export function connectionHealth(
   return { health: "ok" };
 }
 
+export interface ExpiringToken {
+  integration: Integration;
+  /** Whole days left (rounded up); 0 = already expired. */
+  daysLeft: number;
+  expired: boolean;
+}
+
+/**
+ * Enabled integrations whose token has a known expiry within {@link EXPIRY_WARN_DAYS} (or is past
+ * it) — soonest first. No expiry (`null`) / unknown (absent) never qualifies.
+ */
+export function expiringTokens(integrations: readonly Integration[], now: number): ExpiringToken[] {
+  return integrations
+    .flatMap((integration) => {
+      if (!integration.enabled || !integration.tokenExpiresAt) return [];
+      const left = Date.parse(integration.tokenExpiresAt) - now;
+      if (left > EXPIRY_WARN_DAYS * DAY_MS) return [];
+      return [{ integration, daysLeft: Math.max(0, Math.ceil(left / DAY_MS)), expired: left <= 0 }];
+    })
+    .sort(
+      (a, b) =>
+        Date.parse(a.integration.tokenExpiresAt ?? "") -
+        Date.parse(b.integration.tokenExpiresAt ?? ""),
+    );
+}
+
 export interface ConnectionsModel {
   tiles: ConnectionTileModel[];
   own: ConnectionTileModel[];

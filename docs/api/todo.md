@@ -22,6 +22,21 @@ carries the same `@Name` / `#Name` / `/Name` mention tokens the chat composer wr
 - `POST /api/todo` `{ text }` → 201 `TodoItem` (id `todo_<hex>`); blank text → 400; past 200 notes → 409.
 - `DELETE /api/todo/:id` → 204, or 404 when the note does not exist.
 
+## Project backlog (`projects/<id>/TODO.md` in the vault)
+
+Separate from the quick notes: the per-project backlog the zibby:todo skill manages. The vault folder
+name IS the ZibbyOS project id (same mapping as the profile note `projects/<id>/<id>.md`); a project
+without a file simply has no items. `ProjectTodoService` (`apps/api/src/todo/project-todo.service.ts`)
+uses the skill's grammar (`N. [ ] text`, legacy `-`/`*` bullets, lettered sub-items); numbers are
+positional over the whole file, headings are ignored.
+
+- `GET /api/todo/projects/:projectId` → 200 `{ items: [{ number, text, done }] }` (top-level items; `[]` when no file).
+- `PATCH /api/todo/projects/:projectId/items/:number` `{ done }` → 200 the item; 404 no such number.
+  Edits only the `[ ]`/`[x]` of that line (atomic temp-file + rename); sub-items stay as they are.
+- Pruning (done items out, rest renumbered) is not an endpoint — the nightly vault lint does it, see `docs/api/memory.md`.
+
+The chat `todo` widget (`{ kind: "todo", projectId? }`) reads these; see `docs/api/chat.md`.
+
 ## Task link
 
 `POST /api/tasks` accepts an optional `todoId`. After the task is created (whatever state it

@@ -22,6 +22,7 @@ import { GroundingService } from "./grounding.service";
 import { KbRegistryService } from "./kb-registry.service";
 import { MemoryController } from "./memory.controller";
 import { MemoryImportService } from "./memory-import.service";
+import { TodoModule } from "../todo/todo.module";
 import { VaultSeedService } from "./vault-seed.service";
 import { VaultLintService } from "./vault-lint.service";
 import { VAULT_DIR, VaultService } from "./vault.service";
@@ -51,7 +52,7 @@ export { resolveVaultDir };
  * cache across instances, so two instances never diverge.
  */
 @Module({
-  imports: [SkillsModule, McpModule, CommandsModule, HooksModule, CompaniesModule],
+  imports: [SkillsModule, McpModule, CommandsModule, HooksModule, CompaniesModule, TodoModule],
   controllers: [MemoryController, EntityMcpController],
   providers: [
     { provide: VAULT_DIR, useFactory: resolveVaultDir },

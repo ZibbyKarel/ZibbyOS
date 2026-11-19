@@ -443,8 +443,9 @@ export class ChatMcpController {
           "pull requests), `issues` (open issues), `approvals` (pending approvals with " +
           "approve/reject buttons), `briefing` (latest briefing), `mentions` (inbox items " +
           "waiting on the operator), `project-status` (project health), `ci` (latest CI " +
-          "runs), `todo` (the operator's TODO notes: done checkboxes + a play button that " +
-          "starts the task). Use it whenever the operator asks about one of these; then add at most " +
+          "runs), `todo` (a PROJECT's backlog from its vault TODO.md: done " +
+          "checkboxes + a play button that starts the task; pass `projectId` of the project " +
+          "being discussed / #-tagged — omitted, the card offers a project picker). Use it whenever the operator asks about one of these; then add at most " +
           "one short sentence — do NOT repeat the card's content in prose. Read-only: " +
           "showing a card never performs an action.",
         inputSchema: {
@@ -453,7 +454,9 @@ export class ChatMcpController {
           projectId: z
             .string()
             .optional()
-            .describe("Optional project id to narrow a list card to one project."),
+            .describe(
+              "Project id: narrows a list card to one project; for `todo` it selects whose TODO.md to show.",
+            ),
           limit: z
             .number()
             .int()

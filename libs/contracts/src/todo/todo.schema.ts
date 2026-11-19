@@ -26,3 +26,20 @@ export type TodoList = z.infer<typeof TodoListSchema>;
 
 export const CreateTodoBodySchema = z.strictObject({ text: TodoTextSchema });
 export type CreateTodoBody = z.infer<typeof CreateTodoBodySchema>;
+
+/**
+ * One item of a PROJECT's backlog (`<vault>/projects/<id>/TODO.md`, managed by the zibby:todo
+ * skill) — distinct from the quick notes above. `number` is the positional `N.` of the line.
+ */
+export const ProjectTodoItemSchema = z.object({
+  number: z.number().int().min(1),
+  text: z.string(),
+  done: z.boolean(),
+});
+export type ProjectTodoItem = z.infer<typeof ProjectTodoItemSchema>;
+
+export const ProjectTodoListSchema = z.object({ items: z.array(ProjectTodoItemSchema) });
+export type ProjectTodoList = z.infer<typeof ProjectTodoListSchema>;
+
+export const SetProjectTodoDoneBodySchema = z.strictObject({ done: z.boolean() });
+export type SetProjectTodoDoneBody = z.infer<typeof SetProjectTodoDoneBodySchema>;

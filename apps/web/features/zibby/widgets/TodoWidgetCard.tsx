@@ -1,15 +1,13 @@
 "use client";
 
 import type { ChatWidget } from "@zibby/contracts";
-import { useQueryClient } from "@tanstack/react-query";
-import { Button, Checkbox, Stack, TextLink } from "@zibby/design-system";
+import { Button, Checkbox, SelectField, Stack, TextLink } from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { useNow } from "../../../hooks/useNow";
-import { compactAgo } from "../../../utils/time";
-import { useDeleteTodoMutation } from "../../todo/mutations";
-import { getTodoQueryKey, useTodoQuery } from "../../todo/queries";
+import { useProjectsQuery } from "../../projects/queries";
+import { useSetProjectTodoDoneMutation } from "../../todo/mutations";
+import { useProjectTodoQuery } from "../../todo/queries";
 import { todoTaskTitle } from "../../todo/todoTaskTitle";
 import { useCreateTaskMutation } from "../../tasks/mutations";
 import {
@@ -32,38 +30,42 @@ export interface TodoWidgetCardProps {
   widget: Extract<ChatWidget, { kind: "todo" }>;
 }
 
-/** What a played note became: a live run, or a task whose run is still spawning. */
-type Started = { id: string; runRef: string | undefined; taskId: string };
+/** What a played item became: a live run, or a task whose run is still spawning. */
+type Started = { key: number; runRef: string | undefined; taskId: string };
 
 /**
- * `todo` — the dashboard TODO widget's notes (`useTodoQuery`, `/api/todo`) in the thread. The
- * checkbox marks a note done (it is deleted, same as the dashboard — e.g. handled in another
- * session); play creates the task from the note (`todoId` makes the server drop the note) and
- * shows the run's card right under the list.
+ * `todo` — the open items of a PROJECT's vault TODO.md (`useProjectTodoQuery`) in the thread.
+ * The checkbox ticks the item in the file; play creates a task from its text and shows the
+ * run's card right under the list. Without `widget.projectId` the card offers a project select.
  */
 export function TodoWidgetCard({ widget }: TodoWidgetCardProps) {
   const t = useTranslations("zibbyWidgets");
   const tTodo = useTranslations("bridge.widgets.todo");
-  const now = useNow(60_000);
-  const qc = useQueryClient();
-  const query = useTodoQuery();
-  const remove = useDeleteTodoMutation();
+  const projects = useProjectsQuery();
+  const [picked, setPicked] = useState("");
+  const projectId = widget.projectId ?? (picked || undefined);
+  const query = useProjectTodoQuery(projectId);
+  const setDone = useSetProjectTodoDoneMutation();
   const createTask = useCreateTaskMutation();
   const [started, setStarted] = useState<Started[]>([]);
 
-  const items = query.data?.items ?? [];
+  const items = (query.data?.items ?? []).filter((item) => !item.done);
   const { shown, hiddenCount } = takeRows(items, widget.limit);
+  const projectName = projects.data?.find((p) => p.id === projectId)?.name;
 
-  const play = (id: string, text: string) =>
+  const play = (number: number, text: string) =>
     createTask.mutate(
-      { body: { title: todoTaskTitle(text), text, todoId: id } },
+      { body: { title: todoTaskTitle(text), text } },
       {
         onSuccess: (res) => {
-          void qc.invalidateQueries({ queryKey: getTodoQueryKey() });
           const { outcome, task } = res.body;
           setStarted((prev) => [
             ...prev,
-            { id, taskId: task.id, runRef: outcome === "dispatched" ? res.body.runRef : undefined },
+            {
+              key: number,
+              taskId: task.id,
+              runRef: outcome === "dispatched" ? res.body.runRef : undefined,
+            },
           ]);
         },
       },
@@ -71,57 +73,75 @@ export function TodoWidgetCard({ widget }: TodoWidgetCardProps) {
 
   return (
     <Stack direction="col" gap="100">
-      <ChatWidgetFrame
-        count={items.length}
-        emptyText={t("todo.empty")}
-        hiddenCount={hiddenCount}
-        onRetry={() => void query.refetch()}
-        rootTestId={TodoWidgetCardTestId.Root}
-        status={widgetStatus({
-          isPending: query.isPending,
-          isError: query.isError,
-          count: items.length,
-        })}
-        title={widget.title ?? t("todo.title")}
-      >
-        {shown.map((item) => (
-          <ChatWidgetRow
-            itemKey={item.id}
-            key={item.id}
-            leading={
-              <Checkbox
-                checked={false}
-                data-testid={`${TodoWidgetCardTestId.Done}-${item.id}`}
-                label={tTodo("doneLabel", { name: item.text })}
-                onChange={() => remove.mutate({ params: { id: item.id } })}
-                size="sm"
-              />
-            }
-            statusLabel={compactAgo(item.createdAt, now)}
-            title={todoTaskTitle(item.text)}
-            tone="idle"
-            trailing={
-              <Button
-                aria-label={tTodo("implementLabel", { name: item.text })}
-                data-testid={`${TodoWidgetCardTestId.Play}-${item.id}`}
-                disabled={createTask.isPending}
-                icon="play"
-                intent="ghost"
-                onClick={() => play(item.id, item.text)}
-                size="sm"
-              />
-            }
-          />
-        ))}
-      </ChatWidgetFrame>
+      {widget.projectId === undefined ? (
+        <SelectField
+          label={t("todo.projectLabel")}
+          onValueChange={setPicked}
+          options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          placeholder={t("todo.projectPlaceholder")}
+          value={picked}
+        />
+      ) : null}
+      {projectId === undefined ? null : (
+        <ChatWidgetFrame
+          count={items.length}
+          emptyText={t("todo.empty")}
+          hiddenCount={hiddenCount}
+          onRetry={() => void query.refetch()}
+          rootTestId={TodoWidgetCardTestId.Root}
+          status={widgetStatus({
+            isPending: query.isPending,
+            isError: query.isError,
+            count: items.length,
+          })}
+          title={
+            widget.title ?? (projectName ? `${t("todo.title")} · ${projectName}` : t("todo.title"))
+          }
+        >
+          {shown.map((item) => (
+            <ChatWidgetRow
+              itemKey={String(item.number)}
+              key={item.number}
+              leading={
+                <Checkbox
+                  checked={false}
+                  data-testid={`${TodoWidgetCardTestId.Done}-${item.number}`}
+                  label={tTodo("doneLabel", { name: item.text })}
+                  onChange={() =>
+                    setDone.mutate({
+                      params: { projectId, number: item.number },
+                      body: { done: true },
+                    })
+                  }
+                  size="sm"
+                />
+              }
+              statusLabel={`#${item.number}`}
+              title={todoTaskTitle(item.text)}
+              tone="idle"
+              trailing={
+                <Button
+                  aria-label={tTodo("implementLabel", { name: item.text })}
+                  data-testid={`${TodoWidgetCardTestId.Play}-${item.number}`}
+                  disabled={createTask.isPending}
+                  icon="play"
+                  intent="ghost"
+                  onClick={() => play(item.number, item.text)}
+                  size="sm"
+                />
+              }
+            />
+          ))}
+        </ChatWidgetFrame>
+      )}
       {started.map((s) =>
         s.runRef ? (
-          <RunWidgetCard key={s.id} widget={{ kind: "run", runRef: s.runRef }} />
+          <RunWidgetCard key={s.key} widget={{ kind: "run", runRef: s.runRef }} />
         ) : (
           <TextLink
-            data-testid={`${TodoWidgetCardTestId.Started}-${s.id}`}
+            data-testid={`${TodoWidgetCardTestId.Started}-${s.key}`}
             href={`/work/tasks/${s.taskId}` as Route}
-            key={s.id}
+            key={s.key}
             linkComponent={NEXT_LINK}
           >
             {t("todo.started")}

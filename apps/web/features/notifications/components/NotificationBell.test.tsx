@@ -40,6 +40,20 @@ vi.mock("../../projects/queries", () => ({
   useProjectsQuery: () => ({ data: [{ id: "p1", name: "Shop" }] }),
 }));
 
+const DAY = 86_400_000;
+let integrations: Array<Record<string, unknown>> = [];
+vi.mock("../../integrations", () => ({
+  useIntegrationsQuery: () => ({ data: integrations }),
+}));
+const tokenIntegration = (id: string, daysLeft: number | null, extra = {}) => ({
+  id,
+  name: id,
+  enabled: true,
+  projectId: "p1",
+  tokenExpiresAt: daysLeft === null ? null : new Date(Date.now() + daysLeft * DAY).toISOString(),
+  ...extra,
+});
+
 const downStatus = {
   projectId: "p1",
   url: "https://x.test/health",
@@ -61,6 +75,7 @@ describe("NotificationBell", () => {
     open = false;
     notifications = runs;
     health = [];
+    integrations = [];
     analyzePending = false;
     analyzeVariables = undefined;
   });
@@ -171,7 +186,7 @@ describe("NotificationBell", () => {
     render(<NotificationBell />);
     fireEvent.click(screen.getByTestId(NotificationBellTestId.HealthAnalyze));
     const row = screen.getByTestId(NotificationBellTestId.HealthItem);
-    expect(within(row).getByRole("alert")).toHaveTextContent("Analysis already running");
+    expect(within(row).getByText("Analysis already running")).toBeInTheDocument();
   });
 
   it("falls back to generic copy without a server message, and clears it on retry", () => {
@@ -180,10 +195,10 @@ describe("NotificationBell", () => {
     analyze.mockImplementationOnce((_v, opts) => opts.onError(new Error("network")));
     render(<NotificationBell />);
     fireEvent.click(screen.getByTestId(NotificationBellTestId.HealthAnalyze));
-    expect(screen.getByRole("alert")).toHaveTextContent("Akce se nezdařila.");
+    expect(screen.getByText("Akce se nezdařila.")).toBeInTheDocument();
     analyze.mockImplementationOnce(() => undefined);
     fireEvent.click(screen.getByTestId(NotificationBellTestId.HealthAnalyze));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Akce se nezdařila.")).not.toBeInTheDocument();
   });
 
   it("links the row to the started task on success", () => {
@@ -211,5 +226,28 @@ describe("NotificationBell", () => {
     const [first, second] = screen.getAllByTestId(NotificationBellTestId.HealthAnalyze);
     expect(first).toBeEnabled();
     expect(second).toBeDisabled();
+  });
+
+  it("lists expiring tokens on top, soonest first, with no mark-read, linking to the integration", () => {
+    open = true;
+    integrations = [
+      tokenIntegration("far", 40),
+      tokenIntegration("none", null),
+      tokenIntegration("soon", 5),
+      tokenIntegration("gone", -2),
+    ];
+    render(<NotificationBell />);
+    const rows = screen.getAllByTestId(NotificationBellTestId.TokenItem);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("gone — token vypršel");
+    expect(rows[1]).toHaveTextContent("soon — token vyprší za 5 dní");
+    expect(rows[1]).toHaveAttribute("href", "/projects/p1/integrations/soon");
+    expect(within(rows[0]!).queryByTestId(NotificationBellTestId.MarkRead)).toBeNull();
+    // 2 failed runs + 2 tokens in the badge; the failed runs still render after the tokens.
+    expect(screen.getByTestId(NotificationBellTestId.Trigger)).toHaveTextContent("4");
+    expect(
+      rows[1]!.compareDocumentPosition(screen.getAllByTestId(NotificationBellTestId.Item)[0]!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

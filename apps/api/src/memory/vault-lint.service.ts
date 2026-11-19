@@ -2,6 +2,7 @@ import { Inject, Injectable, Optional } from "@nestjs/common";
 import { KnowledgeBaseRegistrySchema, type Note } from "@zibby/contracts";
 import { envelopeInbound } from "../shared/text/untrusted-envelope";
 import { ClaudeCliDistiller } from "./claude-cli-distiller";
+import { ProjectTodoService } from "../todo/project-todo.service";
 import { VaultService, localDate } from "./vault.service";
 
 const REPORT_ID = "vault-lint";
@@ -26,6 +27,8 @@ export interface VaultLintResult {
   missingUpdated: number;
   tagBloat: number;
   compacted: number;
+  /** Done TODO.md lines removed from projects' backlogs. */
+  todosPruned: number;
 }
 
 /** The one cheap-model call compaction needs (a {@link ClaudeCliDistiller} fits). */
@@ -85,6 +88,7 @@ export class VaultLintService {
   constructor(
     private readonly vault: VaultService,
     @Optional() @Inject(ClaudeCliDistiller) private readonly summarizer?: DigestSummarizer,
+    @Optional() private readonly todos?: ProjectTodoService,
   ) {}
 
   /** Compact due Slack digests; fail-open per note. Returns the ids actually compacted. */
@@ -117,8 +121,10 @@ export class VaultLintService {
     let notes = await this.vault.allNotes();
     const compacted = await this.compact(notes, now);
     if (compacted.length) notes = await this.vault.allNotes();
+    // Prune done items from projects' TODO.md (fail-open: a lint run never dies on a backlog file).
+    const todosPruned = await this.todos?.pruneAll().catch(() => 0);
     const report = lint(notes, now);
-    const body = render(report, localDate(now), compacted);
+    const body = render(report, localDate(now), compacted, todosPruned ?? 0);
     const exists = notes.some((n) => n.id === REPORT_ID);
     if (exists) await this.vault.updateNote(REPORT_ID, { title: "Vault lint", body });
     else
@@ -136,6 +142,7 @@ export class VaultLintService {
       missingUpdated: report.missing.length,
       tagBloat: report.tagBloat.length,
       compacted: compacted.length,
+      todosPruned: todosPruned ?? 0,
     };
   }
 }
@@ -180,9 +187,9 @@ export function lint(notes: Note[], now: Date): Report {
   return r;
 }
 
-function render(r: Report, date: string, compacted: string[]): string {
+function render(r: Report, date: string, compacted: string[], todosPruned: number): string {
   return [
-    `Generated ${date}. Report only, except Slack digests older than ${COMPACT_AFTER_DAYS} days, which are compacted in place.`,
+    `Generated ${date}. Report only, except Slack digests older than ${COMPACT_AFTER_DAYS} days (compacted in place) and done items in projects' TODO.md (pruned).`,
     "",
     `## Broken wikilinks (${r.broken.length})`,
     list(r.broken),
@@ -201,6 +208,9 @@ function render(r: Report, date: string, compacted: string[]): string {
     "",
     `## Compacted Slack digests (${compacted.length})`,
     list(compacted.map((id) => `- [[${id}]]`)),
+    "",
+    `## Pruned TODO items (${todosPruned})`,
+    `${todosPruned} done line(s) removed from projects' TODO.md files and the rest renumbered.`,
     "",
     ...(r.registry.length ? ["## Invalid KB registry", ...r.registry, ""] : []),
   ].join("\n");

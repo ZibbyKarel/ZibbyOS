@@ -244,7 +244,11 @@ Orphans exclude `daily/`, North Star, self-knowledge, MOCs and the machine notes
 `vault-log` and `vault-lint` are scanned as link-less so they don't mask orphans.
 Service: `vault-lint.service.ts`.
 
-The lint edits no note, with one exception — Slack digest compaction (below).
+The lint edits no note, with two exceptions — Slack digest compaction (below) and TODO pruning:
+every run also drops the done (`[x]`) items from each `projects/<id>/TODO.md` (a done parent takes its
+sub-items along) and renumbers the rest `1..n` — the same semantics as the zibby:todo skill's `prune`
+(`ProjectTodoService.pruneAll`, see `docs/api/todo.md`). The report's "Pruned TODO items" section and
+`VaultLintResult.todosPruned` count the removed lines; a failure there never fails the lint.
 
 ## Slack digests (long-term memory)
 
