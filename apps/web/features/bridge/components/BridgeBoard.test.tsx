@@ -1,5 +1,6 @@
 import {
   ConfirmDeleteButtonTestId,
+  MenuButtonTestId,
   SummaryRowTestId,
   WidgetFrameTestId,
 } from "@zibby/design-system";
@@ -33,9 +34,12 @@ vi.mock("@zibby/design-system", async (orig) => {
 });
 
 vi.mock("../widgets/registry", () => ({
+  WIDGET_TYPES: ["prs"],
   WIDGETS: {
     prs: {
       labelKey: "bridge.widget.prs.label",
+      descKey: "bridge.widget.prs.desc",
+      icon: "plus",
       addable: true,
       Filters: () => null,
       Component: ({ onEmptyChange, onCountChange, adding, filtersOpen }: BridgeWidgetProps) => {
@@ -105,6 +109,22 @@ describe("BridgeBoard", () => {
     await userEvent.click(buttons[0] as HTMLElement);
     expect(screen.getByTestId("cfg")).toHaveTextContent("false-filters");
     expect(buttons[0]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("hovering an empty spot offers 'Add widget'; the picked type is added at that cell", async () => {
+    const add = vi.fn();
+    vi.stubGlobal("PointerEvent", MouseEvent); // jsdom's PointerEvent drops clientX/clientY
+    renderWithProviders(<BridgeBoard density="comfort" state={{ ...state, add } as BridgeState} />);
+    const overlay = screen.getByTestId(WidgetFrameTestId.Root).parentElement?.firstElementChild;
+    expect(screen.queryByRole("button", { name: "Přidat widget" })).toBeNull();
+    // Over the widget (cols 0-5): nothing. Right of it: the ghost appears.
+    fireEvent.pointerMove(overlay as Element, { clientX: 10, clientY: 10 });
+    expect(screen.queryByRole("button", { name: "Přidat widget" })).toBeNull();
+    fireEvent.pointerMove(overlay as Element, { clientX: 800, clientY: 10 });
+    await userEvent.click(screen.getByRole("button", { name: "Přidat widget" }));
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-prs`));
+    expect(add).toHaveBeenCalledWith("prs", { x: expect.any(Number), y: 0 });
+    expect(add.mock.calls[0]?.[1].x).toBeGreaterThanOrEqual(6);
   });
 
   it("starts a resize from the pressed corner with no edit step", () => {

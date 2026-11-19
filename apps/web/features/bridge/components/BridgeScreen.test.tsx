@@ -8,7 +8,6 @@ const h = vi.hoisted(() => ({
   phone: true,
   push: vi.fn(),
   setSelection: vi.fn(),
-  add: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -24,14 +23,9 @@ vi.mock("../state/useBridgeState", () => ({
     layouts: { shown: [], hidden: [] },
     selection: null,
     setSelection: h.setSelection,
-    add: h.add,
   }),
 }));
-vi.mock("./BridgeHeader", () => ({
-  BridgeHeader: ({ onAddWidget }: { onAddWidget: (type: string) => void }) => (
-    <button onClick={() => onAddWidget("prs")}>add-prs</button>
-  ),
-}));
+vi.mock("./BridgeHeader", () => ({ BridgeHeader: () => null }));
 vi.mock("./ManageLayoutsDialog", () => ({ ManageLayoutsDialog: () => null }));
 vi.mock("./DetailSheet", () => ({ DetailSheet: () => null }));
 vi.mock("./BridgeBoard", () => ({
@@ -51,14 +45,6 @@ vi.mock("./BridgeBoard", () => ({
     </>
   ),
 }));
-
-describe("BridgeScreen add widget", () => {
-  it("adds the widget the header's dropdown picked", () => {
-    renderWithProviders(<BridgeScreen />);
-    fireEvent.click(screen.getByText("add-prs"));
-    expect(h.add).toHaveBeenCalledWith("prs");
-  });
-});
 
 describe("BridgeScreen on a phone", () => {
   beforeEach(() => {

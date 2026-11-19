@@ -613,6 +613,11 @@ export type { FileDiffViewProps } from "./components/FileDiffView/FileDiffView";
 // --- Widget board kit (Bridge dashboard; generic) ---
 export { WidgetBoard, WidgetBoardTestId } from "./components/WidgetBoard/WidgetBoard";
 export type { WidgetBoardProps } from "./components/WidgetBoard/WidgetBoard";
+export {
+  WidgetPlaceholder,
+  WidgetPlaceholderTestId,
+  type WidgetPlaceholderProps,
+} from "./components/WidgetPlaceholder/WidgetPlaceholder";
 export { WidgetFrame, WidgetFrameTestId } from "./components/WidgetFrame/WidgetFrame";
 export type {
   ResizeCorner,

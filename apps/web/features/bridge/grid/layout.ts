@@ -136,12 +136,36 @@ export function nextWidgetId(layout: readonly BridgeWidget[], type: WidgetType):
   return `${type}-${n}`;
 }
 
-/** A new widget: 4×6 brought inside its type's `SIZE_LIMITS`, at the first free spot. */
-export function addWidget(layout: readonly BridgeWidget[], type: WidgetType): BridgeWidget[] {
+/** A new widget: 4×6 brought inside its type's `SIZE_LIMITS`, at the first free spot — or at
+ *  `at` (a hovered empty cell; the new widget keeps that spot, the rest compact around it). */
+export function addWidget(
+  layout: readonly BridgeWidget[],
+  type: WidgetType,
+  at?: { x: number; y: number },
+): BridgeWidget[] {
   const [minW, minH, maxW, maxH] = SIZE_LIMITS[type];
   const w = Math.min(maxW, Math.max(minW, 4));
   const h = Math.min(maxH, Math.max(minH, 6));
-  return compact([...layout, { id: nextWidgetId(layout, type), type, x: 0, y: 999, w, h }]);
+  const id = nextWidgetId(layout, type);
+  const x = at ? Math.max(0, Math.min(COLS - w, at.x)) : 0;
+  return compact([...layout, { id, type, x, y: at?.y ?? 999, w, h }], at ? id : undefined);
+}
+
+/** The free rectangle anchored at cell (x, y), up to 4×6: null when that cell is occupied. */
+export function freeSlot(
+  layout: readonly BridgeWidget[],
+  x: number,
+  y: number,
+): { x: number; y: number; w: number; h: number } | null {
+  if (x < 0 || x >= COLS || y < 0) return null;
+  const cell = (cx: number, cy: number) =>
+    layout.some((i) => cx >= i.x && cx < i.x + i.w && cy >= i.y && cy < i.y + i.h);
+  if (cell(x, y)) return null;
+  let w = 1;
+  while (w < 4 && x + w < COLS && !cell(x + w, y)) w++;
+  let h = 1;
+  while (h < 6 && ![...Array(w).keys()].some((dx) => cell(x + dx, y + h))) h++;
+  return { x, y, w, h };
 }
 
 export function removeWidget(layout: readonly BridgeWidget[], id: string): BridgeWidget[] {

@@ -23,6 +23,7 @@ import {
 import {
   type BridgeWidget,
   type DragOrigin,
+  freeSlot,
   phoneOrder,
   toCells,
   viewLayout,
@@ -32,8 +33,19 @@ import type { BridgeState } from "../state/useBridgeState";
 import { useWidgetPriority } from "../state/useWidgetPriority";
 import { type BridgeSelection, type BridgeWidgetInfo, WIDGETS } from "../widgets/registry";
 import { boardHeight, colWidth, widgetRect } from "../grid/positions";
+import { AddWidgetSlot } from "./AddWidgetSlot";
 import { WidgetSettingsDialog } from "./WidgetSettingsDialog";
 import type { Density, ResizeCorner } from "@zibby/design-system";
+
+const widgetRectStyle = (
+  w: Pick<BridgeWidget, "x" | "y" | "w" | "h">,
+  colW: number,
+  gap: number,
+  rowH: number,
+): CSSProperties => {
+  const r = widgetRect(w, colW, gap, rowH);
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+};
 
 /** Pointer travel (px) before a header/corner press becomes a drag. */
 const DRAG_THRESHOLD = 4;
@@ -91,6 +103,7 @@ function BridgeWidgetHost({
     <WidgetFrame
       addLabel={t("bridge.add")}
       adding={adding}
+      alert={info?.alert}
       anchored={anchored}
       aside={empty && !adding ? t("bridge.allClear") : info?.aside}
       collapseLabel={t("bridge.collapse")}
@@ -208,6 +221,7 @@ export function BridgeBoard({
           prev.onRefresh === i.onRefresh &&
           prev.refreshing === i.refreshing &&
           prev.filtersActive === i.filtersActive &&
+          prev.alert === i.alert &&
           prev.loading === i.loading
           ? p
           : { ...p, [id]: i };
@@ -229,6 +243,27 @@ export function BridgeBoard({
   const settingsWidget = layout.find((w) => w.id === settingsId);
 
   const colW = colWidth(width, gap);
+
+  /** Empty spot under the pointer (cell + free size) — shows the "Add widget" ghost; kept while its picker is open. */
+  const [slot, setSlot] = useState<ReturnType<typeof freeSlot>>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const onPickerOpen = useCallback((open: boolean) => {
+    setPickerOpen(open);
+    if (!open) setSlot(null);
+  }, []);
+  const onHover = (e: PointerEvent<HTMLElement>) => {
+    // Only the bare surface counts — moving over the ghost itself keeps it where it is.
+    if (pickerOpen || dragging || e.target !== e.currentTarget) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / (colW + gap));
+    const y = Math.floor((e.clientY - r.top) / (rowHeight + gap));
+    setSlot((p) => {
+      const next = freeSlot(shown, x, y);
+      return p && next && p.x === next.x && p.y === next.y && p.w === next.w && p.h === next.h
+        ? p
+        : next;
+    });
+  };
 
   const onDragStart = (id: string, mode: "move" | ResizeCorner, e: PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
@@ -333,6 +368,24 @@ export function BridgeBoard({
           height={Math.round(boardHeight(shown, rowHeight, gap, dragging ? 2 : 0))}
           onMeasure={setWidth}
         >
+          {/* Hover surface behind the widgets: pointer events only reach it on empty spots. */}
+          <Container
+            bottom="0"
+            left="0"
+            onPointerLeave={() => !pickerOpen && setSlot(null)}
+            onPointerMove={onHover}
+            position="absolute"
+            right="0"
+            top="0"
+          >
+            {slot && !dragging ? (
+              <AddWidgetSlot
+                onOpenChange={onPickerOpen}
+                onPick={(type) => state.add(type, { x: slot.x, y: slot.y })}
+                style={widgetRectStyle(slot, colW, gap, rowHeight)}
+              />
+            ) : null}
+          </Container>
           {width > 0
             ? shown.map((w) => {
                 const r = widgetRect(w, colW, gap, rowHeight);

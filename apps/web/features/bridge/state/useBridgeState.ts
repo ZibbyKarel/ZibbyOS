@@ -227,7 +227,8 @@ export function useBridgeState() {
     [previewLayout],
   );
   const add = useCallback(
-    (type: WidgetType) => commitLayout(addWidget(layoutRef.current, type)),
+    (type: WidgetType, at?: { x: number; y: number }) =>
+      commitLayout(addWidget(layoutRef.current, type, at)),
     [commitLayout],
   );
   const remove = useCallback(

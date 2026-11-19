@@ -1,6 +1,5 @@
 import {
   DensityMenuTestId,
-  IconTestId,
   MenuButtonTestId,
   PageTitleTestId,
   SegmentedControlTestId,
@@ -9,7 +8,6 @@ import { UiSettingsSchema } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
-import { WIDGETS, WIDGET_TYPES } from "../widgets/registry";
 import { BridgeHeader, type BridgeHeaderProps, BridgeHeaderTestId } from "./BridgeHeader";
 
 const setDensity = vi.fn();
@@ -22,7 +20,6 @@ const props: BridgeHeaderProps = {
   layouts: { shown: [], hidden: [] },
   onPreset: vi.fn(),
   onManage: vi.fn(),
-  onAddWidget: vi.fn(),
 };
 const item = (v: string) => `${SegmentedControlTestId.Item}-${v}`;
 const two = { shown: ["A"], hidden: ["B"] };
@@ -65,26 +62,9 @@ describe("BridgeHeader", () => {
     expect(onPreset).not.toHaveBeenCalled();
   });
 
-  it("add widget is an icon dropdown: every type with icon/name/description; a click adds it and closes", async () => {
-    const onAddWidget = vi.fn();
-    renderWithProviders(<BridgeHeader {...props} onAddWidget={onAddWidget} />);
-    const trigger = screen.getByTestId(MenuButtonTestId.Trigger);
-    expect(trigger).toHaveAccessibleName("Přidat widget");
-    await userEvent.click(trigger);
-    for (const type of WIDGET_TYPES) {
-      const row = screen.getByTestId(`${MenuButtonTestId.Item}-${type}`);
-      expect(within(row).getByTestId(IconTestId.Root)).toHaveAttribute(
-        "data-icon",
-        WIDGETS[type].icon,
-      );
-      expect(
-        screen.getByTestId(`${MenuButtonTestId.Description}-${type}`),
-      ).not.toBeEmptyDOMElement();
-    }
-    expect(screen.queryByRole("button", { name: /^(přidat|add)$/i })).toBeNull();
-    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-prs`));
-    expect(onAddWidget).toHaveBeenCalledWith("prs");
-    expect(screen.queryByTestId(MenuButtonTestId.Menu)).toBeNull();
+  it("has no add-widget control (widgets are added from the board's empty cells)", () => {
+    renderWithProviders(<BridgeHeader {...props} />);
+    expect(screen.queryByTestId(MenuButtonTestId.Trigger)).toBeNull();
   });
 
   it("always shows manage, never save/cancel; manage calls onManage", async () => {

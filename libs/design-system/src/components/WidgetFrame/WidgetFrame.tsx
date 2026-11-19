@@ -52,6 +52,8 @@ export interface WidgetFrameProps {
   tier?: WidgetTier;
   /** Body shape of the widget, emitted as `data-species`. */
   species?: WidgetSpecies;
+  /** Something inside is red (failing CI, …): the frame takes a rose border (`data-alert`). */
+  alert?: boolean;
   /** Narrow widgets: refresh, filters and collapse stay inline; the rest (add, settings) fold into a "⋯" menu. */
   compactControls?: boolean;
   /** Accessible name of the "⋯" trigger. */
@@ -200,6 +202,7 @@ export function WidgetFrame({
   aside,
   tier = "standard",
   species,
+  alert = false,
   compactControls = false,
   controlsLabel,
   onRefresh,
@@ -356,8 +359,10 @@ export function WidgetFrame({
       className={cn(
         frame({ tier }),
         anchored && "z-[31]",
+        alert && "border-[var(--color-state-err)]",
         dragging && "z-[5] border-ink transition-none",
       )}
+      data-alert={alert || undefined}
       data-anchored={anchored || undefined}
       data-species={species}
       data-testid={WidgetFrameTestId.Root}

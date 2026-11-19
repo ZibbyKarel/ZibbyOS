@@ -1,6 +1,6 @@
 "use client";
 
-import { FeedRow } from "@zibby/design-system";
+import { FeedRow, Icon, type IconName } from "@zibby/design-system";
 import type { ChannelItem, IntegrationKind } from "@zibby/contracts";
 import { useMemo } from "react";
 import { QueryError } from "../../../components/LoadError/QueryError";
@@ -19,14 +19,18 @@ export const MENTION_KINDS = [
 ] as const satisfies readonly IntegrationKind[];
 export const MENTIONS_LIMIT = 50;
 
-/** The feed's source glyphs (GH, GL, JI, #, @); the data carries no unread flag, so no row is bold. */
-const GLYPH: Partial<Record<IntegrationKind, string>> = {
-  github: "GH",
-  gitlab: "GL",
-  jira: "JI",
-  slack: "#",
-  email: "@",
+/** The feed's source marks: brand icons where the DS has one; email keeps "@" (no mail icon yet). */
+const GLYPH: Partial<Record<IntegrationKind, IconName>> = {
+  github: "github",
+  gitlab: "gitlab",
+  jira: "jira",
+  slack: "chat",
 };
+
+function mentionGlyph(kind: IntegrationKind) {
+  const name = GLYPH[kind];
+  return name ? <Icon name={name} size="sm" /> : "@";
+}
 
 /** Conversational channel items, dismissed ones dropped, newest first, capped. */
 export function mentionItems(items: readonly ChannelItem[]): ChannelItem[] {
@@ -65,7 +69,7 @@ export function MentionsWidget({ widget, onEmptyChange, onCountChange }: BridgeW
       {rows.map((i) => (
         <FeedRow
           age={compactAgo(i.receivedAt, now)}
-          glyph={GLYPH[i.kind] ?? "·"}
+          glyph={mentionGlyph(i.kind)}
           glyphLabel={i.kind}
           key={i.id}
           onClick={i.url ? () => window.open(i.url, "_blank", "noopener,noreferrer") : undefined}

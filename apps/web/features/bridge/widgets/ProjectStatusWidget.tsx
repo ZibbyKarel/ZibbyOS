@@ -5,7 +5,9 @@ import {
   Dropdown,
   Icon,
   type IconName,
+  IconTile,
   type IconTone,
+  Monogram,
   Stack,
   StateDot,
   type StateTone,
@@ -103,6 +105,13 @@ function ProjectRow({
     <Tile
       alert={red}
       lead={<CiStateDot label={t(`state.${state}`)} state={state} />}
+      logo={
+        project.logo ? (
+          <IconTile alt="" glyph="code" size="sm" src={project.logo} />
+        ) : (
+          <Monogram name={project.name} size={30} />
+        )
+      }
       onClick={() => onOpen({ kind: "project", id: project.id, widgetId, key })}
       rowKey={key}
       selected={selection?.key === key}
@@ -114,7 +123,8 @@ function ProjectRow({
 
 /**
  * Project status — tile grid species: one tile per picked project (`scope.projectIds`, absent =
- * all) with a state dot for its base-branch CI and the branch; red CI tints the whole tile rose.
+ * all) with a state dot for its base-branch CI and the branch; red CI tints the whole tile rose and the widget's frame border red. Tiles keep their natural width
+ * (a long name is never cut), wrap, and grow to fill each row; the logo is the project's `logo`, else a monogram.
  * A click opens the project sheet (CI by workflow → job → step).
  */
 export function ProjectStatusWidget({
@@ -142,6 +152,7 @@ export function ProjectStatusWidget({
       count: projectsQuery.isPending ? undefined : projects.length,
       you: 0,
       urgency: PRIORITY_WEIGHT.error * failing,
+      alert: failing > 0,
     },
     { onEmptyChange, onCountChange },
   );

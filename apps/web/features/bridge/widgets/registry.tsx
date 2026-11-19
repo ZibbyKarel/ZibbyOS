@@ -49,6 +49,8 @@ export interface BridgeWidgetInfo {
   refreshing?: boolean;
   /** A filter pick is applied — marks the header filters button. */
   filtersActive?: boolean;
+  /** Something in the widget is red — the frame gets a rose border. */
+  alert?: boolean;
 }
 
 /**

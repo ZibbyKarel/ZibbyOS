@@ -13,11 +13,11 @@ export interface TileGridProps {
   children?: ReactNode;
 }
 
-/** Tile grid species: as many ~140px columns as fit. */
+/** Tile grid species: tiles keep their natural width (names are never cut) and wrap, each row growing to fill it. */
 export function TileGrid({ children }: TileGridProps) {
   return (
     <div
-      className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-[8px] px-[6px] pb-[10px] pt-[4px]"
+      className="flex flex-wrap gap-[8px] px-[6px] pb-[10px] pt-[4px]"
       data-testid={TileGridTestId.Root}
     >
       {children}
@@ -26,6 +26,8 @@ export function TileGrid({ children }: TileGridProps) {
 }
 
 export interface TileProps {
+  /** Project / entity mark (logo or monogram) shown before the title. */
+  logo?: ReactNode;
   /** Leading state glyph (a `StateDot`). */
   lead?: ReactNode;
   title: string;
@@ -41,6 +43,7 @@ export interface TileProps {
 
 /** One tile: dot + title, mono sub line. A button when clickable. */
 export function Tile({
+  logo,
   lead,
   title,
   sub,
@@ -54,7 +57,7 @@ export function Tile({
     <Tag
       aria-pressed={onClick ? selected : undefined}
       className={cn(
-        "flex w-full min-w-0 flex-col gap-[3px] rounded-[9px] border border-solid px-[12px] py-[10px] text-left",
+        "flex min-w-[140px] flex-auto flex-col gap-[3px] whitespace-nowrap rounded-[9px] border border-solid px-[12px] py-[10px] text-left",
         alert
           ? "border-[color-mix(in_srgb,var(--color-state-err)_32%,transparent)] bg-[color-mix(in_srgb,var(--color-state-err)_7%,transparent)]"
           : "border-line bg-ink/[0.025] hover:border-line-2",
@@ -67,16 +70,15 @@ export function Tile({
       onClick={onClick}
       type={onClick ? "button" : undefined}
     >
-      <span className="flex min-w-0 items-center gap-[7px] text-body font-medium text-ink">
-        {lead ? <span className="flex flex-none">{lead}</span> : null}
-        <span className="min-w-0 truncate" data-testid={TileGridTestId.Title} title={title}>
-          {title}
-        </span>
+      <span className="flex items-center gap-[8px] text-body font-medium text-ink">
+        {logo ? <span className="flex flex-none">{logo}</span> : null}
+        <span data-testid={TileGridTestId.Title}>{title}</span>
+        {lead ? <span className="ml-auto flex flex-none pl-[6px]">{lead}</span> : null}
       </span>
       {sub ? (
         <span
           className={cn(
-            "block truncate pl-[14px] font-mono text-[11px] leading-[16px]",
+            "block font-mono text-[11px] leading-[16px]",
             alert ? "text-[var(--color-state-err)]" : "text-ink-3",
           )}
           data-testid={TileGridTestId.Sub}

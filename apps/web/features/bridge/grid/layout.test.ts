@@ -5,6 +5,7 @@ import {
   compact,
   dragMove,
   dragResize,
+  freeSlot,
   fromArr,
   phoneOrder,
   removeWidget,
@@ -136,6 +137,14 @@ describe("add/remove/view", () => {
   it("addWidget places 4x6 at first free spot", () => {
     const l = addWidget(fromArr([["issues", 0, 0, 4, 5]]), "runs");
     expect(get(l, "runs")).toMatchObject({ x: 0, y: 5, w: 4, h: 6 });
+  });
+  it("addWidget at a spot keeps the widget there; freeSlot sizes the free rectangle", () => {
+    const base = fromArr([["issues", 0, 0, 4, 5]]);
+    expect(get(addWidget(base, "runs", { x: 6, y: 3 }), "runs")).toMatchObject({ x: 6, y: 3 });
+    expect(freeSlot(base, 1, 1)).toBeNull();
+    expect(freeSlot(base, 4, 0)).toEqual({ x: 4, y: 0, w: 4, h: 6 });
+    expect(freeSlot(base, 0, 5)).toEqual({ x: 0, y: 5, w: 4, h: 6 });
+    expect(freeSlot(base, 11, 0)).toEqual({ x: 11, y: 0, w: 1, h: 6 });
   });
   it("addWidget brings the new widget inside its species limits", () => {
     expect(get(addWidget([], "briefing"), "briefing")).toMatchObject({ w: 6, h: 4 });

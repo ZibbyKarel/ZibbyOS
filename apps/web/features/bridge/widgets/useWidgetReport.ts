@@ -19,13 +19,26 @@ interface Report {
   refreshing?: boolean;
   /** The fetch failed — an error state is shown, so the widget must not collapse as empty. */
   failed?: boolean;
+  /** Something is red — the frame gets a rose border. */
+  alert?: boolean;
   /** A filter pick is applied — the header filters button shows its marker. */
   filtersActive?: boolean;
 }
 
 /** Feeds the frame: emptiness (never while loading) and the count / you / urgency / aside header info. */
 export function useWidgetReport(
-  { loading, count, you, urgency, aside, onRefresh, refreshing, failed, filtersActive }: Report,
+  {
+    loading,
+    count,
+    you,
+    urgency,
+    aside,
+    onRefresh,
+    refreshing,
+    failed,
+    filtersActive,
+    alert,
+  }: Report,
   { onEmptyChange, onCountChange }: Pick<BridgeWidgetProps, "onEmptyChange" | "onCountChange">,
 ) {
   const empty = !loading && !count && !failed;
@@ -41,7 +54,19 @@ export function useWidgetReport(
         onRefresh,
         refreshing,
         filtersActive,
+        alert,
       }),
-    [count, you, urgency, loading, aside, onRefresh, refreshing, filtersActive, onCountChange],
+    [
+      count,
+      you,
+      urgency,
+      loading,
+      aside,
+      onRefresh,
+      refreshing,
+      filtersActive,
+      alert,
+      onCountChange,
+    ],
   );
 }

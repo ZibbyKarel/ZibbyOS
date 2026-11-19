@@ -23,6 +23,17 @@ describe("TileGrid", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it("shows the logo and the whole title (never truncated)", () => {
+    render(
+      <Tile
+        logo={<i data-testid="logo" />}
+        title="a-very-long-project-name-that-must-stay-whole"
+      />,
+    );
+    expect(screen.getByTestId("logo")).toBeInTheDocument();
+    expect(screen.getByTestId(TileGridTestId.Title)).not.toHaveClass("truncate");
+  });
+
   it("is static without onClick and has no alert by default", () => {
     render(<Tile title="x" />);
     const tile = screen.getByTestId(TileGridTestId.Tile);

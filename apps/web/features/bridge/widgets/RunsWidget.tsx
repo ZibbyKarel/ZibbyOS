@@ -84,7 +84,7 @@ export function dedupeRuns(
  * `NN% · elapsed` while running), or one idle line with "next in …" (the soonest scheduled run).
  * "Parked": runs waiting for the operator (approval, question, parked) as amber blocks with the
  * gate's ask and its actions inline (hold to approve / reject for an approval, Detail always).
- * "Queued": runs waiting to start (queued / scheduled / held — they open the task sheet).
+ * "Queued": runs waiting to start (queued / scheduled / held — they open the same run sheet, just with nothing running yet).
  * "Finished": the last 10. Every other row opens the run sheet. Sections collapse locally.
  */
 export function RunsWidget({
@@ -139,16 +139,11 @@ export function RunsWidget({
   }, [widget.id, live, phasesByWorkflow, approvals]);
   const queued = useMemo(() => {
     const waiting = live.filter((r) => WAITING_STATES.has(r.status));
-    return runRows(widget.id, waiting).map((r, i) => {
-      const run = waiting[i];
-      return {
-        ...r,
-        // Scheduled runs open by their own id (the task), the rest by task id.
-        taskId: (run?.kind === "scheduled" ? r.runId : r.id) ?? null,
-        when:
-          r.status === "scheduled" ? clockTime(r.startedAt, locale) : compactAgo(r.startedAt, now),
-      };
-    });
+    return runRows(widget.id, waiting).map((r) => ({
+      ...r,
+      when:
+        r.status === "scheduled" ? clockTime(r.startedAt, locale) : compactAgo(r.startedAt, now),
+    }));
   }, [widget.id, live, locale, now]);
   const finished = useMemo(() => {
     const runs = archived.slice(0, FINISHED_LIMIT);
@@ -293,19 +288,8 @@ export function RunsWidget({
           {queued.map((r) => (
             <StatusRailItem
               key={r.key}
-              onClick={
-                r.taskId === null
-                  ? undefined
-                  : () =>
-                      onOpen({
-                        kind: "task",
-                        id: r.taskId as string,
-                        widgetId: widget.id,
-                        key: r.key,
-                        href: `/work/tasks/${r.taskId}`,
-                      })
-              }
-              rowKey={r.taskId === null ? undefined : r.key}
+              onClick={open(r)}
+              rowKey={r.key}
               selected={selection?.key === r.key}
               sub={
                 <>

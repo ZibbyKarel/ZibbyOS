@@ -40,7 +40,6 @@ export function BridgeScreen() {
       <BridgeHeader
         compact={phone}
         layouts={state.layouts}
-        onAddWidget={state.add}
         onManage={() => setManageOpen(true)}
         onPreset={state.applyPreset}
         preset={state.preset}

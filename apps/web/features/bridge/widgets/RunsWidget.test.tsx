@@ -106,18 +106,18 @@ describe("RunsWidget", () => {
       expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 5 }));
     });
 
-    it("a queued row opens its task (scheduled: its own id)", async () => {
+    it("a queued row opens the standard run detail", async () => {
       renderWithProviders(<RunsWidget {...props} />);
       const row = screen
         .getAllByTestId(StatusRailTestId.Item)
         .find((r) => r.getAttribute("data-rk") === key("s"));
       await userEvent.click(row as HTMLElement);
       expect(props.onOpen).toHaveBeenLastCalledWith({
-        kind: "task",
+        kind: "run",
         id: "s",
         widgetId: widget.id,
         key: key("s"),
-        href: "/work/tasks/s",
+        href: "/activity/runs/s",
       });
     });
   });
