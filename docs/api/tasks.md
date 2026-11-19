@@ -159,14 +159,14 @@ ZIBBY read — the only sha the runner pushes; no report / no worktree / no new 
 only. An interrupted run with `state === "running"` gets an error outcome; a finished run whose
 `prFixCi` awaits approval reads `awaiting-approval` in the run list. A heartbeat-started fix
 ("Automatická oprava CI mých PRs") also carries `auto: true` (never pushed by the click rule —
-only Autopilot `full` pushes it onto the operator's own PR) and `triageTaskId`.
+only an `auto` Oprava CI level (`autoFixCi`) pushes it onto the operator's own PR) and `triageTaskId`.
 
 **`prCiTriage`** ("CI triage") is stamped by `InboxCiTriageService.start` on a `pr-ci-triage`
 task (`repo, number, url, head, headSha, failingChecks, ciCompletedAt, state: "running"`).
 `TaskOutputService.parkPrCiTriage` reads `zibby-pr-ci-triage.md` and writes `triaged` +
 `verdict` (`flaky | infra | code | unclear`) + `report`, or `failed` when there is no verdict.
 The PR heartbeat then moves it to `rerun` (failed jobs re-run; `awaiting-approval` → a
-`pr-ci-rerun` approval while Autopilot is off, `discarded` on reject), `fix-started`
+`pr-ci-rerun` approval unless `autoFixCi` is `auto`, `discarded` on reject), `fix-started`
 (`fixTaskId` of the `pr-fix-ci` task) or `parked` (gave up, `note`). An interrupted run with
 `state === "running"` gets an error outcome.
 

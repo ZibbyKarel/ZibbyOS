@@ -200,7 +200,14 @@ describe("CI services on a GitLab project", () => {
       storage,
       { register: vi.fn(), requestApproval } as never,
       { dropPrsCache } as never,
-      { isOn: () => autopilotOn } as never,
+      {
+        scopeAnywhere: () => ({
+          reviews: false,
+          comments: false,
+          communication: false,
+          ci: autopilotOn,
+        }),
+      } as never,
       { record } as never,
       undefined,
       noGithub,

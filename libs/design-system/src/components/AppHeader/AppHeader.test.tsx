@@ -119,16 +119,6 @@ describe("AppHeader", () => {
     }
   });
 
-  it("turns the bottom border amber with autopilotActive", () => {
-    const { rerender } = render(<AppHeader />);
-    const root = screen.getByTestId(AppHeaderTestId.Root);
-    expect(root).not.toHaveAttribute("data-autopilot");
-    expect(root.className).toContain("border-line");
-    rerender(<AppHeader autopilotActive />);
-    expect(root).toHaveAttribute("data-autopilot", "true");
-    expect(root.className).toContain("border-accent/50");
-  });
-
   it("keeps the layout when onSearchClick is omitted", () => {
     render(<AppHeader nav={<nav>Section nav</nav>} />);
     expect(screen.queryByTestId(AppHeaderTestId.Search)).toBeNull();

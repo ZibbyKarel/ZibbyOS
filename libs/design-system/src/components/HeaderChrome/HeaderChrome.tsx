@@ -161,8 +161,6 @@ export function HeaderStatus({
 // ---------------------------------------------------------------------------
 
 export interface HeaderModeGroupProps {
-  /** Autopilot is on: the group border turns amber. */
-  active?: boolean;
   /** Accessible name of the group (e.g. "Operating mode"). */
   ariaLabel: string;
   /** One or more `HeaderModeButton`s. */
@@ -171,20 +169,11 @@ export interface HeaderModeGroupProps {
 }
 
 /** `.tc-mode` - a segmented 30px group of mode buttons. */
-export function HeaderModeGroup({
-  active = false,
-  ariaLabel,
-  children,
-  ref,
-}: HeaderModeGroupProps) {
+export function HeaderModeGroup({ ariaLabel, children, ref }: HeaderModeGroupProps) {
   return (
     <div
       aria-label={ariaLabel}
-      className={cn(
-        "group inline-flex h-[30px] items-stretch rounded-lg border",
-        active ? "border-accent/60" : "border-line-2",
-      )}
-      data-active={active || undefined}
+      className="inline-flex h-[30px] items-stretch rounded-lg border border-line-2"
       data-testid={HeaderChromeTestId.ModeGroup}
       ref={ref}
       role="group"
@@ -205,7 +194,7 @@ export interface HeaderModeButtonProps extends ButtonProps {
   leading?: ReactNode;
   /** Trailing content (e.g. a small chevron). */
   trailing?: ReactNode;
-  /** Pressed state; in an `active` group it is the amber one. */
+  /** Pressed state. */
   pressed?: boolean;
   ref?: Ref<HTMLButtonElement>;
 }
@@ -227,9 +216,7 @@ export function HeaderModeButton({
         "inline-flex cursor-pointer items-center gap-1.5 px-[9px] font-sans text-[12px] font-medium whitespace-nowrap text-ink-2",
         "transition-colors hover:bg-panel-2 hover:text-ink motion-reduce:transition-none",
         "rounded-none first:rounded-l-[7px] last:rounded-r-[7px]",
-        "border-l border-line-2 first:border-l-0 group-data-[active]:border-accent/40",
-        pressed &&
-          "group-data-[active]:bg-accent/18 group-data-[active]:font-semibold group-data-[active]:text-accent-fg",
+        "border-l border-line-2 first:border-l-0",
         focusRing,
       )}
       data-testid={HeaderChromeTestId.ModeButton}

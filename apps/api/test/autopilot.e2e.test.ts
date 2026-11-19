@@ -9,6 +9,16 @@ import { AppModule } from "../src/app.module";
 import { GateEvaluatorService } from "../src/gates/gate-evaluator.service";
 import { withOperator } from "./operator-token";
 
+const cells = (over: Record<string, string> = {}) => ({
+  autoReview: "manual",
+  autoAddressComments: "manual",
+  autoImplement: "manual",
+  autoCommunicate: "manual",
+  autoFixCi: "manual",
+  ...over,
+});
+const AUTO_TREE = { global: cells({ autoAddressComments: "auto" }), companies: {}, teams: {} };
+
 describe("Autopilot API (e2e)", () => {
   let app: INestApplication;
   let dir: string;
@@ -33,78 +43,89 @@ describe("Autopilot API (e2e)", () => {
     return gates.evaluate(await gates.rulesForAgent({}), { action: "gh.pr_comment" });
   };
 
-  it("defaults to off with the pending count", async () => {
+  it("defaults to running with nothing on, and the pending count", async () => {
     const res = await request(server()).get("/api/autopilot").expect(200);
-    expect(res.body).toMatchObject({ level: "off" });
+    expect(res.body).toMatchObject({ paused: false });
     expect(typeof res.body.pendingApprovals).toBe("number");
   });
 
-  it("turning ON without the operator token is 401 and changes nothing", async () => {
-    await request(server()).put("/api/autopilot").send({ level: "full" }).expect(401);
-    expect((await request(server()).get("/api/autopilot")).body.level).toBe("off");
+  it("raising a cell without the operator token is 401 and changes nothing", async () => {
+    await request(server()).put("/api/autopilot").send({ automation: AUTO_TREE }).expect(401);
+    expect((await request(server()).get("/api/autopilot")).body.automation).toBeUndefined();
     await expect(fs.readFile(path.join(dir, "autopilot.json"), "utf8")).rejects.toThrow();
   });
 
   it("rejects unknown keys with 400/422", async () => {
     const res = await withOperator(request(server()).put("/api/autopilot")).send({
-      level: "full",
+      paused: false,
       extra: 1,
     });
     expect([400, 422]).toContain(res.status);
   });
 
-  it("ON with the token lifts a covered gate; OFF needs no token and restores it", async () => {
+  it("an auto cell with the token lifts a covered gate; pause needs no token and restores it", async () => {
     expect((await evalComment()).decision).toBe("ask");
 
     const on = await withOperator(request(server()).put("/api/autopilot"))
-      .send({ level: "full" })
+      .send({ automation: AUTO_TREE })
       .expect(200);
-    expect(on.body).toMatchObject({ level: "full", by: "operator" });
+    expect(on.body).toMatchObject({ paused: false, by: "operator" });
     expect(await evalComment()).toMatchObject({ decision: "notify", via: "autopilot" });
     expect(JSON.parse(await fs.readFile(path.join(dir, "autopilot.json"), "utf8"))).toMatchObject({
-      level: "full",
+      paused: false,
     });
 
-    const off = await request(server()).put("/api/autopilot").send({ level: "off" }).expect(200);
-    expect(off.body.level).toBe("off");
+    const off = await request(server()).put("/api/autopilot").send({ paused: true }).expect(200);
+    expect(off.body.paused).toBe(true);
     expect((await evalComment()).decision).toBe("ask");
+  });
+
+  it("resuming needs the operator token", async () => {
+    await request(server()).put("/api/autopilot").send({ paused: false }).expect(401);
+    expect((await request(server()).get("/api/autopilot")).body.paused).toBe(true);
+    await withOperator(request(server()).put("/api/autopilot")).send({ paused: false }).expect(200);
+    expect((await evalComment()).via).toBe("autopilot");
+  });
+
+  it("lowering a cell is open; raising one is not", async () => {
+    const lower = { global: cells({ autoAddressComments: "semi" }), companies: {}, teams: {} };
+    await request(server()).put("/api/autopilot").send({ automation: lower }).expect(200);
+    expect((await evalComment()).decision).toBe("ask");
+    await request(server()).put("/api/autopilot").send({ automation: AUTO_TREE }).expect(401);
+    // A team override that raises is caught too.
+    const team = { ...lower, teams: { devrel: { autoReview: "semi" } } };
+    await request(server()).put("/api/autopilot").send({ automation: team }).expect(401);
   });
 
   it("stores and echoes the automation tree", async () => {
     const automation = {
-      global: {
-        autoImplement: true,
-        autoReview: false,
-        autoAddressComments: false,
-        autoCommunicate: false,
-        autoFixCi: false,
-      },
-      companies: { acme: { autoReview: true } },
+      global: cells({ autoImplement: "semi" }),
+      companies: { acme: { autoReview: "auto" } },
       teams: {},
     };
     const put = await withOperator(request(server()).put("/api/autopilot"))
-      .send({ level: "full", automation })
+      .send({ automation })
       .expect(200);
     expect(put.body.automation).toEqual(automation);
     expect((await request(server()).get("/api/autopilot").expect(200)).body.automation).toEqual(
       automation,
     );
-    await request(server()).put("/api/autopilot").send({ level: "off" }).expect(200);
+    await request(server()).put("/api/autopilot").send({ paused: true }).expect(200);
   });
 
-  it("a tokenless off request cannot plant or change the automation tree", async () => {
+  it("a tokenless request cannot plant a raised tree, and the stored one stays", async () => {
     const stored = (await request(server()).get("/api/autopilot")).body.automation;
     await request(server())
       .put("/api/autopilot")
       .send({
-        level: "off",
+        paused: true,
         automation: {
-          global: { autoImplement: true, autoReview: true, autoAddressComments: true },
+          global: cells({ autoImplement: "auto", autoReview: "auto", autoAddressComments: "auto" }),
           companies: {},
           teams: {},
         },
       })
-      .expect(200);
+      .expect(401);
     expect((await request(server()).get("/api/autopilot")).body.automation).toEqual(stored);
   });
 });

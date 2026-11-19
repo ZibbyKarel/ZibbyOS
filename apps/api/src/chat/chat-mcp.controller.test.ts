@@ -188,8 +188,8 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
     await client.close();
   });
 
-  it("Phase 4: autopilot_off switches it off as `chat`; there is no on tool", async () => {
-    autopilotSet.mockResolvedValue({ level: "off", pendingApprovals: 2 });
+  it("Phase 4: autopilot_off pauses ZIBBY as `chat`; there is no on tool", async () => {
+    autopilotSet.mockResolvedValue({ paused: true, pendingApprovals: 2 });
     const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/api/chat/mcp`), {
       requestInit: { headers: { Authorization: `Bearer ${auth.bearerToken}` } },
     });
@@ -202,7 +202,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
     const result = await client.callTool({ name: "autopilot_off", arguments: {} });
     const content = (result as { content: Array<{ type: "text"; text: string }> }).content;
     expect(content[0]?.text).toContain("2");
-    expect(autopilotSet).toHaveBeenCalledWith("off", "chat");
+    expect(autopilotSet).toHaveBeenCalledWith({ paused: true }, "chat");
     await client.close();
   });
 

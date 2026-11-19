@@ -30,16 +30,16 @@ describe("MobileToolbar", () => {
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("shows the autopilot band with its action only when a banner is given", () => {
+  it("shows the status band with its action only when a banner is given", () => {
     const { rerender } = render(<MobileToolbar title="x" />);
     expect(screen.queryByTestId(MobileToolbarTestId.Banner)).toBeNull();
-    rerender(<MobileToolbar banner="Autopilot on" bannerAction={<a href="/x">Change</a>} />);
-    expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Autopilot on");
-    expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Change");
+    rerender(<MobileToolbar banner="Paused" bannerAction={<a href="/x">Resume</a>} />);
+    expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Paused");
+    expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Resume");
   });
 
   it("omits the banner action without bannerAction", () => {
-    render(<MobileToolbar banner="Autopilot on" />);
+    render(<MobileToolbar banner="Paused" />);
     expect(screen.queryByTestId(MobileToolbarTestId.BannerAction)).toBeNull();
   });
 });

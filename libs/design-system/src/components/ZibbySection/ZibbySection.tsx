@@ -7,41 +7,39 @@ export enum ZibbySectionTestId {
   Root = "zibby-section-root",
   OrbButton = "zibby-section-orb-button",
   OrbSlot = "zibby-section-orb-slot",
-  ModeButton = "zibby-section-mode-button",
-  Glyph = "zibby-section-glyph",
+  StatusButton = "zibby-section-status-button",
 }
 
-/** Zibby's operating mode: `manual` muted, `semi` violet, `auto` amber. */
-export type ZibbyMode = "manual" | "semi" | "auto";
+/** Whether Zibby runs: `run` violet, `paused` muted. */
+export type ZibbyStatus = "run" | "paused";
 
-const sectionTone: Record<ZibbyMode, string> = {
-  manual: "border-line-2 bg-ink/[0.04] text-ink-3",
-  semi: "border-state-work/55 bg-state-work/[0.12] text-state-work",
-  auto: "border-accent/70 bg-accent/15 text-accent-fg",
+const sectionTone: Record<ZibbyStatus, string> = {
+  paused: "border-line-2 bg-ink/[0.04] text-ink-3",
+  run: "border-state-work/55 bg-state-work/[0.12] text-state-work",
 };
 
 export interface ZibbySectionProps {
-  mode: ZibbyMode;
+  status: ZibbyStatus;
   /** Accessible name of the group, e.g. "Zibby". */
   ariaLabel: string;
-  /** A `ZibbySectionOrbButton` and the mode button (optionally wrapped in a popover anchor). */
+  /** A `ZibbySectionOrbButton` and the status button (optionally wrapped in a popover anchor). */
   children: ReactNode;
   ref?: Ref<HTMLDivElement>;
 }
 
 /**
- * The header's Zibby section: a 32px pill split into the orb button and the mode button, tinted
- * by the mode (muted / violet / amber). The two buttons inherit its colour.
+ * The header's Zibby section: a 32px pill split into the orb button and the status button, tinted
+ * by the status (violet running / muted paused). The two buttons inherit its colour.
  */
-export function ZibbySection({ mode, ariaLabel, children, ref }: ZibbySectionProps) {
+export function ZibbySection({ status, ariaLabel, children, ref }: ZibbySectionProps) {
   return (
     <div
       aria-label={ariaLabel}
       className={cn(
         "inline-flex h-8 items-stretch rounded-full border transition-colors motion-reduce:transition-none [&>span]:flex",
-        sectionTone[mode],
+        sectionTone[status],
       )}
-      data-mode={mode}
+      data-status={status}
       data-testid={ZibbySectionTestId.Root}
       ref={ref}
       role="group"
@@ -85,33 +83,15 @@ export function ZibbySectionOrbButton({ orb, children, ref, ...rest }: ZibbySect
   );
 }
 
-export interface ZibbySectionModeButtonProps extends ButtonProps {
-  mode: ZibbyMode;
-  /** The mode's name, e.g. "Poloautomat". */
+export interface ZibbySectionStatusButtonProps extends ButtonProps {
+  /** The status text, e.g. "Běží" (the status never relies on colour alone). */
   label: string;
   /** Accessible name (required). */
   "aria-label": string;
   ref?: Ref<HTMLButtonElement>;
 }
 
-/** Mode glyph: hollow ring (manual), half-filled (semi), solid and pulsing (auto). */
-function Glyph({ mode }: { mode: ZibbyMode }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "size-2 shrink-0 rounded-full",
-        mode === "manual" && "border-[1.5px] border-current",
-        mode === "semi" &&
-          "border-[1.5px] border-current bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)]",
-        mode === "auto" && "zb-header-pulse bg-current",
-      )}
-      data-testid={ZibbySectionTestId.Glyph}
-    />
-  );
-}
-
-export function ZibbySectionModeButton({ mode, label, ref, ...rest }: ZibbySectionModeButtonProps) {
+export function ZibbySectionStatusButton({ label, ref, ...rest }: ZibbySectionStatusButtonProps) {
   return (
     <button
       className={cn(
@@ -120,12 +100,11 @@ export function ZibbySectionModeButton({ mode, label, ref, ...rest }: ZibbySecti
         "transition-colors hover:bg-current/10 aria-expanded:bg-current/10 motion-reduce:transition-none",
         focusRing,
       )}
-      data-testid={ZibbySectionTestId.ModeButton}
+      data-testid={ZibbySectionTestId.StatusButton}
       ref={ref}
       type="button"
       {...rest}
     >
-      <Glyph mode={mode} />
       {label}
       <Icon name="chevron" size="xs" stroke="medium" />
     </button>

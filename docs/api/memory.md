@@ -128,8 +128,15 @@ GET /api/memory/graph
 
 Returns `{ nodes, edges: { from, to }[] }` for a force-directed
 visualization. A node carries `raw: true` when the note is still unsorted (its
-frontmatter has `raw: true`, the "halda" the nightly triage categorises); the Brain
-screen counts these in its "Neroztříděné" filter.
+note lives in `_raw/` or has `raw: true` frontmatter, the "halda" the nightly triage
+categorises); the Brain screen counts these in its "Neroztříděné" filter.
+
+Unsorted notes are physically stored in `<vault>/_raw/<id>.md` (any note created with
+`raw: true`, including the tier-less quick capture). A non-`knowledge` intended tier is
+kept in a helper `tier:` frontmatter key. The triage sweep reads only `_raw/`
+(`rawNotes()`, backlinks empty). Patching a `_raw/` note with `raw: false` moves it to
+its tier dir (409-style duplicate error if the target file exists) and drops the helper
+key. Setting `raw: true` on a note elsewhere does not move it.
 
 ### The daily note
 

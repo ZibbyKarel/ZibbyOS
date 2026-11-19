@@ -3,12 +3,12 @@ import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { autopilotContract } from "@zibby/contracts";
 import { hasOperatorToken } from "../approvals/operator-token.guard";
 import { OperatorTokenService } from "../approvals/operator-token.service";
-import { AutopilotService } from "./autopilot.service";
+import { AutopilotService, automationRaises } from "./autopilot.service";
 
 /**
- * Implements `autopilotContract`. Not behind `OperatorTokenGuard` as a whole: only
- * turning autopilot ON needs the operator token; OFF only tightens, so it is open
- * (the chat's `autopilot_off` tool takes the same path in-process).
+ * Implements `autopilotContract`. Not behind `OperatorTokenGuard` as a whole: only resuming
+ * and raising a level need the operator token; pausing and lowering only tighten, so they are
+ * open (the chat's `autopilot_off` tool pauses in-process).
  */
 @Controller()
 export class AutopilotController {
@@ -22,20 +22,21 @@ export class AutopilotController {
     return tsRestHandler(autopilotContract, {
       getAutopilot: async () => ({ status: 200, body: await this.autopilot.status() }),
 
-      setAutopilot: async ({ body: { level, automation }, headers }) => {
+      setAutopilot: async ({ body: { paused, automation }, headers }) => {
         const operator = hasOperatorToken(this.tokens, headers);
-        if (level === "full" && !operator) {
+        // Pausing and lowering only tighten, so they are open (the chat's `autopilot_off` too).
+        // Resuming and raising any cell (manual < semi < auto) need the operator token (Law 3).
+        const resumes = paused === false && this.autopilot.isPaused();
+        const raises = !!automation && automationRaises(this.autopilot.automation(), automation);
+        if ((resumes || raises) && !operator) {
           return {
             status: 401,
-            body: { message: "Turning autopilot on requires the operator token." },
+            body: {
+              message: "Resuming ZIBBY or raising an autonomy level requires the operator token.",
+            },
           };
         }
-        // The toggles start work in both levels, so only the token may change the tree.
-        const tree = operator ? automation : undefined;
-        return {
-          status: 200,
-          body: await this.autopilot.set(level, "operator", tree),
-        };
+        return { status: 200, body: await this.autopilot.set({ paused, automation }, "operator") };
       },
     });
   }

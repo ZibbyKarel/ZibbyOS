@@ -1,17 +1,21 @@
-# Autopilot
+# Autopilot (autonomy levels)
 
-Autopilot is a temporary overlay that the operator switches on. While it is on, a short
-allowlist of gate `ask` classes behaves as Tier 2: ZIBBY acts first and reports afterwards.
-Never-rules and merge are not affected. Only the operator token can turn autopilot on.
-Anyone in the operator chat can turn it off.
+ZIBBY's autonomy is a table: one level per capability, per company and team.
+
+- `manual` — ZIBBY doesn't do it; the operator handles it.
+- `semi` (Poloautomat) — ZIBBY picks the work up and prepares it; the outcome waits for the
+  operator's approval.
+- `auto` (Automat) — ZIBBY also approves its own outcome and reports it (Tier 2). A short
+  allowlist of gate `ask` classes is lifted for it; never-rules and merge are not affected.
+
+Over the table sits one switch, **paused**: while paused nothing new starts and nothing is sent.
+Pending approvals and unfinished work wait. Resuming, and raising any cell (manual < semi <
+auto), needs the operator token. Pausing and lowering never do, so the operator chat can pause.
 
 Code: `apps/api/src/autopilot/`. Contract: `libs/contracts/src/autopilot/`.
-Web: the Autopilot icon toggle in the top bar, on every page. Its dialog holds the toggles per
-company and team, and the mode on top (`Schvalovat` = `off`, `AUTOPILOT` = `full`) switches only
-the approval gates: the toggles start the work in both modes, `off` makes the outcome wait for
-approval, `full` sends it and only reports it. The `?` in the header explains each toggle.
-In `Schvalovat` the page also pops a system notification for every new approval
-(`ApprovalNotifier`, on the `approval-requested` activity event); under `AUTOPILOT` it stays quiet.
+Web: the header's Zibby section shows `Běží` / `Pozastaveno` and opens a menu with the pause
+switch; the table lives at `/governance/autonomy` (tab „Úrovně autonomie“). `ApprovalNotifier`
+pops a system notification for every new approval (`approval-requested` activity event).
 
 ## State
 
@@ -19,76 +23,74 @@ In `Schvalovat` the page also pops a system notification for every new approval
 
 ```json
 {
-  "level": "full",
-  "since": "2026-10-29T12:00:00.000Z",
+  "paused": false,
+  "since": "2026-11-19T12:00:00.000Z",
   "by": "operator",
   "automation": {
     "global": {
-      "autoReview": true,
-      "autoAddressComments": true,
-      "autoImplement": false,
-      "autoCommunicate": false,
-      "autoFixCi": false
+      "autoReview": "auto",
+      "autoAddressComments": "auto",
+      "autoImplement": "semi",
+      "autoCommunicate": "semi",
+      "autoFixCi": "manual"
     },
-    "companies": { "acme": { "autoCommunicate": true } },
-    "teams": { "frontend": { "autoReview": false } }
+    "companies": { "acme": { "autoCommunicate": "auto" } },
+    "teams": { "frontend": { "autoReview": "manual" } }
   }
 }
 ```
 
-`level` is `off` or `full`, and `by` is `operator` or `chat`. A missing or malformed file
-counts as `off`.
+`by` is `operator` or `chat`. A missing or malformed file counts as not paused with every cell
+`manual`. A pre-redesign file (`level: off|full` with boolean toggles) is migrated on read
+(`migrateLegacyAutopilotState`): `false` -> `manual`; `true` -> `auto` when the level was
+`full`, else `semi`; a tree without `autoCommunicate` takes it from the stored
+`scope.communication`. A legacy state without a tree starts nothing. The file is rewritten in
+the new shape on the next change.
 
-## The five toggles
+## The five capabilities
 
-`automation` is one Global -> Company -> Team tree of five toggles. Each toggle starts the work
-in both levels, and while `full` also lets the gate overlay act on its outcome:
-
-| Toggle                | Starts                                                               | Gate class (`scope`) it lifts                                                            |
+| Key                   | `semi` or `auto` starts                                              | `auto` lifts (gate class)                                                                |
 | --------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `autoReview`          | PR-inbox code reviews (`PrAutomationService`)                        | `reviews`: `pr-review` and the pr-review `workflow-gate` sign-off                        |
 | `autoAddressComments` | addressing review comments (`PrAutomationService`)                   | `comments`: `pr-address-comments` (fix push, thread replies), and a hook `gh.pr_comment` |
-| `autoImplement`       | roadmap pickup (roadmap tick)                                        | none                                                                                     |
+| `autoImplement`       | roadmap pickup (roadmap tick)                                        | none (opening a PR is Tier 2 anyway)                                                     |
 | `autoCommunicate`     | none (channel items arrive on their own)                             | `communication`: `channel` replies (GitHub, GitLab, Jira, Slack, …)                      |
-| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`) | none; a CI rerun under `off` parks as a `pr-ci-rerun` approval (`github.actions.rerun`)  |
+| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`) | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
 
-`companies` / `teams` are keyed by id and hold only the toggles the node overrides. Precedence is
-team > company > global (`resolveAutopilotAutomation`; `AutopilotService.automationFor`). The
-gate class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`): a
+`companies` / `teams` are keyed by id and hold only the cells the node overrides. Precedence is
+team > company > global (`resolveAutopilotLevels`; `resolveAutopilotAutomation` /
+`AutopilotService.automationFor` turn it into "starts" flags, all false while paused). The gate
+class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`): a
 `channel` reply resolves at the item's project's company, or the integration's company.
 `Project.teamId` never picks the team level: several teams work in one project. Only the PR
-automation applies team toggles, at the PR's own teams (`docs/api/inbox.md`); the roadmap tick
+automation applies team cells, at the PR's own teams (`docs/api/inbox.md`); the roadmap tick
 and channel replies resolve at company > global. A review or address-comments task the PR
 automation starts is stamped with the places it resolved at (`prReview.autopilotAt` /
 `prAddressComments.autopilotAt`: one `{ companyId, teamId }` per team of the PR, or just the
 company). Its approvals, the pr-review workflow sign-off and the gate check behind them
-(`AutopilotContext.at`) resolve there, covered when any of the places has the toggle on. Other
+(`AutopilotContext.at`) resolve there, covered when any of the places is `auto`. Other
 approvals from tasks and workflow gates (a review the operator started, say) resolve at global.
-The web dialog no longer edits `global`: it always saves it all-off, so autonomy is set per
-company and team only. While autopilot is `off`
-the toggles still start the work, but every gate asks as normal.
-Autopilot may stay on indefinitely.
+A flaky-CI rerun carries no place, so `auto` CI anywhere covers it (`scopeAnywhere`).
 
-Pushes are not a toggle: a `pr-fix-ci` push and a hook `git.push` onto `zibby/*` are covered
-whenever autopilot is on. Legacy states: a `scope` stored without a tree still decides the gate
-(none at all = everything); a tree written before `autoCommunicate` takes it from the stored
-`scope.communication`. The file is read once at boot and cached, because the gate evaluator is
-synchronous. Use the API to switch the level: a hand edit only takes effect after a restart.
+A hook `git.push` onto `zibby/*` is covered while the overlay is on at all (`isOn()`: not paused
+and some cell anywhere is `auto`). The file is read once at boot and cached, because the gate
+evaluator is synchronous. Use the API to change it: a hand edit only takes effect after a restart.
 
 ## Endpoints
 
-| Route                | Auth                      | Notes                                                                                                                                     |
-| -------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/autopilot` | none                      | The state plus `pendingApprovals` (the count waiting now)                                                                                 |
-| `PUT /api/autopilot` | operator token for `full` | `{ level, automation? }`. `full` without the token returns `401`; `off` is always allowed, but `automation` is only stored with the token |
+| Route                | Auth                                     | Notes                                                            |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
+| `GET /api/autopilot` | none                                     | The state plus `pendingApprovals` (the count waiting now)        |
+| `PUT /api/autopilot` | operator token to resume or raise a cell | `{ paused?, automation? }`; omitted fields keep the stored value |
 
-Setting the same level and automation tree again is a no-op (the file isn't written). `PUT`
-with `automation` omitted keeps the stored tree. Slack notifications are only sent while
-Autopilot is on; switching on or off is never pushed to Slack. The per-project `_config.json`
-toggles and `Company.roadmapDefaults` are deprecated and no longer read.
+`automationRaises(prev, next)` compares every cell at every node (teams under every known
+company) and asks for the token when any rises; pausing and lowering return `200` without it.
+Setting the same state again is a no-op (the file isn't written). Slack notifications are only
+sent while the overlay is on; changing the table is never pushed to Slack. The per-project
+`_config.json` toggles and `Company.roadmapDefaults` are deprecated and no longer read.
 
-The chat MCP tool `autopilot_off` calls the same service with `by: "chat"`. There is no tool
-that turns it on. The self-API also denies the `autopilot` router, so `api_call` can't reach
+The chat MCP tool `autopilot_off` pauses ZIBBY (`by: "chat"`). There is no tool that resumes it
+or raises a level. The self-API also denies the `autopilot` router, so `api_call` can't reach
 it either.
 
 ## What it covers
@@ -170,11 +172,11 @@ graduations, and so on.
 
 ## Guarantees
 
-- **Overlay only.** Stored gate rules are never modified, and turning autopilot off restores
-  the exact previous evaluation (`gate-evaluator.autopilot.test.ts`).
+- **Overlay only.** Stored gate rules are never modified, and pausing (or lowering a cell from
+  `auto`) restores the exact previous evaluation (`gate-evaluator.autopilot.test.ts`).
 - **Never-rules hold.** A `deny` stays `deny`, and every non-covered `ask` stays `ask` (same test).
 - **Pending stays pending.** Only park sites that raise a new approval call `approve`.
-  Approvals already waiting when autopilot is switched on are left alone, and the switch
+  Approvals already waiting when a cell is raised to `auto` are left alone, and the change
   notice reports how many there are.
 - **Comms graduation isn't fed.** A channel reply that autopilot sends is not recorded as an
   operator decision in the graduation ledger.
@@ -184,9 +186,9 @@ graduations, and so on.
 - Every action the overlay lets through records an `autopilot-action` activity entry. Gate
   hits record the action, branch and rule. Approvals record `decidedBy: "autopilot"` on the
   record and the approval id.
-- Switching it on or off records `autopilot-changed`. The summary includes the pending count
-  when it is turned on.
+- Every change (pause, resume, levels) records `autopilot-changed`. The summary names the
+  classes now on `auto` and the pending count.
 - Only `autopilot-action` maps to the operator-channel event `autopilot-action` (Tier 2, on by
-  default, toggled in `notify.events`). The on/off switch (`autopilot-changed`) stays in the
+  default, toggled in `notify.events`). A change of the table (`autopilot-changed`) stays in the
   activity log and is not pushed to Slack. An approval that autopilot decided does not also send an
   `approval-waiting` ping.

@@ -61,6 +61,8 @@ export class SimilarNoteError extends Error {
 
 const WIKILINK = /\[\[([^\]]+)\]\]/g;
 const TIERS: MemoryTier[] = ["memory", "daily", "knowledge"];
+/** Vault-root folder holding unsorted ("halda") notes until triage resolves them. */
+const RAW_DIR = "_raw";
 
 /**
  * Dedupe heuristic threshold (Fáze 3) — a candidate scoring at/above this against
@@ -316,7 +318,9 @@ export class VaultService implements OnModuleInit {
         ...(project ? { project } : {}),
         ...(department ? { department } : {}),
         ...(domain ? { domain } : {}),
-        ...(typedFieldsOf(n.frontmatter).raw === true ? { raw: true } : {}),
+        ...(typedFieldsOf(n.frontmatter).raw === true || n.path.startsWith(`${RAW_DIR}${path.sep}`)
+          ? { raw: true }
+          : {}),
       };
     });
     const edges: MemoryGraph["edges"] = [];
@@ -329,28 +333,24 @@ export class VaultService implements OnModuleInit {
   }
 
   /**
-   * All notes flagged `raw: true` — the nightly triage sweep's candidate pool
-   * (Fáze 107). Shaped exactly like {@link note} (backlinks computed the same
-   * way, body included). Reuses the 5s scan cache — no new I/O.
+   * Unsorted notes — the nightly triage sweep's candidate pool (Fáze 107). Reads
+   * ONLY the `_raw/` folder (no full-vault walk). Shaped like {@link note}, but
+   * `backlinks` is always empty (the sweep doesn't use it and computing it would
+   * need the full scan).
    */
   async rawNotes(): Promise<Note[]> {
-    const notes = await this.scan();
-    return notes
-      .filter((n) => typedFieldsOf(n.frontmatter).raw === true)
-      .map((found) => {
-        const backlinks = notes.filter((n) => n.links.includes(found.id)).map((n) => n.id);
-        return {
-          id: found.id,
-          path: found.path,
-          tier: found.tier,
-          title: found.title,
-          frontmatter: found.frontmatter,
-          links: found.links,
-          backlinks,
-          body: found.body,
-          ...typedFieldsOf(found.frontmatter),
-        };
-      });
+    const notes = await this.scanDir(path.join(this.dir, RAW_DIR));
+    return notes.map((found) => ({
+      id: found.id,
+      path: found.path,
+      tier: found.tier,
+      title: found.title,
+      frontmatter: found.frontmatter,
+      links: found.links,
+      backlinks: [],
+      body: found.body,
+      ...typedFieldsOf(found.frontmatter),
+    }));
   }
 
   async search(q: string): Promise<SearchHit[]> {
@@ -420,6 +420,12 @@ export class VaultService implements OnModuleInit {
     return file;
   }
 
+  private resolveRawFile(id: string): string {
+    const file = resolveSafeFile(path.join(this.dir, RAW_DIR), id, ".md", NOTE_ID);
+    if (file === null) throw new InvalidNoteIdError(id);
+    return file;
+  }
+
   /**
    * Create a note in `tier`. Ids are unique across the *whole* vault, so a
    * collision in any tier is a 409 — a per-dir check would shadow notes that
@@ -437,7 +443,9 @@ export class VaultService implements OnModuleInit {
   async createNote(input: CreateNoteInput): Promise<Note> {
     const tier: MemoryTier = input.tier ?? "knowledge";
     const raw = input.tier === undefined ? true : input.raw;
-    const file = this.resolveNoteFile(tier, input.id);
+    // Unsorted notes live in `_raw/` until triage; the intended tier rides in frontmatter.
+    const file =
+      raw === true ? this.resolveRawFile(input.id) : this.resolveNoteFile(tier, input.id);
     const existing = (await this.scan()).find((n) => n.id === input.id);
     if (existing) throw new DuplicateNoteError(input.id);
     if (input.dedupe) {
@@ -454,6 +462,7 @@ export class VaultService implements OnModuleInit {
     if (input.type !== undefined) data.type = input.type;
     if (input.tags !== undefined) data.tags = input.tags;
     if (raw !== undefined) data.raw = raw;
+    if (raw === true && tier !== "knowledge") data.tier = tier;
     data.updated = localDate();
     await fs.mkdir(path.dirname(file), { recursive: true });
     await writeFileAtomic(file, matter.stringify(input.body, data));
@@ -515,7 +524,23 @@ export class VaultService implements OnModuleInit {
     if (patch.raw !== undefined) data.raw = patch.raw;
     data.updated = localDate();
     const body = patch.body !== undefined ? patch.body : parsed.content;
-    await writeFileAtomic(abs, matter.stringify(body, data));
+    // Triage (raw:false) of a `_raw/` note moves it to its tier dir. Setting raw:true
+    // on a note elsewhere does not move it.
+    let dest = abs;
+    if (patch.raw === false && found.path.startsWith(`${RAW_DIR}${path.sep}`)) {
+      dest = this.resolveNoteFile(found.tier, id);
+      if (
+        await fs.access(dest).then(
+          () => true,
+          () => false,
+        )
+      )
+        throw new DuplicateNoteError(id);
+      delete data.tier;
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+    }
+    await writeFileAtomic(dest, matter.stringify(body, data));
+    if (dest !== abs) await fs.rm(abs);
     this.cache = null;
     await this.logChange("update", id, found.tier);
     return this.note(id);
@@ -632,8 +657,14 @@ export class VaultService implements OnModuleInit {
   /** Scan the vault for `.md` files, parsed and cached briefly. */
   private async scan(): Promise<RawNote[]> {
     if (this.cache && Date.now() - this.cache.at < VaultService.CACHE_MS) return this.cache.notes;
+    const notes = await this.scanDir(this.dir);
+    this.cache = { at: Date.now(), notes };
+    return notes;
+  }
+
+  private async scanDir(root: string): Promise<RawNote[]> {
     const notes: RawNote[] = [];
-    for (const file of await this.walk(this.dir)) {
+    for (const file of await this.walk(root)) {
       if (isProjectsNonNote(path.relative(this.dir, file))) continue;
       const raw = await fs.readFile(file, "utf8").catch(() => null);
       if (raw === null) continue;
@@ -645,8 +676,8 @@ export class VaultService implements OnModuleInit {
       }
       const rel = path.relative(this.dir, file);
       const id = path.basename(file, ".md");
-      const tier = this.tierOf(rel);
       const data = parsed.data as Record<string, unknown>;
+      const tier = this.tierOf(rel, data);
       const title = typeof data.title === "string" ? data.title : id;
       notes.push({
         id,
@@ -659,12 +690,12 @@ export class VaultService implements OnModuleInit {
         body: parsed.content.trim(),
       });
     }
-    this.cache = { at: Date.now(), notes };
     return notes;
   }
 
-  private tierOf(rel: string): MemoryTier {
+  private tierOf(rel: string, data: Record<string, unknown>): MemoryTier {
     const top = rel.split(path.sep)[0];
+    if (top === RAW_DIR) return TIERS.find((t) => t === data.tier) ?? "knowledge";
     const tier = TIERS.find((t) => t === top);
     // A note at the vault root (e.g. MEMORY.md) is curated memory.
     return tier ?? "memory";

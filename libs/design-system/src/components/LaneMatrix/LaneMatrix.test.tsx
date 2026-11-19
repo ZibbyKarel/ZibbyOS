@@ -6,7 +6,7 @@ import { LaneHead, LaneMatrix, LaneMatrixTestId } from "./LaneMatrix";
 describe("LaneMatrix", () => {
   const columns = [
     { key: "a", header: <LaneHead meaning="Never starts" title="Manual" /> },
-    { key: "b", header: <LaneHead note="Now as Semi" title="Auto" tone="auto" /> },
+    { key: "b", header: <LaneHead title="Auto" tone="auto" /> },
   ];
 
   it("renders column heads, row heads and one cell per column", () => {
@@ -21,7 +21,6 @@ describe("LaneMatrix", () => {
       />,
     );
     expect(screen.getByTestId(`${LaneMatrixTestId.Head}-a`)).toHaveTextContent("Never starts");
-    expect(screen.getByTestId(`${LaneMatrixTestId.LaneNote}`)).toHaveTextContent("Now as Semi");
     expect(screen.getByTestId(`${LaneMatrixTestId.RowHead}-x`)).toHaveTextContent("Acme");
     expect(screen.getByTestId(`${LaneMatrixTestId.Cell}-y-b`)).toHaveTextContent("four");
   });

@@ -180,9 +180,6 @@ export type { CardProps } from "./components/Card/Card";
 export { LivingGlow, LivingGlowTestId } from "./components/LivingGlow/LivingGlow";
 export type { LivingGlowIntensity, LivingGlowProps } from "./components/LivingGlow/LivingGlow";
 
-export { ScreenGlow, ScreenGlowTestId } from "./components/ScreenGlow/ScreenGlow";
-export type { ScreenGlowProps } from "./components/ScreenGlow/ScreenGlow";
-
 export { FloatingPanel, FloatingPanelTestId } from "./components/FloatingPanel/FloatingPanel";
 export type { FloatingPanelProps } from "./components/FloatingPanel/FloatingPanel";
 
@@ -912,26 +909,30 @@ export {
 } from "./components/RadioCard/RadioCard";
 export {
   ZibbySection,
-  ZibbySectionModeButton,
   ZibbySectionOrbButton,
+  ZibbySectionStatusButton,
   ZibbySectionTestId,
-  type ZibbyMode,
-  type ZibbySectionModeButtonProps,
+  type ZibbyStatus,
+  type ZibbySectionStatusButtonProps,
   type ZibbySectionOrbButtonProps,
   type ZibbySectionProps,
 } from "./components/ZibbySection/ZibbySection";
+export {
+  ZibbyStatusAction,
+  ZibbyStatusLink,
+  ZibbyStatusMenu,
+  ZibbyStatusMenuTestId,
+  type ZibbyStatusActionProps,
+  type ZibbyStatusLinkProps,
+  type ZibbyStatusMenuProps,
+} from "./components/ZibbyStatusMenu/ZibbyStatusMenu";
 export {
   LaneChip,
   LaneChipTestId,
   type LaneChipProps,
   type LaneChipTone,
 } from "./components/LaneChip/LaneChip";
-export {
-  LaneCell,
-  LaneCellTestId,
-  type LaneCellProps,
-  type LaneCellTone,
-} from "./components/LaneCell/LaneCell";
+export { LaneCell, LaneCellTestId, type LaneCellProps } from "./components/LaneCell/LaneCell";
 export {
   LaneMatrix,
   LaneHead,

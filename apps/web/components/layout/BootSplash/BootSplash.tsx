@@ -3,7 +3,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Splash } from "@zibby/design-system";
-import { useSystemConfigQuery } from "../../../features/system";
 
 function dayPart(hour: number): "morning" | "afternoon" | "evening" {
   return hour < 11 ? "morning" : hour < 18 ? "afternoon" : "evening";
@@ -33,11 +32,8 @@ export function BootSplash({ children }: BootSplashProps) {
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(true);
   const [hour] = useState(() => new Date().getHours());
-  // C-BR-03: greet only when the operator set a name — never invent one.
-  const { data: config } = useSystemConfigQuery();
-  const greeting = config?.operatorName
-    ? t(`brand.splashGreeting.${dayPart(hour)}`, { name: config.operatorName })
-    : undefined;
+  // Operator decision (2026-11-19): a fixed butler address ("Pane"), not the operator's name.
+  const greeting = t(`brand.splashGreeting.${dayPart(hour)}`);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setReady(true));

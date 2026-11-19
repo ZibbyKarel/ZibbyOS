@@ -1,32 +1,30 @@
 "use client";
 
+import type { AutopilotAutomation } from "@zibby/contracts";
 import {
   Button,
   Container,
   Icon,
   Panel,
   Row,
-  SegmentedControl,
   Stack,
   TextInputField,
   Typography,
-  type ZibbyMode,
   ZibbyOrb,
   ZibbyToast,
 } from "@zibby/design-system";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { useCompaniesQuery } from "../../companies";
 import { useTeamsQuery } from "../../teams";
-import type { AutopilotAutomation } from "@zibby/contracts";
-import { AutomatConfirmDialog, NeverList } from "../components/AutomatConfirmDialog";
+import { AlwaysAskList } from "../components/AlwaysAskList";
 import { AutonomyMatrix } from "../components/AutonomyMatrix";
-import { EMPTY_AUTOMATION, anyCapOn, buildScopes, exceptionsOf } from "../autonomy";
+import { buildScopes } from "../autonomy";
 import { saveOperatorToken, useHasOperatorToken } from "../hooks/useHasOperatorToken";
-import { useModeSwitch } from "../hooks/useModeSwitch";
+import { usePauseSwitch } from "../hooks/usePauseSwitch";
 import { useSaveAutomation } from "../hooks/useSaveAutomation";
-import { MODES, MODE_ORB, MODE_TONE } from "../modeMeta";
-import { useAutopilotQuery } from "../queries";
 
 export enum AutonomyScreenTestId {
   Root = "autonomy-screen",
@@ -34,7 +32,13 @@ export enum AutonomyScreenTestId {
   UnlockInput = "autonomy-unlock-input",
   UnlockSave = "autonomy-unlock-save",
   Never = "autonomy-never",
+  GatesLink = "autonomy-gates-link",
   Toast = "autonomy-toast",
+  RunStatus = "autonomy-run-status",
+  PauseToggle = "autonomy-pause-toggle",
+  PausedBanner = "autonomy-paused-banner",
+  PausedResume = "autonomy-paused-resume",
+  PauseError = "autonomy-pause-error",
 }
 
 interface ToastState {
@@ -45,29 +49,24 @@ interface ToastState {
 const TOAST_MS = 6000;
 
 /**
- * `/governance/autonomy` - who may do what on its own. The matrix edits the automation tree
- * (instant save, toast + undo); every write needs the operator token, so without one it is
- * read-only with a prompt to unlock. Level and Výchozí rules are unchanged (see
- * `docs/api/autopilot.md`): Poloautomat = `off`/false, Automat = `full`/true.
+ * `/governance/autonomy` - what Zibby may do on its own. The table edits the automation tree
+ * (instant save, toast + undo); lowering never needs the operator token, raising does (a 401
+ * toasts and the field below stores a token). The pause switch sits top right.
  */
 export function AutonomyScreen() {
   const t = useTranslations("autopilot");
-  const { data } = useAutopilotQuery();
+  const router = useRouter();
   const { data: companies = [] } = useCompaniesQuery();
   const { data: teams = [] } = useTeamsQuery();
   const hasToken = useHasOperatorToken();
   const save = useSaveAutomation();
+  const sw = usePauseSwitch();
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [typed, setTyped] = useState("");
-  const sw = useModeSwitch((m) =>
-    setToast({ message: t("modeChanged", { mode: t(`mode_${m}`) }) }),
-  );
 
-  const automation: AutopilotAutomation = data?.automation ?? EMPTY_AUTOMATION;
+  const automation: AutopilotAutomation = sw.automation;
   const scopes = buildScopes(companies, teams);
-  const editable = hasToken && !saving && data !== undefined;
-  const autoCapped = sw.mode !== "auto";
 
   useEffect(() => {
     if (!toast) return;
@@ -76,29 +75,28 @@ export function AutonomyScreen() {
   }, [toast]);
 
   const persist = useCallback(
-    async (next: AutopilotAutomation, message: string, focusId?: string, undo?: () => void) => {
+    async (next: AutopilotAutomation, message: string, undo?: () => void) => {
       setSaving(true);
       const result = await save(next);
       setSaving(false);
-      if (result === "ok") {
-        setToast({ message, ...(undo ? { undo } : {}) });
-        if (focusId)
-          window.requestAnimationFrame(() =>
-            document.querySelector<HTMLElement>(`[data-chip="${focusId}"]`)?.focus(),
-          );
-      } else {
-        setToast({ message: result === "locked" ? t("saveLocked") : t("failed") });
-      }
+      setToast(
+        result === "ok"
+          ? { message, ...(undo ? { undo } : {}) }
+          : { message: result === "locked" ? t("saveLocked") : t("failed") },
+      );
     },
     [save, t],
   );
   const commit = useCallback(
-    (next: AutopilotAutomation, message: string, focusId?: string) => {
+    (next: AutopilotAutomation, message: string) => {
       const before = automation;
-      return persist(next, message, focusId, () => void persist(before, t("undone"), focusId));
+      return persist(next, message, () => void persist(before, t("undone")));
     },
     [automation, persist, t],
   );
+  const flip = () =>
+    sw.toggle((nowPaused) => setToast({ message: t(nowPaused ? "toastPaused" : "toastResumed") }));
+  const key = sw.paused ? "paused" : "run";
 
   return (
     <Container data-testid={AutonomyScreenTestId.Root} padding={["300", "350"]}>
@@ -112,31 +110,63 @@ export function AutonomyScreen() {
           </Stack>
           <Panel padding="100" radius="lg">
             <Row wrap align="center" gap="100">
-              <Typography size="sm" type="text" variant="secondary">
-                {t("zibbyModeLabel")}
+              <ZibbyOrb size={16} state={sw.paused ? "sleep" : "think"} />
+              <Typography data-testid={AutonomyScreenTestId.RunStatus} size="sm" type="text">
+                {t("zibbyWord")} <b>{t(`status_${key}`)}</b>
               </Typography>
-              <SegmentedControl
-                ariaLabel={t("zibbyModeLabel")}
-                items={MODES.map((m) => ({
-                  value: m,
-                  label: t(`mode_${m}`),
-                  leading: <ZibbyOrb size={14} state={MODE_ORB[m]} />,
-                  tone: MODE_TONE[m] === "neutral" ? undefined : MODE_TONE[m],
-                  disabled: m === "manual",
-                }))}
-                onChange={(m) => sw.select(m as ZibbyMode)}
-                value={sw.mode}
-              />
+              <Button
+                data-testid={AutonomyScreenTestId.PauseToggle}
+                disabled={sw.pending}
+                icon={sw.paused ? "play" : "pause"}
+                intent={sw.paused ? "ink" : "secondary"}
+                onClick={flip}
+                size="sm"
+              >
+                {t(sw.paused ? "resumeShort" : "pauseShort")}
+              </Button>
             </Row>
           </Panel>
         </Row>
+
+        {sw.error ? (
+          <Typography data-testid={AutonomyScreenTestId.PauseError} tone="bad" type="text">
+            {sw.error === "token" ? t("resumeNeedsToken") : t("failed")}
+          </Typography>
+        ) : null}
+
+        {sw.paused ? (
+          <Panel padding="100" radius="lg">
+            <Row
+              align="center"
+              data-testid={AutonomyScreenTestId.PausedBanner}
+              gap="150"
+              role="status"
+            >
+              <Icon name="pause" size="sm" />
+              <Typography size="sm" type="text" variant="secondary">
+                <b>{t("pausedBannerTitle")}</b> {t("pausedBannerBody")}
+              </Typography>
+              <Container grow />
+              <Button
+                data-testid={AutonomyScreenTestId.PausedResume}
+                disabled={sw.pending}
+                icon="play"
+                intent="ink"
+                onClick={flip}
+                size="sm"
+              >
+                {t("resumeShort")}
+              </Button>
+            </Row>
+          </Panel>
+        ) : null}
 
         {!hasToken ? (
           <Panel padding="100">
             <Row wrap align="center" data-testid={AutonomyScreenTestId.Unlock} gap="100">
               <Icon name="lock" size="sm" />
               <Typography size="sm" type="text" variant="secondary">
-                {t("readOnlyLine")}
+                {t("unlockLine")}
               </Typography>
               <Container width="220px">
                 <TextInputField
@@ -167,18 +197,28 @@ export function AutonomyScreen() {
         ) : null}
 
         <AutonomyMatrix
-          autoCapped={autoCapped}
           automation={automation}
-          editable={editable}
-          onChange={(next, message, focusId) => void commit(next, message, focusId)}
+          onChange={(next, message) => {
+            if (!saving) void commit(next, message);
+          }}
+          paused={sw.paused}
           scopes={scopes}
         />
 
         <Panel padding="150">
           <Row wrap align="center" data-testid={AutonomyScreenTestId.Never} gap="100">
             <Icon name="lock" size="sm" />
-            <Typography type="label">{t("alwaysAsksEveryMode")}</Typography>
-            <NeverList />
+            <Typography type="label">{t("alwaysAsks")}</Typography>
+            <AlwaysAskList />
+            <Container grow />
+            <Button
+              data-testid={AutonomyScreenTestId.GatesLink}
+              intent="ghost"
+              onClick={() => router.push("/governance/gates" as Route)}
+              size="sm"
+            >
+              {t("gatesLink")}
+            </Button>
           </Row>
         </Panel>
       </Stack>
@@ -212,18 +252,6 @@ export function AutonomyScreen() {
           </Row>
         </Container>
       ) : null}
-
-      <AutomatConfirmDialog
-        anyOn={anyCapOn(automation)}
-        error={sw.error}
-        exceptions={exceptionsOf(automation, scopes)}
-        hasToken={hasToken}
-        onCancel={sw.cancel}
-        onConfirm={sw.confirm}
-        open={sw.confirming}
-        pending={sw.pending}
-        pendingApprovals={sw.pendingApprovals}
-      />
     </Container>
   );
 }

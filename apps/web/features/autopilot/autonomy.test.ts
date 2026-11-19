@@ -5,9 +5,11 @@ import {
   buildScopes,
   effectiveByNode,
   exceptionsOf,
+  inColumn,
   inheritAll,
-  inheritCap,
-  moveCap,
+  manualKeys,
+  setLevel,
+  toggledLevel,
 } from "./autonomy";
 
 const companies = [{ id: "acme", name: "Acme" }] as Company[];
@@ -29,40 +31,60 @@ describe("autonomy tree helpers", () => {
     ]);
   });
 
-  it("moveCap writes an override and a value equal to the parent removes it", () => {
-    const on = moveCap(EMPTY_AUTOMATION, acme, NO_AUTOMATION, "autoReview", "auto");
-    expect(on.companies).toEqual({ acme: { autoReview: true } });
+  it("the two columns add up: Automat implies Poloautomat", () => {
+    expect(["manual", "semi", "auto"].map((l) => inColumn(l as never, "semi"))).toEqual([
+      false,
+      true,
+      true,
+    ]);
+    expect(["manual", "semi", "auto"].map((l) => inColumn(l as never, "auto"))).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    // Poloautomat off takes Automat with it, Automat on brings Poloautomat along
+    expect(toggledLevel("auto", "semi")).toBe("manual");
+    expect(toggledLevel("semi", "semi")).toBe("manual");
+    expect(toggledLevel("manual", "semi")).toBe("semi");
+    expect(toggledLevel("manual", "auto")).toBe("auto");
+    expect(toggledLevel("auto", "auto")).toBe("semi");
+  });
+
+  it("setLevel writes the global row as the base", () => {
+    const next = setLevel(EMPTY_AUTOMATION, global, NO_AUTOMATION, "autoReview", "semi");
+    expect(next.global.autoReview).toBe("semi");
+    expect(effectiveByNode(next, scopes)["team:web"]?.autoReview).toBe("semi");
+    expect(effectiveByNode(next, scopes)["team:lone"]?.autoReview).toBe("semi");
+  });
+
+  it("setLevel writes an override and a level equal to the parent removes it", () => {
+    const on = setLevel(EMPTY_AUTOMATION, acme, NO_AUTOMATION, "autoReview", "auto");
+    expect(on.companies).toEqual({ acme: { autoReview: "auto" } });
     const eff = effectiveByNode(on, scopes);
-    expect(eff["team:web"]?.autoReview).toBe(true);
-    expect(eff["team:lone"]?.autoReview).toBe(false);
-    // team goes back to manual = differs from company -> override; auto again = same as company -> none
-    const semi = moveCap(on, web, eff["company:acme"] ?? NO_AUTOMATION, "autoReview", "manual");
-    expect(semi.teams).toEqual({ web: { autoReview: false } });
-    const back = moveCap(semi, web, eff["company:acme"] ?? NO_AUTOMATION, "autoReview", "auto");
+    expect(eff["team:web"]?.autoReview).toBe("auto");
+    expect(eff["team:lone"]?.autoReview).toBe("manual");
+    const down = setLevel(on, web, eff["company:acme"] ?? NO_AUTOMATION, "autoReview", "semi");
+    expect(down.teams).toEqual({ web: { autoReview: "semi" } });
+    const back = setLevel(down, web, eff["company:acme"] ?? NO_AUTOMATION, "autoReview", "auto");
     expect(back.teams).toEqual({});
   });
 
-  it("never produces semi or edits global, and keeps global all-off", () => {
-    expect(moveCap(EMPTY_AUTOMATION, acme, NO_AUTOMATION, "autoReview", "semi")).toBe(
-      EMPTY_AUTOMATION,
-    );
-    expect(moveCap(EMPTY_AUTOMATION, global, NO_AUTOMATION, "autoReview", "auto")).toBe(
-      EMPTY_AUTOMATION,
-    );
-    const dirty = { ...EMPTY_AUTOMATION, global: { ...NO_AUTOMATION, autoReview: true } };
-    expect(moveCap(dirty, acme, NO_AUTOMATION, "autoFixCi", "auto").global).toEqual(NO_AUTOMATION);
-  });
-
-  it("inheritCap / inheritAll drop overrides", () => {
-    const a = { ...EMPTY_AUTOMATION, companies: { acme: { autoReview: true, autoFixCi: true } } };
-    expect(inheritCap(a, acme, "autoReview").companies).toEqual({ acme: { autoFixCi: true } });
+  it("inheritAll drops a row's overrides but never touches global", () => {
+    const a = { ...EMPTY_AUTOMATION, companies: { acme: { autoReview: "auto" as const } } };
     expect(inheritAll(a, acme).companies).toEqual({});
+    expect(inheritAll(a, global)).toBe(a);
   });
 
-  it("exceptionsOf lists overrides with lanes", () => {
-    const a = { ...EMPTY_AUTOMATION, teams: { web: { autoReview: false } } };
-    expect(exceptionsOf(a, scopes)).toEqual([
-      { scope: web, entries: [{ key: "autoReview", lane: "manual" }] },
+  it("exceptionsOf lists the companies/teams that override something", () => {
+    const a = { ...EMPTY_AUTOMATION, teams: { web: { autoReview: "semi" as const } } };
+    expect(exceptionsOf(a, scopes)).toEqual([web]);
+  });
+
+  it("manualKeys lists what resolves to manual", () => {
+    expect(manualKeys({ ...NO_AUTOMATION, autoReview: "semi", autoFixCi: "auto" })).toEqual([
+      "autoAddressComments",
+      "autoImplement",
+      "autoCommunicate",
     ]);
   });
 });

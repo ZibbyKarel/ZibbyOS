@@ -3,21 +3,17 @@
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { onRunEvent } from "../../runs/runEvents";
-import { useAutopilotQuery } from "../queries";
 
 /**
- * In "Approve" mode (autopilot `off`) every new approval pops a system notification, so the
- * operator notices something waits on them. Under AUTOPILOT it stays quiet: the covered
- * approvals resolve themselves and the rest is reported elsewhere. Renders nothing.
+ * Every new approval pops a system notification, so the operator notices something waits on them
+ * (an approval always waits for the operator, whatever the autonomy levels). Renders nothing.
  */
 export function ApprovalNotifier() {
   const t = useTranslations("autopilot");
-  const { data } = useAutopilotQuery();
-  const approveMode = data?.level === "off";
   const title = t("approvalNotificationTitle");
 
   useEffect(() => {
-    if (!approveMode || typeof Notification === "undefined") return;
+    if (typeof Notification === "undefined") return;
     if (Notification.permission === "default") void Notification.requestPermission();
     return onRunEvent((event) => {
       if (event.scope !== "activity" || event.kind !== "approval-requested") return;
@@ -28,7 +24,7 @@ export function ApprovalNotifier() {
       });
       n.onclick = () => window.focus();
     });
-  }, [approveMode, title]);
+  }, [title]);
 
   return null;
 }

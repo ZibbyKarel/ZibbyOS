@@ -13,7 +13,6 @@ export enum LaneMatrixTestId {
   Cell = "lane-matrix-cell",
   Connector = "lane-matrix-connector",
   LaneHead = "lane-matrix-lane-head",
-  LaneNote = "lane-matrix-lane-note",
 }
 
 export type LaneHeadTone = "neutral" | "semi" | "auto";
@@ -31,31 +30,17 @@ export interface LaneHeadProps {
   title: string;
   /** One-line meaning under the title. */
   meaning?: string;
-  /** Small pill under the meaning (e.g. "Now as Semi-auto"). */
-  note?: string;
 }
 
-/** A column header of the lane matrix: glyph, lane name, one-line meaning and an optional note pill. */
-export function LaneHead({ tone = "neutral", icon, title, meaning, note }: LaneHeadProps) {
+/** A column header of the lane matrix: glyph, lane name and a one-line meaning. */
+export function LaneHead({ tone = "neutral", icon, title, meaning }: LaneHeadProps) {
   return (
-    <div data-testid={LaneMatrixTestId.LaneHead}>
-      <div className="flex items-center gap-2">
-        {icon}
-        <span>
-          <b className={cn("block text-[13px] font-semibold", headToneClass[tone])}>{title}</b>
-          {meaning && (
-            <small className="block text-[11.5px] font-normal text-ink-3">{meaning}</small>
-          )}
-        </span>
-      </div>
-      {note && (
-        <span
-          className="mt-1.5 inline-flex rounded-full bg-ink/[0.07] px-[7px] py-px text-[11px] font-medium text-ink-2"
-          data-testid={LaneMatrixTestId.LaneNote}
-        >
-          {note}
-        </span>
-      )}
+    <div className="flex items-center gap-2" data-testid={LaneMatrixTestId.LaneHead}>
+      {icon}
+      <span>
+        <b className={cn("block text-[13px] font-semibold", headToneClass[tone])}>{title}</b>
+        {meaning && <small className="block text-[11.5px] font-normal text-ink-3">{meaning}</small>}
+      </span>
     </div>
   );
 }
@@ -80,6 +65,8 @@ export interface LaneMatrixRow {
 export interface LaneMatrixProps {
   /** Header of the first (row title) column. */
   rowHeader: ReactNode;
+  /** Accessible table caption (screen readers only). */
+  caption?: string;
   columns: LaneMatrixColumn[];
   rows: LaneMatrixRow[];
   ref?: Ref<HTMLTableElement>;
@@ -90,7 +77,7 @@ export interface LaneMatrixProps {
  * dividers and a row header with an optional tree connector for nested rows. Cells are
  * the caller's (`LaneCell`s); on a phone the card scrolls sideways.
  */
-export function LaneMatrix({ rowHeader, columns, rows, ref }: LaneMatrixProps) {
+export function LaneMatrix({ rowHeader, caption, columns, rows, ref }: LaneMatrixProps) {
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-panel">
       <table
@@ -98,6 +85,7 @@ export function LaneMatrix({ rowHeader, columns, rows, ref }: LaneMatrixProps) {
         data-testid={LaneMatrixTestId.Root}
         ref={ref}
       >
+        {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr>
             <th

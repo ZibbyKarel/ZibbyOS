@@ -8,7 +8,6 @@ import {
   MenuButtonTestId,
   MobileMenuTestId,
   MobileToolbarTestId,
-  ScreenGlowTestId,
   SectionTrackTestId,
   SubNavTestId,
   ZibbyOverlayTestId,
@@ -29,11 +28,11 @@ const openMenuOf = async (slot: AppHeaderTestId) =>
   userEvent.click(within(screen.getByTestId(slot)).getByRole("button"));
 
 let mockPath = "/chat";
-let mockAutopilotLevel: "off" | "full" | undefined;
+let mockPaused: boolean | undefined;
 vi.mock("../../../features/autopilot", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../features/autopilot")>()),
   useAutopilotQuery: () => ({
-    data: mockAutopilotLevel ? { level: mockAutopilotLevel } : undefined,
+    data: mockPaused === undefined ? undefined : { paused: mockPaused, pendingApprovals: 0 },
   }),
 }));
 let mockPhone = false;
@@ -66,21 +65,6 @@ vi.mock("next/navigation", () => ({
 // not with stale placeholder text. (The top chrome is now the two-row redesign: zone A
 // `SectionTrack`, zone B search/"+ New"/Zibby, zone C status/mode/bell/preferences.)
 describe("AppShell", () => {
-  it.each([
-    ["full", true],
-    ["off", false],
-    [undefined, false],
-  ] as const)("autopilot level %s shows the screen glow: %s", (level, shown) => {
-    mockAutopilotLevel = level;
-    renderWithProviders(
-      <AppShell>
-        <div />
-      </AppShell>,
-    );
-    expect(screen.queryByTestId(ScreenGlowTestId.Root) !== null).toBe(shown);
-    mockAutopilotLevel = undefined;
-  });
-
   it("mounts and renders its children inside the AppFrame main landmark", () => {
     renderWithProviders(
       <AppShell>
@@ -162,30 +146,14 @@ describe("AppShell", () => {
     expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();
   });
 
-  it("shows the Zibby mode button, and the live glow when Automat is on", () => {
-    const { unmount } = renderWithProviders(
+  it("shows the Zibby status button and a plain, never amber, header", () => {
+    renderWithProviders(
       <AppShell>
         <div />
       </AppShell>,
     );
-    expect(screen.getByTestId(ZibbySectionTestId.ModeButton)).toBeInTheDocument();
-    expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).not.toHaveAttribute("data-active");
-    unmount();
-    mockAutopilotLevel = "full";
-    try {
-      renderWithProviders(
-        <AppShell>
-          <div />
-        </AppShell>,
-      );
-      expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAttribute(
-        "data-active",
-        "true",
-      );
-      expect(screen.getByTestId(AppHeaderTestId.Root)).toHaveAttribute("data-autopilot", "true");
-    } finally {
-      mockAutopilotLevel = undefined;
-    }
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toBeInTheDocument();
+    expect(screen.getByTestId(AppHeaderTestId.Root)).not.toHaveAttribute("data-autopilot");
   });
 
   it("opens the status popover with the version", async () => {
@@ -389,7 +357,7 @@ describe("AppShell phone layout", () => {
     const actions = screen.getByTestId(MobileToolbarTestId.Actions);
     expect(actions).toContainElement(screen.getByTestId(HeaderChromeTestId.NewButton));
     expect(screen.getByTestId(HeaderChromeTestId.NewButton)).toHaveTextContent("");
-    expect(actions).toContainElement(screen.getByTestId(ZibbySectionTestId.ModeButton));
+    expect(actions).toContainElement(screen.getByTestId(ZibbySectionTestId.StatusButton));
     // Phone: no keyboard — the Zibby orb button is icon-only.
     expect(actions).toContainElement(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(screen.getByTestId(ZibbyModeControlTestId.Root)).toHaveTextContent("");
@@ -404,16 +372,19 @@ describe("AppShell phone layout", () => {
     expect(subnav).toContainElement(screen.getByTestId(AppShellTestId.PageActions));
   });
 
-  it("shows the amber autopilot band with a Change action when autopilot is on", () => {
-    mockAutopilotLevel = "full";
+  it("shows no paused band while running", () => {
+    renderPhone();
+    expect(screen.queryByTestId(MobileToolbarTestId.Banner)).toBeNull();
+  });
+
+  it("shows the grey paused band with a Resume action while paused", () => {
+    mockPaused = true;
     try {
       renderPhone();
-      expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Autopilot zapnut");
-      expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Změnit");
-      // Exactly one orb button in the toolbar: the mode control reuses it.
-      expect(screen.getAllByTestId(ZibbyModeControlTestId.Root)).toHaveLength(1);
+      expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Pozastaveno");
+      expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Pustit");
     } finally {
-      mockAutopilotLevel = undefined;
+      mockPaused = undefined;
     }
   });
 

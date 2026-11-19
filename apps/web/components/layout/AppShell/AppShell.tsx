@@ -12,7 +12,6 @@ import {
   HeaderModeGroup,
   MobileMenu,
   MobileToolbar,
-  ScreenGlow,
   SectionTrack,
   Stack,
   SubNav,
@@ -294,7 +293,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
   const tNav = useTranslations("nav");
   const pathname = usePathname();
   const { data: autopilot } = useAutopilotQuery();
-  const autopilotOn = autopilot?.level === "full";
+  const paused = autopilot?.paused === true;
   const phone = useIsPhone();
   const searchParams = useSearchParams();
   const active = sectionForPath(pathname);
@@ -355,22 +354,22 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 <MobileToolbar
                   actions={
                     <>
-                      <ZibbyModeControl needsAttention={needsAttention} variant="toolbar" />
+                      <ZibbyModeControl variant="toolbar" />
                       <NewMenu iconOnly onNewNote={openNote} />
                       <NotificationBell />
                     </>
                   }
                   banner={
-                    autopilotOn
-                      ? tShell.rich("autopilotBanner", { b: (chunks) => <b>{chunks}</b> })
+                    paused
+                      ? tShell.rich("pausedBanner", { b: (chunks) => <b>{chunks}</b> })
                       : undefined
                   }
                   bannerAction={
-                    autopilotOn ? (
+                    paused ? (
                       <ZibbyModeChange
                         renderTrigger={(begin) => (
                           <Button intent="ghost" onClick={begin} size="sm">
-                            {tShell("autopilotBannerChange")}
+                            {tShell("pausedBannerAction")}
                           </Button>
                         )}
                       />
@@ -386,14 +385,13 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 />
               ) : (
                 <AppHeader
-                  autopilotActive={autopilotOn}
                   create={<NewMenu iconOnly={lv >= 2} onNewNote={openNote} />}
                   hideWordmark={lv >= 1}
                   homeHref="/dashboard"
                   linkComponent={NavLink}
                   markState={trailing.markState}
                   mode={
-                    <HeaderModeGroup active={autopilotOn} ariaLabel={tShell("modeGroupAria")}>
+                    <HeaderModeGroup ariaLabel={tShell("modeGroupAria")}>
                       <AiEngineSwitcher compact={lv >= 2} />
                     </HeaderModeGroup>
                   }
@@ -420,7 +418,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                       version={trailing.version}
                     />
                   }
-                  zibby={<ZibbyModeControl needsAttention={needsAttention} />}
+                  zibby={<ZibbyModeControl />}
                 />
               )
             }
@@ -456,12 +454,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
   );
 }
 
-/** TODO 18: a Siri-like edge glow around the whole app while Autopilot is on. */
-function AutopilotGlow() {
-  const { data } = useAutopilotQuery();
-  return data?.level === "full" ? <ScreenGlow /> : null;
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <CatalogProvider>
@@ -471,7 +463,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <ChatProvider>
           <ZibbyLiveProvider>
             <ApprovalNotifier />
-            <AutopilotGlow />
             <Suspense>
               <AppShellChrome>{children}</AppShellChrome>
             </Suspense>

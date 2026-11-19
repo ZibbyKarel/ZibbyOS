@@ -110,6 +110,19 @@ const msg = (over: Partial<OperatorInboundMessage>): OperatorInboundMessage => (
   ...over,
 });
 
+/** One auto cell is enough for the overlay (and the outbound pushes) to be on. */
+const AUTO_TREE = {
+  global: {
+    autoReview: "auto",
+    autoAddressComments: "auto",
+    autoImplement: "manual",
+    autoCommunicate: "auto",
+    autoFixCi: "auto",
+  },
+  companies: {},
+  teams: {},
+};
+
 describe("Operator channel inbound (e2e)", () => {
   let app: INestApplication;
   let dir: string;
@@ -144,7 +157,7 @@ describe("Operator channel inbound (e2e)", () => {
       .expect(200);
     // Outbound pushes (run outcome, PR opened) only go out while autopilot is on (f87e9ec2a).
     await withOperator(request(app.getHttpServer()).put("/api/autopilot"))
-      .send({ level: "full" })
+      .send({ paused: false, automation: AUTO_TREE })
       .expect(200);
   });
 

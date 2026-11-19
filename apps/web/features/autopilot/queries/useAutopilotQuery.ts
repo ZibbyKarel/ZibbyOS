@@ -6,7 +6,7 @@ export function getAutopilotQueryKey() {
   return ["autopilot"] as const;
 }
 
-/** Autopilot level + pending-approval count from `GET /api/autopilot`. */
+/** Autonomy levels, paused flag + pending-approval count from `GET /api/autopilot`. */
 export function useAutopilotQuery() {
   return apiClient.autopilot.getAutopilot.useQuery({
     queryKey: getAutopilotQueryKey(),

@@ -8,11 +8,19 @@ export default meta;
 export const States: StoryObj<typeof LaneCell> = {
   render: () => (
     <div className="grid w-[420px] gap-2 text-ink">
-      <LaneCell empty="Empty" />
-      <LaneCell capped tone="auto">
-        <LaneChip tone="auto">Review</LaneChip>
+      <LaneCell>
+        <LaneChip pressed tone="auto">
+          Review
+        </LaneChip>
+        <LaneChip pressed={false} tone="auto">
+          CI
+        </LaneChip>
       </LaneCell>
-      <LaneCell dropTarget empty="Drop here" tone="semi" />
+      <LaneCell capped>
+        <LaneChip pressed tone="semi">
+          Review
+        </LaneChip>
+      </LaneCell>
     </div>
   ),
 };

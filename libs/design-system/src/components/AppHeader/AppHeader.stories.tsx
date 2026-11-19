@@ -35,7 +35,7 @@ const zoneC = (autopilot: boolean) => ({
     />
   ),
   mode: (
-    <HeaderModeGroup active={autopilot} ariaLabel="Operating mode">
+    <HeaderModeGroup ariaLabel="Operating mode">
       {autopilot ? (
         <HeaderModeButton live pressed label="Autopilot" />
       ) : (
@@ -76,7 +76,6 @@ export const Overview: Story = {
         {...zoneC(false)}
       />
       <AppHeader
-        autopilotActive
         create={<HeaderNewButton aria-haspopup="menu" label="New" />}
         homeHref="/overview"
         nav={nav}

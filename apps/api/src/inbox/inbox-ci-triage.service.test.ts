@@ -133,7 +133,14 @@ describe("InboxCiTriageService", () => {
       storage,
       { register, requestApproval } as never,
       { dropPrsCache } as never,
-      { isOn: () => autopilotOn } as never,
+      {
+        scopeAnywhere: () => ({
+          reviews: false,
+          comments: false,
+          communication: false,
+          ci: autopilotOn,
+        }),
+      } as never,
       { record } as never,
       undefined,
       fetchImpl as unknown as typeof fetch,

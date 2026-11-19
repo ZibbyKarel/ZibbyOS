@@ -1200,7 +1200,23 @@ describe("TaskOutputService", () => {
       await catalog.onModuleInit();
       const autopilot = new AutopilotService(gatesDir);
       await autopilot.onModuleInit();
-      await autopilot.set("full", "operator");
+      await autopilot.set(
+        {
+          paused: false,
+          automation: {
+            global: {
+              autoReview: "auto",
+              autoAddressComments: "auto",
+              autoImplement: "manual",
+              autoCommunicate: "auto",
+              autoFixCi: "auto",
+            },
+            companies: {},
+            teams: {},
+          },
+        },
+        "operator",
+      );
       const gates = new GateEvaluatorService(
         new PolicyStorageService(catalog),
         undefined,

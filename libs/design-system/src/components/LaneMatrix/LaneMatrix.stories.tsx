@@ -11,14 +11,8 @@ export const Default: StoryObj<typeof LaneMatrix> = {
     <div className="text-ink">
       <LaneMatrix
         columns={[
-          { key: "m", header: <LaneHead meaning="Never starts" title="Manual" /> },
           { key: "s", header: <LaneHead meaning="Waits for approval" title="Semi" tone="semi" /> },
-          {
-            key: "a",
-            header: (
-              <LaneHead meaning="Does and reports" note="Now as Semi" title="Auto" tone="auto" />
-            ),
-          },
+          { key: "a", header: <LaneHead meaning="Does and reports" title="Auto" tone="auto" /> },
         ]}
         rowHeader="Company / team"
         rows={[
@@ -26,14 +20,15 @@ export const Default: StoryObj<typeof LaneMatrix> = {
             key: "acme",
             header: "Acme",
             cells: [
-              <LaneCell empty="—" key="m" />,
-              <LaneCell key="s">
-                <LaneChip own tone="semi">
+              <LaneCell key="s" role="group">
+                <LaneChip own pressed tone="semi">
                   Review
                 </LaneChip>
               </LaneCell>,
-              <LaneCell capped key="a">
-                <LaneChip inherited>CI</LaneChip>
+              <LaneCell capped key="a" role="group">
+                <LaneChip pressed={false} tone="auto">
+                  CI
+                </LaneChip>
               </LaneCell>,
             ],
           },
@@ -41,7 +36,7 @@ export const Default: StoryObj<typeof LaneMatrix> = {
             key: "team",
             header: "Platform",
             nested: true,
-            cells: [<LaneCell empty="—" key="m" />, <LaneCell key="s" />, <LaneCell key="a" />],
+            cells: [<LaneCell key="s" />, <LaneCell key="a" />],
           },
         ]}
       />

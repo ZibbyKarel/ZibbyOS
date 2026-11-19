@@ -486,16 +486,16 @@ export class ChatMcpController {
       "autopilot_off",
       {
         description:
-          "Switch ZIBBY's autopilot OFF, so every covered gate asks the operator again. " +
-          "Call when the operator asks to stop autopilot. There is no way to turn it on " +
-          "from chat — tell the operator to use the dashboard toggle for that.",
+          "Pause ZIBBY: nothing new starts and nothing is sent until the operator resumes it. " +
+          "Call when the operator asks to stop autopilot or pause ZIBBY. There is no way to resume " +
+          "from chat — tell the operator to use the dashboard switch for that.",
         inputSchema: {},
       },
       async () => {
         if (!this.autopilot) return errorText("Autopilot is not available.");
-        const status = await this.autopilot.set("off", "chat");
+        const status = await this.autopilot.set({ paused: true }, "chat");
         return text(
-          `Autopilot is off. Pending approvals waiting for the operator: ${status.pendingApprovals}.`,
+          `ZIBBY is paused. Pending approvals waiting for the operator: ${status.pendingApprovals}.`,
         );
       },
     );

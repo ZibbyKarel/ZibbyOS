@@ -2,13 +2,14 @@ import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Inject, Injectable, type OnModuleInit, Optional } from "@nestjs/common";
 import {
+  AUTOMATION_KEYS,
+  AUTOMATION_LEVEL_RANK,
   AUTOPILOT_SCOPE_TOGGLE,
   type Agent,
   type Approval,
   type AutomationToggles,
   type AutopilotActor,
   type AutopilotAutomation,
-  type AutopilotLevel,
   type AutopilotLocation,
   type AutopilotScope,
   type AutopilotScopeKey,
@@ -16,10 +17,10 @@ import {
   AutopilotStateSchema,
   type AutopilotStatus,
   type DepartmentId,
-  FULL_AUTOPILOT_SCOPE,
   type IntendedAction,
   type Workflow,
   resolveAutopilotAutomation,
+  resolveAutopilotLevels,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { ApprovalsService } from "../approvals/approvals.service";
@@ -85,6 +86,9 @@ export function autopilotScopeFor(kind: Approval["kind"]): AutopilotScopeKey | n
       return "comments";
     case "channel":
       return "communication";
+    case "pr-fix-ci":
+    case "pr-ci-rerun":
+      return "ci";
     default:
       return null;
   }
@@ -200,9 +204,39 @@ export async function autopilotActors(
   throw new Error(`autopilot: no gate actors for a ${target?.kind ?? "missing"} target`);
 }
 
-function describeScope(scope: AutopilotScope): string {
-  const on = (Object.keys(scope) as AutopilotScopeKey[]).filter((k) => scope[k]);
-  return on.length ? on.join(", ") : "pushes only";
+/** Every node of a tree (global, each company, each team). */
+function nodesOf(automation: AutopilotAutomation | undefined): AutopilotLocation[] {
+  const { companies = {}, teams = {} } = automation ?? {};
+  return [
+    {},
+    ...Object.keys(companies).map((companyId) => ({ companyId })),
+    ...Object.keys(teams).map((teamId) => ({ teamId })),
+  ];
+}
+
+/**
+ * Whether `next` raises any cell over `prev` anywhere in the tree (manual < semi < auto). Raising
+ * needs the operator token; lowering and re-arranging at the same or a lower level never does.
+ * A team is checked under every company the two trees know, so a team override is never missed.
+ */
+export function automationRaises(
+  prev: AutopilotAutomation | undefined,
+  next: AutopilotAutomation,
+): boolean {
+  const companies = new Set([
+    ...Object.keys(prev?.companies ?? {}),
+    ...Object.keys(next.companies),
+  ]);
+  const places: AutopilotLocation[] = [...nodesOf(prev), ...nodesOf(next)];
+  for (const teamId of new Set([...Object.keys(prev?.teams ?? {}), ...Object.keys(next.teams)]))
+    for (const companyId of companies) places.push({ companyId, teamId });
+  return places.some((at) => {
+    const before = resolveAutopilotLevels({ automation: prev }, at);
+    const after = resolveAutopilotLevels({ automation: next }, at);
+    return AUTOMATION_KEYS.some(
+      (k) => AUTOMATION_LEVEL_RANK[after[k]] > AUTOMATION_LEVEL_RANK[before[k]],
+    );
+  });
 }
 
 /**
@@ -216,7 +250,7 @@ function describeScope(scope: AutopilotScope): string {
  */
 @Injectable()
 export class AutopilotService implements OnModuleInit {
-  private state: AutopilotState = { level: "off" };
+  private state: AutopilotState = { paused: false };
 
   constructor(
     @Inject(AUTOPILOT_DIR) private readonly dir: string,
@@ -227,45 +261,48 @@ export class AutopilotService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     const raw = await fs.readFile(path.join(this.dir, FILE), "utf8").catch(() => null);
     const parsed = AutopilotStateSchema.safeParse(raw === null ? null : safeJson(raw));
-    this.state = parsed.success ? parsed.data : { level: "off" };
-    // A tree written before `autoCommunicate` existed: communication came from the stored scope.
-    const { scope, automation } = this.state;
-    if (scope && automation && !automation.global.autoCommunicate) {
-      automation.global.autoCommunicate = scope.communication;
-    }
+    // A legacy (pre-redesign) file is migrated on read and rewritten on the next switch.
+    this.state = parsed.success ? parsed.data : { paused: false };
   }
 
+  /** Whether any cell anywhere is `auto` and nothing is paused: the overlay can act at all. */
   isOn(): boolean {
-    return this.state.level === "full";
+    const a = this.state.automation;
+    if (this.state.paused || !a) return false;
+    return [a.global, ...Object.values(a.companies), ...Object.values(a.teams)].some((node) =>
+      Object.values(node).includes("auto"),
+    );
+  }
+
+  /** {@link scope} at any node of the tree — for an action that has no location of its own. */
+  scopeAnywhere(): AutopilotScope {
+    return this.scope(nodesOf(this.state.automation));
+  }
+
+  isPaused(): boolean {
+    return this.state.paused;
   }
 
   /**
-   * The classes the overlay covers at a company/team (global when `at` is empty), read off
-   * the automation tree. A legacy state without a tree keeps its stored scope (none = all).
+   * The classes the overlay covers at a company/team (global when `at` is empty): the class's
+   * capability is `auto` there (any of several places), and nothing is paused.
    */
   scope(at: AutopilotAt = {}): AutopilotScope {
-    if (!this.state.automation) return this.state.scope ?? FULL_AUTOPILOT_SCOPE;
     const places: readonly AutopilotLocation[] = Array.isArray(at) ? at : [at as AutopilotLocation];
-    const all = (places.length ? places : [{}]).map((p) =>
-      resolveAutopilotAutomation(this.state, p),
-    );
-    const out = { ...FULL_AUTOPILOT_SCOPE };
+    const all = (places.length ? places : [{}]).map((p) => resolveAutopilotLevels(this.state, p));
+    const out: AutopilotScope = {
+      reviews: false,
+      comments: false,
+      communication: false,
+      ci: false,
+    };
+    if (this.state.paused) return out;
     for (const k of Object.keys(out) as AutopilotScopeKey[])
-      out[k] = all.some((toggles) => toggles[AUTOPILOT_SCOPE_TOGGLE[k]]);
+      out[k] = all.some((levels) => levels[AUTOPILOT_SCOPE_TOGGLE[k]] === "auto");
     return out;
   }
 
-  /** Every node of the tree (global, each company, each team), for the switch summary. */
-  private everywhere(): AutopilotLocation[] {
-    const { companies = {}, teams = {} } = this.state.automation ?? {};
-    return [
-      {},
-      ...Object.keys(companies).map((companyId) => ({ companyId })),
-      ...Object.keys(teams).map((teamId) => ({ teamId })),
-    ];
-  }
-
-  /** Effective roadmap automation toggles at a company/team; all false while off. */
+  /** Which capabilities start work at a company/team (`semi` or `auto`); all false while paused. */
   automationFor(at: AutopilotLocation): AutomationToggles {
     return resolveAutopilotAutomation(this.state, at);
   }
@@ -303,41 +340,43 @@ export class AutopilotService implements OnModuleInit {
    * pass `full`. A no-op (no file write) only when level and automation tree are unchanged.
    * On/off is never pushed to Slack.
    */
+  /** The stored tree, for the controller's raise check. */
+  automation(): AutopilotAutomation | undefined {
+    return this.state.automation;
+  }
+
   async set(
-    level: AutopilotLevel,
+    change: { paused?: boolean; automation?: AutopilotAutomation },
     by: AutopilotActor,
-    automation?: AutopilotAutomation,
   ): Promise<AutopilotStatus> {
-    // Omitted keeps the stored tree (also across `off`, so the next switch-on pre-fills it).
-    const nextAutomation = automation ?? this.state.automation;
+    // Omitted keeps the stored value.
+    const paused = change.paused ?? this.state.paused;
+    const nextAutomation = change.automation ?? this.state.automation;
     if (
-      level === this.state.level &&
+      paused === this.state.paused &&
       JSON.stringify(nextAutomation) === JSON.stringify(this.state.automation)
     ) {
       return this.status();
     }
     const next: AutopilotState = {
-      level,
+      paused,
       since: new Date().toISOString(),
       by,
-      // A legacy scope only means something while there is no tree to read it from.
-      ...(nextAutomation
-        ? { automation: nextAutomation }
-        : this.state.scope
-          ? { scope: this.state.scope }
-          : {}),
+      ...(nextAutomation ? { automation: nextAutomation } : {}),
     };
     await ensureDir(this.dir);
     await writeFileAtomic(path.join(this.dir, FILE), `${JSON.stringify(next, null, 2)}\n`);
     this.state = next;
     const status = await this.status();
+    const auto = (Object.keys(AUTOPILOT_SCOPE_TOGGLE) as AutopilotScopeKey[]).filter(
+      (k) => this.scopeAnywhere()[k],
+    );
     void this.activity?.record({
       kind: "autopilot-changed",
-      summary:
-        level === "full"
-          ? `autopilot ON (${by}; ${describeScope(this.scope(this.everywhere()))}) — ${status.pendingApprovals} approvals still pending, not auto-decided`
-          : `autopilot OFF (${by}) — every gate asks again`,
-      refs: { status: level, decision: by },
+      summary: paused
+        ? `ZIBBY paused (${by}) — nothing new starts or is sent`
+        : `autonomy levels changed (${by}; auto: ${auto.length ? auto.join(", ") : "none"}) — ${status.pendingApprovals} approvals still pending, not auto-decided`,
+      refs: { status: paused ? "paused" : "running", decision: by },
     });
     return status;
   }

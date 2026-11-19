@@ -7,10 +7,14 @@ describe("autopilotContract", () => {
     expect(autopilotContract.setAutopilot.method).toBe("PUT");
   });
 
-  it("accepts only off | full and rejects unknown keys", () => {
-    expect(SetAutopilotInputSchema.safeParse({ level: "full" }).success).toBe(true);
-    expect(SetAutopilotInputSchema.safeParse({ level: "half" }).success).toBe(false);
-    expect(SetAutopilotInputSchema.safeParse({ level: "off", by: "operator" }).success).toBe(false);
-    expect(AutopilotStateSchema.safeParse({ level: "off", sneaky: 1 }).success).toBe(false);
+  it("accepts paused and a level tree, rejects the old level and unknown keys", () => {
+    expect(SetAutopilotInputSchema.safeParse({ paused: true }).success).toBe(true);
+    expect(SetAutopilotInputSchema.safeParse({}).success).toBe(true);
+    expect(SetAutopilotInputSchema.safeParse({ paused: "yes" }).success).toBe(false);
+    expect(SetAutopilotInputSchema.safeParse({ level: "full" }).success).toBe(false);
+    expect(SetAutopilotInputSchema.safeParse({ paused: false, by: "operator" }).success).toBe(
+      false,
+    );
+    expect(AutopilotStateSchema.safeParse({ paused: false, sneaky: 1 }).success).toBe(false);
   });
 });

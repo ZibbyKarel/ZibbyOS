@@ -1363,33 +1363,7 @@
   background: var(--color-panel-2);
 }
 
-/* ---------------------------------------------------------------------------
- * Screen glow (`ScreenGlow`) - the Autopilot frame: an amber inset hairline plus
- * a soft inner glow around the whole viewport, breathing .75 <-> 1 over 3.2s.
- * Static under `prefers-reduced-motion: reduce`.
- * --------------------------------------------------------------------------- */
-.zb-screen-glow {
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--color-brand) 70%, transparent),
-    inset 0 0 46px color-mix(in srgb, var(--color-brand) 24%, transparent);
-  opacity: 0.9;
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  .zb-screen-glow {
-    animation: zb-screen-glow-breathe 3.2s ease-in-out infinite;
-  }
-
-  @keyframes zb-screen-glow-breathe {
-    0%,
-    100% {
-      opacity: 0.75;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-
   /* Header chrome: the pulsing Autopilot dot. */
   .zb-header-pulse {
     animation: zb-header-pulse 1.6s ease-in-out infinite;

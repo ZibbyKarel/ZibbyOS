@@ -40,7 +40,7 @@ export const Controls: StoryObj = {
       <HeaderModeGroup ariaLabel="Operating mode">
         <HeaderModeButton pressed icon="compass" label="Approve" />
       </HeaderModeGroup>
-      <HeaderModeGroup active ariaLabel="Operating mode">
+      <HeaderModeGroup ariaLabel="Operating mode">
         <HeaderModeButton live pressed label="Autopilot" />
       </HeaderModeGroup>
       <HeaderIconButton aria-label="Notifications" badge={5}>

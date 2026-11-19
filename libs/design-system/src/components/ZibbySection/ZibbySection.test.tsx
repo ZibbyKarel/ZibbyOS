@@ -4,33 +4,33 @@ import { describe, expect, it, vi } from "vitest";
 import { render } from "../../utils/testRender";
 import {
   ZibbySection,
-  ZibbySectionModeButton,
   ZibbySectionOrbButton,
+  ZibbySectionStatusButton,
   ZibbySectionTestId,
 } from "./ZibbySection";
 
 describe("ZibbySection", () => {
-  it("is a labelled group with two buttons tinted by the mode", async () => {
+  it("is a labelled group with two buttons tinted by the status", async () => {
     const user = userEvent.setup();
     const onOrb = vi.fn();
-    const onMode = vi.fn();
+    const onStatus = vi.fn();
     render(
-      <ZibbySection ariaLabel="Zibby" mode="auto">
+      <ZibbySection ariaLabel="Zibby" status="paused">
         <ZibbySectionOrbButton aria-label="Ask Zibby" onClick={onOrb} orb={<i>o</i>}>
           Zibby
         </ZibbySectionOrbButton>
-        <ZibbySectionModeButton aria-label="Mode" label="Automat" mode="auto" onClick={onMode} />
+        <ZibbySectionStatusButton aria-label="Status" label="Paused" onClick={onStatus} />
       </ZibbySection>,
     );
     const root = screen.getByTestId(ZibbySectionTestId.Root);
     expect(root).toHaveRole("group");
     expect(root).toHaveAccessibleName("Zibby");
-    expect(root).toHaveAttribute("data-mode", "auto");
+    expect(root).toHaveAttribute("data-status", "paused");
     expect(screen.getByTestId(ZibbySectionTestId.OrbSlot)).toHaveTextContent("o");
     await user.click(screen.getByTestId(ZibbySectionTestId.OrbButton));
-    await user.click(screen.getByTestId(ZibbySectionTestId.ModeButton));
+    await user.click(screen.getByTestId(ZibbySectionTestId.StatusButton));
     expect(onOrb).toHaveBeenCalledTimes(1);
-    expect(onMode).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId(ZibbySectionTestId.ModeButton)).toHaveTextContent("Automat");
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Paused");
   });
 });

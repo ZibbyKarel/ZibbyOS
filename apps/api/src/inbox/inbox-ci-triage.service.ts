@@ -208,14 +208,15 @@ export class InboxCiTriageService {
   }
 
   /**
-   * A `triaged` flaky/infra verdict → re-run the failed jobs now (Autopilot on) or park a
+   * A `triaged` flaky/infra verdict → re-run the failed jobs now (Oprava CI on Automat) or park a
    * `pr-ci-rerun` approval. Returns what happened; any other starting state is `failed`.
    */
   async rerun(taskId: string): Promise<"rerun" | "awaiting-approval" | "failed"> {
     const task = await this.tasks.get(taskId);
     const triage = task.prCiTriage;
     if (triage?.state !== "triaged") return "failed";
-    if (this.autopilot.isOn()) {
+    // ponytail: the rerun carries no tree location, so `auto` CI anywhere covers it; pass the PR's place if it matters.
+    if (this.autopilot.scopeAnywhere().ci) {
       return (await this.doRerun(task, "triaged")) ? "rerun" : "failed";
     }
     const gitlab = isGitlabUrl(triage.url);

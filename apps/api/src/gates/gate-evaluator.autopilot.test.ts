@@ -11,6 +11,22 @@ import { classifyEvent } from "../runner/claude-approval-hook.mjs";
 import { GateEvaluatorService } from "./gate-evaluator.service";
 import { PolicyStorageService } from "./policy.storage.service";
 
+/** Every covered capability `auto` (implement stays manual: it lifts no gate). */
+const AUTO_TREE = {
+  global: {
+    autoReview: "auto",
+    autoAddressComments: "auto",
+    autoImplement: "manual",
+    autoCommunicate: "auto",
+    autoFixCi: "auto",
+  },
+  companies: {},
+  teams: {},
+} as const;
+/** Running with the overlay on / paused (every gate asks again). */
+const ON = { paused: false, automation: AUTO_TREE } as const;
+const OFF = { paused: true } as const;
+
 /** Phase 4 — the autopilot overlay in the gate evaluator. */
 describe("GateEvaluatorService — autopilot overlay", () => {
   let dir: string;
@@ -72,25 +88,28 @@ describe("GateEvaluatorService — autopilot overlay", () => {
     { action: "git.push", branch: "zibby/" },
   ];
 
-  it("off: covered actions still ask", async () => {
+  it("paused/default: covered actions still ask", async () => {
+    for (const a of covered) expect((await evalFloor(a)).decision).toBe("ask");
+    await autopilot.set(ON, "operator");
+    await autopilot.set(OFF, "chat");
     for (const a of covered) expect((await evalFloor(a)).decision).toBe("ask");
   });
 
   it("full: covered asks resolve as act-then-report, marked and recorded", async () => {
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     for (const a of covered) {
       expect(await evalFloor(a)).toMatchObject({ decision: "notify", via: "autopilot" });
     }
     expect(recorded.filter((e) => e.kind === "autopilot-action")).toHaveLength(2);
     expect(recorded.find((e) => e.kind === "autopilot-changed")?.refs).toMatchObject({
-      status: "full",
+      status: "running",
       decision: "operator",
     });
   });
 
   it("full: a deny / Never rule and every non-covered ask are not loosened", async () => {
     const before = await Promise.all(untouched.map((a) => evalFloor(a)));
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const after = await Promise.all(untouched.map((a) => evalFloor(a)));
     expect(after).toEqual(before);
     expect(after.find((_, i) => untouched[i]?.action === "pr.merge")?.decision).toBe("deny");
@@ -107,8 +126,11 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       match: [{ type: "action", action: "git.push", branch: "main" }],
       decision: "deny",
     });
-    for (const level of ["off", "full"] as const) {
-      await autopilot.set(level, "operator");
+    for (const [level, state] of [
+      ["off", OFF],
+      ["full", ON],
+    ] as const) {
+      await autopilot.set(state, "operator");
       for (const cmd of ["git push origin zibby/1-x main", "git push origin zibby/1-x HEAD:main"]) {
         expect((await evalFloor(pushIntent(cmd))).decision, `${level}: ${cmd}`).toBe("deny");
       }
@@ -116,7 +138,7 @@ describe("GateEvaluatorService — autopilot overlay", () => {
   });
 
   it("only one plain refspec onto zibby/* is lifted", async () => {
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     expect(await evalFloor(pushIntent("git push origin HEAD:zibby/1-x"))).toMatchObject({
       decision: "notify",
       via: "autopilot",
@@ -138,14 +160,14 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       decision: "ask",
       resolve: { type: "human" },
     });
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     expect((await evalFloor({ action: "git.push", branch: "zibby/run-1-fix" })).decision).toBe(
       "ask",
     );
   });
 
   it("an agent's own ask / deny / legacy requires_approval still wins", async () => {
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const action = { action: "gh.pr_comment" };
     const ask = {
       gates: [
@@ -185,8 +207,11 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       match: [{ type: "action", action: "gh.api_write" }],
       decision: "deny",
     });
-    for (const level of ["off", "full"] as const) {
-      await autopilot.set(level, "operator");
+    for (const [level, state] of [
+      ["off", OFF],
+      ["full", ON],
+    ] as const) {
+      await autopilot.set(state, "operator");
       expect((await evalFloor({ action: "gh.pr_comment" })).decision, level).toBe("deny");
     }
     await catalog.update(rule.id, {
@@ -195,8 +220,11 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       decision: "ask",
       resolve: { type: "human" },
     });
-    for (const level of ["off", "full"] as const) {
-      await autopilot.set(level, "operator");
+    for (const [level, state] of [
+      ["off", OFF],
+      ["full", ON],
+    ] as const) {
+      await autopilot.set(state, "operator");
       expect((await evalFloor({ action: "gh.pr_comment" })).decision, level).toBe("ask");
     }
     // An agent's own gh.api_write ask also still covers comments.
@@ -216,7 +244,7 @@ describe("GateEvaluatorService — autopilot overlay", () => {
     const sys = (await catalog.list()).find((r) => r.id === "floor-gh.api_write");
     if (!sys) throw new Error("floor-gh.api_write missing");
     await catalog.update(sys.id, { name: sys.name, match: sys.match, decision: "deny" });
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     expect((await evalFloor({ action: "gh.pr_comment" })).decision).toBe("deny");
   });
 
@@ -228,7 +256,7 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       resolve: { type: "human" },
       department: "dev",
     });
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const rules = await evaluator.rulesForAgentInDepartment({}, "dev");
     expect(evaluator.evaluate(rules, { action: "gh.pr_comment" }).decision).toBe("ask");
   });
@@ -238,9 +266,9 @@ describe("GateEvaluatorService — autopilot overlay", () => {
     const storedBefore = await fs.readFile(file, "utf8");
     const all = [...covered, ...untouched];
     const before = await Promise.all(all.map((a) => evalFloor(a)));
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     await Promise.all(all.map((a) => evalFloor(a)));
-    await autopilot.set("off", "chat");
+    await autopilot.set(OFF, "chat");
     expect(await Promise.all(all.map((a) => evalFloor(a)))).toEqual(before);
     expect(await fs.readFile(file, "utf8")).toBe(storedBefore);
   });
@@ -255,12 +283,12 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       decision: "ask",
       resolve: { type: "human" },
     });
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     expect((await evalFloor({ action: "deploy" })).decision).toBe("ask");
   });
 
   it("a push onto the operator's own PR head is lifted only with that context", async () => {
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const push = { action: "git.push", branch: "feature/mine" };
     expect(await evaluator.autopilotDecides(push, [])).toBe(false);
     expect(
@@ -279,7 +307,7 @@ describe("GateEvaluatorService — autopilot overlay", () => {
       match: [{ type: "action", action: "git.push", branch: "main" }],
       decision: "deny",
     });
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const push = { action: "git.push", branch: "main" };
     expect(await evaluator.autopilotDecides(push, [], undefined, { ownedBranch: "main" })).toBe(
       false,
@@ -287,17 +315,23 @@ describe("GateEvaluatorService — autopilot overlay", () => {
   });
 
   it("a PR comment is lifted only when its scope is on", async () => {
-    await autopilot.set("full", "operator", {
-      global: {
-        autoReview: true,
-        autoAddressComments: false,
-        autoImplement: false,
-        autoCommunicate: false,
-        autoFixCi: false,
+    await autopilot.set(
+      {
+        paused: false,
+        automation: {
+          global: {
+            autoReview: "auto",
+            autoAddressComments: "manual",
+            autoImplement: "manual",
+            autoCommunicate: "manual",
+            autoFixCi: "manual",
+          },
+          companies: {},
+          teams: {},
+        },
       },
-      companies: {},
-      teams: {},
-    });
+      "operator",
+    );
     const comment = { action: "gh.pr_comment" };
     expect((await evalFloor(comment)).decision).toBe("ask");
     expect(await evaluator.autopilotDecides(comment, [], undefined, { scope: "reviews" })).toBe(
@@ -313,12 +347,12 @@ describe("GateEvaluatorService — autopilot overlay", () => {
   });
 
   it("persists across a restart from autopilot.json", async () => {
-    await autopilot.set("full", "operator");
+    await autopilot.set(ON, "operator");
     const again = new AutopilotService(dir);
     await again.onModuleInit();
     expect(again.isOn()).toBe(true);
     expect(JSON.parse(await fs.readFile(path.join(dir, "autopilot.json"), "utf8"))).toMatchObject({
-      level: "full",
+      paused: false,
       by: "operator",
     });
   });

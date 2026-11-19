@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AutopilotStatus } from "@zibby/contracts";
 import type { RunStatusEvent } from "../../runs/runEvents";
 import { renderWithProviders as render } from "../../../test/render";
 import { ApprovalNotifier } from "./ApprovalNotifier";
 
-let status: AutopilotStatus = { level: "off", pendingApprovals: 0 };
 let emit: (e: RunStatusEvent) => void = () => {};
-vi.mock("../queries", () => ({ useAutopilotQuery: () => ({ data: status }) }));
 vi.mock("../../runs/runEvents", () => ({
   onRunEvent: (l: (e: RunStatusEvent) => void) => {
     emit = l;
@@ -43,8 +40,7 @@ describe("ApprovalNotifier", () => {
     vi.stubGlobal("Notification", FakeNotification);
   });
 
-  it("notifies a new approval in Approve mode", () => {
-    status = { level: "off", pendingApprovals: 0 };
+  it("notifies a new approval, ignores other events", () => {
     render(<ApprovalNotifier />);
     emit({ scope: "activity", kind: "run-finished" });
     emit(approval);
@@ -53,12 +49,5 @@ describe("ApprovalNotifier", () => {
       body: "approval needed: x wants to y",
       tag: "a1",
     });
-  });
-
-  it("stays quiet under AUTOPILOT", () => {
-    status = { level: "full", pendingApprovals: 0 };
-    render(<ApprovalNotifier />);
-    emit(approval);
-    expect(shown).not.toHaveBeenCalled();
   });
 });

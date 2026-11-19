@@ -7,12 +7,14 @@ export default meta;
 export const Variants: StoryObj<typeof LaneChip> = {
   render: () => (
     <div className="flex gap-2 text-ink">
-      <LaneChip tone="semi">Semi</LaneChip>
-      <LaneChip own tone="auto">
-        Auto, own
+      <LaneChip pressed tone="semi">
+        Semi on
       </LaneChip>
-      <LaneChip inherited tone="auto">
-        Inherited (borderless)
+      <LaneChip own pressed tone="auto">
+        Auto on, exception
+      </LaneChip>
+      <LaneChip pressed={false} tone="auto">
+        Off
       </LaneChip>
     </div>
   ),

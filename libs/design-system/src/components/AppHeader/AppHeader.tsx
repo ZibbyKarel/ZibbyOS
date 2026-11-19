@@ -62,8 +62,6 @@ export interface AppHeaderProps {
   hideWordmark?: boolean;
   /** Narrow header: the search trigger shows only the icon and `⌘K`. */
   searchCompact?: boolean;
-  /** Autopilot is on: the header's bottom border turns amber (pairs with `ScreenGlow`). */
-  autopilotActive?: boolean;
   /** Search trigger label - the control itself is built in and always shows
    *  `⌘K`. Omit `onSearchClick` to not render the trigger at all. */
   searchLabel?: string;
@@ -81,7 +79,6 @@ export interface AppHeaderProps {
  * (status, mode, notifications, preferences). Every slot is an opaque `ReactNode`
  * (domain-neutral, no `next/link` import here) except the search trigger, which
  * `AppHeader` renders itself so every screen gets the identical `⌘K` affordance.
- * With `autopilotActive` the bottom border turns amber.
  */
 export function AppHeader({
   wordmark,
@@ -96,7 +93,6 @@ export function AppHeader({
   mode,
   notifications,
   preferences,
-  autopilotActive = false,
   hideWordmark = false,
   searchCompact = false,
   searchLabel = "Search",
@@ -117,11 +113,7 @@ export function AppHeader({
   );
   return (
     <header
-      className={cn(
-        "relative z-40 flex items-center gap-2.5 border-b bg-panel pr-3.5 pl-4",
-        autopilotActive ? "border-accent/50" : "border-line",
-      )}
-      data-autopilot={autopilotActive || undefined}
+      className="relative z-40 flex items-center gap-2.5 border-b border-line bg-panel pr-3.5 pl-4"
       data-testid={AppHeaderTestId.Root}
       ref={ref}
       style={{ height: LAYOUT.headerHeight }}

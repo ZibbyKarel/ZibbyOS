@@ -27,13 +27,13 @@ export default meta;
 
 export const Playground: StoryObj<typeof MobileToolbar> = {};
 
-export const AutopilotOn: StoryObj<typeof MobileToolbar> = {
+export const Paused: StoryObj<typeof MobileToolbar> = {
   args: {
     banner: (
       <>
-        <b>Autopilot on</b> · agents act without asking
+        <b>Paused</b> · nothing runs
       </>
     ),
-    bannerAction: <a href="/settings">Change</a>,
+    bannerAction: <a href="/settings">Resume</a>,
   },
 };

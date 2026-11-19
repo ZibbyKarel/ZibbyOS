@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { LAYOUT } from "../../tokens";
+import { Icon } from "../Icon/Icon";
 
 export enum MobileToolbarTestId {
   Root = "mobile-toolbar-root",
@@ -77,17 +78,14 @@ export function MobileToolbar({
       </div>
       {banner && (
         <div
-          className="flex items-center gap-2 border-b border-accent/40 bg-accent/14 px-3.5 py-2 font-sans text-[12.5px] text-ink-2"
+          className="flex items-center gap-2 border-b border-line-2 bg-ink/[0.06] px-3.5 py-2 font-sans text-[12.5px] text-ink-2"
           data-testid={MobileToolbarTestId.Banner}
         >
-          <span
-            aria-hidden="true"
-            className="zb-header-pulse size-[7px] shrink-0 rounded-full bg-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_25%,transparent)]"
-          />
-          <span className="min-w-0 [&_b]:font-semibold [&_b]:text-accent-fg">{banner}</span>
+          <Icon name="pause" size="xs" stroke="medium" />
+          <span className="min-w-0 [&_b]:font-semibold [&_b]:text-ink">{banner}</span>
           {bannerAction && (
             <span
-              className="ml-auto shrink-0 font-medium text-accent-fg"
+              className="ml-auto shrink-0 font-medium text-ink"
               data-testid={MobileToolbarTestId.BannerAction}
             >
               {bannerAction}

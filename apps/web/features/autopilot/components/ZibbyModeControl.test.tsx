@@ -1,14 +1,13 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type AutopilotStatus, NO_AUTOMATION } from "@zibby/contracts";
+import { Button, ZibbySectionTestId, ZibbyStatusMenuTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_TOKEN_STORAGE_KEY } from "../../../state/operatorToken";
 import { renderAutonomy } from "../test/renderAutonomy";
-import { AutomatConfirmTestId } from "./AutomatConfirmDialog";
-import { ZibbyModeControl } from "./ZibbyModeControl";
+import { ZibbyModeChange, ZibbyModeControl, ZibbyModeControlTestId } from "./ZibbyModeControl";
 import { ZibbyModePanelTestId } from "./ZibbyModePanel";
 
-let status: AutopilotStatus = { level: "off", pendingApprovals: 3 };
+let status: AutopilotStatus = { paused: false, pendingApprovals: 3 };
 const mutate = vi.fn();
 const openChat = vi.fn();
 
@@ -20,6 +19,7 @@ vi.mock("../queries", () => ({ useAutopilotQuery: () => ({ data: status }) }));
 vi.mock("../mutations", () => ({
   useSetAutopilotMutation: () => ({ mutate, isPending: false }),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../../chat/ChatContext", () => ({
   useChat: () => ({ dockOpen: false, open: openChat, setDockOpen: vi.fn() }),
 }));
@@ -35,61 +35,75 @@ vi.mock("../../zibby/shortcut/shortcut", () => ({ formatShortcut: () => ["⌥", 
 beforeEach(() => {
   mutate.mockReset();
   openChat.mockReset();
-  localStorage.setItem(OPERATOR_TOKEN_STORAGE_KEY, "zby_op_x");
   status = {
-    level: "off",
+    paused: false,
     pendingApprovals: 3,
     automation: {
       global: { ...NO_AUTOMATION },
-      companies: { acme: { autoReview: true } },
+      companies: { acme: { autoReview: "auto" } },
       teams: {},
     },
   };
 });
 
-const openPanel = () => userEvent.click(screen.getByRole("button", { name: /Režim Zibbyho: / }));
+const openPanel = () => userEvent.click(screen.getByTestId(ZibbySectionTestId.StatusButton));
 
 describe("ZibbyModeControl", () => {
-  it("opens Zibby from the orb and the mode popover from the mode button", async () => {
+  it("opens Zibby from the orb and the status popover from the status button", async () => {
     renderAutonomy(<ZibbyModeControl />);
-    await userEvent.click(screen.getByRole("button", { name: /Vyvolat Zibbyho/ }));
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "run");
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Běží");
+    await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(openChat).toHaveBeenCalled();
     await openPanel();
+    expect(screen.getByTestId(ZibbyStatusMenuTestId.Head)).toHaveTextContent(
+      "Běží · Zibby přemýšlí",
+    );
     expect(screen.getByTestId(ZibbyModePanelTestId.Pending)).toHaveTextContent(
       "3 schválení čekají",
     );
-    expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Acme");
+    expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Výjimky: Acme");
   });
 
-  it("switching down sends only the level and closes; Manuál does nothing", async () => {
-    status = { ...status, level: "full" };
+  it("pauses with one click and no confirmation", async () => {
     renderAutonomy(<ZibbyModeControl />);
     await openPanel();
-    await userEvent.click(screen.getByTestId("zibby-mode-card-manual"));
-    expect(mutate).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByTestId("zibby-mode-card-semi"));
-    expect(mutate).toHaveBeenCalledWith({ body: { level: "off" } }, expect.anything());
-    await waitFor(() => expect(screen.queryByTestId(ZibbyModePanelTestId.Root)).toBeNull());
+    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
+    expect(mutate).toHaveBeenCalledWith({ body: { paused: true } }, expect.anything());
   });
 
-  it("switching to Automat asks first, then sends the tree with global all-off", async () => {
+  it("shows Pozastaveno and offers to resume; no pending link without approvals", async () => {
+    status = { paused: true, pendingApprovals: 0 };
     renderAutonomy(<ZibbyModeControl />);
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Pozastaveno");
     await openPanel();
-    await userEvent.click(screen.getByTestId("zibby-mode-card-auto"));
-    expect(mutate).not.toHaveBeenCalled();
-    await userEvent.click(await screen.findByTestId(AutomatConfirmTestId.Confirm));
-    expect(mutate).toHaveBeenCalledWith(
-      {
-        body: {
-          level: "full",
-          automation: {
-            global: { ...NO_AUTOMATION },
-            companies: { acme: { autoReview: true } },
-            teams: {},
-          },
-        },
-      },
-      expect.anything(),
+    expect(screen.getByTestId(ZibbyStatusMenuTestId.Action)).toHaveTextContent("Pustit Zibbyho");
+    expect(screen.queryByTestId(ZibbyModePanelTestId.Pending)).toBeNull();
+    expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Bez výjimek");
+    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
+    expect(mutate).toHaveBeenCalledWith({ body: { paused: false } }, expect.anything());
+  });
+
+  it("surfaces a missing operator token on resume with an unlock link", async () => {
+    status = { paused: true, pendingApprovals: 0 };
+    mutate.mockImplementation((_vars, opts: { onError: (e: unknown) => void }) =>
+      opts.onError({ status: 401 }),
     );
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
+    expect(screen.getByTestId(ZibbyModePanelTestId.Error)).toHaveTextContent("operátorský token");
+    expect(screen.getByTestId(ZibbyModePanelTestId.Unlock)).toBeInTheDocument();
+  });
+});
+
+describe("ZibbyModeChange", () => {
+  it("opens the same status sheet from its trigger", async () => {
+    status = { paused: true, pendingApprovals: 0 };
+    renderAutonomy(
+      <ZibbyModeChange renderTrigger={(open) => <Button onClick={open}>open</Button>} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "open" }));
+    expect(screen.getByTestId(ZibbyStatusMenuTestId.Action)).toHaveTextContent("Pustit Zibbyho");
   });
 });

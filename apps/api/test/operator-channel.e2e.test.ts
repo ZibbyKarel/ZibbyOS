@@ -13,6 +13,19 @@ import { withOperator } from "./operator-token";
 
 const BOT_TOKEN = "xoxb-e2e-secret-token";
 
+/** One auto cell is enough for the overlay (and the outbound pushes) to be on. */
+const AUTO_TREE = {
+  global: {
+    autoReview: "auto",
+    autoAddressComments: "auto",
+    autoImplement: "manual",
+    autoCommunicate: "auto",
+    autoFixCi: "auto",
+  },
+  companies: {},
+  teams: {},
+};
+
 describe("Operator channel API (e2e)", () => {
   let app: INestApplication;
   let dir: string;
@@ -114,7 +127,9 @@ describe("Operator channel API (e2e)", () => {
 
   it("an existing activity event reaches the operator DM exactly once", async () => {
     // Outbound pushes only go out while autopilot is on (f87e9ec2a).
-    await withOperator(request(server()).put("/api/autopilot")).send({ level: "full" }).expect(200);
+    await withOperator(request(server()).put("/api/autopilot"))
+      .send({ paused: false, automation: AUTO_TREE })
+      .expect(200);
     const fake = app.get(OperatorChannelService).fake;
     const before = fake.sent.length;
     const activity = app.get(ActivityLogService);

@@ -497,9 +497,9 @@ The HTTP route never starts an auto run: the body schema is strict, so `{ …, a
 ## Automatic review & comment handling (todo-16)
 
 `PrAutomationService` (`apps/api/src/inbox/pr-automation.service.ts`) is a heartbeat that starts
-the two actions above on its own, per the Autopilot automation toggles `autoReview` and
+the two actions above on its own, per the autonomy levels `autoReview` and
 `autoAddressComments` (`./autopilot.md` — team > company > global override tree via
-`AutopilotService.automationFor`; all `false` while Autopilot is off). It shares the roadmap heartbeat
+`AutopilotService.automationFor`: a `semi` or `auto` cell starts the work; all `false` while ZIBBY is paused). It shares the roadmap heartbeat
 knob `systemConfig.roadmapTickMs` (read live, `0` disables; no separate knob) and reports on
 `/api/health` as watcher `pr-automation`.
 
@@ -627,8 +627,8 @@ a `running` one whose task/run died reads `failed`).
 
 ## Automatic CI fix on my PRs (`autoFixCi`)
 
-The Autopilot toggle `autoFixCi` (`docs/api/autopilot.md`) makes the PR automation heartbeat
-(`PrAutomationService`) handle the operator's OWN PRs whose CI settled red. It lifts no gate scope.
+The autonomy level `autoFixCi` (`semi` or `auto`, `docs/api/autopilot.md`) makes the PR automation heartbeat
+(`PrAutomationService`) handle the operator's OWN PRs whose CI settled red. On `auto` it lifts the `ci` class (the fix push, the rerun).
 The flow is triage -> rerun or fix -> park:
 
 1. **Triage.** `InboxCiTriageService.start` (`apps/api/src/inbox/inbox-ci-triage.service.ts`; no HTTP
@@ -644,7 +644,7 @@ autopilotAt? }`. It refuses (`PrRefusedError`) when the head moved off the `head
    pipeline of the triaged head sha, and `POST pipelines/:id/retry` when it is `failed` / `canceled`; the
    approval action is `gitlab.pipeline.retry`. No such pipeline, nothing to retry, or a rejected call ->
    `failed` with a note naming GitLab / glab.) `rerun(taskId)` (from `triaged` only) re-runs the failed jobs now when
-   Autopilot is on, otherwise raises a `pr-ci-rerun` approval (`github.actions.rerun`, risk low,
+   `autoFixCi` is `auto` anywhere (`scopeAnywhere().ci`), otherwise raises a `pr-ci-rerun` approval (`github.actions.rerun`, risk low,
    `docs/api/approvals.md`) and the state is `awaiting-approval`. A rerun lists
    `GET /repos/{repo}/actions/runs?head_sha=<headSha>` and POSTs `.../rerun-failed-jobs` for every
    completed run that failed, timed out, was cancelled or failed to start -> `rerun` (+ `rerunAt`,

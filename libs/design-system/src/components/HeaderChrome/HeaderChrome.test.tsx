@@ -57,9 +57,9 @@ describe("HeaderStatus", () => {
 });
 
 describe("HeaderModeGroup", () => {
-  it("is a labelled group and marks active", () => {
+  it("is a labelled group", () => {
     render(
-      <HeaderModeGroup active ariaLabel="Operating mode">
+      <HeaderModeGroup ariaLabel="Operating mode">
         <HeaderModeButton live pressed aria-label="Autopilot on" label="Autopilot" />
         <HeaderModeButton icon="compass" label="Approve" />
       </HeaderModeGroup>,
@@ -67,7 +67,6 @@ describe("HeaderModeGroup", () => {
     const group = screen.getByTestId(HeaderChromeTestId.ModeGroup);
     expect(group).toHaveRole("group");
     expect(group).toHaveAccessibleName("Operating mode");
-    expect(group).toHaveAttribute("data-active", "true");
     const [first] = screen.getAllByTestId(HeaderChromeTestId.ModeButton);
     expect(first).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId(HeaderChromeTestId.ModeLiveDot)).toBeInTheDocument();

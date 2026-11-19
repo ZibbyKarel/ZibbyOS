@@ -98,8 +98,8 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   lifts it); `kubectl … delete`,
   `aws … delete-*|terminate-*|remove-*`, `aws s3 rb` raise `delete`; `jira issue create` /
   `jira create` raise `jira.create_issue`. A raw `curl -X POST|DELETE` is not caught.
-- **Autopilot overlay** (Phase 4, `docs/api/autopilot.md`). While it is on, a matching
-  `ask` from `floor-gh.pr_comment` (when its scope toggle is on), or from `floor-git.push`
+- **Autopilot overlay** (`docs/api/autopilot.md`). While ZIBBY isn't paused, a matching
+  `ask` from `floor-gh.pr_comment` (when its class's capability is `auto` at that place), or from `floor-git.push`
   onto a `zibby/*` branch (or, approval side only, the operator's own PR head), resolves as `notify` with `via: "autopilot"`. The overlay applies only to these locked
   system rules and never touches the stored file. Own and department rules, and every
   other global `ask`/`deny`, still win through the strictest-bucket pick.

@@ -133,7 +133,8 @@ claude -p <msg> [--resume <sid>] \
   chat on purpose (same shell as their own `claude` session — e.g. `gh pr view`);
   it is also on `--allowedTools`, so it runs without a prompt. ZIBBY chat is a conversational butler,
   not a coding agent — it may only act through the `zibby` MCP tools
-  (`create_task` delegates the work to a workflow). Without this, the model tries
+  (`create_task` delegates the work to a workflow; `autopilot_off` pauses ZIBBY, see
+  [autopilot.md](./autopilot.md) — there is no tool that resumes it). Without this, the model tries
   to build the app itself via Bash/Write instead of dispatching. (Verified with a
   live eval.) It is a denylist rather than `--tools ""` because a `--tools` value
   also dropped the operator's claude.ai connectors (verified 2026-10-26, not re-checked

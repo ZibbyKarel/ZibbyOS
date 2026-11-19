@@ -1,31 +1,36 @@
 import {
+  AUTOMATION_KEYS,
   type AutomationKey,
+  type AutomationLevel,
+  type AutomationLevels,
   type AutomationOverride,
-  type AutomationToggles,
   type AutopilotAutomation,
   type Company,
   NO_AUTOMATION,
   type Team,
 } from "@zibby/contracts";
 
-/** Capabilities in display order (the five booleans of one automation node). */
-export const AUTOMATION_KEYS: readonly AutomationKey[] = [
-  "autoReview",
-  "autoAddressComments",
-  "autoImplement",
-  "autoCommunicate",
-  "autoFixCi",
-];
+export { AUTOMATION_KEYS };
 
 /**
- * The design's three lanes. At cell level the data has two states per capability: `false` means
- * the work is never started (`manual`), `true` means it starts on its own (`auto`). `semi` ("start,
- * but always wait") is not representable today, so no cell is ever in it (no contract change).
+ * The two columns of the levels table. They add up: Poloautomat is on for `semi` and `auto`,
+ * Automat only for `auto` (Automat without Poloautomat does not exist).
  */
-export type Lane = "manual" | "semi" | "auto";
-export const LANES: readonly Lane[] = ["manual", "semi", "auto"];
+export type Column = "semi" | "auto";
+export const COLUMNS: readonly Column[] = ["semi", "auto"];
 
-export const laneOf = (on: boolean): Lane => (on ? "auto" : "manual");
+export const inColumn = (level: AutomationLevel, column: Column) =>
+  column === "semi" ? level !== "manual" : level === "auto";
+
+/** What clicking a chip does: Poloautomat off -> manual (Automat goes too), Automat on -> auto (Poloautomat comes too). */
+export const toggledLevel = (level: AutomationLevel, column: Column): AutomationLevel =>
+  column === "semi"
+    ? inColumn(level, "semi")
+      ? "manual"
+      : "semi"
+    : inColumn(level, "auto")
+      ? "semi"
+      : "auto";
 
 export const EMPTY_AUTOMATION: AutopilotAutomation = {
   global: { ...NO_AUTOMATION },
@@ -35,9 +40,9 @@ export const EMPTY_AUTOMATION: AutopilotAutomation = {
 
 /** Merge `inherited` <- `override` (an absent key inherits). */
 export const applyOverride = (
-  inherited: AutomationToggles,
+  inherited: AutomationLevels,
   override: AutomationOverride | undefined,
-): AutomationToggles => {
+): AutomationLevels => {
   const out = { ...inherited };
   for (const k of AUTOMATION_KEYS) out[k] = override?.[k] ?? out[k];
   return out;
@@ -87,7 +92,7 @@ export function buildScopes(companies: Company[], teams: Team[]): AutonomyScope[
   ];
 }
 
-/** The scope's own (possibly absent) override. `global` never has one: the web forces it all-off. */
+/** The scope's own (possibly absent) override. The global row is the base, it has none. */
 export function overrideOf(
   automation: AutopilotAutomation,
   scope: AutonomyScope,
@@ -97,113 +102,65 @@ export function overrideOf(
   return undefined;
 }
 
-/** Effective toggles of every scope, resolved top-down (the root is all-off). */
+/** Effective levels of every scope, resolved top-down from the global row. */
 export function effectiveByNode(
   automation: AutopilotAutomation,
   scopes: AutonomyScope[],
-): Record<string, AutomationToggles> {
-  const out: Record<string, AutomationToggles> = {};
+): Record<string, AutomationLevels> {
+  const out: Record<string, AutomationLevels> = {};
   for (const scope of scopes) {
-    const inherited = scope.parent ? (out[scope.parent] ?? NO_AUTOMATION) : NO_AUTOMATION;
     out[scope.node] =
       scope.kind === "global"
-        ? { ...NO_AUTOMATION }
-        : applyOverride(inherited, overrideOf(automation, scope));
+        ? { ...automation.global }
+        : applyOverride(
+            (scope.parent ? out[scope.parent] : undefined) ?? automation.global,
+            overrideOf(automation, scope),
+          );
   }
   return out;
 }
 
-const level = (scope: AutonomyScope) => (scope.kind === "company" ? "companies" : "teams");
+const bucket = (scope: AutonomyScope) => (scope.kind === "company" ? "companies" : "teams");
 
-/** Replace one scope's override map (an empty map removes it). Global is forced all-off. */
+/** Replace one company/team override (an empty one removes it). */
 function withOverride(
   automation: AutopilotAutomation,
   scope: AutonomyScope,
   next: AutomationOverride,
 ): AutopilotAutomation {
-  if (scope.kind === "global") return automation;
-  const key = level(scope);
+  const key = bucket(scope);
   const rest = { ...automation[key] };
   delete rest[scope.id];
-  return {
-    ...automation,
-    global: { ...NO_AUTOMATION },
-    [key]: hasOverride(next) ? { ...rest, [scope.id]: next } : rest,
-  };
+  return { ...automation, [key]: hasOverride(next) ? { ...rest, [scope.id]: next } : rest };
 }
 
 /**
- * Put one capability of a scope into a lane. `auto` = `true`, `manual` = `false`; a value equal to
- * the parent's effective one removes the override (the scope inherits again). `semi` and the
- * global row are no-ops (the caller never offers them).
+ * Set one capability of a scope. On the global row it rewrites the base; elsewhere a level equal
+ * to the parent's effective one removes the override (the scope inherits again).
  */
-export function moveCap(
+export function setLevel(
   automation: AutopilotAutomation,
   scope: AutonomyScope,
-  parentEffective: AutomationToggles,
+  parentEffective: AutomationLevels,
   key: AutomationKey,
-  lane: Lane,
+  level: AutomationLevel,
 ): AutopilotAutomation {
-  if (lane === "semi" || scope.kind === "global") return automation;
+  if (scope.kind === "global") {
+    return { ...automation, global: { ...automation.global, [key]: level } };
+  }
   const next: AutomationOverride = { ...overrideOf(automation, scope) };
-  const value = lane === "auto";
-  if (value === parentEffective[key]) delete next[key];
-  else next[key] = value;
-  return withOverride(automation, scope, next);
-}
-
-export function inheritCap(
-  automation: AutopilotAutomation,
-  scope: AutonomyScope,
-  key: AutomationKey,
-): AutopilotAutomation {
-  const next: AutomationOverride = { ...overrideOf(automation, scope) };
-  delete next[key];
+  if (level === parentEffective[key]) delete next[key];
+  else next[key] = level;
   return withOverride(automation, scope, next);
 }
 
 export const inheritAll = (automation: AutopilotAutomation, scope: AutonomyScope) =>
-  withOverride(automation, scope, {});
+  scope.kind === "global" ? automation : withOverride(automation, scope, {});
 
-export interface ScopeException {
-  scope: AutonomyScope;
-  /** Overridden capabilities with their lane. */
-  entries: { key: AutomationKey; lane: Lane }[];
-}
+/** Companies/teams that override something (the header menu and the levels page list them). */
+export const exceptionsOf = (automation: AutopilotAutomation, scopes: AutonomyScope[]) =>
+  scopes.filter((scope) => hasOverride(overrideOf(automation, scope)));
 
-/** Companies/teams that override something: shown in the Automat confirm and the levels link. */
-export function exceptionsOf(
-  automation: AutopilotAutomation,
-  scopes: AutonomyScope[],
-): ScopeException[] {
-  return scopes.flatMap((scope) => {
-    const own = overrideOf(automation, scope);
-    const entries = AUTOMATION_KEYS.flatMap((key) =>
-      own?.[key] === undefined ? [] : [{ key, lane: laneOf(own[key]) }],
-    );
-    return entries.length > 0 ? [{ scope, entries }] : [];
-  });
-}
-
-/** True when some company/team has any capability on (Automat does something). */
-export const anyCapOn = (automation: AutopilotAutomation) =>
-  [...Object.values(automation.companies), ...Object.values(automation.teams)].some((node) =>
-    Object.values(node).includes(true),
-  );
-
-const stable = (v: unknown): unknown =>
-  Array.isArray(v)
-    ? v.map(stable)
-    : v && typeof v === "object"
-      ? Object.fromEntries(
-          Object.entries(v)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, x]) => [k, stable(x)]),
-        )
-      : v;
-
-/** Structural equality of two trees, ignoring key order (a missing tree never equals one). */
-export const sameAutomation = (
-  a: AutopilotAutomation | undefined,
-  b: AutopilotAutomation | undefined,
-) => a !== undefined && b !== undefined && JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+/** The capabilities that resolve to `manual` (nothing is started, the operator does it). */
+export const manualKeys = (levels: AutomationLevels): AutomationKey[] =>
+  AUTOMATION_KEYS.filter((k) => levels[k] === "manual");

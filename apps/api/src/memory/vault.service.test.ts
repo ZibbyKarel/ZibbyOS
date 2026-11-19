@@ -330,6 +330,43 @@ describe("VaultService write paths", () => {
       expect(rawOnes[0]?.backlinks).toEqual([]);
     });
 
+    it("raw notes live in `_raw/`, keep their tier, and triage moves them to the tier dir", async () => {
+      const dir = (vault as unknown as { dir: string }).dir;
+      const created = await vault.createNote({
+        id: "halda-1",
+        tier: "daily",
+        body: "x",
+        raw: true,
+      });
+      expect(created.path).toBe(path.join("_raw", "halda-1.md"));
+      expect(created.tier).toBe("daily");
+      expect(created.frontmatter.tier).toBe("daily");
+      const quick = await vault.createNote({ id: "halda-2", body: "y" });
+      expect(quick.path).toBe(path.join("_raw", "halda-2.md"));
+      expect(quick.tier).toBe("knowledge");
+      expect((await vault.graph()).nodes.find((n) => n.id === "halda-1")?.raw).toBe(true);
+
+      // rawNotes() reads only `_raw/`: a note elsewhere flagged raw is not returned.
+      await fs.writeFile(path.join(dir, "stray.md"), "---\nraw: true\n---\nz");
+      expect((await vault.rawNotes()).map((n) => n.id).sort()).toEqual(["halda-1", "halda-2"]);
+
+      const sorted = await vault.updateNote("halda-1", { raw: false });
+      expect(sorted.path).toBe(path.join("daily", "halda-1.md"));
+      expect(sorted.tier).toBe("daily");
+      expect(sorted.frontmatter.tier).toBeUndefined();
+      await expect(fs.access(path.join(dir, "_raw", "halda-1.md"))).rejects.toThrow();
+      expect((await vault.rawNotes()).map((n) => n.id)).toEqual(["halda-2"]);
+    });
+
+    it("triage refuses to overwrite an existing file in the target tier dir", async () => {
+      const dir = (vault as unknown as { dir: string }).dir;
+      await vault.createNote({ id: "clash", body: "x" });
+      await fs.mkdir(path.join(dir, "knowledge"), { recursive: true });
+      await fs.writeFile(path.join(dir, "knowledge", "clash.md"), "other");
+      await expect(vault.updateNote("clash", { raw: false })).rejects.toThrow();
+      expect((await vault.rawNotes()).map((n) => n.id)).toContain("clash");
+    });
+
     it("createNote: omitted `tier` defaults to knowledge and forces `raw: true`", async () => {
       const created = await vault.createNote({ id: "quick-capture", body: "captured text" });
       expect(created.tier).toBe("knowledge");
