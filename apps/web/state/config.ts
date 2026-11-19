@@ -97,11 +97,10 @@ export const SECTIONS = [
   {
     id: "knowledge",
     glyph: "brain",
-    href: "/knowledge/vault",
+    href: "/knowledge/brain" as Route,
     tabs: [
-      { id: "vault", href: "/knowledge/vault" },
-      { id: "graph", href: "/knowledge/graph" },
-      { id: "distill", href: "/knowledge/distill" },
+      { id: "brain", href: "/knowledge/brain" as Route },
+      { id: "maintenance", href: "/knowledge/maintenance" as Route },
     ],
   },
   {
@@ -110,6 +109,7 @@ export const SECTIONS = [
     href: "/governance/gates" as Route,
     tabs: [
       { id: "gates", href: "/governance/gates" as Route },
+      { id: "autonomy", href: "/governance/autonomy" as Route },
       { id: "patterns", href: "/governance/patterns" as Route },
       { id: "budgets", href: "/governance/budgets" as Route },
       { id: "spend", href: "/governance/spend" as Route },

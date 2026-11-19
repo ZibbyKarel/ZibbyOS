@@ -1,6 +1,13 @@
 "use client";
 
-import { type CSSProperties, useId } from "react";
+import {
+  type CSSProperties,
+  type ChangeEvent,
+  type KeyboardEvent,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import MDEditor, { commands } from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useResolvedTheme } from "../../DesignSystemContext/hooks";
@@ -13,6 +20,24 @@ export enum MarkdownEditorTestId {
   Frame = "markdown-editor-frame",
   Control = "markdown-editor-control",
   Hint = "markdown-editor-hint",
+  /** The `[[` autocomplete list. */
+  Suggestions = "markdown-editor-suggestions",
+  /** One suggestion, suffixed with the target id. */
+  Suggestion = "markdown-editor-suggestion",
+}
+
+/** A note a `[[wikilink]]` can point at. */
+export interface WikilinkTarget {
+  id: string;
+  label: string;
+}
+
+const MAX_SUGGESTIONS = 6;
+
+/** The open `[[query` before the caret, or null. */
+function openWikilink(value: string, caret: number): { start: number; text: string } | null {
+  const m = /\[\[([^\]\n]*)$/.exec(value.slice(0, caret));
+  return m ? { start: caret - m[0].length, text: m[1] ?? "" } : null;
 }
 
 const labelClass = "text-meta font-medium text-ink-3";
@@ -63,6 +88,8 @@ export interface MarkdownEditorProps {
   fill?: boolean;
   /** Blocks typing and drops toolbar edits; the toolbar stays visible so it does not flicker when toggled. */
   readOnly?: boolean;
+  /** Notes offered by the `[[` autocomplete (typing `[[` opens it; Up/Down + Enter/Tab insert `[[id]]`). */
+  wikilinkTargets?: readonly WikilinkTarget[];
 }
 
 /**
@@ -80,9 +107,50 @@ export function MarkdownEditor({
   ariaLabel,
   fill = false,
   readOnly,
+  wikilinkTargets,
 }: MarkdownEditorProps) {
   const id = useId();
   const theme = useResolvedTheme();
+  const area = useRef<HTMLTextAreaElement | null>(null);
+  const [link, setLink] = useState<{ start: number; text: string } | null>(null);
+  const [active, setActive] = useState(0);
+
+  const q = link?.text.toLowerCase() ?? "";
+  const matches =
+    link && wikilinkTargets
+      ? wikilinkTargets
+          .filter((t) => t.id.toLowerCase().includes(q) || t.label.toLowerCase().includes(q))
+          .slice(0, MAX_SUGGESTIONS)
+      : [];
+
+  const insert = (target: WikilinkTarget) => {
+    const ta = area.current;
+    if (!link || !ta) return;
+    const caret = ta.selectionStart;
+    const next = `${value.slice(0, link.start)}[[${target.id}]]${value.slice(caret)}`;
+    const pos = link.start + target.id.length + 4;
+    onChange(next);
+    setLink(null);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!link || matches.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) => (a + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length);
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      const pick = matches[Math.min(active, matches.length - 1)];
+      if (pick) insert(pick);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setLink(null);
+    }
+  };
   // Declared (not an inline literal) so the extra `data-testid`, absent from
   // the third-party `ITextAreaProps`, passes structural assignability instead
   // of tripping the excess-property check.
@@ -93,6 +161,7 @@ export function MarkdownEditor({
     readOnly,
     "aria-label": ariaLabel ?? label,
     "data-testid": MarkdownEditorTestId.Control,
+    onKeyDown,
   };
   return (
     <Stack data-testid={MarkdownEditorTestId.Root} gap="100" grow={fill} minH0={fill}>
@@ -114,9 +183,14 @@ export function MarkdownEditor({
           }
           extraCommands={[commands.codeEdit, commands.codePreview]}
           height={fill ? "100%" : 420}
-          onChange={(next) => {
+          onChange={(next, event?: ChangeEvent<HTMLTextAreaElement>) => {
             // Toolbar commands edit via setRangeText, which ignores `readonly`.
-            if (!readOnly) onChange(next ?? "");
+            if (readOnly) return;
+            onChange(next ?? "");
+            if (!wikilinkTargets || !event) return;
+            area.current = event.target;
+            setLink(openWikilink(next ?? "", event.target.selectionStart));
+            setActive(0);
           }}
           preview="edit"
           previewOptions={{ style: themeVars }}
@@ -126,6 +200,30 @@ export function MarkdownEditor({
           visibleDragbar={false}
         />
       </div>
+      {matches.length > 0 && (
+        <div
+          className="flex flex-col rounded border border-line-2 bg-surface p-1"
+          data-testid={MarkdownEditorTestId.Suggestions}
+          role="listbox"
+        >
+          {/* onMouseDown keeps the textarea focused so the caret survives the click */}
+          {matches.map((m, i) => (
+            <button
+              aria-selected={i === active}
+              className={`flex items-center gap-2 rounded px-2 py-1 text-left font-sans text-xs text-ink ${i === active ? "bg-hover" : ""}`}
+              data-testid={`${MarkdownEditorTestId.Suggestion}-${m.id}`}
+              key={m.id}
+              onClick={() => insert(m)}
+              onMouseDown={(e) => e.preventDefault()}
+              role="option"
+              type="button"
+            >
+              <span className="truncate">{m.label}</span>
+              <span className="truncate font-mono text-ink-3">{m.id}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {hint && (
         <span
           className="font-sans text-xs text-foreground-faint"

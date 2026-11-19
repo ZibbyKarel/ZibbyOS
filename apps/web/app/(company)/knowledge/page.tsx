@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** `/knowledge` has no screen of its own — it always means the vault. */
+/** `/knowledge` has no screen of its own — it is the Mozek page. */
 export default function KnowledgePage() {
-  redirect("/knowledge/vault");
+  redirect("/knowledge/brain");
 }

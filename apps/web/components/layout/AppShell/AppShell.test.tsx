@@ -12,13 +12,13 @@ import {
   SectionTrackTestId,
   SubNavTestId,
   ZibbyOverlayTestId,
+  ZibbySectionTestId,
 } from "@zibby/design-system";
 import { renderWithProviders, screen, waitFor, within } from "../../../test/render";
 import { AiEngineSwitcherTestId } from "../AiEngineSwitcher/AiEngineSwitcher";
 import { HeaderPopoverTestId } from "../HeaderPopover/HeaderPopover";
-import { AutopilotToggleTestId } from "../../../features/autopilot";
+import { ZibbyModeControlTestId } from "../../../features/autopilot";
 import { PinPageDialogTestId } from "../../../features/pins";
-import { ZibbyHeaderChipTestId } from "../../../features/zibby";
 import { SECTIONS } from "../../../state/config";
 import { AppShell, AppShellTestId } from "./AppShell";
 
@@ -162,13 +162,13 @@ describe("AppShell", () => {
     expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();
   });
 
-  it("shows autopilot as the Approve mode, and as live Autopilot when on", () => {
+  it("shows the Zibby mode button, and the live glow when Automat is on", () => {
     const { unmount } = renderWithProviders(
       <AppShell>
         <div />
       </AppShell>,
     );
-    expect(screen.getByTestId(AutopilotToggleTestId.Toggle)).toHaveTextContent("Schvalovat");
+    expect(screen.getByTestId(ZibbySectionTestId.ModeButton)).toBeInTheDocument();
     expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).not.toHaveAttribute("data-active");
     unmount();
     mockAutopilotLevel = "full";
@@ -312,16 +312,17 @@ describe("AppShell header: create menu and Zibby", () => {
   it("shows the Zibby summon chip in the header's trailing cluster", () => {
     renderShell();
     const slot = screen.getByTestId(AppHeaderTestId.Zibby);
-    expect(slot).toContainElement(screen.getByTestId(ZibbyHeaderChipTestId.Root));
-    expect(screen.getByTestId(ZibbyHeaderChipTestId.Root)).toHaveTextContent("Zibby");
+    expect(screen.getAllByTestId(ZibbyModeControlTestId.Root)).toHaveLength(1);
+    expect(slot).toContainElement(screen.getByTestId(ZibbyModeControlTestId.Root));
+    expect(screen.getByTestId(ZibbyModeControlTestId.Root)).toHaveTextContent("Zibby");
     expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument();
   });
 
   it("summons the overlay from the chip (and the chip toggles it closed)", async () => {
     renderShell();
-    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(screen.getByTestId(ZibbyOverlayTestId.Root)).toBeInTheDocument();
-    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     await waitFor(() =>
       expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument(),
     );
@@ -330,7 +331,7 @@ describe("AppShell header: create menu and Zibby", () => {
   it("opens the note window and closes the Zibby overlay", async () => {
     renderShell();
     expect(screen.getByTestId("note-dock-stub")).toHaveAttribute("data-open", "false");
-    await userEvent.click(screen.getByTestId(ZibbyHeaderChipTestId.Root));
+    await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(screen.getByTestId(ZibbyOverlayTestId.Root)).toBeInTheDocument();
     await openMenuOf(AppHeaderTestId.Create);
     await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-new-note`));
@@ -389,10 +390,10 @@ describe("AppShell phone layout", () => {
     const actions = screen.getByTestId(MobileToolbarTestId.Actions);
     expect(actions).toContainElement(screen.getByTestId(HeaderChromeTestId.NewButton));
     expect(screen.getByTestId(HeaderChromeTestId.NewButton)).toHaveTextContent("");
-    expect(actions).toContainElement(screen.getByTestId(AutopilotToggleTestId.Toggle));
-    // Phone: no keyboard — the Zibby chip is icon-only (orb).
-    expect(actions).toContainElement(screen.getByTestId(ZibbyHeaderChipTestId.Root));
-    expect(screen.getByTestId(ZibbyHeaderChipTestId.Root)).toHaveTextContent("");
+    expect(actions).toContainElement(screen.getByTestId(ZibbySectionTestId.ModeButton));
+    // Phone: no keyboard — the Zibby orb button is icon-only.
+    expect(actions).toContainElement(screen.getByTestId(ZibbyModeControlTestId.Root));
+    expect(screen.getByTestId(ZibbyModeControlTestId.Root)).toHaveTextContent("");
     expect(screen.queryByTestId(MobileToolbarTestId.Banner)).toBeNull();
   });
 
@@ -410,8 +411,8 @@ describe("AppShell phone layout", () => {
       renderPhone();
       expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Autopilot zapnut");
       expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Změnit");
-      // The icon trigger is replaced by the banner's action while on.
-      expect(screen.queryByTestId(AutopilotToggleTestId.Toggle)).toBeNull();
+      // Exactly one orb button in the toolbar: the mode control reuses it.
+      expect(screen.getAllByTestId(ZibbyModeControlTestId.Root)).toHaveLength(1);
     } finally {
       mockAutopilotLevel = undefined;
     }

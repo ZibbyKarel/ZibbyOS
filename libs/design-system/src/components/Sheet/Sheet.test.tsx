@@ -131,6 +131,16 @@ describe("Sheet", () => {
     expect(onCloseOuter).not.toHaveBeenCalled();
   });
 
+  it("is a full-width bottom sheet with a grabber with side=bottom", () => {
+    render(
+      <Sheet open side="bottom" title="Mode">
+        Body
+      </Sheet>,
+    );
+    expect(screen.getByTestId(SheetTestId.Root)).toHaveAttribute("data-side", "bottom");
+    expect(screen.getByTestId(SheetTestId.Grabber)).toBeInTheDocument();
+  });
+
   it("anchors to the left edge with side=left", () => {
     render(
       <Sheet open side="left" title="Menu">

@@ -21,7 +21,7 @@ import { CatalogProvider } from "../../../state/store";
 import { NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
 import { ChatProvider, useChat } from "../../../features/chat";
-import { ZibbyHeaderChip, ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
+import { ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
 import { CommandPaletteHost, useCommandPaletteHotkey } from "../../../features/command-palette";
 import { ApprovalSheet } from "../../../features/approvals/components/ApprovalSheet";
 import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSheetParam";
@@ -32,7 +32,12 @@ import { useApprovalsQuery } from "../../../features/approvals/queries";
 import { useRunsQuery } from "../../../features/runs/queries";
 import { useIsPhone } from "../../../hooks/useIsPhone";
 import { NotificationBell } from "../../../features/notifications";
-import { ApprovalNotifier, AutopilotToggle, useAutopilotQuery } from "../../../features/autopilot";
+import {
+  ApprovalNotifier,
+  ZibbyModeChange,
+  ZibbyModeControl,
+  useAutopilotQuery,
+} from "../../../features/autopilot";
 import {
   PinPageDialog,
   SubnavPinButton,
@@ -346,8 +351,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
               <MobileToolbar
                 actions={
                   <>
-                    <ZibbyHeaderChip iconOnly needsAttention={needsAttention} />
-                    {autopilotOn ? null : <AutopilotToggle iconOnly />}
+                    <ZibbyModeControl needsAttention={needsAttention} variant="toolbar" />
                     <NewMenu iconOnly onNewNote={openNote} />
                     <NotificationBell />
                   </>
@@ -359,7 +363,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 }
                 bannerAction={
                   autopilotOn ? (
-                    <AutopilotToggle
+                    <ZibbyModeChange
                       renderTrigger={(begin) => (
                         <Button intent="ghost" onClick={begin} size="sm">
                           {tShell("autopilotBannerChange")}
@@ -387,7 +391,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                 mode={
                   <HeaderModeGroup active={autopilotOn} ariaLabel={tShell("modeGroupAria")}>
                     <AiEngineSwitcher compact={lv >= 2} />
-                    <AutopilotToggle iconOnly={lv >= 2 && !autopilotOn} />
                   </HeaderModeGroup>
                 }
                 nav={
@@ -413,7 +416,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                     version={trailing.version}
                   />
                 }
-                zibby={<ZibbyHeaderChip needsAttention={needsAttention} />}
+                zibby={<ZibbyModeControl needsAttention={needsAttention} />}
               />
             )
           }

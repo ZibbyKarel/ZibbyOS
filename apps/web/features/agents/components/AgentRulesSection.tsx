@@ -36,14 +36,20 @@ function GroupHeading({
   tone,
   title,
   count,
+  layer,
 }: {
   icon: "shield" | "link" | "bolt";
   tone: "warn" | "accent";
   title: string;
   count?: number;
+  /** 1-based layer number, shown as a numbered badge before the icon. */
+  layer: number;
 }) {
   return (
     <Stack align="center" direction="row" gap="100">
+      <Typography mono size="2xs" type="note" variant="tertiary">
+        {layer}
+      </Typography>
       <Icon name={icon} size="xs" tone={tone} />
       <Typography uppercase size="2xs" tone={tone} type="note" weight="bold">
         {title}
@@ -157,7 +163,7 @@ export function AgentRulesSection({
 
       {/* 1) Inherited system floor — read-only */}
       <Stack gap="100">
-        <GroupHeading icon="shield" title={t("inheritedTitle")} tone="warn" />
+        <GroupHeading icon="shield" layer={1} title={t("inheritedTitle")} tone="warn" />
         <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
           {t("inheritedNote")}
         </Typography>
@@ -182,7 +188,13 @@ export function AgentRulesSection({
 
       {/* 2) Linked global catalog rules — shared, edited on the catalog page */}
       <Stack gap="100">
-        <GroupHeading count={linked.length} icon="link" title={t("linkedTitle")} tone="accent" />
+        <GroupHeading
+          count={linked.length}
+          icon="link"
+          layer={2}
+          title={t("linkedTitle")}
+          tone="accent"
+        />
         <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
           {t("linkedNote")}
         </Typography>
@@ -225,6 +237,7 @@ export function AgentRulesSection({
         <GroupHeading
           count={gates.length}
           icon="bolt"
+          layer={3}
           title={t("ownTitle", { agent: agentName })}
           tone="accent"
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   Button,
   Chip,
@@ -12,6 +12,7 @@ import {
   Tag,
   TextInputField,
   Typography,
+  type WikilinkTarget,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import type { Note } from "@zibby/contracts";
@@ -35,6 +36,12 @@ export interface NoteViewProps {
   onSelect: (id: string) => void;
   /** Hide the Edit action — used for a team KB, which ZIBBY only reads (Law 1). */
   readOnly?: boolean;
+  /** Render without the Panel frame (inside the Mozek note pane, which is the frame). */
+  bare?: boolean;
+  /** Notes offered by the editor's `[[` autocomplete. */
+  wikilinkTargets?: readonly WikilinkTarget[];
+  /** Extra content under the body in view mode (open questions, the KB inbox composer). */
+  extra?: ReactNode;
 }
 
 /** A row of clickable wiki-link chips — the index-first navigation affordance. */
@@ -68,7 +75,14 @@ function LinkChips({
  * Markdown editor and Save/Cancel take the header slot. Id and tier stay
  * immutable (there is no move op).
  */
-export function NoteView({ note, onSelect, readOnly = false }: NoteViewProps) {
+export function NoteView({
+  note,
+  onSelect,
+  readOnly = false,
+  bare = false,
+  wikilinkTargets,
+  extra,
+}: NoteViewProps) {
   const t = useTranslations("memory");
   const tk = useTranslations();
   const updateNote = useUpdateNoteMutation();
@@ -128,77 +142,92 @@ export function NoteView({ note, onSelect, readOnly = false }: NoteViewProps) {
       )
     ) : undefined;
 
+  const content = note ? (
+    editing ? (
+      <Stack gap="150">
+        <Typography mono size="caption" type="note" variant="tertiary">
+          {note.path} · {note.tier}
+        </Typography>
+        <TextInputField
+          data-testid={NoteViewTestId.Title}
+          label={t("titleLabel")}
+          onChange={(e) => setTitle(e.target.value)}
+          value={title}
+        />
+        <MarkdownEditor
+          ariaLabel={t("bodyLabel")}
+          label={t("bodyLabel")}
+          onChange={(value) => setBody(value ?? "")}
+          value={body}
+          wikilinkTargets={wikilinkTargets}
+        />
+      </Stack>
+    ) : (
+      <Stack gap="150">
+        <Stack align="center" direction="row" gap="75">
+          <Typography mono size="caption" type="note" variant="tertiary">
+            {note.path} · {note.tier}
+          </Typography>
+          {note.raw && (
+            <Tag data-testid={NoteViewTestId.RawBadge} size="sm" tone="warn">
+              {t("untriaged")}
+            </Tag>
+          )}
+          {note.department && (
+            <Tag
+              aria-label={t("departmentBadge")}
+              data-testid={NoteViewTestId.DepartmentBadge}
+              size="sm"
+              title={t("departmentBadge")}
+              tone="accent"
+            >
+              {note.department}
+            </Tag>
+          )}
+        </Stack>
+
+        <Markdown source={note.body ?? ""} />
+
+        {note.links.length > 0 && (
+          <Stack gap="50">
+            <Typography uppercase size="2xs" type="note" variant="tertiary">
+              {t("noteLinks")}
+            </Typography>
+            <LinkChips ids={note.links} kind="link" onSelect={onSelect} />
+          </Stack>
+        )}
+
+        {note.backlinks && note.backlinks.length > 0 && (
+          <Stack gap="50">
+            <Typography uppercase size="2xs" type="note" variant="tertiary">
+              {t("noteBacklinks")}
+            </Typography>
+            <LinkChips ids={note.backlinks} kind="backlink" onSelect={onSelect} />
+          </Stack>
+        )}
+
+        {extra}
+      </Stack>
+    )
+  ) : (
+    <Typography mono size="sm" type="note" variant="secondary">
+      {t("selectNode")}
+    </Typography>
+  );
+
+  if (bare)
+    return (
+      <Stack gap="200">
+        <Stack align="center" direction="row" gap="100" justify="between">
+          <Typography type="title">{note?.title ?? t("noteFallback")}</Typography>
+          {action}
+        </Stack>
+        {content}
+      </Stack>
+    );
   return (
     <Panel header={note?.title ?? t("noteFallback")} headerEnd={action} padding="250">
-      {note ? (
-        editing ? (
-          <Stack gap="150">
-            <Typography mono size="caption" type="note" variant="tertiary">
-              {note.path} · {note.tier}
-            </Typography>
-            <TextInputField
-              data-testid={NoteViewTestId.Title}
-              label={t("titleLabel")}
-              onChange={(e) => setTitle(e.target.value)}
-              value={title}
-            />
-            <MarkdownEditor
-              ariaLabel={t("bodyLabel")}
-              label={t("bodyLabel")}
-              onChange={(value) => setBody(value ?? "")}
-              value={body}
-            />
-          </Stack>
-        ) : (
-          <Stack gap="150">
-            <Stack align="center" direction="row" gap="75">
-              <Typography mono size="caption" type="note" variant="tertiary">
-                {note.path} · {note.tier}
-              </Typography>
-              {note.raw && (
-                <Tag data-testid={NoteViewTestId.RawBadge} size="sm" tone="warn">
-                  {t("untriaged")}
-                </Tag>
-              )}
-              {note.department && (
-                <Tag
-                  aria-label={t("departmentBadge")}
-                  data-testid={NoteViewTestId.DepartmentBadge}
-                  size="sm"
-                  title={t("departmentBadge")}
-                  tone="accent"
-                >
-                  {note.department}
-                </Tag>
-              )}
-            </Stack>
-
-            <Markdown source={note.body ?? ""} />
-
-            {note.links.length > 0 && (
-              <Stack gap="50">
-                <Typography uppercase size="2xs" type="note" variant="tertiary">
-                  {t("noteLinks")}
-                </Typography>
-                <LinkChips ids={note.links} kind="link" onSelect={onSelect} />
-              </Stack>
-            )}
-
-            {note.backlinks && note.backlinks.length > 0 && (
-              <Stack gap="50">
-                <Typography uppercase size="2xs" type="note" variant="tertiary">
-                  {t("noteBacklinks")}
-                </Typography>
-                <LinkChips ids={note.backlinks} kind="backlink" onSelect={onSelect} />
-              </Stack>
-            )}
-          </Stack>
-        )
-      ) : (
-        <Typography mono size="sm" type="note" variant="secondary">
-          {t("selectNode")}
-        </Typography>
-      )}
+      {content}
     </Panel>
   );
 }

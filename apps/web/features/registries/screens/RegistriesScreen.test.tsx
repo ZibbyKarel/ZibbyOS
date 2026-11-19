@@ -110,10 +110,6 @@ vi.mock("../../agents/queries", () => ({
   }),
   useCategoriesQuery: () => ({ data: [{ name: "dev" }] }),
 }));
-vi.mock("../../agents/mutations", () => ({
-  useCreateAgentMutation: () => ({ mutate: vi.fn(), isPending: false }),
-}));
-
 beforeEach(() => {
   push.mockReset();
   replace.mockReset();
@@ -157,10 +153,11 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
     expect(within(section).getByText(/DEV · 1/)).toBeInTheDocument();
   });
 
-  it("the agent create dialog starts placeholder-first with Submit disabled", () => {
-    render(<RegistriesScreen openCreateOnMount kind="agents" />);
-    expect(screen.getByLabelText("Vlastnící oddělení")).toHaveTextContent("Vyber oddělení…");
-    expect(screen.getByRole("button", { name: "Vytvořit agenta" })).toBeDisabled();
+  it("the agents add button opens the new-agent page instead of a dialog", async () => {
+    render(<RegistriesScreen kind="agents" />);
+    await userEvent.click(screen.getByRole("button", { name: /agent/i }));
+    expect(push).toHaveBeenCalledWith("/workforce/agents/new");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("leaves kind navigation to the shell sub-nav (no inline SubNav)", () => {

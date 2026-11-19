@@ -2,10 +2,12 @@ import { renderWithProviders as render, screen } from "../../test/render";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Agent, UpdateWorkflowInput } from "@zibby/contracts";
-import { DialogTestId } from "@zibby/design-system";
 import type { Workflow } from "../../domain";
 import { OperatorTokenNoticeTestId } from "../ai-providers/components/OperatorTokenNotice";
 import { WorkflowCardTestId } from "./components/WorkflowCard/WorkflowCard";
+import { InspectorTestId } from "./components/WorkflowEditor/Inspector";
+import { PhaseCardTestId } from "./components/WorkflowEditor/PhaseCard";
+import { WorkflowBarTestId } from "./components/WorkflowEditor/WorkflowBar";
 import { Screen, ScreenTestId } from "./Screen";
 
 const push = vi.fn();
@@ -89,13 +91,14 @@ vi.mock("../agents", () => ({ useAgentsQuery: () => ({ data: AGENTS }) }));
 vi.mock("../tasks", () => ({ useNewTask: () => ({ open: vi.fn() }) }));
 vi.mock("../departments/useDepartmentLookup", () => ({
   useDepartmentLookup: () => ({
+    list: [],
     get: (id: string) => (id === "delivery" ? { name: "Delivery", color: "#fff" } : undefined),
   }),
 }));
 
 const OWNED: Workflow = { ...WORKFLOW, id: "ship", name: "Ship", department: "delivery" };
 
-describe("workflows Screen — categorized grid + detail dialog", () => {
+describe("workflows Screen — list and detail route", () => {
   const withList = () => {
     hooks.workflows = {
       data: [WORKFLOW, OWNED],
@@ -127,138 +130,110 @@ describe("workflows Screen — categorized grid + detail dialog", () => {
     expect(push).toHaveBeenCalledWith("/work/workflows/ship");
   });
 
-  it("without selectedId there is no dialog", () => {
-    withList();
-    render(<Screen />);
-    expect(screen.queryByTestId(DialogTestId.Root)).toBeNull();
-  });
-
-  it("with selectedId the dialog shows the workflow's detail over the grid", () => {
+  it("with selectedId the full page replaces the list", () => {
     withList();
     render(<Screen selectedId="build-feature" />);
-    const dialog = screen.getByTestId(DialogTestId.Root);
-    expect(screen.getByTestId(DialogTestId.Title)).toHaveTextContent("Build Feature");
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getAllByTestId(ScreenTestId.Group)).toHaveLength(2);
-    expect(screen.getByRole("heading", { name: "Workflow" })).toBeInTheDocument();
+    expect(screen.getByTestId("wd-screen")).toBeInTheDocument();
+    expect(screen.getByTestId(WorkflowBarTestId.Root)).toHaveTextContent("Build Feature");
+    expect(screen.queryAllByTestId(ScreenTestId.Group)).toHaveLength(0);
   });
 
-  it("closing the dialog navigates back to the list route", async () => {
+  it("the breadcrumb navigates back to the list route", async () => {
     withList();
     render(<Screen selectedId="build-feature" />);
-    await userEvent.click(screen.getByTestId(DialogTestId.CloseButton));
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Back));
     expect(push).toHaveBeenCalledWith("/work/workflows");
   });
 
-  it("department tab basePath: close returns to that basePath", async () => {
+  it("department tab basePath: the breadcrumb returns to that basePath", async () => {
     withList();
     render(<Screen basePath="/workforce/departments/delivery/workflows" selectedId="ship" />);
-    await userEvent.click(screen.getByTestId(DialogTestId.CloseButton));
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Back));
     expect(push).toHaveBeenCalledWith("/workforce/departments/delivery/workflows");
   });
 
-  it("unknown selectedId: no dialog, grid still renders", () => {
+  it("unknown selectedId: no page, the grid still renders", () => {
     withList();
     render(<Screen selectedId="nope" />);
-    expect(screen.queryByTestId(DialogTestId.Root)).toBeNull();
+    expect(screen.queryByTestId("wd-screen")).toBeNull();
     expect(screen.getAllByTestId(WorkflowCardTestId.Root)).toHaveLength(2);
   });
 });
 
-describe("workflows Screen — inline edit", () => {
-  it("toggles the detail canvas editable in place, pre-filling one node per phase", async () => {
-    hooks.workflows = { data: [EXISTING], isPending: false, isError: false, refetch: vi.fn() };
-    render(<Screen selectedId="delivery" />);
-
-    // Read mode: the canvas is static.
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(2);
-
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-
-    expect(screen.getByRole("button", { name: "Uložit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zrušit" })).toBeInTheDocument();
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(2);
-  });
-
-  it("the agents palette is hidden until '+' is clicked, and auto-closes after adding an agent", async () => {
+describe("workflows Screen — page editing", () => {
+  const open = () => {
     hooks.workflows = { data: [EXISTING], isPending: false, isError: false, refetch: vi.fn() };
     hooks.update.mockReset();
     render(<Screen selectedId="delivery" />);
+  };
+  const cards = () => screen.getAllByTestId(PhaseCardTestId.Root);
 
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-    expect(screen.queryByTestId("palette-agent-writer")).toBeNull();
-
-    await userEvent.click(screen.getByRole("button", { name: "Přidat agenta" }));
-    expect(screen.getByTestId("palette-agent-writer")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByTestId("palette-agent-writer"));
-
-    // Auto-closed after the add, and the new node landed on the canvas.
-    expect(screen.queryByTestId("palette-agent-writer")).toBeNull();
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(3);
+  it("read mode shows one card per phase and no save", () => {
+    open();
+    expect(cards()).toHaveLength(2);
+    expect(screen.getByTestId(WorkflowBarTestId.Edit)).toBeInTheDocument();
+    expect(screen.queryByTestId(WorkflowBarTestId.Save)).toBeNull();
   });
 
-  it("Save PATCHes only the changed phases", async () => {
-    hooks.workflows = { data: [EXISTING], isPending: false, isError: false, refetch: vi.fn() };
-    hooks.update.mockReset();
-    hooks.update.mockImplementation((_args: unknown, opts?: { onSuccess?: () => void }) =>
+  it("Edit opens the palette; Save stays disabled until something changes", async () => {
+    open();
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    expect(screen.getByTestId(WorkflowBarTestId.Save)).toBeDisabled();
+    expect(screen.getByTestId("workflow-palette-agent-tester")).toBeInTheDocument();
+    expect(cards()).toHaveLength(2);
+  });
+
+  it("adding an agent marks the page dirty, selects the new card and Save PATCHes only phases", async () => {
+    open();
+    hooks.update.mockImplementation((_a: unknown, opts?: { onSuccess?: () => void }) =>
       opts?.onSuccess?.(),
     );
-    render(<Screen selectedId="delivery" />);
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
+    expect(cards()).toHaveLength(3);
+    expect(screen.getByTestId(WorkflowBarTestId.Dirty)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-    await userEvent.click(screen.getByRole("button", { name: "Přidat agenta" }));
-    await userEvent.click(screen.getByTestId("palette-agent-tester"));
-    await userEvent.click(screen.getByRole("button", { name: "Uložit" }));
-
-    expect(hooks.update).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Save));
     const [{ params, body }] = hooks.update.mock.calls[0] as [
       { params: { id: string }; body: UpdateWorkflowInput },
     ];
     expect(params).toEqual({ id: "delivery" });
     expect(Object.keys(body)).toEqual(["phases"]);
     expect(body.phases).toHaveLength(3);
-
-    // Back to read mode (the mocked mutation doesn't update the underlying
-    // query data, so the detail canvas reverting to its prior 2-node graph
-    // here is a test-double artifact, not something we assert on).
-    expect(screen.queryByRole("button", { name: "Uložit" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Editovat" })).toBeInTheDocument();
+    expect(screen.queryByTestId(WorkflowBarTestId.Save)).toBeNull();
   });
 
-  it("closing the dialog mid-edit exits edit mode (reopening shows read mode)", async () => {
-    hooks.workflows = { data: [EXISTING], isPending: false, isError: false, refetch: vi.fn() };
-    const { rerender } = render(<Screen selectedId="delivery" />);
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-    expect(screen.getByRole("button", { name: "Uložit" })).toBeInTheDocument();
-
-    rerender(<Screen />);
-    expect(screen.queryByTestId(DialogTestId.Root)).toBeNull();
-
-    rerender(<Screen selectedId="delivery" />);
-    expect(screen.queryByRole("button", { name: "Uložit" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Editovat" })).toBeInTheDocument();
-  });
-
-  it("Cancel discards the in-progress graph edit", async () => {
-    hooks.workflows = { data: [EXISTING], isPending: false, isError: false, refetch: vi.fn() };
-    hooks.update.mockReset();
-    render(<Screen selectedId="delivery" />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-    await userEvent.click(screen.getByRole("button", { name: "Přidat agenta" }));
-    await userEvent.click(screen.getByTestId("palette-agent-tester"));
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(3);
-
-    await userEvent.click(screen.getByRole("button", { name: "Zrušit" }));
+  it("Cancel discards the in-progress edit", async () => {
+    open();
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
+    expect(cards()).toHaveLength(3);
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Cancel));
     expect(hooks.update).not.toHaveBeenCalled();
+    expect(cards()).toHaveLength(2);
+  });
 
-    // Back to read mode with the original (unchanged) graph.
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(2);
+  it("selecting a card shows its inspector, Esc closes it", async () => {
+    open();
+    await userEvent.click(cards()[0]!);
+    expect(screen.getByTestId("wd-phase-koder")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByTestId("wd-phase-koder")).toBeNull();
+    expect(screen.getByTestId(InspectorTestId.Settings)).toBeInTheDocument();
+  });
 
-    // Re-entering edit re-seeds from the (unchanged) workflow, not the discarded draft.
-    await userEvent.click(screen.getByRole("button", { name: "Editovat" }));
-    expect(screen.getAllByTestId("workflow-node")).toHaveLength(2);
+  it("a problem disables Save and surfaces the problems menu", async () => {
+    open();
+    await userEvent.click(screen.getByTestId(WorkflowBarTestId.Edit));
+    await userEvent.click(screen.getByTestId("workflow-palette-agent-tester"));
+    expect(screen.queryByTestId(WorkflowBarTestId.Problems)).toBeNull();
+
+    // The new phase is selected; clearing its output file is a validation problem.
+    await userEvent.click(screen.getByText("Soubory"));
+    await userEvent.clear(screen.getByLabelText("Výstupní soubor"));
+
+    expect(screen.getByTestId(WorkflowBarTestId.Problems)).toBeInTheDocument();
+    expect(screen.getByTestId(WorkflowBarTestId.Save)).toBeDisabled();
   });
 });
 

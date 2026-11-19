@@ -162,6 +162,8 @@ export interface Workflow {
   requires?: "web"[];
   /** Default phase advisor for every agent phase. */
   advisor?: PhaseAdvisor;
+  /** Workflow-level instructions prepended to every phase prompt (always set on the contract entity). */
+  instructions?: string;
 }
 
 export type IntegrationStatus = "connected" | "disconnected" | "error";

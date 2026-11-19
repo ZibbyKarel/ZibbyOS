@@ -56,7 +56,7 @@ describe("SECTIONS sub-menus", () => {
     expect(SECTIONS.find((s) => s.id === "work")?.href).toBe("/work/goals");
     // todo-19: Approvals moved from Governance to Activity.
     expect(ids("activity")).toEqual(["log", "runs", "approvals", "pull-requests", "channels"]);
-    expect(ids("governance")).toEqual(["gates", "patterns", "budgets", "spend"]);
+    expect(ids("governance")).toEqual(["gates", "autonomy", "patterns", "budgets", "spend"]);
     expect(SECTIONS.find((s) => s.id === "governance")?.href).toBe("/governance/gates");
   });
 });

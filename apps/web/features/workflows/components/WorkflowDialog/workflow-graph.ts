@@ -394,6 +394,24 @@ export function graphToPhases(graph: WorkflowGraph, assignment: string): Contrac
 }
 
 // ---- validation (mirrors the contract superRefine) ------------------------
+export type GraphProblemKind =
+  | "name"
+  | "empty"
+  | "agent"
+  | "produces"
+  | "rework"
+  | "commands"
+  | "workflow"
+  | "then"
+  | "when"
+  | "outputs";
+
+/** One validation problem; `nodeId` points at the offending phase (absent = workflow-level). */
+export interface GraphProblem {
+  kind: GraphProblemKind;
+  nodeId?: string;
+}
+
 export interface GraphValidity {
   ok: boolean;
   /** i18n key under `forms.workflow.invalid.*` describing the first problem. */
@@ -401,42 +419,74 @@ export interface GraphValidity {
 }
 
 /**
- * Whether the graph + name can be submitted. Mirrors the contract's
- * `refineWorkflow`: a name, ≥1 node, agent nodes need agent + produces, and every
- * rework edge must point **upstream** in the flow chain to an existing node.
+ * Every reason the graph + name can't be submitted, in a stable order (name, empty, then
+ * per node in array order, then loops). Mirrors the contract's `refineWorkflow`: a name, ≥1
+ * node, agent nodes need agent + produces, every rework edge must point **upstream** in the
+ * flow chain to an existing node, a loop's `then` must resolve, a `when` must name an
+ * earlier phase.
  */
-export function validateGraph(graph: WorkflowGraph, name: string): GraphValidity {
-  if (name.trim().length === 0) return { ok: false, reason: "name" };
-  if (graph.nodes.length === 0) return { ok: false, reason: "empty" };
+export function collectProblems(graph: WorkflowGraph, name: string): GraphProblem[] {
+  const out: GraphProblem[] = [];
+  if (name.trim().length === 0) out.push({ kind: "name" });
+  if (graph.nodes.length === 0) {
+    out.push({ kind: "empty" });
+    return out;
+  }
 
   for (const n of graph.nodes) {
     if (n.type === "agent") {
-      if (!n.agent) return { ok: false, reason: "agent" };
-      if (n.produces.trim().length === 0) return { ok: false, reason: "produces" };
+      if (!n.agent) out.push({ kind: "agent", nodeId: n.id });
+      if (n.produces.trim().length === 0) out.push({ kind: "produces", nodeId: n.id });
     }
     if (n.type === "workflow") {
-      if (!n.workflow) return { ok: false, reason: "workflow" };
-      if (n.produces.trim().length === 0) return { ok: false, reason: "produces" };
+      if (!n.workflow) out.push({ kind: "workflow", nodeId: n.id });
+      if (n.produces.trim().length === 0) out.push({ kind: "produces", nodeId: n.id });
     }
-    if (n.type === "system" && !n.action) return { ok: false, reason: "agent" };
+    if (n.type === "system" && !n.action) out.push({ kind: "agent", nodeId: n.id });
     if (n.type === "tool") {
-      if (splitCommands(n.commands).length === 0) return { ok: false, reason: "commands" };
-      if (n.produces.trim().length === 0) return { ok: false, reason: "produces" };
+      if (splitCommands(n.commands).length === 0) out.push({ kind: "commands", nodeId: n.id });
+      if (n.produces.trim().length === 0) out.push({ kind: "produces", nodeId: n.id });
     }
   }
 
   const order = orderNodes(graph);
   const indexOf = new Map(order.map((n, i) => [n.id, i]));
+  const ids = new Set(graph.nodes.map((n) => n.id));
+  const thenOk = (v: string) => v === "park" || v === "fail" || ids.has(v);
   for (const r of graph.rework) {
     const fromIdx = indexOf.get(r.from);
     const toIdx = indexOf.get(r.to);
     // The target must exist and sit strictly earlier in the flow order — a
     // forward/self loop is nonsensical (the prototype let it through).
     if (fromIdx === undefined || toIdx === undefined || toIdx >= fromIdx) {
-      return { ok: false, reason: "rework" };
+      out.push({ kind: "rework", nodeId: r.from });
+    } else if (!thenOk(r.then)) out.push({ kind: "then", nodeId: r.from });
+  }
+  for (const n of graph.nodes) {
+    if (n.looseLoop && !thenOk(n.looseLoop.then)) out.push({ kind: "then", nodeId: n.id });
+    const when = n.extra?.when;
+    if (when) {
+      const ref = indexOf.get(when.phase);
+      const me = indexOf.get(n.id);
+      if (ref === undefined || me === undefined || ref >= me)
+        out.push({ kind: "when", nodeId: n.id });
     }
   }
-  return { ok: true };
+  return out;
+}
+
+/**
+ * Whether the graph + name can be submitted — the first of {@link collectProblems}
+ * (kinds the legacy dialog has no copy for read as a rework problem).
+ */
+export function validateGraph(graph: WorkflowGraph, name: string): GraphValidity {
+  const first = collectProblems(graph, name)[0];
+  if (!first) return { ok: true };
+  const reason =
+    first.kind === "then" || first.kind === "when" || first.kind === "outputs"
+      ? "rework"
+      : first.kind;
+  return { ok: false, reason };
 }
 
 // ---- live-run attempt tally ----------------------------------------------
@@ -463,4 +513,130 @@ export function isUpstreamRework(graph: WorkflowGraph, from: string, to: string)
   const f = indexOf.get(from);
   const t = indexOf.get(to);
   return f !== undefined && t !== undefined && t < f;
+}
+
+// ---- editor helpers (the page editor keeps the graph a single auto-laid-out chain) -------
+/** Chain-ordered copy of the graph: flow edges regenerated between consecutive nodes. */
+export function relinkChain(graph: WorkflowGraph): WorkflowGraph {
+  const nodes = orderNodes(graph);
+  const flow: FlowEdge[] = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = nodes[i]!;
+    const b = nodes[i + 1]!;
+    flow.push(
+      graph.flow.find((e) => e.from === a.id && e.to === b.id) ?? {
+        id: guid("e"),
+        from: a.id,
+        to: b.id,
+      },
+    );
+  }
+  return { ...graph, nodes, flow };
+}
+
+/** Insert `node` at chain index `at` (clamped), relinking the chain. */
+export function insertNodeAt(graph: WorkflowGraph, node: GraphNode, at: number): WorkflowGraph {
+  const nodes = orderNodes(graph);
+  nodes.splice(clamp(at, 0, nodes.length), 0, node);
+  return relinkChain({ ...graph, nodes, flow: [] });
+}
+
+/**
+ * Remove a node and close the gap (predecessor → successor). Loops touching the node go with
+ * it; a loop's `then` / `driftTo` / a `when` pointing at it are reset so nothing dangles.
+ */
+export function removeNode(graph: WorkflowGraph, id: string): WorkflowGraph {
+  const fix = (n: GraphNode): GraphNode => {
+    let next = n;
+    if (n.looseLoop?.then === id) next = { ...next, looseLoop: { ...n.looseLoop, then: "park" } };
+    if (n.extra?.when?.phase === id) {
+      const rest = Object.entries(n.extra).filter(([k]) => k !== "when");
+      next = { ...next, extra: rest.length ? (Object.fromEntries(rest) as PhaseExtra) : undefined };
+    }
+    return next;
+  };
+  return relinkChain({
+    nodes: orderNodes(graph)
+      .filter((n) => n.id !== id)
+      .map(fix),
+    flow: [],
+    rework: graph.rework
+      .filter((r) => r.from !== id && r.to !== id)
+      .map((r) => {
+        const { driftTo, ...rest } = r;
+        return {
+          ...rest,
+          then: r.then === id ? "park" : r.then,
+          ...(driftTo && driftTo !== id ? { driftTo } : {}),
+        };
+      }),
+  });
+}
+
+/** Swap a node with its chain neighbour (`-1` earlier, `+1` later). */
+export function moveNode(graph: WorkflowGraph, id: string, dir: -1 | 1): WorkflowGraph {
+  const nodes = orderNodes(graph);
+  const i = nodes.findIndex((n) => n.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= nodes.length) return graph;
+  [nodes[i], nodes[j]] = [nodes[j]!, nodes[i]!];
+  return relinkChain({ ...graph, nodes, flow: [] });
+}
+
+/** The node's loop in contract shape, whether it is a drawn rework edge or a loose (`to: "fail"`) one. */
+export function loopOf(graph: WorkflowGraph, nodeId: string): PhaseLoop | undefined {
+  const r = graph.rework.find((x) => x.from === nodeId);
+  if (r) {
+    return {
+      to: r.to,
+      maxRetries: r.maxRetries,
+      escalate: r.escalate,
+      then: r.then,
+      ...(r.escalation.length ? { escalation: r.escalation } : {}),
+      ...(r.driftTo ? { driftTo: r.driftTo } : {}),
+    };
+  }
+  return graph.nodes.find((n) => n.id === nodeId)?.looseLoop;
+}
+
+/**
+ * Set (or clear, with `null`) the node's loop. A target that is an earlier node becomes a
+ * rework edge; anything else (`"fail"`) is kept as the node's loose loop.
+ */
+export function setLoop(
+  graph: WorkflowGraph,
+  nodeId: string,
+  loop: PhaseLoop | null,
+): WorkflowGraph {
+  const rework = graph.rework.filter((r) => r.from !== nodeId);
+  const strip = (n: GraphNode): GraphNode => {
+    if (n.id !== nodeId) return n;
+    return { ...n, looseLoop: undefined };
+  };
+  const nodes = graph.nodes.map(strip);
+  if (!loop) return { ...graph, nodes, rework };
+  if (graph.nodes.some((n) => n.id === loop.to)) {
+    return {
+      ...graph,
+      nodes,
+      rework: [
+        ...rework,
+        {
+          id: guid("w"),
+          from: nodeId,
+          to: loop.to,
+          maxRetries: loop.maxRetries,
+          escalate: loop.escalate,
+          then: loop.then,
+          escalation: loop.escalation ?? [],
+          ...(loop.driftTo ? { driftTo: loop.driftTo } : {}),
+        },
+      ],
+    };
+  }
+  return {
+    ...graph,
+    nodes: nodes.map((n) => (n.id === nodeId ? { ...n, looseLoop: loop } : n)),
+    rework,
+  };
 }

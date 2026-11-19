@@ -1,9 +1,22 @@
-import { renderWithProviders as render, screen } from "../../test/render";
+import type { ReactElement } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { renderWithProviders, screen } from "../../test/render";
+import csMessages from "../../i18n/messages/cs.json";
+import { UnsavedBarTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Agent } from "@zibby/contracts";
 import { OperatorTokenNoticeTestId } from "../ai-providers";
 import { AgentDetailScreenTestId, DetailScreen } from "./DetailScreen";
+
+function render(ui: ReactElement) {
+  const messages = csMessages;
+  return renderWithProviders(
+    <NextIntlClientProvider locale="cs" messages={messages}>
+      {ui}
+    </NextIntlClientProvider>,
+  );
+}
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -28,6 +41,7 @@ const { hooks } = vi.hoisted(() => ({
       refetch: vi.fn(),
     },
     update: vi.fn(),
+    create: vi.fn(),
     del: vi.fn(),
     openNewTask: vi.fn(),
   },
@@ -35,15 +49,19 @@ const { hooks } = vi.hoisted(() => ({
 
 vi.mock("./queries", () => ({
   useAgentQuery: () => hooks.agent,
+  useAgentsQuery: () => ({ data: [] }),
   useCategoriesQuery: () => ({ data: [{ name: "Dev", glyph: "code" }] }),
 }));
 vi.mock("./mutations", () => ({
+  useCreateAgentMutation: () => ({ mutate: hooks.create, isPending: false }),
   useUpdateAgentMutation: () => ({ mutate: hooks.update, isPending: false }),
   useDeleteAgentMutation: () => ({ mutate: hooks.del, isPending: false }),
 }));
+vi.mock("../runs", () => ({ useRunsQuery: () => ({ runs: [], isPending: false }) }));
+vi.mock("../pins", () => ({ PinButton: () => null }));
 vi.mock("../workflows", () => ({
   useWorkflowsQuery: () => ({
-    data: [{ id: "delivery", name: "Delivery", phases: [{ id: "p1", agent: "Kodér" }] }],
+    data: [{ id: "delivery", name: "Delivery", phases: [{ id: "p1", agent: "koder" }] }],
   }),
 }));
 vi.mock("../tasks", () => ({ useNewTask: () => ({ open: hooks.openNewTask }) }));
@@ -61,26 +79,39 @@ describe("agents DetailScreen (N4c grammar)", () => {
     hooks.agent = { data: AGENT, isPending: false, isError: false, refetch: vi.fn() };
   });
 
-  it("header carries the top-right actions with accessible names; page IS the edit surface", () => {
+  it("header carries the actions; Save is inert until something changes", () => {
     render(<DetailScreen agentId="koder" />);
-    expect(screen.getByRole("button", { name: "Uložit změny" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Spustit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Smazat" })).toBeInTheDocument();
-    // Agents are not pinnable.
-    expect(screen.queryByRole("button", { name: "Připnout" })).toBeNull();
-    // The header carries no file-path subtitle; the used-by panel lists workflows.
-    expect(screen.queryByText("~/zibby/agents/koder.agent.md")).toBeNull();
-    expect(screen.getByText(/Delivery/)).toBeInTheDocument();
+    expect(screen.getByTestId(AgentDetailScreenTestId.Run)).toBeInTheDocument();
+    expect(screen.getByTestId(AgentDetailScreenTestId.Delete)).toBeInTheDocument();
+    expect(screen.getByTestId(AgentDetailScreenTestId.Save)).toBeDisabled();
+    expect(screen.queryByTestId(UnsavedBarTestId.Root)).toBeNull();
+  });
+
+  it("editing instructions raises the unsaved bar; Discard restores it", async () => {
+    render(<DetailScreen agentId="koder" />);
+    const box = screen.getByRole("textbox", { name: /Instrukce agenta/ });
+    await userEvent.type(box, " more");
+    expect(await screen.findByTestId(UnsavedBarTestId.Root)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(UnsavedBarTestId.Discard));
+    expect(screen.queryByTestId(UnsavedBarTestId.Root)).toBeNull();
+  });
+
+  it("the Preview toggle swaps the editor for rendered markdown", async () => {
+    render(<DetailScreen agentId="koder" />);
+    await userEvent.click(screen.getByTestId("segmented-control-item-pv"));
+    expect(screen.getByTestId(AgentDetailScreenTestId.Preview)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Instrukce agenta/ })).toBeNull();
   });
 
   it("Save submits the form to the update mutation", async () => {
     render(<DetailScreen agentId="koder" />);
+    await userEvent.type(screen.getByRole("textbox", { name: /Instrukce agenta/ }), "!");
     await userEvent.click(screen.getByTestId(AgentDetailScreenTestId.Save));
     await vi.waitFor(() => {
       expect(hooks.update).toHaveBeenCalledWith(
         expect.objectContaining({
           params: { id: "koder" },
-          body: expect.objectContaining({ instructions: "Write the code.", engine: null }),
+          body: expect.objectContaining({ instructions: "Write the code.!", engine: null }),
         }),
         expect.any(Object),
       );
@@ -113,11 +144,8 @@ describe("agents DetailScreen (N4c grammar)", () => {
     hooks.del.mockImplementation((_args, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
     render(<DetailScreen agentId="koder" />);
     await userEvent.click(screen.getByTestId(AgentDetailScreenTestId.Delete));
-    expect(screen.getByText("Smazat agenta?")).toBeInTheDocument();
-    const confirm = screen
-      .getAllByRole("button", { name: "Smazat" })
-      .find((b) => b !== screen.getByTestId(AgentDetailScreenTestId.Delete));
-    await userEvent.click(confirm!);
+    expect(screen.getByTestId(AgentDetailScreenTestId.DeleteBreaks)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Smazat agenta" }));
     expect(hooks.del).toHaveBeenCalledWith(
       { params: { id: "koder" } },
       expect.objectContaining({ onSuccess: expect.any(Function) }),

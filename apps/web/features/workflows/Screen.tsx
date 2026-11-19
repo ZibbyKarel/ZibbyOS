@@ -1,19 +1,6 @@
 "use client";
 
-import {
-  Button,
-  Container,
-  Dialog,
-  Divider,
-  Grid,
-  Icon,
-  Panel,
-  SectionLabel,
-  Stack,
-  TextInputField,
-  Typography,
-} from "@zibby/design-system";
-import { type UpdateWorkflowInput, type WorkflowOutput } from "@zibby/contracts";
+import { Button, Container, Grid, SectionLabel, Stack, Typography } from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -24,34 +11,12 @@ import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useAgentsQuery } from "../agents";
 import { useDepartmentLookup } from "../departments/useDepartmentLookup";
-import { OperatorTokenNotice } from "../ai-providers";
-import { PinButton } from "../pins";
-import { isOperatorTokenError } from "../../state/operatorToken";
-import { useNewTask } from "../tasks";
-import { OutputsEditor, outputsValid } from "./components/OutputsEditor/OutputsEditor";
-import { StepSettings } from "./components/WorkflowDialog/StepSettings";
-import { AgentPalette } from "./components/WorkflowDialog/AgentPalette";
 import { NewWorkflowDialog } from "./components/NewWorkflowDialog/NewWorkflowDialog";
+import { WorkflowDetailScreen } from "./components/WorkflowEditor/WorkflowDetailScreen";
 import { WorkflowCard } from "./components/WorkflowCard/WorkflowCard";
-import { WorkflowCanvas } from "./components/WorkflowDialog/WorkflowCanvas";
-import {
-  INITIAL_ASSIGNMENT,
-  type WorkflowGraph,
-  attemptsFromStageRuns,
-  graphToPhases,
-  makeNode,
-  makeStepNode,
-  phasesToGraph,
-  validateGraph,
-} from "./components/WorkflowDialog/workflow-graph";
-import {
-  duplicateWorkflowBody,
-  useCreateWorkflowMutation,
-  useDuplicateWorkflowMutation,
-  useUpdateWorkflowMutation,
-} from "./mutations";
+import { useCreateWorkflowMutation } from "./mutations";
 import { groupWorkflowsByDepartment } from "./groupWorkflowsByDepartment";
-import { useWorkflowRunsQuery, useWorkflowsQuery } from "./queries";
+import { useWorkflowsQuery } from "./queries";
 
 export enum ScreenTestId {
   Group = "workflows-group",
@@ -69,24 +34,17 @@ export interface ScreenProps {
   basePath?: string;
 }
 
-/** Read-only canvas: the editing callbacks are never invoked, so they no-op. */
-const noop = () => {};
-
 /**
- * The `/workflows` and `/workflows/[id]` routes share this one Screen (F5,
- * docs/plans/hud2chat-F5-orchestration.md). The page is always the
- * department-grouped card grid; `routeId` (the `[id]` route segment) opens that
- * workflow's detail in a dialog over it, and closing navigates back to `basePath`.
+ * The `/workflows` and `/workflows/[id]` routes share this one Screen. Without an id it is the
+ * department-grouped card grid; `routeId` (the `[id]` route segment) renders that workflow's
+ * full-page editor instead, and its breadcrumb navigates back to `basePath`.
  */
 export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: ScreenProps) {
   const t = useTranslations();
   const workflowsQuery = useWorkflowsQuery();
   const workflows = workflowsQuery.data ?? [];
   const createWorkflow = useCreateWorkflowMutation();
-  const updateWorkflow = useUpdateWorkflowMutation();
-  const duplicateWorkflow = useDuplicateWorkflowMutation();
   const { data: agents = [] } = useAgentsQuery();
-  const { open: openNewTask } = useNewTask();
   const [adding, setAdding] = useState(false);
   const router = useRouter();
 
@@ -103,87 +61,6 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
       ),
     [list, departments, t],
   );
-
-  // Inline edit state, keyed by the workflow id being edited (rather than a
-  // plain boolean) so navigating to a different workflow while mid-edit
-  // implicitly exits edit mode instead of applying stale edits to the wrong
-  // workflow.
-  const [editingId, setEditingId] = useState<string | null>(null);
-  // Closing the detail dialog (any route without a matching workflow) drops the
-  // edit, so reopening the same workflow starts in read mode.
-  if (!selected && editingId !== null) setEditingId(null);
-  const editing = Boolean(selected) && editingId === selected?.id;
-  const [editGraph, setEditGraph] = useState<WorkflowGraph>(() => phasesToGraph(selected, agents));
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editOutputs, setEditOutputs] = useState<WorkflowOutput[]>([]);
-  const [showPalette, setShowPalette] = useState(false);
-
-  // Attempt counters on the chain while the selected workflow has a live run
-  // (newest one wins — the list is newest-first).
-  const { data: liveRuns = [] } = useWorkflowRunsQuery();
-  const currentRun = selected ? liveRuns.find((r) => r.workflowId === selected.id) : undefined;
-  const attempts = currentRun ? attemptsFromStageRuns(currentRun.stageRuns) : undefined;
-
-  // The detail view renders the *same* node-graph the editor builds on open
-  // (read-only) — identical by construction since both call `phasesToGraph`.
-  const detailGraph = useMemo(() => phasesToGraph(selected, agents), [selected, agents]);
-
-  const startEdit = () => {
-    if (!selected) return;
-    setEditGraph(phasesToGraph(selected, agents));
-    setEditName(selected.name);
-    setEditDesc(selected.desc);
-    setEditOutputs(selected.outputs);
-    setShowPalette(false);
-    setEditingId(selected.id);
-  };
-  const cancelEdit = () => {
-    setEditingId(null);
-    setShowPalette(false);
-  };
-  const addAgentToEdit = (agentId: string, x?: number, y?: number) => {
-    const agent = agents.find((a) => a.id === agentId);
-    if (!agent) return;
-    setEditGraph((g) => {
-      const i = g.nodes.length;
-      const node = makeNode(agent, i + 1, x ?? 60 + i * 26, y ?? 150 + i * 18);
-      return { ...g, nodes: [...g.nodes, node] };
-    });
-    setShowPalette(false);
-  };
-  const addStepToEdit = (type: "tool" | "workflow") => {
-    setEditGraph((g) => {
-      const i = g.nodes.length;
-      return { ...g, nodes: [...g.nodes, makeStepNode(type, i + 1, 60 + i * 26, 150 + i * 18)] };
-    });
-    setShowPalette(false);
-  };
-  const editValidity = validateGraph(editGraph, editName);
-  const canSaveEdit = !updateWorkflow.isPending && editValidity.ok && outputsValid(editOutputs);
-  const saveEdit = () => {
-    if (!selected || !canSaveEdit) return;
-    const assignment = selected.phases[0]?.consumes ?? INITIAL_ASSIGNMENT;
-    const phases = graphToPhases(editGraph, assignment);
-    const patch: UpdateWorkflowInput = {};
-    const trimmedName = editName.trim();
-    const trimmedDesc = editDesc.trim();
-    if (trimmedName !== selected.name) patch.name = trimmedName;
-    if (trimmedDesc !== selected.desc) patch.desc = trimmedDesc;
-    const initialPhases = graphToPhases(phasesToGraph(selected, agents), assignment);
-    if (JSON.stringify(phases) !== JSON.stringify(initialPhases)) patch.phases = phases;
-    if (JSON.stringify(editOutputs) !== JSON.stringify(selected.outputs))
-      patch.outputs = editOutputs;
-    updateWorkflow.mutate(
-      { params: { id: selected.id }, body: patch },
-      {
-        onSuccess: () => {
-          setEditingId(null);
-          setShowPalette(false);
-        },
-      },
-    );
-  };
 
   const addModal = adding && (
     <NewWorkflowDialog
@@ -250,218 +127,9 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
     </Stack>
   );
 
-  const detail = selected && (
-    <Stack gap="250">
-      <Panel padding="250">
-        <Stack gap="200">
-          {editing && (
-            <Stack direction="row" gap="200">
-              <Container grow minW0>
-                <TextInputField
-                  label={t("forms.workflow.nameLabel")}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder={t("forms.workflow.namePlaceholder")}
-                  value={editName}
-                />
-              </Container>
-              <Container grow minW0>
-                <TextInputField
-                  label={t("forms.workflow.descLabel")}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  placeholder={t("forms.workflow.descPlaceholder")}
-                  value={editDesc}
-                />
-              </Container>
-            </Stack>
-          )}
-          {editing && isOperatorTokenError(updateWorkflow.error) && <OperatorTokenNotice />}
-          {!editing && isOperatorTokenError(duplicateWorkflow.error) && <OperatorTokenNotice />}
-          <Stack wrap align="start" direction="row" gap="200" justify="between">
-            <Container minW0>
-              <Stack gap="100">
-                <Stack align="center" direction="row" gap="75">
-                  <Icon name="file" size="xs" tone="faint" />
-                  <Typography mono size="sm" type="note" variant="tertiary">
-                    {selected.file}
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Container>
-            <Stack align="center" direction="row" gap="100">
-              <PinButton id={selected.id} kind="workflow" />
-              {editing ? (
-                <>
-                  <Button intent="ghost" onClick={cancelEdit} size="sm">
-                    {t("common.cancel")}
-                  </Button>
-                  <Button
-                    disabled={!canSaveEdit}
-                    icon="check"
-                    intent="primary"
-                    loading={updateWorkflow.isPending}
-                    onClick={saveEdit}
-                    size="sm"
-                  >
-                    {t("common.save")}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button icon="edit" intent="ghost" onClick={startEdit} size="sm">
-                    {t("common.edit")}
-                  </Button>
-                  <Button
-                    disabled={duplicateWorkflow.isPending}
-                    icon="link"
-                    intent="ghost"
-                    onClick={() => {
-                      const body = duplicateWorkflowBody(
-                        selected,
-                        list.map((p) => p.id),
-                      );
-                      duplicateWorkflow.mutate(
-                        { body },
-                        {
-                          onSuccess: () => router.push(`${basePath}/${body.id}` as Route),
-                        },
-                      );
-                    }}
-                    size="sm"
-                  >
-                    {t("common.duplicate")}
-                  </Button>
-                  <Button
-                    icon="play"
-                    intent="primary"
-                    onClick={() =>
-                      openNewTask(undefined, {
-                        kind: "workflow",
-                        id: selected.id,
-                        name: selected.name,
-                        glyph: "flow",
-                      })
-                    }
-                  >
-                    {t("workflows.runWorkflow")}
-                  </Button>
-                </>
-              )}
-            </Stack>
-          </Stack>
-          {selected.outputs.some((o) => o.type === "pr") && (
-            <>
-              <Divider />
-              <Stack align="center" direction="row" gap="100">
-                <Icon name="branch" size="md" tone="dim" />
-                <Typography mono size="caption" type="note" variant="secondary">
-                  {t("workflows.branchNote")}
-                </Typography>
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </Panel>
-
-      <Panel
-        header={t("workflows.chainTitle")}
-        headerEnd={
-          editing && (
-            <Button icon="plus" intent="ghost" onClick={() => setShowPalette((v) => !v)} size="sm">
-              {t("forms.workflow.addStep")}
-            </Button>
-          )
-        }
-        padding="250"
-      >
-        <Container
-          height="460px"
-          overflow="hidden"
-          position="relative"
-          style={{
-            display: "flex",
-            borderRadius: 6,
-            border: "1px solid var(--color-border)",
-          }}
-        >
-          {editing && showPalette && (
-            <AgentPalette
-              agents={agents}
-              closeLabel={t("common.close")}
-              onAdd={(agentId) => addAgentToEdit(agentId)}
-              onAddStep={addStepToEdit}
-              onClose={() => setShowPalette(false)}
-            />
-          )}
-          <WorkflowCanvas
-            agents={agents}
-            attempts={attempts}
-            departments={departments.list}
-            graph={editing ? editGraph : detailGraph}
-            onAddAgent={editing ? addAgentToEdit : noop}
-            readOnly={!editing}
-            setGraph={editing ? setEditGraph : noop}
-          />
-          {editing && (
-            <StepSettings
-              excludeWorkflowId={selected.id}
-              graph={editGraph}
-              setGraph={setEditGraph}
-            />
-          )}
-        </Container>
-      </Panel>
-
-      {(editing || selected.outputs.length > 0) && (
-        <Panel header={t("workflows.outputsTitle")} padding="250">
-          {editing ? (
-            <OutputsEditor
-              onChange={setEditOutputs}
-              outputs={editOutputs}
-              produces={editGraph.nodes.map((n) => n.produces).filter(Boolean)}
-            />
-          ) : (
-            <Stack gap="100">
-              {selected.outputs.map((o, i) => (
-                <Stack
-                  align="center"
-                  data-testid={`output-${i}`}
-                  direction="row"
-                  gap="100"
-                  key={`${o.type}-${o.from}-${i}`}
-                >
-                  <Icon
-                    name={
-                      o.type === "pr"
-                        ? "branch"
-                        : o.type === "folder"
-                          ? "doc"
-                          : o.dest === "vault"
-                            ? "brain"
-                            : "file"
-                    }
-                    size="md"
-                    tone="dim"
-                  />
-                  <Typography size="caption" type="note" variant="secondary">
-                    {o.type === "pr"
-                      ? t("workflows.outputPr", { from: o.from })
-                      : o.type === "folder"
-                        ? t("workflows.outputFolder", { from: o.from, to: o.to })
-                        : t(
-                            o.dest === "vault"
-                              ? "workflows.outputFileVault"
-                              : "workflows.outputFileProject",
-                            { from: o.from, to: o.to },
-                          )}
-                  </Typography>
-                </Stack>
-              ))}
-            </Stack>
-          )}
-        </Panel>
-      )}
-    </Stack>
-  );
+  // The full-page editor replaces the list while a workflow is open.
+  if (routeId && workflowsQuery.isPending) return <QueryLoading />;
+  if (selected) return <WorkflowDetailScreen basePath={basePath} workflow={selected} />;
 
   return (
     <Container padding={["300", "350"]}>
@@ -478,15 +146,6 @@ export function Screen({ selectedId: routeId, basePath = "/work/workflows" }: Sc
         </Stack>
       </PageContainer>
 
-      <Dialog
-        closeLabel={t("common.close")}
-        onClose={() => router.push(basePath as Route)}
-        open={Boolean(selected)}
-        title={selected?.name}
-        width="full"
-      >
-        {detail}
-      </Dialog>
       {addModal}
     </Container>
   );

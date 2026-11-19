@@ -3,7 +3,15 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Container, EmptyState, GoalCard, Grid, Stack, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  EmptyState,
+  GoalCard,
+  Grid,
+  Stack,
+  Typography,
+} from "@zibby/design-system";
 import type { Goal, TaskRun } from "@zibby/contracts";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
@@ -44,7 +52,12 @@ export function GoalsListScreen() {
   return (
     <Container padding={["300", "350"]}>
       <Stack gap="200">
-        <Typography type="h1">{t("title")}</Typography>
+        <Stack align="center" direction="row" gap="150" justify="between">
+          <Typography type="h1">{t("title")}</Typography>
+          <Button icon="plus" onClick={() => router.push("/work/goals/new" as Route)}>
+            {t("newGoal")}
+          </Button>
+        </Stack>
 
         {goalsQuery.isPending || runsPending ? (
           <QueryLoading />

@@ -1,5 +1,5 @@
-import { DistillScreen } from "../../../../features/knowledge/screens/DistillScreen";
+import { redirect } from "next/navigation";
 
 export default function DistillPage() {
-  return <DistillScreen />;
+  redirect("/knowledge/maintenance");
 }

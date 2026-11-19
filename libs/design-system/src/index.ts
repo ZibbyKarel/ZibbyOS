@@ -143,6 +143,13 @@ export type { RiskKind, TagProps, TagTone } from "./components/Tag/Tag";
 
 export { Kbd, KbdTestId } from "./components/Kbd/Kbd";
 export type { KbdProps } from "./components/Kbd/Kbd";
+export { Stepper, StepperTestId } from "./components/Stepper/Stepper";
+export type { StepperProps } from "./components/Stepper/Stepper";
+export {
+  InspectorSection,
+  InspectorSectionTestId,
+} from "./components/InspectorSection/InspectorSection";
+export type { InspectorSectionProps } from "./components/InspectorSection/InspectorSection";
 
 export { SearchBar, SearchBarTestId } from "./components/SearchBar/SearchBar";
 export type { SearchBarProps } from "./components/SearchBar/SearchBar";
@@ -317,7 +324,10 @@ export { DropZoneField } from "./components/form/DropZoneField/DropZoneField";
 export type { DropZoneFieldProps } from "./components/form/DropZoneField/DropZoneField";
 
 export { MarkdownEditor, MarkdownEditorTestId } from "./components/MarkdownEditor/MarkdownEditor";
-export type { MarkdownEditorProps } from "./components/MarkdownEditor/MarkdownEditor";
+export type {
+  MarkdownEditorProps,
+  WikilinkTarget,
+} from "./components/MarkdownEditor/MarkdownEditor";
 export { Markdown, MarkdownTestId } from "./components/Markdown/Markdown";
 export type { MarkdownProps, MarkdownVariant } from "./components/Markdown/Markdown";
 
@@ -860,3 +870,72 @@ export type {
   HeaderStatusState,
   UsageRingProps,
 } from "./components/HeaderChrome/HeaderChrome";
+export { Splitter, SplitterTestId } from "./components/Splitter/Splitter";
+export type { SplitterProps } from "./components/Splitter/Splitter";
+export { TreeView, TreeViewTestId } from "./components/TreeView/TreeView";
+export type { TreeNode, TreeViewProps } from "./components/TreeView/TreeView";
+export { IterationGauge, IterationGaugeTestId } from "./components/IterationGauge/IterationGauge";
+export type { IterationGaugeProps } from "./components/IterationGauge/IterationGauge";
+export {
+  LoopDiagram,
+  LoopDiagramNode,
+  LoopDiagramNodeTestId,
+  LoopDiagramTestId,
+} from "./components/LoopDiagram/LoopDiagram";
+export type {
+  LoopDiagramActive,
+  LoopDiagramNodeProps,
+  LoopDiagramNodeState,
+  LoopDiagramProps,
+} from "./components/LoopDiagram/LoopDiagram";
+export {
+  IterationTimeline,
+  IterationTimelineItem,
+  IterationTimelineTestId,
+} from "./components/IterationTimeline/IterationTimeline";
+export type {
+  IterationRowTone,
+  IterationTimelineItemProps,
+  IterationTimelineProps,
+  IterationTimelineRow,
+  IterationTimelineTone,
+} from "./components/IterationTimeline/IterationTimeline";
+
+// Autonomy page (redesign v2)
+export {
+  RadioCard,
+  RadioCardGroup,
+  RadioCardGroupTestId,
+  RadioCardTestId,
+  type RadioCardGroupProps,
+  type RadioCardProps,
+  type RadioCardTone,
+} from "./components/RadioCard/RadioCard";
+export {
+  ZibbySection,
+  ZibbySectionModeButton,
+  ZibbySectionOrbButton,
+  ZibbySectionTestId,
+  type ZibbyMode,
+  type ZibbySectionModeButtonProps,
+  type ZibbySectionOrbButtonProps,
+  type ZibbySectionProps,
+} from "./components/ZibbySection/ZibbySection";
+export {
+  LaneChip,
+  LaneChipTestId,
+  type LaneChipProps,
+  type LaneChipTone,
+} from "./components/LaneChip/LaneChip";
+export {
+  LaneCell,
+  LaneCellTestId,
+  type LaneCellProps,
+  type LaneCellTone,
+} from "./components/LaneCell/LaneCell";
+export {
+  UnsavedBar,
+  UnsavedBarTestId,
+  type UnsavedBarProps,
+} from "./components/UnsavedBar/UnsavedBar";
+export { KpiTile, KpiTileTestId, type KpiTileProps } from "./components/KpiTile/KpiTile";

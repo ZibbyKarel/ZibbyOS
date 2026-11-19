@@ -26,9 +26,6 @@ import { QueryError } from "../../../components/LoadError/QueryError";
 import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
 import { slug } from "../../../utils/slug";
 import { AgentsByDepartment } from "../../agents/components/AgentsByDepartment";
-import { NewAgentDialog } from "../../agents/components/NewAgentDialog";
-import { useCreateAgentMutation } from "../../agents/mutations";
-import { useCategoriesQuery } from "../../agents/queries";
 import { AddCommandModal } from "../../commands/components/AddCommandModal/AddCommandModal";
 import { useCreateCommandMutation } from "../../commands/mutations";
 import { useCommandsQuery } from "../../commands/queries";
@@ -184,7 +181,16 @@ export function RegistriesScreen({ kind, openCreateOnMount }: RegistriesScreenPr
             <Typography type="title">{t("title")}</Typography>
             <Stack align="center" direction="row" gap="100">
               {kind === "skills" && <ExternalSkillActions />}
-              <Button icon="plus" intent="primary" onClick={() => setCreating(true)}>
+              <Button
+                icon="plus"
+                intent="primary"
+                onClick={() =>
+                  // Agents are created on their own page, not in a dialog.
+                  kind === "agents"
+                    ? router.push("/workforce/agents/new" as Route)
+                    : setCreating(true)
+                }
+              >
                 {t(`add.${kind}`)}
               </Button>
             </Stack>
@@ -198,7 +204,6 @@ export function RegistriesScreen({ kind, openCreateOnMount }: RegistriesScreenPr
         </Stack>
       </PageContainer>
 
-      {creating && kind === "agents" && <CreateAgentDialog onClose={closeCreate} />}
       {creating && kind === "skills" && <CreateSkillDialog onClose={closeCreate} />}
       {creating && kind === "mcp" && <CreateMcpDialog onClose={closeCreate} />}
       {creating && kind === "hooks" && <CreateHookDialog onClose={closeCreate} />}
@@ -417,32 +422,6 @@ function CommandsCards({ bindings }: { bindings?: Bindings }) {
 // ---------------------------------------------------------------------------
 // Creation dialogs — unchanged forms, reused verbatim from each domain
 // ---------------------------------------------------------------------------
-
-function CreateAgentDialog({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
-  const { data: categories = [] } = useCategoriesQuery();
-  const createAgent = useCreateAgentMutation();
-
-  return (
-    <NewAgentDialog
-      categories={categories}
-      onClose={onClose}
-      onCreate={(d) => {
-        const id = slug(d.name ?? "") || `agent-${Date.now()}`;
-        createAgent.mutate(
-          { body: { ...d, id } },
-          {
-            onSuccess: () => {
-              onClose();
-              router.push(registryHref("agents", id) as Route);
-            },
-          },
-        );
-      }}
-      pending={createAgent.isPending}
-    />
-  );
-}
 
 function CreateSkillDialog({ onClose }: { onClose: () => void }) {
   const tk = useTranslations();

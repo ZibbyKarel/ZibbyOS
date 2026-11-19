@@ -10,8 +10,8 @@ import { Typography } from "../Typography/Typography";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Edge the sheet is anchored to — a union so a future edge (e.g. `"bottom"`) is additive. */
-export type SheetSide = "left" | "right";
+/** Edge the sheet is anchored to. `bottom` is the phone bottom sheet: full width, grabber, rounded top. */
+export type SheetSide = "left" | "right" | "bottom";
 
 /** Sealed width presets, distinct from {@link DialogWidth} — a Sheet is an
  *  edge-anchored panel, not a centred modal (I-5). */
@@ -33,6 +33,7 @@ export enum SheetTestId {
   CloseButton = "sheet-close-button",
   Body = "sheet-body",
   Footer = "sheet-footer",
+  Grabber = "sheet-grabber",
 }
 
 export interface SheetProps {
@@ -127,7 +128,11 @@ export function Sheet({
     <div
       className={cn(
         "fixed inset-0 z-50 flex bg-[var(--color-overlay)]",
-        side === "left" ? "justify-start" : "justify-end",
+        side === "left"
+          ? "justify-start"
+          : side === "bottom"
+            ? "flex-col justify-end"
+            : "justify-end",
       )}
       data-testid={SheetTestId.Overlay}
       onClick={(e) => {
@@ -140,23 +145,35 @@ export function Sheet({
         aria-label={ariaLabel}
         aria-labelledby={title && !ariaLabel ? titleId : undefined}
         className={cn(
-          "relative flex h-full flex-col bg-sheet border-line-2 shadow-[var(--shadow-pop)]",
+          "relative flex flex-col bg-sheet border-line-2 shadow-[var(--shadow-pop)]",
+          side === "bottom" ? "max-h-[85vh] w-full rounded-t-[20px]" : "h-full",
           focusRing,
         )}
         data-side={side}
         data-testid={SheetTestId.Root}
         ref={rootRef}
         role="dialog"
-        style={{
-          width: sheetWidthPx[width],
-          maxWidth: "calc(100vw - 32px)",
-          // Never wider than the viewport (a phone), whatever the preset.
-          ...(side === "right"
-            ? { borderLeftWidth: 1, borderLeftStyle: "solid" }
-            : { borderRightWidth: 1, borderRightStyle: "solid" }),
-        }}
+        style={
+          side === "bottom"
+            ? { borderTopWidth: 1, borderTopStyle: "solid" }
+            : {
+                width: sheetWidthPx[width],
+                maxWidth: "calc(100vw - 32px)",
+                // Never wider than the viewport (a phone), whatever the preset.
+                ...(side === "right"
+                  ? { borderLeftWidth: 1, borderLeftStyle: "solid" }
+                  : { borderRightWidth: 1, borderRightStyle: "solid" }),
+              }
+        }
         tabIndex={-1}
       >
+        {side === "bottom" && (
+          <div
+            aria-hidden="true"
+            className="mx-auto mt-2 h-1 w-[38px] shrink-0 rounded-full bg-line-2"
+            data-testid={SheetTestId.Grabber}
+          />
+        )}
         {title && (
           <div
             className="flex shrink-0 items-center gap-3.5 border-b border-line px-5 py-4"

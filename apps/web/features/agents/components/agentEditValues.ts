@@ -6,6 +6,7 @@ import type {
   DepartmentId,
   GateRuleInput,
   GlobalGateRule,
+  Risk,
 } from "@zibby/contracts";
 
 /**
@@ -36,7 +37,37 @@ export type AgentEditValues = {
   gates: GateRuleInput[];
   /** Ids of linked global catalog rules (frontmatter `gateRuleIds`). */
   gateRuleIds: string[];
+  /** Advanced tools: the ceiling of tool/MCP ids grantable per run. */
+  optionalTools: string[];
+  /** Advanced tools: Claude Code plugin directories the runs load. */
+  plugins: string[];
+  /** Display-only risk hint; `""` = never set. */
+  risk: Risk | "";
+  /** Legacy approval sugar — every run asks first. */
+  requiresApproval: boolean;
 };
+
+/** Routing reads only the first 512 characters of `description` (the schema's max). */
+export const ROUTING_LIMIT = 512;
+
+/** The form's cards, in the order the unsaved bar lists them. */
+export type AgentSection = "instructions" | "identity" | "routing" | "engine" | "tools" | "rules";
+
+const SECTION_FIELDS: Record<AgentSection, ReadonlyArray<keyof AgentEditValues>> = {
+  instructions: ["instructions"],
+  identity: ["name", "displayName", "title", "category", "department", "glyph"],
+  routing: ["description"],
+  engine: ["model", "thinking", "engine", "engineModel"],
+  tools: ["tools", "optionalTools", "plugins", "risk", "requiresApproval"],
+  rules: ["gates", "gateRuleIds"],
+};
+
+/** Which cards differ between the saved values and the current form values. */
+export function dirtySections(saved: AgentEditValues, current: AgentEditValues): AgentSection[] {
+  return (Object.keys(SECTION_FIELDS) as AgentSection[]).filter((section) =>
+    SECTION_FIELDS[section].some((k) => JSON.stringify(saved[k]) !== JSON.stringify(current[k])),
+  );
+}
 
 /** The agent's persisted fields as form defaults (used on open and on edit-reset). */
 export function toFormValues(agent: Agent): AgentEditValues {
@@ -56,6 +87,10 @@ export function toFormValues(agent: Agent): AgentEditValues {
     department: agent.department ?? "dev",
     gates: agent.gates ?? [],
     gateRuleIds: agent.gateRuleIds ?? [],
+    optionalTools: agent.optionalTools ?? [],
+    plugins: agent.plugins ?? [],
+    risk: agent.risk ?? "",
+    requiresApproval: agent.requires_approval ?? false,
   };
 }
 
@@ -71,7 +106,7 @@ export function ownRuleToInitial(gate: GateRuleInput): GlobalGateRule {
 
 /** Merge submitted form values back onto the agent (empty strings → absent). */
 export function applyFormValues(agent: Agent, values: AgentEditValues): Agent {
-  return {
+  const out: Agent = {
     ...agent,
     name: values.name || undefined,
     displayName: values.displayName || undefined,
@@ -88,5 +123,13 @@ export function applyFormValues(agent: Agent, values: AgentEditValues): Agent {
     department: values.department,
     gates: values.gates,
     gateRuleIds: values.gateRuleIds,
+    risk: values.risk || undefined,
   };
+  // A dropped key means "unchanged" on a partial update, so these go out as explicit
+  // `false` / `[]` — but only where the agent already carried the field or it is now set.
+  if (values.requiresApproval || agent.requires_approval !== undefined)
+    out.requires_approval = values.requiresApproval;
+  if (values.plugins.length || agent.plugins) out.plugins = values.plugins;
+  if (values.optionalTools.length || agent.optionalTools) out.optionalTools = values.optionalTools;
+  return out;
 }

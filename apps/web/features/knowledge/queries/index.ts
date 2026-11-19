@@ -5,3 +5,5 @@ export { useTeamKbGraphQuery, getTeamKbGraphQueryKey } from "./useTeamKbGraphQue
 export { useTeamKbNotesQuery, getTeamKbNotesQueryKey } from "./useTeamKbNotesQuery";
 export { useTeamKbNoteQuery, getTeamKbNoteQueryKey } from "./useTeamKbNoteQuery";
 export { useTeamKbIngestQuery, getTeamKbIngestQueryKey } from "./useTeamKbIngestQuery";
+export { useTeamKbGraphsQuery } from "./useTeamKbGraphsQuery";
+export { useTeamKbDigestsQuery } from "./useTeamKbDigestsQuery";
