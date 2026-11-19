@@ -190,8 +190,9 @@ export function RunsWidget({
       href: `/activity/runs/${r.runId}`,
     });
   // A run waiting on an approval opens the approval in the bridge sheet; Detail opens the run.
-  const openApproval = (id: string) => () =>
-    onOpen({ kind: "approval", id, widgetId: widget.id, key: `${widget.id}:approval:${id}` });
+  // The key is the row's own: the sheet anchors to `[data-rk="<key>"]` and renders nothing without it.
+  const openApproval = (id: string, rowKey: string) => () =>
+    onOpen({ kind: "approval", id, widgetId: widget.id, key: rowKey });
   const section = (group: string, label: string, count: number, accent = false) => (
     <BoardSection
       closed={!!closed[group]}
@@ -271,7 +272,7 @@ export function RunsWidget({
             }
             key={r.key}
             // A run waiting on an approval opens the approval; its run sheet is the Detail button.
-            onClick={r.approval ? openApproval(r.approval.id) : open(r)}
+            onClick={r.approval ? openApproval(r.approval.id, r.key) : open(r)}
             rowKey={r.key}
             selected={selection?.key === r.key}
             sub={r.step}

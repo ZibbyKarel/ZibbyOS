@@ -169,7 +169,8 @@ describe("RunsWidget", () => {
     );
     expect(props.onOpen).toHaveBeenCalledTimes(1);
     expect(props.onOpen).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kind: "approval", id: "ap1", widgetId: widget.id }),
+      // The row's own key: the sheet anchors to that row and renders nothing without a match.
+      expect.objectContaining({ kind: "approval", id: "ap1", widgetId: widget.id, key: key("b") }),
     );
     vi.mocked(props.onOpen).mockClear();
     await userEvent.click(screen.getByTestId(`${RunsWidgetTestId.Detail}-${key("b")}`));
