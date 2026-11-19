@@ -16,7 +16,15 @@ import { useTeamsQuery } from "../../teams";
 import { useZibbyLive } from "../../zibby/live/ZibbyLiveContext";
 import { formatShortcut } from "../../zibby/shortcut/shortcut";
 import { useShortcutPlatform, useZibbyShortcut } from "../../zibby/shortcut/useZibbyShortcut";
-import { AUTOMATION_KEYS, STATUS_ORB, buildScopes, exceptionsOf, isFullAuto } from "../autonomy";
+import type { AutomationLevel } from "@zibby/contracts";
+import {
+  AUTOMATION_KEYS,
+  STATUS_ORB,
+  buildScopes,
+  exceptionsOf,
+  isFullAuto,
+  sharedLevel,
+} from "../autonomy";
 import { usePauseSwitch } from "../hooks/usePauseSwitch";
 import { type SaveResult, useSaveAutomation } from "../hooks/useSaveAutomation";
 import { ModePopover } from "./ModePopover";
@@ -34,26 +42,22 @@ function useStatusUi() {
   const exceptionNames = exceptionsOf(sw.automation, buildScopes(companies, teams)).map(
     (s) => s.label,
   );
-  const fullAuto = isFullAuto(sw.automation);
+  const level = sharedLevel(sw.automation);
   const save = useSaveAutomation();
   const [autoResult, setAutoResult] = useState<SaveResult | null>(null);
-  const toggleFullAuto = async () => {
-    const level = fullAuto ? "semi" : "auto";
+  const setLevel = async (next: AutomationLevel) => {
     const global = { ...sw.automation.global };
-    for (const k of AUTOMATION_KEYS) global[k] = level;
+    for (const k of AUTOMATION_KEYS) global[k] = next;
     setAutoResult(await save({ ...sw.automation, global }));
   };
   const panel = (sheet: boolean, close: () => void) => (
     <ZibbyModePanel
       autoResult={autoResult}
-      error={sw.error}
       exceptions={exceptionNames}
-      fullAuto={fullAuto}
+      level={level}
       onNavigate={close}
-      onToggle={() => sw.toggle(close)}
-      onToggleFullAuto={() => void toggleFullAuto()}
+      onSetLevel={(next) => void setLevel(next)}
       paused={sw.paused}
-      pending={sw.pending}
       pendingApprovals={sw.pendingApprovals}
       sheet={sheet}
     />

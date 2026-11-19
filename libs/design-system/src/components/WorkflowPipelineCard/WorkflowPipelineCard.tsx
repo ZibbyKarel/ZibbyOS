@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { Icon } from "../Icon/Icon";
+import { EngineGlyph } from "../EngineBadge/EngineBadge";
 import { Monogram } from "../Monogram/Monogram";
 
 export enum WorkflowPipelineCardTestId {
@@ -22,7 +23,7 @@ export interface WorkflowPipelineNode {
   name: string;
   /** Agent (or sub-workflow) name; omitted for system/tool phases. */
   who?: string;
-  /** Short engine mark ("C", "OC"). */
+  /** Engine id ("claude", "openai", …) shown as its icon; other text shows as-is. */
   engine?: string;
   /** `done` shows a tick and a solid arrow, `active` is ringed violet. */
   state?: "idle" | "done" | "active";
@@ -147,7 +148,7 @@ export function WorkflowPipelineCard({
                       </span>
                       {n.engine && (
                         <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-[5px] border border-line-2 bg-raised px-[3px] font-mono text-[8px] leading-none font-semibold text-ink">
-                          {n.engine}
+                          <EngineGlyph engine={n.engine} />
                         </span>
                       )}
                     </span>

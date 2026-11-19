@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 
-/** 0 = full; 1 = no wordmark text, compact search, one merged usage ring;
+/** 0 = full; 1 = no wordmark text, compact search;
  *  2 = inactive sections / New / Approve / engine become icon-only. */
 export type HeaderCollapseLevel = 0 | 1 | 2;
 

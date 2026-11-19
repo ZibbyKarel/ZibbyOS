@@ -4,49 +4,45 @@ import {
   Button,
   Row,
   Stack,
+  StepSlider,
   TextInputField,
   Typography,
   ZibbyOrb,
-  ZibbyStatusAction,
   ZibbyStatusLink,
   ZibbyStatusMenu,
 } from "@zibby/design-system";
+import type { AutomationLevel } from "@zibby/contracts";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { SaveResult } from "../hooks/useSaveAutomation";
 import { saveOperatorToken } from "../hooks/useHasOperatorToken";
-import { STATUS_ORB } from "../autonomy";
-import type { PauseError } from "../hooks/usePauseSwitch";
+import { LEVEL_ORB, STATUS_ORB } from "../autonomy";
 
 export enum ZibbyModePanelTestId {
   Pending = "zibby-mode-panel-pending",
   Levels = "zibby-mode-panel-levels",
-  Error = "zibby-mode-panel-error",
-  FullAuto = "zibby-mode-panel-full-auto",
   AutoError = "zibby-mode-panel-auto-error",
   TokenInput = "zibby-mode-panel-token-input",
   TokenSave = "zibby-mode-panel-token-save",
-  Unlock = "zibby-mode-panel-unlock",
+  Paused = "zibby-mode-panel-paused",
 }
+
+const LEVELS = ["manual", "semi", "auto"] as const;
 
 export const AUTONOMY_HREF = "/governance/autonomy";
 export const APPROVALS_HREF = "/activity/approvals";
 
 export interface ZibbyModePanelProps {
   paused: boolean;
-  /** A pause/resume request is running. */
-  pending: boolean;
-  error: PauseError;
   pendingApprovals: number;
   /** Names of the companies/teams that override something; empty = "no exceptions". */
   exceptions: string[];
-  onToggle: () => void;
-  /** Every global capability is on Automat. */
-  fullAuto: boolean;
-  /** Flip the global row between all-Automat and all-Poloautomat. */
-  onToggleFullAuto: () => void;
+  /** The level every global capability shares; `null` = mixed. */
+  level: AutomationLevel | null;
+  /** Set every global capability to this level. */
+  onSetLevel: (level: AutomationLevel) => void;
   /** Last result of that save; `locked` = raising needs the operator token. */
   autoResult: SaveResult | null;
   /** Called after a link is followed, so the popover/sheet can close. */
@@ -55,16 +51,13 @@ export interface ZibbyModePanelProps {
   sheet?: boolean;
 }
 
-/** Body of the status popover (desktop) and bottom sheet (phone): status, the pause switch, two links. */
+/** Body of the status popover (desktop) and bottom sheet (phone): status, the autonomy slider, links. */
 export function ZibbyModePanel({
   paused,
-  pending,
-  error,
   pendingApprovals,
   exceptions,
-  onToggle,
-  fullAuto,
-  onToggleFullAuto,
+  level,
+  onSetLevel,
   autoResult,
   onNavigate,
   sheet = false,
@@ -75,8 +68,13 @@ export function ZibbyModePanel({
     router.push(href as Route);
     onNavigate();
   };
-  const key = paused ? "paused" : fullAuto ? "auto" : "run";
+  const key = paused ? "paused" : level === "auto" ? "auto" : "run";
   const [typed, setTyped] = useState("");
+  const [wanted, setWanted] = useState<AutomationLevel | null>(null);
+  const pick = (next: AutomationLevel) => {
+    setWanted(next);
+    onSetLevel(next);
+  };
   return (
     <ZibbyStatusMenu
       description={t(`desc_${key}`)}
@@ -87,38 +85,26 @@ export function ZibbyModePanel({
       status={key}
       title={t(`status_${key}`)}
     >
-      <ZibbyStatusAction
-        disabled={pending}
-        hint={t(paused ? "resumeHint" : "pauseHint")}
-        label={t(paused ? "resume" : "pause")}
-        onClick={onToggle}
-        resume={paused}
-      />
-      {error ? (
-        <Row wrap align="center" data-testid={ZibbyModePanelTestId.Error} gap="100">
-          <Typography size="xs" tone="bad" type="note">
-            {error === "token" ? t("resumeNeedsToken") : t("failed")}
-          </Typography>
-          {error === "token" ? (
-            <Button
-              data-testid={ZibbyModePanelTestId.Unlock}
-              intent="ghost"
-              onClick={() => go(AUTONOMY_HREF)}
-              size="sm"
-            >
-              {t("unlock")}
-            </Button>
-          ) : null}
-        </Row>
-      ) : null}
       <Stack gap="25">
-        <ZibbyStatusLink
-          aria-pressed={fullAuto}
-          data-testid={ZibbyModePanelTestId.FullAuto}
-          hint={t(fullAuto ? "fullAutoOnHint" : "fullAutoOffHint")}
-          icon="bolt"
-          label={t(fullAuto ? "fullAutoOn" : "fullAutoOff")}
-          onClick={onToggleFullAuto}
+        {paused ? (
+          <ZibbyStatusLink
+            data-testid={ZibbyModePanelTestId.Paused}
+            hint={t("desc_paused")}
+            icon="pause"
+            label={t("status_paused")}
+            onClick={() => go(AUTONOMY_HREF)}
+          />
+        ) : null}
+        <StepSlider
+          ariaLabel={t("levelSliderLabel")}
+          mixedLabel={t("levelMixed")}
+          onChange={(v) => pick(v as AutomationLevel)}
+          steps={LEVELS.map((l) => ({
+            value: l,
+            label: t(`levelStep_${l}`),
+            icon: <ZibbyOrb size={26} state={LEVEL_ORB[l]} />,
+          }))}
+          value={level}
         />
         {autoResult === "locked" || autoResult === "failed" ? (
           <Stack gap="50">
@@ -149,7 +135,7 @@ export function ZibbyModePanel({
                   onClick={() => {
                     saveOperatorToken(typed);
                     setTyped("");
-                    onToggleFullAuto();
+                    if (wanted) onSetLevel(wanted);
                   }}
                   size="sm"
                 >

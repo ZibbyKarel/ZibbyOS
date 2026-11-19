@@ -77,12 +77,12 @@ export function lacksThinkingVariant(
 }
 
 /** The engine mark an avatar's corner badge shows. */
-export type EngineMark = "claude" | "openai" | "opencode";
+export type EngineMark = "claude" | "openai" | "opencode" | "bluecode";
 
 /**
  * Which mark an entity's badge shows: its effective engine (override ?? global) → `claude`; on
  * opencode, an `openai/` model (explicit `engineModel`, else the tier's mapping) → `openai`,
- * anything else → `opencode`. Mirrors the API's `resolveAiEngine`.
+ * a `bluecode/` model → `bluecode`, anything else → `opencode`. Mirrors the API's `resolveAiEngine`.
  */
 export function engineMark(
   target: { engine?: AiEngine | undefined; engineModel?: string | undefined; model?: ModelTier },
@@ -99,10 +99,11 @@ export function engineMark(
       config?.opencodeModel ?? "",
       listed,
     );
-  return model.startsWith("openai/") ? "openai" : "opencode";
+  if (model.startsWith("openai/")) return "openai";
+  return model.startsWith("bluecode/") ? "bluecode" : "opencode";
 }
 
-const MARK_ORDER: readonly EngineMark[] = ["claude", "openai", "opencode"];
+const MARK_ORDER: readonly EngineMark[] = ["claude", "openai", "opencode", "bluecode"];
 
 /**
  * The `engineMark` target of one agent step. Mirrors the API's `stageEngineTarget`: the step's
@@ -126,7 +127,7 @@ export function stepEngineTarget(
 }
 
 /**
- * Every distinct engine mark a workflow's agent steps run on (claude, openai, opencode order).
+ * Every distinct engine mark a workflow's agent steps run on (claude, openai, opencode, bluecode order).
  * Without agent steps it is the global engine's mark alone (`markOf({})`).
  */
 export function workflowEngineMarks(

@@ -63,10 +63,11 @@ describe("AppHeader", () => {
     }
   });
 
-  it("lays out zone A (brand + nav), zone B, a divider and zone C in order", () => {
+  it("lays out zone A (brand + nav), the centred search, zone B, a divider and zone C in order", () => {
     render(<AppHeader nav={<nav>n</nav>} />);
     const order = [
       AppHeaderTestId.ZoneA,
+      AppHeaderTestId.ZoneSearch,
       AppHeaderTestId.ZoneB,
       AppHeaderTestId.Divider,
       AppHeaderTestId.ZoneC,
@@ -81,7 +82,7 @@ describe("AppHeader", () => {
     expect(zoneA).toContainElement(screen.getByTestId(AppHeaderTestId.Nav));
   });
 
-  it("puts search, create and zibby in zone B, in that order", () => {
+  it("puts create and zibby in zone B and the search trigger in its own centre cell", () => {
     render(
       <AppHeader
         create={<button type="button">New</button>}
@@ -90,15 +91,26 @@ describe("AppHeader", () => {
       />,
     );
     const zoneB = screen.getByTestId(AppHeaderTestId.ZoneB);
-    const ids = [AppHeaderTestId.Search, AppHeaderTestId.Create, AppHeaderTestId.Zibby].map((id) =>
-      screen.getByTestId(id),
+    expect(zoneB).toContainElement(screen.getByTestId(AppHeaderTestId.Create));
+    expect(zoneB).toContainElement(screen.getByTestId(AppHeaderTestId.Zibby));
+    expect(zoneB).not.toContainElement(screen.getByTestId(AppHeaderTestId.Search));
+    expect(screen.getByTestId(AppHeaderTestId.ZoneSearch)).toContainElement(
+      screen.getByTestId(AppHeaderTestId.Search),
     );
-    ids.forEach((el) => expect(zoneB).toContainElement(el));
-    for (let i = 1; i < ids.length; i++) {
-      expect(
-        ids[i - 1]!.compareDocumentPosition(ids[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
+  });
+
+  it("is a centred grid; the search is wide, and only icon + shortcut when compact", () => {
+    const { rerender } = render(<AppHeader onSearchClick={() => {}} searchLabel="Hledat" />);
+    expect(screen.getByTestId(AppHeaderTestId.Root).className).toContain(
+      "grid-cols-[1fr_auto_1fr]",
+    );
+    expect(screen.getByTestId(AppHeaderTestId.ZoneSearch).className).toContain(
+      "w-[min(560px,40vw)]",
+    );
+    expect(screen.getByTestId(AppHeaderTestId.Search)).toHaveTextContent("Hledat");
+    rerender(<AppHeader searchCompact onSearchClick={() => {}} searchLabel="Hledat" />);
+    expect(screen.getByTestId(AppHeaderTestId.ZoneSearch).className).not.toContain("w-[min");
+    expect(screen.getByTestId(AppHeaderTestId.Search)).not.toHaveTextContent("Hledat");
   });
 
   it("puts status, mode, notifications and preferences in zone C, in that order", () => {

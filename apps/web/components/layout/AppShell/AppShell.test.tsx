@@ -137,9 +137,7 @@ describe("AppShell", () => {
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName(
-      "Stav systému: běží 0",
-    );
+    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName("Stav systému");
     expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAccessibleName("Provozní režim");
     expect(screen.getByTestId(AppHeaderTestId.Notifications)).toBeInTheDocument();
     expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();

@@ -1,4 +1,5 @@
 import type { ReactNode, Ref } from "react";
+import { EngineGlyph } from "../EngineBadge/EngineBadge";
 import { Monogram } from "../Monogram/Monogram";
 
 export enum PortraitCardTestId {
@@ -31,7 +32,7 @@ export interface PortraitCardProps {
   status?: ReactNode;
   /** Top-right mono tag, e.g. the department code. */
   tag?: string;
-  /** Short mono engine mark on the avatar ("C", "OC"); its `engineLabel` is the accessible name. */
+  /** Short mono engine mark on the avatar (an engine id such as "claude" shows its icon; any other text shows as-is); its `engineLabel` is the accessible name. */
   engine?: string;
   engineLabel?: string;
   role?: string;
@@ -111,7 +112,7 @@ export function PortraitCard({
               role="img"
               title={engineLabel}
             >
-              {engine}
+              <EngineGlyph engine={engine} />
             </span>
           )}
         </span>

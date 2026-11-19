@@ -7,8 +7,9 @@ import {
 } from "@zibby/contracts";
 import { IconTestId, MenuButtonTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders as render, screen, within } from "../../../test/render";
+import { fireEvent, renderWithProviders as render, screen, within } from "../../../test/render";
 import { AiEngineSwitcher, AiEngineSwitcherTestId } from "./AiEngineSwitcher";
+import { EngineLimitsSheetTestId } from "./EngineLimitsSheet";
 
 let config: SystemConfig | undefined;
 let engines: AiEngineStatus[];
@@ -28,6 +29,10 @@ vi.mock("../../../features/system/mutations", () => ({
 }));
 vi.mock("../../../features/ai-providers/queries", () => ({
   useAiEnginesQuery: () => ({ data: { engines } }),
+}));
+
+vi.mock("../../../features/bridge/widgets/BudgetsWidget", () => ({
+  BudgetsWidget: () => <div data-testid="budgets-widget-stub" />,
 }));
 
 const ids = (...models: string[]) =>
@@ -113,5 +118,29 @@ describe("AiEngineSwitcher", () => {
     config = undefined;
     render(<AiEngineSwitcher />);
     expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).not.toBeInTheDocument();
+  });
+
+  it("shows the limits sheet on hover and focus, hides it on leave and Escape", async () => {
+    render(<AiEngineSwitcher />);
+    const trigger = screen.getByTestId(AiEngineSwitcherTestId.Root);
+    expect(screen.queryByTestId(EngineLimitsSheetTestId.Sheet)).not.toBeInTheDocument();
+    fireEvent.mouseEnter(trigger);
+    expect(await screen.findByTestId("budgets-widget-stub")).toBeInTheDocument();
+    fireEvent.mouseLeave(trigger);
+    expect(screen.queryByTestId(EngineLimitsSheetTestId.Sheet)).not.toBeInTheDocument();
+    fireEvent.focus(trigger);
+    expect(await screen.findByTestId(EngineLimitsSheetTestId.Sheet)).toBeInTheDocument();
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(screen.queryByTestId(EngineLimitsSheetTestId.Sheet)).not.toBeInTheDocument();
+  });
+
+  it("hides the limits sheet while the click menu is open", async () => {
+    render(<AiEngineSwitcher />);
+    const trigger = screen.getByTestId(AiEngineSwitcherTestId.Root);
+    fireEvent.mouseEnter(trigger);
+    expect(await screen.findByTestId(EngineLimitsSheetTestId.Sheet)).toBeInTheDocument();
+    await userEvent.click(trigger);
+    expect(screen.getByTestId(MenuButtonTestId.Menu)).toBeInTheDocument();
+    expect(screen.queryByTestId(EngineLimitsSheetTestId.Sheet)).not.toBeInTheDocument();
   });
 });

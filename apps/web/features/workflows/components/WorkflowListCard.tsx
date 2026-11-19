@@ -13,7 +13,6 @@ import { useLocale, useTranslations } from "next-intl";
 import type { Workflow } from "../../../domain";
 import { useEngineBadge } from "../../ai-providers";
 import { relativeLabel } from "../../automations/schedule";
-import { engineLetter } from "../../agents/engineLetter";
 import type { RunView } from "../../runs/run";
 import {
   activePhaseNumber,
@@ -76,7 +75,7 @@ export function WorkflowListCard({
       return {
         ...base,
         who: agent?.displayName ?? agent?.name ?? phase.agent,
-        engine: engineLetter(mark.engine),
+        engine: mark.engine,
       };
     }
     if (phase.type === "workflow" && phase.workflow) return { ...base, who: phase.workflow };

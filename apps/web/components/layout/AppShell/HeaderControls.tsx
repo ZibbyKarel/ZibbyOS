@@ -14,12 +14,9 @@ import {
   MenuButton,
   Stack,
   Typography,
-  type UsagePanelItem,
-  UsageRing,
 } from "@zibby/design-system";
 import { NEW_TASK_PAGE_HREF } from "../../../features/tasks";
 import { SECTIONS } from "../../../state/config";
-import { HeaderLimits } from "../HeaderLimits/HeaderLimits";
 import { HeaderPopover } from "../HeaderPopover/HeaderPopover";
 import { SelfUpgrade } from "../SelfUpgrade";
 import { useThemeToggle } from "../ThemeToggle/ThemeToggle";
@@ -69,40 +66,13 @@ export function NewMenu({
 
 export interface SystemStatusProps {
   markState: BrandMarkState;
-  /** Runs currently running. */
-  runningCount: number;
   version?: string;
-  /** Narrow header: one ring, the worse of the two. */
-  mergeRings?: boolean;
-  limitItems: readonly UsagePanelItem[];
   updateAvailable: boolean;
 }
 
-/** Zone C status chip: running count + usage rings + update badge; opens the limits / version /
- *  self-upgrade panel. */
-export function SystemStatus({
-  markState,
-  runningCount,
-  version,
-  mergeRings = false,
-  limitItems,
-  updateAvailable,
-}: SystemStatusProps) {
+/** Zone C status chip: state dot + update badge; opens the version / self-upgrade panel. */
+export function SystemStatus({ markState, version, updateAvailable }: SystemStatusProps) {
   const t = useTranslations("shell");
-  const ringItems = limitItems
-    .filter((item) => item.stat == null && item.value != null)
-    .slice(0, 2);
-  const worst = ringItems.reduce<UsagePanelItem | undefined>(
-    (w, item) => ((item.value ?? 0) > (w?.value ?? -1) ? item : w),
-    undefined,
-  );
-  const rings = (mergeRings && worst ? [worst] : ringItems).map((item) => (
-    <UsageRing
-      key={item.label}
-      label={`${item.label} ${Math.round(item.value ?? 0)}%`}
-      value={item.value ?? 0}
-    />
-  ));
   const title = t("statusPopoverTitle");
   return (
     <HeaderPopover
@@ -110,10 +80,8 @@ export function SystemStatus({
       trigger={(props) => (
         <HeaderStatus
           {...props}
-          aria-label={t("statusAria", { count: runningCount })}
+          aria-label={t("statusAria")}
           attention={markState === "blocked"}
-          count={runningCount}
-          rings={rings.length > 0 ? rings : undefined}
           state={markState}
           update={updateAvailable ? <Icon name="upgrade" size="xs" /> : undefined}
         />
@@ -123,7 +91,6 @@ export function SystemStatus({
         <Stack gap="150">
           <Typography type="label">{title}</Typography>
           {version && <Typography type="text">{t("statusVersion", { version })}</Typography>}
-          <HeaderLimits items={limitItems} />
           <SelfUpgrade />
         </Stack>
       </Container>

@@ -9,7 +9,7 @@ describe("PortraitCard", () => {
     render(
       <PortraitCard
         effort={{ level: 3, label: "vysoká" }}
-        engine="OC"
+        engine="opencode"
         model="opus-5.5"
         name="Architekt"
         now={{ text: "Právě: Plán", tone: "run" }}
@@ -24,7 +24,9 @@ describe("PortraitCard", () => {
       />,
     );
     expect(screen.getByTestId(PortraitCardTestId.Name)).toHaveTextContent("Architekt");
-    expect(screen.getByTestId(PortraitCardTestId.Engine)).toHaveTextContent("OC");
+    expect(
+      screen.getByTestId(PortraitCardTestId.Engine).querySelector("[data-icon='opencode']"),
+    ).not.toBeNull();
     expect(screen.getByTestId(PortraitCardTestId.Now)).toHaveTextContent("Právě: Plán");
     expect(screen.getAllByTestId(PortraitCardTestId.Stat)).toHaveLength(3);
     expect(screen.getByTestId(PortraitCardTestId.Effort)).toHaveAttribute("data-level", "3");

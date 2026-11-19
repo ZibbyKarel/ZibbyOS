@@ -32,9 +32,17 @@ export const toggledLevel = (level: AutomationLevel, column: Column): Automation
       ? "semi"
       : "auto";
 
+/** The level every global capability shares; `null` when they differ (mixed). */
+export const sharedLevel = (automation: AutopilotAutomation): AutomationLevel | null => {
+  const levels = new Set(AUTOMATION_KEYS.map((k) => automation.global[k]));
+  return levels.size === 1 ? ([...levels][0] ?? null) : null;
+};
+
 /** Full Automat: every global capability is on `auto`. */
-export const isFullAuto = (automation: AutopilotAutomation) =>
-  AUTOMATION_KEYS.every((k) => automation.global[k] === "auto");
+export const isFullAuto = (automation: AutopilotAutomation) => sharedLevel(automation) === "auto";
+
+/** Orb state per level on the autonomy slider (matches the pill: manual grey, semi violet, auto amber). */
+export const LEVEL_ORB = { manual: "sleep", semi: "think", auto: "speak" } as const;
 
 /** Orb state of the header section per status (the pill's `ZibbyStatus`). */
 export const STATUS_ORB = { paused: "sleep", auto: "speak", run: "think" } as const;

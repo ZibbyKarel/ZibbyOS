@@ -8,7 +8,7 @@ const meta: Meta<typeof PortraitCard> = {
     name: "Architekt",
     role: "Návrh a rozpad práce",
     tag: "ENG",
-    engine: "C",
+    engine: "claude",
     model: "opus-5.5",
     effort: { level: 3, label: "vysoká" },
     now: { text: "Právě: Plán · #482", tone: "run" },

@@ -108,6 +108,7 @@ describe("engineMark", () => {
   it("opencode: explicit engineModel decides", () => {
     expect(engineMark({ engine: "opencode", engineModel: "openai/gpt-5" }, config)).toBe("openai");
     expect(engineMark({ engineModel: "beam/free" }, config)).toBe("opencode");
+    expect(engineMark({ engineModel: "bluecode/claude-sonnet" }, config)).toBe("bluecode");
   });
 
   it("opencode: the tier mapping decides without an engineModel", () => {

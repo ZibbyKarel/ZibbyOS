@@ -70,6 +70,7 @@ import { upgrade } from "./upgrade";
 import { github } from "./github";
 import { gitlab } from "./gitlab";
 import { jira } from "./jira";
+import { bluecode } from "./bluecode";
 import { claude } from "./claude";
 import { openai } from "./openai";
 import { opencode } from "./opencode";
@@ -158,6 +159,7 @@ export const iconNames = [
   "gitlab",
   "jira",
   "claude",
+  "bluecode",
   "openai",
   "opencode",
   "globe",
@@ -248,6 +250,7 @@ export const paths: Record<IconName, ReactNode> = {
   gitlab,
   jira,
   claude,
+  bluecode,
   openai,
   opencode,
   globe,

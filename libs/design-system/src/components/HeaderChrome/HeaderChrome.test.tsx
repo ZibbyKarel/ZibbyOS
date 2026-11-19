@@ -9,7 +9,6 @@ import {
   HeaderModeGroup,
   HeaderNewButton,
   HeaderStatus,
-  UsageRing,
 } from "./HeaderChrome";
 
 describe("HeaderNewButton", () => {
@@ -32,27 +31,16 @@ describe("HeaderNewButton", () => {
 });
 
 describe("HeaderStatus", () => {
-  it("shows count, rings and update badge", () => {
-    render(
-      <HeaderStatus
-        aria-label="3 agents working"
-        count={3}
-        rings={<UsageRing value={40} />}
-        update={<Icon name="upgrade" />}
-      />,
-    );
-    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName("3 agents working");
-    expect(screen.getByTestId(HeaderChromeTestId.StatusCount)).toHaveTextContent("3");
-    expect(screen.getByTestId(HeaderChromeTestId.StatusRings)).toBeInTheDocument();
+  it("shows the update badge", () => {
+    render(<HeaderStatus aria-label="System status" update={<Icon name="upgrade" />} />);
+    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName("System status");
     expect(screen.getByTestId(HeaderChromeTestId.StatusUpdate)).toBeInTheDocument();
   });
 
-  it("omits rings and update when not given, and flags attention", () => {
-    render(<HeaderStatus attention aria-label="x" count={1} state="blocked" />);
-    expect(screen.queryByTestId(HeaderChromeTestId.StatusRings)).toBeNull();
+  it("omits the update badge when not given, and flags attention", () => {
+    render(<HeaderStatus attention aria-label="x" state="blocked" />);
     expect(screen.queryByTestId(HeaderChromeTestId.StatusUpdate)).toBeNull();
     expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAttribute("data-attention", "true");
-    expect(screen.getByTestId(HeaderChromeTestId.StatusCount).className).toContain("font-semibold");
   });
 });
 
@@ -107,23 +95,5 @@ describe("HeaderIconButton", () => {
       </HeaderIconButton>,
     );
     expect(screen.queryByTestId(HeaderChromeTestId.IconButtonBadge)).toBeNull();
-  });
-});
-
-describe("UsageRing", () => {
-  it("turns hot from the threshold up", () => {
-    const { rerender } = render(<UsageRing value={79} />);
-    expect(screen.getByTestId(HeaderChromeTestId.UsageRing)).not.toHaveAttribute("data-hot");
-    rerender(<UsageRing value={80} />);
-    expect(screen.getByTestId(HeaderChromeTestId.UsageRing)).toHaveAttribute("data-hot", "true");
-  });
-
-  it("is an accessible image only when labelled", () => {
-    const { rerender } = render(<UsageRing value={10} />);
-    expect(screen.getByTestId(HeaderChromeTestId.UsageRing)).toHaveAttribute("aria-hidden", "true");
-    rerender(<UsageRing label="5-hour usage 10%" value={10} />);
-    expect(screen.getByTestId(HeaderChromeTestId.UsageRing)).toHaveAccessibleName(
-      "5-hour usage 10%",
-    );
   });
 });

@@ -6,21 +6,18 @@ import { Icon, type IconName } from "../Icon/Icon";
 /**
  * The small controls of the top-chrome header (`AppHeader` zones B and C): the
  * filled "New" button, the status chip, the mode group, the icon button with a
- * badge and the usage ring. They are plain buttons - the app owns the popovers.
+ * badge. They are plain buttons - the app owns the popovers.
  */
 export enum HeaderChromeTestId {
   NewButton = "header-new-button",
   Status = "header-status",
   StatusDot = "header-status-dot",
-  StatusCount = "header-status-count",
-  StatusRings = "header-status-rings",
   StatusUpdate = "header-status-update",
   ModeGroup = "header-mode-group",
   ModeButton = "header-mode-button",
   ModeLiveDot = "header-mode-live-dot",
   IconButton = "header-icon-button",
   IconButtonBadge = "header-icon-button-badge",
-  UsageRing = "header-usage-ring",
 }
 
 type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">;
@@ -83,14 +80,10 @@ const dotClass: Record<HeaderStatusState, string> = {
 };
 
 export interface HeaderStatusProps extends ButtonProps {
-  /** The number shown in mono (items waiting, otherwise agents running). */
-  count: ReactNode;
   /** Colour of the leading dot - same as the brand knot. Default `working`. */
   state?: HeaderStatusState;
-  /** Something waits for the operator: amber border, tint and bold count. */
+  /** Something waits for the operator: amber border and tint. */
   attention?: boolean;
-  /** Usage rings, separated by a hairline (`<UsageRing />` x1-2). */
-  rings?: ReactNode;
   /** Update-available badge content (an icon); omit for no badge. */
   update?: ReactNode;
   ref?: Ref<HTMLButtonElement>;
@@ -98,10 +91,8 @@ export interface HeaderStatusProps extends ButtonProps {
 
 /** `.tc-stat` - the system status trigger. Pass a full `aria-label` (it is the only text a screen reader gets). */
 export function HeaderStatus({
-  count,
   state = "working",
   attention = false,
-  rings,
   update,
   ref,
   ...rest
@@ -127,23 +118,6 @@ export function HeaderStatus({
         className={cn("size-[7px] shrink-0 rounded-full", dotClass[state])}
         data-testid={HeaderChromeTestId.StatusDot}
       />
-      <span
-        className={cn(
-          "font-mono text-[11.5px]",
-          attention ? "font-semibold text-accent-fg" : "text-ink",
-        )}
-        data-testid={HeaderChromeTestId.StatusCount}
-      >
-        {count}
-      </span>
-      {rings && (
-        <span
-          className="inline-flex gap-[3px] border-l border-line pl-[7px]"
-          data-testid={HeaderChromeTestId.StatusRings}
-        >
-          {rings}
-        </span>
-      )}
       {update && (
         <span
           className="inline-grid size-5 place-items-center rounded-md bg-state-think/15 text-state-think"
@@ -298,53 +272,5 @@ export function HeaderIconButton({
         />
       )}
     </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Usage ring
-// ---------------------------------------------------------------------------
-
-export interface UsageRingProps {
-  /** Used share, 0-100. */
-  value: number;
-  /** Accessible name; when set the ring is an `img`, otherwise decorative. */
-  label?: string;
-  /** The ring turns amber from this value up. Default 80. */
-  hotAt?: number;
-}
-
-const RING_R = 6;
-const RING_C = 2 * Math.PI * RING_R;
-
-/** 16px usage arc (stroke 2.2, round caps) - ink-2, amber from `hotAt`. */
-export function UsageRing({ value, label, hotAt = 80 }: UsageRingProps) {
-  const pct = Math.max(0, Math.min(100, value));
-  const hot = pct >= hotAt;
-  return (
-    <svg
-      aria-hidden={label ? undefined : true}
-      aria-label={label}
-      className="block"
-      data-hot={hot || undefined}
-      data-testid={HeaderChromeTestId.UsageRing}
-      height={16}
-      role={label ? "img" : undefined}
-      viewBox="0 0 16 16"
-      width={16}
-    >
-      <circle className="stroke-line-2" cx={8} cy={8} fill="none" r={RING_R} strokeWidth={2.2} />
-      <circle
-        className={hot ? "stroke-accent" : "stroke-ink-2"}
-        cx={8}
-        cy={8}
-        fill="none"
-        r={RING_R}
-        strokeDasharray={`${(RING_C * pct) / 100} ${RING_C}`}
-        strokeLinecap="round"
-        strokeWidth={2.2}
-        transform="rotate(-90 8 8)"
-      />
-    </svg>
   );
 }

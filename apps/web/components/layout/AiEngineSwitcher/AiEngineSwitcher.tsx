@@ -12,6 +12,7 @@ import { MODEL_FAMILIES, type ModelFamily } from "@zibby/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { EngineLimitsSheet } from "./EngineLimitsSheet";
 import { modelFamilyChoice } from "../../../features/ai-providers";
 import { useAiEnginesQuery } from "../../../features/ai-providers/queries";
 import { useSetSystemConfigMutation } from "../../../features/system/mutations";
@@ -63,29 +64,38 @@ export function AiEngineSwitcher({ compact = false }: { compact?: boolean } = {}
     <MenuButton
       items={items}
       linkComponent={Link as SubNavLinkComponent}
-      renderTrigger={(props) => (
-        <HeaderModeButton
-          {...props}
-          aria-label={t("switcher", { family })}
-          data-testid={AiEngineSwitcherTestId.Root}
-          icon={FAMILY_ICON[config.modelFamily]}
-          label={compact ? undefined : family}
-          trailing={
-            <>
-              {setConfig.isError && (
-                <span
-                  aria-label={t("saveFailed")}
-                  data-testid={AiEngineSwitcherTestId.SaveFailed}
-                  role="img"
-                  title={t("saveFailed")}
-                >
-                  <Icon name="warn" size="sm" tone="warn" />
-                </span>
-              )}
-              <Icon name="chevron" size="xs" />
-            </>
-          }
-        />
+      renderTrigger={(props, menuOpen) => (
+        <EngineLimitsSheet menuOpen={menuOpen}>
+          {({ onEscape, ...hover }) => (
+            <HeaderModeButton
+              {...props}
+              {...hover}
+              aria-label={t("switcher", { family })}
+              data-testid={AiEngineSwitcherTestId.Root}
+              icon={FAMILY_ICON[config.modelFamily]}
+              label={compact ? undefined : family}
+              onKeyDown={(e) => {
+                onEscape(e.key);
+                props.onKeyDown(e);
+              }}
+              trailing={
+                <>
+                  {setConfig.isError && (
+                    <span
+                      aria-label={t("saveFailed")}
+                      data-testid={AiEngineSwitcherTestId.SaveFailed}
+                      role="img"
+                      title={t("saveFailed")}
+                    >
+                      <Icon name="warn" size="sm" tone="warn" />
+                    </span>
+                  )}
+                  <Icon name="chevron" size="xs" />
+                </>
+              }
+            />
+          )}
+        </EngineLimitsSheet>
       )}
     />
   );

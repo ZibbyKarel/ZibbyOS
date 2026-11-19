@@ -47,7 +47,6 @@ import {
 } from "../../../features/pins";
 import { SettingsCrumbBar } from "../../../features/settings/components/SettingsCrumbBar";
 import { AiEngineSwitcher } from "../AiEngineSwitcher/AiEngineSwitcher";
-import { useHeaderLimitItems } from "../HeaderLimits/useHeaderLimitItems";
 import { PageActionsSlotProvider } from "../PageActions";
 import { PageBreadcrumbSlotProvider } from "../PageBreadcrumb";
 import { NewMenu, PreferencesMenu, SystemStatus } from "./HeaderControls";
@@ -263,10 +262,9 @@ function PhoneMenu({ pathname }: { pathname: string }) {
   );
 }
 
-/** Live system state feeding the header: the brand knot, the status chip and the usage rings. */
+/** Live system state feeding the header: the brand knot, and the status chip. */
 function useHeaderTrailing() {
   const { data: status } = useSelfStatusQuery();
-  const limitItems = useHeaderLimitItems();
   const { data: approvals } = useApprovalsQuery();
   const { runs } = useRunsQuery();
   // System state for the status block and phone brand mark (the desktop logo is static).
@@ -280,8 +278,6 @@ function useHeaderTrailing() {
   return {
     markState,
     version: status?.appVersion ? `v${status.appVersion}` : undefined,
-    limitItems,
-    runningCount: runs.filter((r) => r.status === "running").length,
     updateAvailable: Boolean(status?.appUpdateAvailable),
   };
 }
@@ -408,10 +404,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   searchLabel={tShell("search")}
                   status={
                     <SystemStatus
-                      limitItems={trailing.limitItems}
                       markState={trailing.markState}
-                      mergeRings={lv >= 1}
-                      runningCount={trailing.runningCount}
                       updateAvailable={trailing.updateAvailable}
                       version={trailing.version}
                     />

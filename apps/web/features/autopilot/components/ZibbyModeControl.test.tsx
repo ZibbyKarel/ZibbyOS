@@ -1,7 +1,12 @@
-import { screen } from "@testing-library/react";
+import { createEvent, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type AutopilotStatus, NO_AUTOMATION } from "@zibby/contracts";
-import { Button, ZibbySectionTestId, ZibbyStatusMenuTestId } from "@zibby/design-system";
+import {
+  Button,
+  StepSliderTestId,
+  ZibbySectionTestId,
+  ZibbyStatusMenuTestId,
+} from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTOMATION_KEYS } from "../autonomy";
 import { renderAutonomy } from "../test/renderAutonomy";
@@ -21,7 +26,8 @@ vi.mock("../queries", () => ({ useAutopilotQuery: () => ({ data: status }) }));
 vi.mock("../mutations", () => ({
   useSetAutopilotMutation: () => ({ mutate, mutateAsync, isPending: false }),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("../../chat/ChatContext", () => ({
   useChat: () => ({ dockOpen: false, open: openChat, setDockOpen: vi.fn() }),
 }));
@@ -69,53 +75,87 @@ describe("ZibbyModeControl", () => {
     expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Výjimky: Acme");
   });
 
-  it("pauses with one click and no confirmation", async () => {
+  it("has no pause/resume button; a paused Zibby shows a status link instead", async () => {
     renderAutonomy(<ZibbyModeControl />);
     await openPanel();
-    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
-    expect(mutate).toHaveBeenCalledWith({ body: { paused: true } }, expect.anything());
+    expect(screen.queryByTestId(ZibbyStatusMenuTestId.Action)).toBeNull();
+    expect(screen.queryByTestId(ZibbyModePanelTestId.Paused)).toBeNull();
   });
 
-  it("shows Pozastaveno and offers to resume; no pending link without approvals", async () => {
+  it("shows Pozastaveno with a link to the autonomy screen; no pending link without approvals", async () => {
     status = { paused: true, pendingApprovals: 0 };
     renderAutonomy(<ZibbyModeControl />);
     expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Pozastaveno");
     await openPanel();
-    expect(screen.getByTestId(ZibbyStatusMenuTestId.Action)).toHaveTextContent("Pustit Zibbyho");
+    expect(screen.getByTestId(ZibbyModePanelTestId.Paused)).toHaveTextContent("Pozastaveno");
+    expect(screen.queryByTestId(ZibbyStatusMenuTestId.Action)).toBeNull();
     expect(screen.queryByTestId(ZibbyModePanelTestId.Pending)).toBeNull();
     expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Bez výjimek");
-    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
-    expect(mutate).toHaveBeenCalledWith({ body: { paused: false } }, expect.anything());
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.Paused));
+    expect(push).toHaveBeenCalledWith("/governance/autonomy");
   });
 
-  it("surfaces a missing operator token on resume with an unlock link", async () => {
-    status = { paused: true, pendingApprovals: 0 };
-    mutate.mockImplementation((_vars, opts: { onError: (e: unknown) => void }) =>
-      opts.onError({ status: 401 }),
-    );
-    renderAutonomy(<ZibbyModeControl />);
-    await openPanel();
-    await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
-    expect(screen.getByTestId(ZibbyModePanelTestId.Error)).toHaveTextContent("operátorský token");
-    expect(screen.getByTestId(ZibbyModePanelTestId.Unlock)).toBeInTheDocument();
-  });
-
-  it("turns on full Automat globally from the dropdown, keeping overrides", async () => {
+  it("sets every global capability to the clicked step, keeping overrides", async () => {
     mutateAsync.mockResolvedValue({});
     renderAutonomy(<ZibbyModeControl />);
     await openPanel();
-    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.FullAuto));
+    expect(screen.getByTestId(StepSliderTestId.Thumb)).toHaveAttribute("aria-valuetext", "Ručně");
+    await userEvent.click(screen.getByTestId(`${StepSliderTestId.Step}-auto`));
     const body = mutateAsync.mock.calls[0]?.[0].body;
     expect(Object.values(body.automation.global)).toEqual(AUTOMATION_KEYS.map(() => "auto"));
     expect(body.automation.companies).toEqual({ acme: { autoReview: "auto" } });
     expect(body.paused).toBeUndefined();
+    await userEvent.click(screen.getByTestId(`${StepSliderTestId.Step}-semi`));
+    expect(Object.values(mutateAsync.mock.calls[1]?.[0].body.automation.global)).toEqual(
+      AUTOMATION_KEYS.map(() => "semi"),
+    );
   });
 
-  it("asks for the operator token on 401, stores it and retries", async () => {
+  it("moves with the keyboard", async () => {
+    mutateAsync.mockResolvedValue({});
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    fireEvent.keyDown(screen.getByTestId(StepSliderTestId.Thumb), { key: "ArrowRight" });
+    expect(mutateAsync.mock.calls[0]?.[0].body.automation.global.autoReview).toBe("semi");
+  });
+
+  it("snaps a dragged thumb to the nearest step on release", async () => {
+    mutateAsync.mockResolvedValue({});
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    const track = screen.getByTestId(StepSliderTestId.Track);
+    track.getBoundingClientRect = () => ({ left: 0, width: 300 }) as DOMRect;
+    // jsdom has no PointerEvent, so clientX must be set on the event by hand.
+    const at = (type: "pointerDown" | "pointerUp", clientX: number) => {
+      const ev = createEvent[type](track, { pointerId: 1 });
+      Object.defineProperty(ev, "clientX", { value: clientX });
+      fireEvent(track, ev);
+    };
+    at("pointerDown", 20);
+    at("pointerUp", 290);
+    expect(mutateAsync.mock.calls[0]?.[0].body.automation.global.autoReview).toBe("auto");
+  });
+
+  it("shows no exact step while the global capabilities are mixed", async () => {
+    status = {
+      ...status,
+      automation: {
+        global: { ...NO_AUTOMATION, autoReview: "auto" },
+        companies: {},
+        teams: {},
+      },
+    };
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    expect(screen.getByTestId(StepSliderTestId.Thumb)).not.toHaveAttribute("aria-valuenow");
+    expect(screen.getByTestId(StepSliderTestId.Mixed)).toHaveTextContent("Smíšené");
+  });
+
+  it("asks for the operator token on 401, stores it and retries the chosen level", async () => {
     mutateAsync.mockRejectedValueOnce({ status: 401 }).mockResolvedValue({});
     renderAutonomy(<ZibbyModeControl />);
     await openPanel();
-    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.FullAuto));
+    await userEvent.click(screen.getByTestId(`${StepSliderTestId.Step}-auto`));
     expect(await screen.findByTestId(ZibbyModePanelTestId.AutoError)).toHaveTextContent(
       "operátorský token",
     );
@@ -123,6 +163,7 @@ describe("ZibbyModeControl", () => {
     await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.TokenSave));
     expect(localStorage.getItem("zibby.operatorToken")).toBe("zby_op_x");
     expect(mutateAsync).toHaveBeenCalledTimes(2);
+    expect(mutateAsync.mock.calls[1]?.[0].body.automation.global.autoReview).toBe("auto");
   });
 
   it("turns the pill amber in full Automat and grey again when paused", () => {
@@ -152,6 +193,6 @@ describe("ZibbyModeChange", () => {
       <ZibbyModeChange renderTrigger={(open) => <Button onClick={open}>open</Button>} />,
     );
     await userEvent.click(screen.getByRole("button", { name: "open" }));
-    expect(screen.getByTestId(ZibbyStatusMenuTestId.Action)).toHaveTextContent("Pustit Zibbyho");
+    expect(screen.getByTestId(ZibbyModePanelTestId.Paused)).toBeInTheDocument();
   });
 });

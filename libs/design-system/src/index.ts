@@ -98,7 +98,7 @@ export type { IconName, IconProps, IconStroke, IconTone } from "./components/Ico
 
 export { IconBadge, IconBadgeTestId } from "./components/IconBadge/IconBadge";
 export type { IconBadgeProps } from "./components/IconBadge/IconBadge";
-export { EngineBadge, EngineBadgeTestId } from "./components/EngineBadge/EngineBadge";
+export { EngineBadge, EngineBadgeTestId, EngineGlyph } from "./components/EngineBadge/EngineBadge";
 export type { EngineBadgeEngine, EngineBadgeProps } from "./components/EngineBadge/EngineBadge";
 
 export { IconTile, IconTileTestId } from "./components/IconTile/IconTile";
@@ -529,6 +529,8 @@ export type { UsagePanelItem, UsagePanelProps } from "./components/UsagePanel/Us
 
 export { Slider, SliderTestId } from "./components/Slider/Slider";
 export type { SliderProps } from "./components/Slider/Slider";
+export { StepSlider, StepSliderTestId } from "./components/StepSlider/StepSlider";
+export type { StepSliderProps, StepSliderStep } from "./components/StepSlider/StepSlider";
 
 export { DiffView, DiffViewTestId } from "./components/DiffView/DiffView";
 export type {
@@ -860,7 +862,6 @@ export {
   HeaderModeGroup,
   HeaderNewButton,
   HeaderStatus,
-  UsageRing,
 } from "./components/HeaderChrome/HeaderChrome";
 export type {
   HeaderIconButtonProps,
@@ -869,7 +870,6 @@ export type {
   HeaderNewButtonProps,
   HeaderStatusProps,
   HeaderStatusState,
-  UsageRingProps,
 } from "./components/HeaderChrome/HeaderChrome";
 export { Splitter, SplitterTestId } from "./components/Splitter/Splitter";
 export type { SplitterProps } from "./components/Splitter/Splitter";

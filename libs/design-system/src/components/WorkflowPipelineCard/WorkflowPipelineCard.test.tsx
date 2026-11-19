@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { WorkflowPipelineCard, WorkflowPipelineCardTestId } from "./WorkflowPipelineCard";
 
 const nodes = [
-  { id: "a", index: "01", name: "Plán", who: "Architekt", engine: "C", state: "done" as const },
+  {
+    id: "a",
+    index: "01",
+    name: "Plán",
+    who: "Architekt",
+    engine: "claude",
+    state: "done" as const,
+  },
   { id: "b", index: "02", name: "Implementace", who: "Kodér", state: "active" as const },
 ];
 

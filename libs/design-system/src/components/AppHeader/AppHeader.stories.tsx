@@ -7,7 +7,6 @@ import {
   HeaderModeGroup,
   HeaderNewButton,
   HeaderStatus,
-  UsageRing,
 } from "../HeaderChrome/HeaderChrome";
 import { SectionTrack } from "../SectionTrack/SectionTrack";
 
@@ -22,18 +21,7 @@ const nav = (
 );
 
 const zoneC = (autopilot: boolean) => ({
-  status: (
-    <HeaderStatus
-      aria-label="3 agents working"
-      count={3}
-      rings={
-        <>
-          <UsageRing value={62} />
-          <UsageRing value={41} />
-        </>
-      }
-    />
-  ),
+  status: <HeaderStatus aria-label="System status" />,
   mode: (
     <HeaderModeGroup ariaLabel="Operating mode">
       {autopilot ? (

@@ -14,7 +14,9 @@ export enum AppHeaderTestId {
   HomeLink = "app-header-home-link",
   /** Zone A - brand + section nav. */
   ZoneA = "app-header-zone-a",
-  /** Zone B - command: search, create, Zibby. */
+  /** Centre - the search trigger, at the true centre of the header row. */
+  ZoneSearch = "app-header-zone-search",
+  /** Zone B - command: create, Zibby. */
   ZoneB = "app-header-zone-b",
   /** Zone C - system: status, mode, notifications, preferences. */
   ZoneC = "app-header-zone-c",
@@ -74,8 +76,9 @@ export interface AppHeaderProps {
 
 /**
  * Top-chrome row 1 - a fixed `LAYOUT.headerHeight` (52px) band on `--panel` with a
- * bottom hairline, in three zones: **A** brand + section nav, a flexible spacer,
- * **B** command (search trigger, create, Zibby), a 1x22px divider, **C** system
+ * bottom hairline, a `1fr auto 1fr` grid so the search trigger sits at the true centre
+ * (`min(560px, 40vw)` wide, just icon + `⌘K` when `searchCompact`): **A** brand + section nav
+ * on the left; on the right **B** command (create, Zibby), a 1x22px divider and **C** system
  * (status, mode, notifications, preferences). Every slot is an opaque `ReactNode`
  * (domain-neutral, no `next/link` import here) except the search trigger, which
  * `AppHeader` renders itself so every screen gets the identical `⌘K` affordance.
@@ -113,12 +116,12 @@ export function AppHeader({
   );
   return (
     <header
-      className="relative z-40 flex items-center gap-2.5 border-b border-line bg-panel pr-3.5 pl-4"
+      className="relative z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 border-b border-line bg-panel pr-3.5 pl-4"
       data-testid={AppHeaderTestId.Root}
       ref={ref}
       style={{ height: LAYOUT.headerHeight }}
     >
-      <div className="flex flex-none items-center gap-2.5" data-testid={AppHeaderTestId.ZoneA}>
+      <div className="flex items-center gap-2.5" data-testid={AppHeaderTestId.ZoneA}>
         <div className="rounded-lg py-1 pr-1 pl-0.5" data-testid={AppHeaderTestId.Wordmark}>
           {homeHref ? (
             <HomeLink
@@ -140,14 +143,15 @@ export function AppHeader({
         )}
       </div>
 
-      <span className="min-w-2 flex-1" />
-
-      <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneB}>
+      <div
+        className={cn("hidden md:flex", !searchCompact && "w-[min(560px,40vw)]")}
+        data-testid={AppHeaderTestId.ZoneSearch}
+      >
         {onSearchClick && (
           <button
             aria-label={searchLabel}
             className={cn(
-              "hidden h-[30px] items-center gap-[7px] rounded-lg border border-line-2 bg-bg py-0 pr-1.5 pl-[9px] md:inline-flex",
+              "inline-flex h-[30px] w-full items-center gap-[7px] rounded-lg border border-line-2 bg-bg py-0 pr-1.5 pl-[9px]",
               "font-sans text-[12.5px] whitespace-nowrap text-ink-3 transition-colors",
               "hover:border-ink-3 hover:text-ink",
               "focus-visible:border-ink-2 focus-visible:text-ink focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-ink)_12%,transparent)]",
@@ -158,7 +162,7 @@ export function AppHeader({
             type="button"
           >
             <Icon name="search" size="sm" />
-            {!searchCompact && <span>{searchLabel}</span>}
+            {!searchCompact && <span className="flex-1 text-left">{searchLabel}</span>}
             <span
               className="rounded-[4px] border border-line-2 px-[5px] py-px font-mono text-[10.5px] text-ink-3"
               data-testid={AppHeaderTestId.SearchShortcut}
@@ -167,21 +171,28 @@ export function AppHeader({
             </span>
           </button>
         )}
-        {create && <span data-testid={AppHeaderTestId.Create}>{create}</span>}
-        {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
       </div>
 
-      <span
-        aria-hidden="true"
-        className="mx-1 hidden h-[22px] w-px flex-none bg-line-2 md:block"
-        data-testid={AppHeaderTestId.Divider}
-      />
+      <div className="flex items-center justify-end gap-2.5">
+        <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneB}>
+          {create && <span data-testid={AppHeaderTestId.Create}>{create}</span>}
+          {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
+        </div>
 
-      <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneC}>
-        {status && <span data-testid={AppHeaderTestId.Status}>{status}</span>}
-        {mode && <span data-testid={AppHeaderTestId.Mode}>{mode}</span>}
-        {notifications && <span data-testid={AppHeaderTestId.Notifications}>{notifications}</span>}
-        {preferences && <span data-testid={AppHeaderTestId.Preferences}>{preferences}</span>}
+        <span
+          aria-hidden="true"
+          className="mx-1 hidden h-[22px] w-px flex-none bg-line-2 md:block"
+          data-testid={AppHeaderTestId.Divider}
+        />
+
+        <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneC}>
+          {status && <span data-testid={AppHeaderTestId.Status}>{status}</span>}
+          {mode && <span data-testid={AppHeaderTestId.Mode}>{mode}</span>}
+          {notifications && (
+            <span data-testid={AppHeaderTestId.Notifications}>{notifications}</span>
+          )}
+          {preferences && <span data-testid={AppHeaderTestId.Preferences}>{preferences}</span>}
+        </div>
       </div>
     </header>
   );

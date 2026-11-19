@@ -7,8 +7,8 @@ export enum EngineBadgeTestId {
   Mark = "engine-badge-mark",
 }
 
-/** Which AI engine mark to show: Claude Code, OpenAI, or OpenCode. */
-export type EngineBadgeEngine = "claude" | "openai" | "opencode";
+/** Which AI engine mark to show: Claude Code, OpenAI, OpenCode, or the BlueCode gateway. */
+export type EngineBadgeEngine = "claude" | "openai" | "opencode" | "bluecode";
 
 export interface EngineBadgeProps {
   /** The mark to show in the bottom-right corner; absent renders the children untouched. */
@@ -25,7 +25,18 @@ const defaultLabel: Record<EngineBadgeEngine, string> = {
   claude: "Claude Code",
   openai: "OpenAI",
   opencode: "OpenCode",
+  bluecode: "BlueCode",
 };
+
+const isEngine = (engine: string): engine is EngineBadgeEngine => engine in defaultLabel;
+
+/**
+ * The bare glyph of an engine: its brand icon, or the given text (initials) for an engine
+ * without one. Shared by the badge and every card that pins an engine to an avatar.
+ */
+export function EngineGlyph({ engine }: { engine: string }) {
+  return isEngine(engine) ? <Icon name={engine} size="xs" /> : <>{engine}</>;
+}
 
 /** Wraps an avatar and pins a small engine icon (or an overlapping stack of them) to its bottom-right corner. */
 export function EngineBadge({ engine, engines, label, children }: EngineBadgeProps) {
@@ -50,7 +61,7 @@ export function EngineBadge({ engine, engines, label, children }: EngineBadgePro
             data-testid={EngineBadgeTestId.Mark}
             key={m}
           >
-            <Icon name={m} size="xs" />
+            <EngineGlyph engine={m} />
           </span>
         ))}
       </span>

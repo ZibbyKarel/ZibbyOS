@@ -8,7 +8,6 @@ import {
   EFFORT_LEVEL,
   toolGlyphs,
 } from "../agentListModel";
-import { engineLetter } from "../engineLetter";
 
 export interface AgentPortraitCardProps {
   agent: Agent;
@@ -51,7 +50,7 @@ export function AgentPortraitCard({
         ) : undefined
       }
       effort={{ level: EFFORT_LEVEL[thinking], label: t(`list.effort.${thinking}`) }}
-      engine={engineLetter(badge.engine)}
+      engine={badge.engine}
       engineLabel={badge.label}
       hue={department?.color}
       model={agent.engineModel ?? tierLabel(agent.model ?? "sonnet", agent.engine)}

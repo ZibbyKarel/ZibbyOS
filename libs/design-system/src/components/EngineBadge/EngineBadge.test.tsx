@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { render } from "../../utils/testRender";
-import { EngineBadge, EngineBadgeTestId } from "./EngineBadge";
+import { EngineBadge, EngineBadgeTestId, EngineGlyph } from "./EngineBadge";
 
 describe("EngineBadge", () => {
   it("pins the engine mark with its default accessible name", () => {
@@ -48,5 +48,29 @@ describe("EngineBadge", () => {
     expect(screen.getByText("avatar")).toBeInTheDocument();
     expect(screen.queryByTestId(EngineBadgeTestId.Root)).toBeNull();
     expect(screen.queryByTestId(EngineBadgeTestId.Badge)).toBeNull();
+  });
+
+  it("shows the BlueCode icon", () => {
+    render(
+      <EngineBadge engine="bluecode">
+        <span>avatar</span>
+      </EngineBadge>,
+    );
+    const badge = screen.getByTestId(EngineBadgeTestId.Badge);
+    expect(badge).toHaveAccessibleName("BlueCode");
+    expect(badge.querySelector("[data-icon='bluecode']")).not.toBeNull();
+  });
+});
+
+describe("EngineGlyph", () => {
+  it("renders the brand icon of a known engine and the text of an unknown one", () => {
+    const { container } = render(
+      <>
+        <EngineGlyph engine="openai" />
+        <EngineGlyph engine="XY" />
+      </>,
+    );
+    expect(container.querySelector("[data-icon='openai']")).not.toBeNull();
+    expect(container).toHaveTextContent("XY");
   });
 });
