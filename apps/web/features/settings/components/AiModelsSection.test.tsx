@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderSettings as render, screen } from "../testing/renderSettings";
 import userEvent from "@testing-library/user-event";
 import { ConfirmDeleteButtonTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";

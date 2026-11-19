@@ -21,6 +21,9 @@ export enum OperatorTokenSectionTestId {
   Remove = "operator-token-remove",
 }
 
+/** What the operator token unlocks in this browser (guarded writes send it). */
+const USED_BY = ["approvals", "autopilot", "engine", "push"] as const;
+
 const META_KEY = "zibby.operatorToken.meta";
 
 interface TokenMeta {
@@ -71,6 +74,7 @@ export interface OperatorTokenSectionProps {
 export function OperatorTokenSection({ onSaved }: OperatorTokenSectionProps) {
   const t = useTranslations("settings");
   const ta = useTranslations("settings.access");
+  const tr = useTranslations("settings.accessRows");
   const [stored, setStored] = useState(readOperatorToken);
   const [meta, setMeta] = useState(readMeta);
   const [value, setValue] = useState("");
@@ -140,6 +144,15 @@ export function OperatorTokenSection({ onSaved }: OperatorTokenSectionProps) {
               </Button>
             </>
           )}
+        </SettingsRow>
+      )}
+      {saved && (
+        <SettingsRow label={tr("usedBy")}>
+          {USED_BY.map((k) => (
+            <StatusBadge noDot key={k} tone="off">
+              {tr(`usedByItem.${k}`)}
+            </StatusBadge>
+          ))}
         </SettingsRow>
       )}
       {showInput && (

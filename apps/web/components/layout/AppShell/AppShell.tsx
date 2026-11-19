@@ -46,6 +46,7 @@ import {
   pinHrefFor,
   usePagePins,
 } from "../../../features/pins";
+import { SettingsCrumbBar } from "../../../features/settings/components/SettingsCrumbBar";
 import { AiEngineSwitcher } from "../AiEngineSwitcher/AiEngineSwitcher";
 import { useHeaderLimitItems } from "../HeaderLimits/useHeaderLimitItems";
 import { PageActionsSlotProvider } from "../PageActions";
@@ -425,13 +426,17 @@ function AppShellChrome({ children }: { children: ReactNode }) {
             }
             skipLinkLabel={t("skipToContent")}
             subnav={
-              <SectionSubNav
-                active={active}
-                currentHref={currentHref}
-                onPinRequested={onPinRequested}
-                pageActions={pageActions}
-                trail={<div ref={setCrumbSlot} />}
-              />
+              pathname.startsWith("/system/settings") ? (
+                <SettingsCrumbBar />
+              ) : (
+                <SectionSubNav
+                  active={active}
+                  currentHref={currentHref}
+                  onPinRequested={onPinRequested}
+                  pageActions={pageActions}
+                  trail={<div ref={setCrumbSlot} />}
+                />
+              )
             }
           >
             {children}

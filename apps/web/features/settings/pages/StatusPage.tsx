@@ -1,46 +1,69 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { SettingsPanel, SettingsRow, StatusBadge, Typography } from "@zibby/design-system";
+import {
+  Container,
+  Row,
+  SettingsPanel,
+  SettingsRow,
+  StatusBadge,
+  StatusDot,
+  Typography,
+} from "@zibby/design-system";
 import { useHealthQuery } from "../../health";
 import { SettingsPage } from "../components/SettingsPage";
 import { SelfDevelopmentPanel } from "../components/SelfDevelopmentPanel";
 import { UpdatesSection } from "../components/UpdatesSection";
-import { WatcherRows } from "../components/WatcherRows";
+import { WatchersPanel } from "../components/WatchersPanel";
 
 function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h} h ${m} min` : `${m} min`;
+  return [d ? `${d} d` : "", d || h ? `${h} h` : "", `${m} min`].filter(Boolean).join(" ");
 }
 
 /** `/system/settings/status` — daemon health, watchers, version & updates, ZIBBY development. */
 export function StatusPage() {
   const t = useTranslations("settings");
-  const { data: health, isSuccess } = useHealthQuery();
+  const tp = useTranslations("settings.statusPanels");
+  const { data: health, isSuccess, isError } = useHealthQuery();
+  const stale = health?.watchers.some((w) => w.status === "stale") ?? false;
+  const nominal = isSuccess && health?.status === "ok";
   return (
     <SettingsPage
       panels={[
         { id: "system", label: t("system") },
-        { id: "updates", label: t("updates.title") },
+        { id: "watchers", label: t("watchers.title"), warn: stale },
+        { id: "version", label: tp("versionTitle") },
         { id: "self-dev", label: t("selfDev.title") },
       ]}
       section="status"
     >
       <SettingsPanel
         badge={
-          <StatusBadge tone={isSuccess ? "ok" : "err"}>
-            {isSuccess ? t("online") : t("offline")}
+          <StatusBadge tone={isError ? "err" : nominal ? "ok" : "wait"}>
+            {isError ? t("offline") : nominal ? tp("nominal") : tp("degraded")}
           </StatusBadge>
         }
+        description={tp("systemHint")}
         id="system"
         title={t("system")}
       >
-        <SettingsRow label={t("daemon")}>
-          <Typography mono type="note">
-            ZIBBY
-          </Typography>
-        </SettingsRow>
+        <Container padding="250">
+          <Row gap="100">
+            <StatusDot tone={isError ? "error" : nominal ? "ok" : "wait"} />
+            <Typography
+              mono
+              size="xl"
+              tone={isError ? "bad" : nominal ? "ok" : "warn"}
+              type="body"
+              weight="semibold"
+            >
+              {isError ? tp("offlineWord") : nominal ? tp("nominalWord") : tp("degradedWord")}
+            </Typography>
+          </Row>
+        </Container>
         {health && (
           <SettingsRow label={t("uptime")}>
             <Typography mono type="note">
@@ -48,10 +71,8 @@ export function StatusPage() {
             </Typography>
           </SettingsRow>
         )}
-        <SettingsRow stack label={t("watchers.title")}>
-          <WatcherRows watchers={health?.watchers} />
-        </SettingsRow>
       </SettingsPanel>
+      <WatchersPanel watchers={health?.watchers} />
       <UpdatesSection />
       <SelfDevelopmentPanel />
     </SettingsPage>

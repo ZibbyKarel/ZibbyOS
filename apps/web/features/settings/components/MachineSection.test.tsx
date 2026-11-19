@@ -1,8 +1,9 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderSettings as render, screen } from "../testing/renderSettings";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MachineConfig } from "@zibby/contracts";
 import { MachineSection, MachineSectionTestId } from "./MachineSection";
+import { PanelActionsTestId } from "./PanelActions";
 
 const DEFAULTS: MachineConfig = { cloneRoot: "/Users/karel/Projects" };
 
@@ -11,11 +12,12 @@ const setConfig = vi.fn();
 
 vi.mock("../../machine", () => ({
   useMachineConfigQuery: () => ({ data: config }),
-  useUpdateMachineConfigMutation: () => ({ mutate: setConfig, isPending: false }),
+  useUpdateMachineConfigMutation: () => ({ mutateAsync: setConfig, isPending: false }),
 }));
 
 beforeEach(() => {
   setConfig.mockReset();
+  setConfig.mockResolvedValue(undefined);
   config = { ...DEFAULTS };
 });
 
@@ -30,13 +32,13 @@ describe("MachineSection", () => {
     const input = screen.getByTestId(MachineSectionTestId.CloneRoot);
     await userEvent.clear(input);
     await userEvent.type(input, "/Volumes/data/zibby-clones");
-    await userEvent.click(screen.getByTestId(MachineSectionTestId.Save));
+    await userEvent.click(screen.getByTestId(PanelActionsTestId.Save));
     expect(setConfig).toHaveBeenCalledWith({ body: { cloneRoot: "/Volumes/data/zibby-clones" } });
   });
 
   it("disables Save when the field is cleared", async () => {
     render(<MachineSection />);
     await userEvent.clear(screen.getByTestId(MachineSectionTestId.CloneRoot));
-    expect(screen.getByTestId(MachineSectionTestId.Save)).toBeDisabled();
+    expect(screen.getByTestId(PanelActionsTestId.Save)).toBeDisabled();
   });
 });

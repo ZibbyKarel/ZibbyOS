@@ -52,7 +52,7 @@ export function AiEngineSwitcher({ compact = false }: { compact?: boolean } = {}
       id: "settings",
       label: t("switcherSettings"),
       icon: "gear",
-      href: "/system/settings/ai-models",
+      href: "/system/settings/ai-engines",
     },
   ];
 

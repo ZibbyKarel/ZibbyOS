@@ -21,14 +21,18 @@ function merge(target: Tree, source: Tree): Tree {
   return target;
 }
 
-/** The cs catalog plus any not-yet-merged `i18n/messages/pending/settings.cs.json` keys. */
+/** The cs catalog plus any not-yet-merged `i18n/messages/pending/settings*.cs.json` keys. */
 function withPending(base: Tree): Tree {
-  const file = path.join(__dirname, "../../../i18n/messages/pending/settings.cs.json");
-  try {
-    return merge({ ...base }, JSON.parse(readFileSync(file, "utf8")) as Tree);
-  } catch {
-    return base; // pending file gone once merged — the catalog already has the keys
+  let out = { ...base };
+  for (const name of ["settings.cs.json", "settings-2.cs.json"]) {
+    try {
+      const file = path.join(__dirname, "../../../i18n/messages/pending", name);
+      out = merge(out, JSON.parse(readFileSync(file, "utf8")) as Tree);
+    } catch {
+      /* pending file gone once merged — the catalog already has the keys */
+    }
   }
+  return out;
 }
 
 export const settingsMessages = withPending(baseMessages as Tree);

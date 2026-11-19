@@ -1,3 +1,4 @@
+import cs from "../../i18n/messages/cs.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { renderSettings as render, screen } from "./testing/renderSettings";
@@ -44,7 +45,7 @@ describe("SettingsScreen — /system/settings/[section]", () => {
 
   it("renders the status section's system panel", () => {
     render(<SettingsScreen section="status" />);
-    expect(screen.getByText("Démon")).toBeInTheDocument();
+    expect(screen.getAllByText(cs.settings.system).length).toBeGreaterThan(0);
   });
 
   it("aggregates the appearance theme control on the general section", () => {

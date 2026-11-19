@@ -44,8 +44,6 @@
       "system": {
         "general": "Obecné",
         "runtime": "Runtime",
-        "ai-models": "AI modely",
-        "activity": "Aktivita",
         "status": "Stav",
         "inventory": "Inventář stroje",
         "access": "Přístup a oznámení",
@@ -144,19 +142,12 @@
   "knowledge": {
     "graph": {
       "title": "Graf znalostí",
-      "graphLabel": "Graf znalostí",
       "emptyTitle": "Není co zobrazit",
       "emptyDescription": "Tento zdroj zatím nemá žádné propojené poznámky."
     },
     "vault": {
       "title": "Mozek",
-      "shelfGeneral": "Obecné",
-      "usedBy": "Odkazuje sem",
-      "usedByEmpty": "Žádná poznámka sem neodkazuje.",
-      "teamReadOnly": "Týmová znalostní báze (jen pro čtení)",
-      "rootFolder": "Kořen",
-      "emptyTeam": "Tato znalostní báze zatím nemá žádné poznámky.",
-      "noteError": "Poznámku se nepodařilo načíst."
+      "shelfGeneral": "Obecné"
     },
     "distill": {
       "title": "Destilace",
@@ -190,9 +181,7 @@
       "vault": "ZibbyOS",
       "sync": "Synchronizovat KB",
       "syncing": "Synchronizuji…",
-      "syncCurrent": "Aktuální ({sha})",
-      "syncPulled": "Staženo {before} → {after}",
-      "syncFailed": "Synchronizace selhala"
+      "syncCurrent": "Aktuální ({sha})"
     },
     "brain": {
       "header": {
@@ -258,7 +247,6 @@
       },
       "filters": {
         "department": "Oddělení",
-        "allDepartments": "Všechna oddělení",
         "orphans": "Jen sirotci",
         "clear": "Zrušit filtry",
         "unsorted": "Neroztříděné"
@@ -593,7 +581,6 @@
       "noRunTitle": "Zatím žádný běh",
       "noRunBody": "Tento podúkol zatím nespustil běh.",
       "approvalsHeader": "Čekající schválení",
-      "noApprovals": "Zde nic nepotřebuje vaši pozornost.",
       "created": "Vytvořeno {time}"
     },
     "new": {
@@ -745,7 +732,6 @@
     "emptyDescription": "Agenti jsou definiční soubory .agent.md — model, thinking level a nástroje. Z agentů pak skládáš workflow v sekci Workflow.",
     "emptyHint": "// vytvoří ~/zibby/agents/'<název>'.agent.md",
     "title": "Agenti",
-    "countSummary": "{count, plural, =0 {žádní agenti} one {# agent} few {# agenti} other {# agentů}} · sdílený pool pro workflow",
     "run": "Spustit",
     "openAria": "Otevřít {name}",
     "noDepartment": "Bez oddělení",
@@ -755,7 +741,6 @@
     "notInWorkflow": "Zatím v žádném workflow — volný k použití.",
     "phaseCount": "{count, plural, one {# fáze} few {# fáze} other {# fází}}",
     "allowedTools": "Povolené nástroje",
-    "tabBasics": "Základy",
     "tabRules": "Pravidla",
     "newAgent": "Nový agent",
     "create": "Vytvořit agenta",
@@ -769,17 +754,13 @@
       "namePlaceholder": "jméno agenta",
       "displayName": "Zobrazované jméno",
       "displayNamePlaceholder": "Kevin",
-      "jobTitle": "Pracovní pozice",
       "jobTitlePlaceholder": "Senior reviewer",
-      "whenToUse": "Kdy použít",
-      "whenToUsePlaceholder": "…při kontrole diffu před pushem",
       "category": "Kategorie",
       "department": "Vlastnící oddělení",
       "model": "Model",
       "thinking": "Thinking",
       "icon": "Ikona",
       "body": "agent.md",
-      "bodyHint": "Tělo definice agenta. YAML frontmatter se skládá z polí vlevo až na backendu.",
       "bodyPlaceholder": "Markdown popis agenta…"
     },
     "addCategory": "Přidat kategorii",
@@ -924,7 +905,6 @@
   "integrations": {
     "addIntegration": "Přidat integraci",
     "title": "Integrace",
-    "countSummary": "{count, plural, =0 {žádné integrace} one {# integrace} few {# integrace} other {# integrací}} · příchozí kanály, které ZIBBY sleduje",
     "statusConnected": "připojeno",
     "statusDisconnected": "odpojeno",
     "statusError": "chyba",
@@ -1071,18 +1051,13 @@
   },
   "workflows": {
     "addWorkflow": "Přidat workflow",
-    "runWorkflow": "Spustit workflow",
     "title": "Workflow",
     "noDepartment": "Bez oddělení",
     "emptyTitle": "Zatím žádné workflow",
     "emptyDescription": "Workflow řetězí agenty přes soubory. Přidej první a fáze pak poskládáš v editoru.",
     "emptyHint": "// vytvoří ~/zibby/workflows/'<název>'.workflow.md",
-    "branchNote": "výstup → izolovaná branch · PR k ranní review",
     "chainTitle": "zřetězení fází · soubory = předání",
-    "outputsTitle": "výstup · co se stane s hotovou prací",
     "outputPr": "otevře PR z {from} (brána — čeká na schválení)",
-    "outputFileProject": "zapíše {from} do projektu: {to}",
-    "outputFileVault": "uloží {from} do paměti: {to}",
     "outputType": "Typ výstupu",
     "outputTypeOption": {
       "pr": "Pull request",
@@ -1101,7 +1076,6 @@
     "outputFolderToError": "Absolutní cesta nebo začíná ~/",
     "outputRemove": "Odebrat",
     "outputAdd": "Přidat výstup",
-    "outputFolder": "zkopíruje složku {from} do {to}/[běh]",
     "list": {
       "section": "Práce",
       "all": "Vše",
@@ -1135,7 +1109,6 @@
     "rejected": "✕ Zamítnuto — akce zrušena",
     "approve": "Schválit",
     "reject": "Zamítnout",
-    "holdToApprove": "Podržet pro schválení",
     "holdDone": "Schváleno",
     "holdArmed": "Stiskni znovu pro potvrzení",
     "riskTag": {
@@ -1144,7 +1117,6 @@
       "push": "push",
       "send": "odeslání"
     },
-    "originAgentFactory": "Agent Factory",
     "openSource": "Otevřít zdroj ↗"
   },
   "workflowRun": {
@@ -1312,16 +1284,11 @@
     "sheetClose": "Zavřít detail",
     "operatorTokenMissing": "Operátorský token chybí nebo je špatný — nastav ho v Nastavení → Obecné.",
     "wants": "chce",
-    "exactAction": "přesně tohle agent udělá",
-    "consequenceLabel": "co se stane po schválení",
     "confirm": "Potvrdit",
     "reject": "Zamítnout",
-    "holdToApprove": "Podržet pro schválení",
     "holdDone": "Schváleno",
     "holdArmed": "Stiskni znovu pro potvrzení",
     "guarantee": "ZIBBY nikdy nedokončí rizikovou akci bez tvého souhlasu. Approval gate je vynucená vrstva, ne doporučení.",
-    "requestedLabel": "Vyžádáno",
-    "viaLabel": "Spustil",
     "previewCart": "náhled košíku",
     "previewTotal": "Celkem k platbě",
     "previewTargets": "cíle mazání",
@@ -1337,12 +1304,10 @@
       "medium": "střední",
       "high": "vysoká"
     },
-    "checkpointOutput": "Výstup kroku ke kontrole",
     "revise": "Odpovědět / připomínky",
     "reviseLabel": "Odpověď nebo připomínky",
     "reviseHint": "Krok se spustí znovu s touto poznámkou (třeba s odpověďmi na otázky výše) a pak se ti vrátí ke kontrole.",
-    "confirmRevise": "Odeslat",
-    "cancelRevise": "Zrušit"
+    "confirmRevise": "Odeslat"
   },
   "zibby": {
     "label": "Zibby",
@@ -1587,7 +1552,8 @@
       "title": "Stroj",
       "cloneRootLabel": "Kořen klonů",
       "cloneRootHint": "Kam ZIBBY na tomto stroji klonuje projekty, které tu ještě nemají lokální kopii (kořen/id projektu). Toto nastavení je per-stroj a nikdy se nesynchronizuje mezi stroji.",
-      "save": "Uložit"
+      "save": "Uložit",
+      "panelHint": "Nastavení jen pro tento počítač. Ostatní hostitelé mají vlastní."
     },
     "aiModels": {
       "openai": "OpenAI",
@@ -1774,7 +1740,8 @@
       "stay": "Zůstat",
       "discardLeave": "Zahodit a odejít",
       "leaveTitle": "Odejít bez uložení?",
-      "leaveBody": "{count, plural, one {# neuložená změna se ztratí} few {# neuložené změny se ztratí} other {# neuložených změn se ztratí}}."
+      "leaveBody": "{count, plural, one {# neuložená změna se ztratí} few {# neuložené změny se ztratí} other {# neuložených změn se ztratí}}.",
+      "save": "Uložit"
     },
     "languagePanel": {
       "hint": "Agenti dál odpovídají jazykem, kterým jim píšeš.",
@@ -1795,6 +1762,113 @@
     },
     "runtimePanel": {
       "thisMac": "Tento Mac"
+    },
+    "crumb": {
+      "hint": "Přepínače se projeví hned · pole se ukládají pomocí"
+    },
+    "inventoryLink": "Inventář stroje",
+    "engines": {
+      "active": "Aktivní engine",
+      "activeHint": "CLI, které na tomto stroji spouští každý běh agenta. Vše běží na opencode; model vyber níže.",
+      "installed": "Nainstalováno",
+      "notInstalled": "Nenainstalováno",
+      "familiesHint": "Poskytovatelé, které engine umí volat. Připoj je v terminálu na hostiteli; ZibbyOS se na hesla neptá.",
+      "connected": "Připojeno",
+      "notConnected": "Nepřipojeno",
+      "modelCount": "{n, plural, one {# model} few {# modely} other {# modelů}}",
+      "providersLabel": "Připojení poskytovatelé"
+    },
+    "runtimeGroups": {
+      "schedulers": "Plánovače",
+      "schedulersHint": "Jak často se každá smyčka probudí, v hodinách a minutách. 0 h 0 min = vypnuto.",
+      "limits": "Limity",
+      "limitsHint": "Mantinely pro to, kolik toho běží najednou a jak dlouho věci zůstávají.",
+      "context": "Kontext",
+      "contextHint": "Zkomprimovat konverzaci, když je kontextové okno takhle plné. Nižší je levnější, ale může zapomenout detaily.",
+      "off": "vyp.",
+      "on": "zap.",
+      "offBadge": "Vyp.",
+      "maxRuns": "Max. souběžných běhů",
+      "maxRunsHint": "Běhy nad tento počet čekají ve frontě.",
+      "maxCycles": "Max. cyklů obnovy po limitu",
+      "maxCyclesHint": "Po tolika pokusech zaparkovaný běh čeká na tebe.",
+      "dock": "Hotové úkoly v doku",
+      "dockHint": "Kolik hotových úkolů zůstane vidět, než se archivují.",
+      "autoResume": "Po startu automaticky obnovit cíle",
+      "autoResumeHint": "Cíle, které běžely při zastavení daemona, pokračují.",
+      "restartRequired": "Vyžaduje restart",
+      "compact": {
+        "opencode": "Auto-kompakce OpenCode",
+        "claude": "Auto-kompakce Claude"
+      },
+      "compactAt": "Komprimovat při",
+      "tick": {
+        "task": "Plánovač úloh",
+        "taskHint": "Z cílů dělá další úkoly a spouští ty naplánované.",
+        "channel": "Hlídání kanálů",
+        "channelHint": "Čte vlákna ze Slacku, pošty a kalendáře. Kratší = odpovědi působí živě.",
+        "monitor": "Monitoring CI",
+        "monitorHint": "Kontroluje CI u otevřených PR. Červený build uvidíš do jednoho intervalu.",
+        "automation": "Automatizace",
+        "automationHint": "Vyhodnocuje cron. Nech 1 min, delší interval vynechá běhy.",
+        "limitResume": "Obnova po limitu",
+        "limitResumeHint": "Znovu zkouší běhy zaparkované na limitu, jakmile je zase kapacita.",
+        "roadmap": "Sync roadmapy",
+        "roadmapHint": "Znovu importuje roadmapy auto-sync projektů a kontroluje mergnutá PR."
+      }
+    },
+    "statusPanels": {
+      "versionTitle": "Verze a aktualizace",
+      "systemHint": "Daemon, který na tomto hostiteli spouští agenty.",
+      "nominal": "V pořádku",
+      "degraded": "Zhoršený",
+      "nominalWord": "V POŘÁDKU",
+      "degradedWord": "ZHORŠENÝ",
+      "offlineWord": "OFFLINE",
+      "watchersHint": "Smyčky na pozadí z Runtime › Plánovače a kdy naposledy tikly.",
+      "colWatcher": "Hlídač",
+      "colEvery": "Každých",
+      "colLastTick": "Poslední tik",
+      "colState": "Stav",
+      "notRunning": "Neběží",
+      "noTickYet": "Zatím bez tiku",
+      "ago": "před {ago}",
+      "staleAgo": "před {ago} · čekáno každých {every}",
+      "staleLead": "{names} zamrzl.",
+      "staleBody": "Práce, kterou dělá, může zůstat bez povšimnutí, dokud znovu netikne.",
+      "devHint": "Pracuj na samotném ZibbyOS vlastními agenty.",
+      "dirtyBadge": "Necommitnuté změny",
+      "dirtyHint": "Necommitnuté změny v instalačním adresáři.",
+      "developAsProject": "Vyvíjet ZIBBY jako projekt"
+    },
+    "updateStates": {
+      "title": "Verze a aktualizace",
+      "hint": "ZibbyOS se aktualizuje na místě; rozběhnutá práce se pozastaví, neztratí se.",
+      "checking": "Kontroluji…",
+      "installing": "Instaluji",
+      "failedBadge": "Aktualizace selhala",
+      "availableBadge": "Dostupná aktualizace {version}",
+      "upToDateBadge": "Aktuální",
+      "installingLead": "Instaluji {version}…",
+      "installingBody": "ZibbyOS se po dokončení restartuje; rozběhnutá práce se pozastaví a pokračuje.",
+      "failedBody": "Nic se nezměnilo; dál máš současnou verzi.",
+      "retry": "Zkusit znovu",
+      "restartBody": "Restart trvá asi 20 s."
+    },
+    "accessRows": {
+      "usedBy": "Používá",
+      "usedByItem": {
+        "approvals": "Schválení",
+        "autopilot": "Autopilot",
+        "engine": "Přepínání enginu",
+        "push": "Push"
+      },
+      "channelLabel": "Kanál",
+      "channelHint": "Kam Zibby píše a odkud čte tvé odpovědi.",
+      "channelDm": "Přímá zpráva",
+      "channelReady": "Připraveno",
+      "channelPending": "Zatím nenalezeno",
+      "iphone": "Na iPhonu nejdřív přidej ZibbyOS na plochu. Safari doručuje web push jen nainstalovaným webovým aplikacím."
     }
   },
   "runs": {
@@ -1827,32 +1901,18 @@
     "cancelTask": "Zrušit task",
     "cancelTitle": "Zrušit čekající task?",
     "cancelBody": "Task se odstraní z fronty a nikdy se nespustí.",
-    "resumeContinue": "Pokračovat",
     "resumeFresh": "Spustit znovu",
     "output": "výstup běhu",
     "liveLog": "živý log",
     "log": "log běhu",
     "lines": "{n} řádků",
     "toggleToolOutput": "rozbalit/sbalit výstup nástroje",
-    "assignProjectLabel": "Projekt",
-    "assignProjectPlaceholder": "Vyber…",
-    "metaProject": "projekt",
-    "metaStarted": "spuštěno",
-    "metaScheduled": "spustí se",
-    "metaTarget": "cíl",
-    "metaWorkflow": "workflow",
-    "metaCost": "cena",
-    "metaDuration": "délka běhu",
-    "metaAgent": "agent",
     "metaTask": "úkol",
-    "metaRoadmapItem": "issue",
     "producedOutputTitle": "Výstup úkolu",
     "openOutput": "Otevřít výstup",
     "openFolder": "Otevřít složku",
     "outputEmpty": "Úkol zatím nevytvořil žádný výstup.",
     "openPr": "Otevřít PR",
-    "prAdded": "{n} přidaných řádků",
-    "prRemoved": "{n} odebraných řádků",
     "continueTask": "Pokračovat v novém úkolu",
     "continueContextTask": "Předchozí úkol: {title}",
     "continueContextOutput": "Výstup: {output}",
@@ -1867,8 +1927,6 @@
       "done": "úspěch",
       "error": "selhání"
     },
-    "inM": "za {n} m",
-    "inH": "za {n} h",
     "state": {
       "running": "běží",
       "pending": "spouští se…",
@@ -1891,13 +1949,10 @@
       "scheduled": "naplánovaný task"
     },
     "parkedContext": "Zaparkováno — kontext selhání",
-    "parkedSummary": "fáze {phase} · {attempts} pokusů vyčerpáno",
     "resumeNote": "Poznámka pro další pokus",
     "resumeNotePlaceholder": "Co má agent příště udělat jinak…",
     "resumeWithNote": "Pokračovat s poznámkou",
-    "prGate": "Příprava PR",
     "prDraft": "Návrh PR (pr-draft.md)",
-    "prDiffstat": "Změny na větvi (diffstat)",
     "checkpoints": "Checkpointy (commity na větvi)",
     "goalCost": "Využité iterace",
     "goalIterations": "{used} / {max} iterací",
@@ -1950,13 +2005,8 @@
       "gap": "Chybí část",
       "drift": "Mimo zadání"
     },
-    "parkedGate": "Čeká na vaši kontrolu",
-    "parkedBudget": "Dosažen limit útraty",
-    "parkedChild": "Čeká na podřízený běh workflow",
     "childRunLink": "Otevřít podřízený běh",
-    "budgetSpent": "Utraceno {spent} / {cap}",
     "totalCost": "Celková cena {cost}",
-    "bookFolder": "Složka knihy",
     "stageExternalCost": "+{cost} externí",
     "detail": {
       "backToRuns": "← Běhy",
@@ -2047,7 +2097,6 @@
         "questionHead": "Potřebuje tě · otázka od {agent}",
         "questionHint": "Odpověz níže · běh pokračuje po odpovědi",
         "parkedHead": "Zaparkováno · fáze {n} {name} · {att} pokusů",
-        "parkedBody": "Pokusy jsou vyčerpány. Poslední chyba: {error}.",
         "parkedHint": "Přidej poznámku níže a pokračuj, nebo spusť znovu"
       },
       "feed": {
@@ -2152,7 +2201,6 @@
       "latest": "Poslední",
       "auto": "auto",
       "linkedIssue": "Úkol {ref}",
-      "linkedIssues": "Úkoly",
       "kind": {
         "review": "Code review",
         "address-comments": "Zpracování komentářů",
@@ -2202,15 +2250,8 @@
     "resolveModeAny": "Kterákoli · OR",
     "addCondition": "Přidat podmínku",
     "removeCondition": "Odebrat podmínku",
-    "evalNote": "Risk je vlastnost (akce, cíl, kontext) — ne nástroje. Zamčený floor jde jen přitvrdit.",
-    "inheritedTitle": "Zděděná systémová pravidla",
-    "inheritedNote": "Bezpečnostní floor z POLICY.md — agent ho smí jen přitvrdit. Přesunout pravidlo do jiného sloupce (i do allow) můžeš jen ty.",
     "noInherited": "Žádná systémová pravidla — floor je prázdný.",
-    "linkedTitle": "Globální pravidla",
-    "linkedNote": "Ze stránky Pravidla schvalování — edituj je tam; platí všude, kde jsou přilinkovaná.",
     "noLinked": "Žádná globální pravidla přilinkována.",
-    "linkGlobal": "Přilinkovat globální pravidlo",
-    "linkGlobalPlaceholder": "Vyber globální pravidlo…",
     "unlink": "Odlinkovat",
     "ownTitle": "Pravidla · {agent}",
     "addRule": "Přidat pravidlo",
@@ -2274,7 +2315,6 @@
     "switcherLabel": "Aktivní projekt",
     "switcherNoProject": "Bez projektu",
     "runsPanelTitle": "Běhy",
-    "countSummary": "{count, plural, =0 {žádné projekty} one {# projekt} few {# projekty} other {# projektů}} · cílové adresáře pro spouštění agentů a skillů",
     "addProject": "Přidat projekt",
     "addCategory": "Přidat kategorii",
     "openAria": "Otevřít {name}",
@@ -2325,13 +2365,6 @@
     "delete": "Smazat",
     "deleteTitle": "Smazat projekt?",
     "deleteBody": "Opravdu smazat projekt {name}? Soubory na disku zůstanou, odebere se jen záznam z velínu.",
-    "budgetDaily": "denně",
-    "budgetWeekly": "týdně",
-    "budgetDailyCost": "denně $",
-    "budgetWeeklyCost": "týdně $",
-    "budgetMonthlyCost": "měsíčně $",
-    "budgetRunning": "běží",
-    "budgetQueued": "ve frontě",
     "budgetHeld": "pozdrženo",
     "integrations": {
       "title": "Integrace",
@@ -2526,7 +2559,6 @@
   },
   "companies": {
     "title": "Firmy",
-    "countSummary": "{count, plural, =0 {žádné firmy} one {# firma} few {# firmy} other {# firem}} · nadřazená entita nad projekty",
     "addCompany": "Přidat firmu",
     "openAria": "Otevřít {name}",
     "emptyTitle": "Zatím žádné firmy",
@@ -2585,9 +2617,7 @@
         "placeholder": "Vyber projekt…",
         "confirm": "Propojit",
         "noCandidates": "Žádný jiný projekt k propojení — všechny už patří k této firmě."
-      },
-      "columnProject": "Projekt",
-      "columnRepo": "Repo"
+      }
     },
     "allTasksLink": "Všechny úkoly této firmy →",
     "contactsTitle": "Kontakty",
@@ -2617,7 +2647,6 @@
   },
   "teams": {
     "title": "Týmy",
-    "countSummary": "{count, plural, =0 {žádné týmy} one {# tým} few {# týmy} other {# týmů}} · vlastník znalostní báze mezi firmou a projektem",
     "addTeam": "Přidat tým",
     "openAria": "Otevřít {name}",
     "emptyTitle": "Zatím žádné týmy",
@@ -2672,9 +2701,7 @@
         "placeholder": "Vyber projekt…",
         "confirm": "Propojit",
         "noCandidates": "Žádný jiný projekt k propojení — všechny už patří k tomuto týmu."
-      },
-      "columnProject": "Projekt",
-      "columnRepo": "Repo"
+      }
     },
     "metrics": {
       "projects": "Projekty"
@@ -2689,12 +2716,7 @@
   },
   "automations": {
     "title": "Automatizace",
-    "autonomyNote": "Tady vzniká autonomie — trigger spustí běh bez vyzvání. Každá akce s vnějším efektem se ale zastaví na frontě schválení.",
-    "systemSection": "Systémové automatizace",
     "systemHint": "Automatizace, které si ZIBBY sám naseeduje (např. destilace paměti). Tady je můžeš zapnout nebo vypnout; úprava rozvrhu se otevře na detailu automatizace.",
-    "addAutomation": "Nová automatizace",
-    "cronSection": "Časové triggery · cron",
-    "eventSection": "Událostní triggery · event",
     "emptyTitle": "Žádné automatizace",
     "emptyDescription": "Napoj cron nebo událost na agenta, workflow nebo briefing — a ZIBBY začne pracovat sám. Každá akce s vnějším efektem stejně projde frontou schválení.",
     "active": "aktivní",
@@ -2820,8 +2842,7 @@
       "approvalsLink": "Fronta",
       "approvalsLinkCount": "Fronta · {count} čeká",
       "noMatchTitle": "Žádná automatizace nevyhovuje",
-      "noMatchBody": "Zkus jiné hledání nebo filtr.",
-      "runShort": "Spustit"
+      "noMatchBody": "Zkus jiné hledání nebo filtr."
     }
   },
   "hooks": {
@@ -2955,7 +2976,6 @@
       "ciUnknown": "CI bez dat",
       "healthUp": "Web běží",
       "healthDown": "Web nedostupný od {since}",
-      "healthUnknown": "Web bez kontroly",
       "attention": "Potřebuje pozornost",
       "ok": "V pořádku"
     },
@@ -2988,8 +3008,6 @@
     "close": "Zavřít",
     "newChat": "Vymazat",
     "triggerLabel": "Chat",
-    "triggerAria": "Otevřít chat se ZIBBY",
-    "triggerTitle": "Chat se ZIBBY",
     "streaming": "ZIBBY píše…",
     "readAloud": "Přečíst nahlas",
     "readAloudStop": "Zastavit přehrávání",
@@ -3340,25 +3358,17 @@
     "search": "Hledat…",
     "newNote": "Nová poznámka",
     "newTask": "Nový úkol",
-    "operatorFallback": "CEO",
     "active": "aktivních",
     "week": "Týden",
     "usageCost": "Cena {days} d",
     "usageTokens": "Tokeny",
     "usageFree": "zdarma",
     "needsYou": "Potřebuje tě",
-    "needsYouEmpty": "Nic na tebe nečeká",
-    "dockAria": "Dok",
     "dockPinned": "Připnuté",
-    "dockNeedsYou": "Potřebuje tě",
-    "dockTasks": "Úkoly",
     "dockRunning": "Běží a ve frontě",
     "dockDone": "Hotové",
     "dockDoneEmpty": "Zatím nic nedokončeno",
     "dockArchiveLink": "Zobrazit archiv",
-    "needsYouApprove": "Schválit",
-    "needsYouDeny": "Zamítnout",
-    "needsYouOpen": "Otevřít detail schválení pro {agentName}",
     "runningEmpty": "Nic neběží",
     "runningStop": "Zastavit",
     "runningRestart": "Spustit znovu",
@@ -3522,7 +3532,6 @@
       "projectPicker": "Projekt",
       "allProjects": "Vše",
       "agentRuleCount": "{count, plural, =0 {žádná pravidla} one {# pravidlo} few {# pravidla} other {# pravidel}}",
-      "departmentFilter": "Oddělení",
       "projectRulesEmpty": "Pravidla dnes nejsou vázaná na projekt — vypni filtr a uprav je v globálním katalogu."
     },
     "patterns": {
@@ -4217,8 +4226,6 @@
         "colTask": "Úkol · krok",
         "progressLabel": "Průběh běhu",
         "pct": "{pct} %",
-        "colProgress": "Postup",
-        "colIssue": "Issue",
         "group": {
           "active": "Aktivní",
           "finished": "Dokončené",
@@ -4632,7 +4639,6 @@
       "shrink": "Zúžit",
       "resize": "Změnit šířku panelu"
     },
-    "moreLayouts": "Další layouty",
     "deleteLayout": "Smazat",
     "deleteLayoutConfirm": "Opravdu smazat",
     "layoutNameError": {
@@ -4698,7 +4704,6 @@
   },
   "marketplaces": {
     "title": "Marketplace",
-    "countSummary": "{count, plural, =0 {žádné marketplace} one {# marketplace} few {# marketplace} other {# marketplace}} · katalogy pluginů Claude Code",
     "connect": "Připojit marketplace",
     "openAria": "Otevřít {name}",
     "installedOf": "Nainstalováno {installed} z {total} pluginů",
@@ -4757,12 +4762,9 @@
   },
   "autopilot": {
     "label": "Autopilot",
-    "turnOn": "Zapnout autopilota",
     "status": "Autopilot zapnutý · čeká {pending}",
     "dialogTitle": "Autopilot",
-    "tableTitle": "Level Autonomie",
     "tableName": "Firma / tým",
-    "dialogPending": "Schválení, která už čekají, čekají dál: {pending}.",
     "operatorTokenMissing": "Zapnutí autopilota vyžaduje operátorský token. Nejdřív ho nastav v Nastavení.",
     "failed": "Autopilota se nepodařilo přepnout.",
     "autoImplement": "Implementace",
@@ -4770,22 +4772,11 @@
     "autoAddressComments": "Zpracování komentářů",
     "expand": "Rozbalit",
     "collapse": "Sbalit",
-    "autoReviewHint": "Reviewuje PR, které čekají na tebe, a hotové review pošle jako komentář.",
-    "autoAddressCommentsHint": "Opravuje připomínky z review na tvých PR, pushuje opravy a odpovídá ve vláknech.",
-    "autoImplementHint": "Bere připravené položky roadmapy a implementuje je ve vlastní větvi.",
     "autoFixCi": "Oprava CI mých PRs",
-    "autoFixCiHint": "Na tvých PR s červeným CI nejdřív levná triáž: flaky/infra → rerun neúspěšných jobů (max 2×), chyba v kódu → oprava (max 2 pokusy). Push opravy a rerun se v režimu Schvalovat ptají.",
     "autoCommunicate": "Komunikace",
-    "autoCommunicateHint": "Odpovídá na otázky na GitHubu, GitLabu, v Jiře a ve Slacku, když má konkrétní odpověď.",
-    "overridesHint": "Tým dědí nastavení od své firmy. Přepínač nastavený stejně jako firma se řídí firmou.",
     "approvalNotificationTitle": "ZIBBY čeká na tvé schválení",
-    "modeApprove": "Schvalovat",
-    "modeAutopilot": "Autopilot",
     "modeLabel": "Režim autopilota",
     "save": "Uložit",
-    "helpLabel": "Co přepínače dělají",
-    "helpMode": "Přepínače práci spouští v obou režimech. Schvalovat: výsledek čeká na tvé schválení. AUTOPILOT: odešle se bez schválení a jen dostaneš notifikaci.",
-    "helpNever": "Nikdy automaticky: merge, deploy, platby, mazání, force push a push do sdílených větví vždy čekají na tebe.",
     "mode_manual": "Manuál",
     "mode_semi": "Poloautomat",
     "mode_auto": "Automat",
@@ -4795,13 +4786,10 @@
     "modeDesc_manual": "Zibby sám nic nedělá. Vše čeká na tebe.",
     "modeDesc_semi": "Zapnuté schopnosti Zibby sám vyzvedne a udělá, výsledek počká na tvé schválení.",
     "modeDesc_auto": "Zibby řídí vše sám, ty dostáváš reporty. Merge, deploy a platby se ptají vždy.",
-    "lane_semi": "Spustí se samo, ale vždy počká na schválení. Zatím nejde nastavit u jedné schopnosti.",
-    "lane_auto": "Spouští se samo. Co se pak stane s výsledkem, řídí režim Zibbyho.",
     "zibbyIs": "Zibby {state}",
     "zibbyModeLabel": "Režim Zibbyho",
     "modeButtonAria": "Režim Zibbyho: {mode}, Zibby {state}. Změnit",
     "manualNeedsRunner": "Připravujeme: vyžaduje změnu runneru.",
-    "manualNeedsRunnerShort": "Připravujeme",
     "pendingLink": "{count, plural, one {# schválení čeká} few {# schválení čekají} other {# schválení čeká}} na tebe",
     "levelsLink": "Úrovně autonomie",
     "exceptionsList": "Výjimky: {names}",
@@ -4810,8 +4798,6 @@
     "change": "Změnit",
     "pageTitle": "Úrovně autonomie",
     "pageIntro": "Co smí Zibby dělat sám, po firmách a týmech. Tým dědí od své firmy, přetáhni schopnost jinam a vznikne výjimka.",
-    "readOnlyTitle": "Matice je jen ke čtení",
-    "readOnlyHint": "Každá změna úrovní potřebuje operátorský token. Vlož ho (uloží se jen v tomto prohlížeči) a odemkneš úpravy.",
     "operatorToken": "Operátorský token",
     "unlock": "Odemknout",
     "cappedNote": "Teď jako Poloautomat",
@@ -4820,7 +4806,6 @@
     "globalLocked": "Zamčeno: výchozí řádek zůstává vypnutý, autonomii nastavuješ po firmách a týmech.",
     "companyKind": "Firma",
     "teamKind": "Tým · {company}",
-    "laneEmpty": "Nic",
     "inherited": "zděděno",
     "inheritAll": "Dědit vše",
     "inheritFrom": "Dědit z {parent}",
@@ -4851,7 +4836,6 @@
     "tokenSet": "Operátorský token je nastaven",
     "tokenReplace": "Zadat jiný",
     "switchToAuto": "Přepnout na Automat",
-    "lane_manual": "Nic se samo nespustí. Co sem patří, spustíš ty.",
     "semiCellDisabled": "Zatím nejde: spustit, ale vždy počkat",
     "laneMeaning_manual": "Sám nezačne",
     "laneMeaning_semi": "Udělá, počká na schválení",
@@ -5165,7 +5149,6 @@
       "requiresWeb": "Vyžaduje projekt s webovou adresou",
       "resize": "Změnit šířku inspektoru",
       "runsOn": "Běží na",
-      "runsOnAgent": "Výchozí agenta",
       "systemAction": "Vestavěná akce: {action}",
       "title": "Inspektor",
       "toolHint": "Spouští shellové příkazy, bez agenta.",

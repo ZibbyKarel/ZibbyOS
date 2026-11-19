@@ -2,7 +2,7 @@ import { act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { SelfStatus } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, screen } from "../../../test/render";
+import { renderSettings as renderWithProviders, screen } from "../testing/renderSettings";
 import { SelfDevelopmentPanel, SelfDevelopmentPanelTestId } from "./SelfDevelopmentPanel";
 
 const { statusRef, ensureMock, pushMock } = vi.hoisted(() => ({

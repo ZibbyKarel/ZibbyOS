@@ -67,7 +67,7 @@ describe("AiEngineSwitcher", () => {
     ).toHaveAttribute("data-icon", "code");
     const items = within(screen.getByTestId(MenuButtonTestId.Menu)).getAllByRole("menuitem");
     expect(items.at(-1)).toHaveAttribute("data-testid", `${MenuButtonTestId.Item}-settings`);
-    expect(items.at(-1)).toHaveAttribute("href", "/system/settings/ai-models");
+    expect(items.at(-1)).toHaveAttribute("href", "/system/settings/ai-engines");
     expect(items.at(-1)).toHaveTextContent("Nastavení");
   });
 

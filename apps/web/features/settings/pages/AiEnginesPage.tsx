@@ -8,10 +8,13 @@ import { SettingsPage } from "../components/SettingsPage";
 export function AiEnginesPage() {
   const t = useTranslations("settings");
   const ta = useTranslations("aiEngine");
+  const ts = useTranslations("settings.engines");
   return (
     <SettingsPage
       panels={[
-        { id: "engine", label: ta("title") },
+        { id: "engine", label: ts("active") },
+        { id: "families", label: ta("familyTitle") },
+        { id: "opencode-model", label: ta("model") },
         { id: "openai", label: t("aiModels.openai") },
         { id: "bluecode", label: t("aiModels.bluecode.title") },
       ]}

@@ -5,16 +5,17 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import {
   Button,
-  Container,
-  Divider,
+  Icon,
+  SettingsNote,
   SettingsPanel,
+  SettingsRow,
   Stack,
+  StatusBadge,
   TextLink,
   Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { updateErrorMessage, useEnsureSelfProjectMutation, useSelfStatusQuery } from "../../self";
-import { InfoRow } from "./InfoRow";
 
 export enum SelfDevelopmentPanelTestId {
   Root = "self-dev-panel",
@@ -41,6 +42,7 @@ function projectHref(projectId: string): Route {
  */
 export function SelfDevelopmentPanel() {
   const t = useTranslations("settings.selfDev");
+  const tp = useTranslations("settings.statusPanels");
   const router = useRouter();
   const { data: status } = useSelfStatusQuery();
   const ensure = useEnsureSelfProjectMutation();
@@ -66,28 +68,37 @@ export function SelfDevelopmentPanel() {
   };
 
   return (
-    <SettingsPanel id="self-dev" title={t("title")}>
-      <Container data-testid={SelfDevelopmentPanelTestId.Root} padding="250">
-        <Stack gap="150">
-          <InfoRow label={t("branch")} value={status.currentBranch} />
-          <Divider />
-          <InfoRow
-            label={t("sync")}
-            value={t("syncValue", { behind: status.behind, ahead: status.ahead })}
-          />
-          <Divider />
-          <InfoRow label={t("dirty")} value={status.dirty ? t("yes") : t("no")} />
-          <Divider />
-          <Stack gap="75">
-            <Typography mono size="sm" type="note" variant="tertiary">
-              {t("openPrs")}
+    <SettingsPanel
+      badge={status.dirty ? <StatusBadge tone="wait">{tp("dirtyBadge")}</StatusBadge> : undefined}
+      description={tp("devHint")}
+      id="self-dev"
+      title={t("title")}
+    >
+      <div data-testid={SelfDevelopmentPanelTestId.Root}>
+        <SettingsRow label={t("branch")}>
+          <Stack align="center" direction="row" gap="75">
+            <Icon name="branch" size="sm" />
+            <Typography mono type="note">
+              {status.currentBranch}
             </Typography>
-            {status.prs.length === 0 ? (
-              <Typography mono size="sm" type="note" weight="semibold">
-                {t("noPrs")}
-              </Typography>
-            ) : (
-              status.prs.map((pr) => (
+          </Stack>
+          <StatusBadge noDot tone="off">
+            {t("syncValue", { behind: status.behind, ahead: status.ahead })}
+          </StatusBadge>
+        </SettingsRow>
+        <SettingsRow hint={tp("dirtyHint")} label={t("dirty")}>
+          <StatusBadge tone={status.dirty ? "wait" : "ok"}>
+            {status.dirty ? t("yes") : t("no")}
+          </StatusBadge>
+        </SettingsRow>
+        <SettingsRow label={t("openPrs")}>
+          {status.prs.length === 0 ? (
+            <Typography mono size="sm" type="note" variant="tertiary">
+              {t("noPrs")}
+            </Typography>
+          ) : (
+            <Stack align="end" gap="50">
+              {status.prs.map((pr) => (
                 <TextLink
                   data-testid={SelfDevelopmentPanelTestId.PrLink}
                   href={pr.url}
@@ -99,57 +110,47 @@ export function SelfDevelopmentPanel() {
                     #{pr.number} {pr.title}
                   </Typography>
                 </TextLink>
-              ))
-            )}
-          </Stack>
-          <Divider />
-          <Typography leading="snug" size="sm" type="note" variant="tertiary">
-            {t("explain")}
-          </Typography>
-          {status.projectUsesInstallTree && (
-            <Typography
-              data-testid={SelfDevelopmentPanelTestId.InstallTreeWarning}
-              leading="snug"
-              size="sm"
-              tone="warn"
-              type="note"
-            >
-              {t("installTreeWarning")}
-            </Typography>
+              ))}
+            </Stack>
           )}
-          <Stack align="center" direction="row" gap="150">
-            <Button
-              data-testid={SelfDevelopmentPanelTestId.Action}
-              intent="secondary"
-              loading={ensure.isPending}
-              onClick={handleAction}
-              size="sm"
-            >
-              {status.projectId ? t("openProject") : t("ensureProject")}
-            </Button>
-            <Typography
-              aria-live="polite"
-              as="span"
-              data-testid={SelfDevelopmentPanelTestId.Status}
-              role="status"
-              size="xs"
-              type="note"
-            >
-              {error && (
-                <Typography
-                  as="span"
-                  data-testid={SelfDevelopmentPanelTestId.Error}
-                  size="xs"
-                  tone="bad"
-                  type="note"
-                >
-                  {error}
-                </Typography>
-              )}
-            </Typography>
-          </Stack>
-        </Stack>
-      </Container>
+        </SettingsRow>
+        <SettingsRow hint={t("explain")} label={tp("developAsProject")}>
+          <Typography
+            aria-live="polite"
+            as="span"
+            data-testid={SelfDevelopmentPanelTestId.Status}
+            role="status"
+            size="xs"
+            type="note"
+          >
+            {error && (
+              <Typography
+                as="span"
+                data-testid={SelfDevelopmentPanelTestId.Error}
+                size="xs"
+                tone="bad"
+                type="note"
+              >
+                {error}
+              </Typography>
+            )}
+          </Typography>
+          <Button
+            data-testid={SelfDevelopmentPanelTestId.Action}
+            intent="secondary"
+            loading={ensure.isPending}
+            onClick={handleAction}
+            size="sm"
+          >
+            {status.projectId ? t("openProject") : t("ensureProject")}
+          </Button>
+        </SettingsRow>
+        {status.projectUsesInstallTree && (
+          <div data-testid={SelfDevelopmentPanelTestId.InstallTreeWarning}>
+            <SettingsNote tone="wait">{t("installTreeWarning")}</SettingsNote>
+          </div>
+        )}
+      </div>
     </SettingsPanel>
   );
 }

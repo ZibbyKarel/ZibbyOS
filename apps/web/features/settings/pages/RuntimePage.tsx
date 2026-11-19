@@ -2,22 +2,25 @@
 
 import { useTranslations } from "next-intl";
 import { MachineSection } from "../components/MachineSection";
+import { RuntimePanels } from "../components/RuntimePanels";
 import { SettingsPage } from "../components/SettingsPage";
-import { SystemSection } from "../components/SystemSection";
 
 /** `/system/settings/runtime` — this machine, schedulers, limits, context. */
 export function RuntimePage() {
   const t = useTranslations("settings");
+  const tr = useTranslations("settings.runtimeGroups");
   return (
     <SettingsPage
       panels={[
         { id: "machine", label: t("machine.title") },
-        { id: "runtime", label: t("runtime.title") },
+        { id: "schedulers", label: tr("schedulers") },
+        { id: "limits", label: tr("limits") },
+        { id: "context", label: tr("context") },
       ]}
       section="runtime"
     >
       <MachineSection />
-      <SystemSection />
+      <RuntimePanels />
     </SettingsPage>
   );
 }

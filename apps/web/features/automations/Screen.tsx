@@ -56,7 +56,7 @@ export function Screen() {
   const automationsQuery = useAutomationsQuery();
   // One list for everything: the operator's own automations as cards, the
   // server-seeded system ones in their own block below.
-  const all = automationsQuery.data ?? [];
+  const all = useMemo(() => automationsQuery.data ?? [], [automationsQuery.data]);
   const automations = all.filter((a) => !a.system);
   const systemAutomations = all.filter((a) => a.system);
   const locale = useLocale();

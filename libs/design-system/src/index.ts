@@ -437,9 +437,6 @@ export type { SubNavItem, SubNavLinkComponent, SubNavProps } from "./components/
 export { PatternCard, PatternCardTestId } from "./components/PatternCard/PatternCard";
 export type { PatternCardProps } from "./components/PatternCard/PatternCard";
 
-export { GoalCard, GoalCardTestId } from "./components/GoalCard/GoalCard";
-export type { GoalCardProps } from "./components/GoalCard/GoalCard";
-
 export { ContactRow, ContactRowTestId } from "./components/ContactRow/ContactRow";
 export type { ContactRowProps } from "./components/ContactRow/ContactRow";
 
@@ -1137,3 +1134,19 @@ export type {
   RadioMatrixProps,
   RadioMatrixRow,
 } from "./components/RadioMatrix/RadioMatrix";
+
+export {
+  SettingsOptionCard,
+  SettingsOptionCardTestId,
+  SettingsOptionGroup,
+} from "./components/SettingsOptionCard";
+export type {
+  SettingsOptionCardProps,
+  SettingsOptionGroupProps,
+} from "./components/SettingsOptionCard";
+export { SettingsStepper, SettingsStepperTestId } from "./components/SettingsStepper";
+export type { SettingsStepperProps } from "./components/SettingsStepper";
+export { SettingsDuration, SettingsDurationTestId } from "./components/SettingsDuration";
+export type { SettingsDurationProps } from "./components/SettingsDuration";
+export { SettingsTable, SettingsTableTestId } from "./components/SettingsTable";
+export type { SettingsTableProps, SettingsTableRow } from "./components/SettingsTable";

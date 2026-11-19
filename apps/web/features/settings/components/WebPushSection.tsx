@@ -33,6 +33,7 @@ function isSupported(): boolean {
 /** Opt-in browser push for Tier-3 operator events (works with the tab closed). */
 export function WebPushSection() {
   const t = useTranslations("settings.webPush");
+  const tr = useTranslations("settings.accessRows");
   const subscribe = useSubscribeWebPushMutation();
   const unsubscribe = useUnsubscribeWebPushMutation();
   const supported = useSyncExternalStore(subscribeNever, isSupported, () => true);
@@ -119,6 +120,9 @@ export function WebPushSection() {
           {t("unsupported")}
         </SettingsNote>
       )}
+      <SettingsNote icon="bell" tone="info">
+        {tr("iphone")}
+      </SettingsNote>
       {supported && noteTone && <SettingsNote tone={noteTone}>{t(hint)}</SettingsNote>}
     </SettingsPanel>
   );

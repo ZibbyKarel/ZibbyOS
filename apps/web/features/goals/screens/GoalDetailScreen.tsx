@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
+  Breadcrumb,
   Button,
   Container,
   Dialog,
@@ -17,7 +18,6 @@ import {
   TextInputField,
   Typography,
 } from "@zibby/design-system";
-import { PageBreadcrumb } from "../../../components/layout/PageBreadcrumb";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
 import { useAgentsQuery } from "../../agents";
@@ -178,13 +178,18 @@ export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
   return (
     <Container padding={["300", "350"]}>
       <Stack gap="250">
-        <PageBreadcrumb
-          items={[
-            { label: t("goals"), href: "/work/goals" },
-            { label: goal.name ?? goal.objective.slice(0, 60) },
-          ]}
-          linkComponent={Link as SubNavLinkComponent}
-        />
+        <Stack align="center" direction="row" gap="100">
+          <Typography aria-hidden="true" size="sm" type="note" variant="tertiary">
+            ‹
+          </Typography>
+          <Breadcrumb
+            items={[
+              { label: t("goals"), href: "/work/goals" },
+              { label: goal.name ?? goal.objective.slice(0, 60) },
+            ]}
+            linkComponent={Link as SubNavLinkComponent}
+          />
+        </Stack>
         <GoalToolbar
           canSave={isDraftValid(view)}
           editing={editing}

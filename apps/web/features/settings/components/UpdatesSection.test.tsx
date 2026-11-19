@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import type { SelfStatus } from "@zibby/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import cs from "../../../i18n/messages/cs.json";
-import { renderWithProviders, screen } from "../../../test/render";
+import { renderSettings as renderWithProviders, screen } from "../testing/renderSettings";
 import { UpdatesSection, UpdatesSectionTestId } from "./UpdatesSection";
 
 const { statusRef, checkMock } = vi.hoisted(() => ({

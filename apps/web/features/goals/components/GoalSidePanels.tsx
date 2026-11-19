@@ -36,7 +36,7 @@ export function GoalErrorNotice({ onSwitchMaker }: GoalErrorNoticeProps) {
           <Button intent="secondary" onClick={onSwitchMaker} size="sm">
             {t("switchMaker")}
           </Button>
-          <TextLink href="/system/settings/ai-models" linkComponent={Link as SubNavLinkComponent}>
+          <TextLink href="/system/settings/ai-engines" linkComponent={Link as SubNavLinkComponent}>
             {t("aiEngines")}
           </TextLink>
         </Stack>

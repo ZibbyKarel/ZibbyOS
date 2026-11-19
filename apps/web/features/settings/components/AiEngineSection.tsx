@@ -1,7 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ButtonGroup, Container, SettingsPanel, Stack, Typography } from "@zibby/design-system";
+import {
+  Container,
+  SettingsNote,
+  SettingsOptionCard,
+  SettingsOptionGroup,
+  SettingsPanel,
+  SettingsRow,
+  Stack,
+  StatusBadge,
+  Typography,
+} from "@zibby/design-system";
 import {
   type AiEngineStatus,
   MODEL_FAMILIES,
@@ -38,6 +48,14 @@ export enum AiEngineSectionTestId {
   /** Suffixed with the tier; shown on a level that does not run its own mapped model. */
   LevelFallback = "ai-engine-level-fallback",
 }
+
+/** Glyph tile text per engine / family. */
+const GLYPH: Record<string, string> = {
+  claude: "Cl",
+  opencode: "oc",
+  openai: "Oa",
+  bluecode: "bc",
+};
 
 /**
  * Everything runs on opencode (A31): the operator picks a model family (Claude / OpenAI /
@@ -81,86 +99,130 @@ function AiEngineEditor({ config, engines }: AiEngineEditorProps) {
     });
   };
 
+  const ts = useTranslations("settings.engines");
+  const count = (f: ModelFamily) =>
+    models.filter((m) => m.id.startsWith(`${MODEL_FAMILY_PROVIDER[f]}/`)).length;
+
   return (
-    <SettingsPanel id="engine" title={t("title")}>
-      <Container padding="250">
-        <Stack gap="200">
-          <Typography mono leading="snug" size="2xs" type="note" variant="tertiary">
-            {t("hint")}
-          </Typography>
+    <>
+      <SettingsPanel description={ts("activeHint")} id="engine" title={ts("active")}>
+        <SettingsOptionGroup ariaLabel={ts("active")}>
+          {(["claude", "opencode"] as const).map((id) => {
+            const status = engines?.find((e) => e.id === id);
+            return (
+              <SettingsOptionCard
+                disabled
+                checked={id === "opencode"}
+                key={id}
+                label={t(`engine.${id}`)}
+                media={GLYPH[id]}
+                meta={
+                  <>
+                    <span>
+                      <StatusBadge tone={status?.available ? "ok" : "off"}>
+                        {status?.available ? ts("installed") : ts("notInstalled")}
+                      </StatusBadge>{" "}
+                      {status?.version && (
+                        <Typography mono as="span" size="sm" type="note">
+                          {`v${/\d+(\.\d+)+/.exec(status.version)?.[0] ?? status.version}`}
+                        </Typography>
+                      )}
+                    </span>
+                    {id === "opencode" && (
+                      <Typography
+                        as="span"
+                        data-testid={AiEngineSectionTestId.OpencodeStatus}
+                        size="xs"
+                        type="note"
+                        variant="tertiary"
+                      >
+                        {!opencode
+                          ? t("runsOn")
+                          : opencode.available
+                            ? t("runsOnAvailable", { version: opencode.version ?? "?" })
+                            : t("runsOnMissing")}
+                      </Typography>
+                    )}
+                  </>
+                }
+              />
+            );
+          })}
+        </SettingsOptionGroup>
+        {opencode && !opencode.available && (
+          <div data-testid={AiEngineSectionTestId.Blocked}>
+            <SettingsNote tone="wait">{t("blockedUnavailable")}</SettingsNote>
+          </div>
+        )}
+      </SettingsPanel>
 
-          <Typography data-testid={AiEngineSectionTestId.OpencodeStatus} size="sm" type="text">
-            {!opencode
-              ? t("runsOn")
-              : opencode.available
-                ? t("runsOnAvailable", { version: opencode.version ?? "?" })
-                : t("runsOnMissing")}
-          </Typography>
-          {opencode && !opencode.available && (
-            <Typography
-              data-testid={AiEngineSectionTestId.Blocked}
-              size="sm"
-              tone="warn"
-              type="text"
-            >
-              {t("blockedUnavailable")}
-            </Typography>
-          )}
-
-          <span data-testid={AiEngineSectionTestId.Family}>
-            <ButtonGroup
-              ariaLabel={t("familyTitle")}
-              onChange={(f) => choose(f as ModelFamily)}
-              options={MODEL_FAMILIES.map((f) => ({ id: f, label: t(`family.${f}`) }))}
-              value={config.modelFamily}
-            />
-          </span>
-          {disconnected.map((f) => (
-            <Typography
-              data-testid={`${AiEngineSectionTestId.FamilyHint}-${f}`}
-              key={f}
-              leading="snug"
-              size="sm"
-              tone="warn"
-              type="text"
-            >
+      <SettingsPanel description={ts("familiesHint")} id="families" title={t("familyTitle")}>
+        <span data-testid={AiEngineSectionTestId.Family}>
+          <SettingsOptionGroup ariaLabel={t("familyTitle")}>
+            {MODEL_FAMILIES.map((f) => {
+              const off = disconnected.includes(f);
+              return (
+                <SettingsOptionCard
+                  badge={
+                    catalogReadable && (
+                      <StatusBadge tone={off ? "off" : "ok"}>
+                        {off ? ts("notConnected") : ts("connected")}
+                      </StatusBadge>
+                    )
+                  }
+                  checked={config.modelFamily === f}
+                  disabled={off}
+                  hint={catalogReadable ? ts("modelCount", { n: count(f) }) : undefined}
+                  key={f}
+                  label={t(`family.${f}`)}
+                  media={GLYPH[f]}
+                  onSelect={() => choose(f)}
+                  radio={false}
+                />
+              );
+            })}
+          </SettingsOptionGroup>
+        </span>
+        {disconnected.map((f) => (
+          <div data-testid={`${AiEngineSectionTestId.FamilyHint}-${f}`} key={f}>
+            <SettingsNote tone="wait">
               {f === "bluecode"
                 ? t("familyBlueCodeNotConnected", { family: t(`family.${f}`) })
                 : t("familyNotConnected", {
                     family: t(`family.${f}`),
                     command: `opencode auth login ${MODEL_FAMILY_PROVIDER[f]}`,
                   })}
-            </Typography>
-          ))}
-          {!catalogReadable && (
-            <Typography
-              data-testid={AiEngineSectionTestId.Unchecked}
-              leading="snug"
-              size="2xs"
-              type="note"
-              variant="tertiary"
-            >
-              {t("presetUnchecked")}
-            </Typography>
-          )}
+            </SettingsNote>
+          </div>
+        ))}
+        {!catalogReadable && (
+          <div data-testid={AiEngineSectionTestId.Unchecked}>
+            <SettingsNote>{t("presetUnchecked")}</SettingsNote>
+          </div>
+        )}
+      </SettingsPanel>
 
-          {opencode?.available && (
-            <>
-              {opencode.providers && opencode.providers.length > 0 ? (
-                <Typography data-testid={AiEngineSectionTestId.Providers} size="sm" type="text">
-                  {t("providers", { list: opencode.providers.join(", ") })}
-                </Typography>
-              ) : (
-                <Typography
-                  data-testid={AiEngineSectionTestId.NoProviders}
-                  leading="snug"
-                  size="sm"
-                  type="note"
-                  variant="secondary"
-                >
-                  {t("noProviders")}
-                </Typography>
-              )}
+      {opencode?.available && (
+        <SettingsPanel description={t("hint")} id="opencode-model" title={t("model")}>
+          <SettingsRow stack label={ts("providersLabel")}>
+            {opencode.providers && opencode.providers.length > 0 ? (
+              <Typography data-testid={AiEngineSectionTestId.Providers} size="sm" type="text">
+                {t("providers", { list: opencode.providers.join(", ") })}
+              </Typography>
+            ) : (
+              <Typography
+                data-testid={AiEngineSectionTestId.NoProviders}
+                leading="snug"
+                size="sm"
+                type="note"
+                variant="secondary"
+              >
+                {t("noProviders")}
+              </Typography>
+            )}
+          </SettingsRow>
+          <Container padding="250">
+            <Stack gap="200">
               <AiEngineModelPicker
                 label={t("defaultModel")}
                 loaded={engines !== undefined}
@@ -203,18 +265,18 @@ function AiEngineEditor({ config, engines }: AiEngineEditorProps) {
                   );
                 })}
               </Stack>
-            </>
-          )}
-          {setConfig.isError &&
-            (isOperatorTokenError(setConfig.error) ? (
-              <OperatorTokenNotice />
-            ) : (
-              <Typography size="sm" tone="bad" type="text">
-                {t("saveFailed")}
-              </Typography>
-            ))}
-        </Stack>
-      </Container>
-    </SettingsPanel>
+            </Stack>
+          </Container>
+        </SettingsPanel>
+      )}
+      {setConfig.isError &&
+        (isOperatorTokenError(setConfig.error) ? (
+          <OperatorTokenNotice />
+        ) : (
+          <Typography size="sm" tone="bad" type="text">
+            {t("saveFailed")}
+          </Typography>
+        ))}
+    </>
   );
 }

@@ -172,7 +172,7 @@ function ProviderSpendRow({ name, usd }: { name: string; usd: number }) {
     <Container padding={["0", "150"]}>
       <TextLink
         data-testid={BudgetsWidgetTestId.ProviderRow}
-        href={"/system/settings/ai-models" as Route}
+        href={"/system/settings/ai-engines" as Route}
         linkComponent={Link as SubNavLinkComponent}
       >
         <Meter

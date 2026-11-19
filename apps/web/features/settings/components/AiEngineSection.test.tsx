@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { type AiEngineStatus, type SystemConfig, SystemConfigSchema } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders as render, screen, within } from "../../../test/render";
+import { renderSettings as render, screen, within } from "../testing/renderSettings";
 import { OperatorTokenNoticeTestId } from "../../ai-providers/components/OperatorTokenNotice";
 import { AiEngineSection, AiEngineSectionTestId } from "./AiEngineSection";
 
@@ -42,6 +42,9 @@ beforeEach(() => {
   engines = [{ id: "claude", available: true, version: "2.0.0" }, opencode()];
 });
 
+const family = (name: RegExp) =>
+  within(screen.getByTestId(AiEngineSectionTestId.Family)).getByRole("radio", { name });
+
 const ids = (...models: string[]) =>
   models.map((id) => ({ id, free: false, subscription: false, variants: [] }));
 
@@ -61,7 +64,7 @@ describe("AiEngineSection", () => {
     ];
     config = { ...config, aiEngine: "claude", modelFamily: "opencode" };
     render(<AiEngineSection />);
-    await userEvent.click(screen.getByTestId("button-group-option-claude"));
+    await userEvent.click(family(/^Claude/));
     expect(setConfig).toHaveBeenCalledWith({
       body: {
         ...config,
@@ -79,7 +82,7 @@ describe("AiEngineSection", () => {
     expect(screen.getByTestId(`${AiEngineSectionTestId.FamilyHint}-openai`)).toHaveTextContent(
       "opencode auth login openai",
     );
-    await userEvent.click(screen.getByTestId("button-group-option-openai"));
+    await userEvent.click(family(/^OpenAI/));
     expect(setConfig).not.toHaveBeenCalled();
   });
 
@@ -94,7 +97,7 @@ describe("AiEngineSection", () => {
     engines = [opencode({ models: [] })];
     render(<AiEngineSection />);
     expect(screen.getByTestId(AiEngineSectionTestId.Unchecked)).toBeInTheDocument();
-    await userEvent.click(screen.getByTestId("button-group-option-openai"));
+    await userEvent.click(family(/^OpenAI/));
     expect(setConfig).toHaveBeenCalledWith({
       body: expect.objectContaining({
         modelFamily: "openai",
@@ -173,10 +176,7 @@ describe("AiEngineSection", () => {
       "href",
       "/system/settings/general",
     );
-    expect(screen.getByTestId("button-group-option-claude")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    ); // modelFamily default
+    expect(family(/^Claude/)).toHaveAttribute("aria-checked", "true"); // modelFamily default
   });
 
   it("any other failure shows the generic message, not the token notice", () => {

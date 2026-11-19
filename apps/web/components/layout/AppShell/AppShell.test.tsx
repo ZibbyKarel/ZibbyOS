@@ -246,7 +246,6 @@ describe("AppShell", () => {
 
   it.each([
     ["/system/registries/hooks/foo", "/system/registries/hooks"],
-    ["/system/settings/status", "/system/settings/status"],
     ["/system/registries/mcp/x", "/system/registries/mcp"],
   ])("highlights the owning sub-tab for %s", (path, tabHref) => {
     mockPath = path;

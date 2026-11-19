@@ -39,6 +39,7 @@ export enum OperatorChannelSectionTestId {
  */
 export function OperatorChannelSection() {
   const t = useTranslations("settings");
+  const ta = useTranslations("settings.accessRows");
   const { data: settings } = useOperatorChannelSettingsQuery();
   const { data: status } = useOperatorChannelStatusQuery();
   const save = useSetOperatorChannelSettingsMutation();
@@ -107,6 +108,18 @@ export function OperatorChannelSection() {
             <Typography mono type="note">
               {status.mode}
             </Typography>
+          </SettingsRow>
+          <SettingsRow
+            disabled={!settings.enabled}
+            hint={ta("channelHint")}
+            label={ta("channelLabel")}
+          >
+            <Typography mono type="note">
+              {ta("channelDm")}
+            </Typography>
+            <StatusBadge tone={status.dmResolved ? "ok" : "off"}>
+              {status.dmResolved ? ta("channelReady") : ta("channelPending")}
+            </StatusBadge>
           </SettingsRow>
           <SettingsRow disabled={!settings.enabled} label={t("operatorChannel.credentials")}>
             <Typography mono type="note">

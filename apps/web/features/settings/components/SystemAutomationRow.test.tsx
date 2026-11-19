@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderSettings as render, screen } from "../testing/renderSettings";
 import { describe, expect, it } from "vitest";
 import type { Automation } from "@zibby/contracts";
 import { SystemAutomationRow, SystemAutomationRowTestId } from "./SystemAutomationRow";

@@ -21,3 +21,12 @@ export const LEGACY_SETTINGS_REDIRECTS: Record<string, string> = {
   "ai-models": "/system/settings/ai-engines",
   activity: "/system/settings/general#live-log",
 };
+
+/** i18n key segment per section (`ai-engines` is not a valid flat key part). */
+export const SETTINGS_PAGE_KEY: Record<SettingsSection, string> = {
+  general: "general",
+  access: "access",
+  "ai-engines": "aiEngines",
+  runtime: "runtime",
+  status: "status",
+};

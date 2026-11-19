@@ -2,8 +2,8 @@ import type { Goal, GoalIteration, TaskRun, TaskRunStatus } from "@zibby/contrac
 import type { StateTone } from "@zibby/design-system";
 
 /**
- * A goal (loop definition) has no state of its own — the state shown on a
- * {@link GoalCard} / the detail header is its latest run's `TaskRunStatus`, or
+ * A goal (loop definition) has no state of its own — the state shown in
+ * the detail header is its latest run's `TaskRunStatus`, or
  * `idle` when the goal has never run. A goal run's status is drawn from the
  * shared `RunStatus` set plus `parked`/`paused-limit` (never `scheduled`/`held`/
  * `queued`/`pending`/`awaiting-approval`, which don't apply to a goal). Maps onto

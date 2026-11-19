@@ -160,7 +160,8 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
                   <Stack gap="50">
                     <Row gap="100">
                       <Typography type="label">{te("team.vault.title")}</Typography>
-                      <Chip tone="ok">{te("team.vault.indexed")}</Chip>
+                      {/* "indexed" = the KB graph actually loaded, never a static badge. */}
+                      {noteCount !== undefined && <Chip tone="ok">{te("team.vault.indexed")}</Chip>}
                     </Row>
                     <Typography mono size="xs" type="note" variant="secondary">
                       {kb.path}

@@ -44,7 +44,7 @@ export function AiModelsSection() {
     set.mutate({ body: { apiKey: value.trim() } }, { onSuccess: () => setValue("") });
 
   return (
-    <Stack gap="200">
+    <>
       <AiEngineSection />
       <SettingsPanel
         id="openai"
@@ -113,6 +113,6 @@ export function AiModelsSection() {
         </Container>
       </SettingsPanel>
       <BlueCodeCard />
-    </Stack>
+    </>
   );
 }

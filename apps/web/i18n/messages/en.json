@@ -44,8 +44,6 @@
       "system": {
         "general": "General",
         "runtime": "Runtime",
-        "ai-models": "AI models",
-        "activity": "Activity",
         "status": "Status",
         "inventory": "Machine inventory",
         "access": "Access & notifications",
@@ -144,19 +142,12 @@
   "knowledge": {
     "graph": {
       "title": "Knowledge graph",
-      "graphLabel": "Knowledge graph",
       "emptyTitle": "Nothing to show",
       "emptyDescription": "This source has no linked notes yet."
     },
     "vault": {
       "title": "Vault",
-      "shelfGeneral": "General",
-      "usedBy": "Used by",
-      "usedByEmpty": "No note links here.",
-      "teamReadOnly": "Read-only team knowledge base",
-      "rootFolder": "Root",
-      "emptyTeam": "This knowledge base has no notes yet.",
-      "noteError": "Could not load this note."
+      "shelfGeneral": "General"
     },
     "distill": {
       "title": "Distillation",
@@ -190,9 +181,7 @@
       "vault": "ZibbyOS",
       "sync": "Sync KB",
       "syncing": "Syncing…",
-      "syncCurrent": "Up to date ({sha})",
-      "syncPulled": "Pulled {before} → {after}",
-      "syncFailed": "Sync failed"
+      "syncCurrent": "Up to date ({sha})"
     },
     "brain": {
       "header": {
@@ -258,7 +247,6 @@
       },
       "filters": {
         "department": "Department",
-        "allDepartments": "All departments",
         "orphans": "Orphans only",
         "clear": "Clear filters",
         "unsorted": "Unsorted"
@@ -593,7 +581,6 @@
       "noRunTitle": "No run yet",
       "noRunBody": "This subtask hasn't dispatched a run.",
       "approvalsHeader": "Pending approvals",
-      "noApprovals": "Nothing needs you here.",
       "created": "Created {time}"
     },
     "new": {
@@ -745,7 +732,6 @@
     "emptyDescription": "Agents are .agent.md definition files — model, thinking level, and tools. You compose agents into workflows in the Workflows section.",
     "emptyHint": "// creates ~/zibby/agents/'<name>'.agent.md",
     "title": "Agents",
-    "countSummary": "{count, plural, =0 {no agents} one {# agent} other {# agents}} · shared pool for workflows",
     "run": "Run",
     "openAria": "Open {name}",
     "noDepartment": "No department",
@@ -755,7 +741,6 @@
     "notInWorkflow": "Not in any workflow yet — free to use.",
     "phaseCount": "{count, plural, one {# phase} other {# phases}}",
     "allowedTools": "Allowed tools",
-    "tabBasics": "Basics",
     "tabRules": "Rules",
     "newAgent": "New agent",
     "create": "Create agent",
@@ -769,17 +754,13 @@
       "namePlaceholder": "agent name",
       "displayName": "Display name",
       "displayNamePlaceholder": "Kevin",
-      "jobTitle": "Job title",
       "jobTitlePlaceholder": "Senior reviewer",
-      "whenToUse": "When to use",
-      "whenToUsePlaceholder": "…reviewing a diff before push",
       "category": "Category",
       "department": "Owning department",
       "model": "Model",
       "thinking": "Thinking",
       "icon": "Icon",
       "body": "agent.md",
-      "bodyHint": "The agent definition body. YAML frontmatter is assembled from the fields on the left by the backend.",
       "bodyPlaceholder": "Markdown description of the agent…"
     },
     "addCategory": "Add category",
@@ -924,7 +905,6 @@
   "integrations": {
     "addIntegration": "Add integration",
     "title": "Integrations",
-    "countSummary": "{count, plural, =0 {no integrations} one {# integration} other {# integrations}} · inbound channels ZIBBY watches",
     "statusConnected": "connected",
     "statusDisconnected": "disconnected",
     "statusError": "error",
@@ -1071,18 +1051,13 @@
   },
   "workflows": {
     "addWorkflow": "Add workflow",
-    "runWorkflow": "Run workflow",
     "title": "Workflows",
     "noDepartment": "No department",
     "emptyTitle": "No workflows yet",
     "emptyDescription": "Workflows chain agents together via files. Add the first one and compose the phases in the editor.",
     "emptyHint": "// creates ~/zibby/workflows/'<name>'.workflow.md",
-    "branchNote": "output → isolated branch · PR for morning review",
     "chainTitle": "phase chain · files = handoff",
-    "outputsTitle": "output · what happens to the finished work",
     "outputPr": "opens a PR from {from} (the gate — waits for approval)",
-    "outputFileProject": "writes {from} into the project: {to}",
-    "outputFileVault": "saves {from} to memory: {to}",
     "outputType": "Output type",
     "outputTypeOption": {
       "pr": "Pull request",
@@ -1101,7 +1076,6 @@
     "outputFolderToError": "Absolute path or starts with ~/",
     "outputRemove": "Remove",
     "outputAdd": "Add output",
-    "outputFolder": "copies folder {from} to {to}/[run]",
     "list": {
       "section": "Work",
       "all": "All",
@@ -1135,7 +1109,6 @@
     "rejected": "✕ Rejected — action cancelled",
     "approve": "Approve",
     "reject": "Reject",
-    "holdToApprove": "Hold to approve",
     "holdDone": "Approved",
     "holdArmed": "Press again to confirm",
     "riskTag": {
@@ -1144,7 +1117,6 @@
       "push": "push",
       "send": "send"
     },
-    "originAgentFactory": "Agent Factory",
     "openSource": "Open source ↗"
   },
   "workflowRun": {
@@ -1312,16 +1284,11 @@
     "sheetClose": "Close sheet",
     "operatorTokenMissing": "The operator token is missing or wrong — set it in Settings → General.",
     "wants": "wants to",
-    "exactAction": "exactly what the agent will do",
-    "consequenceLabel": "what happens after approval",
     "confirm": "Confirm",
     "reject": "Reject",
-    "holdToApprove": "Hold to approve",
     "holdDone": "Approved",
     "holdArmed": "Press again to confirm",
     "guarantee": "ZIBBY never completes a risky action without your consent. The approval gate is an enforced layer, not a suggestion.",
-    "requestedLabel": "Requested",
-    "viaLabel": "Triggered by",
     "previewCart": "cart preview",
     "previewTotal": "Total to pay",
     "previewTargets": "delete targets",
@@ -1337,12 +1304,10 @@
       "medium": "medium",
       "high": "high"
     },
-    "checkpointOutput": "Step output to review",
     "revise": "Answer / request changes",
     "reviseLabel": "Answer or changes",
     "reviseHint": "The step re-runs with this note (e.g. your answers to the questions above), then comes back to you for review.",
-    "confirmRevise": "Send",
-    "cancelRevise": "Cancel"
+    "confirmRevise": "Send"
   },
   "zibby": {
     "label": "Zibby",
@@ -1587,7 +1552,8 @@
       "title": "Machine",
       "cloneRootLabel": "Clone root",
       "cloneRootHint": "Where ZIBBY clones a project on this machine when it isn't already present locally (root/project id). This setting is per-machine and never syncs between machines.",
-      "save": "Save"
+      "save": "Save",
+      "panelHint": "Settings for this computer only. Other hosts keep their own."
     },
     "aiModels": {
       "openai": "OpenAI",
@@ -1774,7 +1740,8 @@
       "stay": "Stay",
       "discardLeave": "Discard & leave",
       "leaveTitle": "Leave without saving?",
-      "leaveBody": "{count, plural, one {# unsaved change} other {# unsaved changes}} will be lost."
+      "leaveBody": "{count, plural, one {# unsaved change} other {# unsaved changes}} will be lost.",
+      "save": "Save"
     },
     "languagePanel": {
       "hint": "Agents still reply in whatever language you write to them.",
@@ -1795,6 +1762,113 @@
     },
     "runtimePanel": {
       "thisMac": "This Mac"
+    },
+    "crumb": {
+      "hint": "Switches apply instantly · fields save with"
+    },
+    "inventoryLink": "Machine inventory",
+    "engines": {
+      "active": "Active engine",
+      "activeHint": "The CLI that executes every agent run on this machine. Everything runs on opencode; pick the model family below.",
+      "installed": "Installed",
+      "notInstalled": "Not installed",
+      "familiesHint": "Providers the engine can call. Connect them in a terminal on the host; ZibbyOS never asks for passwords.",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "modelCount": "{n, plural, one {# model} other {# models}}",
+      "providersLabel": "Connected providers"
+    },
+    "runtimeGroups": {
+      "schedulers": "Schedulers",
+      "schedulersHint": "How often each loop wakes up, in hours and minutes. 0 h 0 min = off.",
+      "limits": "Limits",
+      "limitsHint": "Guard rails for how much runs at once and how long things linger.",
+      "context": "Context",
+      "contextHint": "Compact the conversation when the context window is this full. Lower is cheaper but may forget details.",
+      "off": "off",
+      "on": "on",
+      "offBadge": "Off",
+      "maxRuns": "Max concurrent runs",
+      "maxRunsHint": "Runs above this wait in the queue.",
+      "maxCycles": "Max limit-resume cycles",
+      "maxCyclesHint": "After this many retries a parked run waits for you.",
+      "dock": "Finished tasks in dock",
+      "dockHint": "How many done tasks stay visible before they archive.",
+      "autoResume": "Auto-resume goals on start",
+      "autoResumeHint": "Goals that were running when the daemon stopped pick up again.",
+      "restartRequired": "Restart required",
+      "compact": {
+        "opencode": "OpenCode auto-compaction",
+        "claude": "Claude auto-compaction"
+      },
+      "compactAt": "Compact at",
+      "tick": {
+        "task": "Task planner",
+        "taskHint": "Turns goals into next tasks and starts the scheduled ones.",
+        "channel": "Channel watch",
+        "channelHint": "Reads Slack, mail and calendar threads. Shorter = replies feel live.",
+        "monitor": "CI monitoring",
+        "monitorHint": "Polls CI on open PRs. A red build shows within one interval.",
+        "automation": "Automations",
+        "automationHint": "Evaluates cron triggers. Keep it at 1 min, a longer interval skips runs.",
+        "limitResume": "Limit resume",
+        "limitResumeHint": "Retries runs parked on a usage limit once headroom is back.",
+        "roadmap": "Roadmap sync",
+        "roadmapHint": "Re-imports roadmaps of auto-sync projects and checks merged PRs."
+      }
+    },
+    "statusPanels": {
+      "versionTitle": "Version & updates",
+      "systemHint": "The daemon that runs agents on this host.",
+      "nominal": "Nominal",
+      "degraded": "Degraded",
+      "nominalWord": "NOMINAL",
+      "degradedWord": "DEGRADED",
+      "offlineWord": "OFFLINE",
+      "watchersHint": "Background loops from Runtime › Schedulers and when each last ticked.",
+      "colWatcher": "Watcher",
+      "colEvery": "Every",
+      "colLastTick": "Last tick",
+      "colState": "State",
+      "notRunning": "Not running",
+      "noTickYet": "No tick yet",
+      "ago": "{ago} ago",
+      "staleAgo": "{ago} ago · expected every {every}",
+      "staleLead": "{names} is stale.",
+      "staleBody": "Work it does may go unnoticed until it ticks again.",
+      "devHint": "Work on ZibbyOS itself with your own agents.",
+      "dirtyBadge": "Uncommitted changes",
+      "dirtyHint": "Uncommitted changes in the install directory.",
+      "developAsProject": "Develop ZIBBY as a project"
+    },
+    "updateStates": {
+      "title": "Version & updates",
+      "hint": "ZibbyOS updates itself in place; running work is paused, not lost.",
+      "checking": "Checking…",
+      "installing": "Installing",
+      "failedBadge": "Update failed",
+      "availableBadge": "Update {version} available",
+      "upToDateBadge": "Up to date",
+      "installingLead": "Installing {version}…",
+      "installingBody": "ZibbyOS restarts when it is done; running work pauses and resumes.",
+      "failedBody": "Nothing was changed; you are still on the current version.",
+      "retry": "Retry",
+      "restartBody": "Restart takes about 20 s."
+    },
+    "accessRows": {
+      "usedBy": "Used by",
+      "usedByItem": {
+        "approvals": "Approvals",
+        "autopilot": "Autopilot",
+        "engine": "Engine switching",
+        "push": "Push"
+      },
+      "channelLabel": "Channel",
+      "channelHint": "Where Zibby posts and reads your replies.",
+      "channelDm": "Direct message",
+      "channelReady": "Ready",
+      "channelPending": "Not resolved yet",
+      "iphone": "On iPhone, add ZibbyOS to the Home Screen first. Safari only delivers web push to installed web apps."
     }
   },
   "runs": {
@@ -1827,32 +1901,18 @@
     "cancelTask": "Cancel task",
     "cancelTitle": "Cancel the waiting task?",
     "cancelBody": "The task is removed from the queue and will never start.",
-    "resumeContinue": "Resume",
     "resumeFresh": "Run again",
     "output": "run output",
     "liveLog": "live log",
     "log": "run log",
     "lines": "{n} lines",
     "toggleToolOutput": "toggle tool output",
-    "assignProjectLabel": "Project",
-    "assignProjectPlaceholder": "Pick…",
-    "metaProject": "project",
-    "metaStarted": "started",
-    "metaScheduled": "fires",
-    "metaTarget": "target",
-    "metaWorkflow": "workflow",
-    "metaCost": "cost",
-    "metaDuration": "run duration",
-    "metaAgent": "agent",
     "metaTask": "task",
-    "metaRoadmapItem": "issue",
     "producedOutputTitle": "Task output",
     "openOutput": "Open output",
     "openFolder": "Open folder",
     "outputEmpty": "This task hasn't produced any output yet.",
     "openPr": "Open PR",
-    "prAdded": "{n} lines added",
-    "prRemoved": "{n} lines removed",
     "continueTask": "Continue in a new task",
     "continueContextTask": "Previous task: {title}",
     "continueContextOutput": "Output: {output}",
@@ -1867,8 +1927,6 @@
       "done": "succeeded",
       "error": "failed"
     },
-    "inM": "in {n} m",
-    "inH": "in {n} h",
     "state": {
       "running": "running",
       "pending": "starting…",
@@ -1891,13 +1949,10 @@
       "scheduled": "scheduled task"
     },
     "parkedContext": "Parked — failure context",
-    "parkedSummary": "phase {phase} · {attempts} attempts exhausted",
     "resumeNote": "Note for the next attempt",
     "resumeNotePlaceholder": "What the agent should do differently next time…",
     "resumeWithNote": "Resume with note",
-    "prGate": "PR preparation",
     "prDraft": "PR draft (pr-draft.md)",
-    "prDiffstat": "Branch changes (diffstat)",
     "checkpoints": "Checkpoints (branch commits)",
     "goalCost": "Iterations used",
     "goalIterations": "{used} / {max} iterations",
@@ -1950,13 +2005,8 @@
       "gap": "Incomplete",
       "drift": "Off-track"
     },
-    "parkedGate": "Waiting for your review",
-    "parkedBudget": "Spend cap reached",
-    "parkedChild": "Waiting for a sub-workflow run",
     "childRunLink": "Open sub-run",
-    "budgetSpent": "Spent {spent} / {cap}",
     "totalCost": "Total cost {cost}",
-    "bookFolder": "Book folder",
     "stageExternalCost": "+{cost} external",
     "detail": {
       "backToRuns": "← Runs",
@@ -2047,7 +2097,6 @@
         "questionHead": "Needs you · question from {agent}",
         "questionHint": "Answer below · the run resumes when you reply",
         "parkedHead": "Parked · stage {n} {name} · {att} attempts",
-        "parkedBody": "Retries are exhausted. The last error was: {error}.",
         "parkedHint": "Add a note below to resume, or re-run from the menu"
       },
       "feed": {
@@ -2152,7 +2201,6 @@
       "latest": "Latest",
       "auto": "auto",
       "linkedIssue": "Issue {ref}",
-      "linkedIssues": "Issues",
       "kind": {
         "review": "Code review",
         "address-comments": "Address comments",
@@ -2202,15 +2250,8 @@
     "resolveModeAny": "Any · OR",
     "addCondition": "Add condition",
     "removeCondition": "Remove condition",
-    "evalNote": "Risk is a property of (action, target, context) — not of a tool. The locked floor may only be hardened.",
-    "inheritedTitle": "Inherited system rules",
-    "inheritedNote": "The safety floor from POLICY.md. An agent can only harden it; only you can move a rule to another column (allow included).",
     "noInherited": "No system rules — the floor is empty.",
-    "linkedTitle": "Global rules",
-    "linkedNote": "From the Approval rules page — edit them there; they apply everywhere they are linked.",
     "noLinked": "No global rules linked.",
-    "linkGlobal": "Link a global rule",
-    "linkGlobalPlaceholder": "Choose a global rule…",
     "unlink": "Unlink",
     "ownTitle": "Rules · {agent}",
     "addRule": "Add rule",
@@ -2274,7 +2315,6 @@
     "switcherLabel": "Active project",
     "switcherNoProject": "No project",
     "runsPanelTitle": "Runs",
-    "countSummary": "{count, plural, =0 {no projects} one {# project} other {# projects}} · target directories for running agents and skills",
     "addProject": "Add project",
     "addCategory": "Add category",
     "openAria": "Open {name}",
@@ -2325,13 +2365,6 @@
     "delete": "Delete",
     "deleteTitle": "Delete project?",
     "deleteBody": "Delete project {name}? The files on disk stay; only the registry record is removed.",
-    "budgetDaily": "daily",
-    "budgetWeekly": "weekly",
-    "budgetDailyCost": "daily $",
-    "budgetWeeklyCost": "weekly $",
-    "budgetMonthlyCost": "monthly $",
-    "budgetRunning": "running",
-    "budgetQueued": "queued",
     "budgetHeld": "held",
     "integrations": {
       "title": "Integrations",
@@ -2526,7 +2559,6 @@
   },
   "companies": {
     "title": "Companies",
-    "countSummary": "{count, plural, =0 {no companies} one {# company} other {# companies}} · the super-entity above projects",
     "addCompany": "Add company",
     "openAria": "Open {name}",
     "emptyTitle": "No companies yet",
@@ -2585,9 +2617,7 @@
         "placeholder": "Pick a project…",
         "confirm": "Link",
         "noCandidates": "No other project to link — every project already belongs to this company."
-      },
-      "columnProject": "Project",
-      "columnRepo": "Repo"
+      }
     },
     "allTasksLink": "All tasks for this company →",
     "contactsTitle": "Contacts",
@@ -2617,7 +2647,6 @@
   },
   "teams": {
     "title": "Teams",
-    "countSummary": "{count, plural, =0 {no teams} one {# team} other {# teams}} · the knowledge-base owner between a company and a project",
     "addTeam": "Add team",
     "openAria": "Open {name}",
     "emptyTitle": "No teams yet",
@@ -2672,9 +2701,7 @@
         "placeholder": "Pick a project…",
         "confirm": "Link",
         "noCandidates": "No other project to link — every project already belongs to this team."
-      },
-      "columnProject": "Project",
-      "columnRepo": "Repo"
+      }
     },
     "metrics": {
       "projects": "Projects"
@@ -2689,12 +2716,7 @@
   },
   "automations": {
     "title": "Automations",
-    "autonomyNote": "This is where autonomy begins — a trigger starts a run unprompted. Every external-effect action still stops at the approval gate.",
-    "systemSection": "System automations",
     "systemHint": "Automations ZIBBY seeds itself (e.g. memory distillation). You can enable or disable them here; rescheduling opens the automation's detail page.",
-    "addAutomation": "New automation",
-    "cronSection": "Time triggers · cron",
-    "eventSection": "Event triggers · event",
     "emptyTitle": "No automations yet",
     "emptyDescription": "Wire a cron schedule or an event to an agent, workflow, or briefing — and ZIBBY starts working on its own. Every external-effect action still passes the approval gate.",
     "active": "active",
@@ -2820,8 +2842,7 @@
       "approvalsLink": "Queue",
       "approvalsLinkCount": "Queue · {count} waiting",
       "noMatchTitle": "No automation matches",
-      "noMatchBody": "Try a different search or filter.",
-      "runShort": "Run"
+      "noMatchBody": "Try a different search or filter."
     }
   },
   "hooks": {
@@ -2955,7 +2976,6 @@
       "ciUnknown": "No CI data",
       "healthUp": "Site up",
       "healthDown": "Site down since {since}",
-      "healthUnknown": "Site not checked",
       "attention": "Needs attention",
       "ok": "All good"
     },
@@ -2988,8 +3008,6 @@
     "close": "Close",
     "newChat": "Clear",
     "triggerLabel": "Chat",
-    "triggerAria": "Open chat with ZIBBY",
-    "triggerTitle": "Chat with ZIBBY",
     "streaming": "ZIBBY is typing…",
     "readAloud": "Read aloud",
     "readAloudStop": "Stop playback",
@@ -3340,25 +3358,17 @@
     "search": "Search…",
     "newNote": "New note",
     "newTask": "New task",
-    "operatorFallback": "CEO",
     "active": "active",
     "week": "Week",
     "usageCost": "Cost {days}d",
     "usageTokens": "Tokens",
     "usageFree": "free",
     "needsYou": "Needs you",
-    "needsYouEmpty": "Nothing is waiting for you",
-    "dockAria": "Dock",
     "dockPinned": "Pinned",
-    "dockNeedsYou": "Needs you",
-    "dockTasks": "Tasks",
     "dockRunning": "Running and queued",
     "dockDone": "Done",
     "dockDoneEmpty": "Nothing finished yet",
     "dockArchiveLink": "Show archive",
-    "needsYouApprove": "Approve",
-    "needsYouDeny": "Deny",
-    "needsYouOpen": "Open approval details for {agentName}",
     "runningEmpty": "Nothing is running",
     "runningStop": "Stop",
     "runningRestart": "Restart",
@@ -3522,7 +3532,6 @@
       "projectPicker": "Project",
       "allProjects": "All",
       "agentRuleCount": "{count, plural, =0 {no rules} one {# rule} other {# rules}}",
-      "departmentFilter": "Department",
       "projectRulesEmpty": "Rules aren't project-scoped today — clear the filter to edit them in the global catalog."
     },
     "patterns": {
@@ -4217,8 +4226,6 @@
         "colTask": "Task · step",
         "progressLabel": "Run progress",
         "pct": "{pct}%",
-        "colProgress": "Progress",
-        "colIssue": "Issue",
         "group": {
           "active": "Active",
           "finished": "Finished",
@@ -4632,7 +4639,6 @@
       "shrink": "Shrink",
       "resize": "Resize sheet"
     },
-    "moreLayouts": "More layouts",
     "deleteLayout": "Delete",
     "deleteLayoutConfirm": "Confirm delete",
     "layoutNameError": {
@@ -4698,7 +4704,6 @@
   },
   "marketplaces": {
     "title": "Marketplaces",
-    "countSummary": "{count, plural, =0 {no marketplaces} one {# marketplace} other {# marketplaces}} · Claude Code plugin catalogs",
     "connect": "Connect marketplace",
     "openAria": "Open {name}",
     "installedOf": "{installed} of {total} plugins installed",
@@ -4757,12 +4762,9 @@
   },
   "autopilot": {
     "label": "Autopilot",
-    "turnOn": "Turn autopilot on",
     "status": "Autopilot on · {pending} pending",
     "dialogTitle": "Autopilot",
-    "tableTitle": "Autonomy level",
     "tableName": "Company / team",
-    "dialogPending": "Approvals already waiting stay waiting: {pending}.",
     "operatorTokenMissing": "Turning autopilot on needs the operator token. Set it in Settings first.",
     "failed": "Could not switch autopilot.",
     "autoImplement": "Implementation",
@@ -4770,22 +4772,11 @@
     "autoAddressComments": "Comment handling",
     "expand": "Expand",
     "collapse": "Collapse",
-    "autoReviewHint": "Reviews PRs waiting for you and posts the finished review as a comment.",
-    "autoAddressCommentsHint": "Fixes review remarks on your PRs, pushes the fixes and replies in the threads.",
-    "autoImplementHint": "Picks up ready roadmap items and implements them on its own branch.",
     "autoFixCi": "Fix CI on my PRs",
-    "autoFixCiHint": "On your PRs with red CI, a cheap triage runs first: flaky/infra → re-run of the failed jobs (max 2×), code error → fix (max 2 attempts). Pushing the fix and the re-run ask in Approve mode.",
     "autoCommunicate": "Communication",
-    "autoCommunicateHint": "Answers questions on GitHub, GitLab, Jira and Slack when it has a concrete answer.",
-    "overridesHint": "A team inherits from its company. A switch set the same as its company follows the company.",
     "approvalNotificationTitle": "ZIBBY needs your approval",
-    "modeApprove": "Approve",
-    "modeAutopilot": "Autopilot",
     "modeLabel": "Autopilot mode",
     "save": "Save",
-    "helpLabel": "What the switches do",
-    "helpMode": "The toggles start the work in both modes. Approve: the outcome waits for your approval. AUTOPILOT: it is sent without approval and you only get notified.",
-    "helpNever": "Never automatic: merge, deploy, payments, deletes, force push and pushes to shared branches always wait for you.",
     "mode_manual": "Manual",
     "mode_semi": "Semi-auto",
     "mode_auto": "Auto",
@@ -4795,13 +4786,10 @@
     "modeDesc_manual": "Zibby does nothing on its own. Everything waits for you.",
     "modeDesc_semi": "Zibby picks up and does the enabled capabilities itself; the result waits for your approval.",
     "modeDesc_auto": "Zibby runs everything itself and you get reports. Merge, deploy and payments always ask.",
-    "lane_semi": "Starts on its own but always waits for approval. Not settable per capability yet.",
-    "lane_auto": "Starts on its own. What happens to the result follows Zibby's mode.",
     "zibbyIs": "Zibby {state}",
     "zibbyModeLabel": "Zibby mode",
     "modeButtonAria": "Zibby mode: {mode}, Zibby {state}. Change",
     "manualNeedsRunner": "Coming soon: needs a runner change.",
-    "manualNeedsRunnerShort": "Coming soon",
     "pendingLink": "{count, plural, one {# approval waits} other {# approvals wait}} for you",
     "levelsLink": "Autonomy levels",
     "exceptionsList": "Exceptions: {names}",
@@ -4810,8 +4798,6 @@
     "change": "Change",
     "pageTitle": "Autonomy levels",
     "pageIntro": "What Zibby may do on its own, per company and team. A team inherits from its company; drag a capability elsewhere to make an exception.",
-    "readOnlyTitle": "The matrix is read-only",
-    "readOnlyHint": "Every change to the levels needs the operator token. Paste it (stored in this browser only) to unlock editing.",
     "operatorToken": "Operator token",
     "unlock": "Unlock",
     "cappedNote": "Now as Semi-auto",
@@ -4820,7 +4806,6 @@
     "globalLocked": "Locked: the default row stays off, set autonomy per company and team.",
     "companyKind": "Company",
     "teamKind": "Team · {company}",
-    "laneEmpty": "Nothing",
     "inherited": "inherited",
     "inheritAll": "Inherit all",
     "inheritFrom": "Inherit from {parent}",
@@ -4851,7 +4836,6 @@
     "tokenSet": "Operator token is set",
     "tokenReplace": "Enter another",
     "switchToAuto": "Switch to Auto",
-    "lane_manual": "Nothing starts on its own. You start what belongs here.",
     "semiCellDisabled": "Not available yet: start, but always wait",
     "laneMeaning_manual": "Never starts on its own",
     "laneMeaning_semi": "Does it, waits for approval",
@@ -5165,7 +5149,6 @@
       "requiresWeb": "Requires a project with a web URL",
       "resize": "Resize inspector",
       "runsOn": "Runs on",
-      "runsOnAgent": "Agent default",
       "systemAction": "Built-in action: {action}",
       "title": "Inspector",
       "toolHint": "Runs shell commands, no agent involved.",

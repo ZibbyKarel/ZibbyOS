@@ -6,6 +6,7 @@ import {
   type IconName,
   SettingsLayout,
   type SettingsLayoutLinkComponent,
+  Stack,
   Typography,
   UnsavedBar,
 } from "@zibby/design-system";
@@ -17,7 +18,11 @@ import { useHealthQuery } from "../../health";
 import { useLeaveGuard } from "../../agents/useLeaveGuard";
 import { useSelfStatusQuery } from "../../self";
 import { SettingsDraftProvider, useSettingsDraft } from "../draft/SettingsDraftProvider";
-import { SETTINGS_SECTIONS, type SettingsSection } from "../settingsSections";
+import {
+  SETTINGS_PAGE_KEY as PAGE_KEY,
+  SETTINGS_SECTIONS,
+  type SettingsSection,
+} from "../settingsSections";
 
 export enum SettingsPageTestId {
   Root = "settings-page-root",
@@ -33,15 +38,6 @@ const PAGE_ICON: Record<SettingsSection, IconName> = {
   "ai-engines": "sparkles",
   runtime: "cog",
   status: "pulse",
-};
-
-/** i18n key segment per section (`ai-engines` is not a valid flat key part). */
-const PAGE_KEY: Record<SettingsSection, string> = {
-  general: "general",
-  access: "access",
-  "ai-engines": "aiEngines",
-  runtime: "runtime",
-  status: "status",
 };
 
 export interface SettingsPanelMeta {
@@ -119,7 +115,20 @@ function SettingsFrame({ section, panels, children }: SettingsPageProps) {
           icon: PAGE_ICON[id],
           active: id === section,
         }))}
-        navFooter={status?.appVersion ? `ZibbyOS · v${status.appVersion}` : undefined}
+        navFooter={
+          <Stack gap="50">
+            <Link href="/system/inventory">
+              <Typography size="xs" type="note" variant="secondary">
+                {t("inventoryLink")}
+              </Typography>
+            </Link>
+            {status?.appVersion && (
+              <Typography mono size="xs" type="note" variant="tertiary">
+                {`ZibbyOS · v${status.appVersion}`}
+              </Typography>
+            )}
+          </Stack>
+        }
         navLabel={t("pagesLabel")}
         navTitle={t("railTitle")}
         onNavigate={(href) => router.push(href as never)}
