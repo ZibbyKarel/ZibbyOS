@@ -200,6 +200,9 @@ export async function render(argv: string[], ctx: Ctx): Promise<number> {
     centered(title, font, wrap(font, safe(plan.subtitle), 20, 460), 20, cx, ty - 6);
 
   for (const { page, file } of approved) {
+    // Single-sided: the blank goes BEFORE the picture, so drawings land on right-hand (odd)
+    // pages and each sheet's back stays empty (page 2 = back of the title page).
+    if (singleSided) interior.addPage([PAGE_W_PT, PAGE_H_PT]);
     const pdfPage = interior.addPage([PAGE_W_PT, PAGE_H_PT]);
     const img = await interior.embedPng(fs.readFileSync(file));
     pdfPage.drawImage(img, { x: 0, y: 0, width: PAGE_W_PT, height: PAGE_H_PT });
@@ -210,7 +213,6 @@ export async function render(argv: string[], ctx: Ctx): Promise<number> {
       drawnHeightPt: PAGE_H_PT,
     });
     if (page.caption) centered(pdfPage, font, [safe(page.caption)], 14, PAGE_W_PT / 2, 24);
-    if (singleSided) interior.addPage([PAGE_W_PT, PAGE_H_PT]);
   }
   const interiorPages = interior.getPageCount();
   fs.mkdirSync(book, { recursive: true });
