@@ -7,6 +7,7 @@ import { BriefingWidget } from "./BriefingWidget";
 import { BudgetsWidget } from "./BudgetsWidget";
 import { IssuesFilterControls, IssuesWidget } from "./IssuesWidget";
 import { MentionsWidget } from "./MentionsWidget";
+import { NotesWidget } from "./NotesWidget";
 import { PinsWidget } from "./PinsWidget";
 import { PrFilterControls } from "./PrFilterControls";
 import { PrsWidget } from "./PrsWidget";
@@ -20,7 +21,16 @@ import { WidgetSortSettings } from "./widgetFilters";
 
 /** What a row opens in the detail sheet. `key` is the row's `data-rk` value. */
 export interface BridgeSelection {
-  kind: "issue" | "task" | "pr" | "run" | "quickAction" | "note" | "automation" | "project";
+  kind:
+    | "issue"
+    | "task"
+    | "pr"
+    | "run"
+    | "quickAction"
+    | "note"
+    | "automation"
+    | "project"
+    | "vaultNote";
   id: string;
   /** Id of the widget the row lives in (arrow keys navigate within it). */
   widgetId: string;
@@ -214,6 +224,14 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     species: "tileGrid",
     Component: ProjectStatusWidget,
     Settings: ProjectStatusWidgetSettings,
+  },
+  notes: {
+    labelKey: "bridge.widget.notes.label",
+    descKey: "bridge.widget.notes.desc",
+    icon: "book",
+    species: "readingList",
+    Component: NotesWidget,
+    addable: true,
   },
 };
 

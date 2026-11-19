@@ -18,6 +18,7 @@ import { IssueSheet } from "./sheets/IssueSheet";
 import { NoteSheet } from "./sheets/NoteSheet";
 import { PrSheet } from "./sheets/PrSheet";
 import { ProjectSheet } from "./sheets/ProjectSheet";
+import { VaultNoteSheet } from "./sheets/VaultNoteSheet";
 import { QuickActionSheet } from "./sheets/QuickActionSheet";
 import { RunSheet } from "./sheets/RunSheet";
 import type { SheetFrame } from "./sheets/sheetTypes";
@@ -232,6 +233,7 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       {kind === "note" ? <NoteSheet key={k} {...common} /> : null}
       {kind === "automation" ? <AutomationSheet key={k} {...common} /> : null}
       {kind === "project" ? <ProjectSheet key={k} {...common} /> : null}
+      {kind === "vaultNote" ? <VaultNoteSheet key={k} {...common} /> : null}
     </SheetPresentationContext>
   );
 }

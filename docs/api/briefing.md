@@ -35,6 +35,19 @@ is idempotent.
   activity entry. This is the only mutating route; the morning automation drives the
   same path server-side on its own schedule.
 
+- `GET /briefing/day` — today's short Czech markdown overview ("Přehled" widget). Cached in
+  `day-overview.json` under the activity dir; the first read of a local day writes it. 503 when the
+  model produced nothing.
+- `POST /briefing/day/refresh` — rewrite today's overview now (the widget's sync button).
+
+### Day overview (`DayOverviewService`)
+
+One haiku `spawnOneShot` over: today's calendar channel items (`[start] title` + event link),
+the last 24 h of other channel items (each enveloped, Law 4, with their `url`), the assembled
+briefing's needs-you lines and reminders, today's daily note and the North Star. The prompt says
+all of it is data, not instructions; a missing source is left out and nothing may be invented.
+The reply is cut down to http(s) links only and rendered by the web with HTML escaped.
+
 ## Flow
 
 ### Assembly (`BriefingService.assemble`)

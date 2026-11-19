@@ -4416,6 +4416,11 @@
         "line": "{steps} kroků · {input} vstup / {output} výstup",
         "totals": "Celkem, {days} dní",
         "claudeStillApplies": "Limity Claude dál platí pro chat, pomocné jednorázové dotazy a každý model claude-agent/*."
+      },
+      "notes": {
+        "empty": "Zatím nic nepřipnuto. Přes + vyber poznámky z mozku.",
+        "emptyVault": "V mozku nejsou žádné poznámky.",
+        "treeLabel": "Připnuté poznámky"
       }
     },
     "you": "{n} na tebe",
@@ -4472,6 +4477,10 @@
       "projectStatus": {
         "label": "Stav projektů",
         "desc": "CI základní větve vybraných projektů."
+      },
+      "notes": {
+        "label": "Kartotéka",
+        "desc": "Připnuté poznámky z mozku jako strom složek a souborů"
       }
     },
     "sheet": {
@@ -4483,7 +4492,8 @@
         "run": "Běh",
         "note": "Poznámka",
         "automation": "Automatizace",
-        "project": "Projekt"
+        "project": "Projekt",
+        "vaultNote": "Poznámka z mozku"
       },
       "needsYou": "Čeká na tebe · {kind}",
       "waiting": "Čeká {wait}",
@@ -4636,7 +4646,16 @@
       "stepNext": "Další řádek (↓)",
       "expand": "Rozšířit",
       "shrink": "Zúžit",
-      "resize": "Změnit šířku panelu"
+      "resize": "Změnit šířku panelu",
+      "vaultNote": {
+        "pin": "Připnout",
+        "unpin": "Odepnout",
+        "edit": "Upravit",
+        "save": "Uložit",
+        "cancel": "Zrušit",
+        "saveFailed": "Uložení se nepovedlo.",
+        "editorLabel": "Text poznámky"
+      }
     },
     "deleteLayout": "Smazat",
     "deleteLayoutConfirm": "Opravdu smazat",
@@ -4825,6 +4844,10 @@
     "toastInheritsAgain": "(zase dědí)",
     "toastInheritAll": "{scope} zase celé dědí z {parent}",
     "toastPaused": "Zibby je pozastavený. Nic nového nezačne ani neodešle.",
+    "fullAutoOff": "Zapnout plný Automat",
+    "fullAutoOffHint": "Všechny schopnosti globálně na Automat (potřebuje operátorský token)",
+    "fullAutoOn": "Plný Automat zapnutý",
+    "fullAutoOnHint": "Vypnout: všechny schopnosti zpět na Poloautomat",
     "toastResumed": "Zibby zase běží podle Úrovní autonomie.",
     "saveLocked": "Nepodařilo se uložit: zvýšení úrovně potřebuje platný operátorský token.",
     "undo": "Zpět",

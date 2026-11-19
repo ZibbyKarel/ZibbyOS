@@ -150,3 +150,13 @@ export const GenerateBriefingResultSchema = z.object({
   noteId: z.string(),
 });
 export type GenerateBriefingResult = z.infer<typeof GenerateBriefingResultSchema>;
+
+/** The operator's "what awaits me today" read: a short Czech markdown text, cached per local day. */
+export const DayOverviewSchema = z.object({
+  /** Local `YYYY-MM-DD` the text was written for. */
+  date: z.string(),
+  generatedAt: z.string(),
+  /** Model-written markdown (links point at the sources); render with HTML escaped. */
+  markdown: z.string(),
+});
+export type DayOverview = z.infer<typeof DayOverviewSchema>;

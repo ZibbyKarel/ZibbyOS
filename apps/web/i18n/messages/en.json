@@ -4416,6 +4416,11 @@
         "line": "{steps} steps · {input} in / {output} out",
         "totals": "Total, {days} days",
         "claudeStillApplies": "The Claude limits still apply to chat, helper one-shots and any claude-agent/* model."
+      },
+      "notes": {
+        "empty": "Nothing pinned yet. Use + to pick notes from the brain.",
+        "emptyVault": "The brain has no notes yet.",
+        "treeLabel": "Pinned notes"
       }
     },
     "you": "{n} for you",
@@ -4472,6 +4477,10 @@
       "projectStatus": {
         "label": "Project status",
         "desc": "Base-branch CI of the picked projects."
+      },
+      "notes": {
+        "label": "Card index",
+        "desc": "Pinned notes from the brain as a folder and file tree"
       }
     },
     "sheet": {
@@ -4483,7 +4492,8 @@
         "run": "Run",
         "note": "Note",
         "automation": "Automation",
-        "project": "Project"
+        "project": "Project",
+        "vaultNote": "Brain note"
       },
       "needsYou": "Needs you · {kind}",
       "waiting": "Waiting {wait}",
@@ -4636,7 +4646,16 @@
       "stepNext": "Next row (↓)",
       "expand": "Expand",
       "shrink": "Shrink",
-      "resize": "Resize sheet"
+      "resize": "Resize sheet",
+      "vaultNote": {
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "edit": "Edit",
+        "save": "Save",
+        "cancel": "Cancel",
+        "saveFailed": "Saving failed.",
+        "editorLabel": "Note text"
+      }
     },
     "deleteLayout": "Delete",
     "deleteLayoutConfirm": "Confirm delete",
@@ -4825,6 +4844,10 @@
     "toastInheritsAgain": "(inherits again)",
     "toastInheritAll": "{scope} now inherits everything from {parent}",
     "toastPaused": "Zibby is paused. Nothing new starts or is sent.",
+    "fullAutoOff": "Turn on full Auto",
+    "fullAutoOffHint": "Every capability on Auto globally (needs the operator token)",
+    "fullAutoOn": "Full Auto is on",
+    "fullAutoOnHint": "Turn off: every capability back to Semi-auto",
     "toastResumed": "Zibby runs again by the autonomy levels.",
     "saveLocked": "Could not save: raising a level needs a valid operator token.",
     "undo": "Undo",

@@ -95,7 +95,7 @@ describe("drag", () => {
     const b = { x: 0, y: 0, w: 12, h: 3 };
     expect(get(dragResize(brief, "briefing", b, -99, 99), "briefing")).toMatchObject({
       w: 6,
-      h: 4,
+      h: 8,
     });
   });
   it("never clamps a stored widget that is not resized", () => {
@@ -147,7 +147,7 @@ describe("add/remove/view", () => {
     expect(freeSlot(base, 11, 0)).toEqual({ x: 11, y: 0, w: 1, h: 6 });
   });
   it("addWidget brings the new widget inside its species limits", () => {
-    expect(get(addWidget([], "briefing"), "briefing")).toMatchObject({ w: 6, h: 4 });
+    expect(get(addWidget([], "briefing"), "briefing")).toMatchObject({ w: 6, h: 6 });
     expect(get(addWidget([], "quickActions"), "quickActions")).toMatchObject({ w: 4, h: 4 });
   });
   it("addWidget gives a second instance of a type the smallest free -N id", () => {

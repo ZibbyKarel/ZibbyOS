@@ -1,6 +1,6 @@
 import { initContract } from "@ts-rest/core";
-import { EmptyBodySchema } from "../common.schema";
-import { BriefingSchema, GenerateBriefingResultSchema } from "./briefing.schema";
+import { EmptyBodySchema, ErrorSchema } from "../common.schema";
+import { BriefingSchema, DayOverviewSchema, GenerateBriefingResultSchema } from "./briefing.schema";
 
 const c = initContract();
 
@@ -26,6 +26,20 @@ export const briefingContract = c.router(
       body: EmptyBodySchema,
       responses: { 201: GenerateBriefingResultSchema },
       summary: "Generate, persist to the vault, and record a briefing",
+    },
+    getDayOverview: {
+      method: "GET",
+      path: "/briefing/day",
+      // 503: no cached text for today and the model could not write one.
+      responses: { 200: DayOverviewSchema, 503: ErrorSchema },
+      summary: "Today's short text overview (cached per day; written on first read of the day)",
+    },
+    refreshDayOverview: {
+      method: "POST",
+      path: "/briefing/day/refresh",
+      body: EmptyBodySchema,
+      responses: { 200: DayOverviewSchema, 503: ErrorSchema },
+      summary: "Rewrite today's text overview now",
     },
   },
   { pathPrefix: "/api", strictStatusCodes: true },

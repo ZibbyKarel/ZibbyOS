@@ -34,7 +34,7 @@ export interface BriefingHeroProps {
   eyebrow?: ReactNode;
   /** The greeting ("Good evening.") or the empty state ("A quiet day."). */
   title: ReactNode;
-  /** One paragraph under the title. */
+  /** The text under the title (one paragraph, or rendered markdown). */
   lead?: ReactNode;
   counters: readonly BriefingHeroCounter[];
   /** `full` = desktop hero, `slim` = one-line title + small numerals (REVIEW),
@@ -95,7 +95,7 @@ export function BriefingHero({
       data-variant={variant}
       ref={ref}
     >
-      <div className={cn("min-w-0", !phone && "min-w-[260px] flex-1")}>
+      <div className={cn("min-w-0 max-h-full overflow-y-auto", !phone && "min-w-[260px] flex-1")}>
         {eyebrow && variant !== "slim" ? (
           <div
             className="mb-[8px] text-[12px] text-ink-3 first-letter:uppercase"
@@ -108,7 +108,7 @@ export function BriefingHero({
           {title}
         </h2>
         {lead ? (
-          <p
+          <div
             className={cn(
               "mt-[8px] max-w-[660px] text-pretty text-ink-2",
               phone ? "text-[14px] leading-[1.55]" : "text-[15px] leading-[1.6]",
@@ -116,7 +116,7 @@ export function BriefingHero({
             data-testid={BriefingHeroTestId.Lead}
           >
             {lead}
-          </p>
+          </div>
         ) : null}
       </div>
       <div

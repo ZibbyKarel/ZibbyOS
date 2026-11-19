@@ -3,15 +3,17 @@
 import {
   BriefingHero,
   type BriefingHeroCounter,
+  Markdown,
   type SubNavLinkComponent,
 } from "@zibby/design-system";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { createContext, use, useEffect, useMemo } from "react";
+import { createContext, use, useCallback, useEffect, useMemo } from "react";
 import { useIsPhone } from "../../../hooks/useIsPhone";
 import { useNow } from "../../../hooks/useNow";
 import { useApprovalsQuery } from "../../approvals/queries";
-import { useBriefingQuery } from "../../briefing/queries";
+import { useRefreshDayOverviewMutation } from "../../briefing/mutations";
+import { useBriefingQuery, useDayOverviewQuery } from "../../briefing/queries";
 import { useInboxPrsQuery } from "../../inbox/queries";
 import { useBudgetQuery } from "../../projects/queries";
 import { passesFilters } from "../../inbox/inbox";
@@ -39,7 +41,7 @@ function greetingKey(now: number): "morning" | "afternoon" | "evening" {
 
 /**
  * Briefing as the T0 hero (spec §2/§4): greeting, the current briefing's headline as one
- * paragraph, and big numerals — NEEDS YOU (pending approvals), RUNNING NOW (running runs),
+ paragraph (today's model-written overview when available), and big numerals — NEEDS YOU (pending approvals), RUNNING NOW (running runs),
  * OPEN PRS (the PR widget's set), REVIEW ON YOU (others' PRs awaiting my review), SPEND THIS
  * MONTH. Every number links to its detail page (todo-18). No headline → "A quiet day." +
  * numerals only. In REVIEW the hero is slim with review counters (on you, open, CI failing,
@@ -52,6 +54,8 @@ export function BriefingWidget({ onEmptyChange, onCountChange }: BridgeWidgetPro
   const preset = use(BridgePresetContext);
   const phone = useIsPhone();
   const { data: briefing } = useBriefingQuery();
+  const { data: day } = useDayOverviewQuery();
+  const { mutate: refreshDay, isPending: refreshing } = useRefreshDayOverviewMutation();
   const { data: approvals } = useApprovalsQuery();
   const { data: prs } = useInboxPrsQuery();
   const { data: budget } = useBudgetQuery();
@@ -60,11 +64,14 @@ export function BriefingWidget({ onEmptyChange, onCountChange }: BridgeWidgetPro
   const now = useNow(60_000);
   const review = preset === REVIEW_PRESET && !phone;
 
-  // Never empty (the counters always render); no count / YOU / aside in the header.
+  const onRefresh = useCallback(() => refreshDay({ body: {} }), [refreshDay]);
+
+  // Never empty (the counters always render); no count / YOU / aside in the header — only the
+  // sync button, which rewrites today's text.
   useEffect(() => {
     onEmptyChange(false);
-    onCountChange?.({});
-  }, [onEmptyChange, onCountChange]);
+    onCountChange?.({ onRefresh, refreshing });
+  }, [onEmptyChange, onCountChange, onRefresh, refreshing]);
 
   const counters = useMemo<BriefingHeroCounter[]>(() => {
     const open = (prs?.prs ?? []).filter((p) => passesFilters(filters, p));
@@ -116,6 +123,13 @@ export function BriefingWidget({ onEmptyChange, onCountChange }: BridgeWidgetPro
   }, [t, review, approvals, running, prs, filters, budget]);
 
   const headline = briefing?.headline;
+  // Today's model-written text wins over the one-line headline when it exists.
+  const lead = day?.markdown ? (
+    <Markdown escapeHtml source={day.markdown} variant="prose" />
+  ) : (
+    headline
+  );
+  const hasLead = Boolean(day?.markdown || headline);
   const at = new Date(briefing?.generatedAt ?? now);
   const eyebrow = t("kicker", {
     date: at.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" }),
@@ -125,11 +139,11 @@ export function BriefingWidget({ onEmptyChange, onCountChange }: BridgeWidgetPro
     <BriefingHero
       ariaLabel={t("label")}
       counters={counters}
-      eyebrow={headline ? eyebrow : undefined}
-      lead={review ? undefined : headline}
+      eyebrow={hasLead ? eyebrow : undefined}
+      lead={review ? undefined : lead}
       linkComponent={Link as SubNavLinkComponent}
       title={
-        review ? headline || t("calm") : headline ? t(`greeting.${greetingKey(now)}`) : t("calm")
+        review ? headline || t("calm") : hasLead ? t(`greeting.${greetingKey(now)}`) : t("calm")
       }
       variant={phone ? "phone" : review ? "slim" : "full"}
     />

@@ -15,6 +15,7 @@ import { DepartmentsModule } from "../departments/departments.module";
 import { ScheduledTasksStorageModule } from "../tasks/scheduled-tasks-storage.module";
 import { BriefingController } from "./briefing.controller";
 import { BriefingService } from "./briefing.service";
+import { DayOverviewService } from "./day-overview.service";
 import { ClaudeCliBriefer } from "./claude-cli-briefer";
 
 /**
@@ -53,7 +54,7 @@ import { ClaudeCliBriefer } from "./claude-cli-briefer";
     ArchModule,
   ],
   controllers: [BriefingController],
-  providers: [ClaudeCliBriefer, BriefingService],
+  providers: [ClaudeCliBriefer, BriefingService, DayOverviewService],
   exports: [BriefingService],
 })
 export class BriefingModule {}

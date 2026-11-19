@@ -31,6 +31,7 @@ vi.mock("../../inbox/mutations", () => ({
 
 const d = vi.hoisted(() => ({
   items: [] as unknown[],
+  day: undefined as { markdown: string } | undefined,
   epics: [] as unknown[],
   prs: [] as unknown[],
   tasks: [] as unknown[],
@@ -66,10 +67,15 @@ vi.mock("../../workflows", () => ({ useWorkflowsQuery: () => ({ data: d.workflow
 vi.mock("../../runs/queries/useRecentArchivedRunsQuery", () => ({
   useRecentArchivedRunsQuery: () => ({ data: d.archived, isPending: d.archivedPending }),
 }));
+const dayRefresh = vi.hoisted(() => vi.fn());
 vi.mock("../../briefing/queries", () => ({
   useBriefingQuery: () => ({
     data: { headline: "Two PRs wait on you.", generatedAt: "2026-10-21T08:00:00.000Z" },
   }),
+  useDayOverviewQuery: () => ({ data: d.day }),
+}));
+vi.mock("../../briefing/mutations", () => ({
+  useRefreshDayOverviewMutation: () => ({ mutate: dayRefresh, isPending: false }),
 }));
 vi.mock("../../approvals/queries", () => ({ useApprovalsQuery: () => ({ data: d.approvals }) }));
 vi.mock("../../projects/queries", () => ({
@@ -771,6 +777,19 @@ describe("BriefingWidget", () => {
     // todo-18: month-to-date spend (the projects' monthly cost windows), not today's.
     expect(screen.getByTestId(`${BriefingHeroTestId.Value}-spend`)).toHaveTextContent("$42.50");
     expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("shows today's overview text (escaped markdown) instead of the headline and wires the sync button", () => {
+    d.day = { markdown: "Dnes máš **3 schůzky**. <b>x</b>" };
+    const props = setup({ widget: widget("w-brief", "briefing") });
+    renderWithProviders(<BriefingWidget {...props} />);
+    const lead = screen.getByTestId(BriefingHeroTestId.Lead);
+    expect(lead).toHaveTextContent("Dnes máš 3 schůzky. <b>x</b>");
+    expect(lead).not.toHaveTextContent("Two PRs wait on you.");
+    const info = vi.mocked(props.onCountChange!).mock.lastCall?.[0];
+    info?.onRefresh?.();
+    expect(dayRefresh).toHaveBeenCalledWith({ body: {} });
+    d.day = undefined;
   });
 
   it("todo-18: every number links to its detail page", () => {

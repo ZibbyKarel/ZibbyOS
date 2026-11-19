@@ -52,6 +52,7 @@ export const API_MODULE_DOC_MAP = {
   memory: "docs/api/memory.md",
   monitors: "docs/api/monitors.md",
   patterns: "docs/api/patterns.md",
+  notes: "docs/api/notes.md",
   pins: "docs/api/pins.md",
   "project-health": "docs/api/project-health.md",
   "project-ci": "docs/api/project-ci.md",

@@ -18,6 +18,8 @@ export interface TreeNode {
   leading?: ReactNode;
   /** Right-aligned extra (a count, a badge). */
   trailing?: ReactNode;
+  /** Emitted as `data-rk` so a detail sheet can anchor next to the row. */
+  rowKey?: string;
   /** A branch: clicking toggles it instead of selecting. */
   children?: TreeNode[];
 }
@@ -111,6 +113,7 @@ export function TreeView({
             dim && "opacity-40",
             focusRing,
           )}
+          data-rk={node.rowKey}
           data-testid={`${TreeViewTestId.Row}-${node.id}`}
           onClick={() => (branch ? onToggle(node.id) : onSelect(node.id))}
           role="treeitem"

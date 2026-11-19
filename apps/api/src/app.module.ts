@@ -46,6 +46,7 @@ import { ReviewLearningModule } from "./review-learning/review-learning.module";
 import { HttpConnectionReaperModule } from "./shared/http/http-connection-reaper.module";
 import { LoggingModule } from "./shared/logging/logging.module";
 import { InboxModule } from "./inbox/inbox.module";
+import { NotesModule } from "./notes/notes.module";
 import { PinsModule } from "./pins/pins.module";
 import { QuickActionsModule } from "./quick-actions/quick-actions.module";
 import { ExternalSkillsModule } from "./external-skills/external-skills.module";
@@ -75,6 +76,7 @@ import { InstanceLockReleaser } from "./shared/instance-role";
     // probe here; listed early (like LoggingModule) so it exists before any watcher.
     WatcherHealthModule,
     SystemModule,
+    NotesModule,
     PinsModule,
     QuickActionsModule,
     MarketplacesModule,
