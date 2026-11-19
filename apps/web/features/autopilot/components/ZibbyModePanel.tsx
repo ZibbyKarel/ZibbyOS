@@ -4,6 +4,7 @@ import {
   Button,
   Row,
   Stack,
+  TextInputField,
   Typography,
   ZibbyOrb,
   ZibbyStatusAction,
@@ -13,12 +14,19 @@ import {
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
+import type { SaveResult } from "../hooks/useSaveAutomation";
+import { saveOperatorToken } from "../hooks/useHasOperatorToken";
 import type { PauseError } from "../hooks/usePauseSwitch";
 
 export enum ZibbyModePanelTestId {
   Pending = "zibby-mode-panel-pending",
   Levels = "zibby-mode-panel-levels",
   Error = "zibby-mode-panel-error",
+  FullAuto = "zibby-mode-panel-full-auto",
+  AutoError = "zibby-mode-panel-auto-error",
+  TokenInput = "zibby-mode-panel-token-input",
+  TokenSave = "zibby-mode-panel-token-save",
   Unlock = "zibby-mode-panel-unlock",
 }
 
@@ -34,6 +42,12 @@ export interface ZibbyModePanelProps {
   /** Names of the companies/teams that override something; empty = "no exceptions". */
   exceptions: string[];
   onToggle: () => void;
+  /** Every global capability is on Automat. */
+  fullAuto: boolean;
+  /** Flip the global row between all-Automat and all-Poloautomat. */
+  onToggleFullAuto: () => void;
+  /** Last result of that save; `locked` = raising needs the operator token. */
+  autoResult: SaveResult | null;
   /** Called after a link is followed, so the popover/sheet can close. */
   onNavigate: () => void;
   /** Bottom-sheet layout (phone). */
@@ -48,6 +62,9 @@ export function ZibbyModePanel({
   pendingApprovals,
   exceptions,
   onToggle,
+  fullAuto,
+  onToggleFullAuto,
+  autoResult,
   onNavigate,
   sheet = false,
 }: ZibbyModePanelProps) {
@@ -58,6 +75,7 @@ export function ZibbyModePanel({
     onNavigate();
   };
   const key = paused ? "paused" : "run";
+  const [typed, setTyped] = useState("");
   return (
     <ZibbyStatusMenu
       description={t(`desc_${key}`)}
@@ -93,6 +111,53 @@ export function ZibbyModePanel({
         </Row>
       ) : null}
       <Stack gap="25">
+        <ZibbyStatusLink
+          aria-pressed={fullAuto}
+          data-testid={ZibbyModePanelTestId.FullAuto}
+          hint={t(fullAuto ? "fullAutoOnHint" : "fullAutoOffHint")}
+          icon="bolt"
+          label={t(fullAuto ? "fullAutoOn" : "fullAutoOff")}
+          onClick={onToggleFullAuto}
+        />
+        {autoResult === "locked" || autoResult === "failed" ? (
+          <Stack gap="50">
+            <Typography
+              data-testid={ZibbyModePanelTestId.AutoError}
+              size="xs"
+              tone="bad"
+              type="note"
+            >
+              {autoResult === "locked" ? t("saveLocked") : t("failed")}
+            </Typography>
+            {autoResult === "locked" ? (
+              <Row align="center" gap="100">
+                <TextInputField
+                  hideLabel
+                  autoComplete="off"
+                  data-testid={ZibbyModePanelTestId.TokenInput}
+                  label={t("operatorToken")}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder="zby_op_…"
+                  type="password"
+                  value={typed}
+                />
+                <Button
+                  data-testid={ZibbyModePanelTestId.TokenSave}
+                  disabled={typed.trim() === ""}
+                  intent="primary"
+                  onClick={() => {
+                    saveOperatorToken(typed);
+                    setTyped("");
+                    onToggleFullAuto();
+                  }}
+                  size="sm"
+                >
+                  {t("unlock")}
+                </Button>
+              </Row>
+            ) : null}
+          </Stack>
+        ) : null}
         {pendingApprovals > 0 ? (
           <ZibbyStatusLink
             highlight

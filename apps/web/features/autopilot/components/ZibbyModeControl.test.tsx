@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { type AutopilotStatus, NO_AUTOMATION } from "@zibby/contracts";
 import { Button, ZibbySectionTestId, ZibbyStatusMenuTestId } from "@zibby/design-system";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTOMATION_KEYS } from "../autonomy";
 import { renderAutonomy } from "../test/renderAutonomy";
 import { ZibbyModeChange, ZibbyModeControl, ZibbyModeControlTestId } from "./ZibbyModeControl";
 import { ZibbyModePanelTestId } from "./ZibbyModePanel";
 
 let status: AutopilotStatus = { paused: false, pendingApprovals: 3 };
 const mutate = vi.fn();
+const mutateAsync = vi.fn();
 const openChat = vi.fn();
 
 vi.mock("../../companies", () => ({
@@ -17,7 +19,7 @@ vi.mock("../../companies", () => ({
 vi.mock("../../teams", () => ({ useTeamsQuery: () => ({ data: [] }) }));
 vi.mock("../queries", () => ({ useAutopilotQuery: () => ({ data: status }) }));
 vi.mock("../mutations", () => ({
-  useSetAutopilotMutation: () => ({ mutate, isPending: false }),
+  useSetAutopilotMutation: () => ({ mutate, mutateAsync, isPending: false }),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../../chat/ChatContext", () => ({
@@ -34,6 +36,8 @@ vi.mock("../../zibby/shortcut/shortcut", () => ({ formatShortcut: () => ["⌥", 
 
 beforeEach(() => {
   mutate.mockReset();
+  mutateAsync.mockReset();
+  localStorage.clear();
   openChat.mockReset();
   status = {
     paused: false,
@@ -94,6 +98,31 @@ describe("ZibbyModeControl", () => {
     await userEvent.click(screen.getByTestId(ZibbyStatusMenuTestId.Action));
     expect(screen.getByTestId(ZibbyModePanelTestId.Error)).toHaveTextContent("operátorský token");
     expect(screen.getByTestId(ZibbyModePanelTestId.Unlock)).toBeInTheDocument();
+  });
+
+  it("turns on full Automat globally from the dropdown, keeping overrides", async () => {
+    mutateAsync.mockResolvedValue({});
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.FullAuto));
+    const body = mutateAsync.mock.calls[0]?.[0].body;
+    expect(Object.values(body.automation.global)).toEqual(AUTOMATION_KEYS.map(() => "auto"));
+    expect(body.automation.companies).toEqual({ acme: { autoReview: "auto" } });
+    expect(body.paused).toBeUndefined();
+  });
+
+  it("asks for the operator token on 401, stores it and retries", async () => {
+    mutateAsync.mockRejectedValueOnce({ status: 401 }).mockResolvedValue({});
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.FullAuto));
+    expect(await screen.findByTestId(ZibbyModePanelTestId.AutoError)).toHaveTextContent(
+      "operátorský token",
+    );
+    await userEvent.type(screen.getByTestId(ZibbyModePanelTestId.TokenInput), "zby_op_x");
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.TokenSave));
+    expect(localStorage.getItem("zibby.operatorToken")).toBe("zby_op_x");
+    expect(mutateAsync).toHaveBeenCalledTimes(2);
   });
 });
 

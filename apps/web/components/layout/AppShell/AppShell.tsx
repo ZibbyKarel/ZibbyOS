@@ -21,7 +21,7 @@ import { NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
 import { OpenNoteDockProvider } from "../../../features/knowledge/noteDockContext";
 import { ChatProvider, useChat } from "../../../features/chat";
-import { ZibbyHeaderChip, ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
+import { ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
 import { CommandPaletteHost, useCommandPaletteHotkey } from "../../../features/command-palette";
 import { ApprovalSheet } from "../../../features/approvals/components/ApprovalSheet";
 import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSheetParam";
@@ -269,8 +269,7 @@ function useHeaderTrailing() {
   const limitItems = useHeaderLimitItems();
   const { data: approvals } = useApprovalsQuery();
   const { runs } = useRunsQuery();
-  // The header's mini orb shows the system state: needs when something waits on the
-  // operator, work while agents run, asleep at rest (the logo itself is static).
+  // System state for the status block and phone brand mark (the desktop logo is static).
   const markState: BrandMarkState =
     approvals?.length || runs.some((r) => r.status === "awaiting-approval" || r.status === "parked")
       ? "blocked"
@@ -403,7 +402,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   }
                   notifications={<NotificationBell />}
                   onSearchClick={() => setPaletteOpen(true)}
-                  orb={<ZibbyHeaderChip iconOnly systemState={trailing.markState} />}
                   preferences={<PreferencesMenu />}
                   ref={headerRef}
                   searchCompact={lv >= 1}

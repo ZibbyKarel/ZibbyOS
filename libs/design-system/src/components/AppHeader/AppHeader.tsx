@@ -24,8 +24,6 @@ export enum AppHeaderTestId {
   SearchShortcut = "app-header-search-shortcut",
   Create = "app-header-create",
   Zibby = "app-header-zibby",
-  /** Zone B, right after search - the Zibby mini orb. */
-  Orb = "app-header-orb",
   Status = "app-header-status",
   Mode = "app-header-mode",
   Notifications = "app-header-notifications",
@@ -48,8 +46,6 @@ export interface AppHeaderProps {
   homeLabel?: string;
   /** Zone A, after the brand - the section nav (a `SectionTrack`). */
   nav?: ReactNode;
-  /** Zone B, right after the search trigger - Zibby's mini orb (the overlay's summon point). */
-  orb?: ReactNode;
   /** Zone B - create trigger (a `HeaderNewButton`, + its menu). */
   create?: ReactNode;
   /** Zone B, last - summon button of the Zibby overlay (a `ZibbyChip`). */
@@ -91,7 +87,6 @@ export function AppHeader({
   homeHref,
   homeLabel = "ZibbyOS",
   nav,
-  orb,
   create,
   zibby,
   status,
@@ -172,7 +167,6 @@ export function AppHeader({
             </span>
           </button>
         )}
-        {orb && <span data-testid={AppHeaderTestId.Orb}>{orb}</span>}
         {create && <span data-testid={AppHeaderTestId.Create}>{create}</span>}
         {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
       </div>

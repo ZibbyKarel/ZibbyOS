@@ -464,9 +464,9 @@ components still exist for the knowledge `NoteDock` window.
   existing caller works unchanged: a department page's "Chat with" button opens it with an explicit department
   target (O-20, shown as a clearable chip), `ChatAboutButton` opens it about a thing. It closes on a route change.
 - **Summon:** the configurable global hotkey (default Alt+Space, Ctrl+Space as an alias off macOS — see the
-  Settings → Shortcuts block): a tap toggles, a hold is push-to-talk (release sends). Also the header chip
-  (`ZibbyHeaderChip`: orb + "Zibby" + the shortcut; the orb mirrors the live state, amber when something waits on
-  the operator) and any file dragged over the closed app. The orb flies out of / back into the logo's knot.
+  Settings → Shortcuts block): a tap toggles, a hold is push-to-talk (release sends). Also the orb in the header's Zibby section (`ZibbyModeControl`: orb + "Zibby" + the status dropdown; the orb is
+  violet while Zibby runs, asleep while paused, and mirrors the live state while the overlay is open) and any file dragged over the closed app. The overlay's orb flies out of / back into that header orb (`readOrbOrigin` finds `ZibbySectionTestId.OrbSlot`;
+  no origin when it is not rendered).
 - **Voice:** bare Space (outside text fields) talks while the overlay is open; hold mode or hands-free; the
   utterance is sent as a message at once — through the composer, so pending attachments ride along (if the
   composer's submit is blocked, e.g. a turn is in flight, the words land in its draft). Completed replies are

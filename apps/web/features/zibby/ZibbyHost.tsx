@@ -78,7 +78,7 @@ function statusDotTone(state: ZibbyOrbState) {
  * - **Open state** is `ChatContext.dockOpen` (`open()` / `openAbout()` from any screen keep
  *   working). Closes on a route change (cards and links in the thread navigate).
  * - **Summon:** the global hotkey — tap toggles, hold talks (see {@link useZibbySummon}); the
- *   header chip; any file dragged over the closed app. Flight origin = the header mini orb.
+ *   header chip; any file dragged over the closed app. Flight origin = the header Zibby section orb.
  * - **Orb state** is derived (see `deriveOrbState`) from the overlay phase, the mic, the in-flight
  *   turn (+ its latest live tool event), speech, an `approvals` widget awaiting the operator
  *   (`needsDecision`), a 1.5 s `done` after a dispatch / `error` after a failure, offline
@@ -227,7 +227,7 @@ export function ZibbyHost() {
     setInjectedFiles(files.slice(0, MAX_ATTACHED_FILES));
   }, []);
 
-  // Where the orb flies from / back to: the header's mini orb (measured whenever the open flag flips).
+  // Where the orb flies from / back to: the header Zibby section's orb (measured whenever the open flag flips).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const origin = useMemo(() => readOrbOrigin(), [dockOpen]);
 

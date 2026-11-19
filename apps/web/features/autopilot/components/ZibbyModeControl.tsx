@@ -16,8 +16,9 @@ import { useTeamsQuery } from "../../teams";
 import { useZibbyLive } from "../../zibby/live/ZibbyLiveContext";
 import { formatShortcut } from "../../zibby/shortcut/shortcut";
 import { useShortcutPlatform, useZibbyShortcut } from "../../zibby/shortcut/useZibbyShortcut";
-import { buildScopes, exceptionsOf } from "../autonomy";
+import { AUTOMATION_KEYS, buildScopes, exceptionsOf } from "../autonomy";
 import { usePauseSwitch } from "../hooks/usePauseSwitch";
+import { type SaveResult, useSaveAutomation } from "../hooks/useSaveAutomation";
 import { ModePopover } from "./ModePopover";
 import { ZibbyModePanel } from "./ZibbyModePanel";
 
@@ -33,12 +34,24 @@ function useStatusUi() {
   const exceptionNames = exceptionsOf(sw.automation, buildScopes(companies, teams)).map(
     (s) => s.label,
   );
+  const save = useSaveAutomation();
+  const [autoResult, setAutoResult] = useState<SaveResult | null>(null);
+  const fullAuto = AUTOMATION_KEYS.every((k) => sw.automation.global[k] === "auto");
+  const toggleFullAuto = async () => {
+    const level = fullAuto ? "semi" : "auto";
+    const global = { ...sw.automation.global };
+    for (const k of AUTOMATION_KEYS) global[k] = level;
+    setAutoResult(await save({ ...sw.automation, global }));
+  };
   const panel = (sheet: boolean, close: () => void) => (
     <ZibbyModePanel
+      autoResult={autoResult}
       error={sw.error}
       exceptions={exceptionNames}
+      fullAuto={fullAuto}
       onNavigate={close}
       onToggle={() => sw.toggle(close)}
+      onToggleFullAuto={() => void toggleFullAuto()}
       paused={sw.paused}
       pending={sw.pending}
       pendingApprovals={sw.pendingApprovals}

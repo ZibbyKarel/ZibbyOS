@@ -37,23 +37,6 @@ describe("AppHeader", () => {
     expect(mark).not.toHaveAttribute("data-live");
   });
 
-  it("puts the orb slot right after the search trigger, before create", () => {
-    render(
-      <AppHeader
-        create={<button type="button">New</button>}
-        onSearchClick={() => {}}
-        orb={<button type="button">Orb</button>}
-      />,
-    );
-    const [search, orb, create] = [
-      AppHeaderTestId.Search,
-      AppHeaderTestId.Orb,
-      AppHeaderTestId.Create,
-    ].map((id) => screen.getByTestId(id));
-    expect(search!.compareDocumentPosition(orb!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(orb!.compareDocumentPosition(create!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
   it("renders a custom wordmark slot", () => {
     render(<AppHeader wordmark={<span>Custom mark</span>} />);
     expect(screen.getByTestId(AppHeaderTestId.Wordmark)).toHaveTextContent("Custom mark");
