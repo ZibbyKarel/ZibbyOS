@@ -76,6 +76,8 @@ export interface CommandLineHandle {
    * (`disabled` / `submitDisabled`) or `text` is blank, so the caller can fall back.
    */
   submitSpoken: (text: string) => boolean;
+  /** Focuses the input with the caret at the end (a host opening the composer). */
+  focus: () => void;
 }
 
 /** A `#` scope source — WHAT a turn can see (a company, a team's knowledge base, a
@@ -894,6 +896,12 @@ export function CommandLine({
         onAttachmentsChange?.({ files: [] });
       }
       return true;
+    },
+    focus() {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus({ preventScroll: true });
+      ta.setSelectionRange(ta.value.length, ta.value.length);
     },
   }));
 

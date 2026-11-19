@@ -252,6 +252,8 @@ function rowKey(row: ReactNode, index: number): string {
 export interface ChatWidgetRowProps {
   /** Dot colour; the same state is always also spelled out in `statusLabel`. */
   tone: DotTone;
+  /** Replaces the status dot (e.g. a checkbox). */
+  leading?: ReactNode;
   /** Pulse the dot (genuinely live state only). */
   pulse?: boolean;
   /** The state in words (a11y: status is never colour alone) — first item of the muted line. */
@@ -278,6 +280,7 @@ export interface ChatWidgetRowProps {
  */
 export function ChatWidgetRow({
   tone,
+  leading,
   pulse = false,
   statusLabel,
   title,
@@ -304,9 +307,11 @@ export function ChatWidgetRow({
   return (
     <Container data-testid={`${ChatWidgetFrameTestId.Row}${suffix}`} padding={["100", "150"]}>
       <Stack align="center" direction="row" gap="150">
-        <span aria-hidden data-testid={`${ChatWidgetFrameTestId.RowDot}${suffix}`}>
-          <StatusDot pulse={pulse} size="75" tone={tone} />
-        </span>
+        {leading ?? (
+          <span aria-hidden data-testid={`${ChatWidgetFrameTestId.RowDot}${suffix}`}>
+            <StatusDot pulse={pulse} size="75" tone={tone} />
+          </span>
+        )}
         <Container grow minW0>
           <Stack direction="col" gap="25">
             {href ? (

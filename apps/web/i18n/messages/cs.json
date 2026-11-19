@@ -1312,7 +1312,7 @@
       "aria": "Vyvolat Zibbyho ({shortcut})"
     },
     "thread": {
-      "empty": "Drž mezerník a mluv, nebo sem přetáhni soubory. Puštěním mezerníku se zpráva sama odešle a Zibby odpoví hlasem i textem.",
+      "empty": "Napiš zprávu, nadiktuj ji, nebo sem přetáhni soubory. Zibby odpoví hlasem i textem.",
       "meta": {
         "voice": "přepis · {time}",
         "typed": "napsáno · {time}"
@@ -1335,8 +1335,8 @@
     "ptt": {
       "holdAria": "Drž a mluv",
       "tapAria": "Ťukni a mluv",
-      "holdIdle": "Drž Space a mluv",
-      "holdActive": "Pusť a odešle se",
+      "holdIdle": "Mluv",
+      "holdActive": "Pusť a přepíše se",
       "tapIdle": "Ťukni a mluv",
       "tapActive": "Ťukni pro konec"
     },
@@ -1344,42 +1344,43 @@
       "history": "Historie",
       "historyKbd": "⌥ H",
       "titleHint": "Přejmenovat",
-      "titleInput": "Název rozhovoru",
-      "new": "Nový rozhovor",
-      "menu": "Další akce s rozhovorem",
+      "titleInput": "Název chatu",
+      "new": "Nový chat",
+      "menu": "Další akce s chatem",
       "rename": "Přejmenovat",
-      "clear": "Vyčistit a začít znovu",
-      "delete": "Smazat rozhovor",
+      "clear": "Vyčistit",
+      "delete": "Smazat chat",
       "close": "Zavřít (Esc)"
     },
     "history": {
-      "label": "Historie rozhovorů",
-      "title": "Rozhovory",
+      "label": "Historie chatů",
+      "title": "Chaty",
       "close": "Zavřít historii (⌥ H)",
-      "new": "Nový rozhovor",
-      "searchLabel": "Hledat v rozhovorech",
-      "searchPlaceholder": "Hledat v rozhovorech…",
+      "new": "Nový chat",
+      "searchLabel": "Hledat v chatech",
+      "searchPlaceholder": "Hledat v chatech…",
       "clearSearch": "Vymazat hledání",
-      "empty": "Zatím žádné rozhovory",
+      "empty": "Zatím žádné chaty",
       "noMatch": "Nic nenalezeno pro „{query}“",
       "rename": "Přejmenovat „{title}“",
       "delete": "Smazat „{title}“",
-      "renameInput": "Nový název rozhovoru",
+      "renameInput": "Nový název chatu",
       "footer": "Ukládá se automaticky · ⌥ H otevře a zavře · dvojklik přejmenuje"
     },
     "footer": {
       "mode": "Režim mluvení",
       "voiceOn": "Hlas zapnutý",
       "voiceOff": "Hlas vypnutý · jen text",
+      "voiceUnavailable": "Hlas nedostupný",
       "hint": "Esc zavře · {shortcut} vyvolá · soubory přetáhni kamkoli"
     },
     "drop": {
       "title": "Pusť soubory sem",
-      "hint": "Zibby je přečte a přiloží k rozhovoru · obrázky, PDF, kód, tabulky"
+      "hint": "Zibby je přečte a přiloží k chatu · obrázky, PDF, kód, tabulky"
     }
   },
   "zibbyConversations": {
-    "newTitle": "Nový rozhovor",
+    "newTitle": "Nový chat",
     "groups": {
       "today": "Dnes",
       "yesterday": "Včera",
@@ -1387,23 +1388,23 @@
       "older": "Starší"
     },
     "toast": {
-      "savedInHistory": "Předchozí rozhovor je uložený v historii",
-      "cleared": "Konverzace vyčištěna",
+      "savedInHistory": "Předchozí chat je uložený v historii",
+      "cleared": "Chat vyčištěn",
       "deleted": "Smazáno „{title}“",
       "undo": "Vrátit"
     },
     "errors": {
-      "open": "Rozhovor se nepodařilo otevřít.",
-      "rename": "Rozhovor se nepodařilo přejmenovat.",
-      "clear": "Konverzaci se nepodařilo vyčistit.",
-      "delete": "Rozhovor se nepodařilo smazat.",
-      "restore": "Rozhovor se nepodařilo vrátit."
+      "open": "Chat se nepodařilo otevřít.",
+      "rename": "Chat se nepodařilo přejmenovat.",
+      "clear": "Chat se nepodařilo vyčistit.",
+      "delete": "Chat se nepodařilo smazat.",
+      "restore": "Chat se nepodařilo vrátit."
     }
   },
   "zibbyVoice": {
     "status": {
       "sleep": "Spí",
-      "ready": "Jsem tady · drž mezerník a mluv",
+      "ready": "Jsem tady",
       "wake": "Probouzím se…",
       "listen": "Poslouchám…",
       "think": "Přemýšlím…",
@@ -1417,7 +1418,7 @@
       "drop": "Pusť soubory, přečtu je"
     },
     "hint": {
-      "tooShort": "Drž mezerník po celou dobu, co mluvíš."
+      "tooShort": "Drž tlačítko po celou dobu, co mluvíš."
     },
     "error": {
       "micDenied": "Přístup k mikrofonu je zablokovaný — povol ho v nastavení stránky a zkus to znovu.",
@@ -2891,6 +2892,11 @@
     "loading": "Načítám…",
     "error": "Nepodařilo se načíst.",
     "retry": "Zkusit znovu",
+    "todo": {
+      "title": "TODO",
+      "empty": "Žádné poznámky v TODO",
+      "started": "Úkol spuštěn · otevřít"
+    },
     "runs": {
       "title": "Běhy",
       "empty": "Žádné běhy",

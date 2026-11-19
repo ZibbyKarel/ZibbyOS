@@ -1312,7 +1312,7 @@
       "aria": "Summon Zibby ({shortcut})"
     },
     "thread": {
-      "empty": "Hold Space and talk, or drop files here. Releasing Space sends the message and Zibby answers by voice and text.",
+      "empty": "Type a message, dictate it, or drop files here. Zibby answers by voice and text.",
       "meta": {
         "voice": "transcript · {time}",
         "typed": "typed · {time}"
@@ -1335,8 +1335,8 @@
     "ptt": {
       "holdAria": "Hold and talk",
       "tapAria": "Tap and talk",
-      "holdIdle": "Hold Space and talk",
-      "holdActive": "Release to send",
+      "holdIdle": "Talk",
+      "holdActive": "Release to transcribe",
       "tapIdle": "Tap and talk",
       "tapActive": "Tap to finish"
     },
@@ -1344,42 +1344,43 @@
       "history": "History",
       "historyKbd": "⌥ H",
       "titleHint": "Rename",
-      "titleInput": "Conversation title",
-      "new": "New conversation",
-      "menu": "More conversation actions",
+      "titleInput": "Chat title",
+      "new": "New chat",
+      "menu": "More chat actions",
       "rename": "Rename",
-      "clear": "Clear and start over",
-      "delete": "Delete conversation",
+      "clear": "Clear",
+      "delete": "Delete chat",
       "close": "Close (Esc)"
     },
     "history": {
-      "label": "Conversation history",
-      "title": "Conversations",
+      "label": "Chat history",
+      "title": "Chats",
       "close": "Close history (⌥ H)",
-      "new": "New conversation",
-      "searchLabel": "Search conversations",
-      "searchPlaceholder": "Search conversations…",
+      "new": "New chat",
+      "searchLabel": "Search chats",
+      "searchPlaceholder": "Search chats…",
       "clearSearch": "Clear search",
-      "empty": "No conversations yet",
+      "empty": "No chats yet",
       "noMatch": "Nothing found for “{query}”",
       "rename": "Rename “{title}”",
       "delete": "Delete “{title}”",
-      "renameInput": "New conversation title",
+      "renameInput": "New chat title",
       "footer": "Saved automatically · ⌥ H opens and closes · double-click renames"
     },
     "footer": {
       "mode": "Talk mode",
       "voiceOn": "Voice on",
       "voiceOff": "Voice off · text only",
+      "voiceUnavailable": "Voice unavailable",
       "hint": "Esc closes · {shortcut} summons · drop files anywhere"
     },
     "drop": {
       "title": "Drop files here",
-      "hint": "Zibby reads them and attaches them to the conversation · images, PDFs, code, spreadsheets"
+      "hint": "Zibby reads them and attaches them to the chat · images, PDFs, code, spreadsheets"
     }
   },
   "zibbyConversations": {
-    "newTitle": "New conversation",
+    "newTitle": "New chat",
     "groups": {
       "today": "Today",
       "yesterday": "Yesterday",
@@ -1387,23 +1388,23 @@
       "older": "Older"
     },
     "toast": {
-      "savedInHistory": "The previous conversation is saved in history",
-      "cleared": "Conversation cleared",
+      "savedInHistory": "The previous chat is saved in history",
+      "cleared": "Chat cleared",
       "deleted": "Deleted “{title}”",
       "undo": "Undo"
     },
     "errors": {
-      "open": "Couldn't open the conversation.",
-      "rename": "Couldn't rename the conversation.",
-      "clear": "Couldn't clear the conversation.",
-      "delete": "Couldn't delete the conversation.",
-      "restore": "Couldn't restore the conversation."
+      "open": "Couldn't open the chat.",
+      "rename": "Couldn't rename the chat.",
+      "clear": "Couldn't clear the chat.",
+      "delete": "Couldn't delete the chat.",
+      "restore": "Couldn't restore the chat."
     }
   },
   "zibbyVoice": {
     "status": {
       "sleep": "Asleep",
-      "ready": "I'm here · hold Space and talk",
+      "ready": "I'm here",
       "wake": "Waking up…",
       "listen": "Listening…",
       "think": "Thinking…",
@@ -1417,7 +1418,7 @@
       "drop": "Drop the files, I'll read them"
     },
     "hint": {
-      "tooShort": "Hold Space the whole time you speak."
+      "tooShort": "Hold the button the whole time you speak."
     },
     "error": {
       "micDenied": "Microphone access is blocked — allow it in the site settings and try again.",
@@ -2891,6 +2892,11 @@
     "loading": "Loading…",
     "error": "Couldn't load this.",
     "retry": "Try again",
+    "todo": {
+      "title": "TODO",
+      "empty": "No TODO notes",
+      "started": "Task started · open"
+    },
     "runs": {
       "title": "Runs",
       "empty": "No runs",

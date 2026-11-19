@@ -23,7 +23,7 @@ import { ZibbyComposer } from "./composer/ZibbyComposer";
 import { useZibbyConversations } from "./conversations";
 import { ZibbyOverlayFooter } from "./footer/ZibbyOverlayFooter";
 import { ZibbyHistory } from "./history/ZibbyHistory";
-import { readKnotOrigin } from "./hooks/knotOrigin";
+import { readOrbOrigin } from "./hooks/orbOrigin";
 import { useOnline } from "./hooks/useOnline";
 import { useTransientFlag } from "./hooks/useTransientFlag";
 import { useWindowFileDrag } from "./hooks/useWindowFileDrag";
@@ -78,7 +78,7 @@ function statusDotTone(state: ZibbyOrbState) {
  * - **Open state** is `ChatContext.dockOpen` (`open()` / `openAbout()` from any screen keep
  *   working). Closes on a route change (cards and links in the thread navigate).
  * - **Summon:** the global hotkey — tap toggles, hold talks (see {@link useZibbySummon}); the
- *   header chip; any file dragged over the closed app. Flight origin = the logo knot.
+ *   header chip; any file dragged over the closed app. Flight origin = the header mini orb.
  * - **Orb state** is derived (see `deriveOrbState`) from the overlay phase, the mic, the in-flight
  *   turn (+ its latest live tool event), speech, an `approvals` widget awaiting the operator
  *   (`needsDecision`), a 1.5 s `done` after a dispatch / `error` after a failure, offline
@@ -119,7 +119,8 @@ export function ZibbyHost() {
   /** Voice / typed origin of the user turns sent in this session (a persisted turn has none). */
   const [origins, setOrigins] = useState<Record<string, ChatMessageOrigin>>({});
   const composerHandle = useRef<CommandLineHandle>(null);
-  const originOfNextSend = useRef<ChatMessageOrigin>("typed");
+  /** The draft holds dictated words — the next send is marked as a transcript. */
+  const dictatedRef = useRef(false);
 
   // ---- engine (the single mount) ----------------------------------------------------------
   const [justDone, flashDone] = useTransientFlag(TRANSIENT_MS);
@@ -161,19 +162,18 @@ export function ZibbyHost() {
   /** `CommandLine.onSubmit` (Enter / send button / a spoken utterance routed through the composer). */
   const sendFromComposer = useCallback(
     (text: string, mentions?: TaskTarget[], attachments?: TaskAttachmentSet) => {
-      const origin = originOfNextSend.current;
-      originOfNextSend.current = "typed";
+      const origin: ChatMessageOrigin = dictatedRef.current ? "voice" : "typed";
+      dictatedRef.current = false;
       sendMessage(text, mentions, attachments, origin);
     },
     [sendMessage],
   );
 
+  // A finished dictation lands in the composer (focused, caret at the end) so the operator can
+  // fix it before Enter sends it.
   const onUtterance = useCallback((text: string) => {
-    originOfNextSend.current = "voice";
-    const sent = composerHandle.current?.submitSpoken(text) ?? false;
-    originOfNextSend.current = "typed";
-    // Blocked (a turn is in flight): keep the words in the draft rather than dropping them.
-    if (!sent) setInjectedText((prev) => (prev ? `${prev} ${text}` : text));
+    dictatedRef.current = true;
+    setInjectedText((prev) => (prev ? `${prev} ${text}` : text));
   }, []);
 
   // ---- voice ---------------------------------------------------------------------------
@@ -206,18 +206,17 @@ export function ZibbyHost() {
     setDockOpen(false);
   }, [pathname, setDockOpen]);
 
-  // ⌥ H toggles the history panel while the overlay is open.
+  // Every open puts the caret in the input, so typing can start at once. Runs after the DS
+  // overlay's own focus move (child effects first).
+  const focusedOnOpen = useRef(false);
   useEffect(() => {
-    if (!dockOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey && event.code === "KeyH" && !event.ctrlKey && !event.metaKey) {
-        event.preventDefault();
-        setHistoryOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dockOpen]);
+    if (phase === "closed" || phase === "leaving") {
+      focusedOnOpen.current = false;
+    } else if (!focusedOnOpen.current) {
+      focusedOnOpen.current = true;
+      composerHandle.current?.focus();
+    }
+  }, [phase]);
 
   // A file dragged over the closed app summons Zibby with the drop zone showing.
   useWindowFileDrag(!dockOpen, () => {
@@ -228,13 +227,30 @@ export function ZibbyHost() {
     setInjectedFiles(files.slice(0, MAX_ATTACHED_FILES));
   }, []);
 
-  // Where the orb flies from / back to: the logo's knot (measured whenever the open flag flips).
+  // Where the orb flies from / back to: the header's mini orb (measured whenever the open flag flips).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const origin = useMemo(() => readKnotOrigin(), [dockOpen]);
+  const origin = useMemo(() => readOrbOrigin(), [dockOpen]);
 
   // ---- conversations -----------------------------------------------------------------------
   const conversations = useZibbyConversations({ busy: thinking });
   const { createTask, pendingFor } = useZibbyCreateTask();
+
+  // While the overlay is open: ⌥ H history, ⌥ N new chat, ⌥ C clear (`event.code` — Option
+  // changes `event.key` on macOS).
+  const { startNew, clearActive } = conversations;
+  useEffect(() => {
+    if (!dockOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.code === "KeyH") setHistoryOpen((prev) => !prev);
+      else if (event.code === "KeyN") startNew();
+      else if (event.code === "KeyC") clearActive();
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dockOpen, startNew, clearActive]);
 
   // ---- orb ----------------------------------------------------------------------------------
   const online = useOnline();
@@ -323,6 +339,7 @@ export function ZibbyHost() {
           muted={voice.muted}
           onModeChange={voice.setMode}
           onMutedChange={voice.setMuted}
+          voiceUnavailable={!voice.ttsAvailable}
         />
       }
       hint={hint}

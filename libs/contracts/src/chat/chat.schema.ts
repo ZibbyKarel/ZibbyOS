@@ -64,6 +64,7 @@ export const CHAT_WIDGET_KINDS = [
   "mentions",
   "project-status",
   "ci",
+  "todo",
 ] as const;
 export const ChatWidgetKindSchema = z.enum(CHAT_WIDGET_KINDS);
 export type ChatWidgetKind = z.infer<typeof ChatWidgetKindSchema>;
@@ -107,6 +108,8 @@ export const ChatWidgetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("project-status"), ...widgetList }),
   /** Latest CI runs; a red run offers "fix it". */
   z.object({ kind: z.literal("ci"), ...widgetList }),
+  /** The operator's TODO notes: tick one done, or play it to start the task. */
+  z.object({ kind: z.literal("todo"), ...widgetBase, limit: widgetList.limit }),
 ]);
 export type ChatWidget = z.infer<typeof ChatWidgetSchema>;
 

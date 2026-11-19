@@ -54,7 +54,7 @@ export interface UseZibbyConversationsOptions {
 
 export interface ZibbyConversations {
   activeId: string | null;
-  /** Title of the active conversation; "Nový rozhovor" while it has none yet. */
+  /** Title of the active conversation; "Nový chat" while it has none yet. */
   activeTitle: string;
   /** Conversations in history (independent of the search term). */
   count: number;

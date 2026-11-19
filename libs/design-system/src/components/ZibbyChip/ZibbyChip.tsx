@@ -42,7 +42,7 @@ export function ZibbyChip({ orb, children, kbd, label, ref, ...rest }: ZibbyChip
           {orb}
         </span>
       ) : null}
-      <span data-testid={ZibbyChipTestId.Label}>{children}</span>
+      {children ? <span data-testid={ZibbyChipTestId.Label}>{children}</span> : null}
       {kbd ? (
         <span className="inline-flex" data-testid={ZibbyChipTestId.Kbd}>
           {kbd}

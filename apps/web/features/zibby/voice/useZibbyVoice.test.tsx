@@ -391,6 +391,51 @@ describe("useZibbyVoice — speaking and the echo guard", () => {
     expect(synth).not.toHaveBeenCalled();
   });
 
+  it("TTS unreachable and no browser voice: ttsAvailable is false, speak is a no-op", async () => {
+    status.data = { stt: { available: false }, reachable: false };
+    const { result } = setup();
+    expect(result.current.ttsAvailable).toBe(false);
+    act(() => result.current.speak("m1", "Ahoj."));
+    await tick(0);
+    expect(synth).not.toHaveBeenCalled();
+  });
+
+  it("TTS unreachable: reads the reply with the browser voice (Czech) instead", async () => {
+    status.data = { stt: { available: false }, reachable: false };
+    const spoken: { text: string; lang: string; voice: unknown }[] = [];
+    const cs = { lang: "cs-CZ", name: "Zuzana" };
+    class FakeUtterance {
+      onend: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      voice: unknown = null;
+      lang = "";
+      constructor(public text: string) {}
+    }
+    vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        getVoices: () => [{ lang: "en-US", name: "Sam" }, cs],
+        speak: (u: FakeUtterance) => {
+          spoken.push({ text: u.text, lang: u.lang, voice: u.voice });
+          u.onend?.();
+        },
+        cancel: vi.fn(),
+      },
+    });
+    try {
+      const { result } = setup();
+      expect(result.current.ttsAvailable).toBe(true);
+      act(() => result.current.speak("m1", "Ahoj."));
+      await tick(0);
+      expect(synth).not.toHaveBeenCalled();
+      expect(spoken).toEqual([{ text: "Ahoj.", lang: "cs-CZ", voice: cs }]);
+    } finally {
+      Reflect.deleteProperty(window, "speechSynthesis");
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("does not speak over the operator", async () => {
     const { result } = setup();
     act(() => result.current.startTalk());

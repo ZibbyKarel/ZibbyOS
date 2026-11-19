@@ -128,18 +128,15 @@ interface ComposerStubProps {
   maxRows?: number;
 }
 let composerProps: ComposerStubProps | undefined;
-const submitSpoken = vi.fn<(text: string) => boolean>();
+const focusInput = vi.fn();
 vi.mock("../tasks/components/CommandLine/CommandLine", async () => {
   const { useImperativeHandle } = await import("react");
   return {
     CommandLine: (props: ComposerStubProps) => {
       composerProps = props;
       useImperativeHandle(props.handleRef, () => ({
-        submitSpoken: (text: string) => {
-          const sent = submitSpoken(text);
-          if (sent) props.onSubmit(text);
-          return sent;
-        },
+        submitSpoken: () => false,
+        focus: focusInput,
       }));
       return (
         <div data-testid="command-line-stub">
@@ -189,6 +186,7 @@ function makeVoice(overrides: Partial<ZibbyVoice> = {}): ZibbyVoice {
     interruptedId: null,
     speak: vi.fn(),
     interrupt: vi.fn(() => null),
+    ttsAvailable: true,
     error: null,
     ...overrides,
   };
@@ -197,7 +195,7 @@ function makeVoice(overrides: Partial<ZibbyVoice> = {}): ZibbyVoice {
 function makeConversations(overrides: Partial<ZibbyConversations> = {}): ZibbyConversations {
   return {
     activeId: "conv-1",
-    activeTitle: "Nový rozhovor",
+    activeTitle: "Nový chat",
     count: 2,
     query: "",
     setQuery: vi.fn(),
@@ -205,7 +203,7 @@ function makeConversations(overrides: Partial<ZibbyConversations> = {}): ZibbyCo
       {
         label: "Dnes",
         items: [
-          { id: "conv-1", title: "Nový rozhovor", time: "teď", active: true },
+          { id: "conv-1", title: "Nový chat", time: "teď", active: true },
           { id: "conv-2", title: "Rebase #47385", time: "09:12", active: false },
         ],
       },
@@ -265,8 +263,7 @@ beforeEach(() => {
   mockPath = "/dashboard";
   routerPush.mockClear();
   handoffMutate.mockReset();
-  submitSpoken.mockReset();
-  submitSpoken.mockReturnValue(true);
+  focusInput.mockReset();
   composerProps = undefined;
   engine = makeEngine();
   voice = makeVoice();
@@ -353,6 +350,19 @@ describe("ZibbyHost — open / close", () => {
     fireEvent.keyDown(window, { code: "KeyH", key: "h", altKey: true });
     await waitFor(() => expect(aside()).toHaveAttribute("aria-hidden", "true"));
   });
+
+  it("Option+N starts a new chat and Option+C clears, by event.code, only while open", async () => {
+    renderHost();
+    fireEvent.keyDown(window, { code: "KeyN", key: "˜", altKey: true });
+    fireEvent.keyDown(window, { code: "KeyC", key: "ç", altKey: true });
+    expect(conversations.startNew).not.toHaveBeenCalled();
+    expect(conversations.clearActive).not.toHaveBeenCalled();
+    await openOverlay();
+    fireEvent.keyDown(window, { code: "KeyN", key: "˜", altKey: true });
+    fireEvent.keyDown(window, { code: "KeyC", key: "ç", altKey: true });
+    expect(conversations.startNew).toHaveBeenCalledTimes(1);
+    expect(conversations.clearActive).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ZibbyHost — orb state & status line", () => {
@@ -360,7 +370,7 @@ describe("ZibbyHost — orb state & status line", () => {
     renderHost();
     expect(live.orbState).toBe("sleep");
     await openOverlay();
-    expect(status()).toBe("Jsem tady · drž mezerník a mluv");
+    expect(status()).toBe("Jsem tady");
     expect(live.orbState).toBe("ready");
   });
 
@@ -488,7 +498,7 @@ describe("ZibbyHost — orb state & status line", () => {
       "A ten rebase předej agentovi",
     );
     expect(screen.getByTestId(ZibbyOverlayTestId.Hint)).toHaveTextContent(
-      "Drž mezerník po celou dobu, co mluvíš.",
+      "Drž tlačítko po celou dobu, co mluvíš.",
     );
   });
 
@@ -507,7 +517,7 @@ describe("ZibbyHost — thread", () => {
     renderHost();
     await openOverlay();
     expect(screen.getByTestId(ZibbyThreadTestId.Empty)).toHaveTextContent(
-      "Drž mezerník a mluv, nebo sem přetáhni soubory.",
+      "Napiš zprávu, nadiktuj ji, nebo sem přetáhni soubory.",
     );
     expect(screen.getByTestId(ZibbyOverlayTestId.Suggestions)).toBeInTheDocument();
   });
@@ -663,25 +673,40 @@ describe("ZibbyHost — composer & voice", () => {
     view.unmount();
   });
 
-  it("a voice utterance goes through the composer (attachments ride along) and is marked 'přepis'", async () => {
+  it("a voice utterance lands in the composer draft for editing, nothing is sent; sending it later is marked 'přepis'", async () => {
     renderHost();
     await openOverlay();
     act(() => voiceOptions?.onUtterance("Co mě dneska čeká"));
-    expect(submitSpoken).toHaveBeenCalledWith("Co mě dneska čeká");
-    expect(engine.send).toHaveBeenCalledWith("Co mě dneska čeká", undefined, undefined);
-    act(() => chat.setMessages([msg({ id: "u-sent", role: "user", text: "Co mě dneska čeká" })]));
+    expect(engine.send).not.toHaveBeenCalled();
+    expect(screen.getByTestId("stub-injected-text")).toHaveTextContent("Co mě dneska čeká");
+    act(() => composerProps?.onInjectedTextConsumed?.());
+    expect(screen.getByTestId("stub-injected-text")).toHaveTextContent("");
+    act(() => composerProps?.onSubmit("Co mě dneska čeká dnes"));
+    expect(engine.send).toHaveBeenCalledWith("Co mě dneska čeká dnes", undefined, undefined);
+    act(() => chat.setMessages([msg({ id: "u-sent", role: "user", text: "x" })]));
     expect(screen.getByTestId(ChatMessageTestId.Meta)).toHaveTextContent(/^přepis · /);
   });
 
-  it("an utterance the composer refuses (a turn in flight) lands in its draft instead of being lost", async () => {
-    submitSpoken.mockReturnValue(false);
+  it("focuses the composer input every time the overlay opens", async () => {
+    const user = userEvent.setup();
     renderHost();
     await openOverlay();
-    act(() => voiceOptions?.onUtterance("ještě jedna věc"));
-    expect(engine.send).not.toHaveBeenCalled();
-    expect(screen.getByTestId("stub-injected-text")).toHaveTextContent("ještě jedna věc");
-    act(() => composerProps?.onInjectedTextConsumed?.());
-    expect(screen.getByTestId("stub-injected-text")).toHaveTextContent("");
+    expect(focusInput).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Root)).not.toBeInTheDocument(),
+    );
+    await openOverlay();
+    expect(focusInput).toHaveBeenCalledTimes(2);
+  });
+
+  it("the voice button says 'Hlas nedostupný' when no voice exists", async () => {
+    voice = makeVoice({ ttsAvailable: false });
+    renderHost();
+    await openOverlay();
+    const mute = screen.getByTestId(ZibbyOverlayFooterTestId.Mute);
+    expect(mute).toHaveTextContent("Hlas nedostupný");
+    expect(mute).toBeDisabled();
   });
 
   it("bare Space talks while the overlay is open (pressTalk on down, releaseTalk on up)", async () => {
@@ -708,7 +733,7 @@ describe("ZibbyHost — composer & voice", () => {
     await openOverlay();
     const ptt = screen.getByTestId(ZibbyComposerTestId.Ptt);
     expect(ptt).toHaveAccessibleName("Drž a mluv");
-    expect(ptt).toHaveTextContent("Drž Space a mluv");
+    expect(ptt).toHaveTextContent("Mluv");
     const user = userEvent.setup();
     await user.pointer({ keys: "[MouseLeft>]", target: ptt });
     expect(voice.pressTalk).toHaveBeenCalledTimes(1);
@@ -795,18 +820,18 @@ describe("ZibbyHost — conversations", () => {
     renderHost();
     await openOverlay();
     act(() => chat.setMessages([msg({ id: "u1", role: "user", text: "x" })]));
-    expect(screen.getByTestId(ZibbyTopBarTestId.Title)).toHaveTextContent("Nový rozhovor");
+    expect(screen.getByTestId(ZibbyTopBarTestId.Title)).toHaveTextContent("Nový chat");
 
     await user.click(screen.getByTestId(ZibbyOverlayTopBarTestId.New));
     expect(conversations.startNew).toHaveBeenCalled();
 
     const openMenu = () => user.click(screen.getByTestId(ZibbyTopBarMenuTestId.Trigger));
     await openMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Vyčistit a začít znovu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Vyčistit" }));
     expect(conversations.clearActive).toHaveBeenCalled();
 
     await openMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Smazat rozhovor" }));
+    await user.click(screen.getByRole("menuitem", { name: "Smazat chat" }));
     expect(conversations.remove).toHaveBeenCalledWith("conv-1");
 
     await openMenu();
@@ -825,8 +850,8 @@ describe("ZibbyHost — conversations", () => {
     await openOverlay();
     expect(screen.getByTestId(ZibbyOverlayTopBarTestId.New)).toBeDisabled();
     await user.click(screen.getByTestId(ZibbyTopBarMenuTestId.Trigger));
-    expect(screen.getByRole("menuitem", { name: "Vyčistit a začít znovu" })).toBeDisabled();
-    expect(screen.getByRole("menuitem", { name: "Smazat rozhovor" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Vyčistit" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Smazat chat" })).toBeDisabled();
   });
 
   it("the history panel lists the groups, opens a conversation and searches", async () => {
@@ -838,7 +863,7 @@ describe("ZibbyHost — conversations", () => {
     expect(within(panel).getByText("Rebase #47385")).toBeInTheDocument();
     await user.click(within(panel).getByText("Rebase #47385"));
     expect(conversations.open).toHaveBeenCalledWith("conv-2");
-    await user.type(within(panel).getByPlaceholderText("Hledat v rozhovorech…"), "r");
+    await user.type(within(panel).getByPlaceholderText("Hledat v chatech…"), "r");
     expect(conversations.setQuery).toHaveBeenCalled();
   });
 
@@ -856,11 +881,11 @@ describe("ZibbyHost — conversations", () => {
 
   it("shows the toast with its Vrátit action wired to undo", async () => {
     const undo = vi.fn();
-    conversations = makeConversations({ toast: { message: "Konverzace vyčištěna", undo } });
+    conversations = makeConversations({ toast: { message: "Chat vyčištěn", undo } });
     const user = userEvent.setup();
     renderHost();
     await openOverlay();
-    expect(screen.getByTestId(ZibbyToastTestId.Message)).toHaveTextContent("Konverzace vyčištěna");
+    expect(screen.getByTestId(ZibbyToastTestId.Message)).toHaveTextContent("Chat vyčištěn");
     await user.click(screen.getByTestId(ZibbyToastTestId.Action));
     expect(undo).toHaveBeenCalled();
   });
@@ -938,7 +963,7 @@ describe("ZibbyHost — phone", () => {
     expect(screen.getByTestId(ZibbyComposerTestId.Ptt).className).toContain("h-[76px]");
     expect(screen.getByTestId(ZibbyOverlayTestId.Footer)).not.toHaveTextContent("Esc zavře");
     // Top bar actions collapse to icons.
-    expect(screen.getByTestId(ZibbyOverlayTopBarTestId.New)).toHaveAccessibleName("Nový rozhovor");
+    expect(screen.getByTestId(ZibbyOverlayTopBarTestId.New)).toHaveAccessibleName("Nový chat");
     expect(screen.getByTestId(ZibbyOverlayTopBarTestId.New)).toHaveTextContent("");
   });
 });

@@ -21,6 +21,7 @@ vi.mock("./MentionsWidgetCard", () => ({
 vi.mock("./ProjectStatusWidgetCard", () => ({
   ProjectStatusWidgetCard: () => <div data-testid="project-status" />,
 }));
+vi.mock("./TodoWidgetCard", () => ({ TodoWidgetCard: () => <div data-testid="todo" /> }));
 vi.mock("./CiWidgetCard", () => ({
   CiWidgetCard: (p: { onPrompt?: (t: string) => void }) => (
     <button data-testid="ci" onClick={() => p.onPrompt?.("hi")} type="button" />

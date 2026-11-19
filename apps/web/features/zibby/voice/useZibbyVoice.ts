@@ -31,7 +31,7 @@ export type { ZibbyVoiceMode };
 export interface ZibbyVoiceOptions {
   /** Overlay is open. When `false` everything is torn down (mic off, playback stopped). */
   enabled: boolean;
-  /** A finished utterance, to be SENT as a message (voice-originated). */
+  /** A finished utterance (the host decides: it lands in the composer for editing). */
   onUtterance: (text: string) => void;
 }
 
@@ -76,11 +76,46 @@ export interface ZibbyVoice {
   speakLevel: number;
   /** Id of the reply last cut off by `interrupt()` — the container marks it "…". Reset by the next `speak`. */
   interruptedId: string | null;
-  /** Reads a completed reply aloud; no-op when muted / TTS unavailable / the operator is talking. A new call replaces the current one. */
+  /** Some reply voice exists: the speakd daemon is reachable OR the browser has `speechSynthesis`. */
+  ttsAvailable: boolean;
+  /** Reads a completed reply aloud; no-op when muted / TTS unavailable / the operator is talking. A new call replaces the current one. Falls back to the browser voice when speakd is down. */
   speak: (messageId: string, text: string) => void;
   /** Stops TTS now; returns the id of the reply that was cut (or `null`). */
   interrupt: () => string | null;
   error: ZibbyVoiceError | null;
+}
+
+/** The browser's own TTS (Web Speech API) — the fallback when the speakd daemon is unreachable. */
+function browserTtsSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
+/** Speaks `chunks` in order with the browser voice; resolves when done / cut off / failed. */
+function speakWithBrowser(chunks: string[], lang: string, isCurrent: () => boolean): Promise<void> {
+  const synth = window.speechSynthesis;
+  const primary = lang.split("-")[0]?.toLowerCase() ?? "";
+  const voice = synth
+    .getVoices()
+    .find(
+      (v) =>
+        v.lang.toLowerCase() === lang.toLowerCase() || v.lang.toLowerCase().startsWith(primary),
+    );
+  return new Promise<void>((resolve) => {
+    chunks.forEach((chunk, i) => {
+      const u = new SpeechSynthesisUtterance(chunk);
+      u.lang = lang;
+      if (voice) u.voice = voice;
+      const last = i === chunks.length - 1;
+      u.onend = () => {
+        if (last) resolve();
+      };
+      u.onerror = () => {
+        if (!isCurrent()) resolve();
+        else if (last) resolve();
+      };
+      synth.speak(u);
+    });
+  });
 }
 
 /** A PTT hold shorter than this is not speech. */
@@ -218,7 +253,9 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
   });
   const useRecorder = speechStatus?.stt.available === true && recorder.supported;
   const supported = useRecorder || speech.supported;
-  const ttsAvailable = speechStatus?.reachable !== false;
+  const speakdReachable = speechStatus?.reachable !== false;
+  const browserTts = browserTtsSupported();
+  const ttsAvailable = speakdReachable || browserTts;
 
   const synthesize = useSynthesizeSpeechMutation();
   const { data: config } = useSystemConfigQuery();
@@ -232,6 +269,8 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
     useRecorder,
     statusPending,
     ttsAvailable,
+    speakdReachable,
+    lang,
     onUtterance,
     speech,
     recorder,
@@ -256,6 +295,8 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
       useRecorder,
       statusPending,
       ttsAvailable,
+      speakdReachable,
+      lang,
       onUtterance,
       speech,
       recorder,
@@ -370,6 +411,7 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
     const cut = speakingIdRef.current;
     speakToken.current += 1;
     if (cut !== null || latest.current.speaking) stopAudioPlayback();
+    if (cut !== null && browserTtsSupported()) window.speechSynthesis.cancel();
     speakingIdRef.current = null;
     setSpeakingId(null);
     if (cut !== null) setInterruptedId(cut);
@@ -396,14 +438,27 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
       });
       return res.status === 200 ? res.body.audioBase64 : null;
     };
+    const browser = () =>
+      speakWithBrowser(chunks, latest.current.lang, () => token === speakToken.current);
+    let played = false;
     const run = async () => {
       try {
+        if (!L.speakdReachable) {
+          await browser();
+          return;
+        }
         let next: Promise<string | null> = synth(chunks[0] ?? "");
         for (let i = 0; i < chunks.length; i += 1) {
           const audio = await next;
-          if (token !== speakToken.current || !audio) return;
+          if (token !== speakToken.current) return;
+          if (!audio) {
+            // speakd answered but produced nothing: read the rest with the browser voice.
+            if (i === 0 && browserTtsSupported()) await browser();
+            return;
+          }
           next = i + 1 < chunks.length ? synth(chunks[i + 1] ?? "") : Promise.resolve(null);
           next.catch(() => undefined);
+          played = true;
           const reason = await new Promise<string>((resolve) =>
             playAudioPlayback(`zibby-voice-${messageId}`, audio, resolve),
           );
@@ -411,6 +466,7 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
         }
       } catch {
         /* the app-wide mutation-error toast already told the operator */
+        if (!played && token === speakToken.current && browserTtsSupported()) await browser();
       } finally {
         if (token === speakToken.current) {
           speakingIdRef.current = null;
@@ -580,6 +636,7 @@ export function useZibbyVoice({ enabled, onUtterance }: ZibbyVoiceOptions): Zibb
     speaking: speakingNow,
     speakingId,
     speakLevel: 0,
+    ttsAvailable,
     interruptedId,
     speak,
     interrupt,

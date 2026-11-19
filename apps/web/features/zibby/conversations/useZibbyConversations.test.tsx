@@ -137,10 +137,10 @@ describe("useZibbyConversations: list", () => {
     expect(z.activeTitle).toBe("Deploy");
   });
 
-  it("falls back to 'Nový rozhovor' for a thread not in history yet", () => {
+  it("falls back to 'Nový chat' for a thread not in history yet", () => {
     const r = setup();
     activate(r, "fresh", []);
-    expect(r.result.current.z.activeTitle).toBe("Nový rozhovor");
+    expect(r.result.current.z.activeTitle).toBe("Nový chat");
   });
 
   it("shows no snippet without a search", () => {
@@ -237,7 +237,7 @@ describe("useZibbyConversations: open / new", () => {
     act(() => r.result.current.z.open("c2"));
     await flush();
     expect(r.result.current.chat.conversationId).toBe("c1");
-    expect(r.result.current.z.toast?.message).toBe("Rozhovor se nepodařilo otevřít.");
+    expect(r.result.current.z.toast?.message).toBe("Chat se nepodařilo otevřít.");
   });
 
   it("startNew keeps the old one in history, mints a fresh empty thread and tells the operator", () => {
@@ -247,7 +247,7 @@ describe("useZibbyConversations: open / new", () => {
     expect(r.result.current.chat.conversationId).not.toBe("c1");
     expect(r.result.current.chat.messages).toEqual([]);
     expect(r.result.current.z.toast).toEqual({
-      message: "Předchozí rozhovor je uložený v historii",
+      message: "Předchozí chat je uložený v historii",
     });
   });
 
@@ -277,7 +277,7 @@ describe("useZibbyConversations: rename", () => {
     const r = setup();
     act(() => r.result.current.z.rename("c1", "Release"));
     await flush();
-    expect(r.result.current.z.toast?.message).toBe("Rozhovor se nepodařilo přejmenovat.");
+    expect(r.result.current.z.toast?.message).toBe("Chat se nepodařilo přejmenovat.");
   });
 });
 
@@ -290,7 +290,7 @@ describe("useZibbyConversations: clear", () => {
     expect(r.result.current.chat.messages).toEqual([]); // optimistic
     await flush();
     expect(clearFn).toHaveBeenCalledWith({ params: { conversationId: "c1" } });
-    expect(r.result.current.z.toast?.message).toBe("Konverzace vyčištěna");
+    expect(r.result.current.z.toast?.message).toBe("Chat vyčištěn");
 
     act(() => r.result.current.z.toast?.undo?.());
     await flush();
@@ -308,7 +308,7 @@ describe("useZibbyConversations: clear", () => {
     expect(r.result.current.chat.messages).toEqual([]);
     await flush();
     expect(r.result.current.chat.messages.map((m) => m.id)).toEqual(["m1", "m2"]);
-    expect(r.result.current.z.toast).toEqual({ message: "Konverzaci se nepodařilo vyčistit." });
+    expect(r.result.current.z.toast).toEqual({ message: "Chat se nepodařilo vyčistit." });
   });
 
   it("treats a non-200 answer as a failure", async () => {
@@ -377,7 +377,7 @@ describe("useZibbyConversations: delete", () => {
     act(() => r.result.current.z.remove("c2"));
     await flush();
     expect(r.result.current.z.groups.flatMap((g) => g.items.map((i) => i.id))).toContain("c2");
-    expect(r.result.current.z.toast).toEqual({ message: "Rozhovor se nepodařilo smazat." });
+    expect(r.result.current.z.toast).toEqual({ message: "Chat se nepodařilo smazat." });
   });
 
   it("rolls the active thread back too when deleting it fails", async () => {
@@ -406,7 +406,7 @@ describe("useZibbyConversations: toast", () => {
     const r = setup();
     activate(r, "c1");
     act(() => r.result.current.z.startNew());
-    expect(r.result.current.z.toast?.message).toBe("Předchozí rozhovor je uložený v historii");
+    expect(r.result.current.z.toast?.message).toBe("Předchozí chat je uložený v historii");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TOAST_DURATION_MS - 1000);
@@ -416,7 +416,7 @@ describe("useZibbyConversations: toast", () => {
     act(() => r.result.current.chat.setMessages([msg("n1")]));
     act(() => r.result.current.z.clearActive());
     await flush();
-    expect(r.result.current.z.toast?.message).toBe("Konverzace vyčištěna");
+    expect(r.result.current.z.toast?.message).toBe("Chat vyčištěn");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TOAST_DURATION_MS - 1);

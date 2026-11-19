@@ -25,7 +25,7 @@ export interface ZibbyOverlayTopBarProps {
 
 /**
  * The overlay's top bar: history toggle (⌥ H), the active conversation's title (click to
- * rename), "New conversation", the ⋯ menu (Rename · Clear and start over · Delete) and close.
+ * rename), "New chat", the ⋯ menu (Rename · Clear · Delete) and close.
  * Actions the conversations hook treats as no-ops while a turn is in flight are disabled.
  */
 export function ZibbyOverlayTopBar({

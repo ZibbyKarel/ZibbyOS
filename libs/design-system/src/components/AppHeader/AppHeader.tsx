@@ -24,6 +24,8 @@ export enum AppHeaderTestId {
   SearchShortcut = "app-header-search-shortcut",
   Create = "app-header-create",
   Zibby = "app-header-zibby",
+  /** Zone B, right after search - the Zibby mini orb. */
+  Orb = "app-header-orb",
   Status = "app-header-status",
   Mode = "app-header-mode",
   Notifications = "app-header-notifications",
@@ -33,8 +35,8 @@ export enum AppHeaderTestId {
 export interface AppHeaderProps {
   /** Brand mark, leading the header. Defaults to the `BrandMark` + `<Wordmark />` lockup. */
   wordmark?: ReactNode;
-  /** System state shown live in the default mark's knot (idle / agents working /
-   *  something waits on the operator). Omit for the static amber brand mark.
+  /** Live knot state of the default mark (idle / agents working / something waits on the
+   *  operator). Omit for the static emerald (`done`) brand mark.
    *  Ignored when a custom `wordmark` is passed. */
   markState?: BrandMarkState;
   /** Running release shown small under the default wordmark, e.g. `v0.2.1`.
@@ -46,6 +48,8 @@ export interface AppHeaderProps {
   homeLabel?: string;
   /** Zone A, after the brand - the section nav (a `SectionTrack`). */
   nav?: ReactNode;
+  /** Zone B, right after the search trigger - Zibby's mini orb (the overlay's summon point). */
+  orb?: ReactNode;
   /** Zone B - create trigger (a `HeaderNewButton`, + its menu). */
   create?: ReactNode;
   /** Zone B, last - summon button of the Zibby overlay (a `ZibbyChip`). */
@@ -87,6 +91,7 @@ export function AppHeader({
   homeHref,
   homeLabel = "ZibbyOS",
   nav,
+  orb,
   create,
   zibby,
   status,
@@ -103,7 +108,7 @@ export function AppHeader({
   const HomeLink = linkComponent ?? "a";
   const mark = wordmark ?? (
     <Row align="center" style={{ gap: 8 }}>
-      <BrandMark live={markState !== undefined} size={24} state={markState} />
+      <BrandMark live={markState !== undefined} size={24} state={markState ?? "done"} />
       {!hideWordmark && (
         <span className="hidden md:inline-flex">
           <Wordmark size="sm" version={version} />
@@ -167,6 +172,7 @@ export function AppHeader({
             </span>
           </button>
         )}
+        {orb && <span data-testid={AppHeaderTestId.Orb}>{orb}</span>}
         {create && <span data-testid={AppHeaderTestId.Create}>{create}</span>}
         {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
       </div>

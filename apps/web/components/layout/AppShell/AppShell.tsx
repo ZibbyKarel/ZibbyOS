@@ -21,7 +21,7 @@ import { NewTaskProvider, useNewTaskPageHotkey } from "../../../features/tasks";
 import { NoteDock } from "../../../features/knowledge/components/NoteDock";
 import { OpenNoteDockProvider } from "../../../features/knowledge/noteDockContext";
 import { ChatProvider, useChat } from "../../../features/chat";
-import { ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
+import { ZibbyHeaderChip, ZibbyHost, ZibbyLiveProvider } from "../../../features/zibby";
 import { CommandPaletteHost, useCommandPaletteHotkey } from "../../../features/command-palette";
 import { ApprovalSheet } from "../../../features/approvals/components/ApprovalSheet";
 import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSheetParam";
@@ -269,8 +269,8 @@ function useHeaderTrailing() {
   const limitItems = useHeaderLimitItems();
   const { data: approvals } = useApprovalsQuery();
   const { runs } = useRunsQuery();
-  // The logo's knot shows the system state (brand doc "Motýlek"): amber when
-  // something waits on the operator, violet while agents work, grey at rest.
+  // The header's mini orb shows the system state: needs when something waits on the
+  // operator, work while agents run, asleep at rest (the logo itself is static).
   const markState: BrandMarkState =
     approvals?.length || runs.some((r) => r.status === "awaiting-approval" || r.status === "parked")
       ? "blocked"
@@ -389,7 +389,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   hideWordmark={lv >= 1}
                   homeHref="/dashboard"
                   linkComponent={NavLink}
-                  markState={trailing.markState}
                   mode={
                     <HeaderModeGroup ariaLabel={tShell("modeGroupAria")}>
                       <AiEngineSwitcher compact={lv >= 2} />
@@ -404,6 +403,7 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   }
                   notifications={<NotificationBell />}
                   onSearchClick={() => setPaletteOpen(true)}
+                  orb={<ZibbyHeaderChip iconOnly systemState={trailing.markState} />}
                   preferences={<PreferencesMenu />}
                   ref={headerRef}
                   searchCompact={lv >= 1}

@@ -10,6 +10,7 @@ import { ProjectStatusWidgetCard } from "./ProjectStatusWidgetCard";
 import { PrsWidgetCard } from "./PrsWidgetCard";
 import { RunWidgetCard } from "./RunWidgetCard";
 import { RunsWidgetCard } from "./RunsWidgetCard";
+import { TodoWidgetCard } from "./TodoWidgetCard";
 
 export interface ChatWidgetCardProps {
   widget: ChatWidget;
@@ -38,6 +39,8 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <ProjectStatusWidgetCard widget={widget} />;
     case "ci":
       return <CiWidgetCard onPrompt={onPrompt} widget={widget} />;
+    case "todo":
+      return <TodoWidgetCard widget={widget} />;
     default: {
       const unreachable: never = widget;
       return unreachable;

@@ -22,8 +22,9 @@ export type BrandMarkState = Extract<StateTone, "idle" | "working" | "blocked">;
 export interface BrandMarkProps {
   /** Render size in px. Defaults to 24 (the app-header size). */
   size?: BrandMarkSize;
-  /** Knot colour. Defaults to `blocked` — the amber static brand mark. */
-  state?: BrandMarkState;
+  /** Knot colour. Defaults to `blocked` — the amber static brand mark; `done` is the static
+   *  emerald logo (no system state). */
+  state?: BrandMarkState | "done";
   /** Live knot: the glow breathes at the state's tempo (idle 4.5s, working
    *  1.1s, blocked 1.8s) and `blocked` sends out a ring wave. */
   live?: boolean;

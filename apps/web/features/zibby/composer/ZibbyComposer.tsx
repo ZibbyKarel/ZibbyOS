@@ -99,13 +99,13 @@ export function ZibbyComposer({
       ? t("ptt.tapActive")
       : t("ptt.tapIdle");
 
-  // `data-zibby-autofocus`: the overlay focuses the PTT's wrapper (not the button) on open, so no
-  // focus ring flashes on it while Space still talks (`data-ptt-allow`).
+  // `data-ptt-allow`: Space still talks while the PTT button holds focus after a click. The host
+  // focuses the input on open.
   return (
     <ZibbyComposerBar
       label={t("composer.label")}
       leading={
-        <Container data-ptt-allow data-zibby-autofocus style={{ outline: "none" }} tabIndex={-1}>
+        <Container data-ptt-allow>
           <ZibbyPttButton
             active={listening}
             data-testid={ZibbyComposerTestId.Ptt}

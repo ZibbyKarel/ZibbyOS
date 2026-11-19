@@ -56,20 +56,23 @@ describe("ZibbyHeaderChip", () => {
     expect(screen.getByTestId(ZibbyChipTestId.Orb)).toBeInTheDocument();
   });
 
-  it("is asleep when closed and idle, 'needs' when something waits on the operator", () => {
+  it("shows the system state when closed: asleep, 'work' while agents run, 'needs' when blocked", () => {
     const { unmount } = renderChip();
     expect(orbState()).toBe("sleep");
     unmount();
-    renderChip({ needsAttention: true });
+    const second = renderChip({ systemState: "working" });
+    expect(orbState()).toBe("work");
+    second.unmount();
+    renderChip({ systemState: "blocked" });
     expect(orbState()).toBe("needs");
   });
 
   it("mirrors the live orb state while the overlay is up", () => {
-    renderChip({ needsAttention: true }, { phase: "open", orbState: "listen" });
+    renderChip({ systemState: "blocked" }, { phase: "open", orbState: "listen" });
     expect(orbState()).toBe("listen");
   });
 
-  it("is icon-only on the phone toolbar (no label, no keys, still named)", () => {
+  it("is icon-only for the header mini orb (no label, no keys, still named)", () => {
     renderChip({ iconOnly: true });
     const chip = screen.getByTestId(ZibbyHeaderChipTestId.Root);
     expect(chip).toHaveTextContent("");

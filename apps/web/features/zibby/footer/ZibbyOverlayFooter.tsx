@@ -16,12 +16,14 @@ export interface ZibbyOverlayFooterProps {
   onModeChange: (mode: ZibbyVoiceMode) => void;
   muted: boolean;
   onMutedChange: (muted: boolean) => void;
+  /** Neither the speakd daemon nor the browser can speak — the voice button says so. */
+  voiceUnavailable?: boolean;
   /** Phone: no keyboard, so the shortcut hint is left out. */
   compact?: boolean;
 }
 
 /**
- * The row under the composer: talk-mode switch ("Drž mezerník" / "Hands-free"), the voice
+ * The row under the composer: talk-mode switch ("Drž" / "Hands-free"), the voice
  * on/off toggle, and the hint with the REAL configured summon shortcut.
  */
 export function ZibbyOverlayFooter({
@@ -29,6 +31,7 @@ export function ZibbyOverlayFooter({
   onModeChange,
   muted,
   onMutedChange,
+  voiceUnavailable = false,
   compact = false,
 }: ZibbyOverlayFooterProps) {
   const t = useTranslations("zibby");
@@ -54,11 +57,16 @@ export function ZibbyOverlayFooter({
           <Button
             aria-pressed={muted}
             data-testid={ZibbyOverlayFooterTestId.Mute}
+            disabled={voiceUnavailable}
             intent="ghost"
             onClick={() => onMutedChange(!muted)}
             size="sm"
           >
-            {muted ? t("footer.voiceOff") : t("footer.voiceOn")}
+            {voiceUnavailable
+              ? t("footer.voiceUnavailable")
+              : muted
+                ? t("footer.voiceOff")
+                : t("footer.voiceOn")}
           </Button>
         </>
       }

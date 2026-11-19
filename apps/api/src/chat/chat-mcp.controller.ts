@@ -443,7 +443,8 @@ export class ChatMcpController {
           "pull requests), `issues` (open issues), `approvals` (pending approvals with " +
           "approve/reject buttons), `briefing` (latest briefing), `mentions` (inbox items " +
           "waiting on the operator), `project-status` (project health), `ci` (latest CI " +
-          "runs). Use it whenever the operator asks about one of these; then add at most " +
+          "runs), `todo` (the operator's TODO notes: done checkboxes + a play button that " +
+          "starts the task). Use it whenever the operator asks about one of these; then add at most " +
           "one short sentence — do NOT repeat the card's content in prose. Read-only: " +
           "showing a card never performs an action.",
         inputSchema: {
