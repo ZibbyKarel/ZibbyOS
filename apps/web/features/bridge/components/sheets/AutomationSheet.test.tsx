@@ -65,10 +65,7 @@ describe("AutomationSheet", () => {
     );
     await userEvent.click(screen.getByTestId(AutomationSheetTestId.RunNow));
     await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
-    expect(d.trigger).toHaveBeenCalledWith(
-      { params: { id: "nightly" }, body: {} },
-      expect.anything(),
-    );
+    expect(d.trigger).toHaveBeenCalledWith({ params: { id: "nightly" }, body: {} });
   });
 
   it("the title opens the automation detail page", async () => {

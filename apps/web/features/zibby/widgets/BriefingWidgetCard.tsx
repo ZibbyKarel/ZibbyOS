@@ -48,7 +48,6 @@ export function BriefingWidgetCard({ widget }: BriefingWidgetCardProps) {
     <ChatWidgetFrame
       emptyText={t("briefing.empty")}
       onRetry={() => void query.refetch()}
-      openHref="/dashboard/briefings"
       rootTestId={BriefingWidgetCardTestId.Root}
       status={status}
       title={widget.title ?? t("briefing.title")}

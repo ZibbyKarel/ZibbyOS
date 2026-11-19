@@ -51,10 +51,7 @@
       },
       "dashboard": {
         "map": "Bridge",
-        "overview": "Inbox",
-        "issues": "Issues",
-        "pull-requests": "Pull requests",
-        "briefings": "Briefings"
+        "overview": "Inbox"
       },
       "companies": {
         "companies": "Companies",
@@ -658,7 +655,6 @@
     "title": "Good morning.",
     "emptyTitle": "Dashboard is empty — build it up.",
     "briefing": "Briefing",
-    "briefingGenerate": "Generate now",
     "briefingDid": "{count} handled",
     "briefingWatching": "watching {count} channels",
     "briefingPausedLimit": "{count} paused on the limit",
@@ -2498,17 +2494,6 @@
         "selectAll": "Select all items",
         "deselectAll": "Clear all items"
       },
-      "rhythm": {
-        "title": "Daily rhythm",
-        "standupTime": "Standup time",
-        "standupTimeHint": "HH:MM — standup cheat sheet will be ready 15 min before.",
-        "activeHours": "Active monitoring hours",
-        "format": "Standup format",
-        "formatPlaceholder": "Yesterday / Today / Blockers"
-      },
-      "standup": {
-        "title": "Standup cheat sheet"
-      },
       "integrationActivity": {
         "title": "Integration activity",
         "empty": "Nothing processed from this project's integrations in the last 14 days."
@@ -3424,18 +3409,6 @@
       "text": "Preview"
     }
   },
-  "activityBriefings": {
-    "title": "Briefing",
-    "generateNow": "Generate now",
-    "generatedAt": "Generated {at}",
-    "headline": "Headline",
-    "needsYou": "Needs you",
-    "nothingNeedsYou": "Nothing needs you right now.",
-    "didForYou": "What ZIBBY did",
-    "emptyDid": "Nothing to record yet.",
-    "departments": "Departments",
-    "watching": "Watching"
-  },
   "policy": {
     "approvals": {
       "queueTitle": "Queue",
@@ -3898,7 +3871,6 @@
       "mineBlockedBucket": "Mine · blocked",
       "noIssues": "Nothing to process in this filter.",
       "noPrs": "No pull requests in this filter.",
-      "openIssues": "Open issues →",
       "openPrs": "Open pull requests →"
     },
     "chain": {

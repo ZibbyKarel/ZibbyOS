@@ -5,7 +5,6 @@ describe("sectionForPath", () => {
   it.each([
     ["/dashboard", "dashboard"],
     ["/dashboard/inbox/issues/p/i", "dashboard"],
-    ["/dashboard/briefings", "dashboard"],
     ["/work/automations", "work"],
     ["/work/automations/memory-distill", "work"],
     ["/companies", "companies"],

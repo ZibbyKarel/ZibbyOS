@@ -96,10 +96,7 @@ describe("automations DetailScreen (N4f grammar)", () => {
     render(<DetailScreen automationId="on-file" />);
     await userEvent.click(screen.getByTestId(AutomationDetailScreenTestId.Run));
     await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
-    expect(hooks.trigger).toHaveBeenCalledWith(
-      { params: { id: "on-file" }, body: {} },
-      expect.anything(),
-    );
+    expect(hooks.trigger).toHaveBeenCalledWith({ params: { id: "on-file" }, body: {} });
   });
 
   it("Delete asks in a CONFIRM dialog, then deletes and navigates back to /automations", async () => {

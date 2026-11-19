@@ -8,7 +8,6 @@ export {
 } from "./useProjectLocalStateQuery";
 export { getProjectProfileQueryKey, useProjectProfileQuery } from "./useProjectProfileQuery";
 export { getResolvedProjectQueryKey, useResolvedProjectQuery } from "./useResolvedProjectQuery";
-export { getProjectStandupQueryKey, useProjectStandupQuery } from "./useProjectStandupQuery";
 export {
   getProjectIntegrationActivityQueryKey,
   INTEGRATION_ACTIVITY_KINDS,

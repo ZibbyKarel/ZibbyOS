@@ -16,7 +16,7 @@ export interface RunAutomationDialogProps {
   onClose: () => void;
 }
 
-/** Confirm-with-input before a manual run: an optional one-off extra prompt sent with the trigger. */
+/** Confirm-with-input before a manual run: an optional one-off extra prompt sent with the trigger. Closes itself on submit. */
 export function RunAutomationDialog({ automationId, onClose }: RunAutomationDialogProps) {
   const t = useTranslations("automations");
   const trigger = useTriggerAutomationMutation();
@@ -24,10 +24,10 @@ export function RunAutomationDialog({ automationId, onClose }: RunAutomationDial
 
   const run = () => {
     const text = prompt.trim();
-    trigger.mutate(
-      { params: { id: automationId }, body: text ? { prompt: text } : {} },
-      { onSuccess: onClose },
-    );
+    trigger.mutate({ params: { id: automationId }, body: text ? { prompt: text } : {} });
+    // Fire and close: the request can outlast the dialog (some targets run inline), and a
+    // failure surfaces through the global mutation toast.
+    onClose();
   };
 
   return (

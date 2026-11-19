@@ -5,7 +5,7 @@ import { MachineSection } from "../components/MachineSection";
 import { RuntimePanels } from "../components/RuntimePanels";
 import { SettingsPage } from "../components/SettingsPage";
 
-/** `/system/settings/runtime` — this machine, schedulers, limits, context. */
+/** `/system/settings/runtime` — this machine, schedulers, limits. */
 export function RuntimePage() {
   const t = useTranslations("settings");
   const tr = useTranslations("settings.runtimeGroups");
@@ -15,7 +15,6 @@ export function RuntimePage() {
         { id: "machine", label: t("machine.title") },
         { id: "schedulers", label: tr("schedulers") },
         { id: "limits", label: tr("limits") },
-        { id: "context", label: tr("context") },
       ]}
       section="runtime"
     >

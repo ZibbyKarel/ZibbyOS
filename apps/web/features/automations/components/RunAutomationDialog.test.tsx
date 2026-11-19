@@ -25,6 +25,13 @@ describe("RunAutomationDialog", () => {
     });
   });
 
+  it("closes itself after Run", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<RunAutomationDialog automationId="digest" onClose={onClose} />);
+    await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("sends an empty body when the prompt is blank", async () => {
     renderWithProviders(<RunAutomationDialog automationId="digest" onClose={() => {}} />);
     await userEvent.type(screen.getByTestId(TextAreaFieldTestId.Control), "   ");

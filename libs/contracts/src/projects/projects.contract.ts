@@ -15,7 +15,6 @@ import {
   ProjectProfileSchema,
   ProjectSchema,
   ProjectSecretsInputSchema,
-  ProjectStandupSchema,
   UpdateProjectProfileSchema,
   UpdateProjectSchema,
 } from "./project.schema";
@@ -97,7 +96,7 @@ export const projectsContract = c.router(
       path: "/projects/:id/profile",
       pathParams: z.object({ id: ProjectIdSchema }),
       responses: { 200: ProjectProfileSchema, 404: ErrorSchema },
-      summary: "Get the operational profile (identity, autonomy policy, daily rhythm) of a project",
+      summary: "Get the operational profile (identity, autonomy policy) of a project",
     },
     updateProjectProfile: {
       method: "PUT",
@@ -106,13 +105,6 @@ export const projectsContract = c.router(
       body: UpdateProjectProfileSchema,
       responses: { 200: ProjectProfileSchema, 404: ErrorSchema, 422: ErrorSchema },
       summary: "Replace the operational profile of a project",
-    },
-    getStandup: {
-      method: "GET",
-      path: "/projects/:id/standup",
-      pathParams: z.object({ id: ProjectIdSchema }),
-      responses: { 200: ProjectStandupSchema, 404: ErrorSchema },
-      summary: "Get the latest standup cheat sheet for a project (generates on first call)",
     },
     getResolvedProject: {
       method: "GET",

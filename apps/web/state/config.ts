@@ -39,11 +39,9 @@ export const SECTIONS = [
     href: "/dashboard" as Route,
     tabs: [
       { id: "map", href: "/dashboard" as Route },
-      // Roadmap items + GitHub PRs awaiting the operator (docs/plans/inbox-ui-spec.md).
+      // Roadmap items + GitHub PRs awaiting the operator (docs/plans/inbox-ui-spec.md). The Issues /
+      // Pull requests / Briefings tabs are gone (PR + issue detail routes stay, reached from widgets).
       { id: "overview", href: "/dashboard/inbox" as Route },
-      { id: "issues", href: "/dashboard/inbox/issues" as Route },
-      { id: "pull-requests", href: "/dashboard/inbox/pull-requests" as Route },
-      { id: "briefings", href: "/dashboard/briefings" as Route },
     ],
   },
   {

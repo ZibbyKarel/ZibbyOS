@@ -27,8 +27,8 @@ export interface OverviewPanelProps {
   /** Pre-rendered top rows; none shows `emptyText`. */
   rows: ReactNode[];
   emptyText: string;
-  openHref: string;
-  openLabel: string;
+  openHref?: string;
+  openLabel?: string;
   testId?: string;
 }
 
@@ -84,13 +84,19 @@ export function OverviewPanel({
             </Typography>
           </Container>
         )}
-        <Container padding={["150", "250"]} textAlign="right">
-          <TextLink data-testid={OverviewPanelTestId.Open} href={openHref} linkComponent={NavLink}>
-            <Typography type="label" variant="primary">
-              {openLabel}
-            </Typography>
-          </TextLink>
-        </Container>
+        {openHref && (
+          <Container padding={["150", "250"]} textAlign="right">
+            <TextLink
+              data-testid={OverviewPanelTestId.Open}
+              href={openHref}
+              linkComponent={NavLink}
+            >
+              <Typography type="label" variant="primary">
+                {openLabel}
+              </Typography>
+            </TextLink>
+          </Container>
+        )}
       </Stack>
     </Panel>
   );

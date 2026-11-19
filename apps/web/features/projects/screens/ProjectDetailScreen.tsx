@@ -1,10 +1,9 @@
 "use client";
 
-import type { ProjectAutonomyPolicy, ProjectDailyRhythm, ProjectPerson } from "@zibby/contracts";
+import type { ProjectAutonomyPolicy, ProjectPerson } from "@zibby/contracts";
 import {
   Alert,
   Button,
-  CodeBlock,
   Container,
   Divider,
   Tabs as DsTabs,
@@ -73,7 +72,6 @@ import {
   useProjectLocalStateQuery,
   useProjectProfileQuery,
   useProjectQuery,
-  useProjectStandupQuery,
 } from "../queries";
 
 // ---------------------------------------------------------------------------
@@ -234,7 +232,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
 
   const projectQ = useProjectQuery(id, { enabled: !isNew });
   const profileQ = useProjectProfileQuery(id, { enabled: !isNew });
-  const standupQ = useProjectStandupQuery(id, { enabled: !isNew });
   const localStateQ = useProjectLocalStateQuery(id, { enabled: !isNew });
   const { data: categories = [] } = useProjectCategoriesQuery();
   const { data: companies = [] } = useCompaniesQuery();
@@ -252,9 +249,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
 
   const [autonomy, setAutonomy] = useState<ProjectAutonomyPolicy | null>(null);
   const effectiveAutonomy: ProjectAutonomyPolicy = autonomy ?? profileQ.data?.autonomy_policy ?? {};
-
-  const [rhythm, setRhythm] = useState<ProjectDailyRhythm | null>(null);
-  const effectiveRhythm: ProjectDailyRhythm = rhythm ?? profileQ.data?.daily_rhythm ?? {};
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -318,13 +312,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
         },
       },
       { onSuccess: () => setAutonomy(null) },
-    );
-  }
-
-  function saveRhythm() {
-    updateProfile.mutate(
-      { params: { id }, body: { daily_rhythm: effectiveRhythm } },
-      { onSuccess: () => setRhythm(null) },
     );
   }
 
@@ -496,65 +483,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
       </Stack>
     </Panel>
   );
-
-  const rhythmPanel = (
-    <Panel
-      header={t("rhythm.title")}
-      headerEnd={
-        <Button
-          data-testid="save-rhythm"
-          disabled={isSaving}
-          icon="check"
-          intent="primary"
-          onClick={saveRhythm}
-          size="sm"
-        >
-          {tk("common.save")}
-        </Button>
-      }
-      padding="200"
-    >
-      <Stack gap="150">
-        <TextInputField
-          data-testid="standup-time"
-          hint={t("rhythm.standupTimeHint")}
-          label={t("rhythm.standupTime")}
-          onChange={(e) =>
-            setRhythm({ ...effectiveRhythm, standup_time: e.target.value || undefined })
-          }
-          placeholder="09:30"
-          value={effectiveRhythm.standup_time ?? ""}
-        />
-        <TextInputField
-          data-testid="active-hours"
-          label={t("rhythm.activeHours")}
-          onChange={(e) =>
-            setRhythm({ ...effectiveRhythm, active_hours: e.target.value || undefined })
-          }
-          placeholder="09:00-18:00"
-          value={effectiveRhythm.active_hours ?? ""}
-        />
-        <TextInputField
-          data-testid="standup-format"
-          label={t("rhythm.format")}
-          onChange={(e) => setRhythm({ ...effectiveRhythm, format: e.target.value || undefined })}
-          placeholder={t("rhythm.formatPlaceholder")}
-          value={effectiveRhythm.format ?? ""}
-        />
-      </Stack>
-    </Panel>
-  );
-
-  const standupPanel = standupQ.data ? (
-    <Panel header={t("standup.title")} padding="200">
-      <Stack gap="75">
-        <Typography mono size="xs" type="note" variant="tertiary">
-          {standupQ.data.date}
-        </Typography>
-        <CodeBlock data-testid="standup-text" text={standupQ.data.text} />
-      </Stack>
-    </Panel>
-  ) : null;
 
   // THIS machine's local-clone resolution. A present clone from the cloneRoot
   // (rather than the canonical `path`) gets a subtle chip; an absent one gets a
@@ -762,14 +690,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
                   {teamPanel}
                   <Divider />
                   {autonomyPanel}
-                  <Divider />
-                  {rhythmPanel}
-                  {standupPanel && (
-                    <>
-                      <Divider />
-                      {standupPanel}
-                    </>
-                  )}
                 </Stack>
               )}
 

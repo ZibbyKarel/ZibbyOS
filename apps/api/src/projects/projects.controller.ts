@@ -23,7 +23,6 @@ import {
 } from "./projects.errors";
 import { ProjectsStorageService } from "./projects.storage.service";
 import { ResolvedProjectService } from "./resolved-project.service";
-import { StandupService } from "./standup.service";
 
 const errors = makeErrorMapper("Project", {
   missing: [ProjectNotFoundError],
@@ -35,7 +34,6 @@ function toProfile(project: Project): ProjectProfile {
   return {
     ...(project.identity ? { identity: project.identity } : {}),
     ...(project.autonomy_policy ? { autonomy_policy: project.autonomy_policy } : {}),
-    ...(project.daily_rhythm ? { daily_rhythm: project.daily_rhythm } : {}),
   };
 }
 
@@ -54,7 +52,6 @@ export class ProjectsController {
   constructor(
     private readonly storage: ProjectsStorageService,
     private readonly secrets: ProjectSecretsStore,
-    private readonly standup: StandupService,
     private readonly vault: ProjectVaultService,
     private readonly resolvedProjects: ResolvedProjectService,
     private readonly local: ProjectLocalService,
@@ -145,13 +142,6 @@ export class ProjectsController {
           void this.vault.write(updated);
           return toProfile(updated);
         }),
-
-      getStandup: async ({ params: { id } }) => {
-        const result = await this.standup.get(id).catch(() => null);
-        if (!result)
-          return { status: 404 as const, body: { message: `No standup for project "${id}"` } };
-        return { status: 200 as const, body: result };
-      },
 
       getResolvedProject: ({ params: { id } }) =>
         errors.or404(id, async () => this.resolveContext(await this.storage.get(id))),

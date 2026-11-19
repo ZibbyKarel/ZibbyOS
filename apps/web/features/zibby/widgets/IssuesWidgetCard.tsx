@@ -53,7 +53,7 @@ export function IssuesWidgetCard({ widget }: IssuesWidgetCardProps) {
       emptyText={t("issues.empty")}
       hiddenCount={hiddenCount}
       onRetry={() => void query.refetch()}
-      openHref="/dashboard/inbox/issues"
+      openHref="/dashboard/inbox"
       rootTestId={IssuesWidgetCardTestId.Root}
       status={widgetStatus({
         isPending: query.isPending,

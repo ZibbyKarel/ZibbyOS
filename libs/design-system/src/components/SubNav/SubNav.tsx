@@ -136,7 +136,7 @@ export function SubNav({
         "flex",
         responsive
           ? "flex-col lg:h-full lg:items-stretch lg:justify-start"
-          : "items-stretch justify-between gap-1 border-b border-line px-1 md:px-3.5",
+          : "items-stretch justify-between gap-1 border-b border-line pl-1 pr-1 md:pr-3.5 md:pl-[var(--subnav-inset,0.875rem)]",
       )}
       data-testid={SubNavTestId.Root}
       // Fills the fixed-height row `AppFrame` reserves for it (`LAYOUT.subNavHeight`)

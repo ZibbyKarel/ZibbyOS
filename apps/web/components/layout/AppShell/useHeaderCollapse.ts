@@ -36,8 +36,22 @@ export function useHeaderCollapse(watch?: unknown) {
         setLevel((level - 1) as HeaderCollapseLevel);
       }
     };
+    // Desktop sub-nav starts under the first section tab: publish the tab strip's left offset
+    // (`SubNav` reads `--subnav-inset`). Re-measured with every header resize / collapse step.
+    const syncSubnavInset = () => {
+      const nav = el.querySelector<HTMLElement>('[data-testid="app-header-nav"]');
+      if (!nav) return document.documentElement.style.removeProperty("--subnav-inset");
+      document.documentElement.style.setProperty(
+        "--subnav-inset",
+        `${Math.round(nav.getBoundingClientRect().left - el.getBoundingClientRect().left)}px`,
+      );
+    };
     check();
-    const observer = new ResizeObserver(check);
+    syncSubnavInset();
+    const observer = new ResizeObserver(() => {
+      check();
+      syncSubnavInset();
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [el, level, watch]);

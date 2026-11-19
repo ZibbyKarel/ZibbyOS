@@ -16,7 +16,6 @@ import { ProjectVaultService } from "./project-vault.service";
 import { ProjectsController } from "./projects.controller";
 import { PROJECTS_DIR, ProjectsStorageService } from "./projects.storage.service";
 import { ResolvedProjectService } from "./resolved-project.service";
-import { StandupService } from "./standup.service";
 
 const exec = promisify(execFile);
 
@@ -38,7 +37,7 @@ async function initRepo(dir: string): Promise<void> {
  * `tasks-attachments.test.ts` — with the routes' actual collaborators
  * (`ProjectsStorageService`, `ProjectSecretsStore`, `ProjectLocalService` and its
  * `WorkspaceService`/`MachineConfigStore`) real, and the unrelated ones
- * (`StandupService`, `ProjectVaultService`, `ResolvedProjectService`,
+ * (`ProjectVaultService`, `ResolvedProjectService`,
  * `ProjectPrService` — Phase 78) stubbed.
  */
 describe("Phase 76 — GET /api/projects/:id/local-state, POST /api/projects/:id/clone", () => {
@@ -63,7 +62,6 @@ describe("Phase 76 — GET /api/projects/:id/local-state, POST /api/projects/:id
         MachineConfigStore,
         WorkspaceService,
         ProjectLocalService,
-        { provide: StandupService, useValue: {} },
         {
           provide: ProjectVaultService,
           useValue: { write: async () => {}, remove: async () => {} },

@@ -7,7 +7,6 @@ import {
   SettingsPanel,
   SettingsRow,
   SettingsStepper,
-  Slider,
   StatusBadge,
   Toggle,
 } from "@zibby/design-system";
@@ -24,8 +23,6 @@ export enum RuntimePanelsTestId {
   MaxCycles = "runtime-max-cycles",
   Dock = "runtime-dock",
   AutoResume = "runtime-auto-resume",
-  CompactOpencode = "runtime-compact-opencode",
-  CompactClaude = "runtime-compact-claude",
 }
 
 const TICKS = [
@@ -37,7 +34,7 @@ const TICKS = [
   ["roadmapTickMs", "roadmap"],
 ] as const;
 type TickKey = (typeof TICKS)[number][0];
-type Group = "sch" | "lim" | "ctx";
+type Group = "sch" | "lim";
 
 interface Draft {
   /** Minutes (a sub-minute legacy tick displays rounded up so it never reads as off). */
@@ -46,7 +43,6 @@ interface Draft {
   maxCycles: number;
   dock: number;
   autoResume: boolean;
-  compact: { opencode: number; claude: number };
 }
 
 const toDraft = (c: SystemConfig): Draft => ({
@@ -55,7 +51,6 @@ const toDraft = (c: SystemConfig): Draft => ({
   maxCycles: c.limitResumeMax,
   dock: c.dockDoneTasksLimit,
   autoResume: c.goalAutoResume,
-  compact: { ...c.autoCompactPct },
 });
 
 function dirtyGroups(d: Draft, b: Draft): Record<Group, boolean> {
@@ -66,7 +61,6 @@ function dirtyGroups(d: Draft, b: Draft): Record<Group, boolean> {
       d.maxCycles !== b.maxCycles ||
       d.dock !== b.dock ||
       d.autoResume !== b.autoResume,
-    ctx: d.compact.opencode !== b.compact.opencode || d.compact.claude !== b.compact.claude,
   };
 }
 
@@ -76,14 +70,12 @@ function patchFor(g: Group, d: Draft, b: Draft, c: SystemConfig): Partial<System
     return Object.fromEntries(
       TICKS.map(([k]) => [k, d.ticks[k] === b.ticks[k] ? c[k] : d.ticks[k] * 60_000]),
     );
-  if (g === "lim")
-    return {
-      maxConcurrentRuns: d.maxRuns,
-      limitResumeMax: d.maxCycles,
-      dockDoneTasksLimit: d.dock,
-      goalAutoResume: d.autoResume,
-    };
-  return { autoCompactPct: d.compact };
+  return {
+    maxConcurrentRuns: d.maxRuns,
+    limitResumeMax: d.maxCycles,
+    dockDoneTasksLimit: d.dock,
+    goalAutoResume: d.autoResume,
+  };
 }
 
 const fmtMin = (x: number, off: string) => {
@@ -93,7 +85,7 @@ const fmtMin = (x: number, off: string) => {
   return [h ? `${h} h` : "", m ? `${m} min` : ""].filter(Boolean).join(" ");
 };
 
-/** Runtime → Schedulers / Limits / Context: three draft panels over one config document. */
+/** Runtime → Schedulers / Limits: two draft panels over one config document. */
 export function RuntimePanels() {
   const { data: config } = useSystemConfigQuery();
   if (!config) return null;
@@ -120,7 +112,6 @@ function RuntimeEditor({ config }: { config: SystemConfig }) {
     setDraft((d) => {
       const b = toDraft(config);
       if (g === "sch") return { ...d, ticks: b.ticks };
-      if (g === "ctx") return { ...d, compact: b.compact };
       return {
         ...d,
         maxRuns: b.maxRuns,
@@ -141,7 +132,6 @@ function RuntimeEditor({ config }: { config: SystemConfig }) {
   });
   useDraftPanel(handle("sch", "schedulers", t("schedulers")));
   useDraftPanel(handle("lim", "limits", t("limits")));
-  useDraftPanel(handle("ctx", "context", t("context")));
 
   const panel = (g: Group) => ({
     tone: dirty[g] ? ("dirty" as const) : ("default" as const),
@@ -274,41 +264,6 @@ function RuntimeEditor({ config }: { config: SystemConfig }) {
             onChange={(autoResume) => setDraft((d) => ({ ...d, autoResume }))}
           />
         </SettingsRow>
-      </SettingsPanel>
-
-      <SettingsPanel
-        description={t("contextHint")}
-        id="context"
-        title={t("context")}
-        {...panel("ctx")}
-      >
-        {(
-          [
-            ["opencode", RuntimePanelsTestId.CompactOpencode],
-            ["claude", RuntimePanelsTestId.CompactClaude],
-          ] as const
-        ).map(([k, testId]) => (
-          <SettingsRow
-            stack
-            changed={draft.compact[k] !== base.compact[k]}
-            key={k}
-            label={t(`compact.${k}`)}
-            was={was(draft.compact[k], base.compact[k], (x) => `${x}%`)}
-          >
-            <div data-testid={testId}>
-              <Slider
-                disabled={readOnly}
-                format={(v) => `${v} %`}
-                label={t("compactAt")}
-                max={95}
-                min={50}
-                onChange={(v) => setDraft((d) => ({ ...d, compact: { ...d.compact, [k]: v } }))}
-                step={5}
-                value={draft.compact[k]}
-              />
-            </div>
-          </SettingsRow>
-        ))}
       </SettingsPanel>
     </>
   );

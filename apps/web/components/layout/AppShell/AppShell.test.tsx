@@ -86,7 +86,7 @@ describe("AppShell", () => {
     expect(link).toHaveAttribute("href", `#${APP_FRAME_MAIN_CONTENT_ID}`);
   });
 
-  it("renders the header's section track with all eight sections", () => {
+  it("renders the header's section track with the seven top-bar sections (Settings lives only in the preferences menu)", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
@@ -101,20 +101,19 @@ describe("AppShell", () => {
       "activity",
       "knowledge",
       "governance",
-      "system",
     ]) {
       expect(sectionItem(id)).toBeInTheDocument();
     }
+    expect(screen.queryByTestId(`${SectionTrackTestId.Item}-${sectionHref("system")}`)).toBeNull();
   });
 
-  it("labels the AI and Settings sections", () => {
+  it("labels the AI section", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
     expect(sectionItem("workforce")).toHaveTextContent("AI");
-    expect(sectionItem("system")).toHaveTextContent("Nastavení");
   });
 
   it("offers the light/dark switch and a Settings link in the preferences menu", async () => {
@@ -176,6 +175,20 @@ describe("AppShell", () => {
     expect(screen.queryByTestId(PinPageDialogTestId.Name)).toBeNull();
     await userEvent.click(screen.getByTestId(AppShellTestId.PinToggle));
     expect(screen.getByTestId(PinPageDialogTestId.Name)).toBeInTheDocument();
+  });
+
+  it("offers no pin button on the Bridge (/dashboard)", () => {
+    mockPath = "/dashboard";
+    try {
+      renderWithProviders(
+        <AppShell>
+          <div />
+        </AppShell>,
+      );
+      expect(screen.queryByTestId(AppShellTestId.PinToggle)).toBeNull();
+    } finally {
+      mockPath = "/chat";
+    }
   });
 
   it("has no left rail or activity dock", () => {
@@ -313,7 +326,6 @@ describe("AppShell top menu sections", () => {
   it.each([
     ["/work/automations", "work"],
     ["/system/registries/skills", "workforce"],
-    ["/system/settings/status", "system"],
     ["/workforce/agents/writer", "workforce"],
     ["/governance/spend", "governance"],
   ])("highlights the %s top tab", (path, id) => {

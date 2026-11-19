@@ -60,7 +60,6 @@ function serialize(project: Project): string {
     ...(project.desc ? { desc: project.desc } : {}),
     ...(project.category ? { category: project.category } : {}),
     ...(project.autonomy_policy ? { autonomy_policy: project.autonomy_policy } : {}),
-    ...(project.daily_rhythm ? { daily_rhythm: project.daily_rhythm } : {}),
   };
 
   const lines: string[] = [`# ${project.name}`, ""];
@@ -94,15 +93,6 @@ function serialize(project: Project): string {
     if (p.vip_escalation) lines.push(`- **vip_escalation**: true`);
     if (p.can_do_alone?.length) lines.push(`- **can_do_alone**: ${p.can_do_alone.join(", ")}`);
     if (p.always_ask?.length) lines.push(`- **always_ask**: ${p.always_ask.join(", ")}`);
-    lines.push("");
-  }
-
-  if (project.daily_rhythm) {
-    const r = project.daily_rhythm;
-    lines.push("## Daily Rhythm", "");
-    if (r.standup_time) lines.push(`- **standup**: ${r.standup_time}`);
-    if (r.active_hours) lines.push(`- **active hours**: ${r.active_hours}`);
-    if (r.format) lines.push(`- **format**: ${r.format}`);
     lines.push("");
   }
 

@@ -92,7 +92,8 @@ function SectionNav({
   return (
     <SectionTrack
       ariaLabel={tShell("sectionsAria")}
-      items={SECTIONS.map((section) => ({
+      // Settings is not a top-bar section: the preferences (gear) menu is its only entry.
+      items={SECTIONS.filter((section) => section.id !== "system").map((section) => ({
         href: section.href,
         label: t(section.id),
         icon: section.glyph,
@@ -168,6 +169,8 @@ function PinControl({
   currentHref: string;
   onPinRequested: () => void;
 }) {
+  // The Bridge (`/dashboard`, the "Můstek" tab) is not pinnable.
+  if (pathname === "/dashboard") return null;
   const entity = matchEntityDetail(pathname);
   return entity ? (
     <SubnavPinButton href={entity.href} id={entity.id} key={entity.href} kind={entity.kind} />
@@ -201,10 +204,7 @@ function SectionSubNav({
   const items = section.tabs.map((tab) => {
     const count =
       active === "dashboard" ? counterSuffix(tab.id, inboxCounts).replace(/^ · /, "") : "";
-    const waiting =
-      tab.id === "issues"
-        ? (inboxCounts?.issues ?? 0) > 0
-        : (inboxCounts?.toReview ?? 0) + (inboxCounts?.mineBlocked ?? 0) > 0;
+    const waiting = count !== "";
     return {
       href: tab.href,
       icon: "icon" in tab ? tab.icon : undefined,

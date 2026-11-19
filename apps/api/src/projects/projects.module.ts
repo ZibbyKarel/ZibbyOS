@@ -15,7 +15,6 @@ import { ProjectVaultService } from "./project-vault.service";
 import { ProjectsController } from "./projects.controller";
 import { PROJECTS_DIR, ProjectsStorageService } from "./projects.storage.service";
 import { ResolvedProjectModule } from "./resolved-project.module";
-import { StandupService } from "./standup.service";
 
 /**
  * Default registry directory when `PROJECTS_DIR` is not set. Anchored to the api
@@ -67,7 +66,6 @@ export function resolveProjectSecretsDir(): string {
     ProjectCategoriesStorageService,
     ProjectSecretsStore,
     ProjectVaultService,
-    StandupService,
     ProjectLocalService,
     ProjectPrService,
   ],
@@ -75,7 +73,6 @@ export function resolveProjectSecretsDir(): string {
     ProjectsStorageService,
     ProjectCategoriesStorageService,
     ProjectSecretsStore,
-    StandupService,
     ProjectLocalService,
     // NS2 F5b — Release reuses ProjectPrService.listOpen directly (the merge
     // queue's read side) rather than re-fetching pulls itself.

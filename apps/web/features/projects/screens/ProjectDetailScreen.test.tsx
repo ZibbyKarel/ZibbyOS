@@ -16,7 +16,6 @@ let projectOverride: Partial<Project> = {};
 const profile: ProjectProfile = {
   identity: { people: [{ name: "Jana", role: "PM", vip: true }] },
   autonomy_policy: { can_do_alone: ["reply"], respond_as: "draft_only" },
-  daily_rhythm: { standup_time: "09:30", active_hours: "09:00-18:00" },
 };
 
 const updateMutate = vi.fn();
@@ -44,7 +43,6 @@ vi.mock("../queries", () => ({
     isError: false,
   }),
   useProjectProfileQuery: () => ({ data: profile }),
-  useProjectStandupQuery: () => ({ data: null }),
   useProjectLocalStateQuery: () => ({ data: localState }),
   useProjectCategoriesQuery: () => ({ data: [{ name: "Dev", glyph: "code" }] }),
   useProjectIntegrationActivityQuery: () => ({ data: [] }),
@@ -149,10 +147,9 @@ describe("ProjectDetailScreen (ZB-06)", () => {
     expect(push).toHaveBeenCalledWith("/projects/media-vault/profile");
   });
 
-  it("shows the person's name and standup time on the profile tab", () => {
+  it("shows the person's name on the profile tab", () => {
     render(<ProjectDetailScreen projectId="media-vault" tab="profile" />);
     expect(screen.getByDisplayValue("Jana")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("09:30")).toBeInTheDocument();
   });
 
   it("saves the core record via the update mutation (no path in the body)", async () => {

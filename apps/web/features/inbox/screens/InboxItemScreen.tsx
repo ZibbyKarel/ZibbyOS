@@ -140,7 +140,7 @@ export function InboxItemScreen({ projectId, itemId }: InboxItemScreenProps) {
         <Stack gap="250">
           <PageBreadcrumb
             items={[
-              { label: t("title.issues"), href: "/dashboard/inbox/issues" },
+              { label: t("title.issues"), href: "/dashboard/inbox" },
               { label: t("detail.crumb", { key: itemId }) },
             ]}
             linkComponent={NavLink as SubNavLinkComponent}
@@ -149,7 +149,7 @@ export function InboxItemScreen({ projectId, itemId }: InboxItemScreenProps) {
             action={
               <Button
                 intent="secondary"
-                onClick={() => router.push("/dashboard/inbox/issues" as Route)}
+                onClick={() => router.push("/dashboard/inbox" as Route)}
                 size="sm"
               >
                 {t("detail.back")}
@@ -233,7 +233,7 @@ function InboxItemView({ item: it }: { item: InboxRoadmapItem }) {
       <Stack gap="250">
         <PageBreadcrumb
           items={[
-            { label: t("title.issues"), href: "/dashboard/inbox/issues" },
+            { label: t("title.issues"), href: "/dashboard/inbox" },
             { label: t("detail.crumb", { key }) },
           ]}
           linkComponent={NavLink as SubNavLinkComponent}
@@ -243,7 +243,7 @@ function InboxItemView({ item: it }: { item: InboxRoadmapItem }) {
           <Stack gap="100">
             <TextLink
               data-testid={InboxItemScreenTestId.Back}
-              href="/dashboard/inbox/issues"
+              href="/dashboard/inbox"
               linkComponent={NavLink}
             >
               <Typography type="label">{t("detail.back")}</Typography>

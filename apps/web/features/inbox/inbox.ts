@@ -470,12 +470,11 @@ export function inboxCounts(items: InboxRoadmapItem[], prs: InboxPr[]): InboxCou
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** Sub-nav label suffix — `" · 05"` for issues, `" · 03 · 02"` for PRs; `""` until loaded. */
+/** Sub-nav counter for the Inbox tab — `" · 05"` (issues + PRs awaiting the operator); `""` until loaded or at zero. */
 export function counterSuffix(tab: string, counts: InboxCounts | undefined): string {
-  if (!counts) return "";
-  if (tab === "issues") return ` · ${pad(counts.issues)}`;
-  if (tab === "pull-requests") return ` · ${pad(counts.toReview)} · ${pad(counts.mineBlocked)}`;
-  return "";
+  if (!counts || tab !== "overview") return "";
+  const total = counts.issues + counts.toReview + counts.mineBlocked;
+  return total > 0 ? ` · ${pad(total)}` : "";
 }
 
 /** Zero-padded two-digit number, the mono counters' look. */

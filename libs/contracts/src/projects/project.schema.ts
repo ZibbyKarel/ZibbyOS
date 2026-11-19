@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AvatarSchema, IsoDateTimeSchema } from "../common.schema";
+import { AvatarSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { IntegrationRoutingRuleSchema } from "../integrations/integration-routing";
 
@@ -133,20 +133,6 @@ export const ProjectAutonomyPolicySchema = z.object({
 });
 export type ProjectAutonomyPolicy = z.infer<typeof ProjectAutonomyPolicySchema>;
 
-/** Daily operational rhythm for the project. */
-export const ProjectDailyRhythmSchema = z.object({
-  /** HH:MM time for the standup cheat-sheet cron (Europe/Prague). */
-  standup_time: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "must be HH:MM")
-    .optional(),
-  /** Standup format description or template. */
-  format: z.string().optional(),
-  /** Active monitoring window, e.g. "09:00-18:00". */
-  active_hours: z.string().optional(),
-});
-export type ProjectDailyRhythm = z.infer<typeof ProjectDailyRhythmSchema>;
-
 /**
  * The operational profile of a project — who is involved, what ZIBBY may do
  * autonomously, and when the operator expects to be active. Nested inside the
@@ -155,7 +141,6 @@ export type ProjectDailyRhythm = z.infer<typeof ProjectDailyRhythmSchema>;
 export const ProjectProfileSchema = z.object({
   identity: ProjectIdentitySchema.optional(),
   autonomy_policy: ProjectAutonomyPolicySchema.optional(),
-  daily_rhythm: ProjectDailyRhythmSchema.optional(),
 });
 export type ProjectProfile = z.infer<typeof ProjectProfileSchema>;
 
@@ -237,7 +222,7 @@ export type ProjectHealthCheck = z.infer<typeof ProjectHealthCheckSchema>;
  * are untouched. `category` links to the project taxonomy by name (free-form, the
  * closed set lives in the web app) and `path` is the root on the host system.
  *
- * The operational profile fields (`identity`, `autonomy_policy`, `daily_rhythm`)
+ * The operational profile fields (`identity`, `autonomy_policy`)
  * are also stored in the registry and mirrored to a vault note so agents can
  * ground on the project context.
  */
@@ -332,8 +317,6 @@ export const ProjectSchema = z.object({
   identity: ProjectIdentitySchema.optional(),
   /** Per-project autonomy policy (can only harden the global gate floor). */
   autonomy_policy: ProjectAutonomyPolicySchema.optional(),
-  /** Daily operational rhythm: standup timing, monitoring hours. */
-  daily_rhythm: ProjectDailyRhythmSchema.optional(),
 
   /**
    * Optional link to a `Company` (Phase 68) — standalone projects (no company)
@@ -416,15 +399,6 @@ export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
  */
 export const ProjectSecretsInputSchema = z.record(z.string(), z.string());
 export type ProjectSecretsInput = z.infer<typeof ProjectSecretsInputSchema>;
-
-/** A standup cheat sheet generated for a project from the past 24 h of activity. */
-export const ProjectStandupSchema = z.object({
-  projectId: z.string(),
-  date: z.string(),
-  generatedAt: IsoDateTimeSchema,
-  text: z.string(),
-});
-export type ProjectStandup = z.infer<typeof ProjectStandupSchema>;
 
 /**
  * Phase 76 — THIS machine's view of where a project's working dir actually

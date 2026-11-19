@@ -79,8 +79,6 @@ export function InboxOverviewScreen() {
           header={t("overview.issuesHeader")}
           headerEnd={t("overview.issuesSources")}
           headline={t("overview.needYou", { n: pad2(actionable.length) })}
-          openHref="/dashboard/inbox/issues"
-          openLabel={t("overview.openIssues")}
           rows={actionable.slice(0, TOP_ROWS).map((item) => (
             <OverviewRow
               href={issueHref(item)}

@@ -51,10 +51,7 @@
       },
       "dashboard": {
         "map": "Můstek",
-        "overview": "Inbox",
-        "issues": "Issues",
-        "pull-requests": "Pull requesty",
-        "briefings": "Souhrny"
+        "overview": "Inbox"
       },
       "companies": {
         "companies": "Firmy",
@@ -658,7 +655,6 @@
     "title": "Dobré ráno.",
     "emptyTitle": "Dashboard je prázdný — postav si ho.",
     "briefing": "Briefing",
-    "briefingGenerate": "Vygenerovat",
     "briefingDid": "{count} vyřízeno",
     "briefingWatching": "sleduji {count} kanálů",
     "briefingPausedLimit": "{count} pozastaveno na limitu",
@@ -2498,17 +2494,6 @@
         "selectAll": "Vybrat všechny položky",
         "deselectAll": "Zrušit všechny položky"
       },
-      "rhythm": {
-        "title": "Denní rytmus",
-        "standupTime": "Čas standupu",
-        "standupTimeHint": "HH:MM — tahák pro standup bude připraven 15 min předem.",
-        "activeHours": "Aktivní hodiny monitorování",
-        "format": "Formát standupu",
-        "formatPlaceholder": "Včera / Dnes / Blokery"
-      },
-      "standup": {
-        "title": "Tahák pro standup"
-      },
       "integrationActivity": {
         "title": "Aktivita integrací",
         "empty": "Za posledních 14 dní se z integrací tohoto projektu nic nezpracovalo."
@@ -3424,18 +3409,6 @@
       "text": "Náhled"
     }
   },
-  "activityBriefings": {
-    "title": "Briefing",
-    "generateNow": "Vygenerovat teď",
-    "generatedAt": "Vygenerováno {at}",
-    "headline": "Shrnutí",
-    "needsYou": "Potřebuje tě",
-    "nothingNeedsYou": "Nic tě teď nepotřebuje.",
-    "didForYou": "Co ZIBBY udělal",
-    "emptyDid": "Zatím nic k zaznamenání.",
-    "departments": "Oddělení",
-    "watching": "Sleduji"
-  },
   "policy": {
     "approvals": {
       "queueTitle": "Fronta",
@@ -3898,7 +3871,6 @@
       "mineBlockedBucket": "Moje · blokované",
       "noIssues": "V tomto filtru není co zpracovat.",
       "noPrs": "V tomto filtru nejsou žádné pull requesty.",
-      "openIssues": "Otevřít issues →",
       "openPrs": "Otevřít pull requesty →"
     },
     "chain": {

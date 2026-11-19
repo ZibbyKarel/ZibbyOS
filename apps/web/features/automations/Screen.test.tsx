@@ -125,10 +125,7 @@ describe("Automations Screen", () => {
     render(<Screen />);
     fireEvent.click(screen.getByTestId(AutomationCardTestId.Run));
     await userEvent.click(screen.getByTestId(RunAutomationDialogTestId.Run));
-    expect(trigger).toHaveBeenCalledWith(
-      { params: { id: "morning-standup" }, body: {} },
-      expect.anything(),
-    );
+    expect(trigger).toHaveBeenCalledWith({ params: { id: "morning-standup" }, body: {} });
   });
 
   it("toggles enabled via the update mutation", () => {

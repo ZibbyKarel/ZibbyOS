@@ -52,7 +52,6 @@ const PROJECT_SAFE_KEYS = [
   "web",
   "logo",
   "identity",
-  "daily_rhythm",
   "teamId",
 ] as const;
 
@@ -117,7 +116,6 @@ export const SELF_API_ALLOWLIST: SelfApiAllowlist = {
     searchProjects: "read",
     getProject: "read",
     getProjectProfile: "read",
-    getStandup: "read",
     getResolvedProject: "read",
     getProjectLocalState: "read",
     getProjectPrs: "read",

@@ -15,7 +15,7 @@ A project is a **registry entry** (`_projects.json`), not files of its own —
 deleting a project removes only the registry record, never the files it
 points at on the host. The module also owns everything that hangs off a
 project: per-machine clone resolution, run secrets, a vault grounding mirror,
-standup generation, GitHub PR overview/merge, and (Phase 70/72) the
+GitHub PR overview/merge, and (Phase 70/72) the
 company-merged "effective" context.
 
 ## Pieces
@@ -37,7 +37,6 @@ company-merged "effective" context.
 | Attribution             | `apps/api/src/projects/project-matcher.ts`                                      | `matchProject` — deterministic task→project attribution (Phase 8.1)       |
 | Company merge (service) | `apps/api/src/projects/resolved-project.service.ts`                             | `ResolvedProjectService` — the DB-facing merge seam (Phase 70)            |
 | Company merge (pure)    | `apps/api/src/projects/resolved-project.helpers.ts`                             | pure merge rules: `mergePeople`, `mergeBudget`, `mergeIntegrationsByKind` |
-| Standup                 | `apps/api/src/projects/standup.service.ts`                                      | `StandupService` — 24h activity → Yesterday/In-Progress/Blockers          |
 | Modules                 | `apps/api/src/projects/projects.module.ts`, `resolved-project.module.ts`        | wiring, see "Module graph" below                                          |
 
 ## Data model (`ProjectSchema`)
@@ -58,7 +57,6 @@ company-merged "effective" context.
   logo?: Avatar;                // data URI or bundled /-path; externalized on disk
   identity?: { people?: ProjectPerson[] };
   autonomy_policy?: ProjectAutonomyPolicy;  // can only HARDEN the gate floor
-  daily_rhythm?: ProjectDailyRhythm;
   companyId?: string;           // Phase 68 link — see resolved-project.service.ts
   gitRemote?: string;           // Phase 76 clone source, validated (see below)
   web?: { url: string };        // TODO 13 web-project marker; http(s) only — gates `requires: ["web"]` workflows
@@ -289,9 +287,8 @@ PATCH  /projects/:id                      partial update
 DELETE /projects/:id                      delete (registry record only)
 PUT    /projects/:id/secrets              set run secrets (write-only)
 DELETE /projects/:id/secrets              remove secrets
-GET    /projects/:id/profile              identity/autonomy/daily-rhythm
+GET    /projects/:id/profile              identity/autonomy
 PUT    /projects/:id/profile              replace profile
-GET    /projects/:id/standup              latest standup (generates on first call)
 GET    /projects/:id/resolved             effective (company-merged) context
 GET    /projects/:id/local-state          this machine's clone resolution
 POST   /projects/:id/clone                clone into this machine's cloneRoot
@@ -328,7 +325,7 @@ without pulling in the whole projects module.
 - **`tasks`** — `matchProject` is the attribution step feeding budget/queue/
   briefing/triage.
 - **`memory`** — `ProjectVaultService` mirrors profile data as a grounding
-  note; standups append to the daily note.
+  note.
 - **`workspace`** — `ProjectLocalService.clone` is the only production caller
   of `WorkspaceService.clone()`.
 

@@ -288,10 +288,9 @@ describe("counters", () => {
     ];
     const counts = inboxCounts(items, prs);
     expect(counts).toEqual({ issues: 2, toReview: 2, mineBlocked: 2 });
-    expect(counterSuffix("issues", counts)).toBe(" · 02");
-    expect(counterSuffix("pull-requests", counts)).toBe(" · 02 · 02");
-    expect(counterSuffix("overview", counts)).toBe("");
-    expect(counterSuffix("issues", undefined)).toBe("");
+    expect(counterSuffix("overview", counts)).toBe(" · 06");
+    expect(counterSuffix("map", counts)).toBe("");
+    expect(counterSuffix("overview", undefined)).toBe("");
   });
 });
 

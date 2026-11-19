@@ -52,17 +52,12 @@ const rowHref = (row: BudgetHealthRow): Route => {
 /**
  * Budgets & limits: the account limits, company rollups and project budgets, worst first, with
  * what is running out highlighted. Rows link to the owning detail page. Collapses to the header
- * when nothing is set. Takes only the report callbacks, so the top bar's limits popover
- * (`HeaderLimits`) renders it outside the board too, in `aiUsageOnly` mode.
+ * when nothing is set.
  */
 export function BudgetsWidget({
   onEmptyChange,
   onCountChange,
-  aiUsageOnly = false,
-}: Pick<BridgeWidgetProps, "onEmptyChange" | "onCountChange"> & {
-  /** Top-bar sheet: no budget rows (limits, companies, projects) and no empty row — only the OpenAI spend row and AI usage without Claude's session lines. */
-  aiUsageOnly?: boolean;
-}) {
+}: Pick<BridgeWidgetProps, "onEmptyChange" | "onCountChange">) {
   const t = useTranslations("bridge.widgets.budgets");
   const budgetQuery = useBudgetQuery();
   const projectsQuery = useProjectsQuery();
@@ -113,15 +108,6 @@ export function BudgetsWidget({
     { onEmptyChange, onCountChange },
   );
 
-  if (aiUsageOnly)
-    return (
-      <>
-        {openaiSpent === undefined ? null : (
-          <ProviderSpendRow name={t("providerOpenai")} usd={openaiSpent} />
-        )}
-        <AiUsageSection claudeLimits={false} />
-      </>
-    );
   if (failed)
     return (
       <QueryError
