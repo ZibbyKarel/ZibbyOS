@@ -1,7 +1,7 @@
 # AI providers
 
 Global API keys for cloud AI providers. These keys are not tied to any project.
-The operator manages them on Settings → **AI models** (`/system/settings/ai-models`).
+The operator manages them on Settings → **AI engines** (`/system/settings/ai-engines`; the old `ai-models` path redirects).
 Today there is exactly one provider, **OpenAI**. Its first consumer is the coloring-book
 image generator (`PF_IMAGE_PROVIDER=openai` in `libs/product-factory`). More providers,
 such as Anthropic, can be added later as further sections. See the vault note
