@@ -16,7 +16,7 @@ import { useTeamsQuery } from "../../teams";
 import { useZibbyLive } from "../../zibby/live/ZibbyLiveContext";
 import { formatShortcut } from "../../zibby/shortcut/shortcut";
 import { useShortcutPlatform, useZibbyShortcut } from "../../zibby/shortcut/useZibbyShortcut";
-import { AUTOMATION_KEYS, buildScopes, exceptionsOf } from "../autonomy";
+import { AUTOMATION_KEYS, STATUS_ORB, buildScopes, exceptionsOf, isFullAuto } from "../autonomy";
 import { usePauseSwitch } from "../hooks/usePauseSwitch";
 import { type SaveResult, useSaveAutomation } from "../hooks/useSaveAutomation";
 import { ModePopover } from "./ModePopover";
@@ -34,9 +34,9 @@ function useStatusUi() {
   const exceptionNames = exceptionsOf(sw.automation, buildScopes(companies, teams)).map(
     (s) => s.label,
   );
+  const fullAuto = isFullAuto(sw.automation);
   const save = useSaveAutomation();
   const [autoResult, setAutoResult] = useState<SaveResult | null>(null);
-  const fullAuto = AUTOMATION_KEYS.every((k) => sw.automation.global[k] === "auto");
   const toggleFullAuto = async () => {
     const level = fullAuto ? "semi" : "auto";
     const global = { ...sw.automation.global };
@@ -68,8 +68,10 @@ export interface ZibbyModeControlProps {
 
 /**
  * The header's Zibby section: the orb button (opens Zibby) and the status button (Běží /
- * Pozastaveno) that opens the status popover, or on the phone a bottom sheet. The orb is
- * violet while Zibby runs and sleeps while paused; it never turns amber (that is the bell's).
+ * Pozastaveno / Automat) that opens the status popover, or on the phone a bottom sheet. The pill
+ * is violet while Zibby runs (orb thinks), amber with a speaking orb in full Automat (every global
+ * capability on `auto`; the operator re-introduced this amber on 2026-11-19), and grey with a
+ * sleeping orb while paused (pause wins over amber).
  */
 export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps) {
   const t = useTranslations("autopilot");
@@ -83,9 +85,9 @@ export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps)
   const [popoverOpen, setPopoverOpen] = useState(false);
   const compact = variant === "toolbar";
 
-  const key = sw.paused ? "paused" : "run";
-  const orbState: ZibbyOrbState =
-    live.phase === "closed" ? (sw.paused ? "sleep" : "think") : live.orbState;
+  const fullAuto = isFullAuto(sw.automation);
+  const key = sw.paused ? "paused" : fullAuto ? "auto" : "run";
+  const orbState: ZibbyOrbState = live.phase === "closed" ? STATUS_ORB[key] : live.orbState;
   const statusAria = t("statusButtonAria", { status: t(`status_${key}`) });
 
   return (

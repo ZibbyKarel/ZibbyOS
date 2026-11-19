@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { SaveResult } from "../hooks/useSaveAutomation";
 import { saveOperatorToken } from "../hooks/useHasOperatorToken";
+import { STATUS_ORB } from "../autonomy";
 import type { PauseError } from "../hooks/usePauseSwitch";
 
 export enum ZibbyModePanelTestId {
@@ -74,12 +75,12 @@ export function ZibbyModePanel({
     router.push(href as Route);
     onNavigate();
   };
-  const key = paused ? "paused" : "run";
+  const key = paused ? "paused" : fullAuto ? "auto" : "run";
   const [typed, setTyped] = useState("");
   return (
     <ZibbyStatusMenu
       description={t(`desc_${key}`)}
-      orb={<ZibbyOrb size={52} state={paused ? "sleep" : "think"} />}
+      orb={<ZibbyOrb size={52} state={STATUS_ORB[key]} />}
       orbLabel={t(`state_${key}`)}
       sheet={sheet}
       state={` · ${t(`state_${key}`)}`}

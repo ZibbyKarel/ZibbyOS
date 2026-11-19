@@ -32,6 +32,13 @@ export const toggledLevel = (level: AutomationLevel, column: Column): Automation
       ? "semi"
       : "auto";
 
+/** Full Automat: every global capability is on `auto`. */
+export const isFullAuto = (automation: AutopilotAutomation) =>
+  AUTOMATION_KEYS.every((k) => automation.global[k] === "auto");
+
+/** Orb state of the header section per status (the pill's `ZibbyStatus`). */
+export const STATUS_ORB = { paused: "sleep", auto: "speak", run: "think" } as const;
+
 export const EMPTY_AUTOMATION: AutopilotAutomation = {
   global: { ...NO_AUTOMATION },
   companies: {},

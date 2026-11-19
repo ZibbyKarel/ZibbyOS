@@ -10,11 +10,12 @@ export enum ZibbySectionTestId {
   StatusButton = "zibby-section-status-button",
 }
 
-/** Whether Zibby runs: `run` violet, `paused` muted. */
-export type ZibbyStatus = "run" | "paused";
+/** Whether Zibby runs: `run` violet, `auto` amber (full Automat), `paused` muted. */
+export type ZibbyStatus = "run" | "auto" | "paused";
 
 const sectionTone: Record<ZibbyStatus, string> = {
   paused: "border-line-2 bg-ink/[0.04] text-ink-3",
+  auto: "border-accent/55 bg-accent/[0.14] text-accent-fg",
   run: "border-state-work/55 bg-state-work/[0.12] text-state-work",
 };
 
@@ -29,7 +30,7 @@ export interface ZibbySectionProps {
 
 /**
  * The header's Zibby section: a 32px pill split into the orb button and the status button, tinted
- * by the status (violet running / muted paused). The two buttons inherit its colour.
+ * by the status (violet running / amber full Automat / muted paused). The two buttons inherit its colour.
  */
 export function ZibbySection({ status, ariaLabel, children, ref }: ZibbySectionProps) {
   return (

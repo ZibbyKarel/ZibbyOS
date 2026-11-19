@@ -13,6 +13,7 @@ export enum ZibbyStatusMenuTestId {
 
 const headTone: Record<ZibbyStatus, string> = {
   paused: "bg-ink/[0.04]",
+  auto: "bg-accent/10",
   run: "bg-state-work/10",
 };
 

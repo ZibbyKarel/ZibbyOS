@@ -14,6 +14,7 @@ export const Statuses: StoryObj<typeof ZibbySection> = {
       {(
         [
           ["run", "think", "Running"],
+          ["auto", "speak", "Auto"],
           ["paused", "sleep", "Paused"],
         ] as const
       ).map(([status, orb, label]) => (

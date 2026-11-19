@@ -124,6 +124,25 @@ describe("ZibbyModeControl", () => {
     expect(localStorage.getItem("zibby.operatorToken")).toBe("zby_op_x");
     expect(mutateAsync).toHaveBeenCalledTimes(2);
   });
+
+  it("turns the pill amber in full Automat and grey again when paused", () => {
+    status = {
+      paused: false,
+      pendingApprovals: 0,
+      automation: {
+        global: Object.fromEntries(AUTOMATION_KEYS.map((k) => [k, "auto"])) as never,
+        companies: {},
+        teams: {},
+      },
+    };
+    const { unmount } = renderAutonomy(<ZibbyModeControl />);
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "auto");
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Automat");
+    unmount();
+    status = { ...status, paused: true };
+    renderAutonomy(<ZibbyModeControl />);
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "paused");
+  });
 });
 
 describe("ZibbyModeChange", () => {

@@ -33,4 +33,15 @@ describe("ZibbySection", () => {
     expect(onStatus).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Paused");
   });
+
+  it("tints the full-Automat status amber", () => {
+    render(
+      <ZibbySection ariaLabel="Zibby" status="auto">
+        <ZibbySectionStatusButton aria-label="Status" label="Auto" />
+      </ZibbySection>,
+    );
+    const root = screen.getByTestId(ZibbySectionTestId.Root);
+    expect(root).toHaveAttribute("data-status", "auto");
+    expect(root).toHaveClass("border-accent/55");
+  });
 });
