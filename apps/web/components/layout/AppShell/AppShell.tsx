@@ -27,7 +27,6 @@ import { ApprovalSheet } from "../../../features/approvals/components/ApprovalSh
 import { useApprovalSheetParam } from "../../../features/approvals/useApprovalSheetParam";
 import { counterSuffix } from "../../../features/inbox/inbox";
 import { useInboxCounts } from "../../../features/inbox/useInboxCounts";
-import { useSelfStatusQuery } from "../../../features/self";
 import { useApprovalsQuery } from "../../../features/approvals/queries";
 import { useRunsQuery } from "../../../features/runs/queries";
 import { useIsPhone } from "../../../hooks/useIsPhone";
@@ -49,7 +48,7 @@ import { SettingsCrumbBar } from "../../../features/settings/components/Settings
 import { AiEngineSwitcher } from "../AiEngineSwitcher/AiEngineSwitcher";
 import { PageActionsSlotProvider } from "../PageActions";
 import { PageBreadcrumbSlotProvider } from "../PageBreadcrumb";
-import { NewMenu, PreferencesMenu, SystemStatus } from "./HeaderControls";
+import { NewMenu, PreferencesMenu } from "./HeaderControls";
 import { NavLink } from "./NavLink";
 import { type HeaderCollapseLevel, useHeaderCollapse } from "./useHeaderCollapse";
 import { SECTIONS, type SectionId, type SubTabConfig, sectionForPath } from "../../../state/config";
@@ -262,9 +261,8 @@ function PhoneMenu({ pathname }: { pathname: string }) {
   );
 }
 
-/** Live system state feeding the header: the brand knot, and the status chip. */
+/** Live system state feeding the header: the brand knot. */
 function useHeaderTrailing() {
-  const { data: status } = useSelfStatusQuery();
   const { data: approvals } = useApprovalsQuery();
   const { runs } = useRunsQuery();
   // System state for the status block and phone brand mark (the desktop logo is static).
@@ -277,8 +275,6 @@ function useHeaderTrailing() {
 
   return {
     markState,
-    version: status?.appVersion ? `v${status.appVersion}` : undefined,
-    updateAvailable: Boolean(status?.appUpdateAvailable),
   };
 }
 
@@ -402,13 +398,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   ref={headerRef}
                   searchCompact={lv >= 1}
                   searchLabel={tShell("search")}
-                  status={
-                    <SystemStatus
-                      markState={trailing.markState}
-                      updateAvailable={trailing.updateAvailable}
-                      version={trailing.version}
-                    />
-                  }
                   zibby={<ZibbyModeControl />}
                 />
               )

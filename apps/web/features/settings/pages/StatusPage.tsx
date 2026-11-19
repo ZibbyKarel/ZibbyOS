@@ -34,8 +34,8 @@ export function StatusPage() {
     <SettingsPage
       panels={[
         { id: "system", label: t("system") },
-        { id: "watchers", label: t("watchers.title"), warn: stale },
         { id: "version", label: tp("versionTitle") },
+        { id: "watchers", label: t("watchers.title"), warn: stale },
         { id: "self-dev", label: t("selfDev.title") },
       ]}
       section="status"
@@ -72,8 +72,8 @@ export function StatusPage() {
           </SettingsRow>
         )}
       </SettingsPanel>
-      <WatchersPanel watchers={health?.watchers} />
       <UpdatesSection />
+      <WatchersPanel watchers={health?.watchers} />
       <SelfDevelopmentPanel />
     </SettingsPage>
   );

@@ -5,14 +5,11 @@ import { Icon, type IconName } from "../Icon/Icon";
 
 /**
  * The small controls of the top-chrome header (`AppHeader` zones B and C): the
- * filled "New" button, the status chip, the mode group, the icon button with a
+ * filled "New" button, the mode group, the icon button with a
  * badge. They are plain buttons - the app owns the popovers.
  */
 export enum HeaderChromeTestId {
   NewButton = "header-new-button",
-  Status = "header-status",
-  StatusDot = "header-status-dot",
-  StatusUpdate = "header-status-update",
   ModeGroup = "header-mode-group",
   ModeButton = "header-mode-button",
   ModeLiveDot = "header-mode-live-dot",
@@ -61,69 +58,6 @@ export function HeaderNewButton({
       {label && chevron && (
         <span className="-ml-px flex rotate-90 opacity-55">
           <Icon name="chevron" size="xs" stroke="medium" />
-        </span>
-      )}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Status chip
-// ---------------------------------------------------------------------------
-
-export type HeaderStatusState = "idle" | "working" | "blocked";
-
-const dotClass: Record<HeaderStatusState, string> = {
-  idle: "bg-state-idle",
-  working: "bg-state-work",
-  blocked: "bg-state-block",
-};
-
-export interface HeaderStatusProps extends ButtonProps {
-  /** Colour of the leading dot - same as the brand knot. Default `working`. */
-  state?: HeaderStatusState;
-  /** Something waits for the operator: amber border and tint. */
-  attention?: boolean;
-  /** Update-available badge content (an icon); omit for no badge. */
-  update?: ReactNode;
-  ref?: Ref<HTMLButtonElement>;
-}
-
-/** `.tc-stat` - the system status trigger. Pass a full `aria-label` (it is the only text a screen reader gets). */
-export function HeaderStatus({
-  state = "working",
-  attention = false,
-  update,
-  ref,
-  ...rest
-}: HeaderStatusProps) {
-  return (
-    <button
-      className={cn(
-        "inline-flex h-[30px] cursor-pointer items-center gap-[7px] rounded-lg border py-0 pr-[7px] pl-2.5 font-sans text-[12px] whitespace-nowrap text-ink-2",
-        "transition-colors motion-reduce:transition-none",
-        attention
-          ? "border-accent/45 bg-accent-soft"
-          : "border-line hover:border-line-2 hover:bg-panel-2",
-        focusRing,
-      )}
-      data-attention={attention || undefined}
-      data-testid={HeaderChromeTestId.Status}
-      ref={ref}
-      type="button"
-      {...rest}
-    >
-      <span
-        aria-hidden="true"
-        className={cn("size-[7px] shrink-0 rounded-full", dotClass[state])}
-        data-testid={HeaderChromeTestId.StatusDot}
-      />
-      {update && (
-        <span
-          className="inline-grid size-5 place-items-center rounded-md bg-state-think/15 text-state-think"
-          data-testid={HeaderChromeTestId.StatusUpdate}
-        >
-          {update}
         </span>
       )}
     </button>

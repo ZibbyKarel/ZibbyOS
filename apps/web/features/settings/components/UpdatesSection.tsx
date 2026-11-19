@@ -13,6 +13,13 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useCheckAppUpdateMutation, useSelfStatusQuery } from "../../self";
 
+declare global {
+  interface Window {
+    /** ZibbyOS.app's preload bridge (apps/desktop/src/preload.ts); absent in a plain browser. */
+    zibbyDesktop?: { checkForUpdates(): Promise<void>; installUpdate(): Promise<void> };
+  }
+}
+
 export enum UpdatesSectionTestId {
   Root = "updates-section",
   Check = "updates-check",

@@ -15,7 +15,6 @@ import {
 } from "@zibby/design-system";
 import { renderWithProviders, screen, waitFor, within } from "../../../test/render";
 import { AiEngineSwitcherTestId } from "../AiEngineSwitcher/AiEngineSwitcher";
-import { HeaderPopoverTestId } from "../HeaderPopover/HeaderPopover";
 import { ZibbyModeControlTestId } from "../../../features/autopilot";
 import { PinPageDialogTestId } from "../../../features/pins";
 import { SECTIONS } from "../../../state/config";
@@ -129,15 +128,19 @@ describe("AppShell", () => {
       "href",
       sectionHref("system"),
     );
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-about`)).toHaveAttribute(
+      "href",
+      "/system/settings/status",
+    );
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-about`)).toHaveTextContent("O systému");
   });
 
-  it("shows the status chip, mode group and bell in zone C, no engine switcher before config loads", () => {
+  it("shows the mode group and bell in zone C, no engine switcher before config loads", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName("Stav systému");
     expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAccessibleName("Provozní režim");
     expect(screen.getByTestId(AppHeaderTestId.Notifications)).toBeInTheDocument();
     expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();
@@ -151,17 +154,6 @@ describe("AppShell", () => {
     );
     expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toBeInTheDocument();
     expect(screen.getByTestId(AppHeaderTestId.Root)).not.toHaveAttribute("data-autopilot");
-  });
-
-  it("opens the status popover with the version", async () => {
-    renderWithProviders(
-      <AppShell>
-        <div />
-      </AppShell>,
-    );
-    expect(screen.queryByTestId(HeaderPopoverTestId.Panel)).toBeNull();
-    await userEvent.click(screen.getByTestId(HeaderChromeTestId.Status));
-    expect(screen.getByTestId(HeaderPopoverTestId.Panel)).toBeInTheDocument();
   });
 
   it("opens the pin dialog for the current page from the sub-nav pin button", async () => {

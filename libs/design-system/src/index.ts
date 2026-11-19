@@ -861,15 +861,12 @@ export {
   HeaderModeButton,
   HeaderModeGroup,
   HeaderNewButton,
-  HeaderStatus,
 } from "./components/HeaderChrome/HeaderChrome";
 export type {
   HeaderIconButtonProps,
   HeaderModeButtonProps,
   HeaderModeGroupProps,
   HeaderNewButtonProps,
-  HeaderStatusProps,
-  HeaderStatusState,
 } from "./components/HeaderChrome/HeaderChrome";
 export { Splitter, SplitterTestId } from "./components/Splitter/Splitter";
 export type { SplitterProps } from "./components/Splitter/Splitter";

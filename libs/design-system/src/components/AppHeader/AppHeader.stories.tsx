@@ -6,7 +6,6 @@ import {
   HeaderModeButton,
   HeaderModeGroup,
   HeaderNewButton,
-  HeaderStatus,
 } from "../HeaderChrome/HeaderChrome";
 import { SectionTrack } from "../SectionTrack/SectionTrack";
 
@@ -21,7 +20,6 @@ const nav = (
 );
 
 const zoneC = (autopilot: boolean) => ({
-  status: <HeaderStatus aria-label="System status" />,
   mode: (
     <HeaderModeGroup ariaLabel="Operating mode">
       {autopilot ? (

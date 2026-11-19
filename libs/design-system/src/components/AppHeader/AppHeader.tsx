@@ -18,7 +18,7 @@ export enum AppHeaderTestId {
   ZoneSearch = "app-header-zone-search",
   /** Zone B - command: create, Zibby. */
   ZoneB = "app-header-zone-b",
-  /** Zone C - system: status, mode, notifications, preferences. */
+  /** Zone C - system: mode, notifications, preferences. */
   ZoneC = "app-header-zone-c",
   Divider = "app-header-divider",
   Nav = "app-header-nav",
@@ -26,7 +26,6 @@ export enum AppHeaderTestId {
   SearchShortcut = "app-header-search-shortcut",
   Create = "app-header-create",
   Zibby = "app-header-zibby",
-  Status = "app-header-status",
   Mode = "app-header-mode",
   Notifications = "app-header-notifications",
   Preferences = "app-header-preferences",
@@ -52,8 +51,6 @@ export interface AppHeaderProps {
   create?: ReactNode;
   /** Zone B, last - summon button of the Zibby overlay (a `ZibbyChip`). */
   zibby?: ReactNode;
-  /** Zone C, first - system status trigger (a `HeaderStatus`). */
-  status?: ReactNode;
   /** Zone C - operating mode (a `HeaderModeGroup`). */
   mode?: ReactNode;
   /** Zone C - notification bell (a `HeaderIconButton`). */
@@ -79,7 +76,7 @@ export interface AppHeaderProps {
  * bottom hairline, a `1fr auto 1fr` grid so the search trigger sits at the true centre
  * (`min(560px, 40vw)` wide, just icon + `⌘K` when `searchCompact`): **A** brand + section nav
  * on the left; on the right **B** command (create, Zibby), a 1x22px divider and **C** system
- * (status, mode, notifications, preferences). Every slot is an opaque `ReactNode`
+ * (mode, notifications, preferences). Every slot is an opaque `ReactNode`
  * (domain-neutral, no `next/link` import here) except the search trigger, which
  * `AppHeader` renders itself so every screen gets the identical `⌘K` affordance.
  */
@@ -92,7 +89,6 @@ export function AppHeader({
   nav,
   create,
   zibby,
-  status,
   mode,
   notifications,
   preferences,
@@ -186,7 +182,6 @@ export function AppHeader({
         />
 
         <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneC}>
-          {status && <span data-testid={AppHeaderTestId.Status}>{status}</span>}
           {mode && <span data-testid={AppHeaderTestId.Mode}>{mode}</span>}
           {notifications && (
             <span data-testid={AppHeaderTestId.Notifications}>{notifications}</span>

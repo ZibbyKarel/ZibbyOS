@@ -53,7 +53,6 @@ describe("AppHeader", () => {
       AppHeaderTestId.Search,
       AppHeaderTestId.Create,
       AppHeaderTestId.Zibby,
-      AppHeaderTestId.Status,
       AppHeaderTestId.Mode,
       AppHeaderTestId.Notifications,
       AppHeaderTestId.Preferences,
@@ -113,24 +112,22 @@ describe("AppHeader", () => {
     expect(screen.getByTestId(AppHeaderTestId.Search)).not.toHaveTextContent("Hledat");
   });
 
-  it("puts status, mode, notifications and preferences in zone C, in that order", () => {
+  it("puts mode, notifications and preferences in zone C, in that order", () => {
     render(
       <AppHeader
         mode={<span>Mode</span>}
         notifications={<span>Bell</span>}
         preferences={<span>Prefs</span>}
-        status={<span>Status</span>}
       />,
     );
     const zoneC = screen.getByTestId(AppHeaderTestId.ZoneC);
     const ids = [
-      AppHeaderTestId.Status,
       AppHeaderTestId.Mode,
       AppHeaderTestId.Notifications,
       AppHeaderTestId.Preferences,
     ].map((id) => screen.getByTestId(id));
     ids.forEach((el) => expect(zoneC).toContainElement(el));
-    expect(ids[0]).toHaveTextContent("Status");
+    expect(ids[0]).toHaveTextContent("Mode");
     for (let i = 1; i < ids.length; i++) {
       expect(
         ids[i - 1]!.compareDocumentPosition(ids[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,

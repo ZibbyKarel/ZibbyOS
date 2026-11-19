@@ -3373,16 +3373,11 @@
     "pageUnpinAria": "Odepnout stránku",
     "newMenu": "Nový",
     "newMenuAria": "Vytvořit",
-    "statusAria": "Stav systému",
-    "statusPopoverTitle": "Systém",
-    "statusVersion": "Verze {version}",
     "modeGroupAria": "Provozní režim",
     "preferences": "Předvolby",
     "settings": "Nastavení",
+    "about": "O systému",
     "sectionsAria": "Sekce",
-    "selfUpgrade": {
-      "aria": "Aktualizovat ZibbyOS na {version}"
-    },
     "pausedBanner": "<b>Pozastaveno</b> · nic neběží",
     "pausedBannerAction": "Pustit ›"
   },
@@ -4228,16 +4223,19 @@
           "idle": "Nečinný"
         }
       },
-      "briefing": {
+      "indicators": {
+        "label": "Ukazatele",
         "needs": "Potřebuje tě",
         "running": "Běží teď",
         "prs": "Otevřené PR",
         "spend": "Výdaje za měsíc",
-        "kicker": "{date} · {time}",
-        "label": "Briefing",
         "onYou": "Review na tebe",
         "failing": "CI selhává",
-        "conflict": "Konflikt",
+        "conflict": "Konflikt"
+      },
+      "briefing": {
+        "kicker": "{date} · {time}",
+        "label": "Dnešek",
         "calm": "Klidný den.",
         "greeting": {
           "morning": "Dobré ráno.",
@@ -4423,8 +4421,12 @@
     "controls": "Akce widgetu",
     "widget": {
       "briefing": {
-        "label": "Přehled",
-        "desc": "Dnešek v jednom odstavci a klíčové ukazatele"
+        "label": "Dnešek",
+        "desc": "Dnešní den v krátkém textu — co tě čeká"
+      },
+      "indicators": {
+        "label": "Ukazatele",
+        "desc": "Klíčová čísla: čeká na tebe, běží, PR, výdaje"
       },
       "issues": {
         "label": "Issues",

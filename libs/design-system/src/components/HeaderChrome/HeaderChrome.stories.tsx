@@ -5,7 +5,6 @@ import {
   HeaderModeButton,
   HeaderModeGroup,
   HeaderNewButton,
-  HeaderStatus,
 } from "./HeaderChrome";
 
 const meta: Meta = {
@@ -18,13 +17,6 @@ export const Controls: StoryObj = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3">
       <HeaderNewButton aria-label="Create" label="New" />
-      <HeaderStatus aria-label="System status" />
-      <HeaderStatus
-        attention
-        aria-label="1 item waits"
-        state="blocked"
-        update={<Icon name="upgrade" size="xs" />}
-      />
       <HeaderModeGroup ariaLabel="Operating mode">
         <HeaderModeButton pressed icon="compass" label="Approve" />
       </HeaderModeGroup>

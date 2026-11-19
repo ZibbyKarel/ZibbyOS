@@ -8,7 +8,6 @@ import {
   HeaderModeButton,
   HeaderModeGroup,
   HeaderNewButton,
-  HeaderStatus,
 } from "./HeaderChrome";
 
 describe("HeaderNewButton", () => {
@@ -27,20 +26,6 @@ describe("HeaderNewButton", () => {
     const btn = screen.getByTestId(HeaderChromeTestId.NewButton);
     expect(btn).toHaveAccessibleName("Create");
     expect(btn).toHaveTextContent("");
-  });
-});
-
-describe("HeaderStatus", () => {
-  it("shows the update badge", () => {
-    render(<HeaderStatus aria-label="System status" update={<Icon name="upgrade" />} />);
-    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAccessibleName("System status");
-    expect(screen.getByTestId(HeaderChromeTestId.StatusUpdate)).toBeInTheDocument();
-  });
-
-  it("omits the update badge when not given, and flags attention", () => {
-    render(<HeaderStatus attention aria-label="x" state="blocked" />);
-    expect(screen.queryByTestId(HeaderChromeTestId.StatusUpdate)).toBeNull();
-    expect(screen.getByTestId(HeaderChromeTestId.Status)).toHaveAttribute("data-attention", "true");
   });
 });
 

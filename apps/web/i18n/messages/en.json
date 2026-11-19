@@ -3373,16 +3373,11 @@
     "pageUnpinAria": "Unpin page",
     "newMenu": "New",
     "newMenuAria": "Create",
-    "statusAria": "System status",
-    "statusPopoverTitle": "System",
-    "statusVersion": "Version {version}",
     "modeGroupAria": "Operating mode",
     "preferences": "Preferences",
     "settings": "Settings",
+    "about": "About system",
     "sectionsAria": "Sections",
-    "selfUpgrade": {
-      "aria": "Update ZibbyOS to {version}"
-    },
     "pausedBanner": "<b>Paused</b> · nothing runs",
     "pausedBannerAction": "Resume ›"
   },
@@ -4228,16 +4223,19 @@
           "idle": "Idle"
         }
       },
-      "briefing": {
+      "indicators": {
+        "label": "Indicators",
         "needs": "Needs you",
         "running": "Running now",
         "prs": "Open PRs",
         "spend": "Spend this month",
-        "kicker": "{date} · {time}",
-        "label": "Briefing",
         "onYou": "Review on you",
         "failing": "CI failing",
-        "conflict": "Conflict",
+        "conflict": "Conflict"
+      },
+      "briefing": {
+        "kicker": "{date} · {time}",
+        "label": "Today",
         "calm": "A quiet day.",
         "greeting": {
           "morning": "Good morning.",
@@ -4423,8 +4421,12 @@
     "controls": "Widget actions",
     "widget": {
       "briefing": {
-        "label": "Briefing",
-        "desc": "Today in one paragraph plus the key counters"
+        "label": "Today",
+        "desc": "Today's agenda in a short written overview"
+      },
+      "indicators": {
+        "label": "Indicators",
+        "desc": "Key counters: needs you, running, PRs, spend"
       },
       "issues": {
         "label": "Issues",
