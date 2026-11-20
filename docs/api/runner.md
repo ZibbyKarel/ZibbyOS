@@ -427,7 +427,8 @@ tool call's own `cwd`):
    family by token basename, `find … -delete`, `git clean`), overwrites
    (`>`/`>>` onto a real file, `tee`, `dd of=`, `truncate`, `sed -i`,
    `install`, multi-arg `cp`), moves (`mv`), git publish (`push`/force-push),
-   PR open/merge (`gh pr create`/`merge`), package/image publish (`npm|pnpm|yarn publish`,
+   PR open/merge (`gh pr create`/`merge`), `gh pr review` (→ `gh.api_write`), `gh pr|issue comment`
+   (→ `gh.pr_comment`; a `gh api graphql` with one inline `query` document is a read), package/image publish (`npm|pnpm|yarn publish`,
    `yarn npm publish`, `cargo publish`, `gem push`, `twine upload`, `docker|podman push`
    → `deploy`, card „Publikovat balíček nebo image do registru“; any `--dry-run` stays
    unclassified), remote destroy
