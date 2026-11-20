@@ -51,7 +51,7 @@ export function VaultNoteSheet({ id, anchor, onClose, frame }: SheetProps) {
   const title = pins?.labels?.[id] ?? name;
 
   const saveLabel = () => {
-    if (!pins || label === null) return;
+    if (!pins || label === null || setPins.isPending) return;
     const labels = { ...pins.labels };
     delete labels[id];
     const value = label.trim();
@@ -142,7 +142,15 @@ export function VaultNoteSheet({ id, anchor, onClose, frame }: SheetProps) {
       }
       closeLabel={t("bridge.sheet.close")}
       copyId={id}
-      footerNote={label !== null ? n("labelHint") : save.isError ? n("saveFailed") : undefined}
+      footerNote={
+        label !== null
+          ? setPins.isError
+            ? n("saveFailed")
+            : n("labelHint")
+          : save.isError
+            ? n("saveFailed")
+            : undefined
+      }
       glyph="pen"
       kind={t("bridge.sheet.kind.vaultNote")}
       meta={

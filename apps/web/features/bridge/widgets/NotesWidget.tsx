@@ -30,12 +30,8 @@ export function NotesWidget({
   const pinsQuery = useNotePinsQuery();
   const treeQuery = useNoteTreeQuery(adding);
   const setPins = useSetNotePinsMutation();
-  const mode = adding ? "browse" : "pinned";
-  // Folders flipped from the mode's default (pinned: all open, whole vault: all closed).
-  const [flipped, setFlipped] = useState<Record<typeof mode, ReadonlySet<string>>>({
-    pinned: new Set(),
-    browse: new Set(),
-  });
+  // Browse mode only: folders the operator opened (the whole vault starts collapsed).
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
 
   const pins = useMemo(() => pinsQuery.data?.paths ?? [], [pinsQuery.data]);
   const labels = pinsQuery.data?.labels;
@@ -55,8 +51,8 @@ export function NotesWidget({
     [treeQuery.data, pins, labels, adding, widget.id],
   );
   const expandedIds = useMemo(
-    () => new Set(branchIds(nodes).filter((id) => (mode === "pinned") !== flipped[mode].has(id))),
-    [nodes, mode, flipped],
+    () => new Set(branchIds(nodes).filter((id) => opened.has(id))),
+    [nodes, opened],
   );
 
   // `failed`: the empty hint must stay visible, so the widget never collapses as empty.
@@ -66,10 +62,10 @@ export function NotesWidget({
   );
 
   const toggleFolder = (id: string) =>
-    setFlipped((f) => {
-      const next = new Set(f[mode]);
+    setOpened((o) => {
+      const next = new Set(o);
       if (!next.delete(id)) next.add(id);
-      return { ...f, [mode]: next };
+      return next;
     });
 
   const select = (path: string) => {

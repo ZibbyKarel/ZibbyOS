@@ -7,6 +7,8 @@ import { VaultNoteSheet, VaultNoteSheetTestId } from "./VaultNoteSheet";
 const save = vi.hoisted(() => vi.fn());
 const setPins = vi.hoisted(() => vi.fn());
 const d = vi.hoisted(() => ({
+  pending: false,
+  failed: false,
   pins: { paths: [] } as { paths: string[]; labels?: Record<string, string> },
 }));
 vi.mock("../../../notes/queries", () => ({
@@ -15,7 +17,7 @@ vi.mock("../../../notes/queries", () => ({
 }));
 vi.mock("../../../notes/mutations", () => ({
   useSaveNoteMutation: () => ({ mutate: save, isPending: false, isError: false }),
-  useSetNotePinsMutation: () => ({ mutate: setPins, isPending: false }),
+  useSetNotePinsMutation: () => ({ mutate: setPins, isPending: d.pending, isError: d.failed }),
 }));
 
 const anchor: SheetAnchor = {
@@ -34,6 +36,8 @@ describe("VaultNoteSheet", () => {
     save.mockClear();
     setPins.mockClear();
     d.pins = { paths: [] };
+    d.pending = false;
+    d.failed = false;
   });
 
   it("renders the body without frontmatter and pins the note", () => {
@@ -94,6 +98,25 @@ describe("VaultNoteSheet", () => {
         );
         cleanup();
       }
+    });
+
+    it("ignores Enter while a save is pending", () => {
+      open();
+      fireEvent.click(screen.getByTestId(VaultNoteSheetTestId.Rename));
+      d.pending = true;
+      fireEvent.change(input(), { target: { value: "x" } }); // re-render with the pending state
+      fireEvent.keyDown(input(), { key: "Enter" });
+      expect(setPins).not.toHaveBeenCalled();
+    });
+
+    it("shows the failure instead of the hint when renaming failed", () => {
+      open();
+      fireEvent.click(screen.getByTestId(VaultNoteSheetTestId.Rename));
+      expect(screen.getByText(/Mění jen název/)).toBeInTheDocument();
+      d.failed = true;
+      fireEvent.change(input(), { target: { value: "x" } });
+      expect(screen.getByText("Uložení se nepovedlo.")).toBeInTheDocument();
+      expect(screen.queryByText(/Mění jen název/)).toBeNull();
     });
 
     it("Escape cancels without saving", () => {
