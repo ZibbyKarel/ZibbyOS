@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { IconTestId } from "../Icon/Icon";
+import { MonogramTestId } from "../Monogram/Monogram";
 import { PortraitCard, PortraitCardTestId } from "./PortraitCard";
 
 describe("PortraitCard", () => {
@@ -38,5 +40,26 @@ describe("PortraitCard", () => {
     render(<PortraitCard name="Kodér" />);
     expect(screen.queryByTestId(PortraitCardTestId.Stats)).toBeNull();
     expect(screen.queryByTestId(PortraitCardTestId.Now)).toBeNull();
+  });
+
+  it("shows an icon tile instead of the monogram when a glyph is set", () => {
+    render(<PortraitCard glyph="bot" name="Kodér" />);
+    const avatar = screen.getByTestId(PortraitCardTestId.Avatar);
+    expect(within(avatar).getByTestId(IconTestId.Root)).toHaveAttribute("data-icon", "bot");
+    expect(within(avatar).queryByTestId(MonogramTestId.Root)).toBeNull();
+  });
+
+  it("shows the monogram without a glyph", () => {
+    render(<PortraitCard name="Kodér" />);
+    const avatar = screen.getByTestId(PortraitCardTestId.Avatar);
+    expect(within(avatar).getByTestId(MonogramTestId.Root)).toBeInTheDocument();
+    expect(within(avatar).queryByTestId(IconTestId.Root)).toBeNull();
+  });
+
+  it("keeps the whole avatar inside the band", () => {
+    render(<PortraitCard name="Kodér" />);
+    const avatar = screen.getByTestId(PortraitCardTestId.Avatar);
+    expect(screen.getByTestId(PortraitCardTestId.Band)).toContainElement(avatar);
+    expect(avatar.className).not.toContain("bottom-[-38px]");
   });
 });

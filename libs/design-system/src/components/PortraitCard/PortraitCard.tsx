@@ -1,10 +1,13 @@
 import type { ReactNode, Ref } from "react";
+import { Icon } from "../Icon/Icon";
+import type { IconName } from "../Icon/Icon";
 import { EngineGlyph } from "../EngineBadge/EngineBadge";
 import { Monogram } from "../Monogram/Monogram";
 
 export enum PortraitCardTestId {
   Root = "portrait-card-root",
   Band = "portrait-card-band",
+  Avatar = "portrait-card-avatar",
   Status = "portrait-card-status",
   Tag = "portrait-card-tag",
   Engine = "portrait-card-engine",
@@ -35,6 +38,8 @@ export interface PortraitCardProps {
   /** Short mono engine mark on the avatar (an engine id such as "claude" shows its icon; any other text shows as-is); its `engineLabel` is the accessible name. */
   engine?: string;
   engineLabel?: string;
+  /** Icon avatar: a `hue`-tinted tile with this glyph instead of the name monogram. */
+  glyph?: IconName;
   role?: string;
   /** "Právě: …" line; `tone` colours it (violet = working, sky = thinking). */
   now?: { text: string; tone: "run" | "think" };
@@ -62,6 +67,7 @@ export function PortraitCard({
   tag,
   engine,
   engineLabel,
+  glyph,
   role,
   now,
   model,
@@ -83,7 +89,7 @@ export function PortraitCard({
       type="button"
     >
       <span
-        className="relative block h-[96px] rounded-t-[11px] border-b border-line"
+        className="relative block h-[118px] rounded-t-[11px] border-b border-line"
         data-testid={PortraitCardTestId.Band}
         style={{
           background: `linear-gradient(180deg, color-mix(in srgb, ${hue} 20%, transparent), color-mix(in srgb, ${hue} 4%, transparent))`,
@@ -102,8 +108,20 @@ export function PortraitCard({
             {tag}
           </span>
         )}
-        <span className="absolute bottom-[-38px] left-1/2 -translate-x-1/2 rounded-[30%] shadow-[0_0_0_4px_var(--color-panel)]">
-          <Monogram name={name} size={76} />
+        <span
+          className="absolute bottom-[14px] left-1/2 -translate-x-1/2 rounded-[30%] shadow-[0_0_0_4px_var(--color-panel)]"
+          data-testid={PortraitCardTestId.Avatar}
+        >
+          {glyph ? (
+            <span
+              className="grid size-[76px] place-items-center rounded-[30%] border border-line text-ink [&_svg]:size-[36px]"
+              style={{ background: `color-mix(in srgb, ${hue} 22%, var(--color-panel))` }}
+            >
+              <Icon name={glyph} />
+            </span>
+          ) : (
+            <Monogram name={name} size={76} />
+          )}
           {engine && (
             <span
               aria-label={engineLabel}
@@ -117,7 +135,7 @@ export function PortraitCard({
           )}
         </span>
       </span>
-      <span className="flex flex-1 flex-col items-center gap-[10px] px-[14px] pt-[48px] pb-[14px] text-center">
+      <span className="flex flex-1 flex-col items-center gap-[10px] px-[14px] pt-[14px] pb-[14px] text-center">
         <span className="block min-w-0 max-w-full">
           <span
             className="block truncate text-[16px] leading-[1.3] font-semibold tracking-[-0.015em] text-ink"

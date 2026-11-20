@@ -21,3 +21,6 @@ const meta: Meta<typeof PortraitCard> = {
 };
 export default meta;
 export const Default: StoryObj<typeof PortraitCard> = {};
+export const AgentGlyph: StoryObj<typeof PortraitCard> = {
+  args: { glyph: "shield", hue: "#a78bfa" },
+};

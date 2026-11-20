@@ -1,6 +1,7 @@
 import type { Agent, Department } from "@zibby/contracts";
 import { Icon, PortraitCard, StatusDot, Tag } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
+import { agentSymbol } from "../agentSymbol";
 import { useEngineBadge, useTierLabel } from "../../ai-providers";
 import {
   type AgentPresence,
@@ -52,6 +53,7 @@ export function AgentPortraitCard({
       effort={{ level: EFFORT_LEVEL[thinking], label: t(`list.effort.${thinking}`) }}
       engine={badge.engine}
       engineLabel={badge.label}
+      glyph={agentSymbol(agent, department ? [department] : []).glyph}
       hue={department?.color}
       model={agent.engineModel ?? tierLabel(agent.model ?? "sonnet", agent.engine)}
       name={name}
