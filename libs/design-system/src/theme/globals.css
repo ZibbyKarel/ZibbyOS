@@ -1207,6 +1207,10 @@
    Moved from apps/web/app/globals.css in ZA-07 (D-007): styling authored by
    apps/web belongs in the design system, not the app's own stylesheet. */
 .md-prose {
+  /* The renderer root (`.wmde-markdown`, primer CSS) re-declares
+     `--color-accent-fg` to primer blue, so capture the DS value here,
+     outside it, under a name primer doesn't touch. */
+  --md-link: var(--color-accent-fg);
   color: var(--color-foreground);
   font-size: var(--text-lg);
   line-height: 1.6;
@@ -1224,7 +1228,7 @@
   font-style: italic;
 }
 .md-prose a {
-  color: var(--color-accent-fg);
+  color: var(--md-link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }

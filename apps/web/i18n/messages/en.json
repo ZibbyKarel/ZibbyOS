@@ -4238,9 +4238,9 @@
         "label": "Today",
         "calm": "A quiet day.",
         "greeting": {
-          "morning": "Good morning.",
-          "afternoon": "Good afternoon.",
-          "evening": "Good evening."
+          "morning": "Good morning, Sir.",
+          "afternoon": "Good afternoon, Sir.",
+          "evening": "Good evening, Sir."
         }
       },
       "todo": {

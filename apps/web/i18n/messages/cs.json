@@ -4238,9 +4238,9 @@
         "label": "Dnešek",
         "calm": "Klidný den.",
         "greeting": {
-          "morning": "Dobré ráno.",
-          "afternoon": "Dobré odpoledne.",
-          "evening": "Dobrý večer."
+          "morning": "Dobré ráno, pane.",
+          "afternoon": "Dobré odpoledne, pane.",
+          "evening": "Dobrý večer, pane."
         }
       },
       "todo": {
@@ -5272,9 +5272,9 @@
   },
   "brand": {
     "splashGreeting": {
-      "morning": "Dobré ráno, Pane.",
-      "afternoon": "Dobré odpoledne, Pane.",
-      "evening": "Dobrý večer, Pane."
+      "morning": "Dobré ráno, pane.",
+      "afternoon": "Dobré odpoledne, pane.",
+      "evening": "Dobrý večer, pane."
     }
   },
   "departmentsList": {
