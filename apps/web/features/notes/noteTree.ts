@@ -3,6 +3,9 @@ import type { TreeNode } from "@zibby/design-system";
 /** The tree node id of a folder (files use their vault path), so the two never collide. */
 export const dirId = (path: string) => `dir:${path}`;
 
+/** A note's display name: its file name without the `.md` extension. */
+export const noteName = (path: string) => (path.split("/").pop() ?? path).replace(/\.md$/, "");
+
 /**
  * Folder tree of vault-relative paths: folders first, then files, both A–Z. `decorate` adds
  * per-file node fields (row key, marker).
@@ -35,7 +38,7 @@ export function buildNoteTree(
       .sort((a, b) => a.localeCompare(b))
       .map((p) => ({
         id: p,
-        label: (p.split("/").pop() ?? p).replace(/\.md$/, ""),
+        label: noteName(p),
         ...decorate(p),
       })),
   ];

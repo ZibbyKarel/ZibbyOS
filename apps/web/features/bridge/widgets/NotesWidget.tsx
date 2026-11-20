@@ -4,7 +4,7 @@ import { Container, Icon, TreeView, Typography } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { useSetNotePinsMutation } from "../../notes/mutations";
-import { branchIds, buildNoteTree } from "../../notes/noteTree";
+import { branchIds, buildNoteTree, noteName } from "../../notes/noteTree";
 import { useNotePinsQuery, useNoteTreeQuery } from "../../notes/queries";
 import type { BridgeWidgetProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
@@ -14,9 +14,9 @@ export enum NotesWidgetTestId {
 }
 
 /**
- * Kartotéka: the operator's pinned vault notes (mozek) as a folder / file tree. A file opens the
- * note in the detail sheet (read, edit, save, unpin). The header `+` switches the tree to the whole
- * vault, where a click pins / unpins a note instead.
+ * Kartotéka: the operator's pinned vault notes (mozek) as flat "icon + name" rows (a pin may carry
+ * its own label). A row opens the note in the detail sheet (read, edit, save, rename link, unpin).
+ * The header `+` switches to the whole vault as a folder tree, where a click pins / unpins instead.
  */
 export function NotesWidget({
   widget,
@@ -38,13 +38,21 @@ export function NotesWidget({
   });
 
   const pins = useMemo(() => pinsQuery.data?.paths ?? [], [pinsQuery.data]);
+  const labels = pinsQuery.data?.labels;
   const nodes = useMemo(
     () =>
-      buildNoteTree(adding ? (treeQuery.data?.paths ?? []) : pins, (p) => ({
-        rowKey: `${widget.id}:${p}`,
-        ...(adding && pins.includes(p) ? { leading: <Icon name="pin" size="xs" /> } : {}),
-      })),
-    [treeQuery.data, pins, adding, widget.id],
+      adding
+        ? buildNoteTree(treeQuery.data?.paths ?? [], (p) => ({
+            rowKey: `${widget.id}:${p}`,
+            ...(pins.includes(p) ? { leading: <Icon name="pin" size="xs" /> } : {}),
+          }))
+        : pins.map((p) => ({
+            id: p,
+            label: labels?.[p] ?? noteName(p),
+            leading: <Icon name="doc" size="xs" />,
+            rowKey: `${widget.id}:${p}`,
+          })),
+    [treeQuery.data, pins, labels, adding, widget.id],
   );
   const expandedIds = useMemo(
     () => new Set(branchIds(nodes).filter((id) => (mode === "pinned") !== flipped[mode].has(id))),
@@ -69,6 +77,7 @@ export function NotesWidget({
       setPins.mutate({
         body: {
           paths: pins.includes(path) ? pins.filter((p) => p !== path) : [...pins, path],
+          labels,
         },
       });
       return;
