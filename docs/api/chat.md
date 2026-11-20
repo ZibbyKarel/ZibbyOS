@@ -193,6 +193,16 @@ opencode run --standalone --format json -m <provider/model> --agent zibby [--ses
        ZIBBY_CHAT_DENY_TOOLS=<zibby_create_task in an @agent turn, else empty>  (no inherited OPENCODE_*)
 ```
 
+**Live deltas.** `opencode run --format json` only prints finished `text` parts, so each
+turn first starts its own `opencode serve --port 0` (`startOpencodeEventServer`, same
+per-turn env, a random `OPENCODE_SERVER_PASSWORD`), subscribes to its `GET /api/event` SSE
+stream and then runs `opencode run --server <url>` (instead of `--standalone`) against
+it. Every `session.text.delta` frame becomes a chat `delta` event; once one arrived, the
+run's whole `text` parts only feed the stored reply and `done` (no duplicate delta). The
+server is closed (SIGTERM, then SIGKILL after 2 s) when the turn ends, however it ends,
+and on API shutdown. If it never reports its address, the turn falls back to
+`--standalone` with one delta per text part.
+
 - **MCP servers (A33)**, later entries winning a name: the OAuth remotes `atlassian`
   (`https://mcp.atlassian.com/v1/mcp`) and `figma` (`https://mcp.figma.com/mcp`); the
   operator's own servers from `readOperatorMcpServers` for the turn cwd (user scope +

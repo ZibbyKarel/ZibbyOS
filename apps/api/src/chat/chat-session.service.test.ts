@@ -31,6 +31,7 @@ import {
   mergeToolEvent,
 } from "./chat-session.service";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
+import type { OpencodeEventServer } from "./opencode-event-stream";
 import { ChatTranscriptStore } from "./chat-transcript.store";
 
 /** A fake `claude` process that replays canned stream-json lines then closes. */
@@ -44,6 +45,14 @@ class FakeClaude extends EventEmitter implements ClaudeProcess {
       this.emit("close", 0);
     });
   }
+  kill(): boolean {
+    return true;
+  }
+}
+
+/** A fake turn process that never writes or exits (the turn-timeout path). */
+class HangingProc extends EventEmitter implements ClaudeProcess {
+  readonly stdout = new PassThrough();
   kill(): boolean {
     return true;
   }
@@ -129,6 +138,13 @@ class TestSession extends ChatSessionService {
   operatorServers: OperatorMcpServer[] = [];
   /** The opencode turn's config as it was at spawn — the file is gone once the turn ends. */
   lastOpencodeConfig: Record<string, unknown> | undefined;
+  /** The per-turn opencode event server the next turn gets (null = `--standalone`). */
+  eventServer: OpencodeEventServer | null = null;
+  /** Set to make the spawned process never exit. */
+  hang = false;
+  protected startEventServer(): Promise<OpencodeEventServer | null> {
+    return Promise.resolve(this.eventServer);
+  }
   protected operatorMcpServers(): Promise<OperatorMcpServer[]> {
     return Promise.resolve(this.operatorServers);
   }
@@ -143,7 +159,7 @@ class TestSession extends ChatSessionService {
       this.lastMcpConfig = JSON.parse(readFileSync(args[mcpConfig + 1] ?? "", "utf8"));
     }
     if (this.spawnError) throw this.spawnError;
-    return new FakeClaude(this.lines);
+    return this.hang ? new HangingProc() : new FakeClaude(this.lines);
   }
 }
 
@@ -1281,6 +1297,82 @@ describe("ChatSessionService", () => {
         { name: "recall_memory", status: "ok" },
         { name: "shell", status: "error", callId: "call_2" },
       ]);
+    });
+
+    describe("live deltas via a per-turn opencode server", () => {
+      const fakeServer = (deltas: string[]) => {
+        const server = {
+          url: "http://127.0.0.1:5",
+          password: "pw",
+          proc: {} as OpencodeEventServer["proc"],
+          subscribe: vi.fn((onDelta: (text: string) => void) => {
+            for (const d of deltas) onDelta(d);
+            return () => undefined;
+          }),
+          close: vi.fn(),
+        };
+        return server;
+      };
+      const turnEvents = (turnId: string) =>
+        seen
+          .filter((e) => e.turnId === turnId && (e.type === "delta" || e.type === "done"))
+          .map((e) => ({ type: e.type, text: "text" in e ? e.text : undefined }));
+
+      it("streams the server's deltas live, the run's text part stays authoritative", async () => {
+        const svc = opencodeSession([
+          line({ type: "text", sessionID: "ses_l", part: { type: "text", text: "Dobré ráno" } }),
+        ]);
+        const server = fakeServer(["Dob", "ré ráno"]);
+        svc.eventServer = server;
+        const r = await svc.sendMessage({ conversationId: "c-live", text: "ahoj" }, NOW);
+        await settled(r.turnId);
+        expect(turnEvents(r.turnId)).toEqual([
+          { type: "delta", text: "Dob" },
+          { type: "delta", text: "ré ráno" },
+          { type: "done", text: "Dobré ráno" },
+        ]);
+        expect(svc.lastArgs.slice(0, 3)).toEqual(["run", "--server", "http://127.0.0.1:5"]);
+        expect(svc.lastArgs).not.toContain("--standalone");
+        expect(svc.lastSpawn?.env.OPENCODE_SERVER_PASSWORD).toBe("pw");
+        expect(server.close).toHaveBeenCalledTimes(1);
+        const transcript = await store.readTranscript(r.conversationId);
+        expect(transcript.messages.find((m) => m.role === "assistant")?.text).toBe("Dobré ráno");
+      });
+
+      it("falls back to --standalone and one whole-part delta when no server starts", async () => {
+        const svc = opencodeSession([
+          line({ type: "text", sessionID: "ses_s", part: { type: "text", text: "Dobré ráno" } }),
+        ]);
+        const r = await svc.sendMessage({ conversationId: "c-std", text: "ahoj" }, NOW);
+        await settled(r.turnId);
+        expect(svc.lastArgs).toContain("--standalone");
+        expect(svc.lastSpawn?.env.OPENCODE_SERVER_PASSWORD).toBeUndefined();
+        expect(turnEvents(r.turnId)).toEqual([
+          { type: "delta", text: "Dobré ráno" },
+          { type: "done", text: "Dobré ráno" },
+        ]);
+      });
+
+      it("closes the server when the turn times out", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          const svc = opencodeSession([]);
+          svc.hang = true;
+          const server = fakeServer([]);
+          svc.eventServer = server;
+          const r = await svc.sendMessage({ conversationId: "c-to", text: "ahoj" }, NOW);
+          const done = settled(r.turnId);
+          await vi.waitFor(() => expect(server.subscribe).toHaveBeenCalled(), {
+            interval: 5,
+          });
+          expect(server.close).not.toHaveBeenCalled();
+          await vi.advanceTimersByTimeAsync(120_000);
+          await done;
+          expect(server.close).toHaveBeenCalledTimes(1);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
 
     it("mounts the operator's servers (minus serena) and the OAuth remotes; own servers can't be shadowed (A33)", async () => {

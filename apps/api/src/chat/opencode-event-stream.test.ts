@@ -21,6 +21,17 @@ describe("parseOpencodeEventFrame", () => {
     expect(parseOpencodeEventFrame(data)).toEqual({ messageId: "msg_1", ordinal: 0, delta: "Po" });
   });
 
+  it("parses the frame opencode 2.2.7 actually sends on /api/event (payload under `data`)", () => {
+    const data = JSON.stringify({
+      id: "evt_1",
+      created: 1,
+      type: "session.text.delta",
+      location: { directory: "/w" },
+      data: { sessionID: "ses_1", assistantMessageID: "msg_1", ordinal: 0, delta: "Ob" },
+    });
+    expect(parseOpencodeEventFrame(data)).toEqual({ messageId: "msg_1", ordinal: 0, delta: "Ob" });
+  });
+
   it("ignores other types, malformed JSON and empty deltas", () => {
     expect(parseOpencodeEventFrame(frame("session.text.started", {}))).toBeNull();
     expect(parseOpencodeEventFrame("{nope")).toBeNull();

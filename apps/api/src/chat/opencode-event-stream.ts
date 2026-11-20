@@ -17,7 +17,17 @@ export function parseOpencodeEventFrame(data: string): OpencodeDeltaFrame | null
     return null;
   }
   if (typeof json !== "object" || json === null) return null;
-  const { type, properties } = json as { type?: unknown; properties?: Record<string, unknown> };
+  // opencode 2.2.7's `/api/event` puts the payload under `data`; older builds used `properties`.
+  const {
+    type,
+    data: payload,
+    properties: legacy,
+  } = json as {
+    type?: unknown;
+    data?: Record<string, unknown>;
+    properties?: Record<string, unknown>;
+  };
+  const properties = payload ?? legacy;
   if (type !== "session.text.delta" || !properties) return null;
   const { delta, assistantMessageID, ordinal } = properties;
   if (typeof delta !== "string" || delta === "") return null;
@@ -53,16 +63,20 @@ export interface StartOpencodeEventServerOptions {
 
 // Not importing killTurnProcess from chat-session.service: the service will import this module.
 function killGroup(proc: ChildProcess): void {
-  try {
-    if (!proc.pid) throw new Error("no pid");
-    process.kill(-proc.pid, "SIGTERM");
-  } catch {
+  const signal = (sig: NodeJS.Signals): void => {
     try {
-      proc.kill("SIGTERM");
+      if (!proc.pid) throw new Error("no pid");
+      process.kill(-proc.pid, sig);
     } catch {
-      // already gone
+      try {
+        proc.kill(sig);
+      } catch {
+        // already gone
+      }
     }
-  }
+  };
+  signal("SIGTERM");
+  setTimeout(() => signal("SIGKILL"), 2_000).unref?.();
 }
 
 /** Spawn `opencode serve` on a random loopback port; null if it never reports its address. */
@@ -137,7 +151,7 @@ async function pump(
     headers: { authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}` },
     signal,
   });
-  if (!res.body) return;
+  if (!res.ok || !res.body) return;
   const join = createDeltaJoiner();
   const decoder = new TextDecoder();
   let buf = "";

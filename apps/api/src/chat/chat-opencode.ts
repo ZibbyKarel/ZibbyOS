@@ -144,11 +144,19 @@ export function buildOpencodeChatConfig(
   };
 }
 
-/** `opencode run` argv for one chat turn. `--standalone` is mandatory (per-run config). */
-export function opencodeChatArgs(model: string, sessionId: string | null, text: string): string[] {
+/**
+ * `opencode run` argv for one chat turn: attached to the turn's own `opencode serve`
+ * (`server`, started with the same per-turn env) for live deltas, else `--standalone`.
+ */
+export function opencodeChatArgs(
+  model: string,
+  sessionId: string | null,
+  text: string,
+  server?: string,
+): string[] {
   return [
     "run",
-    "--standalone",
+    ...(server ? ["--server", server] : ["--standalone"]),
     "--format",
     "json",
     "-m",

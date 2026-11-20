@@ -111,6 +111,18 @@ describe("opencodeChatArgs / opencodeChatEnv", () => {
     expect(opencodeChatArgs("m", null, "x")).not.toContain("--session");
   });
 
+  it("attaches to a per-turn server with --server instead of --standalone", () => {
+    const args = opencodeChatArgs("m", null, "hi", "http://127.0.0.1:5");
+    expect(args.slice(0, 5)).toEqual(["run", "--server", "http://127.0.0.1:5", "--format", "json"]);
+    expect(args).not.toContain("--standalone");
+    expect(opencodeChatArgs("m", null, "hi").slice(0, 4)).toEqual([
+      "run",
+      "--standalone",
+      "--format",
+      "json",
+    ]);
+  });
+
   it("drops inherited OPENCODE_* and pins PWD", () => {
     process.env.OPENCODE_PERMISSION = "allow";
     try {

@@ -60,6 +60,7 @@ import {
   parseOpencodeChatLine,
 } from "./chat-opencode";
 import { type ChatStreamEvent, parseChatStreamLine } from "./chat-stream-parser";
+import { type OpencodeEventServer, startOpencodeEventServer } from "./opencode-event-stream";
 import { type ChatCreateTaskMeta, ChatToolResultRegistry } from "./chat-tool-result.registry";
 import { describeTarget } from "./chat-tools.service";
 import { CHAT_DIR, ChatTranscriptStore } from "./chat-transcript.store";
@@ -259,6 +260,8 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChatSessionService.name);
   /** Turn processes still running — reaped on shutdown (they are detached). */
   private readonly live = new Set<ClaudeProcess>();
+  /** Per-turn `opencode serve` processes (they hold the turn's bearer tokens too). */
+  private readonly liveEventServers = new Set<OpencodeEventServer>();
   protected readonly model = process.env.ZIBBY_CHAT_MODEL ?? "sonnet";
 
   constructor(
@@ -303,6 +306,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy(): void {
     for (const proc of this.live) killTurnProcess(proc);
+    for (const server of this.liveEventServers) server.close();
   }
 
   /** The turn's project: the `#project` tag, else the project whose `gitRemote` is the
@@ -727,6 +731,14 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     return readOperatorMcpServers(resolveClaudeLocations(), cwd);
   }
 
+  /** The turn's own `opencode serve` for live text deltas (null = none); overridden in tests. */
+  protected startEventServer(
+    env: NodeJS.ProcessEnv,
+    cwd: string | undefined,
+  ): Promise<OpencodeEventServer | null> {
+    return startOpencodeEventServer({ env, cwd: cwd ?? process.cwd() });
+  }
+
   /** The real spawn; overridden in tests. Isolated stdin, piped stdout/stderr. Detached
    *  (own process group) so {@link killTurnProcess} takes the grandchildren down too. */
   protected createProcess(args: string[], cwd?: string, opts?: ChatSpawnOptions): ClaudeProcess {
@@ -821,18 +833,48 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     // once the turn ends, whatever way it ends.
     const secretFile =
       opencodeTurn?.configFile ?? claudeArgs?.[claudeArgs.indexOf("--mcp-config") + 1];
-    const removeSecretFile = (): Promise<void> =>
-      secretFile ? fs.rm(secretFile, { force: true }).catch(() => undefined) : Promise.resolve();
+    // opencode: the turn's own `opencode serve` (same per-turn env) streams the reply's
+    // text deltas live; the run attaches to it. Killed with the turn, however it ends.
+    const eventServer = opencodeTurn
+      ? await this.startEventServer(opencodeTurn.env, tags?.project?.path)
+      : null;
+    if (eventServer) this.liveEventServers.add(eventServer);
+    const cleanupTurn = (): Promise<void> => {
+      if (eventServer) {
+        eventServer.close();
+        this.liveEventServers.delete(eventServer);
+      }
+      return secretFile
+        ? fs.rm(secretFile, { force: true }).catch(() => undefined)
+        : Promise.resolve();
+    };
+    // Set by the first live delta: the run's whole `text` parts then only feed `accumulated`.
+    let liveStreamed = false;
     let proc: ClaudeProcess;
     try {
+      if (eventServer) {
+        // Subscribe before the run spawns, so no early frame is missed.
+        eventServer.subscribe((delta) => {
+          liveStreamed = true;
+          this.events.emit({ conversationId, turnId, type: "delta", text: delta });
+        });
+      }
       proc = opencodeTurn
-        ? this.createProcess(opencodeTurn.args, tags?.project?.path, {
-            command: opencodeBin(),
-            env: opencodeTurn.env,
-          })
+        ? this.createProcess(
+            eventServer
+              ? opencodeChatArgs(engine.model ?? "", sessionId, text, eventServer.url)
+              : opencodeTurn.args,
+            tags?.project?.path,
+            {
+              command: opencodeBin(),
+              env: eventServer
+                ? { ...opencodeTurn.env, OPENCODE_SERVER_PASSWORD: eventServer.password }
+                : opencodeTurn.env,
+            },
+          )
         : this.createProcess(claudeArgs ?? [], tags?.project?.path);
     } catch (error) {
-      await removeSecretFile();
+      await cleanupTurn();
       throw error;
     }
     const parseLine = opencodeTurn
@@ -896,7 +938,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
         case "delta": {
           const text = event.block && accumulated ? `\n\n${event.text}` : event.text;
           accumulated += text;
-          this.events.emit({ conversationId, turnId, type: "delta", text });
+          if (!liveStreamed) this.events.emit({ conversationId, turnId, type: "delta", text });
           break;
         }
         case "tool": {
@@ -971,7 +1013,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
         finish();
       });
     });
-    await removeSecretFile();
+    await cleanupTurn();
 
     // The turn is over: stop reacting to live pushes, then sweep anything that was
     // queued because it arrived with no subscriber listening (e.g. it landed in the
