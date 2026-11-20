@@ -201,7 +201,10 @@ it. Every `session.text.delta` frame becomes a chat `delta` event; once one arri
 run's whole `text` parts only feed the stored reply and `done` (no duplicate delta). The
 server is closed (SIGTERM, then SIGKILL after 2 s) when the turn ends, however it ends,
 and on API shutdown. If it never reports its address, the turn falls back to
-`--standalone` with one delta per text part.
+`--standalone` with one delta per text part. Each server leaves an
+`opencode-serve_<api pid>_<server pid>.pid` file in the chat dir while it lives; if the API
+dies without closing it, the next start (`sweepOrphanEventServers`) kills the process group
+of every pid file whose API is gone and whose command line still reads `opencode … serve`.
 
 - **MCP servers (A33)**, later entries winning a name: the OAuth remotes `atlassian`
   (`https://mcp.atlassian.com/v1/mcp`) and `figma` (`https://mcp.figma.com/mcp`); the

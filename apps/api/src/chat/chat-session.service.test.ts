@@ -142,7 +142,16 @@ class TestSession extends ChatSessionService {
   eventServer: OpencodeEventServer | null = null;
   /** Set to make the spawned process never exit. */
   hang = false;
-  protected startEventServer(): Promise<OpencodeEventServer | null> {
+  /** Set to make the next event-server start reject. */
+  eventServerError: Error | undefined;
+  /** The env + cwd each turn started its event server with. */
+  eventServerCalls: { env: NodeJS.ProcessEnv; cwd: string | undefined }[] = [];
+  protected startEventServer(
+    env: NodeJS.ProcessEnv,
+    cwd: string | undefined,
+  ): Promise<OpencodeEventServer | null> {
+    this.eventServerCalls.push({ env, cwd });
+    if (this.eventServerError) return Promise.reject(this.eventServerError);
     return Promise.resolve(this.eventServer);
   }
   protected operatorMcpServers(): Promise<OperatorMcpServer[]> {
@@ -1334,6 +1343,15 @@ describe("ChatSessionService", () => {
         expect(svc.lastArgs.slice(0, 3)).toEqual(["run", "--server", "http://127.0.0.1:5"]);
         expect(svc.lastArgs).not.toContain("--standalone");
         expect(svc.lastSpawn?.env.OPENCODE_SERVER_PASSWORD).toBe("pw");
+        // Per-turn isolation: the server got exactly the turn's env (the run's, minus
+        // only the server password) and the run's cwd.
+        expect(svc.eventServerCalls).toHaveLength(1);
+        expect(svc.lastSpawn?.env).toEqual({
+          ...svc.eventServerCalls[0]?.env,
+          OPENCODE_SERVER_PASSWORD: "pw",
+        });
+        expect(svc.eventServerCalls[0]?.env.OPENCODE_CONFIG).toBeDefined();
+        expect(svc.eventServerCalls[0]?.cwd).toBe(svc.lastCwd);
         expect(server.close).toHaveBeenCalledTimes(1);
         const transcript = await store.readTranscript(r.conversationId);
         expect(transcript.messages.find((m) => m.role === "assistant")?.text).toBe("Dobré ráno");
@@ -1347,10 +1365,21 @@ describe("ChatSessionService", () => {
         await settled(r.turnId);
         expect(svc.lastArgs).toContain("--standalone");
         expect(svc.lastSpawn?.env.OPENCODE_SERVER_PASSWORD).toBeUndefined();
+        expect(svc.eventServerCalls.map((c) => c.env)).toEqual([svc.lastSpawn?.env]);
         expect(turnEvents(r.turnId)).toEqual([
           { type: "delta", text: "Dobré ráno" },
           { type: "done", text: "Dobré ráno" },
         ]);
+      });
+
+      it("removes the turn's secret config when the event server fails to start", async () => {
+        const svc = opencodeSession([]);
+        svc.eventServerError = new Error("serve EACCES");
+        const r = await svc.sendMessage({ conversationId: "c-esf", text: "ahoj" }, NOW);
+        await settled(r.turnId);
+        const configFile = svc.eventServerCalls[0]?.env.OPENCODE_CONFIG;
+        expect(configFile).toBeDefined();
+        await expect(fs.access(configFile ?? "")).rejects.toThrow();
       });
 
       it("closes the server when the turn times out", async () => {

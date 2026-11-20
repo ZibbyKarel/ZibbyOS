@@ -60,7 +60,11 @@ import {
   parseOpencodeChatLine,
 } from "./chat-opencode";
 import { type ChatStreamEvent, parseChatStreamLine } from "./chat-stream-parser";
-import { type OpencodeEventServer, startOpencodeEventServer } from "./opencode-event-stream";
+import {
+  type OpencodeEventServer,
+  startOpencodeEventServer,
+  sweepOrphanEventServers,
+} from "./opencode-event-stream";
 import { type ChatCreateTaskMeta, ChatToolResultRegistry } from "./chat-tool-result.registry";
 import { describeTarget } from "./chat-tools.service";
 import { CHAT_DIR, ChatTranscriptStore } from "./chat-transcript.store";
@@ -293,8 +297,10 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   /** Remove per-turn secret configs a crash left behind. Only files older than any live
-   *  turn could be, so a second API on the same chat dir keeps its in-flight configs. */
+   *  turn could be, so a second API on the same chat dir keeps its in-flight configs.
+   *  Also kills the per-turn `opencode serve`s a crashed API orphaned (pid files). */
   async onModuleInit(): Promise<void> {
+    await sweepOrphanEventServers(this.chatDir);
     const cutoff = Date.now() - TURN_TIMEOUT_MS - KILL_GRACE_MS;
     const names = await fs.readdir(this.chatDir).catch(() => [] as string[]);
     for (const name of names.filter((n) => TURN_SECRET_FILE.test(n))) {
@@ -736,7 +742,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     env: NodeJS.ProcessEnv,
     cwd: string | undefined,
   ): Promise<OpencodeEventServer | null> {
-    return startOpencodeEventServer({ env, cwd: cwd ?? process.cwd() });
+    return startOpencodeEventServer({ env, cwd: cwd ?? process.cwd(), pidDir: this.chatDir });
   }
 
   /** The real spawn; overridden in tests. Isolated stdin, piped stdout/stderr. Detached
@@ -835,10 +841,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
       opencodeTurn?.configFile ?? claudeArgs?.[claudeArgs.indexOf("--mcp-config") + 1];
     // opencode: the turn's own `opencode serve` (same per-turn env) streams the reply's
     // text deltas live; the run attaches to it. Killed with the turn, however it ends.
-    const eventServer = opencodeTurn
-      ? await this.startEventServer(opencodeTurn.env, tags?.project?.path)
-      : null;
-    if (eventServer) this.liveEventServers.add(eventServer);
+    let eventServer: OpencodeEventServer | null = null;
     const cleanupTurn = (): Promise<void> => {
       if (eventServer) {
         eventServer.close();
@@ -852,7 +855,11 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     let liveStreamed = false;
     let proc: ClaudeProcess;
     try {
+      eventServer = opencodeTurn
+        ? await this.startEventServer(opencodeTurn.env, tags?.project?.path)
+        : null;
       if (eventServer) {
+        this.liveEventServers.add(eventServer);
         // Subscribe before the run spawns, so no early frame is missed.
         eventServer.subscribe((delta) => {
           liveStreamed = true;

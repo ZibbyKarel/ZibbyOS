@@ -1,5 +1,8 @@
-import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
+import { type ChildProcess, execFile, spawn as nodeSpawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { promises as fs, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import * as path from "node:path";
+import { promisify } from "node:util";
 import { opencodeBin } from "../runner/ai-engine";
 
 export interface OpencodeDeltaFrame {
@@ -59,6 +62,46 @@ export interface StartOpencodeEventServerOptions {
   cwd: string;
   spawn?: typeof nodeSpawn;
   startTimeoutMs?: number;
+  /** Where the server's pid file goes, so {@link sweepOrphanEventServers} can reap it
+   *  after an API crash (the server never exits on its own and holds bearer tokens). */
+  pidDir?: string;
+}
+
+/** `opencode-serve_<api pid>_<server pid>.pid` — the owner pid spares a live sibling API's servers. */
+const PID_FILE = /^opencode-serve_(\d+)_(\d+)\.pid$/;
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Kill the `opencode serve` process groups a crashed API left behind (their pid files
+ * under `dir`, owner API no longer alive). Only a pid whose command line still reads
+ * `opencode … serve` is signalled, so a reused pid is never hit.
+ */
+export async function sweepOrphanEventServers(dir: string): Promise<void> {
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  for (const name of names) {
+    const match = PID_FILE.exec(name);
+    if (!match || isAlive(Number(match[1]))) continue;
+    const pid = Number(match[2]);
+    const command = await promisify(execFile)("ps", ["-o", "command=", "-p", String(pid)])
+      .then((r) => r.stdout)
+      .catch(() => "");
+    if (command.includes("opencode") && command.includes("serve")) {
+      try {
+        process.kill(-pid, "SIGKILL");
+      } catch {
+        // ESRCH: already gone
+      }
+    }
+    await fs.rm(path.join(dir, name), { force: true }).catch(() => undefined);
+  }
 }
 
 // Not importing killTurnProcess from chat-session.service: the service will import this module.
@@ -94,6 +137,26 @@ export function startOpencodeEventServer(
       env: { ...opts.env, OPENCODE_SERVER_PASSWORD: password },
     },
   ) as ChildProcess;
+  const pidFile =
+    opts.pidDir && proc.pid
+      ? path.join(opts.pidDir, `opencode-serve_${process.pid}_${proc.pid}.pid`)
+      : null;
+  const removePidFile = (): void => {
+    try {
+      if (pidFile) rmSync(pidFile, { force: true });
+    } catch {
+      // left for the next sweep
+    }
+  };
+  if (pidFile) {
+    try {
+      mkdirSync(path.dirname(pidFile), { recursive: true });
+      writeFileSync(pidFile, "", { mode: 0o600 });
+    } catch {
+      // best-effort: the sweep is a crash safety net, not the normal cleanup
+    }
+  }
+  proc.once("exit", removePidFile);
 
   return new Promise((resolve) => {
     let buf = "";
@@ -103,13 +166,16 @@ export function startOpencodeEventServer(
       settled = true;
       clearTimeout(timer);
       proc.stdout?.off("data", onData);
-      if (!server) killGroup(proc);
+      if (!server) {
+        killGroup(proc);
+        removePidFile();
+      }
       resolve(server);
     };
     const onData = (chunk: Buffer | string): void => {
       buf += chunk.toString();
       const url = /listening on (http:\/\/127\.0\.0\.1:\d+)/.exec(buf)?.[1];
-      if (url) settle(makeServer(url, password, proc));
+      if (url) settle(makeServer(url, password, proc, removePidFile));
     };
     const timer = setTimeout(() => settle(null), opts.startTimeoutMs ?? 10_000);
     timer.unref?.();
@@ -119,7 +185,12 @@ export function startOpencodeEventServer(
   });
 }
 
-function makeServer(url: string, password: string, proc: ChildProcess): OpencodeEventServer {
+function makeServer(
+  url: string,
+  password: string,
+  proc: ChildProcess,
+  onClose: () => void,
+): OpencodeEventServer {
   const subs = new Set<AbortController>();
   return {
     url,
@@ -137,6 +208,7 @@ function makeServer(url: string, password: string, proc: ChildProcess): Opencode
       for (const ctl of subs) ctl.abort();
       subs.clear();
       killGroup(proc);
+      onClose();
     },
   };
 }
