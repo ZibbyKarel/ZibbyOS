@@ -2,6 +2,7 @@ import { type Company, NO_AUTOMATION, type Team } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_AUTOMATION,
+  PILL_ORB,
   buildScopes,
   effectiveByNode,
   exceptionsOf,
@@ -86,5 +87,12 @@ describe("autonomy tree helpers", () => {
       "autoImplement",
       "autoCommunicate",
     ]);
+  });
+});
+
+describe("PILL_ORB", () => {
+  it("only a pause sleeps; manual listens (the butler is still available)", () => {
+    expect(PILL_ORB.paused).toBe("sleep");
+    expect(PILL_ORB.manual).toBe("listen");
   });
 });

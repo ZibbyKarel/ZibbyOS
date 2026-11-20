@@ -10,8 +10,8 @@ import { useAutopilotQuery } from "../queries";
 export type PauseError = "token" | "failed" | null;
 
 /**
- * The pause switch. Pausing never needs the operator token; resuming does, so a 401 surfaces as
- * `error: "token"` (the levels page has the field to store one).
+ * Resuming autonomy needs the operator token, so a 401 surfaces as `error: "token"` (the TopBar
+ * menu shows the field to store one).
  */
 export function usePauseSwitch() {
   const { data } = useAutopilotQuery();
@@ -24,15 +24,12 @@ export function usePauseSwitch() {
     paused,
     automation,
     pendingApprovals: data?.pendingApprovals ?? 0,
-    /** Flip the switch; `onDone` gets the new `paused`. */
-    toggle: (onDone?: (paused: boolean) => void) => {
+    /** Lift the pause: always sends `paused: false`, so a retry after the state changed never re-pauses. */
+    resume: () => {
       setError(null);
       set.mutate(
-        { body: { paused: !paused } },
-        {
-          onSuccess: () => onDone?.(!paused),
-          onError: (e) => setError(isOperatorTokenError(e) ? "token" : "failed"),
-        },
+        { body: { paused: false } },
+        { onError: (e) => setError(isOperatorTokenError(e) ? "token" : "failed") },
       );
     },
     pending: set.isPending,

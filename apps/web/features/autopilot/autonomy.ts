@@ -59,7 +59,7 @@ export const pillTone = (key: ZibbyPillKey): ZibbyStatus =>
 /** Orb state of the pill and the menu head per key (matches `LEVEL_ORB`). */
 export const PILL_ORB: Record<ZibbyPillKey, ZibbyOrbState> = {
   paused: "sleep",
-  manual: "sleep",
+  manual: "listen",
   semi: "think",
   auto: "speak",
   mixed: "think",

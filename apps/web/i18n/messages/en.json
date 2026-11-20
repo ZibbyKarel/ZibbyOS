@@ -3378,7 +3378,7 @@
     "settings": "Settings",
     "about": "About system",
     "sectionsAria": "Sections",
-    "pausedBanner": "<b>Paused</b> · nothing runs",
+    "pausedBanner": "<b>Autonomy paused</b>",
     "pausedBannerAction": "Resume ›"
   },
   "activityLog": {
@@ -4784,7 +4784,7 @@
     "approvalNotificationTitle": "ZIBBY needs your approval",
     "pill_manual": "Manual",
     "pill_semi": "Semi-auto",
-    "pill_auto": "Automat",
+    "pill_auto": "Auto",
     "pill_mixed": "Mixed",
     "pill_paused": "Autonomy paused",
     "pillDesc_manual": "Zibby is available; it does nothing on its own — everything waits for you.",
@@ -4796,7 +4796,7 @@
     "statusButtonAria": "Zibby: {status}. Change",
     "statusMenuLabel": "Zibby status",
     "resumeNeedsToken": "Resuming autonomy needs the operator token.",
-    "failed": "Could not switch Zibby.",
+    "failed": "Could not save.",
     "pendingLink": "{count, plural, one {# approval waits} other {# approvals wait}} for you",
     "levelsLink": "Autonomy levels",
     "exceptionsList": "Exceptions: {names}",

@@ -57,7 +57,7 @@ function useStatusUi() {
       exceptions={exceptionNames}
       level={level}
       onNavigate={close}
-      onResume={() => sw.toggle()}
+      onResume={() => sw.resume()}
       onSetLevel={(next) => void setLevel(next)}
       paused={sw.paused}
       pendingApprovals={sw.pendingApprovals}

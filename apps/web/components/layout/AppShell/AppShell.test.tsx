@@ -383,7 +383,9 @@ describe("AppShell phone layout", () => {
     mockPaused = true;
     try {
       renderPhone();
-      expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent("Pozastaveno");
+      expect(screen.getByTestId(MobileToolbarTestId.Banner)).toHaveTextContent(
+        "Autonomie pozastavena",
+      );
       expect(screen.getByTestId(MobileToolbarTestId.BannerAction)).toHaveTextContent("Pustit");
     } finally {
       mockPaused = undefined;

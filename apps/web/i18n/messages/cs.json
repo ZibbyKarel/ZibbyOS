@@ -3378,7 +3378,7 @@
     "settings": "Nastavení",
     "about": "O systému",
     "sectionsAria": "Sekce",
-    "pausedBanner": "<b>Pozastaveno</b> · nic neběží",
+    "pausedBanner": "<b>Autonomie pozastavena</b>",
     "pausedBannerAction": "Pustit ›"
   },
   "activityLog": {
@@ -4796,7 +4796,7 @@
     "statusButtonAria": "Zibby: {status}. Změnit",
     "statusMenuLabel": "Stav Zibbyho",
     "resumeNeedsToken": "Obnovit autonomii vyžaduje operátorský token.",
-    "failed": "Zibbyho se nepodařilo přepnout.",
+    "failed": "Nepodařilo se uložit.",
     "pendingLink": "{count, plural, one {# schválení čeká} few {# schválení čekají} other {# schválení čeká}} na tebe",
     "levelsLink": "Úrovně autonomie",
     "exceptionsList": "Výjimky: {names}",
