@@ -69,7 +69,15 @@ export class NotesService {
   }
 
   async setPins(next: NotePins): Promise<NotePins> {
-    const out = { paths: [...new Set(NotePinsSchema.parse(next).paths)] };
+    const parsed = NotePinsSchema.parse(next);
+    const paths = [...new Set(parsed.paths)];
+    const labels = Object.fromEntries(
+      paths.flatMap((p) => {
+        const label = parsed.labels?.[p]?.trim();
+        return label ? [[p, label]] : [];
+      }),
+    );
+    const out: NotePins = Object.keys(labels).length ? { paths, labels } : { paths };
     await ensureDir(path.dirname(this.pinsFile));
     await writeFileAtomic(this.pinsFile, `${JSON.stringify(out, null, 2)}\n`);
     return out;

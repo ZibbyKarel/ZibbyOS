@@ -13,7 +13,11 @@ export type NoteTree = z.infer<typeof NoteTreeSchema>;
 export const NoteFileSchema = z.object({ path: NotePathSchema, body: z.string() });
 export type NoteFile = z.infer<typeof NoteFileSchema>;
 
-export const NotePinsSchema = z.object({ paths: z.array(NotePathSchema).max(200) });
+/** Pinned note paths plus optional per-pin display names (the note file itself is never renamed). */
+export const NotePinsSchema = z.object({
+  paths: z.array(NotePathSchema).max(200),
+  labels: z.record(NotePathSchema, z.string().max(120)).optional(),
+});
 export type NotePins = z.infer<typeof NotePinsSchema>;
 
 /**

@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { NotePinsSchema } from "@zibby/contracts";
 import { InvalidNotePathError, NotePathNotFoundError, NotesService } from "./notes.service";
 
 function setup() {
@@ -44,5 +45,34 @@ describe("NotesService", () => {
     expect(await s.pins()).toEqual({ paths: [] });
     expect(await s.setPins({ paths: ["a/x.md", "a/x.md"] })).toEqual({ paths: ["a/x.md"] });
     expect(await s.pins()).toEqual({ paths: ["a/x.md"] });
+  });
+
+  it("reads a legacy {paths} pins file", async () => {
+    const base = mkdtempSync(path.join(os.tmpdir(), "notes-"));
+    writeFileSync(path.join(base, "pins.json"), JSON.stringify({ paths: ["a.md"] }));
+    const s = new NotesService(path.join(base, "vault"), path.join(base, "pins.json"));
+    expect(await s.pins()).toEqual({ paths: ["a.md"] });
+  });
+
+  it("stores trimmed pin labels, drops empty and unpinned ones, omits empty labels", async () => {
+    const s = setup();
+    const out = await s.setPins({
+      paths: ["a.md", "b.md", "a.md"],
+      labels: { "a.md": "  Plán  ", "b.md": "   ", "c.md": "x" },
+    });
+    expect(out).toEqual({ paths: ["a.md", "b.md"], labels: { "a.md": "Plán" } });
+    expect(await s.pins()).toEqual(out);
+    // unpinning drops the label
+    expect(await s.setPins({ paths: ["b.md"], labels: { "a.md": "Plán" } })).toEqual({
+      paths: ["b.md"],
+    });
+  });
+
+  it("rejects a pin label longer than 120 chars", () => {
+    const labels = { "a.md": "x".repeat(121) };
+    expect(NotePinsSchema.safeParse({ paths: ["a.md"], labels }).success).toBe(false);
+    expect(
+      NotePinsSchema.safeParse({ paths: ["a.md"], labels: { "a.md": "x".repeat(120) } }).success,
+    ).toBe(true);
   });
 });

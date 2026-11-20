@@ -18,7 +18,7 @@ on vault-relative paths so folders are visible.
 - `GET /notes/tree` — every visible `.md` path under the vault root (dot-folders skipped, max 5000).
 - `GET /notes/file?path=` — raw markdown (including frontmatter). 404 unknown, 422 unsafe path.
 - `PUT /notes/file` — overwrite an **existing** note; never creates. Atomic write.
-- `GET /notes/pins`, `PUT /notes/pins` — pinned paths (whole-list replace, deduped).
+- `GET /notes/pins`, `PUT /notes/pins` — pinned paths (whole-list replace, deduped) plus optional `labels` (per-pin display name, max 120 chars, trimmed; empty or unpinned ones dropped; the note file is never renamed).
 
 ## Path safety
 
