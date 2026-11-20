@@ -8,13 +8,15 @@ ZIBBY's autonomy is a table: one level per capability, per company and team.
 - `auto` (Automat) — ZIBBY also approves its own outcome and reports it (Tier 2). A short
   allowlist of gate `ask` classes is lifted for it; never-rules and merge are not affected.
 
-Over the table sits one switch, **paused**: while paused nothing new starts and nothing is sent.
+ZIBBY itself is always on and cannot be switched off. What can be paused is its autonomy: while **paused** nothing new starts and nothing is sent.
 Pending approvals and unfinished work wait. Resuming, and raising any cell (manual < semi <
 auto), needs the operator token. Pausing and lowering never do, so the operator chat can pause.
 
 Code: `apps/api/src/autopilot/`. Contract: `libs/contracts/src/autopilot/`.
-Web: the header's Zibby section shows `Běží` / `Pozastaveno` and opens a menu with the pause
-switch; the table lives at `/governance/autonomy` (tab „Úrovně autonomie“). `ApprovalNotifier`
+Web: the header's Zibby pill shows what ZIBBY may do on its own (`Ručně` / `Poloautomat` /
+`Automat` / `Smíšené`, or `Autonomie pozastavena`) and opens a menu with the global level slider and,
+while paused, the "Obnovit autonomii" button (needs the operator token). The page at
+`/governance/autonomy` (tab „Úrovně autonomie“) only sets levels per company and team. `ApprovalNotifier`
 pops a system notification for every new approval (`approval-requested` activity event).
 
 ## State

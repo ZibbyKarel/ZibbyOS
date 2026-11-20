@@ -10,7 +10,6 @@ import {
   Stack,
   TextInputField,
   Typography,
-  ZibbyOrb,
   ZibbyToast,
 } from "@zibby/design-system";
 import type { Route } from "next";
@@ -34,11 +33,6 @@ export enum AutonomyScreenTestId {
   Never = "autonomy-never",
   GatesLink = "autonomy-gates-link",
   Toast = "autonomy-toast",
-  RunStatus = "autonomy-run-status",
-  PauseToggle = "autonomy-pause-toggle",
-  PausedBanner = "autonomy-paused-banner",
-  PausedResume = "autonomy-paused-resume",
-  PauseError = "autonomy-pause-error",
 }
 
 interface ToastState {
@@ -51,7 +45,7 @@ const TOAST_MS = 6000;
 /**
  * `/governance/autonomy` - what Zibby may do on its own. The table edits the automation tree
  * (instant save, toast + undo); lowering never needs the operator token, raising does (a 401
- * toasts and the field below stores a token). The pause switch sits top right.
+ * toasts and the field below stores a token).
  */
 export function AutonomyScreen() {
   const t = useTranslations("autopilot");
@@ -94,9 +88,6 @@ export function AutonomyScreen() {
     },
     [automation, persist, t],
   );
-  const flip = () =>
-    sw.toggle((nowPaused) => setToast({ message: t(nowPaused ? "toastPaused" : "toastResumed") }));
-  const key = sw.paused ? "paused" : "run";
 
   return (
     <Container data-testid={AutonomyScreenTestId.Root} padding={["300", "350"]}>
@@ -108,58 +99,7 @@ export function AutonomyScreen() {
               {t("pageIntro")}
             </Typography>
           </Stack>
-          <Panel padding="100" radius="lg">
-            <Row wrap align="center" gap="100">
-              <ZibbyOrb size={16} state={sw.paused ? "sleep" : "think"} />
-              <Typography data-testid={AutonomyScreenTestId.RunStatus} size="sm" type="text">
-                {t("zibbyWord")} <b>{t(`status_${key}`)}</b>
-              </Typography>
-              <Button
-                data-testid={AutonomyScreenTestId.PauseToggle}
-                disabled={sw.pending}
-                icon={sw.paused ? "play" : "pause"}
-                intent={sw.paused ? "ink" : "secondary"}
-                onClick={flip}
-                size="sm"
-              >
-                {t(sw.paused ? "resumeShort" : "pauseShort")}
-              </Button>
-            </Row>
-          </Panel>
         </Row>
-
-        {sw.error ? (
-          <Typography data-testid={AutonomyScreenTestId.PauseError} tone="bad" type="text">
-            {sw.error === "token" ? t("resumeNeedsToken") : t("failed")}
-          </Typography>
-        ) : null}
-
-        {sw.paused ? (
-          <Panel padding="100" radius="lg">
-            <Row
-              align="center"
-              data-testid={AutonomyScreenTestId.PausedBanner}
-              gap="150"
-              role="status"
-            >
-              <Icon name="pause" size="sm" />
-              <Typography size="sm" type="text" variant="secondary">
-                <b>{t("pausedBannerTitle")}</b> {t("pausedBannerBody")}
-              </Typography>
-              <Container grow />
-              <Button
-                data-testid={AutonomyScreenTestId.PausedResume}
-                disabled={sw.pending}
-                icon="play"
-                intent="ink"
-                onClick={flip}
-                size="sm"
-              >
-                {t("resumeShort")}
-              </Button>
-            </Row>
-          </Panel>
-        ) : null}
 
         {!hasToken ? (
           <Panel padding="100">

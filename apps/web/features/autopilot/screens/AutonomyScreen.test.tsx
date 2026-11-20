@@ -74,7 +74,6 @@ describe("AutonomyScreen", () => {
     );
     expect(screen.getByTestId(`${AutonomyMatrixTestId.InheritAll}-company:acme`)).toBeVisible();
     expect(screen.queryByTestId(`${AutonomyMatrixTestId.InheritAll}-team:web`)).toBeNull();
-    expect(screen.getByTestId(AutonomyScreenTestId.RunStatus)).toHaveTextContent("Zibby Běží");
     expect(screen.queryByTestId(AutonomyScreenTestId.Unlock)).toBeNull();
   });
 
@@ -168,36 +167,18 @@ describe("AutonomyScreen", () => {
     await waitFor(() => expect(screen.queryByTestId(AutonomyScreenTestId.Unlock)).toBeNull());
   });
 
-  it("pauses from the page header with a toast", async () => {
-    mutate.mockImplementation((_v, opts: { onSuccess: () => void }) => opts.onSuccess());
-    renderAutonomy(<AutonomyScreen />);
-    await userEvent.click(screen.getByTestId(AutonomyScreenTestId.PauseToggle));
-    expect(mutate).toHaveBeenCalledWith({ body: { paused: true } }, expect.anything());
-    expect(await screen.findByTestId(AutonomyScreenTestId.Toast)).toHaveTextContent(
-      "Zibby je pozastavený",
-    );
-  });
-
-  it("when paused shows the banner with Pustit and hatched cells", async () => {
+  it("when paused it has no pause/resume controls; the matrix is still there", () => {
     status = { ...status, paused: true };
     renderAutonomy(<AutonomyScreen />);
-    expect(screen.getByTestId(AutonomyScreenTestId.RunStatus)).toHaveTextContent("Pozastaveno");
-    expect(screen.getByTestId(AutonomyScreenTestId.PausedBanner)).toHaveTextContent(
-      "Zibby je pozastavený.",
-    );
-    await userEvent.click(screen.getByTestId(AutonomyScreenTestId.PausedResume));
-    expect(mutate).toHaveBeenCalledWith({ body: { paused: false } }, expect.anything());
-  });
-
-  it("surfaces a 401 on resume as a clear token error", async () => {
-    status = { ...status, paused: true };
-    mutate.mockImplementation((_v, opts: { onError: (e: unknown) => void }) =>
-      opts.onError({ status: 401 }),
-    );
-    renderAutonomy(<AutonomyScreen />);
-    await userEvent.click(screen.getByTestId(AutonomyScreenTestId.PauseToggle));
-    expect(screen.getByTestId(AutonomyScreenTestId.PauseError)).toHaveTextContent(
-      "operátorský token",
-    );
+    expect(screen.getByTestId(`${LaneMatrixTestId.Head}-semi`)).toBeInTheDocument();
+    for (const id of [
+      "autonomy-run-status",
+      "autonomy-pause-toggle",
+      "autonomy-paused-banner",
+      "autonomy-paused-resume",
+    ]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(screen.queryByRole("button", { name: /Pustit|Pozastavit|Obnovit/ })).toBeNull();
   });
 });
