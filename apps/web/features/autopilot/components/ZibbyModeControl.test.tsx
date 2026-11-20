@@ -62,37 +62,87 @@ describe("ZibbyModeControl", () => {
   it("opens Zibby from the orb and the status popover from the status button", async () => {
     renderAutonomy(<ZibbyModeControl />);
     expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "run");
-    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Běží");
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Ručně");
     await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(openChat).toHaveBeenCalled();
     await openPanel();
-    expect(screen.getByTestId(ZibbyStatusMenuTestId.Head)).toHaveTextContent(
-      "Běží · Zibby přemýšlí",
-    );
+    expect(screen.getByTestId(ZibbyStatusMenuTestId.Head)).toHaveTextContent("Ručně");
     expect(screen.getByTestId(ZibbyModePanelTestId.Pending)).toHaveTextContent(
       "3 schválení čekají",
     );
     expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Výjimky: Acme");
   });
 
-  it("has no pause/resume button; a paused Zibby shows a status link instead", async () => {
+  it("never says Zibby runs: the all-manual default reads Ručně", () => {
+    status = { paused: false, pendingApprovals: 0 };
     renderAutonomy(<ZibbyModeControl />);
-    await openPanel();
-    expect(screen.queryByTestId(ZibbyStatusMenuTestId.Action)).toBeNull();
-    expect(screen.queryByTestId(ZibbyModePanelTestId.Paused)).toBeNull();
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Ručně");
+    expect(screen.queryByText(/Běží/)).toBeNull();
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "run");
   });
 
-  it("shows Pozastaveno with a link to the autonomy screen; no pending link without approvals", async () => {
+  it("shows Poloautomat when every global capability is semi", () => {
+    status = {
+      paused: false,
+      pendingApprovals: 0,
+      automation: {
+        global: Object.fromEntries(AUTOMATION_KEYS.map((k) => [k, "semi"])) as never,
+        companies: {},
+        teams: {},
+      },
+    };
+    renderAutonomy(<ZibbyModeControl />);
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Poloautomat");
+  });
+
+  it("shows Smíšené while the global capabilities differ", () => {
+    status = {
+      paused: false,
+      pendingApprovals: 0,
+      automation: {
+        global: { ...NO_AUTOMATION, autoReview: "auto" },
+        companies: {},
+        teams: {},
+      },
+    };
+    renderAutonomy(<ZibbyModeControl />);
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Smíšené");
+  });
+
+  it("has no resume button while autonomy is active", async () => {
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    expect(screen.queryByTestId(ZibbyModePanelTestId.Resume)).toBeNull();
+  });
+
+  it("paused: reads Autonomie pozastavena, offers Resume (PUT paused:false), no link to the page for it", async () => {
     status = { paused: true, pendingApprovals: 0 };
     renderAutonomy(<ZibbyModeControl />);
-    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Pozastaveno");
+    expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent(
+      "Autonomie pozastavena",
+    );
     await openPanel();
-    expect(screen.getByTestId(ZibbyModePanelTestId.Paused)).toHaveTextContent("Pozastaveno");
-    expect(screen.queryByTestId(ZibbyStatusMenuTestId.Action)).toBeNull();
     expect(screen.queryByTestId(ZibbyModePanelTestId.Pending)).toBeNull();
     expect(screen.getByTestId(ZibbyModePanelTestId.Levels)).toHaveTextContent("Bez výjimek");
-    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.Paused));
-    expect(push).toHaveBeenCalledWith("/governance/autonomy");
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.Resume));
+    expect(mutate.mock.calls[0]?.[0]).toEqual({ body: { paused: false } });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("resume without a stored token: 401 shows the token field, saving it retries the resume", async () => {
+    status = { paused: true, pendingApprovals: 0 };
+    mutate.mockImplementationOnce((_v, opts) => opts.onError({ status: 401 }));
+    renderAutonomy(<ZibbyModeControl />);
+    await openPanel();
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.Resume));
+    expect(await screen.findByTestId(ZibbyModePanelTestId.ResumeError)).toHaveTextContent(
+      "operátorský token",
+    );
+    await userEvent.type(screen.getByTestId(ZibbyModePanelTestId.TokenInput), "zby_op_x");
+    await userEvent.click(screen.getByTestId(ZibbyModePanelTestId.TokenSave));
+    expect(localStorage.getItem("zibby.operatorToken")).toBe("zby_op_x");
+    expect(mutate).toHaveBeenCalledTimes(2);
+    expect(mutate.mock.calls[1]?.[0]).toEqual({ body: { paused: false } });
   });
 
   it("sets every global capability to the clicked step, keeping overrides", async () => {
@@ -193,6 +243,6 @@ describe("ZibbyModeChange", () => {
       <ZibbyModeChange renderTrigger={(open) => <Button onClick={open}>open</Button>} />,
     );
     await userEvent.click(screen.getByRole("button", { name: "open" }));
-    expect(screen.getByTestId(ZibbyModePanelTestId.Paused)).toBeInTheDocument();
+    expect(screen.getByTestId(ZibbyModePanelTestId.Resume)).toBeInTheDocument();
   });
 });

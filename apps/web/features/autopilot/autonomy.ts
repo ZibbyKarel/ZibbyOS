@@ -9,6 +9,7 @@ import {
   NO_AUTOMATION,
   type Team,
 } from "@zibby/contracts";
+import type { ZibbyOrbState, ZibbyStatus } from "@zibby/design-system";
 
 export { AUTOMATION_KEYS };
 
@@ -44,8 +45,25 @@ export const isFullAuto = (automation: AutopilotAutomation) => sharedLevel(autom
 /** Orb state per level on the autonomy slider (matches the pill: manual grey, semi violet, auto amber). */
 export const LEVEL_ORB = { manual: "sleep", semi: "think", auto: "speak" } as const;
 
-/** Orb state of the header section per status (the pill's `ZibbyStatus`). */
-export const STATUS_ORB = { paused: "sleep", auto: "speak", run: "think" } as const;
+/** What the TopBar pill shows: the autonomy level, "mixed" when the global capabilities differ, or the pause. */
+export type ZibbyPillKey = "paused" | AutomationLevel | "mixed";
+
+/** Paused wins; a `null` shared level is mixed. */
+export const pillKey = (paused: boolean, level: AutomationLevel | null): ZibbyPillKey =>
+  paused ? "paused" : (level ?? "mixed");
+
+/** The DS tone of the pill (a colour, never shown as text): grey paused, amber auto, else violet. */
+export const pillTone = (key: ZibbyPillKey): ZibbyStatus =>
+  key === "paused" ? "paused" : key === "auto" ? "auto" : "run";
+
+/** Orb state of the pill and the menu head per key (matches `LEVEL_ORB`). */
+export const PILL_ORB: Record<ZibbyPillKey, ZibbyOrbState> = {
+  paused: "sleep",
+  manual: "sleep",
+  semi: "think",
+  auto: "speak",
+  mixed: "think",
+};
 
 export const EMPTY_AUTOMATION: AutopilotAutomation = {
   global: { ...NO_AUTOMATION },

@@ -16,9 +16,10 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import type { PauseError } from "../hooks/usePauseSwitch";
 import type { SaveResult } from "../hooks/useSaveAutomation";
 import { saveOperatorToken } from "../hooks/useHasOperatorToken";
-import { LEVEL_ORB, STATUS_ORB } from "../autonomy";
+import { LEVEL_ORB, PILL_ORB, pillKey, pillTone } from "../autonomy";
 
 export enum ZibbyModePanelTestId {
   Pending = "zibby-mode-panel-pending",
@@ -26,7 +27,8 @@ export enum ZibbyModePanelTestId {
   AutoError = "zibby-mode-panel-auto-error",
   TokenInput = "zibby-mode-panel-token-input",
   TokenSave = "zibby-mode-panel-token-save",
-  Paused = "zibby-mode-panel-paused",
+  Resume = "zibby-mode-panel-resume",
+  ResumeError = "zibby-mode-panel-resume-error",
 }
 
 const LEVELS = ["manual", "semi", "auto"] as const;
@@ -45,6 +47,10 @@ export interface ZibbyModePanelProps {
   onSetLevel: (level: AutomationLevel) => void;
   /** Last result of that save; `locked` = raising needs the operator token. */
   autoResult: SaveResult | null;
+  /** Lift the autonomy pause (needs the operator token: a 401 comes back as `resumeError: "token"`). */
+  onResume: () => void;
+  resumeError: PauseError;
+  resumePending: boolean;
   /** Called after a link is followed, so the popover/sheet can close. */
   onNavigate: () => void;
   /** Bottom-sheet layout (phone). */
@@ -60,6 +66,9 @@ export function ZibbyModePanel({
   onSetLevel,
   autoResult,
   onNavigate,
+  onResume,
+  resumeError,
+  resumePending,
   sheet = false,
 }: ZibbyModePanelProps) {
   const t = useTranslations("autopilot");
@@ -68,7 +77,7 @@ export function ZibbyModePanel({
     router.push(href as Route);
     onNavigate();
   };
-  const key = paused ? "paused" : level === "auto" ? "auto" : "run";
+  const key = pillKey(paused, level);
   const [typed, setTyped] = useState("");
   const [wanted, setWanted] = useState<AutomationLevel | null>(null);
   const pick = (next: AutomationLevel) => {
@@ -77,23 +86,37 @@ export function ZibbyModePanel({
   };
   return (
     <ZibbyStatusMenu
-      description={t(`desc_${key}`)}
-      orb={<ZibbyOrb size={52} state={STATUS_ORB[key]} />}
-      orbLabel={t(`state_${key}`)}
+      description={t(`pillDesc_${key}`)}
+      orb={<ZibbyOrb size={52} state={PILL_ORB[key]} />}
+      orbLabel={t(`pill_${key}`)}
       sheet={sheet}
-      state={` · ${t(`state_${key}`)}`}
-      status={key}
-      title={t(`status_${key}`)}
+      state=""
+      status={pillTone(key)}
+      title={t(`pill_${key}`)}
     >
       <Stack gap="25">
         {paused ? (
-          <ZibbyStatusLink
-            data-testid={ZibbyModePanelTestId.Paused}
-            hint={t("desc_paused")}
-            icon="pause"
-            label={t("status_paused")}
-            onClick={() => go(AUTONOMY_HREF)}
-          />
+          <Stack gap="50">
+            <Button
+              data-testid={ZibbyModePanelTestId.Resume}
+              disabled={resumePending}
+              icon="play"
+              intent="primary"
+              onClick={onResume}
+            >
+              {t("resumeAutonomy")}
+            </Button>
+            {resumeError ? (
+              <Typography
+                data-testid={ZibbyModePanelTestId.ResumeError}
+                size="xs"
+                tone="bad"
+                type="note"
+              >
+                {resumeError === "token" ? t("resumeNeedsToken") : t("failed")}
+              </Typography>
+            ) : null}
+          </Stack>
         ) : null}
         <StepSlider
           ariaLabel={t("levelSliderLabel")}
@@ -107,43 +130,37 @@ export function ZibbyModePanel({
           value={level}
         />
         {autoResult === "locked" || autoResult === "failed" ? (
-          <Stack gap="50">
-            <Typography
-              data-testid={ZibbyModePanelTestId.AutoError}
-              size="xs"
-              tone="bad"
-              type="note"
+          <Typography data-testid={ZibbyModePanelTestId.AutoError} size="xs" tone="bad" type="note">
+            {autoResult === "locked" ? t("saveLocked") : t("failed")}
+          </Typography>
+        ) : null}
+        {autoResult === "locked" || resumeError === "token" ? (
+          <Row align="center" gap="100">
+            <TextInputField
+              hideLabel
+              autoComplete="off"
+              data-testid={ZibbyModePanelTestId.TokenInput}
+              label={t("operatorToken")}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="zby_op_…"
+              type="password"
+              value={typed}
+            />
+            <Button
+              data-testid={ZibbyModePanelTestId.TokenSave}
+              disabled={typed.trim() === ""}
+              intent="primary"
+              onClick={() => {
+                saveOperatorToken(typed);
+                setTyped("");
+                if (resumeError === "token") onResume();
+                else if (wanted) onSetLevel(wanted);
+              }}
+              size="sm"
             >
-              {autoResult === "locked" ? t("saveLocked") : t("failed")}
-            </Typography>
-            {autoResult === "locked" ? (
-              <Row align="center" gap="100">
-                <TextInputField
-                  hideLabel
-                  autoComplete="off"
-                  data-testid={ZibbyModePanelTestId.TokenInput}
-                  label={t("operatorToken")}
-                  onChange={(e) => setTyped(e.target.value)}
-                  placeholder="zby_op_…"
-                  type="password"
-                  value={typed}
-                />
-                <Button
-                  data-testid={ZibbyModePanelTestId.TokenSave}
-                  disabled={typed.trim() === ""}
-                  intent="primary"
-                  onClick={() => {
-                    saveOperatorToken(typed);
-                    setTyped("");
-                    if (wanted) onSetLevel(wanted);
-                  }}
-                  size="sm"
-                >
-                  {t("unlock")}
-                </Button>
-              </Row>
-            ) : null}
-          </Stack>
+              {t("unlock")}
+            </Button>
+          </Row>
         ) : null}
         {pendingApprovals > 0 ? (
           <ZibbyStatusLink

@@ -19,10 +19,11 @@ import { useShortcutPlatform, useZibbyShortcut } from "../../zibby/shortcut/useZ
 import type { AutomationLevel } from "@zibby/contracts";
 import {
   AUTOMATION_KEYS,
-  STATUS_ORB,
+  PILL_ORB,
   buildScopes,
   exceptionsOf,
-  isFullAuto,
+  pillKey,
+  pillTone,
   sharedLevel,
 } from "../autonomy";
 import { usePauseSwitch } from "../hooks/usePauseSwitch";
@@ -56,9 +57,12 @@ function useStatusUi() {
       exceptions={exceptionNames}
       level={level}
       onNavigate={close}
+      onResume={() => sw.toggle()}
       onSetLevel={(next) => void setLevel(next)}
       paused={sw.paused}
       pendingApprovals={sw.pendingApprovals}
+      resumeError={sw.error}
+      resumePending={sw.pending}
       sheet={sheet}
     />
   );
@@ -71,11 +75,11 @@ export interface ZibbyModeControlProps {
 }
 
 /**
- * The header's Zibby section: the orb button (opens Zibby) and the status button (Běží /
- * Pozastaveno / Automat) that opens the status popover, or on the phone a bottom sheet. The pill
- * is violet while Zibby runs (orb thinks), amber with a speaking orb in full Automat (every global
- * capability on `auto`; the operator re-introduced this amber on 2026-11-19), and grey with a
- * sleeping orb while paused (pause wins over amber).
+ * The header's Zibby section: the orb button (opens Zibby) and the status button that opens the
+ * status popover, or on the phone a bottom sheet. Zibby is always on: the pill never says it runs,
+ * it names what Zibby may do on its own (Ručně / Poloautomat / Automat / Smíšené) or that autonomy
+ * is paused. Tone: violet, amber with a speaking orb in full Automat (re-introduced by the operator
+ * on 2026-11-19), grey with a sleeping orb while paused (pause wins over amber).
  */
 export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps) {
   const t = useTranslations("autopilot");
@@ -89,14 +93,13 @@ export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps)
   const [popoverOpen, setPopoverOpen] = useState(false);
   const compact = variant === "toolbar";
 
-  const fullAuto = isFullAuto(sw.automation);
-  const key = sw.paused ? "paused" : fullAuto ? "auto" : "run";
-  const orbState: ZibbyOrbState = live.phase === "closed" ? STATUS_ORB[key] : live.orbState;
-  const statusAria = t("statusButtonAria", { status: t(`status_${key}`) });
+  const key = pillKey(sw.paused, sharedLevel(sw.automation));
+  const orbState: ZibbyOrbState = live.phase === "closed" ? PILL_ORB[key] : live.orbState;
+  const statusAria = t("statusButtonAria", { status: t(`pill_${key}`) });
 
   return (
     <>
-      <ZibbySection ariaLabel={tz("chip.label")} status={key}>
+      <ZibbySection ariaLabel={tz("chip.label")} status={pillTone(key)}>
         <ZibbySectionOrbButton
           aria-label={tz("chip.aria", { shortcut: formatShortcut(shortcut, platform).join(" ") })}
           data-testid={ZibbyModeControlTestId.Root}
@@ -110,7 +113,7 @@ export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps)
             aria-expanded={popoverOpen}
             aria-haspopup="dialog"
             aria-label={statusAria}
-            label={t(`status_${key}`)}
+            label={t(`pill_${key}`)}
             onClick={() => setPopoverOpen(true)}
           />
         ) : (
@@ -122,8 +125,8 @@ export function ZibbyModeControl({ variant = "section" }: ZibbyModeControlProps)
               <ZibbySectionStatusButton
                 {...props}
                 aria-label={statusAria}
-                label={t(`status_${key}`)}
-                title={t(`desc_${key}`)}
+                label={t(`pill_${key}`)}
+                title={t(`pillDesc_${key}`)}
               />
             )}
           >
