@@ -77,6 +77,7 @@ export const BridgeWidgetSchema = z.preprocess(
       "automationRuns",
       "projectStatus",
       "notes",
+      "connectedServices",
     ]),
     x: z.number().int().min(0).max(11),
     y: z.number().int().min(0),

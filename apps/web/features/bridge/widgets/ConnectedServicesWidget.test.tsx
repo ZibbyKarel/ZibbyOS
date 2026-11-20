@@ -1,0 +1,78 @@
+import { ReadingItemTestId } from "@zibby/design-system";
+import { fireEvent } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders, screen } from "../../../test/render";
+import type { BridgeWidget } from "../grid/layout";
+import { ConnectedServicesWidget, ConnectedServicesWidgetTestId } from "./ConnectedServicesWidget";
+import type { BridgeWidgetProps } from "./registry";
+
+const connect = vi.hoisted(() => vi.fn());
+vi.mock("../../connected-services/queries", () => ({
+  useConnectedServicesQuery: () => ({
+    isPending: false,
+    isError: false,
+    data: [
+      {
+        id: "claude",
+        name: "Claude",
+        landingUrl: "https://claude.ai",
+        loginUrl: "https://claude.ai/login",
+        profile: "claude",
+        status: "connected",
+      },
+      {
+        id: "figma",
+        name: "Figma",
+        landingUrl: "https://figma.com",
+        loginUrl: "https://figma.com/login",
+        profile: "figma",
+        status: "disconnected",
+      },
+    ],
+  }),
+}));
+vi.mock("../../connected-services/mutations", () => ({
+  useConnectServiceMutation: () => ({ mutate: connect, isPending: false }),
+}));
+
+const widget: BridgeWidget = { id: "w-c", type: "connectedServices", x: 0, y: 0, w: 4, h: 6 };
+const onCountChange = vi.fn();
+const props: BridgeWidgetProps = {
+  widget,
+  adding: false,
+  onEmptyChange: vi.fn(),
+  onCountChange,
+  selection: null,
+  onOpen: vi.fn(),
+  epicClosed: {},
+  onEpicToggle: vi.fn(),
+};
+
+describe("ConnectedServicesWidget", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("renders a row per service with its status and reports the disconnected count as you", () => {
+    renderWithProviders(<ConnectedServicesWidget {...props} />);
+    expect(screen.getAllByTestId(ReadingItemTestId.Text).map((r) => r.textContent)).toEqual([
+      "Claude",
+      "Figma",
+    ]);
+    expect(
+      screen.getAllByTestId(ConnectedServicesWidgetTestId.Status).map((r) => r.textContent),
+    ).toEqual(["Připojeno", "Odpojeno"]);
+    expect(onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 2, you: 1 }));
+  });
+
+  it("Connect on a disconnected row calls the mutation with its id", () => {
+    renderWithProviders(<ConnectedServicesWidget {...props} />);
+    fireEvent.click(screen.getByTestId(ConnectedServicesWidgetTestId.Connect));
+    expect(connect).toHaveBeenCalledWith({ params: { id: "figma" } });
+  });
+
+  it("a connected row opens its landing url in a new tab", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderWithProviders(<ConnectedServicesWidget {...props} />);
+    fireEvent.click(screen.getByTestId(ReadingItemTestId.Open));
+    expect(open).toHaveBeenCalledWith("https://claude.ai", "_blank", "noopener,noreferrer");
+  });
+});

@@ -4415,6 +4415,14 @@
         "empty": "Nothing pinned yet. Use + to pick notes from the brain.",
         "emptyVault": "The brain has no notes yet.",
         "treeLabel": "Pinned notes"
+      },
+      "connectedServices": {
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "connect": "Connect",
+        "connecting": "Opening sign-in…",
+        "signInHint": "Sign in in the Chrome window, then close it",
+        "connectLabel": "Connect {name}"
       }
     },
     "you": "{n} for you",
@@ -4479,6 +4487,10 @@
       "notes": {
         "label": "Card index",
         "desc": "Pinned notes from the brain as a folder and file tree"
+      },
+      "connectedServices": {
+        "label": "Connected services",
+        "desc": "Services ZIBBY signs in to in its own browser"
       }
     },
     "sheet": {

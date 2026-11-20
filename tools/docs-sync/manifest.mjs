@@ -24,6 +24,7 @@ export const API_MODULE_DOC_MAP = {
   chat: "docs/api/chat.md",
   commands: "docs/api/extensibility.md",
   companies: "docs/api/companies.md",
+  "connected-services": "docs/api/connected-services.md",
   discovery: "docs/api/discovery.md",
   events: "docs/api/events.md",
   gaps: "docs/api/gaps.md",

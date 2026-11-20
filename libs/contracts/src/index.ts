@@ -79,6 +79,8 @@ export * from "./limits/limits.contract";
 export * from "./system/system.schema";
 export * from "./system/system.contract";
 export * from "./notes/notes.contract";
+export * from "./connected-services/connected-service.schema";
+export * from "./connected-services/connected-services.contract";
 export * from "./pins/pin.schema";
 export * from "./pins/pins.contract";
 export * from "./quick-actions/quick-action.schema";

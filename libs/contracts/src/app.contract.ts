@@ -41,6 +41,7 @@ import { limitsContract } from "./limits/limits.contract";
 import { workflowRunsContract, workflowsContract } from "./workflows/workflows.contract";
 import { goalsContract } from "./goals/goals.contract";
 import { notesContract } from "./notes/notes.contract";
+import { connectedServicesContract } from "./connected-services/connected-services.contract";
 import { pinsContract } from "./pins/pins.contract";
 import { projectHealthContract } from "./project-health/project-health.contract";
 import { projectCiContract } from "./project-ci/project-ci.contract";
@@ -113,6 +114,7 @@ export const appContract = c.router({
   system: systemContract,
   notes: notesContract,
   pins: pinsContract,
+  connectedServices: connectedServicesContract,
   projectHealth: projectHealthContract,
   projectCi: projectCiContract,
   inventory: inventoryContract,

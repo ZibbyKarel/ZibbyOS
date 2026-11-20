@@ -5,6 +5,7 @@ import type { BridgeWidget, WidgetType } from "../grid/layout";
 import { AutomationRunsWidget } from "./AutomationRunsWidget";
 import { BriefingWidget } from "./BriefingWidget";
 import { BudgetsWidget } from "./BudgetsWidget";
+import { ConnectedServicesWidget } from "./ConnectedServicesWidget";
 import { IndicatorsWidget } from "./IndicatorsWidget";
 import { IssuesFilterControls, IssuesWidget } from "./IssuesWidget";
 import { MentionsWidget } from "./MentionsWidget";
@@ -241,6 +242,13 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     species: "readingList",
     Component: NotesWidget,
     addable: true,
+  },
+  connectedServices: {
+    labelKey: "bridge.widget.connectedServices.label",
+    descKey: "bridge.widget.connectedServices.desc",
+    icon: "plug",
+    species: "readingList",
+    Component: ConnectedServicesWidget,
   },
 };
 

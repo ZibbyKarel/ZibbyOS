@@ -4415,6 +4415,14 @@
         "empty": "Zatím nic nepřipnuto. Přes + vyber poznámky z mozku.",
         "emptyVault": "V mozku nejsou žádné poznámky.",
         "treeLabel": "Připnuté poznámky"
+      },
+      "connectedServices": {
+        "connected": "Připojeno",
+        "disconnected": "Odpojeno",
+        "connect": "Připojit",
+        "connecting": "Otevírám přihlášení…",
+        "signInHint": "Přihlaste se v okně Chrome a pak ho zavřete",
+        "connectLabel": "Připojit službu {name}"
       }
     },
     "you": "{n} na tebe",
@@ -4479,6 +4487,10 @@
       "notes": {
         "label": "Kartotéka",
         "desc": "Připnuté poznámky z mozku jako strom složek a souborů"
+      },
+      "connectedServices": {
+        "label": "Připojené služby",
+        "desc": "Služby, do kterých se ZIBBY přihlašuje ve vlastním prohlížeči"
       }
     },
     "sheet": {

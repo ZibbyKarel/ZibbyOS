@@ -47,6 +47,7 @@ import { HttpConnectionReaperModule } from "./shared/http/http-connection-reaper
 import { LoggingModule } from "./shared/logging/logging.module";
 import { InboxModule } from "./inbox/inbox.module";
 import { NotesModule } from "./notes/notes.module";
+import { ConnectedServicesModule } from "./connected-services/connected-services.module";
 import { PinsModule } from "./pins/pins.module";
 import { QuickActionsModule } from "./quick-actions/quick-actions.module";
 import { ExternalSkillsModule } from "./external-skills/external-skills.module";
@@ -78,6 +79,7 @@ import { InstanceLockReleaser } from "./shared/instance-role";
     SystemModule,
     NotesModule,
     PinsModule,
+    ConnectedServicesModule,
     QuickActionsModule,
     MarketplacesModule,
     TodoModule,

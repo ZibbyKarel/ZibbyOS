@@ -426,3 +426,9 @@ Run with: `pnpm web:test`
 
 Note: `apps/web` is **not** part of the root vitest workspace — run it via
 `pnpm web:test`, not `pnpm test` (the root workspace would skip it).
+
+## Connected services
+
+`features/connected-services` holds the query/mutation hooks behind the Bridge widget `ConnectedServicesWidget`
+(`features/bridge/widgets/`): one row per service with its connected/disconnected status; Connect opens the
+service sign-in in system Chrome and the list re-polls. See `docs/api/connected-services.md`.
