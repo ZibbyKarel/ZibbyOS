@@ -52,6 +52,9 @@ run(
 // (tailnet) URL is blanked so the bundle never falls back to it.
 const PACKAGED_API_URL = "http://localhost:4333";
 const WEB_DIST_DIR = ".next-desktop";
+// tsconfig includes `.next/types` too: a stale copy from an older `web:dev` (e.g. routes
+// that no longer exist) breaks this build's typecheck. Dev regenerates it on start.
+rmSync(path.join(webRoot, ".next/types"), { recursive: true, force: true });
 console.log(`$ NEXT_PUBLIC_API_URL=${PACKAGED_API_URL} pnpm web:build`);
 execFileSync("pnpm", ["web:build"], {
   cwd: repoRoot,
