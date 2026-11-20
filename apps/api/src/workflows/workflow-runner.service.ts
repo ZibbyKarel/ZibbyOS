@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import matter from "gray-matter";
@@ -134,6 +134,15 @@ const AGGREGATE_FILE = "run.json";
 const MAX_SUB_RUN_DEPTH = 3;
 
 /** Total spend of a run: model + external cost over every stage. */
+/** An agent's tools plus `Write` when the phase `produces` a file (no list = unrestricted). */
+export function withProducesWrite(
+  tools: readonly string[] | undefined,
+  produces: string | undefined,
+): readonly string[] | undefined {
+  if (!tools?.length || !produces || tools.includes("Write")) return tools;
+  return [...tools, "Write"];
+}
+
 function runSpend(run: WorkflowRun): number {
   return run.stageRuns.reduce((sum, s) => sum + (s.costUsd ?? 0) + (s.externalCostUsd ?? 0), 0);
 }
@@ -1117,6 +1126,9 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       const ph = order[i];
       if (ph?.produces) last = path.join(run.cwd, this.latestStageDir(run, ph.id), ph.produces);
     }
+    // Nothing upstream (re-driving the first phase): the run's own input is the handoff.
+    const input = path.join(run.cwd, "context", "input.md");
+    if (last === null && existsSync(input)) last = input;
     const next = order[idx];
     return next ? this.consumedHandoff(run, order, next, last) : last;
   }
@@ -3578,7 +3590,10 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       const opts: ClaudeRunOptions = {
         instructions: agent.instructions,
         task,
-        tools: agent.tools,
+        // A phase that `produces` a file must be able to write it: a read-only agent
+        // (architect: Read/Grep/Glob) gets Write. On claude the list only pre-approves;
+        // on opencode it is a hard deny. The gate still judges every write's path.
+        tools: withProducesWrite(agent.tools, phase.produces),
         // Escalation rung (a retry's harder model/thinking) > phase > agent.
         model: escalation?.model ?? phase.model ?? agent.model,
         thinking: escalation?.thinking ?? phase.thinking ?? agent.thinking,

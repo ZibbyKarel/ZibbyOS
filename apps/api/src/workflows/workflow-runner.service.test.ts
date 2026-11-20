@@ -19,6 +19,7 @@ import {
   WorkflowRunNotFoundError,
   WorkflowRunnerService,
   opencodeThinkingNote,
+  withProducesWrite,
 } from "./workflow-runner.service";
 
 /** A fake ClaudeRunCommandService whose async run lookup follows its (swappable) `resolveEngine`. */
@@ -1934,6 +1935,23 @@ describe("WorkflowRunnerService — stage gates & resume", () => {
       expect(recompute(run)).toBe(path.join(run.cwd, "developer", "out.md"));
     });
 
+    it("recomputeHandoff re-feeds the run input when re-driving the first phase", async () => {
+      const run = h.runs.get(WORKFLOW_RUN_ID);
+      if (!run) throw new Error("missing run");
+      const first = loopWorkflow.phases[0]?.id ?? "";
+      const recompute = () =>
+        (
+          h.service as unknown as {
+            recomputeHandoff(run: WorkflowRun, p: unknown, cursor: string): string | null;
+          }
+        ).recomputeHandoff(run, loopWorkflow, first);
+      run.stageRuns = [];
+      expect(recompute()).toBeNull();
+      await fs.mkdir(path.join(run.cwd, "context"), { recursive: true });
+      await fs.writeFile(path.join(run.cwd, "context", "input.md"), "task", "utf8");
+      expect(recompute()).toBe(path.join(run.cwd, "context", "input.md"));
+    });
+
     describe("readArtifact folder lookup", () => {
       it("backcompat: finds an artifact in an old flat phase folder (record without dir)", async () => {
         const run = h.runs.get(WORKFLOW_RUN_ID);
@@ -3336,5 +3354,14 @@ describe("system phases (in-process actions)", () => {
     expect(run.stageRuns[0]?.status).toBe("error");
     const err = path.join(run.cwd, run.stageRuns[0]?.dir ?? "", "system.error.txt");
     expect(await fs.readFile(err, "utf8")).toContain("unknown system action");
+  });
+});
+
+describe("withProducesWrite", () => {
+  it("adds Write to a restricted agent only when the phase produces a file", () => {
+    expect(withProducesWrite(["Read", "Grep"], "plan.md")).toEqual(["Read", "Grep", "Write"]);
+    expect(withProducesWrite(["Read"], undefined)).toEqual(["Read"]);
+    expect(withProducesWrite(undefined, "plan.md")).toBeUndefined();
+    expect(withProducesWrite(["Read", "Write"], "plan.md")).toEqual(["Read", "Write"]);
   });
 });
