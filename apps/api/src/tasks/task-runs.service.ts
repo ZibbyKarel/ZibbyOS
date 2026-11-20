@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import { Injectable, Optional } from "@nestjs/common";
 import {
   type AgentRun,
+  type Approval,
   type ArchiveCounts,
   type ArchivePage,
   type ArchiveSort,
@@ -775,6 +776,8 @@ export class TaskRunsService {
     }
     // A `workflow` phase's sub-run is execution detail of its parent run.
     for (const p of workflows) if (p.parentRunId) childRunIds.add(p.workflowRunId);
+    const workflowsById = new Map(workflows.map((w) => [w.workflowRunId, w]));
+    const pendingApprovals = approvals.filter((a) => a.status === "pending");
 
     const runViews: TaskRun[] = [
       ...agents.map((r) =>
@@ -791,7 +794,13 @@ export class TaskRunsService {
         resolveProjectDisplay(
           enrichRunWithTask(
             this.withProcessor(
-              workflowRunToView(r, projectNames, workflowDefsById.get(r.workflowId)),
+              workflowRunToView(
+                r,
+                projectNames,
+                workflowDefsById.get(r.workflowId),
+                waitingDescendant(r, workflowsById),
+                pendingApprovals,
+              ),
               names,
             ),
             tasksById,
@@ -979,11 +988,42 @@ function resolveSandboxProjectLabel(
   return projectNames.byPath.get(projectPath) ?? path.basename(projectPath);
 }
 
+/**
+ * The deepest sub-run a parent parked on `child` is really waiting on (its gate, its
+ * retries park), or undefined when the run is not parked on a child. Sub-runs are hidden
+ * from the feed, so the parent has to surface their wait.
+ */
+export function waitingDescendant(
+  r: WorkflowRun,
+  byId: ReadonlyMap<string, WorkflowRun>,
+): WorkflowRun | undefined {
+  let leaf: WorkflowRun | undefined;
+  const seen = new Set<string>();
+  for (let cur = r; cur.status === "parked" && cur.parkedReason === "child" && cur.pendingChild; ) {
+    if (seen.has(cur.workflowRunId)) break;
+    seen.add(cur.workflowRunId);
+    const next = byId.get(cur.pendingChild.childRunId);
+    if (!next) break;
+    leaf = cur = next;
+  }
+  return leaf;
+}
+
 function workflowRunToView(
   r: WorkflowRun,
   projectNames: ProjectNameMaps,
   workflow?: Workflow,
+  waitingOn?: WorkflowRun,
+  pendingApprovals: readonly Approval[] = [],
 ): TaskRun {
+  // Parked on a sub-run: the status, parked surface and approval are the sub-run's.
+  const w = waitingOn ?? r;
+  const approval = waitingOn
+    ? pendingApprovals.find(
+        (a) =>
+          a.runId === waitingOn.workflowRunId || a.runId.startsWith(`${waitingOn.workflowRunId}.`),
+      )
+    : undefined;
   // A directed task's per-run override wins; absent that, the workflow definition's
   // own `outputs:` is the default sink (mirrors the delivery path's own fallback —
   // `run.outputsOverride ?? workflow.outputs` in WorkflowRunnerService.runOutputs).
@@ -992,19 +1032,19 @@ function workflowRunToView(
     workflow?.outputs?.find((o) => o.type === "file");
   const costUsd = sumStageCosts(r.stageRuns);
   const status: TaskRun["status"] =
-    r.status === "paused-limit"
+    w.status === "paused-limit"
       ? "paused-limit"
-      : r.status === "parked"
-        ? r.parkedReason === "paused"
+      : w.status === "parked"
+        ? w.parkedReason === "paused"
           ? "paused"
-          : r.parkedReason === "retries" || r.parkedReason === "limit"
+          : w.parkedReason === "retries" || w.parkedReason === "limit"
             ? "parked"
             : "awaiting-approval"
-        : r.status === "failed"
+        : w.status === "failed"
           ? "error"
-          : r.status === "done"
+          : w.status === "done"
             ? "done"
-            : r.status === "interrupted"
+            : w.status === "interrupted"
               ? "interrupted"
               : "running";
   return {
@@ -1019,7 +1059,8 @@ function workflowRunToView(
     startedAt: r.startedAt,
     logBase: null,
     taskId: r.taskId,
-    parked: r.parked,
+    parked: w.parked,
+    ...(approval ? { approvalId: approval.id } : {}),
     resumeAt: r.resumeAt,
     limitResumeCycles: r.limitResumeCycles,
     checkpoints: r.checkpoints,

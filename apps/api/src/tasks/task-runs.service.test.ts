@@ -799,6 +799,44 @@ describe("TaskRunsService", () => {
       expect(run.status).toBe("running");
     });
 
+    it("a parent parked on a sub-run surfaces the sub-run's gate and retries park", async () => {
+      const { service, workflowRunner, approvals } = build();
+      const parent = (childRunId: string): WorkflowRun => ({
+        ...pipeP,
+        status: "parked",
+        parkedReason: "child",
+        pendingChild: {
+          phaseId: "generate",
+          childRunId,
+          attempt: 1,
+          stageDir: "01_generate",
+          handoffSource: "/x",
+        },
+      });
+      const gated: WorkflowRun = {
+        ...pipeP,
+        workflowRunId: "child_gate",
+        parentRunId: pipeP.workflowRunId,
+        status: "parked",
+        parkedReason: "gate",
+      };
+      workflowRunner.listAll.mockResolvedValue([parent("child_gate"), gated]);
+      approvals.list.mockResolvedValue([{ ...approval("child_gate", "pending"), id: "gate_1" }]);
+      const run = await service.getTaskRun(pipeP.workflowRunId);
+      expect(run).toMatchObject({ status: "awaiting-approval", approvalId: "gate_1" });
+
+      const failed: WorkflowRun = {
+        ...gated,
+        workflowRunId: "child_retries",
+        parkedReason: "retries",
+        parked: { phaseId: "cast", attempts: 2, failureFile: "/f" },
+      };
+      workflowRunner.listAll.mockResolvedValue([parent("child_retries"), failed]);
+      const parked = await service.getTaskRun(pipeP.workflowRunId);
+      expect(parked).toMatchObject({ status: "parked", parked: { phaseId: "cast" } });
+      expect(parked.approvalId).toBeUndefined();
+    });
+
     it("a pending approval keyed by a raw run id does not gate another task's run", async () => {
       const { service, workflowRunner, scheduled, approvals } = build();
       workflowRunner.listAll.mockResolvedValue([{ ...pipeP, status: "done", taskId: "task1" }]);

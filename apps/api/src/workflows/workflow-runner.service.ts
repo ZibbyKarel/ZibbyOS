@@ -761,6 +761,11 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       this.runs.set(workflowRunId, fromDisk);
       run = fromDisk;
     }
+    // Parked on a sub-run: resume the sub-run (hidden from the feed); `onChildStatus`
+    // mirrors it back onto this parent.
+    if (run.status === "parked" && run.parkedReason === "child" && run.pendingChild) {
+      return this.resumeParked(run.pendingChild.childRunId, note);
+    }
     // Phase 9 widens the resumable parkings from `retries`-only to `retries | limit`;
     // a `paused` run re-enters the parked phase in place (no parked surface).
     if (run.status === "parked" && run.parkedReason === "paused") {

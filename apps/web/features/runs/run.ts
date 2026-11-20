@@ -221,6 +221,8 @@ export function approvalForRun<A extends Pick<Approval, "id" | "runId">>(
   if (run.status !== "awaiting-approval") return undefined;
   return queue.find(
     (a) =>
+      // A parent parked on a sub-run points at the sub-run's gate by id.
+      a.id === run.approvalId ||
       a.runId === run.runId ||
       // A PR-inbox gate raised after the run finished is keyed by the owning task.
       (run.taskId !== undefined && a.runId === run.taskId) ||

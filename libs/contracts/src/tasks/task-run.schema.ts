@@ -185,7 +185,10 @@ export const TaskRunSchema = z.object({
   automationId: z.string().optional(),
   /** Held tasks: why the budget guard parked it. */
   heldReason: z.string().optional(),
-  /** Held tasks: the spend-past-cap approval gating the override. */
+  /**
+   * Held tasks: the spend-past-cap approval gating the override. Workflow runs parked on a
+   * sub-run: the sub-run's pending gate approval (sub-runs are not in the feed).
+   */
   approvalId: z.string().optional(),
   /** Phase 9: when `paused-limit`, the epoch ms the usage window resets (countdown). */
   resumeAt: z.number().int().nullable().optional(),

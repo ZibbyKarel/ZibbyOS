@@ -37,6 +37,15 @@ describe("approvalForRun", () => {
     expect(approvalForRun(queue, run())?.id).toBe("appr-writer_123_42");
   });
 
+  it("matches a parent's sub-run gate by the approvalId the API stamps", () => {
+    const queue = [approval("model-3d_2", "workflow-gate")];
+    const found = approvalForRun(
+      queue,
+      run({ runId: "makerworld_1", kind: "workflow", approvalId: "appr-model-3d_2" }),
+    );
+    expect(found?.id).toBe("appr-model-3d_2");
+  });
+
   it("matches a workflow run's stage approval by prefix", () => {
     // Stage run ids are `${workflowRunId}.${phaseId}_${ts}_${pid}`.
     const queue = [approval("release_1780000000000.build_1780000000123_77", "workflow-stage")];
