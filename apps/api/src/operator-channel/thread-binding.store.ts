@@ -27,7 +27,9 @@ export const ThreadBindingSchema = z.object({
 export type ThreadBinding = z.infer<typeof ThreadBindingSchema>;
 
 /** One chat conversation per bound thread, so each piece of work keeps its own context. */
-export const threadConversationId = (threadTs: string): string => `slack-thread-${threadTs}`;
+export const threadConversationId = (threadTs: string): string =>
+  // Slack ts is "1700000000.000005"; chat conversation ids forbid dots.
+  `slack-thread-${threadTs.replace(/\./g, "_")}`;
 
 const keyOf = (channel: string, threadTs: string): string => `${channel}:${threadTs}`;
 

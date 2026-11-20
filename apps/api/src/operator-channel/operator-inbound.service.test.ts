@@ -297,7 +297,7 @@ describe("OperatorInboundService — thread feedback (Phase 3)", () => {
   it("a reply in a bound thread runs in the thread's conversation with an about block naming the run/PR/branch, answered in-thread", async () => {
     await channel.fake.receive(msg({ text: "oprav ten název", threadTs: THREAD }));
     const [call] = session.calls;
-    expect(call?.conversationId).toBe(`slack-thread-${THREAD}`);
+    expect(call?.conversationId).toBe(threadConversationId(THREAD));
     expect(call?.text).toBe("oprav ten název");
     expect(call?.about).toMatchObject({ kind: "pr", id: PR, label: "Fix login", href: PR });
     expect(call?.about?.details).toContain("run: run-pr");

@@ -18,7 +18,8 @@ import {
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { dayName, dayNameShort } from "../schedule";
 import { useCronLabel } from "../useCronLabel";
-import { type AutomationFormState, AutomationFormTestId } from "./AutomationFormFields";
+import type { AutomationFormState } from "./AutomationFormFields";
+import { AutomationFormTestId } from "./AutomationFormTestId";
 
 type TriggerType = Trigger["type"];
 

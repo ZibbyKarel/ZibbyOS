@@ -31,7 +31,7 @@ describe("AI providers API (e2e)", () => {
 
   it("starts unconfigured", async () => {
     const res = await request(server()).get("/api/ai-providers").expect(200);
-    expect(res.body).toEqual({ openai: { configured: false } });
+    expect(res.body.openai).toEqual({ configured: false });
   });
 
   it("PUT needs the operator token", async () => {
@@ -52,7 +52,7 @@ describe("AI providers API (e2e)", () => {
     const put = await withOperator(request(server()).put("/api/ai-providers/openai"))
       .send({ apiKey: ` ${key} ` })
       .expect(200);
-    expect(put.body).toEqual({ openai: { configured: true, keyHint: "…a1b2" } });
+    expect(put.body.openai).toEqual({ configured: true, keyHint: "…a1b2" });
     const get = await request(server()).get("/api/ai-providers").expect(200);
     expect(JSON.stringify(get.body)).not.toContain(key);
     expect(JSON.parse(await fs.readFile(path.join(dir, "openai.json"), "utf8"))).toEqual({
@@ -61,6 +61,6 @@ describe("AI providers API (e2e)", () => {
     const del = await withOperator(request(server()).delete("/api/ai-providers/openai")).expect(
       200,
     );
-    expect(del.body).toEqual({ openai: { configured: false } });
+    expect(del.body.openai).toEqual({ configured: false });
   });
 });

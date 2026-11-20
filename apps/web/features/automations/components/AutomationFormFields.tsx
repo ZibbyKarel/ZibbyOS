@@ -13,12 +13,11 @@ import type {
 import { DEFAULT_SCHEDULE, cronToSchedule, scheduleToCron } from "../schedule";
 import { TriggerFields } from "./TriggerFields";
 
-/** Testids for the automation form (the screens + tests select via these). */
-export enum AutomationFormTestId {
-  Submit = "automation-form-submit",
-  Approval = "automation-form-approval",
-}
+import { AutomationFormTestId } from "./AutomationFormTestId";
 
+export { AutomationFormTestId };
+
+/** Testids for the automation form (the screens + tests select via these). */
 type TriggerType = Trigger["type"];
 
 /**

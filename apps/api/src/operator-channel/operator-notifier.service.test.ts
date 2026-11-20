@@ -1,3 +1,4 @@
+import { threadConversationId } from "./thread-binding.store";
 import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -304,7 +305,7 @@ describe("OperatorNotifier — thread bindings (Phase 3)", () => {
     expect(await h.store.threads.get(ref.channel, ref.ts)).toMatchObject({
       channel: "D-FAKE-U1",
       threadTs: ref.ts,
-      conversationId: `slack-thread-${ref.ts}`,
+      conversationId: threadConversationId(ref.ts),
       title: "Task t-pr",
       taskId: "t-pr",
       runId: "run-pr",

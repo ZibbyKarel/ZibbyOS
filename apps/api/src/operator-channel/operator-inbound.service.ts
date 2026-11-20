@@ -13,7 +13,7 @@ import {
 import { OperatorChannelService } from "./operator-channel.service";
 import { OperatorChannelStore } from "./operator-channel.store";
 import { OPERATOR_MESSAGES, escapeMrkdwn, fill, zibbyLink } from "./operator-messages";
-import type { ThreadBinding } from "./thread-binding.store";
+import { type ThreadBinding, threadConversationId } from "./thread-binding.store";
 import { isPrimaryInstance } from "../shared/instance-role";
 
 /** Slack section text tops out at 3000 chars; a chunk leaves room for the run/notice lines. */
@@ -258,8 +258,9 @@ export class OperatorInboundService implements OnModuleInit, OnModuleDestroy {
     binding: ThreadBinding | null,
   ): Promise<void> {
     const m = OPERATOR_MESSAGES[settings.locale].chat;
-    const conversationId =
-      binding?.conversationId ?? operatorConversationId(settings.dmChannelId ?? "");
+    const conversationId = binding
+      ? threadConversationId(binding.threadTs)
+      : operatorConversationId(settings.dmChannelId ?? "");
     const thread = binding ? { threadTs: binding.threadTs } : {};
     const truncated = raw.length > this.maxTextChars;
     const text = truncated ? raw.slice(0, this.maxTextChars) : raw;

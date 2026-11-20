@@ -23,6 +23,7 @@ import {
   operatorConversationId,
 } from "../src/operator-channel/operator-inbound.service";
 import { OperatorNotifier } from "../src/operator-channel/operator-notifier.service";
+import { threadConversationId } from "../src/operator-channel/thread-binding.store";
 import { ScheduledTasksStorageService } from "../src/tasks/scheduled-tasks.storage.service";
 import { WorkflowRunnerService } from "../src/workflows/workflow-runner.service";
 import { withOperator } from "./operator-token";
@@ -293,11 +294,11 @@ describe("Operator channel inbound (e2e)", () => {
     expect(await store.threads.get(DM, parentTs)).toMatchObject({
       taskId: parent.id,
       prRef: PARENT_PR,
-      conversationId: `slack-thread-${parentTs}`,
+      conversationId: threadConversationId(parentTs),
     });
 
     // The operator replies in that thread.
-    threadConversation = `slack-thread-${parentTs}`;
+    threadConversation = threadConversationId(parentTs);
     const tasksBefore = (await request(app.getHttpServer()).get("/api/tasks/scheduled")).body
       .length as number;
     await fake().receive(
@@ -337,7 +338,7 @@ describe("Operator channel inbound (e2e)", () => {
 
     // The thread transcript is its own conversation, separate from the DM one.
     const transcript = await request(app.getHttpServer())
-      .get(`/api/chat/transcript?conversationId=slack-thread-${parentTs}`)
+      .get(`/api/chat/transcript?conversationId=${threadConversationId(parentTs)}`)
       .expect(200);
     expect(transcript.body.messages.map((m: { text: string }) => m.text)).toContain(
       "oprav ten název",

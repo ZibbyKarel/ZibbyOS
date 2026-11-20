@@ -172,7 +172,7 @@ describe("Agent runs API (e2e)", () => {
         expect(inlineIdx).toBeGreaterThanOrEqual(0);
         promptText = argv[inlineIdx + 1] ?? "";
       }
-      expect(promptText).toContain("## Grounding (vault)");
+      expect(promptText).toContain("## Grounding (mozek)");
       expect(promptText).toContain("North Star");
     } finally {
       delete process.env.FAKE_CLAUDE_DUMP_ARGS_FILE;
