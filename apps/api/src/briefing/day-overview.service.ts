@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Inject, Injectable, Optional } from "@nestjs/common";
@@ -95,11 +96,22 @@ export class DayOverviewService {
     return this.systemConfig?.current().chatPersona ?? "jarvis";
   }
 
+  /** Fingerprint of everything that shapes the voice, so editing a persona text invalidates the cache. */
+  private voice(): string {
+    return createHash("sha256")
+      .update(SYSTEM_PROMPT + CHAT_PERSONAS[this.persona()])
+      .digest("hex")
+      .slice(0, 12);
+  }
+
   /** Today's cached text, written on first read of the day. */
   async current(now = new Date()): Promise<DayOverview> {
     const cached = await this.read();
     // A changed personality invalidates today's text — the next overview speaks in the new voice.
-    return cached && cached.overview.date === localDate(now) && cached.persona === this.persona()
+    return cached &&
+      cached.overview.date === localDate(now) &&
+      cached.persona === this.persona() &&
+      cached.voice === this.voice()
       ? cached.overview
       : this.refresh(now);
   }
@@ -119,12 +131,16 @@ export class DayOverviewService {
     await ensureDir(this.activityDir);
     await writeFileAtomic(
       path.join(this.activityDir, CACHE_FILE),
-      JSON.stringify({ ...out, persona: this.persona() }),
+      JSON.stringify({ ...out, persona: this.persona(), voice: this.voice() }),
     );
     return out;
   }
 
-  private async read(): Promise<{ overview: DayOverview; persona?: string } | null> {
+  private async read(): Promise<{
+    overview: DayOverview;
+    persona?: string;
+    voice?: string;
+  } | null> {
     const raw = await fs
       .readFile(path.join(this.activityDir, CACHE_FILE), "utf8")
       .catch(() => null);
@@ -132,8 +148,12 @@ export class DayOverviewService {
     const json = safeJson(raw);
     const parsed = DayOverviewSchema.safeParse(json);
     if (!parsed.success) return null;
-    const persona = (json as { persona?: unknown }).persona;
-    return { overview: parsed.data, ...(typeof persona === "string" ? { persona } : {}) };
+    const { persona, voice } = json as { persona?: unknown; voice?: unknown };
+    return {
+      overview: parsed.data,
+      ...(typeof persona === "string" ? { persona } : {}),
+      ...(typeof voice === "string" ? { voice } : {}),
+    };
   }
 
   private async buildPrompt(date: string, now: Date): Promise<string> {

@@ -1,7 +1,9 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { localDate } from "../memory/vault.service";
+import { CHAT_PERSONAS } from "../chat/chat-persona";
 import { DayOverviewService, prAppUrl, safeMarkdownLinks } from "./day-overview.service";
 
 describe("safeMarkdownLinks", () => {
@@ -40,7 +42,7 @@ describe("DayOverviewService personality", () => {
       dir,
       { current: () => ({ chatPersona: persona.value }) } as never,
     );
-    return { svc, prompts };
+    return { svc, prompts, dir };
   };
 
   it("feeds the selected personality into the prompt and regenerates when it changes", async () => {
@@ -55,5 +57,34 @@ describe("DayOverviewService personality", () => {
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain("Mluv co nejstručněji");
     expect(next.markdown).toBe("text 2");
+  });
+
+  it("addresses the operator as pane in jarvis and formal, not in concise", () => {
+    expect(CHAT_PERSONAS.jarvis).toContain("„pane“");
+    expect(CHAT_PERSONAS.formal).toContain("„pane“");
+    expect(CHAT_PERSONAS.concise).not.toContain("„pane“");
+  });
+
+  it("regenerates a cache written before the voice fingerprint existed", async () => {
+    const { svc, prompts, dir } = await make({ value: "jarvis" });
+    const date = localDate(new Date());
+    await writeFile(
+      path.join(dir, "day-overview.json"),
+      JSON.stringify({
+        date,
+        generatedAt: new Date().toISOString(),
+        markdown: "old",
+        persona: "jarvis",
+      }),
+    );
+    expect((await svc.current()).markdown).toBe("text 1");
+    expect(prompts).toHaveLength(1);
+  });
+
+  it("reuses a cache written by refresh() on the same day", async () => {
+    const { svc, prompts } = await make({ value: "jarvis" });
+    await svc.refresh();
+    await svc.current();
+    expect(prompts).toHaveLength(1);
   });
 });
