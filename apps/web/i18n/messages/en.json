@@ -4653,7 +4653,10 @@
         "save": "Save",
         "cancel": "Cancel",
         "saveFailed": "Saving failed.",
-        "editorLabel": "Note text"
+        "editorLabel": "Note text",
+        "rename": "Rename link",
+        "labelInput": "Link name",
+        "labelHint": "Only changes the name in Kartotéka; the note itself is unchanged."
       }
     },
     "deleteLayout": "Delete",

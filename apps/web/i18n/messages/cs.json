@@ -4653,7 +4653,10 @@
         "save": "Uložit",
         "cancel": "Zrušit",
         "saveFailed": "Uložení se nepovedlo.",
-        "editorLabel": "Text poznámky"
+        "editorLabel": "Text poznámky",
+        "rename": "Přejmenovat odkaz",
+        "labelInput": "Název odkazu",
+        "labelHint": "Mění jen název ve Kartotéce, poznámka zůstane beze změny."
       }
     },
     "deleteLayout": "Smazat",
