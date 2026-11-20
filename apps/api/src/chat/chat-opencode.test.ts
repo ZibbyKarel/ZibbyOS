@@ -294,7 +294,7 @@ describe("opencode chat gate plugin", () => {
       expect(chatGateReason("shell", { command: mutation }, allowEnv)).toBeNull();
       expect(reason("shell", { command: mutation })).toMatch(/create_task/);
       const reply = "gh api repos/o/r/pulls/1/comments/2/replies -f body=hi";
-      expect(chatGateReason("shell", { command: reply }, allowEnv)).toMatch(/gh.pr_comment/);
+      expect(chatGateReason("shell", { command: reply }, allowEnv)).toMatch(/propose_pr_replies/);
       expect(chatGateReason("shell", { command: "claude -p hi" }, allowEnv)).toMatch(/nested/);
     });
 

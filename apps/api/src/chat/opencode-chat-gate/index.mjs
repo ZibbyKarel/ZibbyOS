@@ -119,6 +119,9 @@ export function chatGateReason(tool, input, env = process.env) {
       // Fail closed: a call the classifier chokes on is not run from the chat.
       request = { action: "unclassified" };
     }
+    if (request?.action === "gh.pr_comment" && !allowedActions(env).has(request.action)) {
+      return `"gh.pr_comment" — propose the reply with the zibby propose_pr_replies tool instead; the operator sends it from the card.`;
+    }
     if (request && request.action !== "mcp.read" && !allowedActions(env).has(request.action)) {
       return `"${request.action}" — ${CHAT_DELEGATE_REASON}`;
     }

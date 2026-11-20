@@ -30,7 +30,7 @@ export const OPENCODE_CHAT_NOTE =
   "a zibby-kb, operátorovy vlastní MCP servery a — když je operátor přihlášený — Atlassian " +
   "(Jira, Confluence) a Figmu. Slack tu nemáš. Gate chatu pustí čtení, neškodné příkazy " +
   "a akce, které má operátor v pravidlech brány povolené (např. zápis přes gh api, ne " +
-  "souborové operace); cokoli " +
+  "souborové operace); odpovědi do review vláken PR navrhuj přes propose_pr_replies; cokoli " +
   "dalšího rizikového (push, mazání, přepis souborů, zápis přes MCP, publikace) " +
   "odmítne — pak to nezkoušej obejít a předej práci přes create_task, nebo operátorovi " +
   "řekni, co bys spustil. Server, který hlásí, že potřebuje přihlášení, prostě vynech.";

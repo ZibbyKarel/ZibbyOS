@@ -65,9 +65,24 @@ export const CHAT_WIDGET_KINDS = [
   "project-status",
   "ci",
   "todo",
+  "pr-replies",
 ] as const;
 export const ChatWidgetKindSchema = z.enum(CHAT_WIDGET_KINDS);
 export type ChatWidgetKind = z.infer<typeof ChatWidgetKindSchema>;
+
+/** Most thread replies one `pr-replies` card proposes. */
+export const MAX_CHAT_PR_REPLIES = 50;
+
+/** One proposed reply on a review thread: a body, a resolve, or both. */
+export const ChatPrReplyDraftSchema = z
+  .object({
+    /** GitHub review thread node id, or a GitLab discussion id. */
+    threadId: z.string().regex(/^(?:PRRT_[\w-]+|[0-9a-f]{40})$/),
+    body: z.string().trim().max(4000).optional(),
+    resolve: z.boolean().optional(),
+  })
+  .refine((v) => !!v.body || v.resolve === true, { message: "Provide a body or resolve: true" });
+export type ChatPrReplyDraft = z.infer<typeof ChatPrReplyDraftSchema>;
 
 /** Most rows a list widget shows in the thread. */
 export const MAX_CHAT_WIDGET_ROWS = 10;
@@ -113,6 +128,21 @@ export const ChatWidgetSchema = z.discriminatedUnion("kind", [
    * absent = the card offers a project select.
    */
   z.object({ kind: z.literal("todo"), ...widgetList }),
+  /**
+   * Replies ZIBBY proposes on a PR's review threads. The one widget that carries data, not
+   * only a reference: the drafts ARE the proposal. The threads themselves load live; the
+   * operator edits each draft and sends it (that click is the approval) — nothing is posted
+   * by showing the card.
+   */
+  z.object({
+    kind: z.literal("pr-replies"),
+    ...widgetBase,
+    /** `owner/repo` (GitLab: the project path) and the PR / MR number. */
+    repo: z.string().min(1).max(256),
+    number: z.number().int().positive(),
+    url: z.string().url(),
+    replies: z.array(ChatPrReplyDraftSchema).min(1).max(MAX_CHAT_PR_REPLIES),
+  }),
 ]);
 export type ChatWidget = z.infer<typeof ChatWidgetSchema>;
 

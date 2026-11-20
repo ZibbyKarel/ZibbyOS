@@ -149,6 +149,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "machine_rename",
       "open_folder",
       "open_maps",
+      "propose_pr_replies",
       "read_knowledge_base_note",
       "recall_memory",
       "search_knowledge_base",
@@ -294,6 +295,42 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       );
       await client.close();
     });
+  });
+
+  it("propose_pr_replies drops a pr-replies card into the in-flight turn", async () => {
+    const shown: unknown[] = [];
+    const off = toolResults.onWidget("conv-replies", (w) => shown.push(w));
+    const client = new Client({ name: "chat-mcp-test-client", version: "1.0.0" });
+    await client.connect(
+      new StreamableHTTPClientTransport(
+        new URL(`${baseUrl}/api/chat/mcp?conversationId=conv-replies`),
+        { requestInit: { headers: { Authorization: `Bearer ${auth.bearerToken}` } } },
+      ),
+    );
+    const result = await client.callTool({
+      name: "propose_pr_replies",
+      arguments: {
+        prUrl: "https://github.com/o/r/pull/7",
+        replies: [{ threadId: "PRRT_a", body: "Thanks!", resolve: true }],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(shown).toEqual([
+      {
+        kind: "pr-replies",
+        repo: "o/r",
+        number: 7,
+        url: "https://github.com/o/r/pull/7",
+        replies: [{ threadId: "PRRT_a", body: "Thanks!", resolve: true }],
+      },
+    ]);
+    const bad = await client.callTool({
+      name: "propose_pr_replies",
+      arguments: { prUrl: "https://example.com/x", replies: [{ threadId: "PRRT_a", body: "x" }] },
+    });
+    expect(bad.isError).toBe(true);
+    off();
+    await client.close();
   });
 
   describe("self-api tools", () => {

@@ -311,6 +311,14 @@ discriminated union on `kind` carrying only ids/filters (`runRef`, `projectId`, 
 Kinds: `run`, `runs`, `prs`, `issues`, `approvals`, `briefing`, `mentions`,
 `project-status`, `ci`, `todo`.
 
+`pr-replies` is the one widget that carries data: it is not offered by `show_widget` but
+dropped by the `propose_pr_replies` tool (`prUrl` + `replies: {threadId, body?, resolve?}[]`,
+parsed to `repo` / `number` / `url`). The drafts ARE the proposal; the card loads the threads
+live, prefills each draft like the PR detail's "Review threads" block, and the operator edits
+and sends them (per thread or "send all") through `replyInboxPrThread` — that click is the
+approval. This is how the chat replies on a PR: the chat gate refuses `gh.pr_comment` and
+points the model here (unless the operator's rules `allow` it).
+
 `todo` shows a PROJECT's vault `TODO.md` (open items; checkbox ticks the item in the file via
 `PATCH /api/todo/projects/:projectId/items/:number`, play starts a task from its text). `projectId` is
 the project to show (the model passes the discussed / `#`-tagged one); omitted, the card offers a

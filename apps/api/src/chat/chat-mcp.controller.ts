@@ -11,6 +11,7 @@ import {
 } from "@zibby/contracts";
 import { z } from "zod";
 import { AutopilotService } from "../autopilot/autopilot.service";
+import { parsePrUrl } from "../git-host/git-host-url";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
 import { ChatToolsService } from "./chat-tools.service";
@@ -449,7 +450,7 @@ export class ChatMcpController {
           "one short sentence — do NOT repeat the card's content in prose. Read-only: " +
           "showing a card never performs an action.",
         inputSchema: {
-          kind: z.enum(CHAT_WIDGET_KINDS).describe("Which card to show."),
+          kind: z.enum(CHAT_WIDGET_KINDS).exclude(["pr-replies"]).describe("Which card to show."),
           runRef: z.string().optional().describe("Run id — required for kind `run`."),
           projectId: z
             .string()
@@ -481,6 +482,57 @@ export class ChatMcpController {
         const shown = this.toolResults.pushWidget(conversationId, parsed.data);
         if (!shown) return errorText("No chat turn is in flight — the card could not be shown.");
         return text(`Card "${parsed.data.kind}" is now shown to the operator in the thread.`);
+      },
+    );
+
+    server.registerTool(
+      "propose_pr_replies",
+      {
+        description:
+          "Propose replies on a pull request's review threads (and/or resolving them). Shows the " +
+          "operator a card with each thread and your draft prefilled — the operator edits and " +
+          "sends them with one click; that click is the approval. Use this INSTEAD of posting " +
+          "comments yourself (`gh api …/replies`, `gh pr comment` are refused by the gate). Write " +
+          "replies like the operator: English, one or two short casual sentences. Nothing is " +
+          "posted by calling this.",
+        inputSchema: {
+          prUrl: z.string().describe("The PR / MR web URL."),
+          replies: z
+            .array(
+              z.object({
+                threadId: z
+                  .string()
+                  .describe("Review thread node id (`PRRT_…`) or GitLab discussion id."),
+                body: z.string().optional().describe("The reply text; omit to only resolve."),
+                resolve: z.boolean().optional().describe("Resolve the thread after replying."),
+              }),
+            )
+            .describe("One entry per thread."),
+          title: z.string().optional().describe("Optional heading override."),
+        },
+      },
+      async ({ prUrl, replies, title }) => {
+        const pr = parsePrUrl(prUrl);
+        if (!pr) return errorText(`Not a GitHub PR or GitLab MR URL: ${prUrl}`);
+        const parsed = ChatWidgetSchema.safeParse({
+          kind: "pr-replies",
+          repo: pr.repo,
+          number: pr.number,
+          url: prUrl,
+          replies,
+          ...(title ? { title } : {}),
+        });
+        if (!parsed.success) {
+          return errorText(
+            `Invalid proposal: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+          );
+        }
+        if (!this.toolResults.pushWidget(conversationId, parsed.data))
+          return errorText("No chat turn is in flight — the card could not be shown.");
+        return text(
+          `The operator now sees ${replies.length} proposed repl${replies.length === 1 ? "y" : "ies"} ` +
+            "in the thread and sends them from the card. Do not post them yourself.",
+        );
       },
     );
 

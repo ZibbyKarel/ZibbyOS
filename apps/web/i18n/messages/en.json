@@ -2984,6 +2984,14 @@
       "fixAria": "Ask Zibby to fix CI: {name}",
       "fixPrompt": "Fix the failing CI run \"{name}\" in project {project}.",
       "openAria": "Open CI run: {name}"
+    },
+    "prReplies": {
+      "title": "Proposed replies",
+      "sendAll": "Send all",
+      "sent": "Sent",
+      "alreadyResolved": "Already resolved on GitHub",
+      "missingThread": "This thread is no longer on the PR.",
+      "noProject": "No project owns this repository."
     }
   },
   "chat": {

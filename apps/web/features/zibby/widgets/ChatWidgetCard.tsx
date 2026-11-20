@@ -6,6 +6,7 @@ import { BriefingWidgetCard } from "./BriefingWidgetCard";
 import { CiWidgetCard } from "./CiWidgetCard";
 import { IssuesWidgetCard } from "./IssuesWidgetCard";
 import { MentionsWidgetCard } from "./MentionsWidgetCard";
+import { PrRepliesWidgetCard } from "./PrRepliesWidgetCard";
 import { ProjectStatusWidgetCard } from "./ProjectStatusWidgetCard";
 import { PrsWidgetCard } from "./PrsWidgetCard";
 import { RunWidgetCard } from "./RunWidgetCard";
@@ -41,6 +42,8 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <CiWidgetCard onPrompt={onPrompt} widget={widget} />;
     case "todo":
       return <TodoWidgetCard widget={widget} />;
+    case "pr-replies":
+      return <PrRepliesWidgetCard widget={widget} />;
     default: {
       const unreachable: never = widget;
       return unreachable;

@@ -2984,6 +2984,14 @@
       "fixAria": "Požádat Zibbyho o opravu CI: {name}",
       "fixPrompt": "Oprav padající CI běh „{name}“ v projektu {project}.",
       "openAria": "Otevřít CI běh: {name}"
+    },
+    "prReplies": {
+      "title": "Návrhy odpovědí",
+      "sendAll": "Odeslat vše",
+      "sent": "Odesláno",
+      "alreadyResolved": "Už vyřešené na GitHubu",
+      "missingThread": "Konverzace už v PR není.",
+      "noProject": "Žádný projekt nepatří k tomuto repozitáři."
     }
   },
   "chat": {

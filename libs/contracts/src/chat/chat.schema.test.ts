@@ -290,6 +290,28 @@ describe("ChatModel (todo-30)", () => {
 });
 
 describe("ChatWidgetSchema", () => {
+  it("accepts a pr-replies proposal and rejects an empty draft", () => {
+    const base = {
+      kind: "pr-replies",
+      repo: "o/r",
+      number: 7,
+      url: "https://github.com/o/r/pull/7",
+    };
+    expect(
+      ChatWidgetSchema.safeParse({
+        ...base,
+        replies: [
+          { threadId: "PRRT_x1", body: "Thanks!" },
+          { threadId: "PRRT_x2", resolve: true },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      ChatWidgetSchema.safeParse({ ...base, replies: [{ threadId: "PRRT_x1" }] }).success,
+    ).toBe(false);
+    expect(ChatWidgetSchema.safeParse({ ...base, replies: [] }).success).toBe(false);
+  });
+
   it("accepts a list widget with a project filter", () => {
     expect(ChatWidgetSchema.parse({ kind: "prs", projectId: "cms4", limit: 5 })).toEqual({
       kind: "prs",
