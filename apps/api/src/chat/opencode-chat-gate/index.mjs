@@ -7,7 +7,9 @@
 //  - `shell` / `bash`: a command the classifier does not gate runs; a gated one (push,
 //    rm, mv, overwrite, publish, `gh pr create`, …), a nested `opencode` / `claude`, or
 //    anything touching the operator-only surface is REFUSED at once with a message that
-//    tells the model to delegate it via `create_task` (which goes through the run gate).
+//    tells the model to delegate it via `create_task` (which goes through the run gate) —
+//    unless the operator's own gate rules `allow` that action (`ZIBBY_CHAT_ALLOW_ACTIONS`,
+//    comma list computed by the API per turn), then it runs as it would in a run.
 //  - `read` / `grep` / `glob` / `list`: run, unless the path is the operator token dir.
 //  - MCP tools of the mounted servers (`ZIBBY_CHAT_MCP_SERVERS`, comma list): ZibbyOS's
 //    own `zibby` / `zibby-kb` run; an operator server's call runs only when A28's
@@ -87,6 +89,9 @@ function touchesOperator(e) {
   );
 }
 
+/** Classified actions the operator's gate rules `allow` outright (see `chatAllowedActions`). */
+const allowedActions = (env) => new Set(list(env.ZIBBY_CHAT_ALLOW_ACTIONS));
+
 /** Decide one call → `null` (run it) or the reason it is refused. Never waits. */
 export function chatGateReason(tool, input, env = process.env) {
   const name = String(tool ?? "");
@@ -114,7 +119,7 @@ export function chatGateReason(tool, input, env = process.env) {
       // Fail closed: a call the classifier chokes on is not run from the chat.
       request = { action: "unclassified" };
     }
-    if (request && request.action !== "mcp.read") {
+    if (request && request.action !== "mcp.read" && !allowedActions(env).has(request.action)) {
       return `"${request.action}" — ${CHAT_DELEGATE_REASON}`;
     }
   }

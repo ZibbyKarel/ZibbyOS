@@ -1,3 +1,4 @@
+import { GatesModule } from "../gates/gates.module";
 import { AgentsModule } from "../agents/agents.module";
 import { Module } from "@nestjs/common";
 import { MachineModule } from "../machine/machine.module";
@@ -68,6 +69,8 @@ export function resolveChatDir(): string {
     ProjectsModule,
     CompaniesModule,
     TeamsModule,
+    // The operator's gate rules decide which gated actions an opencode chat turn may run.
+    GatesModule,
   ],
   controllers: [ChatController, ChatMcpController],
   providers: [

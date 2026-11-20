@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import type { GateRule } from "@zibby/contracts";
 import { bluecodeConfigPart } from "../ai-providers/bluecode-provider";
 import { agentBaseEnv } from "../shared/agent-env";
 import type { ChatStreamEvent } from "./chat-stream-parser";
@@ -26,8 +27,9 @@ const RESERVED_IDS = new Set(["opencode", "browser"]);
 export const OPENCODE_CHAT_NOTE =
   "Běžíš na enginu opencode. Máš shell, čtení souborů (read/grep/glob), MCP servery zibby " +
   "a zibby-kb, operátorovy vlastní MCP servery a — když je operátor přihlášený — Atlassian " +
-  "(Jira, Confluence) a Figmu. Slack tu nemáš. Gate chatu pustí jen čtení a neškodné " +
-  "příkazy; cokoli rizikového (push, mazání, přepis souborů, zápis přes MCP, publikace) " +
+  "(Jira, Confluence) a Figmu. Slack tu nemáš. Gate chatu pustí čtení, neškodné příkazy " +
+  "a akce, které má operátor v pravidlech brány povolené (např. zápis přes gh api); cokoli " +
+  "dalšího rizikového (push, mazání, přepis souborů, zápis přes MCP, publikace) " +
   "odmítne — pak to nezkoušej obejít a předej práci přes create_task, nebo operátorovi " +
   "řekni, co bys spustil. Server, který hlásí, že potřebuje přihlášení, prostě vynech.";
 
@@ -170,6 +172,24 @@ export function opencodeChatArgs(
 }
 
 /**
+ * The gated actions a chat turn may run without asking: those every action-keyed rule
+ * sets to `allow` (so a branch-qualified `ask` on the same action keeps it out). A
+ * catch-all `context` rule that isn't `allow` empties the list. The chat can't wait for
+ * an approval, so `notify` / `ask` / `deny` stay refused.
+ */
+export function chatAllowedActions(rules: readonly GateRule[]): string[] {
+  const ok = new Map<string, boolean>();
+  for (const rule of rules) {
+    const allow = rule.decision === "allow";
+    for (const cond of rule.match) {
+      if (cond.type === "context" && !allow) return [];
+      if (cond.type === "action") ok.set(cond.action, (ok.get(cond.action) ?? true) && allow);
+    }
+  }
+  return [...ok].filter(([, allow]) => allow).map(([action]) => action);
+}
+
+/**
  * The env of an opencode chat turn: no inherited `OPENCODE_*` (only ours), project config
  * off, `PWD` pinned to the spawn dir (opencode takes its project dir from `$PWD`), and the
  * mounted server ids + the per-turn denied tools for the gate plugin (which denies them
@@ -180,6 +200,7 @@ export function opencodeChatEnv(
   cwd: string,
   serverIds: readonly string[],
   denyTools: readonly string[] = [],
+  allowActions: readonly string[] = [],
 ): NodeJS.ProcessEnv {
   const env = agentBaseEnv();
   for (const key of Object.keys(env)) if (key.startsWith("OPENCODE_")) delete env[key];
@@ -191,6 +212,7 @@ export function opencodeChatEnv(
     PWD: cwd,
     ZIBBY_CHAT_MCP_SERVERS: serverIds.join(","),
     ZIBBY_CHAT_DENY_TOOLS: denyTools.join(","),
+    ZIBBY_CHAT_ALLOW_ACTIONS: allowActions.join(","),
     ...(claudePath ? { OPENCODE_CLAUDE_PATH: claudePath } : {}),
   };
 }

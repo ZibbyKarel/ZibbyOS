@@ -11,6 +11,7 @@ import {
   Logger,
   type OnModuleDestroy,
   type OnModuleInit,
+  Optional,
 } from "@nestjs/common";
 import {
   type Agent,
@@ -37,6 +38,8 @@ import { CompaniesStorageService } from "../companies/companies.storage.service"
 import { resolveClaudeLocations } from "../inventory/claude-locations";
 import { type OperatorMcpServer, readOperatorMcpServers } from "../inventory/operator-mcp-servers";
 import { KbMcpAuthService } from "../kb/kb-mcp-auth.service";
+import { AutopilotService } from "../autopilot/autopilot.service";
+import { PolicyStorageService } from "../gates/policy.storage.service";
 import { ProjectLocalService } from "../projects/project-local.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { SkillsStorageService } from "../skills/skills.storage.service";
@@ -55,6 +58,7 @@ import {
   OPENCODE_CHAT_NOTE,
   OPENCODE_CHAT_REMOTE_SERVERS,
   buildOpencodeChatConfig,
+  chatAllowedActions,
   opencodeChatArgs,
   opencodeChatEnv,
   parseOpencodeChatLine,
@@ -294,7 +298,17 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     private readonly agents: AgentsStorageService,
     // The turn runs inside the project's local checkout (path or `<cloneRoot>/<id>`).
     private readonly projectLocal?: ProjectLocalService,
+    // The operator's gate rules: an action they `allow` runs in an opencode chat turn too.
+    @Optional() private readonly policy?: PolicyStorageService,
+    @Optional() private readonly autopilot?: AutopilotService,
   ) {}
+
+  /** Gated actions the chat may run (none while ZIBBY is paused or in an `@agent` turn). */
+  private async chatAllowActions(agentTurn: boolean): Promise<string[]> {
+    // ponytail: an `@agent` turn's own (tightening) rules aren't merged in, so it gets none.
+    if (agentTurn || !this.policy || this.autopilot?.isPaused()) return [];
+    return chatAllowedActions(await this.policy.floor().catch(() => []));
+  }
 
   /** Remove per-turn secret configs a crash left behind. Only files older than any live
    *  turn could be, so a second API on the same chat dir keeps its in-flight configs.
@@ -701,7 +715,13 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     const configFile = await this.writeSecretFile("opencode-chat", config);
     return {
       args: opencodeChatArgs(model, sessionId, text),
-      env: opencodeChatEnv(configFile, cwd, serverIds, denyTools),
+      env: opencodeChatEnv(
+        configFile,
+        cwd,
+        serverIds,
+        denyTools,
+        await this.chatAllowActions(Boolean(agent)),
+      ),
       configFile,
       serverIds,
     };

@@ -7,6 +7,7 @@ import {
   OPENCODE_CHAT_BUILTIN_TOOLS,
   OPENCODE_CHAT_GATE_PLUGIN,
   buildOpencodeChatConfig,
+  chatAllowedActions,
   opencodeChatArgs,
   opencodeChatEnv,
   parseOpencodeChatLine,
@@ -287,12 +288,48 @@ describe("opencode chat gate plugin", () => {
       expect(reason("zibby-kb_kb_write", {})).toBeNull();
     });
 
+    it("runs a classified action the operator's rules allow, refuses the rest", () => {
+      const allowEnv = { ...env, ZIBBY_CHAT_ALLOW_ACTIONS: "gh.api_write" };
+      const mutation = `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"x"}){thread{id}} }'`;
+      expect(chatGateReason("shell", { command: mutation }, allowEnv)).toBeNull();
+      expect(reason("shell", { command: mutation })).toMatch(/create_task/);
+      const reply = "gh api repos/o/r/pulls/1/comments/2/replies -f body=hi";
+      expect(chatGateReason("shell", { command: reply }, allowEnv)).toMatch(/gh.pr_comment/);
+      expect(chatGateReason("shell", { command: "claude -p hi" }, allowEnv)).toMatch(/nested/);
+    });
+
     it("refuses write/edit/execute/web and unmounted tools", () => {
       for (const tool of ["write", "edit", "patch", "execute", "webfetch", "skill", "task"]) {
         expect(reason(tool, {})).toMatch(/only the shell/);
       }
       expect(reason("serena_find_symbol", {})).toMatch(/only the shell/);
     });
+  });
+});
+
+describe("chatAllowedActions", () => {
+  const rule = (decision: "allow" | "ask" | "deny" | "notify", match: object[]) =>
+    ({ id: "r", source: "system", locked: true, decision, match }) as never;
+
+  it("keeps only actions every action-keyed rule allows", () => {
+    expect(
+      chatAllowedActions([
+        rule("allow", [{ type: "action", action: "gh.api_write" }]),
+        rule("ask", [{ type: "action", action: "gh.pr_comment" }]),
+        rule("allow", [{ type: "action", action: "git.push" }]),
+        rule("ask", [{ type: "action", action: "git.push", branch: "main" }]),
+        rule("notify", [{ type: "scope", scope: "feature/*" }]),
+      ]),
+    ).toEqual(["gh.api_write"]);
+  });
+
+  it("a non-allow catch-all empties the list", () => {
+    expect(
+      chatAllowedActions([
+        rule("allow", [{ type: "action", action: "gh.api_write" }]),
+        rule("ask", [{ type: "context", context: "*" }]),
+      ]),
+    ).toEqual([]);
   });
 });
 

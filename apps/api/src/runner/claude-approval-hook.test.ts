@@ -618,6 +618,25 @@ describe("claude approval hook — classify (push / PR / chains)", () => {
     expect(classify("gh -R owner/repo pr merge 42 --squash")?.action).toBe("pr.merge");
   });
 
+  it("gh pr review is a write, gh pr/issue comment the comment class", () => {
+    expect(classify("gh pr review 42 --approve")?.action).toBe("gh.api_write");
+    expect(classify("gh -R o/r pr comment 42 --body hi")?.action).toBe("gh.pr_comment");
+    expect(classify("gh issue comment 7 --body hi")?.action).toBe("gh.pr_comment");
+  });
+
+  it("gh api graphql: an inline query reads, a mutation or an uninspectable body writes", () => {
+    expect(classify(`gh api graphql -f query='query { viewer { login } }'`)).toBeNull();
+    expect(classify(`gh api graphql -F n=1 -f query='{ viewer { login } }'`)).toBeNull();
+    for (const cmd of [
+      `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"x"}){thread{id}} }'`,
+      "gh api graphql -F query=@q.graphql",
+      "gh api graphql --input body.json",
+      `gh api graphql -f query="$(cat q.graphql)"`,
+    ]) {
+      expect(classify(cmd)?.action).toBe("gh.api_write");
+    }
+  });
+
   it("a push+PR chain announces the single most severe action (pr.open over git.push)", () => {
     const c = classify("git push -u origin feat && gh pr create --title x --body-file b.md");
     expect(c?.action).toBe("pr.open");

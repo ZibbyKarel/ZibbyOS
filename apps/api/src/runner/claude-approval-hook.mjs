@@ -404,10 +404,23 @@ function classifyGhApi(tokens, startIdx) {
     return null;
   }
   const path = (pathArg ?? "").replace(/\?.*$/, "").replace(/\/$/, "");
+  if (path === "graphql" && isGraphqlRead(tokens)) return null;
   if (path.includes("/merges")) return { action: "pr.merge" };
   if (/^POST$/i.test(effectiveMethod) && path.endsWith("/pulls")) return { action: "pr.open" };
   if (isPrCommentPost(effectiveMethod, path, tokens)) return { action: "gh.pr_comment" };
   return { action: "gh.api_write" };
+}
+
+/**
+ * `gh api graphql` is always a POST, but a `query { … }` document only reads. It is a read
+ * when an inline `query=` field opens with `query` / `{` and nothing in the call says
+ * `mutation`; a file (`@…`), `--input` or a substituted body can't be inspected and stays a
+ * write.
+ */
+function isGraphqlRead(tokens) {
+  if (tokens.some((t) => t === "--input" || (t ?? "").startsWith("--input="))) return false;
+  const text = tokens.join(" ");
+  return /(?:^|\s|=)query=['"]?\s*(?:query\b|\{)/.test(text) && !/\bmutation\b/i.test(text);
 }
 
 /** Phase 4 — the REST paths that post a PR/issue comment, a review comment or a thread reply. */
@@ -442,8 +455,12 @@ function classifyGh(tokens) {
     const prSub = tokens[i + 1];
     if (prSub === "create") return { action: "pr.open" };
     if (prSub === "merge") return { action: "pr.merge" };
+    // A review carries a verdict (approve / request changes): a write, not a comment.
+    if (prSub === "review") return { action: "gh.api_write" };
+    if (prSub === "comment") return { action: "gh.pr_comment" };
     return null;
   }
+  if (sub === "issue" && tokens[i + 1] === "comment") return { action: "gh.pr_comment" };
   if (sub === "api") return classifyGhApi(tokens, i + 1);
   return null;
 }

@@ -190,7 +190,8 @@ opencode model comes from `opencodeTierModels` (`resolveTierModel`, an agent's
 opencode run --standalone --format json -m <provider/model> --agent zibby [--session <id>] -- <msg>
   env: OPENCODE_CONFIG=<0600 file, deleted after the turn>, OPENCODE_DISABLE_PROJECT_CONFIG=1,
        PWD=<turn cwd>, ZIBBY_CHAT_MCP_SERVERS=atlassian,figma,<operator ids…>,zibby,zibby-kb,
-       ZIBBY_CHAT_DENY_TOOLS=<zibby_create_task in an @agent turn, else empty>  (no inherited OPENCODE_*)
+       ZIBBY_CHAT_DENY_TOOLS=<zibby_create_task in an @agent turn, else empty>,
+       ZIBBY_CHAT_ALLOW_ACTIONS=<actions the operator's gate rules allow, see below>  (no inherited OPENCODE_*)
 ```
 
 **Live deltas.** `opencode run --format json` only prints finished `text` parts, so each
@@ -240,7 +241,11 @@ of every pid file whose API is gone and whose command line still reads `opencode
   classifier in-process (`classifyEvent` from `runner/claude-approval-hook.mjs`, events
   mapped by the run plugin's `toClaudeEvents`):
   - shell: an unclassified command runs; a classified one (push, rm/mv/overwrite,
-    publish, `gh pr create`, …) or a nested `opencode` / `claude` is refused at once;
+    publish, `gh pr create`, …) or a nested `opencode` / `claude` is refused at once —
+    unless the operator's gate rules `allow` that action: `chatAllowedActions` lists the
+    actions every action-keyed global rule sets to `allow` (none while ZIBBY is paused or
+    in an `@agent` turn), so e.g. `gh.api_write` moved to `allow` on the gates page runs in
+    the chat too. `notify` / `ask` / `deny` stay refused (the chat can't wait);
   - read/grep/glob/list run, except on the operator token dir / approvals API
     (refused, as in runs);
   - `zibby` / `zibby-kb` tools run; an operator-server call runs only when A28's
