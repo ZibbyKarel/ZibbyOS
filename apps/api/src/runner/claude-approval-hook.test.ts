@@ -632,6 +632,7 @@ describe("claude approval hook — classify (push / PR / chains)", () => {
       "gh api graphql -F query=@q.graphql",
       "gh api graphql --input body.json",
       `gh api graphql -f query="$(cat q.graphql)"`,
+      `gh api graphql -f query='query { viewer { login } }' -f query="$(cat m.graphql)"`,
     ]) {
       expect(classify(cmd)?.action).toBe("gh.api_write");
     }

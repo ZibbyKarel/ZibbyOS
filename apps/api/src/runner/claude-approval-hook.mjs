@@ -420,6 +420,7 @@ function classifyGhApi(tokens, startIdx) {
 function isGraphqlRead(tokens) {
   if (tokens.some((t) => t === "--input" || (t ?? "").startsWith("--input="))) return false;
   const text = tokens.join(" ");
+  if (/\$\(|`/.test(text) || (text.match(/(?:^|\s|=)query=/g) ?? []).length !== 1) return false;
   return /(?:^|\s|=)query=['"]?\s*(?:query\b|\{)/.test(text) && !/\bmutation\b/i.test(text);
 }
 

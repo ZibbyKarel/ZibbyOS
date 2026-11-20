@@ -243,7 +243,7 @@ of every pid file whose API is gone and whose command line still reads `opencode
   - shell: an unclassified command runs; a classified one (push, rm/mv/overwrite,
     publish, `gh pr create`, …) or a nested `opencode` / `claude` is refused at once —
     unless the operator's gate rules `allow` that action: `chatAllowedActions` lists the
-    actions every action-keyed global rule sets to `allow` (none while ZIBBY is paused or
+    actions every global rule matching them by action (or parent class) sets to `allow`, never file effects (`overwrite`/`move`/`delete`) or `mcp.*` (none while ZIBBY is paused or
     in an `@agent` turn), so e.g. `gh.api_write` moved to `allow` on the gates page runs in
     the chat too. `notify` / `ask` / `deny` stay refused (the chat can't wait);
   - read/grep/glob/list run, except on the operator token dir / approvals API

@@ -28,7 +28,7 @@ import { PolicyStorageService } from "./policy.storage.service";
 const ACTION_PARENT: Readonly<Record<string, string>> = { "gh.pr_comment": "gh.api_write" };
 
 /** Whether intent `action` falls under a rule's `ruleAction` (itself or its parent class). */
-function actionInClass(action: string, ruleAction: string): boolean {
+export function actionInClass(action: string, ruleAction: string): boolean {
   return action === ruleAction || ACTION_PARENT[action] === ruleAction;
 }
 

@@ -319,8 +319,19 @@ describe("chatAllowedActions", () => {
         rule("allow", [{ type: "action", action: "git.push" }]),
         rule("ask", [{ type: "action", action: "git.push", branch: "main" }]),
         rule("notify", [{ type: "scope", scope: "feature/*" }]),
+        rule("allow", [{ type: "action", action: "overwrite" }]),
+        rule("allow", [{ type: "action", action: "mcp.write" }]),
       ]),
     ).toEqual(["gh.api_write"]);
+  });
+
+  it("a child action follows its parent class's stricter rule", () => {
+    expect(
+      chatAllowedActions([
+        rule("ask", [{ type: "action", action: "gh.api_write" }]),
+        rule("allow", [{ type: "action", action: "gh.pr_comment" }]),
+      ]),
+    ).toEqual([]);
   });
 
   it("a non-allow catch-all empties the list", () => {
@@ -328,6 +339,12 @@ describe("chatAllowedActions", () => {
       chatAllowedActions([
         rule("allow", [{ type: "action", action: "gh.api_write" }]),
         rule("ask", [{ type: "context", context: "*" }]),
+      ]),
+    ).toEqual([]);
+    expect(
+      chatAllowedActions([
+        rule("allow", [{ type: "action", action: "gh.api_write" }]),
+        rule("deny", [{ type: "tool", tool: "Bash" }]),
       ]),
     ).toEqual([]);
   });

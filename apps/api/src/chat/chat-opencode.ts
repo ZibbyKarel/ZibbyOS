@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import type { GateRule } from "@zibby/contracts";
 import { bluecodeConfigPart } from "../ai-providers/bluecode-provider";
+import { actionInClass } from "../gates/gate-evaluator.service";
 import { agentBaseEnv } from "../shared/agent-env";
 import type { ChatStreamEvent } from "./chat-stream-parser";
 
@@ -28,7 +29,8 @@ export const OPENCODE_CHAT_NOTE =
   "Běžíš na enginu opencode. Máš shell, čtení souborů (read/grep/glob), MCP servery zibby " +
   "a zibby-kb, operátorovy vlastní MCP servery a — když je operátor přihlášený — Atlassian " +
   "(Jira, Confluence) a Figmu. Slack tu nemáš. Gate chatu pustí čtení, neškodné příkazy " +
-  "a akce, které má operátor v pravidlech brány povolené (např. zápis přes gh api); cokoli " +
+  "a akce, které má operátor v pravidlech brány povolené (např. zápis přes gh api, ne " +
+  "souborové operace); cokoli " +
   "dalšího rizikového (push, mazání, přepis souborů, zápis přes MCP, publikace) " +
   "odmítne — pak to nezkoušej obejít a předej práci přes create_task, nebo operátorovi " +
   "řekni, co bys spustil. Server, který hlásí, že potřebuje přihlášení, prostě vynech.";
@@ -172,21 +174,34 @@ export function opencodeChatArgs(
 }
 
 /**
- * The gated actions a chat turn may run without asking: those every action-keyed rule
- * sets to `allow` (so a branch-qualified `ask` on the same action keeps it out). A
- * catch-all `context` rule that isn't `allow` empties the list. The chat can't wait for
- * an approval, so `notify` / `ask` / `deny` stay refused.
+ * Actions the chat never runs whatever the rules say: file effects (the chat is read-only on
+ * disk, and an `overwrite` would let it rewrite its own gate rules) and MCP calls (their
+ * rules can be scoped per server, which this action-level list can't see).
+ */
+const CHAT_NEVER_ACTIONS = new Set(["overwrite", "move", "delete", "mcp.read", "mcp.write"]);
+
+/**
+ * The gated actions a chat turn may run without asking: those that every rule matching
+ * them by action (or by their parent class, as the evaluator does) sets to `allow`, so a
+ * branch-qualified `ask` on the same action keeps it out. A non-`allow` catch-all (`tool`
+ * or `context` rule with no action) empties the list. The chat can't wait for an
+ * approval, so `notify` / `ask` / `deny` stay refused.
  */
 export function chatAllowedActions(rules: readonly GateRule[]): string[] {
-  const ok = new Map<string, boolean>();
+  const actions = new Set<string>();
   for (const rule of rules) {
-    const allow = rule.decision === "allow";
-    for (const cond of rule.match) {
-      if (cond.type === "context" && !allow) return [];
-      if (cond.type === "action") ok.set(cond.action, (ok.get(cond.action) ?? true) && allow);
-    }
+    const keyed = rule.match.some((c) => c.type === "action");
+    const catchAll = rule.match.some((c) => c.type === "tool" || c.type === "context");
+    if (rule.decision !== "allow" && !keyed && catchAll) return [];
+    for (const c of rule.match) if (c.type === "action") actions.add(c.action);
   }
-  return [...ok].filter(([, allow]) => allow).map(([action]) => action);
+  return [...actions].filter(
+    (action) =>
+      !CHAT_NEVER_ACTIONS.has(action) &&
+      rules
+        .filter((r) => r.match.some((c) => c.type === "action" && actionInClass(action, c.action)))
+        .every((r) => r.decision === "allow"),
+  );
 }
 
 /**
