@@ -61,11 +61,12 @@ const STATUS_DOT_TONE = {
   done: "done",
   work: "working",
   think: "working",
-  listen: "thinking",
   search: "thinking",
 } as const satisfies Partial<Record<ZibbyOrbState, string>>;
 
-function statusDotTone(state: ZibbyOrbState) {
+/** `listen` is also the idle-open state, so its dot only lights while the mic is live. */
+function statusDotTone(state: ZibbyOrbState, micLive: boolean) {
+  if (state === "listen") return micLive ? "thinking" : "idle";
   return state in STATUS_DOT_TONE ? STATUS_DOT_TONE[state as keyof typeof STATUS_DOT_TONE] : "idle";
 }
 
@@ -365,7 +366,7 @@ export function ZibbyHost() {
       scrollKey={`${messages.length}:${stream.text.length}:${thinking}`}
       status={
         <>
-          <StatusDot tone={statusDotTone(orbState)} />
+          <StatusDot tone={statusDotTone(orbState, voice.listening)} />
           <span data-testid={ZibbyHostTestId.Status}>{statusText}</span>
         </>
       }

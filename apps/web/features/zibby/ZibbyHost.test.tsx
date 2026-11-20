@@ -366,12 +366,12 @@ describe("ZibbyHost — open / close", () => {
 });
 
 describe("ZibbyHost — orb state & status line", () => {
-  it("is asleep when closed and ready when open", async () => {
+  it("is asleep when closed and listening when open", async () => {
     renderHost();
     expect(live.orbState).toBe("sleep");
     await openOverlay();
-    expect(status()).toBe("Jsem tady");
-    expect(live.orbState).toBe("ready");
+    expect(status()).toBe("Poslouchám…");
+    expect(live.orbState).toBe("listen");
   });
 
   it("follows the mic, the in-flight turn, the latest tool event and speech", async () => {
@@ -460,12 +460,12 @@ describe("ZibbyHost — orb state & status line", () => {
       );
       expect(live.orbState).toBe("done");
       act(() => vi.advanceTimersByTime(1600));
-      expect(live.orbState).toBe("ready");
+      expect(live.orbState).toBe("listen");
 
       act(() => engineOptions?.onTurnError?.("boom"));
       expect(live.orbState).toBe("error");
       act(() => vi.advanceTimersByTime(1600));
-      expect(live.orbState).toBe("ready");
+      expect(live.orbState).toBe("listen");
     } finally {
       vi.useRealTimers();
     }
@@ -483,7 +483,7 @@ describe("ZibbyHost — orb state & status line", () => {
       Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
       window.dispatchEvent(new Event("online"));
     });
-    await waitFor(() => expect(live.orbState).toBe("ready"));
+    await waitFor(() => expect(live.orbState).toBe("listen"));
   });
 
   it("shows the live transcript (confirmed in ink, interim muted) and the mic hint", async () => {

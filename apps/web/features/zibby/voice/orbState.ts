@@ -91,30 +91,27 @@ export function classifyTool(name: string): "search" | "work" {
  *    owns the orb; nothing else can show through).
  * 2. `justErrored` → `error` (transient, always visible).
  * 3. `listening` or `dragging` → `listen` (the operator is addressing Zibby right now).
- * 4. `speaking`, or reply text streaming while `voiceOn` → `speak`.
+ * 4. `speaking`, or reply text streaming (text appearing = Zibby speaks, voice on or off)
+ *    → `speak`.
  * 5. `paused` → `paused` (offline / limit: nothing in flight can progress, so a grey orb
  *    is the honest state; it still yields to the operator's own listening and to speech).
- * 6. In flight (`thinking` or `streamingText`): streaming reply text with voice off →
- *    `think`; otherwise the latest tool event decides — read-type → `search`, action-type
- *    → `work`; no tool event → `think`.
+ * 6. In flight (`thinking`, no text yet): the latest tool event decides — read-type →
+ *    `search`, action-type → `work`; no tool event → `think`.
  * 7. `needsDecision` → `needs` (a fresh turn in flight beats an older pending card).
  * 8. `justDone` → `done` (transient; a pending decision keeps `needs`).
- * 9. otherwise → `ready`.
+ * 9. otherwise (overlay open, idle) → `listen`: an open chat is waiting for the operator.
  */
 export function deriveOrbState(input: DeriveOrbStateInput): ZibbyOrbState {
   if (input.phase === "closed") return "sleep";
   if (input.phase === "summoning" || input.phase === "leaving") return "wake";
   if (input.justErrored) return "error";
   if (input.listening || input.dragging) return "listen";
-  if (input.speaking || (input.streamingText && input.voiceOn === true)) return "speak";
+  if (input.speaking || input.streamingText) return "speak";
   if (input.paused) return "paused";
-  if (input.thinking || input.streamingText) {
-    if (input.streamingText) return "think";
-    return input.lastToolEvent ? classifyTool(input.lastToolEvent.name) : "think";
-  }
+  if (input.thinking) return input.lastToolEvent ? classifyTool(input.lastToolEvent.name) : "think";
   if (input.needsDecision) return "needs";
   if (input.justDone) return "done";
-  return "ready";
+  return "listen";
 }
 
 /** next-intl namespace holding every string of the voice layer. */
