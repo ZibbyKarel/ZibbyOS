@@ -33,13 +33,6 @@ export interface DeriveOrbStateInput {
   paused: boolean;
   /** Files are being dragged over the app (the drop zone is "listening"). */
   dragging: boolean;
-  /**
-   * Voice replies are on (not muted, TTS available). Optional, default `false`. It decides
-   * what streaming reply text means: with voice on the reply is being spoken as it arrives
-   * (`speak`); with voice off the operator is just reading, so the orb stays on `think`
-   * until the turn ends (there is no "reading" state).
-   */
-  voiceOn?: boolean;
 }
 
 /** Tool names (after stripping an `mcp__<server>__` prefix) that only READ data. */

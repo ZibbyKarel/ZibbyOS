@@ -1,5 +1,6 @@
 import type { ChatAbout, ChatMessage, TaskTarget } from "@zibby/contracts";
 import {
+  StatusDotTestId,
   ZibbyBubbleTestId,
   ZibbyOverlayTestId,
   ZibbyToastTestId,
@@ -258,6 +259,11 @@ async function openOverlay() {
 }
 
 const status = () => screen.getByTestId(ZibbyHostTestId.Status).textContent;
+/** The status line's dot (a sibling of the status text). */
+const statusDot = () =>
+  within(screen.getByTestId(ZibbyHostTestId.Status).parentElement ?? document.body).getByTestId(
+    StatusDotTestId.Dot,
+  );
 
 beforeEach(() => {
   mockPath = "/dashboard";
@@ -372,6 +378,9 @@ describe("ZibbyHost — orb state & status line", () => {
     await openOverlay();
     expect(status()).toBe("Poslouchám…");
     expect(live.orbState).toBe("listen");
+    // Idle-open "listen" is not a live mic: the status dot stays the hollow idle ring.
+    expect(statusDot()).toHaveClass("bg-transparent");
+    expect(statusDot()).not.toHaveClass("bg-state-think");
   });
 
   it("follows the mic, the in-flight turn, the latest tool event and speech", async () => {
@@ -390,6 +399,7 @@ describe("ZibbyHost — orb state & status line", () => {
     voice = makeVoice({ listening: true });
     rerender();
     expect(status()).toBe("Poslouchám…");
+    expect(statusDot()).toHaveClass("bg-state-think");
 
     voice = makeVoice();
     engine = makeEngine({ thinking: true });

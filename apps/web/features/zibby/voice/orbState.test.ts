@@ -27,7 +27,7 @@ describe("deriveOrbState", () => {
 
   it("open: thinking thinks, streaming text speaks (voice off too), needs/done win, closed sleeps", () => {
     expect(derive({ thinking: true })).toBe("think");
-    expect(derive({ thinking: true, streamingText: true, voiceOn: false })).toBe("speak");
+    expect(derive({ thinking: true, streamingText: true })).toBe("speak");
     expect(derive({ needsDecision: true })).toBe("needs");
     expect(derive({ justDone: true })).toBe("done");
     expect(derive({ phase: "closed" })).toBe("sleep");
@@ -36,7 +36,7 @@ describe("deriveOrbState", () => {
   it("hands-free sequence: listen, think, speak, speak", () => {
     expect(derive({ listening: true })).toBe("listen");
     expect(derive({ thinking: true })).toBe("think");
-    expect(derive({ streamingText: true, voiceOn: true })).toBe("speak");
+    expect(derive({ streamingText: true })).toBe("speak");
     expect(derive({ speaking: true })).toBe("speak");
   });
 
@@ -85,10 +85,8 @@ describe("deriveOrbState", () => {
   it("thinks while in flight without a tool event", () =>
     expect(derive({ thinking: true })).toBe("think"));
 
-  it("streaming text speaks regardless of voice and beats the tool event", () => {
+  it("streaming text speaks and beats the tool event", () => {
     const base = { thinking: true, streamingText: true, lastToolEvent: { name: "api_call" } };
-    expect(derive({ ...base, voiceOn: true })).toBe("speak");
-    expect(derive({ ...base, voiceOn: false })).toBe("speak");
     expect(derive(base)).toBe("speak");
   });
 

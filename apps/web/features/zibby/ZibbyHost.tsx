@@ -271,7 +271,6 @@ export function ZibbyHost() {
     lastToolEvent: stream.toolEvents.at(-1) ?? null,
     streamingText: stream.text.length > 0,
     speaking: voice.speaking,
-    voiceOn: !voice.muted,
     needsDecision,
     justDone,
     justErrored,
