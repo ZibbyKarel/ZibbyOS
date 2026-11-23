@@ -167,6 +167,11 @@ export const AutopilotLocationSchema = z
   .strict();
 export type AutopilotLocation = z.infer<typeof AutopilotLocationSchema>;
 
+/** Every global capability is `manual` (the TopBar "Ručně"): a master off over all exceptions. */
+export function isGlobalManual(automation: Pick<AutopilotAutomation, "global">): boolean {
+  return AUTOMATION_KEYS.every((k) => automation.global[k] === "manual");
+}
+
 /** The resolved level of every capability at a company/team: global <- company <- team. */
 export function resolveAutopilotLevels(
   state: Pick<AutopilotState, "automation">,
@@ -174,6 +179,9 @@ export function resolveAutopilotLevels(
 ): AutomationLevels {
   if (!state.automation) return { ...NO_AUTOMATION };
   const { global, companies, teams } = state.automation;
+  // Global all-manual (the TopBar "Ručně") is a master switch: no company/team exception
+  // starts work. The exceptions stay stored and apply again once the global row is raised.
+  if (isGlobalManual(state.automation)) return { ...NO_AUTOMATION };
   const company = at.companyId ? companies[at.companyId] : undefined;
   const team = at.teamId ? teams[at.teamId] : undefined;
   const out = { ...global };

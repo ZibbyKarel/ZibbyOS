@@ -61,7 +61,7 @@ const openPanel = () => userEvent.click(screen.getByTestId(ZibbySectionTestId.St
 describe("ZibbyModeControl", () => {
   it("opens Zibby from the orb and the status popover from the status button", async () => {
     renderAutonomy(<ZibbyModeControl />);
-    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "run");
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "paused");
     expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Ručně");
     await userEvent.click(screen.getByTestId(ZibbyModeControlTestId.Root));
     expect(openChat).toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("ZibbyModeControl", () => {
     renderAutonomy(<ZibbyModeControl />);
     expect(screen.getByTestId(ZibbySectionTestId.StatusButton)).toHaveTextContent("Ručně");
     expect(screen.queryByText(/Běží/)).toBeNull();
-    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "run");
+    expect(screen.getByTestId(ZibbySectionTestId.Root)).toHaveAttribute("data-status", "paused");
   });
 
   it("shows Poloautomat when every global capability is semi", () => {

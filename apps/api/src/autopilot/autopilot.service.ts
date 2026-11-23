@@ -19,6 +19,7 @@ import {
   type DepartmentId,
   type IntendedAction,
   type Workflow,
+  isGlobalManual,
   resolveAutopilotAutomation,
   resolveAutopilotLevels,
 } from "@zibby/contracts";
@@ -268,7 +269,7 @@ export class AutopilotService implements OnModuleInit {
   /** Whether any cell anywhere is `auto` and nothing is paused: the overlay can act at all. */
   isOn(): boolean {
     const a = this.state.automation;
-    if (this.state.paused || !a) return false;
+    if (this.state.paused || !a || isGlobalManual(a)) return false;
     return [a.global, ...Object.values(a.companies), ...Object.values(a.teams)].some((node) =>
       Object.values(node).includes("auto"),
     );

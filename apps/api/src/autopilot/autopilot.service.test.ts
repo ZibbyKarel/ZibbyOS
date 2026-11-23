@@ -67,6 +67,9 @@ const treeOf = (
   teams: AutopilotAutomation["teams"] = {},
 ): AutopilotAutomation => ({ global: cells(global), companies, teams });
 
+/** A global row that is not all-manual, so company/team exceptions apply (all-manual is a master off). */
+const LIVE: Cells = { autoImplement: "semi" };
+
 describe("automationRaises", () => {
   it("raising a cell (manual < semi < auto) anywhere raises; lowering and no-ops do not", () => {
     const base = treeOf({ autoReview: "semi" });
@@ -81,18 +84,22 @@ describe("automationRaises", () => {
   });
 
   it("a company override that raises over global raises", () => {
-    expect(automationRaises(treeOf(), treeOf({}, { co: { autoFixCi: "auto" } }))).toBe(true);
+    expect(automationRaises(treeOf(LIVE), treeOf(LIVE, { co: { autoFixCi: "auto" } }))).toBe(true);
     expect(
       automationRaises(treeOf({ autoFixCi: "auto" }), treeOf({}, { co: { autoFixCi: "manual" } })),
     ).toBe(false);
   });
 
   it("a team override is checked under every company, so it is never missed", () => {
-    const prev = treeOf({}, { co: { autoReview: "auto" } }, { t: { autoReview: "manual" } });
+    const prev = treeOf(LIVE, { co: { autoReview: "auto" } }, { t: { autoReview: "manual" } });
     // Removing the team's manual override re-exposes the company's auto at (co, t).
-    expect(automationRaises(prev, treeOf({}, { co: { autoReview: "auto" } }))).toBe(true);
+    expect(automationRaises(prev, treeOf(LIVE, { co: { autoReview: "auto" } }))).toBe(true);
     // A team raised on its own.
-    expect(automationRaises(treeOf(), treeOf({}, {}, { t: { autoImplement: "semi" } }))).toBe(true);
+    expect(automationRaises(treeOf(LIVE), treeOf(LIVE, {}, { t: { autoFixCi: "semi" } }))).toBe(
+      true,
+    );
+    // Under an all-manual global row an exception is dormant, so adding one raises nothing.
+    expect(automationRaises(treeOf(), treeOf({}, {}, { t: { autoReview: "auto" } }))).toBe(false);
     // A team lowered below its company.
     expect(
       automationRaises(
@@ -181,7 +188,7 @@ describe("AutopilotService", () => {
     await svc.set(
       {
         automation: treeOf(
-          {},
+          LIVE,
           { co: { autoCommunicate: "auto" } },
           { quiet: { autoCommunicate: "manual" } },
         ),
@@ -200,7 +207,11 @@ describe("AutopilotService", () => {
     const svc = await boot();
     await svc.set(
       {
-        automation: treeOf({}, {}, { devrel: { autoReview: "auto", autoAddressComments: "auto" } }),
+        automation: treeOf(
+          LIVE,
+          {},
+          { devrel: { autoReview: "auto", autoAddressComments: "auto" } },
+        ),
       },
       "operator",
     );
@@ -222,13 +233,35 @@ describe("AutopilotService", () => {
   it("isOn: not paused and some cell anywhere is auto", async () => {
     const svc = await boot();
     expect(svc.isOn()).toBe(false);
-    await svc.set({ automation: treeOf({}, {}, { t: { autoReview: "auto" } }) }, "operator");
+    await svc.set({ automation: treeOf(LIVE, {}, { t: { autoReview: "auto" } }) }, "operator");
     expect(svc.isOn()).toBe(true);
     expect(svc.scopeAnywhere().reviews).toBe(true);
     expect(svc.scope().reviews).toBe(false);
     await svc.set({ paused: true }, "chat");
     expect(svc.isOn()).toBe(false);
     expect(svc.isPaused()).toBe(true);
+  });
+
+  it("an all-manual global row (TopBar Ručně) switches every exception off", async () => {
+    const svc = await boot();
+    const devrel = { companyId: "co", teamId: "devrel" };
+    await svc.set(
+      { automation: treeOf({}, { co: { autoFixCi: "auto" } }, { devrel: { autoReview: "auto" } }) },
+      "operator",
+    );
+    expect(svc.isOn()).toBe(false);
+    expect(Object.values(svc.automationFor(devrel)).some(Boolean)).toBe(false);
+    expect(svc.scopeAnywhere()).toEqual({
+      reviews: false,
+      comments: false,
+      communication: false,
+      ci: false,
+    });
+    expect(
+      svc.coversApproval({ kind: "pr-review", action: "github.pr.review" }, undefined, undefined, [
+        devrel,
+      ]),
+    ).toBe(false);
   });
 
   it("paused blocks the scope and every start, but keeps the tree for resume", async () => {

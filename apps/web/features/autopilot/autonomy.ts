@@ -52,14 +52,14 @@ export type ZibbyPillKey = "paused" | AutomationLevel | "mixed";
 export const pillKey = (paused: boolean, level: AutomationLevel | null): ZibbyPillKey =>
   paused ? "paused" : (level ?? "mixed");
 
-/** The DS tone of the pill (a colour, never shown as text): grey paused, amber auto, else violet. */
+/** The DS tone of the pill (a colour, never shown as text): grey paused or manual, amber auto, else violet. */
 export const pillTone = (key: ZibbyPillKey): ZibbyStatus =>
-  key === "paused" ? "paused" : key === "auto" ? "auto" : "run";
+  key === "paused" || key === "manual" ? "paused" : key === "auto" ? "auto" : "run";
 
 /** Orb state of the pill and the menu head per key (matches `LEVEL_ORB`). */
 export const PILL_ORB: Record<ZibbyPillKey, ZibbyOrbState> = {
   paused: "sleep",
-  manual: "listen",
+  manual: "sleep",
   semi: "think",
   auto: "speak",
   mixed: "think",

@@ -9,6 +9,7 @@ import {
   inColumn,
   inheritAll,
   manualKeys,
+  pillTone,
   setLevel,
   toggledLevel,
 } from "./autonomy";
@@ -91,8 +92,10 @@ describe("autonomy tree helpers", () => {
 });
 
 describe("PILL_ORB", () => {
-  it("only a pause sleeps; manual listens (the butler is still available)", () => {
+  it("pause and manual sleep (greyed pill); semi and auto stay lit", () => {
     expect(PILL_ORB.paused).toBe("sleep");
-    expect(PILL_ORB.manual).toBe("listen");
+    expect(PILL_ORB.manual).toBe("sleep");
+    expect(pillTone("manual")).toBe("paused");
+    expect(pillTone("semi")).toBe("run");
   });
 });

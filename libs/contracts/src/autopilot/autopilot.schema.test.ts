@@ -205,3 +205,19 @@ describe("resolveAutopilotLevels copy", () => {
     expect(a).not.toBe(NO_AUTOMATION);
   });
 });
+
+describe("global all-manual", () => {
+  it("is a master switch: company/team exceptions start nothing", () => {
+    const s = {
+      paused: false,
+      automation: {
+        global: { ...NO_AUTOMATION },
+        companies: { shoptet: { autoReview: "auto" as const } },
+        teams: { devrel: { autoReview: "semi" as const, autoFixCi: "auto" as const } },
+      },
+    };
+    const at = { companyId: "shoptet", teamId: "devrel" };
+    expect(resolveAutopilotLevels(s, at)).toEqual(NO_AUTOMATION);
+    expect(Object.values(resolveAutopilotAutomation(s, at)).some(Boolean)).toBe(false);
+  });
+});

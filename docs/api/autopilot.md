@@ -61,7 +61,12 @@ the new shape on the next change.
 
 `companies` / `teams` are keyed by id and hold only the cells the node overrides. Precedence is
 team > company > global (`resolveAutopilotLevels`; `resolveAutopilotAutomation` /
-`AutopilotService.automationFor` turn it into "starts" flags, all false while paused). The gate
+`AutopilotService.automationFor` turn it into "starts" flags, all false while paused). A global
+row that is all `manual` (the pill's `Ručně`) is a master off: every company/team exception
+resolves to `manual` too (`isGlobalManual`), so nothing is picked up or auto-approved and
+`isOn()` is false; the exceptions stay stored and apply again once the global row is raised.
+Configured automations don't go through this tree and keep running. The pill is greyed (muted
+tone, sleeping orb) in `Ručně` as while paused. The gate
 class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`): a
 `channel` reply resolves at the item's project's company, or the integration's company.
 `Project.teamId` never picks the team level: several teams work in one project. Only the PR
