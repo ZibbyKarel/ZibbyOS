@@ -342,6 +342,82 @@ describe("WorkflowRunnerService — output sinks", () => {
     );
   });
 
+  describe("generated root", () => {
+    const prevGenerated = process.env.GENERATED_DIR;
+    afterEach(() => {
+      if (prevGenerated === undefined) delete process.env.GENERATED_DIR;
+      else process.env.GENERATED_DIR = prevGenerated;
+    });
+
+    it("folder sink with a relative `to` lands under the generated root", async () => {
+      const root = path.join(dir, "generated-root");
+      process.env.GENERATED_DIR = root;
+      const workflow: Workflow = {
+        id: "book",
+        phases: [docPhase],
+        outputs: [{ type: "folder", from: "book", to: "coloring-books" }],
+        instructions: "x",
+        complexity: "standard",
+      };
+      const { service } = await makeService(dir, workflow);
+      const run = await seedRun(service, dir, workflow, {});
+      await fs.mkdir(path.join(run.cwd, "book"), { recursive: true });
+      await fs.writeFile(path.join(run.cwd, "book", "interior.pdf"), "pdf", "utf8");
+
+      await runOutputs(service, run, workflow);
+
+      expect(
+        await fs.readFile(path.join(root, "coloring-books", RUN_ID, "interior.pdf"), "utf8"),
+      ).toBe("pdf");
+      expect(run.status).toBe("done");
+    });
+
+    it("folder sink with an absolute `to` is an explicit override of the root", async () => {
+      process.env.GENERATED_DIR = path.join(dir, "generated-root");
+      const explicit = path.join(dir, "elsewhere");
+      const workflow: Workflow = {
+        id: "book",
+        phases: [docPhase],
+        outputs: [{ type: "folder", from: "book", to: explicit }],
+        instructions: "x",
+        complexity: "standard",
+      };
+      const { service } = await makeService(dir, workflow);
+      const run = await seedRun(service, dir, workflow, {});
+      await fs.mkdir(path.join(run.cwd, "book"), { recursive: true });
+      await fs.writeFile(path.join(run.cwd, "book", "a.txt"), "a", "utf8");
+
+      await runOutputs(service, run, workflow);
+
+      expect(await fs.readFile(path.join(explicit, RUN_ID, "a.txt"), "utf8")).toBe("a");
+    });
+
+    it("file sink → generated: writes under the root; an escaping path is skipped", async () => {
+      const root = path.join(dir, "generated-root");
+      process.env.GENERATED_DIR = root;
+      const workflow: Workflow = {
+        id: "report",
+        phases: [docPhase],
+        outputs: [
+          { type: "file", from: "docs.md", dest: "generated", to: "reports/out.md" },
+          { type: "file", from: "docs.md", dest: "generated", to: "../escaped.md" },
+        ],
+        instructions: "x",
+        complexity: "standard",
+      };
+      const { service } = await makeService(dir, workflow);
+      const run = await seedRun(service, dir, workflow, {
+        a: { phaseId: "dok", file: "docs.md", content: "body" },
+      });
+
+      await runOutputs(service, run, workflow);
+
+      expect(await fs.readFile(path.join(root, "reports/out.md"), "utf8")).toBe("body");
+      await expect(fs.stat(path.join(dir, "escaped.md"))).rejects.toThrow();
+      expect(run.status).toBe("done");
+    });
+  });
+
   it("pr sink: opens the PR immediately (no gate), records url + line totals, run done", async () => {
     const workflow: Workflow = {
       id: "delivery",

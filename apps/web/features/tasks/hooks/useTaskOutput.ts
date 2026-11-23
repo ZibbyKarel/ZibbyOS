@@ -2,7 +2,7 @@ import type { TaskOutput } from "@zibby/contracts";
 import { useMemo, useState } from "react";
 
 export type OutputType = "" | "pr" | "file" | "void";
-export type FileDest = "project" | "vault";
+export type FileDest = "project" | "vault" | "generated";
 
 export interface UseTaskOutput {
   outputType: OutputType;

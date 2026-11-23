@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { existsSync, promises as fs } from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import matter from "gray-matter";
 import {
@@ -76,6 +75,9 @@ import { ProjectSecretsStore } from "../projects/project-secrets.store";
 import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
+import { recordGeneratedArtifactNote } from "../memory/generated-artifacts-note";
+import { MachineConfigStore } from "../machine/machine-config.store";
+import { resolveGeneratedDir, resolveUnderGeneratedRoot } from "../shared/data-dir";
 import { writeFileAtomic } from "../shared/file-storage/file-utils";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { PR_REVIEW_ARTIFACT, suggestReviewEvent } from "../tasks/task-output.service";
@@ -377,6 +379,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly aiProviders?: AiProvidersStore,
     // Resolves the project's GitLab link so the PR is opened as a merge request.
     @Optional() private readonly resolvedProjects?: ResolvedProjectService,
+    // THIS machine's config — `generatedRoot` is where run artifacts are delivered.
+    @Optional() private readonly machineConfig?: MachineConfigStore,
   ) {
     this.dir = path.resolve(dir);
     this.log = logger.child(WorkflowRunnerService.name);
@@ -2244,6 +2248,25 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       }
       return;
     }
+    if (output.dest === "generated") {
+      const dest = resolveUnderGeneratedRoot(await this.generatedRoot(), output.to);
+      if (!dest) {
+        this.log.warn("generated file output skipped — path escapes the generated root", {
+          workflowRunId: run.workflowRunId,
+          to: output.to,
+        });
+        return;
+      }
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, content, "utf8");
+      this.log.info("file output delivered to generated root", {
+        workflowRunId: run.workflowRunId,
+        to: dest,
+      });
+      await this.recordArtifact(run, "project-file", output.from, dest);
+      await this.noteGeneratedArtifact(run, "file", output.from, dest);
+      return;
+    }
     // dest: project — write into the run's worktree (rides the zibby/* branch) or,
     // failing that, the project checkout. No project resolved → nowhere to write.
     const base = run.workspace?.path ?? run.projectPath;
@@ -2269,6 +2292,41 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       to: output.to,
     });
     await this.recordArtifact(run, "project-file", output.from, output.to);
+  }
+
+  /**
+   * Tell the brain where a generated artifact landed (a note + the `generated-artifacts`
+   * MOC), so a file search in the vault finds it. Best-effort: never fails a delivery.
+   */
+  private async noteGeneratedArtifact(
+    run: WorkflowRun,
+    kind: "folder" | "file",
+    from: string,
+    deliveredPath: string,
+  ): Promise<void> {
+    try {
+      await recordGeneratedArtifactNote(this.vault, {
+        root: await this.generatedRoot(),
+        path: deliveredPath,
+        kind,
+        workflowId: run.workflowId,
+        runId: run.workflowRunId,
+        from,
+      });
+    } catch (error) {
+      this.log.warn("generated artifact note failed (soft) — delivery stands", {
+        workflowRunId: run.workflowRunId,
+        from,
+        err: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /** The generated-artifacts root: the machine config's `generatedRoot`, else the default. */
+  private async generatedRoot(): Promise<string> {
+    return this.machineConfig
+      ? (await this.machineConfig.read()).generatedRoot
+      : resolveGeneratedDir();
   }
 
   /**
@@ -2298,10 +2356,14 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       });
       return;
     }
-    const base =
-      output.to === "~" || output.to.startsWith("~/")
-        ? path.join(os.homedir(), output.to.slice(1))
-        : output.to;
+    const base = resolveUnderGeneratedRoot(await this.generatedRoot(), output.to);
+    if (!base) {
+      this.log.warn("folder output skipped — target escapes the generated root", {
+        workflowRunId: run.workflowRunId,
+        to: output.to,
+      });
+      return;
+    }
     const dest = path.join(base, run.workflowRunId);
     try {
       await fs.mkdir(dest, { recursive: true });
@@ -2316,6 +2378,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     }
     this.log.info("folder output delivered", { workflowRunId: run.workflowRunId, to: dest });
     await this.recordArtifact(run, "project-file", output.from, dest);
+    await this.noteGeneratedArtifact(run, "folder", output.from, dest);
   }
 
   /**
@@ -2996,6 +3059,9 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       )),
       ZIBBY_RUN_DIR: run.cwd,
       ZIBBY_STAGE_DIR: stageCwd,
+      // The generated-artifacts root (Settings → Machine), so a tool phase writes its
+      // deliverables to the configured place instead of a hardcoded path.
+      ZIBBY_GENERATED_DIR: await this.generatedRoot(),
       // TODO 9: `ask_advisor` holds its MCP call while a strong model thinks — keep the
       // CLI's tool-call timeout above the advisor's own spawn timeout.
       MCP_TOOL_TIMEOUT: String(STAGE_MCP_TOOL_TIMEOUT_MS),

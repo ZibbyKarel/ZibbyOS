@@ -99,7 +99,7 @@ describe("machineContract", () => {
 
 describe("MachineConfigSchema (Phase 76)", () => {
   it("round-trips a config with cloneRoot", () => {
-    const config = { cloneRoot: "/Users/op/Projects" };
+    const config = { cloneRoot: "/Users/op/Projects", generatedRoot: "/Users/op/Generated" };
     expect(MachineConfigSchema.parse(config)).toEqual(config);
   });
 

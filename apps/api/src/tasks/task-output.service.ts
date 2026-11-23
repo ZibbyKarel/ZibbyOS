@@ -27,6 +27,9 @@ import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { DuplicateNoteError, VaultService } from "../memory/vault.service";
 import { resolveGitlabLink } from "../git-host/gitlab-link";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
+import { recordGeneratedArtifactNote } from "../memory/generated-artifacts-note";
+import { MachineConfigStore } from "../machine/machine-config.store";
+import { resolveGeneratedDir, resolveUnderGeneratedRoot } from "../shared/data-dir";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
@@ -251,6 +254,8 @@ export class TaskOutputService implements OnModuleInit {
     @Optional() private readonly workflows?: WorkflowsStorageService,
     // Resolves the project's GitLab link so the PR is opened as a merge request.
     @Optional() private readonly resolvedProjects?: ResolvedProjectService,
+    // THIS machine's config — `generatedRoot` backs `dest: generated` file outputs.
+    @Optional() private readonly machineConfig?: MachineConfigStore,
   ) {
     this.log = logger.child(TaskOutputService.name);
   }
@@ -852,6 +857,35 @@ export class TaskOutputService implements OnModuleInit {
           throw error;
         });
       this.log.info("task file output delivered to vault", { taskId: task.id, to: output.to });
+      return;
+    }
+    if (output.dest === "generated") {
+      const root = this.machineConfig
+        ? (await this.machineConfig.read()).generatedRoot
+        : resolveGeneratedDir();
+      const dest = resolveUnderGeneratedRoot(root, output.to);
+      if (!dest) {
+        this.log.warn("generated file output skipped — path escapes the generated root", {
+          taskId: task.id,
+          to: output.to,
+        });
+        return;
+      }
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.writeFile(dest, content, "utf8");
+      this.log.info("task file output delivered to generated root", { taskId: task.id, to: dest });
+      await recordGeneratedArtifactNote(this.vault, {
+        root,
+        path: dest,
+        kind: "file",
+        runId: run.runId,
+        from: output.to,
+      }).catch((error) =>
+        this.log.warn("generated artifact note failed (soft) — delivery stands", {
+          taskId: task.id,
+          err: error instanceof Error ? error.message : String(error),
+        }),
+      );
       return;
     }
     // dest: project — write into the run's worktree (rides its zibby/* branch). No

@@ -177,20 +177,21 @@ Copy `apps/api/.env.example` → `apps/api/.env` and `apps/web/.env.example` →
 
 Individual store directories default to the corresponding subfolder of `ZIBBY_DATA_DIR` but can each be overridden independently:
 
-| Variable            | Default (relative to `ZIBBY_DATA_DIR`) |
-| ------------------- | -------------------------------------- |
-| `AGENTS_DIR`        | `agents`                               |
-| `AGENT_RUNS_DIR`    | `agents/runs`                          |
-| `SKILLS_DIR`        | `skills`                               |
-| `SKILL_RUNS_DIR`    | `skills/runs`                          |
-| `WORKFLOWS_DIR`     | `workflows`                            |
-| `WORKFLOW_RUNS_DIR` | `workflows/runs`                       |
-| `APPROVALS_DIR`     | `approvals`                            |
-| `AUTOMATIONS_DIR`   | `automations`                          |
-| `PROJECTS_DIR`      | `projects`                             |
-| `GATE_RULES_DIR`    | `.` (holds `gate-rules.json`)          |
-| `POLICY_DIR`        | `.` (holds `POLICY.md`)                |
-| `VAULT_DIR`         | `vault`                                |
+| Variable            | Default (relative to `ZIBBY_DATA_DIR`)                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `AGENTS_DIR`        | `agents`                                                                                   |
+| `AGENT_RUNS_DIR`    | `agents/runs`                                                                              |
+| `SKILLS_DIR`        | `skills`                                                                                   |
+| `SKILL_RUNS_DIR`    | `skills/runs`                                                                              |
+| `WORKFLOWS_DIR`     | `workflows`                                                                                |
+| `WORKFLOW_RUNS_DIR` | `workflows/runs`                                                                           |
+| `APPROVALS_DIR`     | `approvals`                                                                                |
+| `AUTOMATIONS_DIR`   | `automations`                                                                              |
+| `PROJECTS_DIR`      | `projects`                                                                                 |
+| `GATE_RULES_DIR`    | `.` (holds `gate-rules.json`)                                                              |
+| `POLICY_DIR`        | `.` (holds `POLICY.md`)                                                                    |
+| `VAULT_DIR`         | `vault`                                                                                    |
+| `GENERATED_DIR`     | `generated` (live: `~/Documents/AI/Generated`; per-machine override in Settings → Machine) |
 
 #### Obsidian vault
 

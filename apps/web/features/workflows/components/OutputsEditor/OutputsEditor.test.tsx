@@ -6,7 +6,8 @@ import { OutputsEditor, outputsValid } from "./OutputsEditor";
 describe("outputsValid", () => {
   it("mirrors the folder contract", () => {
     expect(outputsValid([{ type: "folder", from: "book", to: "~/x" }])).toBe(true);
-    expect(outputsValid([{ type: "folder", from: "book", to: "rel" }])).toBe(false);
+    expect(outputsValid([{ type: "folder", from: "book", to: "rel" }])).toBe(true); // under the generated root
+    expect(outputsValid([{ type: "folder", from: "book", to: "../rel" }])).toBe(false);
     expect(outputsValid([{ type: "folder", from: "../b", to: "/x" }])).toBe(false);
   });
 });

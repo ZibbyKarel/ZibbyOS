@@ -5,7 +5,10 @@ import type { MachineConfig } from "@zibby/contracts";
 import { MachineSection, MachineSectionTestId } from "./MachineSection";
 import { PanelActionsTestId } from "./PanelActions";
 
-const DEFAULTS: MachineConfig = { cloneRoot: "/Users/karel/Projects" };
+const DEFAULTS: MachineConfig = {
+  cloneRoot: "/Users/karel/Projects",
+  generatedRoot: "/Users/karel/Documents/AI/Generated",
+};
 
 let config: MachineConfig = { ...DEFAULTS };
 const setConfig = vi.fn();
@@ -40,5 +43,16 @@ describe("MachineSection", () => {
     render(<MachineSection />);
     await userEvent.clear(screen.getByTestId(MachineSectionTestId.CloneRoot));
     expect(screen.getByTestId(PanelActionsTestId.Save)).toBeDisabled();
+  });
+
+  it("saves only the edited generated root and warns that old files stay put", async () => {
+    render(<MachineSection />);
+    const input = screen.getByTestId(MachineSectionTestId.GeneratedRoot);
+    expect(input).toHaveValue("/Users/karel/Documents/AI/Generated");
+    await userEvent.clear(input);
+    await userEvent.type(input, "/Volumes/data/generated");
+    expect(screen.getByText(/does not move existing files|nepřesune existující/)).toBeVisible();
+    await userEvent.click(screen.getByTestId(PanelActionsTestId.Save));
+    expect(setConfig).toHaveBeenCalledWith({ body: { generatedRoot: "/Volumes/data/generated" } });
   });
 });

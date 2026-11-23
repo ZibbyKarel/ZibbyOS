@@ -112,12 +112,19 @@ export type ProposeMachineActionInput = z.infer<typeof ProposeMachineActionSchem
  * gitignored). `.strict()` so an unknown key can never smuggle a fifth knob in
  * unnoticed; `cloneRoot` is the local directory new project clones land in
  * (`<cloneRoot>/<project.id>`) when a project isn't already present at its
- * canonical `path` on this machine. Extensible later — this is deliberately the
- * one-field v1, not a place to accrete unrelated machine settings.
+ * canonical `path` on this machine; `generatedRoot` is where run artifacts land. Extensible later — this is deliberately the
+ * two-field set (`cloneRoot`, `generatedRoot`), not a place to accrete unrelated machine settings.
  */
 export const MachineConfigSchema = z
   .object({
     cloneRoot: z.string().min(1),
+    /**
+     * Root folder for everything ZIBBY generates as a run's deliverable (books,
+     * models, reports as files). Absolute or `~/…`; relative sink targets
+     * (`folder` `to`, `file` `dest: generated`) resolve under it. Changing it
+     * never moves existing artifacts — they stay where they were delivered.
+     */
+    generatedRoot: z.string().min(1),
   })
   .strict();
 export type MachineConfig = z.infer<typeof MachineConfigSchema>;

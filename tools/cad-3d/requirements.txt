@@ -1,0 +1,6 @@
+cad==0.11.13
+build123d==0.13.0
+trimesh==5.2.1
+numpy==2.5.5
+networkx
+lxml

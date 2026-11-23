@@ -1,8 +1,10 @@
-import { Controller } from "@nestjs/common";
+import { Controller, Optional } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { machineContract } from "@zibby/contracts";
 import { MachineActionRejectedError, MachineService } from "./machine.service";
 import { MachineActionStore } from "./machine-action.store";
+import { syncGeneratedRootNote } from "../memory/generated-artifacts-note";
+import { VaultService } from "../memory/vault.service";
 import { MachineConfigService } from "./machine-config.service";
 
 /**
@@ -16,6 +18,8 @@ export class MachineController {
     private readonly machine: MachineService,
     private readonly store: MachineActionStore,
     private readonly config: MachineConfigService,
+    // The brain learns the new generated root the moment it changes (best-effort).
+    @Optional() private readonly vault?: VaultService,
   ) {}
 
   @TsRestHandler(machineContract)
@@ -44,10 +48,13 @@ export class MachineController {
 
       getMachineConfig: async () => ({ status: 200, body: await this.config.getConfig() }),
 
-      updateMachineConfig: async ({ body }) => ({
-        status: 200,
-        body: await this.config.updateConfig(body),
-      }),
+      updateMachineConfig: async ({ body }) => {
+        const updated = await this.config.updateConfig(body);
+        if (body.generatedRoot && this.vault) {
+          await syncGeneratedRootNote(this.vault, updated.generatedRoot).catch(() => undefined);
+        }
+        return { status: 200, body: updated };
+      },
     });
   }
 }

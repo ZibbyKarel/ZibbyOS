@@ -47,6 +47,7 @@ export function TaskOutputField({
             options={[
               { value: "project", label: t("destProject") },
               { value: "vault", label: t("destVault") },
+              { value: "generated", label: t("destGenerated") },
             ]}
             value={fileDest}
           />

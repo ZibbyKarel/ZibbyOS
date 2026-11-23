@@ -37,6 +37,8 @@ import { TasksController } from "./tasks.controller";
  * always-available fallback. Concurrency is decided by run slots (RunSlotsModule):
  * the global `maxConcurrentRuns` plus the project's optional `budget.maxConcurrent`.
  */
+import { MachineConfigModule } from "../machine/machine-config.module";
+
 @Module({
   imports: [
     AgentsModule,
@@ -51,6 +53,7 @@ import { TasksController } from "./tasks.controller";
     LimitsModule,
     WorkspaceModule,
     TodoModule,
+    MachineConfigModule,
     MemoryModule,
     ScheduledTasksStorageModule,
   ],

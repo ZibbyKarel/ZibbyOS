@@ -194,7 +194,7 @@ export const TaskOutputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("pr") }),
   z.object({
     type: z.literal("file"),
-    dest: z.enum(["project", "vault"]),
+    dest: z.enum(["project", "vault", "generated"]),
     to: z.string().min(1),
   }),
   z.object({ type: z.literal("void") }),

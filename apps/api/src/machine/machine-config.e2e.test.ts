@@ -5,7 +5,7 @@ import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { defaultCloneRoot } from "../shared/data-dir";
+import { defaultCloneRoot, resolveGeneratedDir } from "../shared/data-dir";
 import { MACHINE_CONFIG_FILE, MachineConfigStore } from "./machine-config.store";
 import { MachineActionStore } from "./machine-action.store";
 import { MachineConfigService } from "./machine-config.service";
@@ -49,7 +49,10 @@ describe("Phase 76 — GET/PUT /api/machine/config", () => {
   it("GET returns the computed default cloneRoot before any write", async () => {
     const res = await request(app.getHttpServer()).get("/api/machine/config");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ cloneRoot: defaultCloneRoot() });
+    expect(res.body).toEqual({
+      cloneRoot: defaultCloneRoot(),
+      generatedRoot: resolveGeneratedDir(),
+    });
   });
 
   it("PUT patches the cloneRoot and GET reflects it afterwards", async () => {
@@ -57,15 +60,24 @@ describe("Phase 76 — GET/PUT /api/machine/config", () => {
       .put("/api/machine/config")
       .send({ cloneRoot: "/Users/op/Projects" });
     expect(put.status).toBe(200);
-    expect(put.body).toEqual({ cloneRoot: "/Users/op/Projects" });
+    expect(put.body).toEqual({
+      cloneRoot: "/Users/op/Projects",
+      generatedRoot: resolveGeneratedDir(),
+    });
 
     const get = await request(app.getHttpServer()).get("/api/machine/config");
-    expect(get.body).toEqual({ cloneRoot: "/Users/op/Projects" });
+    expect(get.body).toEqual({
+      cloneRoot: "/Users/op/Projects",
+      generatedRoot: resolveGeneratedDir(),
+    });
   });
 
   it("PUT with an empty patch leaves the current config unchanged", async () => {
     const put = await request(app.getHttpServer()).put("/api/machine/config").send({});
     expect(put.status).toBe(200);
-    expect(put.body).toEqual({ cloneRoot: "/Users/op/Projects" });
+    expect(put.body).toEqual({
+      cloneRoot: "/Users/op/Projects",
+      generatedRoot: resolveGeneratedDir(),
+    });
   });
 });

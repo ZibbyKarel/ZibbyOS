@@ -934,11 +934,11 @@ In the New Task dialog, the operator chooses **what happens to the finished work
 the counterpart to a workflow's `outputs:` block. It's deterministic and owned by the
 system (no agent, no tokens). `TaskOutput` is a discriminated union:
 
-| `type` | Fields       | What it does                                                                                                                                            |
-| ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pr`   | —            | Opens a PR from the finished run's branch. **Tier-2 (act-then-report): opened immediately, no approval gate** — the north-star's "open a PR for a fix". |
-| `file` | `dest`, `to` | Writes the run's result (a summary) to a file — into the project's worktree (`dest: project`) or as a vault note (`dest: vault`). Tier-1, immediate.    |
-| `void` | —            | Explicitly no output (also suppresses a workflow-declared `pr`).                                                                                        |
+| `type` | Fields       | What it does                                                                                                                                                                                                                                                            |
+| ------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pr`   | —            | Opens a PR from the finished run's branch. **Tier-2 (act-then-report): opened immediately, no approval gate** — the north-star's "open a PR for a fix".                                                                                                                 |
+| `file` | `dest`, `to` | Writes the run's result (a summary) to a file — into the project's worktree (`dest: project`) as a vault note (`dest: vault`) or as a file under the generated-artifacts root (`dest: generated`, no `..`; also leaves a pointer note in the vault). Tier-1, immediate. |
+| `void` | —            | Explicitly no output (also suppresses a workflow-declared `pr`).                                                                                                                                                                                                        |
 
 **A missing field means inherit, not void.** For a workflow target, its own
 `outputs:` apply; for an agent/orchestrator target, nothing is delivered (today's

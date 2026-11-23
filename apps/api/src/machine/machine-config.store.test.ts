@@ -2,8 +2,10 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultCloneRoot } from "../shared/data-dir";
+import { defaultCloneRoot, resolveGeneratedDir } from "../shared/data-dir";
 import { MachineConfigStore } from "./machine-config.store";
+
+const DEFAULTS = { cloneRoot: defaultCloneRoot(), generatedRoot: resolveGeneratedDir() };
 
 describe("MachineConfigStore (Phase 76 — per-machine, gitignored config)", () => {
   let dir: string;
@@ -22,25 +24,25 @@ describe("MachineConfigStore (Phase 76 — per-machine, gitignored config)", () 
 
   it("reads the computed default cloneRoot when the file is absent", async () => {
     const config = await store.read();
-    expect(config).toEqual({ cloneRoot: defaultCloneRoot() });
+    expect(config).toEqual(DEFAULTS);
   });
 
   it("reads the default when the file contains garbage JSON", async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, "not json", "utf8");
-    expect(await store.read()).toEqual({ cloneRoot: defaultCloneRoot() });
+    expect(await store.read()).toEqual(DEFAULTS);
   });
 
   it("reads the default when the file fails schema validation", async () => {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, JSON.stringify({ cloneRoot: "" }), "utf8");
-    expect(await store.read()).toEqual({ cloneRoot: defaultCloneRoot() });
+    expect(await store.read()).toEqual(DEFAULTS);
   });
 
   it("write→read round-trips a patched cloneRoot", async () => {
     const written = await store.write({ cloneRoot: "/Users/op/Projects" });
-    expect(written).toEqual({ cloneRoot: "/Users/op/Projects" });
-    expect(await store.read()).toEqual({ cloneRoot: "/Users/op/Projects" });
+    expect(written).toEqual({ ...DEFAULTS, cloneRoot: "/Users/op/Projects" });
+    expect(await store.read()).toEqual({ ...DEFAULTS, cloneRoot: "/Users/op/Projects" });
   });
 
   it("write creates the parent directory and persists atomically (no leftover .tmp file)", async () => {
@@ -48,13 +50,23 @@ describe("MachineConfigStore (Phase 76 — per-machine, gitignored config)", () 
     const entries = await fs.readdir(dir);
     expect(entries).toEqual(["config.json"]);
     const raw = await fs.readFile(file, "utf8");
-    expect(JSON.parse(raw)).toEqual({ cloneRoot: "/tmp/clones" });
+    expect(JSON.parse(raw)).toEqual({ ...DEFAULTS, cloneRoot: "/tmp/clones" });
   });
 
   it("write merges a patch over the current config rather than replacing wholesale", async () => {
     await store.write({ cloneRoot: "/first" });
     // An empty patch is a no-op merge — the current value survives.
     const merged = await store.write({});
-    expect(merged).toEqual({ cloneRoot: "/first" });
+    expect(merged).toEqual({ ...DEFAULTS, cloneRoot: "/first" });
+  });
+
+  it("keeps cloneRoot from a legacy file and defaults the newer generatedRoot", async () => {
+    await fs.writeFile(file, JSON.stringify({ cloneRoot: "/legacy" }), "utf8");
+    expect(await store.read()).toEqual({ ...DEFAULTS, cloneRoot: "/legacy" });
+  });
+
+  it("persists and reads back a custom generatedRoot", async () => {
+    await store.write({ generatedRoot: "/Volumes/out" });
+    expect((await store.read()).generatedRoot).toBe("/Volumes/out");
   });
 });

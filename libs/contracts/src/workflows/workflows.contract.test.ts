@@ -120,7 +120,8 @@ describe("workflow schema", () => {
       }).success;
     expect(parse({ from: "book", to: "~/books" })).toBe(true);
     expect(parse({ from: "../x", to: "~/books" })).toBe(false);
-    expect(parse({ from: "book", to: "relative/dir" })).toBe(false);
+    expect(parse({ from: "book", to: "relative/dir" })).toBe(true); // under the generated root
+    expect(parse({ from: "book", to: "../escape" })).toBe(false);
   });
 
   it("rejects an output.from that no phase produces (superRefine)", () => {

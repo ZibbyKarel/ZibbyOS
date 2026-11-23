@@ -375,6 +375,7 @@
       "destLabel": "Where",
       "destProject": "Into the project",
       "destVault": "Into the brain (mozek)",
+      "destGenerated": "Into generated files",
       "toLabel": "File name",
       "toPlaceholder": "report.md"
     },
@@ -1066,10 +1067,11 @@
     "outputDest": "Destination",
     "outputDestOption": {
       "project": "Project",
-      "vault": "Memory"
+      "vault": "Memory",
+      "generated": "Generated files"
     },
     "outputTo": "Path",
-    "outputFolderToError": "Absolute path or starts with ~/",
+    "outputFolderToError": "Subfolder of the generated root (no ..), an absolute path, or ~/…",
     "outputRemove": "Remove",
     "outputAdd": "Add output",
     "list": {
@@ -1550,6 +1552,9 @@
     },
     "machine": {
       "title": "Machine",
+      "generatedRootLabel": "Generated files root",
+      "generatedRootHint": "Where ZIBBY delivers everything a run produces as files (books, models, reports). Workflows name a subfolder; the root is yours. Per-machine, never synced.",
+      "generatedRootWarning": "Changing the root does not move existing files — earlier runs stay in {old}. New runs deliver to the new location.",
       "cloneRootLabel": "Clone root",
       "cloneRootHint": "Where ZIBBY clones a project on this machine when it isn't already present locally (root/project id). This setting is per-machine and never syncs between machines.",
       "save": "Save",

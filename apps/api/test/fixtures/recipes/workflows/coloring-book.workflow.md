@@ -129,7 +129,7 @@ dítěte vznikne osobní knížka, kde je dítě hlavní postavou — publikuje 
 každá jiná);
 výstupem je složka `book/` v adresáři běhu: `interior.pdf`, `cover.pdf`,
 `listing.md`, `README.md` a schválené ilustrace. Po úspěšném běhu se složka
-`book/` navíc zkopíruje do `~/Workspace/zibby-publishing/books/<běh>/`. Nic se nepublikuje — nahrání na
+`book/` navíc zkopíruje do kořene generovaných souborů (`coloring-books/<běh>/`). Nic se nepublikuje — nahrání na
 tržiště dělá operátor ručně.
 
 ## Fáze

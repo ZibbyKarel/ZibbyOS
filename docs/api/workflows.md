@@ -68,9 +68,9 @@ phases:
 outputs: # what happens to the finished work (delivery sinks)
   - type: pr # opens a PR from docs.md (gated — "the PR is the gate")
     from: docs.md
-  - type: folder # copies <run dir>/book/ to ~/Workspace/zibby-publishing/books/<runId>/
+  - type: folder # copies <run dir>/book/ to <generated root>/coloring-books/<runId>/
     from: book
-    to: ~/Workspace/zibby-publishing/books
+    to: coloring-books # relative → under the generated root (Settings → Machine)
   - type: file # writes review.md into the project (on a zibby/* branch)
     from: review.md
     dest: project
@@ -160,11 +160,11 @@ output-side counterpart of the `tool` phase). A workflow can have more than
 one (open a PR _and_ write a report). Each sink draws from `from` — a
 relative path some phase `produces`.
 
-| `type`   | Fields               | What it does                                                                                                                                                                                                                                                                                                                                                                   |
-| -------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pr`     | `from`               | Composes a PR from `from` (Markdown `# title` + body) and opens it via `git push && gh pr create`. **Always parks for approval** — the PR is the gate, enforced structurally by the system (Law 3), not by agent config.                                                                                                                                                       |
-| `folder` | `from`, `to`         | Copies the run folder `<run dir>/<from>` (relative, no `..`; **not** a handoff file, so no phase has to `produce` it) recursively into `<to>/<workflowRunId>/`. `to` is an absolute path or `~/…` (expanded to the home dir); parents are created. A missing source is logged and skipped. Recorded as a `project-file` run artifact whose locator is the delivered directory. |
-| `file`   | `from`, `dest`, `to` | Copies `from` to `to` — into the project worktree (`dest: project`, on a `zibby/*` branch) or as a vault note (`dest: vault`, a durable second-brain record for workflows whose result is information, not code; the source's own YAML frontmatter, e.g. `domain: personal`, becomes the note's frontmatter).                                                                  |
+| `type`   | Fields               | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pr`     | `from`               | Composes a PR from `from` (Markdown `# title` + body) and opens it via `git push && gh pr create`. **Always parks for approval** — the PR is the gate, enforced structurally by the system (Law 3), not by agent config.                                                                                                                                                                                                                                                                                 |
+| `folder` | `from`, `to`         | Copies the run folder `<run dir>/<from>` (relative, no `..`; **not** a handoff file, so no phase has to `produce` it) recursively into `<to>/<workflowRunId>/`. `to` is a relative subfolder of the **generated root** (no `..`; Settings → Machine, default `~/Documents/AI/Generated`, env `GENERATED_DIR`) or an explicit absolute / `~/…` override; parents are created. A missing source is logged and skipped. Recorded as a `project-file` run artifact whose locator is the delivered directory. |
+| `file`   | `from`, `dest`, `to` | Copies `from` to `to` — into the project worktree (`dest: project`, on a `zibby/*` branch) as a file under the generated root (`dest: generated`), or as a vault note (`dest: vault`, a durable second-brain record for workflows whose result is information, not code; the source's own YAML frontmatter, e.g. `domain: personal`, becomes the note's frontmatter).                                                                                                                                    |
 
 A `pr` sink parks the aggregate with `parkedReason: "output"` (durable across
 a restart — the phase loop has already finished, no live child), writes

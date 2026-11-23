@@ -163,6 +163,15 @@ finish concurrently.
 
 ZIBBY navigates the vault through indexes — instead of scanning every file.
 
+### Generated artifacts (`generated-artifacts-note.ts`)
+
+The `generated-artifacts` MOC (`knowledge/`, linked from `INDEX`) tells the brain where run
+deliverables live: a `Root: \`<path>\``line (the machine's`generatedRoot`) plus one
+`generated-<run>-<source>`note per delivery — frontmatter`type: artifact`, `kind`,
+`workflow`, `run`, `path`, `root`, `delivered`, and the exact path in the body — so locating
+a file is a plain vault search. `recordGeneratedArtifactNote`runs best-effort after every`folder`/`file → generated`sink (workflow and task);`syncGeneratedRootNote`rewrites the`Root:`line when`PUT /api/machine/config`changes`generatedRoot`. Earlier deliveries keep
+the path they were delivered to.
+
 ## GroundingService
 
 **File:** `apps/api/src/memory/grounding.service.ts`

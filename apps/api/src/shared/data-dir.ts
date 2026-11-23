@@ -99,6 +99,39 @@ export function resolveVaultDir(): string {
 }
 
 /**
+ * Default root for run deliverables (books, models, reports as files). `GENERATED_DIR`
+ * wins; an explicit `ZIBBY_DATA_DIR` / VITEST keeps it inside that root so an isolated
+ * run can never write the operator's real `~/Documents/AI/Generated`. The operator's
+ * per-machine override (`MachineConfig.generatedRoot`) is layered on top by
+ * `MachineConfigStore`; this is only the fallback it seeds from.
+ */
+export function resolveGeneratedDir(): string {
+  const explicit = process.env.GENERATED_DIR;
+  if (explicit) return path.resolve(explicit);
+  if (process.env.ZIBBY_DATA_DIR || process.env.VITEST) return dataDir("generated");
+  return path.join(os.homedir(), "Documents", "AI", "Generated");
+}
+
+/** Expand a leading `~` / `~/` to the home dir; everything else is returned as is. */
+export function expandHome(p: string): string {
+  if (p === "~") return os.homedir();
+  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
+}
+
+/**
+ * Resolve a sink target against the generated root: `~/…` and absolute paths are
+ * explicit overrides, a relative one lands under `root`. Returns `null` when a
+ * relative target would escape `root` (a `..` segment).
+ */
+export function resolveUnderGeneratedRoot(root: string, target: string): string | null {
+  const expanded = expandHome(target);
+  if (path.isAbsolute(expanded)) return expanded;
+  const base = path.resolve(expandHome(root));
+  const resolved = path.resolve(base, expanded);
+  return resolved === base || resolved.startsWith(base + path.sep) ? resolved : null;
+}
+
+/**
  * Phase 76 — the ZibbyOS install root: the source checkout ZibbyOS runs from (and
  * develops itself in). `ZIBBY_SOURCE_ROOT` wins — the packaged app sets it to the
  * checkout it was built from, since its own code lives inside the .app bundle.

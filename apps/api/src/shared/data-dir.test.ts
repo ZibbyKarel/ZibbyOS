@@ -7,6 +7,8 @@ import {
   defaultCloneRoot,
   installRoot,
   recipesDir,
+  resolveGeneratedDir,
+  resolveUnderGeneratedRoot,
   resolveDataRoot,
   resolveRecipesRoot,
   resolveVaultDir,
@@ -140,5 +142,26 @@ describe("resolveRecipesRoot", () => {
       throw new Error("ENOENT");
     });
     expect(resolveRecipesRoot()).toBe(path.join(zibbyHome(), "data"));
+  });
+});
+
+describe("generated root", () => {
+  afterEach(() => {
+    delete process.env.GENERATED_DIR;
+  });
+
+  it("GENERATED_DIR wins, else an isolated run keeps it inside the data root", () => {
+    process.env.GENERATED_DIR = "/tmp/gen";
+    expect(resolveGeneratedDir()).toBe("/tmp/gen");
+    delete process.env.GENERATED_DIR;
+    process.env.ZIBBY_DATA_DIR = "/tmp/d";
+    expect(resolveGeneratedDir()).toBe(path.join("/tmp/d", "generated"));
+  });
+
+  it("resolves a relative target under the root, keeps absolute/~ explicit, refuses escapes", () => {
+    expect(resolveUnderGeneratedRoot("/gen", "coloring-books")).toBe("/gen/coloring-books");
+    expect(resolveUnderGeneratedRoot("/gen", "/elsewhere/x")).toBe("/elsewhere/x");
+    expect(resolveUnderGeneratedRoot("/gen", "../out")).toBeNull();
+    expect(resolveUnderGeneratedRoot("/gen", "a/../../out")).toBeNull();
   });
 });

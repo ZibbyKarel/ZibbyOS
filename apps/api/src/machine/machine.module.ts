@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ApprovalsModule } from "../approvals/approvals.module";
 import { dataDir } from "../shared/data-dir";
 import { MACHINE_ACTIONS_DIR, MachineActionStore } from "./machine-action.store";
+import { MemoryModule } from "../memory/memory.module";
 import { MachineConfigModule } from "./machine-config.module";
 import { MachineController } from "./machine.controller";
 import { MachineService } from "./machine.service";
@@ -24,7 +25,7 @@ export function resolveMachineActionsDir(): string {
  * without pulling in `ApprovalsModule`.
  */
 @Module({
-  imports: [ApprovalsModule, MachineConfigModule],
+  imports: [ApprovalsModule, MachineConfigModule, MemoryModule],
   controllers: [MachineController],
   providers: [
     { provide: MACHINE_ACTIONS_DIR, useFactory: resolveMachineActionsDir },

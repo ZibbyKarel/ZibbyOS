@@ -9,6 +9,19 @@ jira-issue flow (`ResumableRunner` registry), but the pending state is a
 DURABLE file: a restart doesn't lose the gate, and the preview remains an audit
 map of old→new (reversible by default).
 
+## Per-machine config (`/machine/config`)
+
+`GET`/`PUT /api/machine/config` — this machine's never-synced settings
+(`MACHINE_CONFIG_FILE`, default `ZIBBY_DATA_DIR/machine/config.json`, gitignored):
+
+- `cloneRoot` — where project clones land (`<cloneRoot>/<project.id>`).
+- `generatedRoot` — root folder for run deliverables (default `~/Documents/AI/Generated`,
+  env `GENERATED_DIR`; isolated roots/tests keep it inside the data root). Workflow `folder`
+  sinks and `file` sinks with `dest: generated` resolve relative targets under it, and tool
+  phases get it as `ZIBBY_GENERATED_DIR`. Changing it never moves existing files; the UI
+  warns, and the brain's `generated-artifacts` note is updated to the new root (see
+  `memory.md`). A config file from before a key existed keeps its keys and defaults the rest.
+
 ## Action vocabulary (closed, grows explicitly)
 
 - `rename-files` `{folder, find, replace}` — rename files in a NAMED folder:

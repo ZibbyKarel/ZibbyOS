@@ -32,6 +32,7 @@ export function resolveWorkflowRunsDir(): string {
     process.env.WORKFLOW_RUNS_DIR ?? process.env.PIPELINE_RUNS_DIR ?? dataDir("workflows", "runs")
   );
 }
+import { MachineConfigModule } from "../machine/machine-config.module";
 
 @Module({
   // AgentsModule exports AgentsStorageService (a stage loads its phase's agent);
@@ -48,6 +49,7 @@ export function resolveWorkflowRunsDir(): string {
     GatesModule,
     ApprovalsModule,
     LimitsModule,
+    MachineConfigModule,
     MemoryModule,
     ProjectsModule,
     ResolvedProjectModule,

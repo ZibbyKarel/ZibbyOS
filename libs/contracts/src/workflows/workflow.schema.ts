@@ -204,8 +204,9 @@ export type WorkflowPhase = z.infer<typeof WorkflowPhaseSchema>;
  *   via the gated `git push && gh pr create`. ALWAYS parks for approval — the PR is
  *   the gate, enforced structurally by the system (Law 3), not by an agent's config.
  * - `file`: copy `from` to `to` — into the project worktree (`dest: project`, rides
- *   the run's `zibby/*` branch) or as a vault note (`dest: vault`, a durable
- *   second-brain artifact for workflows whose result is information, not code).
+ *   the run's `zibby/*` branch), as a vault note (`dest: vault`, a durable
+ *   second-brain artifact for workflows whose result is information, not code) or
+ *   as a file under the generated-artifacts root (`dest: generated`).
  * - `folder`: copy a whole folder of the run (`from` is relative to the run dir,
  *   e.g. `book` — a run-wide artifact, not a phase handoff) into the local
  *   directory `to` (absolute or `~/…`), as `<to>/<workflowRunId>/`. For products
@@ -220,8 +221,11 @@ export type WorkflowPrOutput = z.infer<typeof WorkflowPrOutputSchema>;
 export const WorkflowFileOutputSchema = z.object({
   type: z.literal("file"),
   from: z.string().min(1),
-  /** Where `to` resolves: a project-relative path, or a vault note id. */
-  dest: z.enum(["project", "vault"]),
+  /**
+   * Where `to` resolves: a project-relative path, a vault note id, or a path
+   * under the machine's generated-artifacts root (`generated`, no `..`).
+   */
+  dest: z.enum(["project", "vault", "generated"]),
   to: z.string().min(1),
 });
 export type WorkflowFileOutput = z.infer<typeof WorkflowFileOutputSchema>;
@@ -238,12 +242,16 @@ export const WorkflowFolderOutputSchema = z.object({
   type: z.literal("folder"),
   /** Folder relative to the run dir, e.g. `book`. */
   from: RunRelativeDirSchema,
-  /** Local target directory, absolute or `~/…`; each run lands in `<to>/<workflowRunId>/`. */
+  /**
+   * Target directory. A relative name (`coloring-books`, no `..`) lands under the
+   * machine's generated-artifacts root (Settings → Machine); an absolute or `~/…`
+   * path is an explicit override. Each run lands in `<to>/<workflowRunId>/`.
+   */
   to: z
     .string()
     .min(1)
-    .refine((v) => v.startsWith("/") || v.startsWith("~/"), {
-      message: "to must be an absolute path or start with ~/",
+    .refine((v) => v.startsWith("/") || v.startsWith("~/") || !v.split(/[\\/]/).includes(".."), {
+      message: "to must be absolute, start with ~/, or be relative without ..",
     }),
 });
 export type WorkflowFolderOutput = z.infer<typeof WorkflowFolderOutputSchema>;

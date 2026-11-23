@@ -121,7 +121,7 @@ export type WorkflowState = "done" | "parked" | "failed" | "running";
  */
 export type WorkflowOutput =
   | { type: "pr"; from: string }
-  | { type: "file"; from: string; dest: "project" | "vault"; to: string }
+  | { type: "file"; from: string; dest: "project" | "vault" | "generated"; to: string }
   | { type: "folder"; from: string; to: string };
 
 export interface Workflow {

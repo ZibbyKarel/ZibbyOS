@@ -15,7 +15,9 @@ type OutputType = WorkflowOutput["type"];
 /** Run-relative folder: not absolute, no `..` segment (mirrors the contract). */
 const folderFromOk = (v: string) =>
   v.length > 0 && !v.startsWith("/") && !v.split(/[\\/]/).includes("..");
-const folderToOk = (v: string) => v.startsWith("/") || v.startsWith("~/");
+// Absolute / `~/` override, or a relative subfolder of the generated root (no `..`).
+const folderToOk = (v: string) =>
+  v.length > 0 && (v.startsWith("/") || v.startsWith("~/") || !v.split(/[\\/]/).includes(".."));
 
 /** Client-side mirror of the contract's per-sink rules; true when every sink is saveable. */
 export function outputsValid(outputs: WorkflowOutput[]): boolean {
@@ -76,10 +78,10 @@ export function OutputsEditor({ outputs, onChange, produces }: OutputsEditorProp
             />
           )}
           {o.type === "file" && (
-            <SelectField<"project" | "vault">
+            <SelectField<"project" | "vault" | "generated">
               label={t("outputDest")}
               onValueChange={(dest) => set(i, { ...o, dest })}
-              options={(["project", "vault"] as const).map((v) => ({
+              options={(["project", "vault", "generated"] as const).map((v) => ({
                 value: v,
                 label: t(`outputDestOption.${v}`),
               }))}
@@ -96,7 +98,7 @@ export function OutputsEditor({ outputs, onChange, produces }: OutputsEditorProp
               }
               label={t("outputTo")}
               onChange={(e) => set(i, { ...o, to: e.target.value })}
-              placeholder={o.type === "folder" ? "~/Workspace/…" : undefined}
+              placeholder={o.type === "folder" ? "coloring-books" : undefined}
               value={o.to}
             />
           )}

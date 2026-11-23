@@ -375,6 +375,7 @@
       "destLabel": "Kam",
       "destProject": "Do projektu",
       "destVault": "Do mozku",
+      "destGenerated": "Do generovaných souborů",
       "toLabel": "Název souboru",
       "toPlaceholder": "report.md"
     },
@@ -1066,10 +1067,11 @@
     "outputDest": "Cíl",
     "outputDestOption": {
       "project": "Projekt",
-      "vault": "Paměť"
+      "vault": "Paměť",
+      "generated": "Generované soubory"
     },
     "outputTo": "Cesta",
-    "outputFolderToError": "Absolutní cesta nebo začíná ~/",
+    "outputFolderToError": "Podsložka kořene generovaných souborů (bez ..), absolutní cesta nebo ~/…",
     "outputRemove": "Odebrat",
     "outputAdd": "Přidat výstup",
     "list": {
@@ -1550,6 +1552,9 @@
     },
     "machine": {
       "title": "Stroj",
+      "generatedRootLabel": "Kořen generovaných souborů",
+      "generatedRootHint": "Kam ZIBBY doručuje vše, co běhy vyrobí jako soubory (knihy, modely, zprávy). Workflow jmenuje jen podsložku, kořen určuješ ty. Per-stroj, nikdy se nesynchronizuje.",
+      "generatedRootWarning": "Změna kořene nepřesune existující soubory — dřívější běhy zůstanou v {old}. Nové běhy se doručí na nové místo.",
       "cloneRootLabel": "Kořen klonů",
       "cloneRootHint": "Kam ZIBBY na tomto stroji klonuje projekty, které tu ještě nemají lokální kopii (kořen/id projektu). Toto nastavení je per-stroj a nikdy se nesynchronizuje mezi stroji.",
       "save": "Uložit",
