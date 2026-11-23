@@ -24,16 +24,18 @@ describe("PrFilterControls teams", () => {
 });
 
 describe("PrFilterControls owner", () => {
-  it("offers Moje/Cizí, selects one and clears it on a second click", async () => {
+  it("offers Moje/Cizí, selects one, adds the other and clears on a repeated click", async () => {
     const onChange = vi.fn();
     const { rerender } = renderWithProviders(<PrFilterControls onChange={onChange} pick={{}} />);
     const others = screen.getByTestId(`${ButtonGroupTestId.Option}-others`);
     expect(screen.getByTestId(`${ButtonGroupTestId.Option}-mine`)).toHaveTextContent("Moje");
     expect(others).toHaveTextContent("Cizí");
     await userEvent.click(others);
-    expect(onChange).toHaveBeenLastCalledWith({ owner: "others" });
+    expect(onChange).toHaveBeenLastCalledWith({ owner: ["others"] });
 
-    rerender(<PrFilterControls onChange={onChange} pick={{ owner: "others" }} />);
+    rerender(<PrFilterControls onChange={onChange} pick={{ owner: ["others"] }} />);
+    await userEvent.click(screen.getByTestId(`${ButtonGroupTestId.Option}-mine`));
+    expect(onChange).toHaveBeenLastCalledWith({ owner: ["mine", "others"] });
     await userEvent.click(screen.getByTestId(`${ButtonGroupTestId.Option}-others`));
     expect(onChange).toHaveBeenLastCalledWith({});
   });
@@ -44,6 +46,6 @@ describe("PrFilterControls owner", () => {
     const mine = screen.getByTestId(`${ButtonGroupTestId.Option}-mine`);
     expect(mine).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(screen.getByTestId(`${ButtonGroupTestId.Option}-others`));
-    expect(onChange).toHaveBeenLastCalledWith({ owner: "others" });
+    expect(onChange).toHaveBeenLastCalledWith({ owner: ["mine", "others"] });
   });
 });

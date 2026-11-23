@@ -455,7 +455,7 @@ describe("PrsWidget", () => {
   it("starts from widget.filters and resets to them when they change", async () => {
     d.prs = [pr(1), pr(2, { bucket: "to-review", author: "jana" })];
     const props = setup({
-      widget: { ...widget("w", "prs"), filters: { owner: "mine" } },
+      widget: { ...widget("w", "prs"), filters: { owner: ["mine"] } },
       filtersOpen: true,
     });
     const { rerender } = renderWithProviders(<PrsWidget {...props} />);

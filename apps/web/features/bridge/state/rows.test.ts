@@ -139,12 +139,22 @@ describe("pull requests", () => {
     const actionNeeded = {
       review: ["waiting", "changes"],
       ci: ["failing"],
-      owner: "mine",
+      owner: ["mine"],
     } as const;
-    const readyToMerge = { review: ["approved"], ci: ["passing"], owner: "mine" } as const;
+    const readyToMerge = {
+      review: ["approved"],
+      ci: ["passing"],
+      owner: ["mine"],
+    } as const;
     const shown = (p: InboxPr, pick: typeof actionNeeded | typeof readyToMerge) =>
       flat(
-        prTree("w", [p], none, { ...pick, review: [...pick.review], ci: [...pick.ci] }, ago).nodes,
+        prTree(
+          "w",
+          [p],
+          none,
+          { ...pick, review: [...pick.review], ci: [...pick.ci], owner: [...pick.owner] },
+          ago,
+        ).nodes,
       );
     expect(shown(draft, actionNeeded)).toEqual([["#47977", 0]]);
     // A draft can't be merged: an approval on it never lands it in "ready to merge".
@@ -322,9 +332,9 @@ describe("pull requests", () => {
   });
 
   it("prOwner reads owner, falling back to the legacy mine flag", () => {
-    expect(prOwner({ mine: true })).toBe("mine");
-    expect(prOwner({ owner: "others", mine: true })).toBe("others");
-    expect(prOwner({})).toBeUndefined();
+    expect(prOwner({ mine: true })).toEqual(["mine"]);
+    expect(prOwner({ owner: ["others"], mine: true })).toEqual(["others"]);
+    expect(prOwner({})).toEqual([]);
   });
 
   it("owner others keeps only others' PRs; owner mine equals the old mine pick", () => {
@@ -332,9 +342,10 @@ describe("pull requests", () => {
     const all = [pr({ number: 1 }), pr({ number: 2, ...other })];
     const nums = (pick: Parameters<typeof prTree>[3]) =>
       prTree("p", all, none, pick, ago).nodes.map((n) => n.row.number);
-    expect(nums({ owner: "others" })).toEqual(["#2"]);
-    expect(nums({ owner: "mine" })).toEqual(nums({ mine: true }));
-    expect(nums({ owner: "mine" })).toEqual(["#1"]);
+    expect(nums({ owner: ["others"] })).toEqual(["#2"]);
+    expect(nums({ owner: ["mine"] })).toEqual(nums({ mine: true }));
+    expect(nums({ owner: ["mine"] })).toEqual(["#1"]);
+    expect(nums({ owner: ["mine", "others"] })).toEqual(["#1", "#2"]);
   });
 
   it("teams match on reviewTeam", () => {

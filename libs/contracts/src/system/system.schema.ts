@@ -27,7 +27,11 @@ export const WidgetFiltersSchema = z
     ci: z.array(z.enum(["conflict", "failing", "passing"])).optional(),
     /** @deprecated Legacy "only mine" flag, read only; superseded by `owner: "mine"`. */
     mine: z.boolean().optional(),
-    owner: z.enum(["mine", "others"]).optional(),
+    /** Author groups, OR-ed like the other lists; a stored single string reads as a one-item list. */
+    owner: z.preprocess(
+      (v) => (typeof v === "string" ? [v] : v),
+      z.array(z.enum(["mine", "others"])).optional(),
+    ),
     /** Team values: a team code owner slug on `prs` (review requested of it), a team id elsewhere. */
     teams: z.array(z.string().min(1)).optional(),
     /** Company ids. */

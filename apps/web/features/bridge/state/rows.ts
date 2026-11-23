@@ -213,9 +213,9 @@ export interface PrNodeVm {
 /** The operator's pick; same shape as a widget's saved defaults. An empty group doesn't filter. */
 export type PrFilterPick = WidgetFilters;
 
-/** The author filter of a pick; a legacy `mine: true` reads as `"mine"`. */
-export function prOwner(pick: PrFilterPick): "mine" | "others" | undefined {
-  return pick.owner ?? (pick.mine ? "mine" : undefined);
+/** The author groups of a pick (empty = no filter); a legacy `mine: true` reads as `["mine"]`. */
+export function prOwner(pick: PrFilterPick): ("mine" | "others")[] {
+  return pick.owner ?? (pick.mine ? ["mine"] : []);
 }
 
 /** A team in a filter dropdown; `companyId` narrows the list once companies are picked. */
@@ -355,8 +355,7 @@ export function prTree(
     (p) =>
       (!pick.review?.length || pick.review.includes(prReviewFilter(prReviewState(p)))) &&
       (!pick.ci?.length || (pick.ci as string[]).includes(prCiState(p))) &&
-      (owner !== "mine" || p.bucket === "mine") &&
-      (owner !== "others" || p.bucket !== "mine") &&
+      (!owner.length || owner.includes(p.bucket === "mine" ? "mine" : "others")) &&
       (!pick.companies?.length || pick.companies.includes(p.companyId ?? "")) &&
       teamHit(p),
   );
@@ -364,7 +363,7 @@ export function prTree(
   const kept = new Set(hitUrls);
   for (const p of hit) for (const a of prAncestors(p, all)) if (shown.has(a.url)) kept.add(a.url);
   // Owner "mine" also keeps what is stacked on my PRs (others' descendants), greyed out.
-  if (owner === "mine")
+  if (owner.includes("mine"))
     for (const p of visible)
       if (prAncestors(p, all).some((a) => hitUrls.has(a.url))) kept.add(p.url);
 

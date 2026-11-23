@@ -16,6 +16,8 @@ import { type PrFilterPick, prOwner, prTeams } from "../state/rows";
 import type { WidgetFiltersProps } from "./registry";
 import { OrgFilterControls, compactPick } from "./widgetFilters";
 
+const PR_OWNERS = ["mine", "others"] as const;
+
 export const CI_ICON: Record<PrCiState, { name: IconName; tone: IconTone }> = {
   conflict: { name: "branch", tone: "bad" },
   failing: { name: "x", tone: "bad" },
@@ -90,14 +92,14 @@ export function PrFilterControls({ pick, onChange, counts }: PrFilterControlsPro
         value={pick.ci ?? []}
       />
       <ButtonGroup
-        deselectable
+        multiple
         ariaLabel={t("filter.owner")}
-        onChange={(v) => set({ owner: v === "mine" || v === "others" ? v : undefined })}
+        onChange={(v) => set({ owner: PR_OWNERS.filter((o) => v.includes(o)) })}
         options={[
           { id: "mine", label: t("filter.ownerMine") },
           { id: "others", label: t("filter.ownerOthers") },
         ]}
-        value={prOwner(pick) ?? ""}
+        value={prOwner(pick)}
       />
       <OrgFilterControls onChange={set} pick={{ ...pick, teams: pickedTeams }} teams={teams} />
     </>

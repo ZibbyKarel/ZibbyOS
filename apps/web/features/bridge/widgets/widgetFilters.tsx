@@ -106,7 +106,7 @@ export function samePick(a: WidgetFilters, b: WidgetFilters): boolean {
   // A legacy `mine: true` reads as `owner: "mine"`.
   const norm = ({ mine, ...p }: WidgetFilters) =>
     JSON.stringify(
-      Object.entries(compactPick({ ...p, owner: p.owner ?? (mine ? "mine" : undefined) }))
+      Object.entries(compactPick({ ...p, owner: p.owner ?? (mine ? ["mine"] : undefined) }))
         .map(([k, v]) => [k, Array.isArray(v) ? [...v].sort() : v])
         .sort(([x], [y]) => String(x).localeCompare(String(y))),
     );
