@@ -12,7 +12,7 @@ import { MAX_ZIBBY_PR_READS } from "./adapters/adapter";
 import { AdapterRegistry } from "./adapters/adapter-registry";
 import { ChannelEventsService } from "./channel-events.service";
 import { ChannelItemStore } from "./channel-item.store";
-import { ChannelWatcherService } from "./channel-watcher.service";
+import { ChannelWatcherService, GITHUB_POLL_MIN_MS } from "./channel-watcher.service";
 
 /** A registry on the fake adapter (CHANNEL_FAKE_DIR is set per-test → fake mode). */
 const makeRegistry = () => new AdapterRegistry();
@@ -445,8 +445,14 @@ describe("ChannelWatcherService", () => {
       moduleRef,
     );
 
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1_000_000);
     await watcher.tick();
+    await watcher.tick(); // within GITHUB_POLL_MIN_MS: GitHub is not polled again
+    expect(polled).toHaveLength(2);
+    now.mockReturnValue(1_000_000 + GITHUB_POLL_MIN_MS);
     await watcher.tick();
+    now.mockRestore();
 
     expect(polled.slice(0, 2)).toEqual([
       { repo: "acme/app", cursor: undefined, ctx: { zibbyPrNumbers: [1, 2] } },

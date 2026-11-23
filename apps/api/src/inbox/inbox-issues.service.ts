@@ -30,7 +30,7 @@ import { InboxStateStore } from "./inbox-state.store";
 import { listGitlabAssignedIssues } from "./inbox.gitlab";
 
 const GITHUB_API = "https://api.github.com";
-const ISSUES_TTL_MS = 60_000;
+const ISSUES_TTL_MS = 5 * 60_000;
 /** ZIBBY's own lifecycle states: once a local record is in one of these it beats the remote status. */
 const ZIBBY_LIFECYCLES: readonly RoadmapItemLifecycle[] = [
   "enqueued",

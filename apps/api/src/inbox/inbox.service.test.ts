@@ -254,6 +254,8 @@ describe("InboxService.listPrs", () => {
       teamSearches?: Record<string, { status?: number; numbers?: number[] }>;
       /** Open PRs no search returns, by number: their base branch and draft flag. */
       stack?: Record<number, { base: string; draft: boolean }>;
+      /** While `on`, every pull read answers GitHub's rate-limit 403. */
+      limit?: { on: boolean };
     } = {},
   ) {
     const calls: string[] = [];
@@ -329,6 +331,8 @@ describe("InboxService.listPrs", () => {
         );
       }
       const pull = u.pathname.match(/^\/repos\/Acme\/app\/pulls\/(\d+)$/);
+      if (pull && opts.limit?.on)
+        return new Response("{}", { status: 403, headers: { "x-ratelimit-remaining": "0" } });
       if (pull) {
         const n = Number(pull[1]);
         const stacked = opts.stack?.[n];
@@ -401,6 +405,20 @@ describe("InboxService.listPrs", () => {
     );
     return { service, calls, searches, gqlInits, merged, activity };
   }
+
+  it("a rate-limited repo keeps its last good PRs and reports the limit", async () => {
+    const limit = { on: false };
+    const { service } = build([], { limit });
+    const good = (await service.listPrs()).prs.map((p) => p.number);
+    expect(good.length).toBeGreaterThan(0);
+
+    limit.on = true;
+    const limited = await service.listPrs(true);
+    expect(limited.prs.map((p) => p.number)).toEqual(good);
+    expect(limited.errors).toContainEqual(
+      expect.objectContaining({ message: "Acme/app: github rate limited (HTTP 403)" }),
+    );
+  });
 
   it("keeps a PR you reviewed as reviewed-by-you; a direct request still wins", async () => {
     const { service } = build([], { reviewed: true });

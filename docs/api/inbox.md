@@ -61,7 +61,7 @@ work record and overlays `runs`, `lastFailureReason`, `dependsOn` and a ZIBBY li
 (`enqueued`/`running`/`awaiting-merge`/`failed`); on-disk items missing from the live list are
 ignored. `linkedPr` is matched from the cached PR list by issue key.
 
-- Cached 60 s (dropped on `INBOX_REFRESH_ACTIVITY_KINDS`); `?refresh=true` bypasses it, and
+- Cached 5 min (dropped on `INBOX_REFRESH_ACTIVITY_KINDS`); `?refresh=true` bypasses it, and
   the PR cache too. The web's Sync buttons call both list routes with `refresh=true`
   (`useRefreshInboxMutation`) and write the responses into their query caches.
 - `epics` — Jira parents of type Epic (or `hierarchyLevel` 1); `done/total` come from one extra
@@ -141,7 +141,7 @@ and passing = `ready-to-merge` → `awaiting-review`.
 `blocker` stay for back-compat.
 
 A failing repo lands in `errors` and never fails the request. The GitHub part is
-cached in memory for 30 s; any successful merge / close / draft toggle (`ProjectPrService.onPrChanged`) clears
+cached in memory for 5 min (a rate-limited repo keeps serving its last good PRs, with the error); any successful merge / close / draft toggle (`ProjectPrService.onPrChanged`) clears
 it. `codeReview` (the latest review task, of any level, per `repo#number`, from the tasks
 store) is joined on every read, uncached. A `running` review whose task failed or
 whose run errored reads `failed`. `runs` lists every ZIBBY run of the PR (`kind`: review,

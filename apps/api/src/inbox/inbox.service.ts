@@ -33,10 +33,17 @@ import { InboxStateStore } from "./inbox-state.store";
 import { listGitlabInboxPrs } from "./inbox.gitlab";
 
 const GITHUB_API = "https://api.github.com";
-// ponytail: whole-result in-memory cache, 30 s ceiling (web polls every 15 min + refetches
-// on inbox-refresh activity). Every refresh costs 2 + teams Search calls per repo against GitHub's
-// ~30/min Search limit — batch the legs with OR if an operator has many repos/teams.
-const PRS_TTL_MS = 30_000;
+// ponytail: whole-result in-memory cache, 5 min ceiling (web polls every 15 min + refetches
+// on inbox-refresh activity). Every refresh costs 3 + teams Search calls per repo and ~4 core
+// calls per PR against GitHub's per-user limits — ETag conditional requests if that ever bites.
+const PRS_TTL_MS = 5 * 60_000;
+
+/** GitHub's primary rate limit: a 429, or a 403 with no requests left. */
+function rateLimited(res: Response): boolean {
+  return (
+    res.status === 429 || (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0")
+  );
+}
 
 interface GhReview {
   user?: { login?: string } | null;
@@ -218,6 +225,8 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
   private readonly gitlab: GitlabClient;
   private activitySub?: Subscription;
   private prsCache: { at: number; value: Promise<InboxPrsResponse> } | null = null;
+  /** Last successfully read PRs per GitHub repo, served (with the error) while GitHub refuses. */
+  private readonly lastGoodPrs = new Map<string, InboxPr[]>();
 
   constructor(
     private readonly projects: ProjectsStorageService,
@@ -466,11 +475,14 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
           if (teams.length) pr.authorTeams = teams.map((m) => m.team);
         }
         prs.push(...repoPrs);
+        this.lastGoodPrs.set(repo, repoPrs);
         for (const message of notes) {
           if (!errors.some((e) => e.message === message))
             errors.push({ projectId: project.id, source: "github", message });
         }
       } catch (error) {
+        // A failed read (rate limit above all) keeps the last good list on screen, not an empty one.
+        prs.push(...(this.lastGoodPrs.get(repo) ?? []));
         errors.push({
           projectId: project.id,
           source: "github",
@@ -630,10 +642,15 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
         ...orgOf(project),
       };
     };
-    const loadAll = async (list: Parameters<typeof load>[]) =>
-      (await Promise.allSettled(list.map((args) => load(...args)))).flatMap((r) =>
-        r.status === "fulfilled" ? [r.value] : [],
+    // One unreadable PR is skipped; a rate limit fails the repo, so the caller keeps its last good list.
+    const loadAll = async (list: Parameters<typeof load>[]) => {
+      const settled = await Promise.allSettled(list.map((args) => load(...args)));
+      const limited = settled.find(
+        (r) => r.status === "rejected" && /rate limited/.test((r.reason as Error)?.message ?? ""),
       );
+      if (limited?.status === "rejected") throw limited.reason;
+      return settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    };
     const prs = await loadAll([...buckets]);
 
     // todo-19 — GitHub requests no review on a draft, so a colleague's draft matches none of the
@@ -717,6 +734,7 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     const res = await this.fetchImpl(`${GITHUB_API}/user/teams?per_page=100`, {
       headers: this.headers(token),
     });
+    if (rateLimited(res)) throw new Error(`github rate limited (HTTP ${res.status})`);
     if (res.status === 401 || res.status === 403 || res.status === 404) {
       return {
         teams: [],
@@ -742,6 +760,7 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
 
   private async gh<T>(token: string, path: string): Promise<T> {
     const res = await this.fetchImpl(`${GITHUB_API}${path}`, { headers: this.headers(token) });
+    if (rateLimited(res)) throw new Error(`github rate limited (HTTP ${res.status})`);
     if (!res.ok) throw new Error(`github ${path.split("?")[0]}: HTTP ${res.status}`);
     return (await res.json()) as T;
   }

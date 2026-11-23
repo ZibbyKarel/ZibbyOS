@@ -55,7 +55,7 @@ integration — the classifier routes it, budget/limit guards apply, and the fix
 ends up at the structural PR gate (Tier-3) like any other run. A dispatch
 failure leaves the event at `new`; the next tick re-dispatches it (an alert
 never silently gets lost). Heartbeat: `systemConfig.monitorTickMs` (default
-60s, `0` disables it; the test fixture pins it to `0`).
+5 min, `0` disables it; the test fixture pins it to `0`).
 
 ## CI health as state, not event (N4b)
 

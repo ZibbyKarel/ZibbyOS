@@ -13,7 +13,7 @@ import { TaskSchedulerService } from "../tasks/task-scheduler.service";
 
 const GITHUB_API = "https://api.github.com";
 /** Base-branch CI is polled state; one GitHub read per project per minute at most. */
-export const PROJECT_CI_CACHE_MS = 60_000;
+export const PROJECT_CI_CACHE_MS = 5 * 60_000;
 const FIX_TITLE = "Fix base-branch CI";
 
 /** Base-branch CI is not red, or a fix is already running → 409. */

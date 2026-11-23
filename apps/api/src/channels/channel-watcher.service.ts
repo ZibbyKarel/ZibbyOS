@@ -46,6 +46,9 @@ export interface ChannelTriageFlow {
 }
 export const CHANNEL_TRIAGE_FLOW = Symbol("CHANNEL_TRIAGE_FLOW");
 
+/** Minimum gap between two polls of one GitHub integration (the channel tick may be faster). */
+export const GITHUB_POLL_MIN_MS = 5 * 60_000;
+
 /** One repo of a repo-less company GitHub integration, with the projects on it (phase 129). */
 interface RepoTarget {
   repo: string;
@@ -76,6 +79,9 @@ export class ChannelWatcherService
 
   /** True while a detached reply-draft sweep is running — stops two from overlapping. */
   private draftSweepInFlight = false;
+
+  /** Last poll start per GitHub integration id — GitHub polls at most every {@link GITHUB_POLL_MIN_MS}. */
+  private readonly githubPolledAt = new Map<string, number>();
 
   constructor(
     private readonly integrations: IntegrationsStorageService,
@@ -165,6 +171,12 @@ export class ChannelWatcherService
         ? await this.credentials.read(integration.id)
         : NO_CREDENTIALS;
       if (!creds) continue;
+      // GitHub shares one per-user rate limit with everything else; minutes of latency are fine.
+      if (integration.kind === "github") {
+        const last = this.githubPolledAt.get(integration.id);
+        if (last !== undefined && Date.now() - last < GITHUB_POLL_MIN_MS) continue;
+        this.githubPolledAt.set(integration.id, Date.now());
+      }
       // Each integration's poll runs in its own trace scope + try/catch.
       await this.trace.run({ traceId: randomUUID() }, async () => {
         try {
