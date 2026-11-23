@@ -272,4 +272,115 @@ describe("ZibbyOverlay", () => {
     expect(screen.queryByTestId(ZibbyOverlayTestId.Backdrop)).toBeNull();
     expect(screen.getByTestId(ZibbyOverlayTestId.TopBar)).toHaveTextContent("tb");
   });
+
+  describe("side panel", () => {
+    const sideProps = (over: Partial<ZibbyOverlayProps> = {}) =>
+      base({ side: <iframe title="canvas" />, ...over });
+
+    it("without side there is no panel and the column keeps its centred width", () => {
+      render(<ZibbyOverlay {...base()} />);
+      advance(450);
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Side)).toBeNull();
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Divider)).toBeNull();
+      expect(screen.getByTestId(ZibbyOverlayTestId.Column)).toHaveClass("w-[740px]");
+    });
+
+    it("renders the panel and a separator, moving the column to the left part", () => {
+      render(<ZibbyOverlay {...sideProps({ sideRatio: 0.9 })} />);
+      advance(450);
+      expect(screen.getByTestId(ZibbyOverlayTestId.Side)).toBeInTheDocument();
+      expect(screen.getByTestId(ZibbyOverlayTestId.Column)).not.toHaveClass("w-[740px]");
+      const root = screen.getByTestId(ZibbyOverlayTestId.Root);
+      expect(root.style.getPropertyValue("--zo-side")).toBe("0.65");
+      const divider = screen.getByTestId(ZibbyOverlayTestId.Divider);
+      expect(divider).toHaveRole("separator");
+      expect(divider).toHaveAttribute("aria-valuenow", "65");
+    });
+
+    it("arrow keys move the divider within the clamp", () => {
+      const onSideRatioChange = vi.fn();
+      render(<ZibbyOverlay {...sideProps({ onSideRatioChange, sideRatio: 0.64 })} />);
+      advance(450);
+      const divider = screen.getByTestId(ZibbyOverlayTestId.Divider);
+      fireEvent.keyDown(divider, { key: "ArrowLeft" });
+      expect(onSideRatioChange).toHaveBeenLastCalledWith(0.65);
+      fireEvent.keyDown(divider, { key: "ArrowRight" });
+      expect(onSideRatioChange).toHaveBeenLastCalledWith(0.63);
+    });
+
+    it("shows a shield over the panel while dragging", () => {
+      render(<ZibbyOverlay {...sideProps()} />);
+      advance(450);
+      const divider = screen.getByTestId(ZibbyOverlayTestId.Divider);
+      divider.setPointerCapture = vi.fn();
+      divider.hasPointerCapture = () => true;
+      divider.releasePointerCapture = vi.fn();
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Shield)).toBeNull();
+      fireEvent.pointerDown(divider, { pointerId: 1 });
+      expect(screen.getByTestId(ZibbyOverlayTestId.Shield)).toBeInTheDocument();
+      fireEvent.pointerUp(divider, { pointerId: 1 });
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Shield)).toBeNull();
+    });
+
+    it("full mode makes the column inert and hides the divider", () => {
+      render(<ZibbyOverlay {...sideProps({ sideMode: "full" })} />);
+      advance(450);
+      expect(screen.getByTestId(ZibbyOverlayTestId.Column)).toHaveAttribute("inert");
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Divider)).toBeNull();
+    });
+
+    it("Esc order: history, full, side, then the overlay", () => {
+      const onOpenChange = vi.fn();
+      const onHistoryOpenChange = vi.fn();
+      const onSideDismiss = vi.fn();
+      const props = sideProps({
+        onOpenChange,
+        onHistoryOpenChange,
+        onSideDismiss,
+        history: "h",
+        historyOpen: true,
+        sideMode: "full",
+      });
+      const { rerender } = render(<ZibbyOverlay {...props} />);
+      advance(450);
+      const esc = () => fireEvent.keyDown(document.body, { key: "Escape" });
+      esc();
+      expect(onHistoryOpenChange).toHaveBeenCalledWith(false);
+      expect(onSideDismiss).not.toHaveBeenCalled();
+      rerender(<ZibbyOverlay {...props} historyOpen={false} />);
+      esc();
+      expect(onSideDismiss).toHaveBeenLastCalledWith("full");
+      rerender(<ZibbyOverlay {...props} historyOpen={false} sideMode="split" />);
+      esc();
+      expect(onSideDismiss).toHaveBeenLastCalledWith("split");
+      expect(onOpenChange).not.toHaveBeenCalled();
+      rerender(<ZibbyOverlay {...props} historyOpen={false} side={undefined} />);
+      esc();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it("Tab trap treats an iframe as focusable (full mode: it is the only stop)", () => {
+      render(<ZibbyOverlay {...sideProps({ sideMode: "full" })} />);
+      advance(450);
+      const frame = screen.getByTitle("canvas");
+      frame.focus();
+      expect(fireEvent.keyDown(frame, { key: "Tab" })).toBe(false);
+      expect(document.activeElement).toBe(frame);
+    });
+
+    it("Tab from the divider wraps to the composer", () => {
+      render(<ZibbyOverlay {...sideProps()} />);
+      advance(450);
+      screen.getByTestId(ZibbyOverlayTestId.Divider).focus();
+      fireEvent.keyDown(screen.getByTestId(ZibbyOverlayTestId.Divider), { key: "Tab" });
+      expect(document.activeElement).toBe(screen.getByLabelText("Message"));
+    });
+
+    it("compact ignores side and shows the pinned slot", () => {
+      render(<ZibbyOverlay {...sideProps({ compact: true, pinned: <i>pin</i> })} />);
+      advance(450);
+      expect(screen.queryByTestId(ZibbyOverlayTestId.Side)).toBeNull();
+      expect(screen.getByTestId(ZibbyOverlayTestId.Pinned)).toHaveTextContent("pin");
+    });
+  });
 });

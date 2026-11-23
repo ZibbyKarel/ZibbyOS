@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useRef, useState } from "react";
 import { Button } from "../Button/Button";
+import { CanvasCard } from "../CanvasCard/CanvasCard";
+import { CanvasPanel } from "../CanvasPanel/CanvasPanel";
 import { Icon } from "../Icon/Icon";
 import { ZibbyOrb, type ZibbyOrbState } from "../ZibbyOrb/ZibbyOrb";
 import { ZibbyOverlay, type ZibbyOverlayPhase, type ZibbyOverlayProps } from "./ZibbyOverlay";
@@ -21,7 +23,10 @@ function Demo({
   compact,
   dropActive,
   startOpen = false,
-}: Partial<ZibbyOverlayProps> & { startOpen?: boolean }) {
+  withSide = false,
+}: Partial<ZibbyOverlayProps> & { startOpen?: boolean; withSide?: boolean }) {
+  const [sideOn, setSideOn] = useState(withSide);
+  const [sideMode, setSideMode] = useState<"split" | "full">("split");
   const [open, setOpen] = useState(startOpen);
   const [history, setHistory] = useState(false);
   const [orbState, setOrbState] = useState<ZibbyOrbState>("sleep");
@@ -51,6 +56,9 @@ function Demo({
           <Icon name="sparkles" size="md" />
         </button>
         <Button onClick={toggle}>{open ? "Close overlay" : "Open overlay"}</Button>
+        <Button intent="secondary" onClick={() => setSideOn((v) => !v)}>
+          {sideOn ? "Hide canvas" : "Show canvas"}
+        </Button>
         <span className="text-[12px] text-ink-3">
           The orb flies from the round button at the top left.
         </span>
@@ -105,10 +113,36 @@ function Demo({
         onHistoryOpenChange={setHistory}
         onOpenChange={setOpen}
         onPhaseChange={onPhase}
+        onSideDismiss={(m) => (m === "full" ? setSideMode("split") : setSideOn(false))}
         open={open}
         orb={<ZibbyOrb size={140} state={orbState} />}
         origin={origin}
+        pinned={
+          compact && sideOn ? (
+            <CanvasCard
+              onOpen={() => setSideOn(false)}
+              size="pin"
+              src="about:blank"
+              title="Demo"
+              version={2}
+            />
+          ) : undefined
+        }
         scrollKey={1}
+        side={
+          sideOn ? (
+            <CanvasPanel
+              full={sideMode === "full"}
+              onClose={() => setSideOn(false)}
+              onToggleFull={() => setSideMode((m) => (m === "full" ? "split" : "full"))}
+              src="about:blank"
+              status="ready"
+              title="Demo canvas"
+              version={2}
+            />
+          ) : undefined
+        }
+        sideMode={sideMode}
         status={<span>Listening</span>}
         suggestions={<span>Try saying: &ldquo;what needs me today?&rdquo;</span>}
         thread={

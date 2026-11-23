@@ -4,6 +4,7 @@ import type {
   DragEvent,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
+  PointerEvent as ReactPointerEvent,
 } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -32,6 +33,10 @@ export enum ZibbyOverlayTestId {
   Footer = "zibby-overlay-footer",
   Toast = "zibby-overlay-toast",
   Drop = "zibby-overlay-drop",
+  Side = "zibby-overlay-side",
+  Divider = "zibby-overlay-divider",
+  Shield = "zibby-overlay-shield",
+  Pinned = "zibby-overlay-pinned",
 }
 
 /** Mark an element inside a slot with this attribute to receive focus when the overlay opens. */
@@ -88,6 +93,28 @@ export interface ZibbyOverlayProps {
   onDragActiveChange?: (active: boolean) => void;
   /** Phone: full-screen opaque layout, no flight arc. */
   compact?: boolean;
+  /** Desktop: a panel beside the chat (e.g. `CanvasPanel`). The column moves to the left part. */
+  side?: ReactNode;
+  /** `split` (default): chat left, panel right. `full`: panel spans the layer, column inert. */
+  sideMode?: ZibbyOverlaySideMode;
+  /** Panel share of the width, clamped to 0.35-0.65 (default 0.5). Seeds the divider. */
+  sideRatio?: number;
+  /** Fires while the divider is dragged / moved with the arrow keys (clamped). */
+  onSideRatioChange?: (ratio: number) => void;
+  /** Esc closes `full` first (`"full"`), then the side panel (`"split"`), then the overlay. */
+  onSideDismiss?: (mode: ZibbyOverlaySideMode) => void;
+  /** Compact only: small element pinned at the right edge above the composer. */
+  pinned?: ReactNode;
+}
+
+export type ZibbyOverlaySideMode = "split" | "full";
+
+export const SIDE_RATIO_MIN = 0.35;
+export const SIDE_RATIO_MAX = 0.65;
+const SIDE_RATIO_STEP = 0.02;
+
+function clampRatio(r: number): number {
+  return Math.min(SIDE_RATIO_MAX, Math.max(SIDE_RATIO_MIN, Number.isFinite(r) ? r : 0.5));
 }
 
 type Mode = "flight" | "pop" | "none";
@@ -99,7 +126,7 @@ const TIMING: Record<Mode, { in: number; out: number }> = {
 };
 
 const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), iframe';
 
 function prefersReducedMotion(): boolean {
   return (
@@ -164,6 +191,12 @@ export function ZibbyOverlay({
   onFilesDrop,
   onDragActiveChange,
   compact = false,
+  side,
+  sideMode = "split",
+  sideRatio = 0.5,
+  onSideRatioChange,
+  onSideDismiss,
+  pinned,
 }: ZibbyOverlayProps) {
   const [phase, setPhase] = useState<ZibbyOverlayPhase>("closed");
   const [mode, setMode] = useState<Mode>("flight");
@@ -177,10 +210,48 @@ export function ZibbyOverlay({
   const threadRef = useRef<HTMLDivElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
   const engagedRef = useRef(false);
-  const latest = useRef({ onPhaseChange, onOpenChange, onHistoryOpenChange, historyOpen });
-  useEffect(() => {
-    latest.current = { onPhaseChange, onOpenChange, onHistoryOpenChange, historyOpen };
+  const hasSide = side != null && !compact;
+  const full = hasSide && sideMode === "full";
+  const [ratio, setRatio] = useState(() => clampRatio(sideRatio));
+  const [dragging, setDragging] = useState(false);
+  const [sideIn, setSideIn] = useState(false);
+  const latest = useRef({
+    onPhaseChange,
+    onOpenChange,
+    onHistoryOpenChange,
+    historyOpen,
+    hasSide,
+    full,
+    onSideDismiss,
+    onSideRatioChange,
   });
+  useEffect(() => {
+    latest.current = {
+      onPhaseChange,
+      onOpenChange,
+      onHistoryOpenChange,
+      historyOpen,
+      hasSide,
+      full,
+      onSideDismiss,
+      onSideRatioChange,
+    };
+  });
+  // A controlled `sideRatio` wins over the last drag.
+  const [ratioProp, setRatioProp] = useState(sideRatio);
+  if (ratioProp !== sideRatio) {
+    setRatioProp(sideRatio);
+    setRatio(clampRatio(sideRatio));
+  }
+  // Opening animation: the panel starts un-risen / blurred and settles on the next tick.
+  useEffect(() => {
+    if (!hasSide) return;
+    const t = setTimeout(() => setSideIn(true), 20);
+    return () => {
+      clearTimeout(t);
+      setSideIn(false);
+    };
+  }, [hasSide]);
 
   const { isTopmost } = useOverlayStack(phase !== "closed");
   const hasHistory = history != null;
@@ -278,10 +349,15 @@ export function ZibbyOverlay({
     [],
   );
 
-  const dismiss = () => {
+  const dismiss = (viaEsc = false) => {
     if (phaseRef.current !== "open" && phaseRef.current !== "summoning") return;
-    if (latest.current.historyOpen && latest.current.onHistoryOpenChange) {
-      latest.current.onHistoryOpenChange(false);
+    const l = latest.current;
+    if (l.historyOpen && l.onHistoryOpenChange) {
+      l.onHistoryOpenChange(false);
+    } else if (viaEsc && l.full && l.onSideDismiss) {
+      l.onSideDismiss("full");
+    } else if (viaEsc && l.hasSide && l.onSideDismiss) {
+      l.onSideDismiss("split");
     } else {
       latest.current.onOpenChange(false);
     }
@@ -291,13 +367,13 @@ export function ZibbyOverlay({
     dismissRef.current = dismiss;
   });
 
-  // Esc: history first, then the overlay. Ignored when a slot already handled it.
+  // Esc: history, full, side panel, then the overlay. Ignored when a slot already handled it.
   useEffect(() => {
     if (phase === "closed") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
       if (!isTopmost()) return;
-      dismissRef.current();
+      dismissRef.current(true);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -318,6 +394,7 @@ export function ZibbyOverlay({
   const dx = origin ? origin.x - vp.w / 2 : 0;
   const dy = origin ? origin.y - cy : 0;
   const rootStyle = {
+    "--zo-side": ratio,
     "--zo-cy": `${cy}px`,
     "--zo-dx": `${dx}px`,
     "--zo-dy": `${dy}px`,
@@ -370,6 +447,32 @@ export function ZibbyOverlay({
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) onFilesDrop?.(files);
     onDragActiveChange?.(false);
+  };
+
+  const emitRatio = (r: number) => {
+    const next = clampRatio(r);
+    setRatio(next);
+    latest.current.onSideRatioChange?.(next);
+  };
+  const onDividerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+  const onDividerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const w = rootRef.current?.getBoundingClientRect().width || readViewport().w;
+    emitRatio(1 - e.clientX / w);
+  };
+  const onDividerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    setDragging(false);
+  };
+  const onDividerKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowLeft") emitRatio(ratio + SIDE_RATIO_STEP);
+    else if (e.key === "ArrowRight") emitRatio(ratio - SIDE_RATIO_STEP);
+    else return;
+    e.preventDefault();
   };
 
   const drop = dropActive && (
@@ -561,6 +664,14 @@ export function ZibbyOverlay({
           >
             {threadEl}
             <div className="relative shrink-0 border-t border-line bg-bar-2 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),12px)]">
+              {pinned != null && (
+                <div
+                  className="absolute right-3 bottom-full z-[6] mb-2"
+                  data-testid={ZibbyOverlayTestId.Pinned}
+                >
+                  {pinned}
+                </div>
+              )}
               {lower}
               {toastEl}
             </div>
@@ -577,10 +688,16 @@ export function ZibbyOverlay({
               leaving ? "animate-zo-bd-out" : "animate-zo-bd-in",
             )}
             data-testid={ZibbyOverlayTestId.Backdrop}
-            onClick={dismiss}
+            onClick={() => dismiss()}
           />
           <div
-            className="pointer-events-none absolute top-[var(--zo-cy)] left-1/2 z-[3] size-0"
+            className={cn(
+              "pointer-events-none absolute top-[var(--zo-cy)] z-[3] size-0",
+              hasSide
+                ? "left-[calc((100%-var(--zo-side)*100%)/2)] transition-[left,opacity] duration-[620ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+                : "left-1/2",
+              full && "opacity-0",
+            )}
             data-testid={ZibbyOverlayTestId.Flyer}
           >
             <div
@@ -616,7 +733,10 @@ export function ZibbyOverlay({
           </div>
           {isOpen && !shocked && mode !== "none" && (
             <span
-              className="pointer-events-none absolute top-[var(--zo-cy)] left-1/2 -mt-[70px] -ml-[70px] size-[140px] animate-zo-shock rounded-full border-2 border-accent"
+              className={cn(
+                "pointer-events-none absolute top-[var(--zo-cy)] -mt-[70px] -ml-[70px] size-[140px] animate-zo-shock rounded-full border-2 border-accent",
+                hasSide ? "left-[calc((100%-var(--zo-side)*100%)/2)]" : "left-1/2",
+              )}
               data-testid={ZibbyOverlayTestId.Shock}
               onAnimationEnd={() => setShocked(true)}
             />
@@ -634,11 +754,20 @@ export function ZibbyOverlay({
           {historyEl}
           <div
             className={cn(
-              "absolute right-4 bottom-5 left-4 z-[4] mx-auto flex w-[740px] max-w-[calc(100%-32px)] flex-col",
+              "absolute bottom-5 left-4 z-[4] mx-auto flex flex-col",
               "top-[calc(var(--zo-cy)+86px)]",
+              hasSide
+                ? "max-w-[740px] right-[calc(var(--zo-side)*100%+8px)]"
+                : "right-4 w-[740px] max-w-[calc(100%-32px)]",
               fade,
+              hasSide && "duration-[620ms]",
+              // Split opening: the column starts where the centred layout had it and slides left.
+              hasSide && isOpen && !sideIn && "[translate:calc(var(--zo-side)*50vw)_0]",
+              full &&
+                "pointer-events-none -translate-x-9 !opacity-0 blur-[8px] [translate:-36px_0] motion-reduce:blur-none",
             )}
             data-testid={ZibbyOverlayTestId.Column}
+            inert={full}
           >
             {statusEl}
             {liveEl}
@@ -648,6 +777,60 @@ export function ZibbyOverlay({
             {drop}
             {toastEl}
           </div>
+          {hasSide && (
+            <>
+              <div
+                className={cn(
+                  "absolute top-[68px] right-4 bottom-4 z-[5] min-w-0",
+                  "transition-[left,opacity,translate,filter] duration-[620ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:duration-150",
+                  dragging && "!transition-none",
+                  full ? "left-4" : "left-[calc((1-var(--zo-side))*100%+8px)]",
+                  isOpen && sideIn
+                    ? "[translate:none] opacity-100 delay-[400ms] motion-reduce:delay-0"
+                    : "pointer-events-none [translate:0_14px] opacity-0 blur-[8px] motion-reduce:blur-none",
+                  isOpen && sideIn && "blur-0",
+                )}
+                data-testid={ZibbyOverlayTestId.Side}
+              >
+                {side}
+                {dragging && (
+                  <div className="absolute inset-0 z-[2]" data-testid={ZibbyOverlayTestId.Shield} />
+                )}
+              </div>
+              {!full && (
+                <div
+                  aria-label="Resize panel"
+                  aria-orientation="vertical"
+                  aria-valuemax={Math.round(SIDE_RATIO_MAX * 100)}
+                  aria-valuemin={Math.round(SIDE_RATIO_MIN * 100)}
+                  aria-valuenow={Math.round(ratio * 100)}
+                  className={cn(
+                    "group absolute top-[68px] bottom-4 z-[6] flex w-4 -translate-x-1/2 cursor-col-resize touch-none justify-center outline-none",
+                    "left-[calc((1-var(--zo-side))*100%+4px)]",
+                  )}
+                  data-testid={ZibbyOverlayTestId.Divider}
+                  onKeyDown={onDividerKey}
+                  onLostPointerCapture={() => setDragging(false)}
+                  onPointerCancel={onDividerUp}
+                  onPointerDown={onDividerDown}
+                  onPointerMove={onDividerMove}
+                  onPointerUp={onDividerUp}
+                  role="separator"
+                  tabIndex={0}
+                >
+                  <span
+                    className={cn(
+                      "h-full w-px origin-center bg-ink opacity-0 transition-opacity duration-150",
+                      "shadow-[0_0_22px_color-mix(in_srgb,var(--color-ink)_45%,transparent)]",
+                      "group-hover:opacity-70 group-focus-visible:opacity-70 group-focus-visible:bg-accent",
+                      dragging && "opacity-70",
+                      isOpen && sideIn && "animate-zo-divider motion-reduce:animate-none",
+                    )}
+                  />
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
     </div>

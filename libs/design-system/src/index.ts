@@ -603,7 +603,23 @@ export {
   ZibbyOverlayTestId,
   ZIBBY_OVERLAY_AUTOFOCUS_ATTR,
 } from "./components/ZibbyOverlay/ZibbyOverlay";
-export type { ZibbyOverlayProps, ZibbyOverlayPhase } from "./components/ZibbyOverlay/ZibbyOverlay";
+export type {
+  ZibbyOverlayProps,
+  ZibbyOverlayPhase,
+  ZibbyOverlaySideMode,
+} from "./components/ZibbyOverlay/ZibbyOverlay";
+export {
+  CanvasPanel,
+  CanvasPanelTestId,
+  type CanvasPanelProps,
+  type CanvasPanelStatus,
+} from "./components/CanvasPanel/CanvasPanel";
+export {
+  CanvasCard,
+  CanvasCardTestId,
+  type CanvasCardProps,
+  type CanvasCardSize,
+} from "./components/CanvasCard/CanvasCard";
 export { Wordmark, WordmarkTestId } from "./components/Wordmark/Wordmark";
 export type { WordmarkProps, WordmarkSize } from "./components/Wordmark/Wordmark";
 
