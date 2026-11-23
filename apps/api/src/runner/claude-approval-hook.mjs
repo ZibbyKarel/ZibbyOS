@@ -81,7 +81,16 @@
 // the non-interactive run shape are the real guarantees; this just routes the common
 // idioms to the gate.
 
-import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -1833,6 +1842,54 @@ export function acquireGateLock(dir, deadlineMs) {
   }
 }
 
+/**
+ * GitHub-usage audit (best-effort, never throws, never affects gating): one NDJSON line
+ * per `gh`/`glab` Bash segment in `$ZIBBY_GH_AUDIT_DIR`. PreToolUse, so intent only.
+ */
+function auditGhSegments(input) {
+  try {
+    const dir = process.env.ZIBBY_GH_AUDIT_DIR;
+    const command = input?.tool_input?.command;
+    if (!dir || process.env.ZIBBY_GH_AUDIT === "0" || input?.tool_name !== "Bash") return;
+    if (typeof command !== "string") return;
+    const segments = lex(stripCatHeredocs(command));
+    if (!segments) return;
+    const lines = [];
+    for (const { words } of segments) {
+      const cli = path.basename(words[0] ?? "");
+      if (cli !== "gh" && cli !== "glab") continue;
+      const args = words.slice(1);
+      const scrubbed = args.map((a, i) =>
+        a.startsWith("query=") && /^(-f|-F|--field|--raw-field)$/.test(args[i - 1] ?? "")
+          ? a.slice(0, 120)
+          : a,
+      );
+      const tokens = [cli, ...args];
+      lines.push(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          pid: process.pid,
+          src: "agent-gh",
+          cli,
+          args: scrubbed,
+          intentDir: process.env.ZIBBY_INTENT_DIR,
+          cwd: input.cwd,
+          sessionId: input.session_id,
+          action: (cli === "gh" ? classifyGh(tokens) : classifyGlab(tokens))?.action ?? null,
+        }),
+      );
+    }
+    if (!lines.length) return;
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(
+      path.join(dir, `github-api-${new Date().toISOString().slice(0, 10)}.ndjson`),
+      `${lines.join("\n")}\n`,
+    );
+  } catch {
+    // audit only
+  }
+}
+
 function main() {
   let input;
   try {
@@ -1841,6 +1898,8 @@ function main() {
     // Can't parse the event → don't gate; let Claude's own permissions decide.
     process.exit(0);
   }
+
+  auditGhSegments(input);
 
   const fields = OPERATOR_ONLY_FIELDS[input?.tool_name] ?? [];
   if (

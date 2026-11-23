@@ -423,6 +423,9 @@ event on stdin. Since a hook's stdout never reaches the API's pipe, it
 coordinates through files in `ZIBBY_INTENT_DIR` (the run's sandbox, never the
 tool call's own `cwd`):
 
+0. GitHub-usage audit (best-effort, never affects gating): every `gh`/`glab` Bash segment
+   is appended as an `src: "agent-gh"` line to `$ZIBBY_GH_AUDIT_DIR/github-api-<date>.ndjson`
+   (see `docs/ops/github-api-audit.md`).
 1. Classify the command/call. `Bash` → best-effort matcher for deletes (rm
    family by token basename, `find … -delete`, `git clean`), overwrites
    (`>`/`>>` onto a real file, `tee`, `dd of=`, `truncate`, `sed -i`,

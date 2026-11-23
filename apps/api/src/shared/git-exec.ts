@@ -1,7 +1,9 @@
 import { type ExecFileOptions, execFile } from "node:child_process";
+import * as path from "node:path";
 import { promisify } from "node:util";
 import { isValidGitRemote } from "@zibby/contracts";
 import { agentBaseEnv } from "./agent-env";
+import { appendGithubAudit } from "./github-audit";
 
 /**
  * Task 8 — shared git primitives: (a) the bounded-`execFile` wrapper
@@ -17,8 +19,63 @@ const execFileAsync = promisify(execFile);
  * caller's `env` is merged on top): git runs hooks from agent worktrees, where an
  * agent can set `core.hooksPath`, so no git/gh child may see the operator token.
  */
-export const exec = ((file: string, args: readonly string[], opts: ExecFileOptions = {}) =>
-  execFileAsync(file, args, { ...opts, env: agentBaseEnv(opts.env) })) as typeof execFileAsync;
+export const exec = ((file: string, args: readonly string[], opts: ExecFileOptions = {}) => {
+  const run = () => execFileAsync(file, args, { ...opts, env: agentBaseEnv(opts.env) });
+  if (path.basename(file) !== "gh") return run();
+  const caller = ghCaller();
+  const startedAt = Date.now();
+  const promise = run();
+  const audit = (exit: unknown, error?: string) => {
+    try {
+      appendGithubAudit({
+        src: "gh-exec",
+        args: scrubGhArgs(args),
+        cwd: opts.cwd?.toString(),
+        durationMs: Date.now() - startedAt,
+        exit,
+        ...(error === undefined ? {} : { error }),
+        caller,
+      });
+    } catch {
+      // audit only
+    }
+  };
+  promise.then(
+    () => audit(0),
+    (e: unknown) => {
+      const err = e as { code?: unknown; message?: unknown };
+      audit(err?.code ?? 1, String(err?.message ?? e).slice(0, 200));
+    },
+  );
+  return promise;
+}) as typeof execFileAsync;
+
+/** Keep only the first 120 chars of a `query=…` field value (GraphQL bodies are huge). */
+function scrubGhArgs(args: readonly string[]): string[] {
+  return args.map((a, i) =>
+    a.startsWith("query=") && /^(-f|-F|--field|--raw-field)$/.test(args[i - 1] ?? "")
+      ? a.slice(0, 120)
+      : a,
+  );
+}
+
+/** First 3 app stack frames (not node internals / node_modules / this file), as `path:line`. */
+function ghCaller(): string[] {
+  try {
+    return (new Error().stack ?? "")
+      .split("\n")
+      .slice(1)
+      .filter((l) => !/node_modules|node:|git-exec\.(?:ts|js)/.test(l))
+      .slice(0, 3)
+      .map((l) => /\(?(?:file:\/\/)?([^()\s]+?:\d+):\d+\)?\s*$/.exec(l)?.[1] ?? l.trim())
+      .map((l) => {
+        const i = l.lastIndexOf("/src/");
+        return i === -1 ? l : l.slice(i + 1);
+      });
+  } catch {
+    return [];
+  }
+}
 
 /** Local-only git invocations (no network) — a short timeout bounds a hang. */
 export const GIT_TIMEOUT_MS = 10_000;

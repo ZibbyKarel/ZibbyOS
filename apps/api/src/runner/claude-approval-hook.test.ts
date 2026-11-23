@@ -97,6 +97,27 @@ describe("claude approval hook — destructive-command gate", () => {
     await fs.rm(cwd, { recursive: true, force: true });
   });
 
+  it("audits gh segments to ZIBBY_GH_AUDIT_DIR without changing the outcome", async () => {
+    const auditDir = path.join(cwd, "audit");
+    const res = await runHook(cwd, bashEvent("ls && gh api repos/x/y/pulls", cwd), {
+      ZIBBY_GH_AUDIT_DIR: auditDir,
+      ZIBBY_GH_AUDIT: "1",
+    });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toBe("");
+    const [file] = await fs.readdir(auditDir);
+    expect(file).toMatch(/^github-api-\d{4}-\d{2}-\d{2}\.ndjson$/);
+    const lines = (await fs.readFile(path.join(auditDir, file ?? ""), "utf8")).trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      src: "agent-gh",
+      cli: "gh",
+      args: ["api", "repos/x/y/pulls"],
+      cwd,
+      action: null,
+    });
+  });
+
   it("lets a non-destructive command through without raising a request", async () => {
     const res = await runHook(cwd, bashEvent("ls -la && cat report.txt", cwd));
     expect(res.code).toBe(0);

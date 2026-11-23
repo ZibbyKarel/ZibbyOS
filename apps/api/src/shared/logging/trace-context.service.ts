@@ -17,6 +17,9 @@ export interface TraceStore {
   runId?: string;
 }
 
+/** The single store behind {@link TraceContextService}; exported so non-DI code (the GitHub fetch audit) can read it. */
+export const traceStorage = new AsyncLocalStorage<TraceStore>();
+
 /**
  * A thin wrapper over a single {@link AsyncLocalStorage} that holds the current
  * {@link TraceStore}. Injected wherever a logical scope must be established
@@ -26,23 +29,21 @@ export interface TraceStore {
  */
 @Injectable()
 export class TraceContextService {
-  private readonly als = new AsyncLocalStorage<TraceStore>();
-
   /** Run `fn` (and everything it awaits) within `store`. */
   run<T>(store: TraceStore, fn: () => T): T {
-    return this.als.run(store, fn);
+    return traceStorage.run(store, fn);
   }
 
   /** The active store as a plain object (empty when outside any scope). */
   snapshot(): Partial<TraceStore> {
-    return this.als.getStore() ?? {};
+    return traceStorage.getStore() ?? {};
   }
 
   getTraceId(): string | undefined {
-    return this.als.getStore()?.traceId;
+    return traceStorage.getStore()?.traceId;
   }
 
   getRunId(): string | undefined {
-    return this.als.getStore()?.runId;
+    return traceStorage.getStore()?.runId;
   }
 }

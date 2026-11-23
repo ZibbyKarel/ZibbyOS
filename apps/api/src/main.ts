@@ -31,6 +31,7 @@ import { createCanvasServer } from "./canvas/canvas-server";
 import { CanvasStore } from "./canvas/canvas.store";
 import { resolveDataRoot, resolveRecipesRoot, resolveVaultDir } from "./shared/data-dir";
 import { hydrateDirs } from "./shared/icloud-hydrate";
+import { installGithubFetchAudit } from "./shared/github-audit";
 import { initInstanceRole } from "./shared/instance-role";
 import { LoggerService } from "./shared/logging/logger.service";
 import { migrateWorkflowRename } from "./shared/migrations/workflow-rename";
@@ -60,6 +61,9 @@ const apiContract = initContract().router({
 });
 
 async function bootstrap(): Promise<void> {
+  // Audit every GitHub API request (NDJSON) before any module captures `fetch`.
+  installGithubFetchAudit();
+
   // Default to 3333 (Phase 8.3) so the launchd plist can omit PORT and dev keeps
   // working — `Number(undefined)` was NaN. An explicit PORT (or a .env value) wins.
   const port = Number(process.env.PORT ?? 3333);

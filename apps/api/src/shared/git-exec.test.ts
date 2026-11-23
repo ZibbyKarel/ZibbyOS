@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { appendGithubAudit } from "./github-audit";
 import { InvalidGitRemoteError, exec, isValidGitRemote, validateRemote } from "./git-exec";
+
+vi.mock("./github-audit", () => ({ appendGithubAudit: vi.fn() }));
 
 describe("isValidGitRemote / validateRemote (Task 8 — clone remote allowlist)", () => {
   const legit = [
@@ -68,5 +71,23 @@ describe("exec child env", () => {
     } finally {
       process.env = saved;
     }
+  });
+});
+
+describe("exec gh audit", () => {
+  it("audits a gh call (scrubbed query, caller, error) and preserves the rejection", async () => {
+    const audit = vi.mocked(appendGithubAudit);
+    audit.mockClear();
+    const query = `query=${"x".repeat(300)}`;
+    // `gh` may not be installed: either way the call settles and is audited.
+    await exec("gh", ["api", "graphql", "-f", query]).catch(() => undefined);
+    await vi.waitFor(() => expect(audit).toHaveBeenCalledTimes(1));
+    const entry = audit.mock.calls[0]?.[0] as { src: string; args: string[]; caller: string[] };
+    expect(entry.src).toBe("gh-exec");
+    expect(entry.args[3]).toHaveLength(120);
+    expect(entry.caller[0]).toContain("git-exec.test.ts");
+    audit.mockClear();
+    await exec("sh", ["-c", "true"]);
+    expect(audit).not.toHaveBeenCalled();
   });
 });
