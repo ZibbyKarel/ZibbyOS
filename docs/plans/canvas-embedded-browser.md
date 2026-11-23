@@ -170,8 +170,146 @@ without asking.
   port-taken check. Verify an iframe to `*.canvas.localhost:4334` is not blocked by
   `externalLinks.ts` (subframe navigation isn't routed by `will-navigate`).
 
-## Phase 2 (not now)
-`zibby.params`/`z:params` + manifest, `zibby.fetch` via host allowlist, `z:ask`/`z:propose` as
-action cards, downloads, versions menu + param-only versions, warm/suspended iframes,
-snapshot thumbnails, FLIP animations + light line, Electron own window/protocol, width preview,
-export, `zibby://` links, light theme. And TODO #17 (chat-widget details in the overlay).
+# Phase 2
+
+Parameters, a controlled network, downloads, page → chat actions, versions, export.
+Same process: P1 contracts → (P2 API ∥ P3 bridge ∥ P5 DS ∥ P6 desktop) → (P4 MCP ∥ P7 web).
+File ownership: P2 = `canvas.store.ts`, `canvas-server.ts`, `canvas-fetch.ts`, `canvas.controller.ts`,
+their tests, `apps/api/test/canvas.e2e.test.ts`, `docs/api/canvas.md`; P3 = `canvas-assets.ts` only
+(the conductor documents the bridge). Subagents never commit and lint only the files they touch.
+
+## Phase 2 decisions
+- **Manifest** — optional `<script type="application/zibby+json">{…}</script>` in the page,
+  parsed at publish (first match, JSON, validated by `CanvasManifestSchema`; invalid →
+  `CanvasStoreError("bad-manifest")`). Stored on the code version in `meta.json`.
+- **Two version kinds** — `code` (a new `v<n>/index.html`, as today) and `params` (meta only:
+  `base` = the code version it applies to, `params` = the COMPLETE effective values). A code
+  version's effective params = its manifest defaults. The listener serves a params version as
+  its base html. UI label is computed (`v2`, `v2.1`, `v2.2` — params versions count up per base).
+- **Params reach the page** as `<script>window.__ZIBBY_PARAMS__=<json, "<" escaped as <></script>`
+  injected right before `canvas.js` (inline scripts are already allowed by the CSP).
+- **Restore** never deletes: it appends a copy of the chosen version as the new current one.
+- **Network** stays `connect-src 'none'`. `zibby.fetch(url)` goes page → host → API proxy:
+  origin must be in the manifest `net` AND granted by the operator (per canvas, `grants.json`).
+- **Gate** — page-initiated chat actions never send on their own: `ask` only prefills the
+  composer; `propose` shows a banner the operator approves (then it's an operator message).
+  "Fix it" (errors) is an operator click → sends the error log.
+- **Operator token** on `POST /canvas/:id/grants` only (`requireOperatorTokenIf(true, …)`): the
+  chat agent has Bash and could curl the API, so a grant must prove it came from the operator's
+  UI (the web client sends the token on every request). params/restore/fetch stay open — the agent
+  can already set params via MCP and has its own network.
+- **Page-authored text never becomes an operator message unseen**: `ask` and "Fix it" prefill the
+  composer (the operator presses Enter); `propose` shows the FULL prompt in the banner before
+  Approve sends it.
+- Deferred (phase 3): snapshot thumbnails, own Electron window/protocol, PDF/PNG export,
+  pin to Knowledge/Goal, history filter, version hover preview, live `z:theme`, warm-kept
+  iframes, FLIP/light-line animations. And TODO #17.
+
+## Contract (P1, `libs/contracts/src/canvas/`)
+```ts
+CanvasParamSchema = z.object({
+  id: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/),
+  label: z.string().min(1).max(60),
+  type: z.enum(["number", "text", "boolean", "select"]),
+  unit: z.string().max(12).optional(),
+  min: z.number().optional(), max: z.number().optional(), step: z.number().positive().optional(),
+  options: z.array(z.string().min(1).max(60)).max(30).optional(),   // select only
+  value: z.union([z.number(), z.string().max(500), z.boolean()]),  // the default
+});
+CanvasParamValuesSchema = z.record(z.string(), z.union([z.number(), z.string().max(500), z.boolean()]));
+CanvasManifestSchema = z.object({
+  params: z.array(CanvasParamSchema).max(40).default([]),
+  // https origins only; transformed to `new URL(x).origin` so store, proxy and web compare one string
+  net: z.array(z.string().url().refine(u => u.startsWith("https://")).transform(u => new URL(u).origin)).max(10).default([]),
+});
+CanvasVersionSchema += {
+  kind: z.enum(["code", "params"]).default("code"),
+  base: z.number().int().min(1).optional(),       // params only
+  params: CanvasParamValuesSchema.optional(),     // params only (complete values)
+  manifest: CanvasManifestSchema.optional(),      // code only, when the page has one
+  by: z.enum(["agent", "operator"]).optional(),
+}
+CanvasFetchResultSchema = z.object({ status: z.number().int(), contentType: z.string(), body: z.string() }); // text only
+CanvasFetchDeniedSchema = z.object({ error: z.enum(["not-allowed", "needs-grant", "blocked"]), origin: z.string() });
+```
+Routes (all `pathPrefix "/api"`, `strictStatusCodes`):
+- `getCanvas` (exists).
+- `setCanvasParams` `POST /canvas/:id/params` body `{ params: CanvasParamValues, note? }` →
+  200 CanvasMeta | 400 | 404. Merges onto the current effective params; every value is checked
+  against the base manifest (declared id, type, min/max, select options) → else 400. `by:"operator"`.
+  Coalescing: when the latest version is already a `by:"operator"` params version on the same
+  base, it is updated in place (params + `at`) instead of appending — a slider drag is one version.
+- `restoreCanvasVersion` `POST /canvas/:id/restore` body `{ version }` → 200 CanvasMeta | 404.
+- `grantCanvasOrigin` `POST /canvas/:id/grants` body `{ origin }` → 200 `{ grants: string[] }` | 400 (not in manifest `net`) | 401 (no operator token) | 404.
+- `canvasFetch` `POST /canvas/:id/fetch` body `{ url }` → 200 CanvasFetchResult | 403 CanvasFetchDenied | 404 | 502 Error.
+
+## P2 — API (`apps/api/src/canvas/`)
+- Store: `parseManifest(html)`; `publish` records `manifest` on code versions, `by:"agent"`;
+  `setParams(id, values, {note, by})`; `restore(id, version)`; `effective(id, version) →
+  {html, params} | null` (params version → base html); `grants(id)` / `grant(id, origin)`
+  (`<id>/grants.json`, atomic). All writes through the existing queue.
+- Listener: injects the params script; `?download=1` → same html with
+  `Content-Disposition: attachment; filename="<slug>-v<n>.html"` (export). Path-mode sandbox
+  gains `allow-downloads`.
+- Fetch proxy (`canvas-fetch.ts`): GET only, http(s) only, `URL.origin` in manifest `net` of the
+  CURRENT code version → else `not-allowed`; not granted → `needs-grant`; resolve DNS and refuse
+  `https.request` with a custom `lookup` that resolves and REJECTS loopback / 0.0.0.0/8 /
+  private / link-local 169.254/16 / CGNAT 100.64/10 / ULA fc00::/7 / fe80::/10 / `::ffff:`-mapped
+  forms of those / `.local` / `localhost` → `blocked` (the socket connects to the validated IP, so
+  no DNS rebinding window); redirects not followed automatically — a 3xx re-runs the full check on
+  `Location` (max 3); 10 s timeout; body cap 2 MB (stream + abort); no cookies/credentials/auth
+  headers; text responses only (`text/*`, json, xml, csv, javascript) else 502. Unit tests incl.
+  SSRF cases (lookup stubbed).
+- e2e: params/restore/grants/fetch-denied routes.
+
+## P3 — bridge (`canvas-assets.ts`, `CANVAS_JS`)
+New `window.zibby` API (standalone fallbacks in brackets):
+- `params` (from `__ZIBBY_PARAMS__`), `on("params", fn)` fired on host `z:params {params}`.
+- `set(partial)` → updates `zibby.params`, fires `params` locally, sends `z:params-changed {params}` [local only].
+- `state` + `on("state", fn)` from `z:hello` payload `state`; `saveState(obj)` → `z:state {state}` (JSON ≤ 64 KB, else throws) [no-op].
+- `ask(text)` → `z:ask {text ≤ 2000}` [no-op]. `propose({title, prompt})` → `z:propose` [no-op].
+- `fetch(url)` → Promise; `z:fetch {url}`, resolved by host `z:reply {ok, result|error}` with the
+  SAME envelope id; 15 s timeout [rejects "Open in ZibbyOS to use the network"].
+- `download(filename, data, mime)` — string or ArrayBuffer/Uint8Array (→ base64); ≤ 20 MB →
+  `z:download {filename, mime, data, encoding:"utf8"|"base64"}` [anchor + Blob download].
+- Link clicks on `zibby://…` → `z:open-zibby {href}` [ignored].
+Host → canvas: `z:hello {theme, lang, state}`, `z:params {params}`, `z:reply`, plus existing.
+
+## P4 — MCP (`apps/api/src/chat/chat-mcp.controller.ts`)
+- `set_canvas_params {id, params, note?}` → store.setParams(by:"agent") → pushWidget (new version) → text.
+- `get_canvas {id}` → manifest params + current effective values + version list (labels, notes).
+- Both in the skip lists / persona like `publish_canvas`. `publish_canvas` description documents
+  the manifest, `zibby.params/set/on`, `fetch` + `net`, `download`, `ask`/`propose`, `saveState`, `zibby://`.
+
+## P5 — DS (`CanvasPanel`, `CanvasCard`)
+- `CanvasPanel` new optional props: `versions: {key, label, at, note?, current}[]`,
+  `viewingKey`, `onViewVersion(key)`, `onRestoreVersion(key)` (a "Viewing v2 · Restore" strip
+  when `viewingKey` isn't current); `banner: {title, body?, confirmLabel, onConfirm, onDismiss}`
+  (proposal / network grant); `previewWidth: "phone"|"tablet"|"full"` + `onPreviewWidthChange`
+  (frame max-width 390 / 820 / none, centered); `onFixErrors` (button next to the error count);
+  `onExport`. Labels as props with English defaults. TestIds for each.
+- `CanvasCard`: `loading="lazy"` on the thumbnail iframe.
+
+## P6 — desktop
+- `will-frame-navigate`: deny a SUBFRAME navigation whose current URL is a canvas origin
+  (`*.canvas.localhost:<CANVAS_PORT>` or `localhost:<CANVAS_PORT>/a/`) to anything off that
+  origin (same canvas `/v<n>/` reloads stay allowed). Unit-test the predicate.
+
+## P7 — web
+- `features/canvas/queries/useCanvasQuery.ts` + mutations (`useSetCanvasParamsMutation`,
+  `useRestoreCanvasVersionMutation`, `useGrantCanvasOriginMutation`, `useCanvasFetchMutation`).
+- `useCanvasBridge` gains: `post(type, payload)`; handlers `onParamsChanged`, `onState`,
+  `onAsk`, `onPropose`, `onFetch(url) → Promise<result>` (replies `z:reply` with the request id),
+  `onDownload`, `onOpenZibby`; `z:hello` payload carries `state` (and the real theme).
+- `ZibbyCanvasPanel`: versions menu from `useCanvasQuery`; params changed → debounced 1.5 s
+  POST params; state → module-level `Map<canvasId, state>`; ask → prefill composer
+  (`injectedText`); propose → banner showing title AND the full prompt, confirm → `sendMessage(prompt)`; fetch → API; on
+  `needs-grant` → banner "Canvas wants to read from <origin>" → grant → retry; download → Blob +
+  anchor (filename sanitised); open-zibby → `router.push` for `zibby://<segment>/<rest>` with
+  segment in the dashboard segment list; fix errors → prefill composer with the error log as a quoted block; export →
+  open `<path url>?download=1`; preview width state.
+- Live params: keep the iframe's LOADED code version (`frameVersion`) separate from
+  `canvas.version`. A new `params` version with the same `base`: `by:"agent"` → post `z:params`,
+  `by:"operator"` → nothing (the page already has it); neither reloads. Any other new version →
+  load its src.
+- i18n `zibby.canvas.*` (cs + en).

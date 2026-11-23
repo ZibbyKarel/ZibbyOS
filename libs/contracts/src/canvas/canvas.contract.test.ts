@@ -14,9 +14,10 @@ const VALID = {
 
 describe("canvas.schema", () => {
   it("round-trips meta with and without conversationId", () => {
-    expect(CanvasMetaSchema.parse(VALID)).toEqual(VALID);
+    const parsed = CanvasMetaSchema.parse(VALID);
+    expect(parsed).toMatchObject(VALID);
     const withConv = { ...VALID, conversationId: "conv_1" };
-    expect(CanvasMetaSchema.parse(withConv)).toEqual(withConv);
+    expect(CanvasMetaSchema.parse(withConv)).toMatchObject(withConv);
   });
 
   it("rejects a bad id, version 0 and a non-datetime", () => {
@@ -37,9 +38,15 @@ describe("canvas.schema", () => {
 });
 
 describe("canvasContract", () => {
-  it("is a read-only GET /api/canvas/:id", () => {
+  it("exposes getCanvas as GET /api/canvas/:id plus the phase 2 routes", () => {
     expect(canvasContract.getCanvas.method).toBe("GET");
     expect(canvasContract.getCanvas.path).toBe("/api/canvas/:id");
-    expect(Object.keys(canvasContract)).toEqual(["getCanvas"]);
+    expect(Object.keys(canvasContract)).toEqual([
+      "getCanvas",
+      "setCanvasParams",
+      "restoreCanvasVersion",
+      "grantCanvasOrigin",
+      "canvasFetch",
+    ]);
   });
 });
