@@ -1404,7 +1404,26 @@
         "confirmOpenUrl": "Toto plátno chce otevřít externí odkaz:\n\n{url}\n\nOtevřít?",
         "loadFailed": "Plátno se nenačetlo.",
         "unresponsiveMessage": "Plátno neodpovídá.",
-        "pageError": "Chyba stránky: {message}"
+        "pageError": "Chyba stránky: {message}",
+        "versions": "Verze",
+        "viewing": "Zobrazuji {label}",
+        "restore": "Obnovit",
+        "backToCurrent": "Zpět na aktuální",
+        "allow": "Povolit",
+        "deny": "Zamítnout",
+        "approve": "Schválit",
+        "dismiss": "Zavřít",
+        "grantTitle": "Canvas chce číst z {origin}",
+        "proposeTitle": "Canvas navrhuje: {title}",
+        "fixErrors": "Opravit",
+        "fixErrorsIntro": "Stránka canvasu hlásí tyto chyby. Oprav je, prosím:",
+        "export": "Exportovat HTML",
+        "previewWidth": {
+          "label": "Šířka náhledu",
+          "phone": "Telefon",
+          "tablet": "Tablet",
+          "full": "Plná"
+        }
       }
     }
   },

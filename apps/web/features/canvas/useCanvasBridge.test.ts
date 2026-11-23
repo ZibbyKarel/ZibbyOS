@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LOAD_TIMEOUT_MS,
   MAX_ERRORS,
+  type UseCanvasBridgeOptions,
   resetAllowedCanvasHosts,
   useCanvasBridge,
 } from "./useCanvasBridge";
@@ -12,14 +13,15 @@ const realSetTimeout = globalThis.setTimeout;
 /** Real-time pause so MessagePort deliveries (not faked) land. */
 const deliver = () => new Promise((r) => realSetTimeout(r, 10));
 
-function setup(onKey = vi.fn()) {
+function setup(extra: Partial<UseCanvasBridgeOptions> = {}) {
+  const onKey = vi.fn();
   const frame = document.createElement("iframe");
   const postMessage = vi.fn();
   Object.defineProperty(frame, "contentWindow", { value: { postMessage } });
   document.body.append(frame);
   const frameRef = { current: frame };
   const hook = renderHook(() =>
-    useCanvasBridge({ frameRef, src: SRC, onKey, confirmOpenUrl: (u) => u }),
+    useCanvasBridge({ frameRef, src: SRC, onKey, confirmOpenUrl: (u) => u, ...extra }),
   );
   /** Fire `load` and return the page's end of the channel. */
   const load = (): MessagePort => {
@@ -28,8 +30,8 @@ function setup(onKey = vi.fn()) {
     });
     return postMessage.mock.calls.at(-1)![2][0] as MessagePort;
   };
-  const send = async (page: MessagePort, type: string, payload: unknown = {}) => {
-    page.postMessage({ v: 1, id: "c1", type, payload });
+  const send = async (page: MessagePort, type: string, payload: unknown = {}, id = "c1") => {
+    page.postMessage({ v: 1, id, type, payload });
     await act(deliver);
   };
   return { frame, postMessage, hook, load, send, onKey };
@@ -117,6 +119,98 @@ describe("useCanvasBridge", () => {
     const page = load();
     await send(page, "z:key", { key: "Escape", code: "Escape" });
     expect(onKey).toHaveBeenCalledWith(expect.objectContaining({ key: "Escape", altKey: false }));
+    page.close();
+  });
+
+  it("hello carries the real theme and the saved state", () => {
+    const { postMessage, load } = setup({ theme: "light", getState: () => ({ n: 1 }) });
+    load();
+    expect(postMessage.mock.calls[0]![0].payload).toMatchObject({
+      theme: "light",
+      state: { n: 1 },
+    });
+  });
+
+  it("replies to z:fetch with the request id (ok and error)", async () => {
+    const onFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 200, contentType: "text/plain", body: "hi" })
+      .mockRejectedValueOnce(new Error("denied"));
+    const { load, send } = setup({ onFetch });
+    const page = load();
+    const replies: { id: string; payload: unknown }[] = [];
+    page.onmessage = (e) => {
+      if (e.data.type === "z:reply") replies.push(e.data);
+    };
+    await send(page, "z:fetch", { url: "https://a.test/x" }, "f1");
+    await send(page, "z:fetch", { url: "https://a.test/y" }, "f2");
+    await act(deliver);
+    expect(onFetch).toHaveBeenCalledWith("https://a.test/x");
+    expect(replies).toEqual([
+      { v: 1, id: "f1", type: "z:reply", payload: { ok: true, result: expect.anything() } },
+      { v: 1, id: "f2", type: "z:reply", payload: { ok: false, error: "denied" } },
+    ]);
+    page.close();
+  });
+
+  it("answers z:fetch with an error when there is no handler", async () => {
+    const { load, send } = setup();
+    const page = load();
+    const got = new Promise<{ payload: unknown }>((r) => {
+      page.onmessage = (e) => e.data.type === "z:reply" && r(e.data);
+    });
+    await send(page, "z:fetch", { url: "https://a.test/" }, "f9");
+    expect((await got).payload).toMatchObject({ ok: false });
+    page.close();
+  });
+
+  it("forwards params-changed / state / ask / propose / download / open-zibby, validated", async () => {
+    const h = {
+      onParamsChanged: vi.fn(),
+      onState: vi.fn(),
+      onAsk: vi.fn(),
+      onPropose: vi.fn(),
+      onDownload: vi.fn(),
+      onOpenZibby: vi.fn(),
+    };
+    const { load, send } = setup(h);
+    const page = load();
+    await send(page, "z:params-changed", { params: { a: 1, b: "x", c: true } });
+    await send(page, "z:params-changed", { params: { a: { nested: 1 } } });
+    await send(page, "z:state", { state: { k: "v" } });
+    await send(page, "z:state", { state: "x".repeat(70_000) });
+    await send(page, "z:ask", { text: "hello" });
+    await send(page, "z:ask", { text: 5 });
+    await send(page, "z:propose", { title: "T", prompt: "do it" });
+    await send(page, "z:propose", { title: "T" });
+    await send(page, "z:download", {
+      filename: "a.txt",
+      mime: "text/plain",
+      data: "x",
+      encoding: "utf8",
+    });
+    await send(page, "z:download", { filename: "a.txt", data: "x", encoding: "hex" });
+    await send(page, "z:open-zibby", { href: "zibby://agents" });
+    expect(h.onParamsChanged).toHaveBeenCalledTimes(1);
+    expect(h.onParamsChanged).toHaveBeenCalledWith({ a: 1, b: "x", c: true });
+    expect(h.onState).toHaveBeenCalledTimes(1);
+    expect(h.onAsk).toHaveBeenCalledWith("hello");
+    expect(h.onAsk).toHaveBeenCalledTimes(1);
+    expect(h.onPropose).toHaveBeenCalledWith({ title: "T", prompt: "do it" });
+    expect(h.onPropose).toHaveBeenCalledTimes(1);
+    expect(h.onDownload).toHaveBeenCalledTimes(1);
+    expect(h.onOpenZibby).toHaveBeenCalledWith("zibby://agents");
+    page.close();
+  });
+
+  it("post() sends a host message over the port", async () => {
+    const { hook, load } = setup();
+    const page = load();
+    const got = new Promise<{ type: string; payload: unknown }>((r) => {
+      page.onmessage = (e) => e.data.type === "z:params" && r(e.data);
+    });
+    act(() => hook.result.current.post("z:params", { params: { a: 2 } }));
+    expect((await got).payload).toEqual({ params: { a: 2 } });
     page.close();
   });
 });

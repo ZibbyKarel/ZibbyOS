@@ -1404,7 +1404,26 @@
         "confirmOpenUrl": "This canvas wants to open an external link:\n\n{url}\n\nOpen it?",
         "loadFailed": "The canvas did not load.",
         "unresponsiveMessage": "The canvas is not responding.",
-        "pageError": "Page error: {message}"
+        "pageError": "Page error: {message}",
+        "versions": "Versions",
+        "viewing": "Viewing {label}",
+        "restore": "Restore",
+        "backToCurrent": "Back to current",
+        "allow": "Allow",
+        "deny": "Deny",
+        "approve": "Approve",
+        "dismiss": "Dismiss",
+        "grantTitle": "Canvas wants to read from {origin}",
+        "proposeTitle": "Canvas proposes: {title}",
+        "fixErrors": "Fix it",
+        "fixErrorsIntro": "The canvas page reports these errors. Please fix them:",
+        "export": "Export HTML",
+        "previewWidth": {
+          "label": "Preview width",
+          "phone": "Phone",
+          "tablet": "Tablet",
+          "full": "Full"
+        }
       }
     }
   },

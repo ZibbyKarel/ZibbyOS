@@ -212,6 +212,16 @@ export function ZibbyHost() {
     setInjectedText((prev) => (prev ? `${prev} ${text}` : text));
   }, []);
 
+  /** `ask` / "Fix it" from the canvas: into the composer, never sent. */
+  const onCanvasPrefill = useCallback((text: string) => {
+    setInjectedText((prev) => (prev ? `${prev}\n\n${text}` : text));
+  }, []);
+  /** An approved `propose`: sent as the operator's own typed message. */
+  const onCanvasSend = useCallback(
+    (text: string) => sendMessage(text, undefined, undefined, "typed"),
+    [sendMessage],
+  );
+
   // ---- voice ---------------------------------------------------------------------------
   const voice = useZibbyVoice({ enabled: dockOpen, onUtterance });
   useEffect(() => {
@@ -472,8 +482,10 @@ export function ZibbyHost() {
         canvas && !compact ? (
           <ZibbyCanvasPanel
             canvas={canvas}
-            key={`${canvas.id}:${canvas.version}`}
+            key={canvas.id}
             onKey={onCanvasKey}
+            onPrefill={onCanvasPrefill}
+            onSend={onCanvasSend}
           />
         ) : undefined
       }
