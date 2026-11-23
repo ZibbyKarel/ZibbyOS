@@ -40,6 +40,7 @@ vi.mock("../../marketplaces/queries", () => ({
       },
     ],
   }),
+  useMarketplacesQuery: () => ({ data: [{ id: "zibby-skills" }, { id: "other" }] }),
 }));
 
 vi.mock("../../skills/queries", () => ({
@@ -69,7 +70,11 @@ vi.mock("../../skills/queries", () => ({
   useSkillCategoriesQuery: () => ({ data: [{ name: "quality" }] }),
 }));
 
-const { syncAll, toast } = vi.hoisted(() => ({ syncAll: vi.fn(), toast: vi.fn() }));
+const { syncAll, toast, updateMarketplace } = vi.hoisted(() => ({
+  syncAll: vi.fn(),
+  toast: vi.fn(),
+  updateMarketplace: vi.fn(),
+}));
 vi.mock("../../skills/mutations", () => ({
   useCreateSkillMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useSyncAllExternalSkillsMutation: () => ({ mutate: syncAll, isPending: false }),
@@ -80,6 +85,9 @@ vi.mock("../../skills/mutations", () => ({
     isPending: false,
     isError: false,
   }),
+}));
+vi.mock("../../marketplaces/mutations", () => ({
+  useUpdateMarketplaceMutation: () => ({ mutateAsync: updateMarketplace }),
 }));
 vi.mock("../../../components/Toaster/toastBus", () => ({ toastBus: { emit: toast } }));
 
@@ -195,14 +203,19 @@ describe("RegistriesScreen — /system/registries/[kind]", () => {
     syncAll.mockImplementation((_args, opts?: { onSuccess?: (res: unknown) => void }) =>
       opts?.onSuccess?.({ status: 200, body: { checked: 3, updated: ["a"], failed: ["b", "c"] } }),
     );
+    updateMarketplace.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("git"));
     render(<RegistriesScreen kind="skills" />);
     const syncButton = screen.getByTestId(RegistriesScreenTestId.SyncAllSkills);
     expect(syncButton).toHaveAccessibleName("Synchronizovat vše");
     await userEvent.click(syncButton);
     expect(syncAll).toHaveBeenCalledWith({ body: {} }, expect.anything());
-    expect(toast).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/1.*2/) }),
+    await vi.waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Zkontrolováno 5 · aktualizováno 1 · selhalo 3" }),
+      ),
     );
+    expect(updateMarketplace).toHaveBeenCalledWith({ params: { id: "zibby-skills" } });
+    expect(updateMarketplace).toHaveBeenCalledWith({ params: { id: "other" } });
 
     const installButton = screen.getByTestId(RegistriesScreenTestId.InstallSkills);
     expect(installButton).toHaveAccessibleName("Přidat z repozitáře");

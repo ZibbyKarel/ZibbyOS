@@ -55,7 +55,8 @@ import { AddSkillModal } from "../../skills/components/AddSkillModal/AddSkillMod
 import { InstallExternalSkillDialog } from "../../skills/components/InstallExternalSkillDialog";
 import { useCreateSkillMutation, useSyncAllExternalSkillsMutation } from "../../skills/mutations";
 import { useSkillCategoriesQuery, useSkillsQuery } from "../../skills/queries";
-import { useMarketplaceSkillsQuery } from "../../marketplaces/queries";
+import { useUpdateMarketplaceMutation } from "../../marketplaces/mutations";
+import { useMarketplaceSkillsQuery, useMarketplacesQuery } from "../../marketplaces/queries";
 import { useRegistryBindingsQuery } from "../queries";
 import { type RegistryKindParam, registryHref } from "../registryKinds";
 
@@ -308,27 +309,45 @@ export function RegistriesScreen({ kind, openCreateOnMount }: RegistriesScreenPr
   );
 }
 
-/** Skills-only header actions: install from a GitHub repo, and sync every external skill. */
+/**
+ * Skills-only header actions: install from a GitHub repo, and sync every external skill
+ * plus every connected marketplace (their skills are listed on this page too).
+ */
 function ExternalSkillActions() {
   const t = useTranslations("skills.external");
   const syncAll = useSyncAllExternalSkillsMutation();
+  const { data: marketplaces } = useMarketplacesQuery();
+  const updateMarketplace = useUpdateMarketplaceMutation();
+  const [syncing, setSyncing] = useState(false);
   const [installing, setInstalling] = useState(false);
 
-  const sync = () =>
+  const sync = () => {
+    setSyncing(true);
     syncAll.mutate(
       { body: {} },
       {
-        onSuccess: ({ body }) =>
+        onSuccess: async ({ body }) => {
+          const results = await Promise.allSettled(
+            (marketplaces ?? []).map((m) =>
+              updateMarketplace.mutateAsync({ params: { id: m.id } }),
+            ),
+          );
+          const marketplaceFailed = results.filter((r) => r.status === "rejected").length;
+          const failed = body.failed.length + marketplaceFailed;
+          setSyncing(false);
           toastBus.emit({
-            severity: body.failed.length > 0 ? "error" : "ok",
+            severity: failed > 0 ? "error" : "ok",
             message: t("syncAllDone", {
-              checked: body.checked,
+              checked: body.checked + results.length,
               updated: body.updated.length,
-              failed: body.failed.length,
+              failed,
             }),
-          }),
+          });
+        },
+        onError: () => setSyncing(false),
       },
     );
+  };
 
   return (
     <>
@@ -336,7 +355,7 @@ function ExternalSkillActions() {
         data-testid={RegistriesScreenTestId.SyncAllSkills}
         icon="retry"
         intent="ghost"
-        loading={syncAll.isPending}
+        loading={syncing}
         onClick={sync}
       >
         {t("syncAllAction")}
