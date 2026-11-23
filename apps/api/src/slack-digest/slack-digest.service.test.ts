@@ -170,6 +170,29 @@ describe("SlackDigestService", () => {
     ]);
   });
 
+  it("catches up every day since the newest indexed digest, oldest first", async () => {
+    svc.next = digest("Pátek.");
+    await svc.run("2026-11-20");
+    svc.calls.length = 0;
+    svc.next = "# Slack — 2026-11-23\n\n## Přehled\nPondělí.\n";
+    expect(await svc.run("2026-11-23")).toBe("slack-digest:slack-2026-11-23");
+    expect(svc.calls.map((c) => /\nDate: (\S+)/.exec(c[1] ?? "")?.[1])).toEqual([
+      "2026-11-21",
+      "2026-11-22",
+      "2026-11-23",
+    ]);
+  });
+
+  it("backfills at most 7 days and stops at the first failure", async () => {
+    svc.next = digest("Stará.");
+    await svc.run("2026-11-01");
+    svc.calls.length = 0;
+    svc.next = new Error("boom");
+    expect(await svc.run("2026-11-23")).toBe("slack-digest:error");
+    expect(svc.calls).toHaveLength(1);
+    expect(svc.calls[0]?.[1]).toContain("Date: 2026-11-17");
+  });
+
   const withTasks = `${digest("Přehled.")}
 ## Úkoly a termíny
 

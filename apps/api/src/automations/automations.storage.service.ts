@@ -161,7 +161,7 @@ export const SYSTEM_AUTOMATIONS: readonly Automation[] = [
     id: SLACK_DIGEST_AUTOMATION_ID,
     name: "Denní souhrn Slacku",
     description:
-      "Každý večer přečte přes claude.ai Slack konektor dnešní Slack a uloží souhrn do vaultu jako slack-<datum>.",
+      "Každý večer přečte přes claude.ai Slack konektor Slack od posledního uloženého dne (max 7 dní zpět) a uloží souhrn každého dne do vaultu jako slack-<datum>.",
     trigger: { type: "cron", expr: "0 22 * * *" },
     target: { type: "slack-digest" },
     enabled: true,

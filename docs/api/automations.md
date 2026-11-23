@@ -199,7 +199,7 @@ when the config changes.
    - `agent` → the same, with target `{ kind: "agent", id }`
    - `briefing` → `BriefingService.generate(...)`
    - `memory-distill` → `MemoryDistillerService.distill()`
-   - `slack-digest` → `SlackDigestService.run()` (fail-open), ref `slack-digest:<note id|empty|error>`
+   - `slack-digest` → `SlackDigestService.run()` (fail-open), ref `slack-digest:<note id|empty|error>`. Catches up: digests every day after the newest `slack-index` entry up to today (max 7 days, oldest first, stops at the first error so the next run retries the gap); an operator prompt digests a single day
    - `pattern-extract` → `PatternExtractorService.extract(now, { automationId })`
    - `gap-detect` → `GapDetectorService.detect(now, { automationId })` — both pass the
      firing automation's id as proposal provenance (TODO 14, `docs/api/proposals.md`)

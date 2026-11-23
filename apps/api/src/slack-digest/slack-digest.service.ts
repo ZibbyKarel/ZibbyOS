@@ -16,6 +16,8 @@ import { spawnClaudeCli } from "../shared/spawn-claude-cli";
 export const SLACK_DIGEST_SKILL_ID = "slack-daily-digest";
 const INDEX_ID = "slack-index";
 const TIMEOUT_MS = 10 * 60_000;
+/** Longest gap one run backfills (the downtime case); older days need a manual run. */
+const MAX_CATCHUP_DAYS = 7;
 const DIGEST_LINE = /^- \[\[slack-(\d{4}-\d{2}-\d{2})\]\]/;
 
 /** Read/search Slack tools only: the chat's list minus the draft (write) tool. */
@@ -59,6 +61,11 @@ export function overviewSentence(digest: string): string {
   const section = /^##\s+Přehled[^\n]*\n([\s\S]*?)(?=\n##\s|(?![\s\S]))/m.exec(digest)?.[1] ?? "";
   const text = section.replace(/\s+/g, " ").trim();
   return (/^.*?[.!?](?=\s|$)/.exec(text)?.[0] ?? text).slice(0, 240);
+}
+
+/** `YYYY-MM-DD` shifted by whole days (calendar arithmetic, no timezone involved). */
+export function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 export interface DigestTodo {
@@ -121,8 +128,40 @@ export class SlackDigestService {
     this.log = logger.child(SlackDigestService.name);
   }
 
-  /** Never throws; returns the scheduler ref. */
+  /**
+   * Never throws; returns the scheduler ref. Without an operator prompt it catches up: every
+   * day after the newest indexed digest up to `requestedDate` (max {@link MAX_CATCHUP_DAYS}),
+   * oldest first, stopping at the first failure so the next run retries from the gap.
+   * Weekends/quiet days are NO_ACTIVITY and stay unindexed, so they are re-checked next run.
+   */
   async run(requestedDate: string = pragueDate(), operatorPrompt?: string): Promise<string> {
+    if (operatorPrompt) return this.digestDay(requestedDate, operatorPrompt);
+    const last = await this.lastDigestDate();
+    const from = last && last < requestedDate ? addDays(last, 1) : requestedDate;
+    const start =
+      from < addDays(requestedDate, 1 - MAX_CATCHUP_DAYS)
+        ? addDays(requestedDate, 1 - MAX_CATCHUP_DAYS)
+        : from;
+    let ref = "slack-digest:empty";
+    for (let d = start; d <= requestedDate; d = addDays(d, 1)) {
+      const r = await this.digestDay(d);
+      if (r === "slack-digest:error") return r;
+      if (r !== "slack-digest:empty") ref = r;
+    }
+    return ref;
+  }
+
+  /** Newest day in the index, if any. */
+  private async lastDigestDate(): Promise<string | undefined> {
+    const body = (await this.vault.note(INDEX_ID).catch(() => null))?.body ?? "";
+    return body
+      .split("\n")
+      .flatMap((l) => DIGEST_LINE.exec(l)?.[1] ?? [])
+      .sort()
+      .at(-1);
+  }
+
+  private async digestDay(requestedDate: string, operatorPrompt?: string): Promise<string> {
     try {
       // The skill ships in the operator's marketplace plugin (`zibby:slack-daily-digest`);
       // a same-id own/external skill is the fallback.
