@@ -611,8 +611,11 @@ export type {
 export {
   CanvasPanel,
   CanvasPanelTestId,
+  type CanvasPanelBanner,
+  type CanvasPanelPreviewWidth,
   type CanvasPanelProps,
   type CanvasPanelStatus,
+  type CanvasPanelVersion,
 } from "./components/CanvasPanel/CanvasPanel";
 export {
   CanvasCard,
