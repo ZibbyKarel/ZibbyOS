@@ -71,11 +71,11 @@ function readCanvasRatio(): number {
 /** The part of a keydown the overlay shortcuts look at (a `KeyboardEvent` or a bridge `z:key`). */
 type HostKey = Pick<KeyboardEvent, "key" | "code" | "altKey" | "metaKey" | "ctrlKey" | "shiftKey">;
 
-/** The newest `canvas` widget in the thread (tool events are in order, newest last). */
-function latestCanvasWidget(messages: ChatMessage[]) {
+/** The newest `canvas` widget in the thread (tool events are in order, newest last), optionally of one canvas. */
+function latestCanvasWidget(messages: ChatMessage[], id?: string) {
   for (const m of [...messages].reverse()) {
     for (const e of [...(m.toolEvents ?? [])].reverse()) {
-      if (e.widget?.kind === "canvas") return e.widget;
+      if (e.widget?.kind === "canvas" && (id === undefined || e.widget.id === id)) return e.widget;
     }
   }
   return null;
@@ -348,6 +348,15 @@ export function ZibbyHost() {
       // Storage unavailable — the ratio still applies for this session.
     }
   }, []);
+
+  // The open canvas follows newer versions of itself in the thread (publish / set_canvas_params).
+  const followVersion = canvas ? latestCanvasWidget(messages, canvas.id)?.version : undefined;
+  useEffect(() => {
+    if (canvas && followVersion !== undefined && followVersion > canvas.version) {
+      openCanvas({ ...canvas, version: followVersion });
+      setCanvasMode(canvasMode); // openCanvas resets to split; keep full
+    }
+  }, [canvas, canvasMode, followVersion, openCanvas, setCanvasMode]);
 
   // Phone: the newest canvas of the thread, pinned as a small thumbnail (tap opens the browser).
   const resolvedTheme = useResolvedTheme();
