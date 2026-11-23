@@ -1,5 +1,6 @@
 import type { ChatAbout, ChatMessage, TaskTarget } from "@zibby/contracts";
 import {
+  CanvasPanelTestId,
   StatusDotTestId,
   ZibbyBubbleTestId,
   ZibbyOverlayTestId,
@@ -344,6 +345,26 @@ describe("ZibbyHost — open / close", () => {
     renderHost();
     fireEvent.keyDown(window, { key: "j", ctrlKey: true });
     expect(chat.dockOpen).toBe(false);
+  });
+
+  it("canvas: ⌘⇧↵ toggles full, ⌘\\ closes and reopens the last canvas", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CANVAS_URL", "http://localhost:3334");
+    renderHost();
+    await openOverlay();
+    const c = { id: "abc1234567", version: 1, title: "Plan" };
+    act(() => chat.openCanvas(c));
+    expect(await screen.findByTestId(CanvasPanelTestId.Root)).toBeInTheDocument();
+    expect(screen.getByTestId(CanvasPanelTestId.Frame)).toHaveAttribute(
+      "sandbox",
+      "allow-scripts allow-pointer-lock allow-modals allow-same-origin",
+    );
+    fireEvent.keyDown(window, { key: "Enter", code: "Enter", metaKey: true, shiftKey: true });
+    await waitFor(() => expect(chat.canvasMode).toBe("full"));
+    fireEvent.keyDown(window, { key: "\\", code: "Backslash", metaKey: true });
+    await waitFor(() => expect(chat.canvas).toBeNull());
+    fireEvent.keyDown(window, { key: "\\", code: "Backslash", metaKey: true });
+    await waitFor(() => expect(chat.canvas).toEqual(c));
+    vi.unstubAllEnvs();
   });
 
   it("Alt+H toggles the history panel while open", async () => {

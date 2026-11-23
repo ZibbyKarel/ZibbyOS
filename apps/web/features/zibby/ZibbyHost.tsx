@@ -1,8 +1,9 @@
 "use client";
 
 import type { CompletedTurn } from "../chat/hooks/useChatStream";
-import type { TaskTarget } from "@zibby/contracts";
+import type { ChatMessage, TaskTarget } from "@zibby/contracts";
 import {
+  CanvasCard,
   StatusDot,
   ZibbyOrb,
   ZibbyOverlay,
@@ -13,11 +14,14 @@ import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useIsPhone } from "../../hooks/useIsPhone";
-import { useChat } from "../chat/ChatContext";
+import { canvasUrls } from "../canvas/canvasUrl";
+import type { CanvasKeyPayload } from "../canvas/useCanvasBridge";
+import { type OpenCanvas, useChat } from "../chat/ChatContext";
 import type { ChatMessageOrigin } from "../chat/components/ChatMessage";
 import { useChatDock } from "../chat/hooks/useChatDock";
 import type { CommandLineHandle } from "../tasks/components/CommandLine/CommandLine";
 import type { TaskAttachmentSet } from "../tasks/components/TaskAttachments";
+import { ZibbyCanvasPanel } from "./ZibbyCanvasPanel";
 import { ZibbyContextChips } from "./composer/ZibbyContextChips";
 import { ZibbyComposer } from "./composer/ZibbyComposer";
 import { useZibbyConversations } from "./conversations";
@@ -51,6 +55,31 @@ export enum ZibbyHostTestId {
 
 /** Attachments per message (the server's upload limit). */
 export const MAX_ATTACHED_FILES = 10;
+/** localStorage key of the canvas panel's share of the overlay width. */
+const CANVAS_RATIO_KEY = "zibby.canvas.ratio";
+
+function readCanvasRatio(): number {
+  try {
+    const n = Number(window.localStorage.getItem(CANVAS_RATIO_KEY));
+    return n > 0 && n < 1 ? n : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+/** The part of a keydown the overlay shortcuts look at (a `KeyboardEvent` or a bridge `z:key`). */
+type HostKey = Pick<KeyboardEvent, "key" | "code" | "altKey" | "metaKey" | "ctrlKey" | "shiftKey">;
+
+/** The newest `canvas` widget in the thread (tool events are in order, newest last). */
+function latestCanvasWidget(messages: ChatMessage[]) {
+  for (const m of [...messages].reverse()) {
+    for (const e of [...(m.toolEvents ?? [])].reverse()) {
+      if (e.widget?.kind === "canvas") return e.widget;
+    }
+  }
+  return null;
+}
+
 /** How long the orb shows `done` / `error` after a turn ends. */
 const TRANSIENT_MS = 1500;
 
@@ -109,6 +138,11 @@ export function ZibbyHost() {
     messages,
     model,
     setModel,
+    canvas,
+    canvasMode,
+    openCanvas,
+    closeCanvas,
+    setCanvasMode,
   } = useChat();
 
   // ---- overlay state --------------------------------------------------------------------
@@ -237,21 +271,86 @@ export function ZibbyHost() {
   const { createTask, pendingFor } = useZibbyCreateTask();
 
   // While the overlay is open: ⌥ H history, ⌥ N new chat, ⌥ C clear (`event.code` — Option
-  // changes `event.key` on macOS).
+  // changes `event.key` on macOS), ⌘⇧↵ canvas full/back, ⌘\ close / reopen the last canvas.
+  // Also fed by the canvas bridge (`z:key`), so the same keys work with focus inside the iframe.
   const { startNew, clearActive } = conversations;
+  const lastCanvas = useRef<OpenCanvas | null>(null);
+  useEffect(() => {
+    if (canvas) lastCanvas.current = canvas;
+  });
+  const handleHostKey = useCallback(
+    (k: HostKey): boolean => {
+      if (k.ctrlKey) return false;
+      if (k.altKey && !k.metaKey && !k.shiftKey) {
+        if (k.code === "KeyH") setHistoryOpen((prev) => !prev);
+        else if (k.code === "KeyN") startNew();
+        else if (k.code === "KeyC") clearActive();
+        else return false;
+        return true;
+      }
+      if (compact || k.altKey || !k.metaKey) return false;
+      if (k.shiftKey && k.key === "Enter" && canvas) {
+        setCanvasMode(canvasMode === "full" ? "split" : "full");
+        return true;
+      }
+      if (!k.shiftKey && (k.key === "\\" || k.code === "Backslash")) {
+        if (canvas) closeCanvas();
+        else if (lastCanvas.current) openCanvas(lastCanvas.current);
+        else return false;
+        return true;
+      }
+      return false;
+    },
+    [compact, canvas, canvasMode, startNew, clearActive, setCanvasMode, closeCanvas, openCanvas],
+  );
   useEffect(() => {
     if (!dockOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (event.code === "KeyH") setHistoryOpen((prev) => !prev);
-      else if (event.code === "KeyN") startNew();
-      else if (event.code === "KeyC") clearActive();
-      else return;
-      event.preventDefault();
+      if (handleHostKey(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dockOpen, startNew, clearActive]);
+  }, [dockOpen, handleHostKey]);
+
+  /** Esc: full → split, else close the canvas (the overlay's own Esc order, for the iframe). */
+  const dismissCanvas = useCallback(
+    (mode: "split" | "full") => (mode === "full" ? setCanvasMode("split") : closeCanvas()),
+    [setCanvasMode, closeCanvas],
+  );
+  /** `z:key` from the canvas page. ⌥Space is the summon chip's toggle — the overlay is open, so it closes. */
+  const onCanvasKey = useCallback(
+    (k: CanvasKeyPayload) => {
+      if (k.key === "Escape") dismissCanvas(canvasMode);
+      else if (k.altKey && !k.metaKey && !k.shiftKey && k.code === "Space") setDockOpen(false);
+      else handleHostKey(k);
+    },
+    [dismissCanvas, canvasMode, handleHostKey, setDockOpen],
+  );
+
+  // Canvas panel width share, remembered across sessions.
+  const [canvasRatio, setCanvasRatio] = useState(readCanvasRatio);
+  const onCanvasRatioChange = useCallback((ratio: number) => {
+    setCanvasRatio(ratio);
+    try {
+      window.localStorage.setItem(CANVAS_RATIO_KEY, String(ratio));
+    } catch {
+      // Storage unavailable — the ratio still applies for this session.
+    }
+  }, []);
+
+  // Phone: the newest canvas of the thread, pinned as a small thumbnail (tap opens the browser).
+  const pinWidget = compact ? latestCanvasWidget(messages) : null;
+  const pinUrls = pinWidget ? canvasUrls(pinWidget.id, pinWidget.version) : null;
+  const pinnedCanvas =
+    pinWidget && pinUrls?.external ? (
+      <CanvasCard
+        href={pinUrls.external}
+        size="pin"
+        src={pinUrls.frame ?? pinUrls.external}
+        title={pinWidget.title}
+        version={pinWidget.version}
+      />
+    ) : undefined;
 
   // ---- orb ----------------------------------------------------------------------------------
   const online = useOnline();
@@ -359,10 +458,24 @@ export function ZibbyHost() {
           setDragging(false);
         }
       }}
+      onSideDismiss={dismissCanvas}
+      onSideRatioChange={onCanvasRatioChange}
       open={dockOpen}
       orb={<ZibbyOrb level={voice.level} size={140} state={orbState} />}
       origin={origin}
+      pinned={pinnedCanvas}
       scrollKey={`${messages.length}:${stream.text.length}:${thinking}`}
+      side={
+        canvas && !compact ? (
+          <ZibbyCanvasPanel
+            canvas={canvas}
+            key={`${canvas.id}:${canvas.version}`}
+            onKey={onCanvasKey}
+          />
+        ) : undefined
+      }
+      sideMode={canvasMode}
+      sideRatio={canvasRatio}
       status={
         <>
           <StatusDot tone={statusDotTone(orbState, voice.listening)} />

@@ -3,6 +3,7 @@
 import type { ChatWidget } from "@zibby/contracts";
 import { ApprovalsWidgetCard } from "./ApprovalsWidgetCard";
 import { BriefingWidgetCard } from "./BriefingWidgetCard";
+import { CanvasWidgetCard } from "./CanvasWidgetCard";
 import { CiWidgetCard } from "./CiWidgetCard";
 import { IssuesWidgetCard } from "./IssuesWidgetCard";
 import { MentionsWidgetCard } from "./MentionsWidgetCard";
@@ -45,8 +46,7 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
     case "pr-replies":
       return <PrRepliesWidgetCard widget={widget} />;
     case "canvas":
-      // Temporary — replaced in T5.
-      return null;
+      return <CanvasWidgetCard widget={widget} />;
     default: {
       const unreachable: never = widget;
       return unreachable;

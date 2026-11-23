@@ -1382,6 +1382,30 @@
     "drop": {
       "title": "Pusť soubory sem",
       "hint": "Zibby je přečte a přiloží k chatu · obrázky, PDF, kód, tabulky"
+    },
+    "canvas": {
+      "card": {
+        "openOnMac": "Otevřít na Macu"
+      },
+      "panel": {
+        "reload": "Znovu načíst",
+        "openExternal": "Otevřít v prohlížeči",
+        "full": "Na celou obrazovku",
+        "back": "Zpět k chatu",
+        "close": "Zavřít",
+        "frameTitle": "Plátno: {title}",
+        "status": {
+          "loading": "Načítá se",
+          "ready": "Připraveno",
+          "error": "Chyba",
+          "unresponsive": "Neodpovídá"
+        },
+        "errors": "{count, plural, one {# chyba} few {# chyby} other {# chyb}}",
+        "confirmOpenUrl": "Toto plátno chce otevřít externí odkaz:\n\n{url}\n\nOtevřít?",
+        "loadFailed": "Plátno se nenačetlo.",
+        "unresponsiveMessage": "Plátno neodpovídá.",
+        "pageError": "Chyba stránky: {message}"
+      }
     }
   },
   "zibbyConversations": {

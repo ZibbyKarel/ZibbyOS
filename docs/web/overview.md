@@ -206,6 +206,14 @@ Alt+Space — the ⌘/Ctrl+J chord is gone — by the header chip, or by draggin
 `docs/api/chat.md` → "Web overlay". The paragraph below is the historical ZB-12 description; `CooDock` /
 `ChatDock` no longer exist as the chat UI.
 
+**Canvas (`features/canvas`).** A `canvas` chat widget (a page the agent published, see `docs/api/canvas.md`)
+renders as `CanvasWidgetCard`; opening it fills the overlay's `side` slot with `ZibbyCanvasPanel` (desktop) or
+pins a thumbnail linking to the system browser (phone). `ChatContext` owns `canvas` / `canvasMode` (it closes on
+a conversation switch). `canvasUrl.ts` derives the canvas origin like `API_URL` (`NEXT_PUBLIC_CANVAS_URL`,
+`NEXT_PUBLIC_REMOTE_CANVAS_URL`; localhost = host-based isolated frame, else path-based). `useCanvasBridge`
+is the host end of the `z:*` MessageChannel protocol (status, errors, ping, `z:open-url` confirm, `z:key`).
+Shortcuts: ⌘⇧↵ full/back, ⌘\ close/reopen; panel width persists in `zibby.canvas.ratio`.
+
 **ZB-12 — chat is the shell-global COO dock (supersedes Phase 23 below).** The
 `/chat` page is retired (it redirects to `/org`). `AppShell` mounts `CooDock`
 (`features/chat/components/CooDock.tsx`) in `AppFrame`'s `dock` slot on every

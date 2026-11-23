@@ -100,7 +100,20 @@ interface ChatStore {
   /** The model the next turn runs on (todo-30) — sticky, survives `newChat` and reloads. */
   model: ChatModel;
   setModel: (model: ChatModel) => void;
+  /** The canvas open beside the chat (null = none). Closes when the conversation changes. */
+  canvas: OpenCanvas | null;
+  canvasMode: CanvasMode;
+  openCanvas: (canvas: OpenCanvas) => void;
+  closeCanvas: () => void;
+  setCanvasMode: (mode: CanvasMode) => void;
 }
+
+export interface OpenCanvas {
+  id: string;
+  version: number;
+  title: string;
+}
+export type CanvasMode = "split" | "full";
 
 const ChatContext = createContext<ChatStore | null>(null);
 
@@ -120,6 +133,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [dockOpen, setDockOpen] = useState(false);
   const [dockTarget, setDockTarget] = useState<TaskTarget | null>(null);
   const [model, setModelState] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
+  // A canvas belongs to the conversation it was opened in — switching conversations hides it.
+  const [openedCanvas, setOpenedCanvas] = useState<{
+    canvas: OpenCanvas;
+    conversationId: string | null;
+  } | null>(null);
+  const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
+  const canvas = openedCanvas?.conversationId === conversationId ? openedCanvas.canvas : null;
+  const openCanvas = useCallback(
+    (next: OpenCanvas) => {
+      setOpenedCanvas({ canvas: next, conversationId });
+      setCanvasMode("split");
+    },
+    [conversationId],
+  );
+  const closeCanvas = useCallback(() => setOpenedCanvas(null), []);
   const [about, setAboutState] = useState<ChatAbout | null>(null);
   // Mirror of `about` that is current synchronously, so `openAbout` can stay
   // identity-stable and never read a stale closure between two calls.
@@ -211,6 +239,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       openAbout,
       model,
       setModel,
+      canvas,
+      canvasMode,
+      openCanvas,
+      closeCanvas,
+      setCanvasMode,
     }),
     [
       open,
@@ -225,6 +258,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       openAbout,
       model,
       setModel,
+      canvas,
+      canvasMode,
+      openCanvas,
+      closeCanvas,
     ],
   );
 

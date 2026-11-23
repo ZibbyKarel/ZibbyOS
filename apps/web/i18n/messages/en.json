@@ -1382,6 +1382,30 @@
     "drop": {
       "title": "Drop files here",
       "hint": "Zibby reads them and attaches them to the chat · images, PDFs, code, spreadsheets"
+    },
+    "canvas": {
+      "card": {
+        "openOnMac": "Open on the Mac"
+      },
+      "panel": {
+        "reload": "Reload",
+        "openExternal": "Open in browser",
+        "full": "Full screen",
+        "back": "Back to chat",
+        "close": "Close",
+        "frameTitle": "Canvas: {title}",
+        "status": {
+          "loading": "Loading",
+          "ready": "Ready",
+          "error": "Error",
+          "unresponsive": "Not responding"
+        },
+        "errors": "{count, plural, one {# error} other {# errors}}",
+        "confirmOpenUrl": "This canvas wants to open an external link:\n\n{url}\n\nOpen it?",
+        "loadFailed": "The canvas did not load.",
+        "unresponsiveMessage": "The canvas is not responding.",
+        "pageError": "Page error: {message}"
+      }
     }
   },
   "zibbyConversations": {

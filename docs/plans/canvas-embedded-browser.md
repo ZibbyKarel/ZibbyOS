@@ -42,8 +42,8 @@ do not touch or reuse it).
 - iframe: `sandbox="allow-scripts allow-pointer-lock allow-modals"` + `allow-same-origin` only in
   host-based mode; `allow="fullscreen; clipboard-write"`. No top-navigation, popups, forms,
   downloads.
-- Bridge: host posts `z:hello` with a `MessageChannel` port to the exact canvas origin (never
-  `*`); after that only the port is used. Host accepts window messages only from
+- Bridge: host posts `z:hello` with a `MessageChannel` port to the exact canvas origin (host-based;
+  path-based frames have an opaque origin, so `*` aimed at that frame's window); after that only the port is used. Host accepts window messages only from
   `iframe.contentWindow` + the expected origin. Envelope `{ v: 1, id, type, payload }`, unknown
   types dropped.
 - Electron: `permissions.ts` already denies everything to non-`WEB_ORIGIN` origins. External

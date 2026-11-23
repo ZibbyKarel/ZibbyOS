@@ -383,4 +383,19 @@ describe("ChatProvider — model (todo-30)", () => {
     act(() => result.current.newChat());
     expect(result.current.model).toBe("fable");
   });
+  it("opens a canvas, tracks its mode and closes on a conversation switch", () => {
+    const { result } = renderStore();
+    act(() => result.current.ensureConversation());
+    const c = { id: "abc1234567", version: 2, title: "Plan" };
+    act(() => result.current.openCanvas(c));
+    expect(result.current.canvas).toEqual(c);
+    act(() => result.current.setCanvasMode("full"));
+    expect(result.current.canvasMode).toBe("full");
+    act(() => result.current.newChat());
+    expect(result.current.canvas).toBeNull();
+    act(() => result.current.openCanvas(c));
+    expect(result.current.canvasMode).toBe("split");
+    act(() => result.current.closeCanvas());
+    expect(result.current.canvas).toBeNull();
+  });
 });
