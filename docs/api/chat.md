@@ -300,6 +300,16 @@ Server id `zibby`:
 | `open_maps`                | `MachineService` (via `ChatToolsService.proposeOpenMaps`)   | PROPOSEs opening Apple Maps with a search query — still approval-gated even though it only opens a window.                                                                                                                                                                                                                                                         |
 | `open_folder`              | `MachineService` (via `ChatToolsService.proposeOpenFolder`) | PROPOSEs opening a named folder in the operator's file manager — still approval-gated.                                                                                                                                                                                                                                                                             |
 
+### Canvas — `publish_canvas`
+
+`publish_canvas({title, html, id?, note?})` publishes a visual / interactive answer through
+`CanvasStore.publish` (see `docs/api/canvas.md`) with the turn's conversationId, then pushes a
+`{kind: "canvas", id, version, title}` widget via `ChatToolResultRegistry.pushWidget`, which
+reaches the transcript and SSE stream exactly like a `show_widget` card (tool event
+`show_widget`; the `publish_canvas` stream line itself is suppressed). The tool description
+carries the authoring rules (transparent glass, CSS-var colours, pinned CDN libs, no network).
+Passing an existing `id` creates a new version. Store rejections come back as an MCP error text.
+
 ### Inline cards — `show_widget` (Zibby overlay)
 
 `show_widget` drops an inline, interactive **card** ("chat widget") into the thread

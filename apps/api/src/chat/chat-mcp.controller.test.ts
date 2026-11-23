@@ -6,6 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { TaskTarget } from "@zibby/contracts";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { CanvasStore, CanvasStoreError } from "../canvas/canvas.store";
 import { AutopilotService } from "../autopilot/autopilot.service";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
 import { ChatMcpAuthService } from "./chat-mcp-auth.service";
@@ -25,6 +26,7 @@ const proposeOpenMaps = vi.fn();
 const proposeOpenFolder = vi.fn();
 const capturePersonalNote = vi.fn<() => Promise<string>>();
 const autopilotSet = vi.fn();
+const canvasPublish = vi.fn();
 
 /**
  * HTTP e2e for the chat MCP endpoint's NEW auth guard (T9). Same real-listening-port
@@ -60,6 +62,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
           useValue: { list: selfApiList, describe: selfApiDescribe, call: selfApiCall },
         },
         { provide: AutopilotService, useValue: { set: autopilotSet } },
+        { provide: CanvasStore, useValue: { publish: canvasPublish } },
         ChatToolResultRegistry,
         ChatMcpAuthService,
         ChatMcpAuthGuard,
@@ -86,6 +89,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
     proposeOpenMaps.mockReset();
     proposeOpenFolder.mockReset();
     capturePersonalNote.mockReset();
+    canvasPublish.mockReset();
   });
 
   const listToolsBody = {
@@ -150,6 +154,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "open_folder",
       "open_maps",
       "propose_pr_replies",
+      "publish_canvas",
       "read_knowledge_base_note",
       "recall_memory",
       "search_knowledge_base",
@@ -329,6 +334,64 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       arguments: { prUrl: "https://example.com/x", replies: [{ threadId: "PRRT_a", body: "x" }] },
     });
     expect(bad.isError).toBe(true);
+    off();
+    await client.close();
+  });
+
+  it("publish_canvas publishes, pushes a canvas widget, and surfaces store errors", async () => {
+    const shown: unknown[] = [];
+    const off = toolResults.onWidget("conv-canvas", (w) => shown.push(w));
+    const client = new Client({ name: "chat-mcp-test-client", version: "1.0.0" });
+    await client.connect(
+      new StreamableHTTPClientTransport(
+        new URL(`${baseUrl}/api/chat/mcp?conversationId=conv-canvas`),
+        { requestInit: { headers: { Authorization: `Bearer ${auth.bearerToken}` } } },
+      ),
+    );
+    canvasPublish.mockResolvedValueOnce({ id: "abcde12345", title: "Chart", current: 1 });
+    const ok = await client.callTool({
+      name: "publish_canvas",
+      arguments: { title: "Chart", html: "<p>x</p>" },
+    });
+    expect(ok.isError).toBeFalsy();
+    expect(canvasPublish).toHaveBeenLastCalledWith({
+      title: "Chart",
+      html: "<p>x</p>",
+      conversationId: "conv-canvas",
+    });
+    expect((ok.content as Array<{ text: string }>)[0]?.text).toContain('id "abcde12345"');
+
+    canvasPublish.mockResolvedValueOnce({ id: "abcde12345", title: "Chart", current: 2 });
+    await client.callTool({
+      name: "publish_canvas",
+      arguments: { title: "Chart", html: "<p>y</p>", id: "abcde12345", note: "fix" },
+    });
+    expect(canvasPublish).toHaveBeenLastCalledWith({
+      title: "Chart",
+      html: "<p>y</p>",
+      conversationId: "conv-canvas",
+      id: "abcde12345",
+      note: "fix",
+    });
+    expect(shown).toEqual([
+      { kind: "canvas", id: "abcde12345", version: 1, title: "Chart" },
+      { kind: "canvas", id: "abcde12345", version: 2, title: "Chart" },
+    ]);
+
+    const badId = await client.callTool({
+      name: "publish_canvas",
+      arguments: { title: "Chart", html: "<p>y</p>", id: "NOPE" },
+    });
+    expect(badId.isError).toBe(true);
+
+    canvasPublish.mockRejectedValueOnce(new CanvasStoreError("not-found", "unknown canvas id"));
+    const rejected = await client.callTool({
+      name: "publish_canvas",
+      arguments: { title: "Chart", html: "<p>y</p>", id: "zzzzzzzzzz" },
+    });
+    expect(rejected.isError).toBe(true);
+    expect((rejected.content as Array<{ text: string }>)[0]?.text).toContain("unknown canvas id");
+    expect(shown).toHaveLength(2);
     off();
     await client.close();
   });

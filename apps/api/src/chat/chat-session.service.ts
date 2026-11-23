@@ -944,7 +944,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     };
 
     const unsubscribe = this.toolResults.onCreateTaskResult(conversationId, emitCreateTaskOk);
-    // `show_widget` — the MCP handler pushes the validated widget; it becomes its
+    // `show_widget` / `publish_canvas` — the MCP handler pushes the validated widget; it becomes its
     // own tool event (unique callId, so two cards never collapse into one).
     const unsubscribeWidgets = this.toolResults.onWidget(conversationId, (widget) => {
       const tool: ChatToolEvent = {
@@ -980,7 +980,8 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
           // already delivered create_task's result — that result is the event.
           if (opencodeTurn && name === "create_task") break;
           // The widget itself is the event (emitted when the handler pushes it).
-          if (name === "show_widget" || name === "propose_pr_replies") break;
+          if (name === "show_widget" || name === "propose_pr_replies" || name === "publish_canvas")
+            break;
           const tool = this.describeToolStarted(event.name, event.id);
           if (tool.status === "started") pendingCreateTaskCallIds.push(event.id);
           toolEvents = mergeToolEvent(toolEvents, tool);

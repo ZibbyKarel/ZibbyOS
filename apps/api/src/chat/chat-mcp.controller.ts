@@ -3,6 +3,7 @@ import { Controller, Get, Logger, Optional, Post, Req, Res, UseGuards } from "@n
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
+  CANVAS_ID_PATTERN,
   CHAT_WIDGET_KINDS,
   ChatWidgetSchema,
   DepartmentIdSchema,
@@ -11,6 +12,7 @@ import {
 } from "@zibby/contracts";
 import { z } from "zod";
 import { AutopilotService } from "../autopilot/autopilot.service";
+import { CanvasStore, CanvasStoreError } from "../canvas/canvas.store";
 import { parsePrUrl } from "../git-host/git-host-url";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
@@ -127,6 +129,7 @@ export class ChatMcpController {
     private readonly tools: ChatToolsService,
     private readonly toolResults: ChatToolResultRegistry,
     private readonly selfApi: SelfApiExecutor,
+    private readonly canvases: CanvasStore,
     @Optional() private readonly autopilot?: AutopilotService,
   ) {}
 
@@ -485,6 +488,61 @@ export class ChatMcpController {
         const shown = this.toolResults.pushWidget(conversationId, parsed.data);
         if (!shown) return errorText("No chat turn is in flight — the card could not be shown.");
         return text(`Card "${parsed.data.kind}" is now shown to the operator in the thread.`);
+      },
+    );
+
+    server.registerTool(
+      "publish_canvas",
+      {
+        description:
+          "Publish a visual / interactive answer (chart, table, 3D scene, configurator, mini app) " +
+          "as a CANVAS shown next to the chat. Pass only the content: ZibbyOS draws the header, " +
+          "version switcher and buttons. Rules for `html`: a complete HTML document; never set a " +
+          "background on html/body/large containers (the surface is transparent glass); colours " +
+          "only from CSS vars --ink --ink2 --ink3 --line --line2 --p1 --p2 --amber --sky --violet " +
+          "--emerald --rose, charts --c1 --c2 --c3 in that order; the font is inherited; fluid " +
+          "layout for 480-1400 px, no 100vw/100vh, no fixed widths; libraries only from " +
+          "cdn.jsdelivr.net / unpkg.com / cdnjs.cloudflare.com with an exact pinned version; " +
+          "no fetch/XHR/WebSocket (network is blocked) - embed data inline; no form submission, " +
+          "no reliance on localStorage; three.js: `alpha:true`, `setClearColor(0,0)`, no " +
+          "scene.background, pause the render loop on the `window` event `zibby:visibility` when " +
+          '`detail.state === "hidden"`. To change an existing canvas pass its `id` (a new version ' +
+          "is created, old ones are kept); omit `id` for a new canvas.",
+        inputSchema: {
+          title: z.string().min(1).max(120).describe("Short canvas title."),
+          html: z.string().describe("Complete HTML document."),
+          id: z
+            .string()
+            .regex(CANVAS_ID_PATTERN)
+            .optional()
+            .describe("Id of an existing canvas to publish a new version of."),
+          note: z.string().max(200).optional().describe("Optional one-line version note."),
+        },
+      },
+      async ({ title, html, id, note }) => {
+        try {
+          const meta = await this.canvases.publish({
+            title,
+            html,
+            conversationId,
+            ...(id ? { id } : {}),
+            ...(note ? { note } : {}),
+          });
+          const shown = this.toolResults.pushWidget(conversationId, {
+            kind: "canvas",
+            id: meta.id,
+            version: meta.current,
+            title: meta.title,
+          });
+          if (!shown)
+            return errorText("No chat turn is in flight — the canvas could not be shown.");
+          return text(
+            `Published canvas ${meta.id} v${meta.current}. To change it, call publish_canvas again with id "${meta.id}".`,
+          );
+        } catch (err) {
+          if (err instanceof CanvasStoreError) return errorText(`Canvas rejected: ${err.message}`);
+          throw err;
+        }
       },
     );
 

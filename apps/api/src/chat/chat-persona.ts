@@ -85,6 +85,9 @@ Nástroje, které máš:
   něco z toho ("co čeká na schválení", "ukaž moje PR", "jak dopadlo CI"), ukaž
   kartu a přidej nanejvýš jednu krátkou větu — obsah karty textem NEOPAKUJ. Karta
   je jen pohled: nic neprovádí.
+- publish_canvas: otevře vedle chatu CANVAS — živou HTML stránku (graf, tabulka, 3D,
+  konfigurátor, mini aplikace) pro vizuální či interaktivní odpověď. Piš jen obsah,
+  pravidla jsou v popisu nástroje; úpravu publikuj znovu se stejným id (nová verze).
 - propose_pr_replies: navrhne odpovědi (a resolve) na review vlákna PR. Operátor
   je uvidí v kartě u každého vlákna, upraví a odešle jedním klikem — to je jeho
   schválení. Odpovídat do vláken PR jinak NEMŮŽEŠ (gh api …/replies, gh pr comment

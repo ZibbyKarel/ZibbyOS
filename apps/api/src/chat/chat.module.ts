@@ -2,6 +2,7 @@ import { GatesModule } from "../gates/gates.module";
 import { AgentsModule } from "../agents/agents.module";
 import { Module } from "@nestjs/common";
 import { MachineModule } from "../machine/machine.module";
+import { CanvasModule } from "../canvas/canvas.module";
 import { BriefingModule } from "../briefing/briefing.module";
 import { CompaniesModule } from "../companies/companies.module";
 import { KbReaderService } from "../kb/kb-reader.service";
@@ -69,6 +70,7 @@ export function resolveChatDir(): string {
     ProjectsModule,
     CompaniesModule,
     TeamsModule,
+    CanvasModule,
     // The operator's gate rules decide which gated actions an opencode chat turn may run.
     GatesModule,
   ],
