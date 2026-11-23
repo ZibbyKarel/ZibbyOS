@@ -57,6 +57,31 @@ describe("canvas server", () => {
     expect(injectCanvasHost("<header>x</header>")).toMatch(/^<head><meta/);
   });
 
+  it("injects effective params before canvas.js, serves params versions and ?download=1", async () => {
+    const store = new CanvasStore(dir);
+    const manifest = { params: [{ id: "t", label: "T", type: "text", value: "a<b\u2028" }] };
+    const m = await store.publish({
+      title: "My Chart!",
+      html: `<html><head></head><script type="application/zibby+json">${JSON.stringify(manifest)}</script>`,
+    });
+    await store.setParams(m.id, { t: "b" }, { by: "operator" });
+    const h = `${m.id}.canvas.localhost:3334`;
+    const v1 = (await request(server).get("/v1/").set("Host", h).expect(200)).text;
+    expect(v1).toContain(
+      'window.__ZIBBY_PARAMS__={"t":"a\\u003cb\\u2028"}</script><script src="/__zibby/canvas.js">',
+    );
+    const cur = (await request(server).get("/").set("Host", h).expect(200)).text;
+    expect(cur).toContain('window.__ZIBBY_PARAMS__={"t":"b"}');
+    const dl = await request(server).get("/v1/?download=1").set("Host", h).expect(200);
+    expect(dl.headers["content-disposition"]).toBe('attachment; filename="my-chart-v1.html"');
+    expect(dl.text).toContain("__ZIBBY_PARAMS__");
+    expect(cur).not.toBe("");
+    const plain = await request(server).get("/").set("Host", h);
+    expect(plain.headers["content-disposition"]).toBeUndefined();
+    const path = await request(server).get(`/a/${m.id}/`).set("Host", "localhost:3334");
+    expect(path.headers["content-security-policy"]).toContain("allow-downloads");
+  });
+
   it("serves the two host assets", async () => {
     const js = await request(server).get("/__zibby/canvas.js").expect(200);
     expect(js.headers["content-type"]).toContain("javascript");

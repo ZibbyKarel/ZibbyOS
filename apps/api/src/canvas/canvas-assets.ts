@@ -68,9 +68,23 @@ export const CANVAS_JS = String.raw`(function () {
   var seq = 0;
   var errorCount = 0;
   var MAX_ERRORS = 20;
+  var STATE_MAX = 64 * 1024;
+  var DOWNLOAD_MAX = 20 * 1024 * 1024;
+  var FETCH_TIMEOUT = 15000;
+  var pending = {};
 
   function on(type, fn) {
     (handlers[type] = handlers[type] || []).push(fn);
+  }
+
+  function emit(type, arg) {
+    (handlers[type] || []).forEach(function (fn) {
+      try {
+        fn(arg);
+      } catch (e) {
+        reportError(e && e.message, e && e.stack);
+      }
+    });
   }
 
   function resolveUrl(url) {
@@ -81,10 +95,14 @@ export const CANVAS_JS = String.raw`(function () {
     }
   }
 
+  // Returns the envelope id. Standalone has no host: nothing is sent or queued.
   function send(type, payload, id) {
-    var msg = { v: 1, id: id || "c" + ++seq, type: type, payload: payload || {} };
+    id = id || "c" + ++seq;
+    if (standalone) return id;
+    var msg = { v: 1, id: id, type: type, payload: payload || {} };
     if (port) port.postMessage(msg);
     else queue.push(msg);
+    return id;
   }
 
   function openUrl(url) {
@@ -94,23 +112,142 @@ export const CANVAS_JS = String.raw`(function () {
     else send("z:open-url", { url: u.href });
   }
 
-  window.zibby = { standalone: standalone, theme: theme, openUrl: openUrl, on: on };
-  if (standalone) return;
+  function copy(o) {
+    var out = {};
+    if (o && typeof o === "object")
+      Object.keys(o).forEach(function (k) {
+        out[k] = o[k];
+      });
+    return out;
+  }
+
+  var zibby = {
+    standalone: standalone,
+    theme: theme,
+    openUrl: openUrl,
+    on: on,
+    params: copy(window.__ZIBBY_PARAMS__),
+    state: null,
+    set: function (partial) {
+      var next = copy(zibby.params);
+      var add = copy(partial);
+      Object.keys(add).forEach(function (k) {
+        next[k] = add[k];
+      });
+      zibby.params = next;
+      emit("params", copy(next));
+      send("z:params-changed", { params: copy(next) });
+    },
+    saveState: function (obj) {
+      var json = JSON.stringify(obj);
+      if (json !== undefined && json.length > STATE_MAX) throw new Error("State too large (max 64 KB)");
+      send("z:state", { state: obj });
+    },
+    ask: function (text) {
+      send("z:ask", { text: String(text).slice(0, 2000) });
+    },
+    propose: function (p) {
+      p = p || {};
+      send("z:propose", { title: String(p.title || "").slice(0, 120), prompt: String(p.prompt || "").slice(0, 4000) });
+    },
+    fetch: function (url) {
+      if (standalone) return Promise.reject(new Error("Open in ZibbyOS to use the network"));
+      var u = resolveUrl(url);
+      if (!u) return Promise.reject(new Error("Invalid URL"));
+      return new Promise(function (resolve, reject) {
+        var id = send("z:fetch", { url: u.href });
+        var timer = setTimeout(function () {
+          delete pending[id];
+          reject(new Error("timeout"));
+        }, FETCH_TIMEOUT);
+        pending[id] = { resolve: resolve, reject: reject, timer: timer };
+      });
+    },
+    download: function (filename, data, mime) {
+      var bytes;
+      var encoding = "utf8";
+      var payload = data;
+      var type = mime || "application/octet-stream";
+      if (typeof data === "string") bytes = new TextEncoder().encode(data);
+      else if (Object.prototype.toString.call(data) === "[object ArrayBuffer]") bytes = new Uint8Array(data);
+      else if (ArrayBuffer.isView(data)) bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      else throw new Error("download: data must be a string, ArrayBuffer or typed array");
+      if (bytes.length > DOWNLOAD_MAX) throw new Error("File too large (max 20 MB)");
+      if (typeof data !== "string") {
+        var bin = "";
+        for (var i = 0; i < bytes.length; i += 0x8000)
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        payload = btoa(bin);
+        encoding = "base64";
+      }
+      if (standalone) {
+        var url = URL.createObjectURL(new Blob([bytes], { type: type }));
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = String(filename);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () {
+          URL.revokeObjectURL(url);
+        }, 0);
+        return;
+      }
+      send("z:download", { filename: String(filename), mime: type, data: payload, encoding: encoding });
+    },
+  };
+  window.zibby = zibby;
 
   function dispatch(msg) {
     if (!msg || msg.v !== 1 || typeof msg.type !== "string") return;
+    var payload = msg.payload || {};
     if (msg.type === "z:ping") send("z:pong", {}, msg.id);
     else if (msg.type === "z:visibility")
-      window.dispatchEvent(new CustomEvent("zibby:visibility", { detail: msg.payload || {} }));
-    else if (msg.type !== "z:hello") return;
-    (handlers[msg.type] || []).forEach(function (fn) {
-      try {
-        fn(msg.payload || {});
-      } catch (e) {
-        reportError(e && e.message, e && e.stack);
-      }
-    });
+      window.dispatchEvent(new CustomEvent("zibby:visibility", { detail: payload }));
+    else if (msg.type === "z:params") zibby.params = copy(payload.params);
+    else if (msg.type === "z:reply") {
+      var p = pending[msg.id];
+      if (!p) return;
+      delete pending[msg.id];
+      clearTimeout(p.timer);
+      if (payload.ok) p.resolve(payload.result);
+      else p.reject(new Error(String(payload.error || "fetch failed")));
+      return;
+    } else if (msg.type === "z:hello") {
+      zibby.state = payload.state === undefined ? null : payload.state;
+    } else return;
+    emit(msg.type, payload);
+    if (msg.type === "z:params") emit("params", copy(zibby.params));
+    else if (msg.type === "z:hello") emit("state", zibby.state);
   }
+
+  function reportError(message, stack) {
+    if (errorCount >= MAX_ERRORS) return;
+    errorCount++;
+    send("z:error", { message: String(message || "Error"), stack: stack ? String(stack) : undefined });
+  }
+
+  function onLink(e) {
+    if (e.defaultPrevented) return;
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a) return;
+    var u = resolveUrl(a.getAttribute("href"));
+    if (!u) return;
+    if (u.protocol === "zibby:") {
+      e.preventDefault();
+      send("z:open-zibby", { href: u.href });
+      return;
+    }
+    if (standalone) return;
+    var here = location.href.split("#")[0];
+    if (u.href.split("#")[0] === here || u.origin === location.origin) return;
+    e.preventDefault();
+    if (u.protocol === "http:" || u.protocol === "https:") openUrl(u.href);
+  }
+  document.addEventListener("click", onLink, true);
+  document.addEventListener("auxclick", onLink, true);
+
+  if (standalone) return;
 
   window.addEventListener("message", function (e) {
     var msg = e.data;
@@ -127,11 +264,6 @@ export const CANVAS_JS = String.raw`(function () {
     dispatch(msg);
   });
 
-  function reportError(message, stack) {
-    if (errorCount >= MAX_ERRORS) return;
-    errorCount++;
-    send("z:error", { message: String(message || "Error"), stack: stack ? String(stack) : undefined });
-  }
   // Capture phase also sees resource load failures (a CDN script that 404s doesn't bubble).
   window.addEventListener(
     "error",
@@ -149,20 +281,6 @@ export const CANVAS_JS = String.raw`(function () {
 
   if (document.readyState === "complete") send("z:ready");
   else window.addEventListener("load", function () { send("z:ready"); });
-
-  function onLink(e) {
-    if (e.defaultPrevented) return;
-    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
-    if (!a) return;
-    var u = resolveUrl(a.getAttribute("href"));
-    if (!u) return;
-    var here = location.href.split("#")[0];
-    if (u.href.split("#")[0] === here || u.origin === location.origin) return;
-    e.preventDefault();
-    if (u.protocol === "http:" || u.protocol === "https:") openUrl(u.href);
-  }
-  document.addEventListener("click", onLink, true);
-  document.addEventListener("auxclick", onLink, true);
 
   function isHostKey(e) {
     if (e.key === "Escape") return !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey;

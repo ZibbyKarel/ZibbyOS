@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ApprovalsModule } from "../approvals/approvals.module";
 import { dataDir } from "../shared/data-dir";
 import { CanvasController } from "./canvas.controller";
 import { CANVAS_DIR, CanvasStore } from "./canvas.store";
@@ -10,6 +11,7 @@ export function resolveCanvasDir(): string {
 
 /** Canvas registry. The HTTP listener that serves the pages is started from `main.ts`. */
 @Module({
+  imports: [ApprovalsModule],
   controllers: [CanvasController],
   providers: [{ provide: CANVAS_DIR, useFactory: resolveCanvasDir }, CanvasStore],
   exports: [CanvasStore],
