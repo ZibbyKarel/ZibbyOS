@@ -16,11 +16,12 @@ describe("CanvasPanel", () => {
     expect(screen.queryByTestId(CanvasPanelTestId.Overlay)).toBeNull();
   });
 
-  it("wires the iframe from props (ref-as-prop, dark scheme)", () => {
+  it("wires the iframe from props (ref-as-prop, colorScheme)", () => {
     const ref = createRef<HTMLIFrameElement>();
     render(
       <CanvasPanel
         allow="clipboard-read"
+        colorScheme="light"
         frameRef={ref}
         frameTitle="Canvas frame"
         sandbox="allow-scripts"
@@ -34,7 +35,7 @@ describe("CanvasPanel", () => {
     expect(frame).toHaveAttribute("sandbox", "allow-scripts");
     expect(frame).toHaveAttribute("allow", "clipboard-read");
     expect(frame).toHaveAccessibleName("Canvas frame");
-    expect(frame).toHaveStyle({ colorScheme: "dark" });
+    expect(frame).toHaveStyle({ colorScheme: "light" });
   });
 
   it("labels and fires every action; Full flips to Back", () => {

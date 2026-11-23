@@ -57,12 +57,22 @@ export function buildCanvasUrls(base: string | null, id: string, version: number
 }
 
 /** The canvas URLs of `id` at `version` for the current page and environment. */
-export function canvasUrls(id: string, version: number): CanvasUrls {
+export function canvasUrls(
+  id: string,
+  version: number,
+  theme: "light" | "dark" = "dark",
+): CanvasUrls {
   const base = resolveCanvasBase({
     pageHostname: typeof window === "undefined" ? "localhost" : window.location.hostname,
     remoteUrl: process.env.NEXT_PUBLIC_REMOTE_CANVAS_URL,
     canvasUrl: process.env.NEXT_PUBLIC_CANVAS_URL,
     apiUrl: process.env.NEXT_PUBLIC_API_URL,
   });
-  return buildCanvasUrls(base, id, version);
+  const urls = buildCanvasUrls(base, id, version);
+  const q = `?theme=${theme}`;
+  return {
+    ...urls,
+    frame: urls.frame && urls.frame + q,
+    external: urls.external && urls.external + q,
+  };
 }

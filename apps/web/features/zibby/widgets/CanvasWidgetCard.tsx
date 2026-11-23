@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatWidget } from "@zibby/contracts";
-import { CanvasCard } from "@zibby/design-system";
+import { CanvasCard, useResolvedTheme } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useIsPhone } from "../../../hooks/useIsPhone";
 import { canvasUrls } from "../../canvas/canvasUrl";
@@ -17,14 +17,16 @@ export interface CanvasWidgetCardProps {
  */
 export function CanvasWidgetCard({ widget }: CanvasWidgetCardProps) {
   const t = useTranslations("zibby.canvas");
+  const theme = useResolvedTheme();
   const phone = useIsPhone();
   const chat = useOptionalChat();
   const { id, version, title } = widget;
-  const urls = canvasUrls(id, version);
+  const urls = canvasUrls(id, version, theme);
   const thumb = urls.frame ?? urls.external;
   const open = chat ? () => chat.openCanvas({ id, version, title }) : undefined;
   return (
     <CanvasCard
+      colorScheme={theme}
       href={phone ? (urls.external ?? undefined) : undefined}
       note={thumb ? undefined : t("card.openOnMac")}
       onOpen={phone ? undefined : open}

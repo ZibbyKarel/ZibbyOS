@@ -48,7 +48,9 @@ describe("canvas server", () => {
 
   it("injects host files with and without <head>", async () => {
     const withHead = (await request(server).get("/v1/").set("Host", host())).text;
-    expect(withHead).toMatch(/<head><meta name="color-scheme"[^]*canvas\.js"><\/script><title>/);
+    expect(withHead).toMatch(
+      /<head><meta name="color-scheme" content="light dark">[^]*canvas\.js"><\/script><title>/,
+    );
     const noHead = (await request(server).get("/").set("Host", host())).text;
     expect(noHead.startsWith("<head><meta")).toBe(true);
     expect(injectCanvasHost("<html lang=en><body/>")).toMatch(/^<html lang=en><head><meta/);

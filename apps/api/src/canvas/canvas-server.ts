@@ -12,7 +12,7 @@ const HOST_RE = /^([a-z0-9]{10})\.canvas\.localhost(?::\d+)?$/;
 const VERSION_RE = /^v([1-9]\d{0,5})$/;
 
 const INJECT =
-  '<meta name="color-scheme" content="dark"><link rel="stylesheet" href="/__zibby/canvas.css"><script src="/__zibby/canvas.js"></script>';
+  '<meta name="color-scheme" content="light dark"><link rel="stylesheet" href="/__zibby/canvas.css"><script src="/__zibby/canvas.js"></script>';
 
 /** Inject the host files at the start of `<head>` (creating it when missing). */
 export function injectCanvasHost(html: string): string {

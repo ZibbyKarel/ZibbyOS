@@ -4,7 +4,8 @@
  * `String.raw` keeps backslashes in the JS verbatim.
  */
 
-export const CANVAS_CSS = String.raw`:root {
+export const CANVAS_CSS = String.raw`:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
   --ink: #eceef2;
   --ink2: #a6acb7;
@@ -21,6 +22,26 @@ export const CANVAS_CSS = String.raw`:root {
   --c1: #a78bfa;
   --c2: #7dd3fc;
   --c3: #34d399;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ink: #15171b;
+  --ink2: #4a4f58;
+  --ink3: #686d77;
+  --line: rgba(20, 22, 26, 0.09);
+  --line2: rgba(20, 22, 26, 0.16);
+  --p1: #ffffff;
+  --p2: #f0f0ec;
+  --amber: #f5a524;
+  --sky: #0369a1;
+  --violet: #7c3aed;
+  --emerald: #047857;
+  --rose: #e11d48;
+  --c1: #7c3aed;
+  --c2: #0369a1;
+  --c3: #047857;
+}
+:root {
   --font-sans: Geist, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 }
@@ -36,6 +57,11 @@ body {
 export const CANVAS_JS = String.raw`(function () {
   "use strict";
   var standalone = window === window.top;
+  var theme = new URLSearchParams(location.search).get("theme");
+  if (theme !== "light" && theme !== "dark")
+    theme = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
   var handlers = {};
   var port = null;
   var queue = [];
@@ -68,7 +94,7 @@ export const CANVAS_JS = String.raw`(function () {
     else send("z:open-url", { url: u.href });
   }
 
-  window.zibby = { standalone: standalone, openUrl: openUrl, on: on };
+  window.zibby = { standalone: standalone, theme: theme, openUrl: openUrl, on: on };
   if (standalone) return;
 
   function dispatch(msg) {

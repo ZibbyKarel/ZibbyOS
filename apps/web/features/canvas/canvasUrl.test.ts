@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildCanvasUrls, resolveCanvasBase } from "./canvasUrl";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildCanvasUrls, canvasUrls, resolveCanvasBase } from "./canvasUrl";
 
 describe("resolveCanvasBase", () => {
   it("localhost: canvas url wins, else API port + 1", () => {
@@ -44,5 +44,15 @@ describe("buildCanvasUrls", () => {
       external: null,
       isolated: false,
     });
+  });
+});
+
+describe("canvasUrls", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("appends ?theme= to frame and external", () => {
+    vi.stubEnv("NEXT_PUBLIC_CANVAS_URL", "http://localhost:3334");
+    const u = canvasUrls("abc1234567", 2, "light");
+    expect(u.frame).toBe("http://abc1234567.canvas.localhost:3334/v2/?theme=light");
+    expect(u.external).toBe("http://localhost:3334/a/abc1234567/v2/?theme=light");
   });
 });

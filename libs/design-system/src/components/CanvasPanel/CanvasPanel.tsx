@@ -46,6 +46,8 @@ export interface CanvasPanelProps {
   message?: ReactNode;
   actions?: ReactNode;
   full?: boolean;
+  /** Must match the page's own scheme, else the browser paints an opaque canvas. */
+  colorScheme?: "light" | "dark";
   onReload?: () => void;
   onOpenExternal?: () => void;
   onToggleFull?: () => void;
@@ -92,6 +94,7 @@ export function CanvasPanel({
   message,
   actions,
   full = false,
+  colorScheme = "dark",
   onReload,
   onOpenExternal,
   onToggleFull,
@@ -198,12 +201,12 @@ export function CanvasPanel({
       <div className="relative min-h-0 flex-1" data-testid={CanvasPanelTestId.Body}>
         <iframe
           allow={allow}
-          className="size-full border-0 bg-transparent [color-scheme:dark]"
+          className="size-full border-0 bg-transparent"
           data-testid={CanvasPanelTestId.Frame}
           ref={frameRef}
           sandbox={sandbox}
           src={src}
-          style={{ colorScheme: "dark" }}
+          style={{ colorScheme }}
           title={frameTitle ?? title}
         />
         {overlay && (

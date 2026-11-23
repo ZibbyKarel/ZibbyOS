@@ -24,7 +24,7 @@ describe("CanvasWidgetCard", () => {
     render(<CanvasWidgetCard widget={widget} />);
     expect(screen.getByTestId(CanvasCardTestId.Frame)).toHaveAttribute(
       "src",
-      "http://abc1234567.canvas.localhost:3334/v3/",
+      "http://abc1234567.canvas.localhost:3334/v3/?theme=dark",
     );
     fireEvent.click(screen.getByTestId(CanvasCardTestId.Root));
     expect(openCanvas).toHaveBeenCalledWith({ id: "abc1234567", version: 3, title: "Plan" });
@@ -34,7 +34,7 @@ describe("CanvasWidgetCard", () => {
     phone = true;
     render(<CanvasWidgetCard widget={widget} />);
     const root = screen.getByTestId(CanvasCardTestId.Root);
-    expect(root).toHaveAttribute("href", "http://localhost:3334/a/abc1234567/v3/");
+    expect(root).toHaveAttribute("href", "http://localhost:3334/a/abc1234567/v3/?theme=dark");
     fireEvent.click(root);
     expect(openCanvas).not.toHaveBeenCalled();
   });

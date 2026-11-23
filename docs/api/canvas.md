@@ -28,4 +28,5 @@ overlay shows next to the chat in a sandboxed iframe. Plan and security model:
 - `canvas.js` bridge: envelope `{v:1,id,type,payload}`; host sends `z:hello` (with a
   `MessageChannel` port), then `z:ping` / `z:visibility`; canvas answers `z:hello-ack`,
   `z:ready`, `z:error` (max 20), `z:pong`, `z:open-url`, `z:key` (Esc, ⌘⇧↵, ⌘\, ⌥Space, ⌥H).
+  Theme: `?theme=light|dark` on the page URL (else `prefers-color-scheme`) sets `data-theme` and `window.zibby.theme`.
   Standalone (`window === window.top`): `window.zibby.standalone`, links open normally.

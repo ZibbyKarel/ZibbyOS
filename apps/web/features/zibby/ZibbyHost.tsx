@@ -9,6 +9,7 @@ import {
   ZibbyOverlay,
   ZibbySuggestions,
   ZibbyToast,
+  useResolvedTheme,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
@@ -339,11 +340,13 @@ export function ZibbyHost() {
   }, []);
 
   // Phone: the newest canvas of the thread, pinned as a small thumbnail (tap opens the browser).
+  const resolvedTheme = useResolvedTheme();
   const pinWidget = compact ? latestCanvasWidget(messages) : null;
-  const pinUrls = pinWidget ? canvasUrls(pinWidget.id, pinWidget.version) : null;
+  const pinUrls = pinWidget ? canvasUrls(pinWidget.id, pinWidget.version, resolvedTheme) : null;
   const pinnedCanvas =
     pinWidget && pinUrls?.external ? (
       <CanvasCard
+        colorScheme={resolvedTheme}
         href={pinUrls.external}
         size="pin"
         src={pinUrls.frame ?? pinUrls.external}

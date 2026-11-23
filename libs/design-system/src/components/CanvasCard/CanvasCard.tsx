@@ -25,6 +25,8 @@ export interface CanvasCardProps {
   /** Secondary line, e.g. "Open on the Mac". */
   note?: string;
   size?: CanvasCardSize;
+  /** Must match the page's own scheme, else the browser paints an opaque canvas. */
+  colorScheme?: "light" | "dark";
 }
 
 /** The page is rendered at this width, then scaled down to the thumbnail. */
@@ -52,6 +54,7 @@ export function CanvasCard({
   href,
   note,
   size = "card",
+  colorScheme = "dark",
 }: CanvasCardProps) {
   const s = SIZES[size];
   const pin = size === "pin";
@@ -64,14 +67,14 @@ export function CanvasCard({
         <iframe
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute top-0 left-0 origin-top-left border-0 bg-transparent [color-scheme:dark]",
+            "pointer-events-none absolute top-0 left-0 origin-top-left border-0 bg-transparent",
             s.scale,
           )}
           data-testid={CanvasCardTestId.Frame}
           loading="lazy"
           sandbox="allow-scripts"
           src={src}
-          style={{ width: PAGE_W, height: pin ? PAGE_W : 625, colorScheme: "dark" }}
+          style={{ width: PAGE_W, height: pin ? PAGE_W : 625, colorScheme }}
           tabIndex={-1}
           title=""
         />

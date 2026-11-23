@@ -1,6 +1,11 @@
 "use client";
 
-import { Button, CanvasPanel, type CanvasPanelStatus } from "@zibby/design-system";
+import {
+  Button,
+  CanvasPanel,
+  type CanvasPanelStatus,
+  useResolvedTheme,
+} from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
 import { canvasUrls } from "../canvas/canvasUrl";
@@ -25,8 +30,9 @@ export interface ZibbyCanvasPanelProps {
 export function ZibbyCanvasPanel({ canvas, onKey }: ZibbyCanvasPanelProps) {
   const t = useTranslations("zibby.canvas.panel");
   const { canvasMode, setCanvasMode, closeCanvas } = useChat();
+  const theme = useResolvedTheme();
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const { frame, external, isolated } = canvasUrls(canvas.id, canvas.version);
+  const { frame, external, isolated } = canvasUrls(canvas.id, canvas.version, theme);
   const { status, errors, reload } = useCanvasBridge({
     frameRef,
     src: frame ?? "",
@@ -53,6 +59,7 @@ export function ZibbyCanvasPanel({ canvas, onKey }: ZibbyCanvasPanelProps) {
       allow="fullscreen; clipboard-write"
       backLabel={t("back")}
       closeLabel={t("close")}
+      colorScheme={theme}
       errorCount={errors.length}
       errorsLabel={(count) => t("errors", { count })}
       frameRef={frameRef}
