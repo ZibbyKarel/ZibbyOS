@@ -1,4 +1,9 @@
 import type { CredentialsInput, Integration } from "@zibby/contracts";
+import {
+  GithubRunsHttpError,
+  GithubRunsReader,
+  type GithubWorkflowRun,
+} from "../git-host/github-runs.reader";
 import type {
   MonitorAdapter,
   MonitorAlert,
@@ -6,23 +11,8 @@ import type {
   MonitorStatusSnapshot,
 } from "./monitor-adapter";
 
-const GITHUB_API = "https://api.github.com";
-
 /** Workflow-run conclusions that read as "the build is red". */
 const RED_CONCLUSIONS = new Set(["failure", "timed_out", "startup_failure"]);
-
-interface GithubWorkflowRun {
-  id?: number;
-  run_attempt?: number;
-  name?: string;
-  status?: string;
-  conclusion?: string | null;
-  head_branch?: string;
-  head_sha?: string;
-  html_url?: string;
-  created_at?: string;
-  updated_at?: string;
-}
 
 /** PAT from the closed credentials union (null if absent). */
 function tokenOf(creds: CredentialsInput): string | null {
@@ -30,8 +20,8 @@ function tokenOf(creds: CredentialsInput): string | null {
 }
 
 /**
- * The first monitor (N3): GitHub Actions. Polls `/repos/{repo}/actions/runs`
- * (newest-first) for an integration whose `streams` opted into `"ci"`, keeps a
+ * The first monitor (N3): GitHub Actions. Reads `/repos/{repo}/actions/runs`
+ * (newest-first, through the shared {@link GithubRunsReader}) for an integration whose `streams` opted into `"ci"`, keeps a
  * `created_at` cursor, and yields one alert per COMPLETED run with a red
  * conclusion — id `ci-<repo>-<runId>-<attempt>`, so a retried workflow is a new
  * occurrence and a re-poll a pure dedup hit. Green/in-progress runs are a no-op.
@@ -40,7 +30,10 @@ function tokenOf(creds: CredentialsInput): string | null {
 export class GithubCiMonitor implements MonitorAdapter {
   readonly kind = "github-ci" as const;
 
-  constructor(private readonly fetchImpl: typeof fetch = fetch) {}
+  constructor(
+    fetchImpl: typeof fetch = fetch,
+    private readonly reader = new GithubRunsReader(fetchImpl),
+  ) {}
 
   wants(integration: Integration): boolean {
     return integration.config.kind === "github" && integration.config.streams.includes("ci");
@@ -59,15 +52,11 @@ export class GithubCiMonitor implements MonitorAdapter {
     const { repo } = integration.config;
     if (!repo) throw new Error("github integration has no repo");
 
-    const res = await this.fetchImpl(`${GITHUB_API}/repos/${repo}/actions/runs?per_page=50`, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json" },
+    const runs = await this.reader.runs(repo, token).catch((err: unknown) => {
+      if (err instanceof GithubRunsHttpError && (err.status === 429 || err.status === 403))
+        throw new Error(`github rate limited (HTTP ${err.status})`);
+      throw err;
     });
-    if (res.status === 429 || res.status === 403) {
-      throw new Error(`github rate limited (HTTP ${res.status})`);
-    }
-    if (!res.ok) throw new Error(`github workflow runs: HTTP ${res.status}`);
-    const body = (await res.json()) as { workflow_runs?: GithubWorkflowRun[] };
-    const runs = Array.isArray(body.workflow_runs) ? body.workflow_runs : [];
 
     const events: MonitorAlert[] = [];
     let newest = cursor;

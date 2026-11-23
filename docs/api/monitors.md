@@ -22,7 +22,8 @@ its runtime.
   `gitRemote`. Each repo has its own cursor and status sidecar keyed
   `<integrationId>--<owner>-<name>`, and its alerts/status carry the repo's first
   inheriting project as `projectId`.
-- Polls `/repos/{repo}/actions/runs` (newest-first), cursor = the latest
+- Reads `/repos/{repo}/actions/runs` (newest-first) through `GithubRunsReader`, the 5 min
+  per-repo cache it shares with project CI (`docs/api/project-ci.md`), cursor = the latest
   `created_at` (per integration × adapter, a sidecar under
   `MONITOR_EVENTS_DIR/cursors/`).
 - A finished run with conclusion `failure`/`timed_out`/`startup_failure` →

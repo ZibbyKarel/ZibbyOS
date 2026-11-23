@@ -17,8 +17,12 @@ Contract: `libs/contracts/src/project-ci/` (`projectCiContract`). Implementation
 | `state`       | `passing` \| `failing` \| `running` \| `pending` \| `cancelled` \| `skipped` \| `none` \| `error` — worst-first rollup of the workflows; `error` = the repo could not be read (see `error`) |
 | `workflows[]` | one run per workflow on `headSha` (the newest attempt), each with `jobs[]` → `steps[]`, all carrying a `state`                                                                              |
 
-GitHub reads: `GET /repos/{repo}` → `GET /repos/{repo}/actions/runs?branch=…` →
-`GET /repos/{repo}/actions/runs/{id}/jobs` per workflow. State mapping: `in_progress` → running,
+GitHub reads: `GET /repos/{repo}` (default branch, once per API process) → the newest runs of
+the repo from `GithubRunsReader` (`git-host/github-runs.reader.ts`, the one `actions/runs?per_page=50`
+read per repo per 5 min that the CI monitor shares), filtered to the default branch; only when that
+page has none of its runs, `GET /repos/{repo}/actions/runs?branch=…` →
+`GET /repos/{repo}/actions/runs/{id}/jobs` per workflow. A `fresh` read (the fix click) skips the
+shared cache. State mapping: `in_progress` → running,
 other non-completed → pending; `success` → passing; `failure` / `timed_out` / `startup_failure` →
 failing; `cancelled` → cancelled; any other conclusion (skipped, neutral, …) → skipped.
 

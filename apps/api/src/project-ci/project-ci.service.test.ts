@@ -1,5 +1,7 @@
 import type { Integration, Project } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GithubRunsReader } from "../git-host/github-runs.reader";
+import { GithubCiMonitor } from "../monitors/github-ci.monitor";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import {
   PROJECT_CI_CACHE_MS,
@@ -12,6 +14,7 @@ import {
 const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
 const GITHUB = { id: "gh", config: { kind: "github", repo: "acme/app" } } as unknown as Integration;
 const RUNS = "/repos/acme/app/actions/runs?branch=main&per_page=50";
+const SHARED = "/repos/acme/app/actions/runs?per_page=50";
 const JOBS_11 = "/repos/acme/app/actions/runs/11/jobs?per_page=100";
 const JOBS_12 = "/repos/acme/app/actions/runs/12/jobs?per_page=100";
 
@@ -134,6 +137,56 @@ describe("ProjectCiService", () => {
       "failing",
       "skipped",
     ]);
+  });
+
+  it("takes base-branch runs from the shared runs read; the default branch is read once", async () => {
+    const page = (gh[RUNS] as { workflow_runs: Record<string, unknown>[] }).workflow_runs;
+    gh[SHARED] = {
+      workflow_runs: [
+        {
+          id: 77,
+          workflow_id: 3,
+          name: "PR",
+          head_branch: "feat",
+          head_sha: "f",
+          status: "completed",
+          conclusion: "failure",
+        },
+        ...page.map((r) => ({ ...r, head_branch: "main" })),
+      ],
+    };
+    const ci = await service.get("acme");
+    expect(ci.workflows.map((w) => [w.name, w.state])).toEqual([
+      ["CI", "failing"],
+      ["Lint", "running"],
+    ]);
+    await service.get("acme", true);
+    expect(calls(RUNS)).toBe(0);
+    expect(calls("/repos/acme/app")).toBe(1);
+    expect(calls(SHARED)).toBe(2); // the fresh read skips the shared cache
+  });
+
+  it("shares one runs read with the CI monitor", async () => {
+    gh[SHARED] = { workflow_runs: [] };
+    const reader = new GithubRunsReader(fetchImpl as unknown as typeof fetch);
+    const monitor = new GithubCiMonitor(fetchImpl as unknown as typeof fetch, reader);
+    const shared = new ProjectCiService(
+      { get: async () => PROJECT } as never,
+      { resolveIntegrations: async () => integrations } as never,
+      { read: async () => ({ token: "tok" }) } as never,
+      { createTask } as never,
+      { list: async () => tasks } as never,
+      fetchImpl as unknown as typeof fetch,
+      undefined,
+      reader,
+    );
+    await monitor.poll(
+      { ...GITHUB, config: { kind: "github", repo: "acme/app", streams: ["ci"] } } as Integration,
+      { token: "tok" },
+      undefined,
+    );
+    await shared.get("acme");
+    expect(calls(SHARED)).toBe(1);
   });
 
   it("caches per project for PROJECT_CI_CACHE_MS", async () => {

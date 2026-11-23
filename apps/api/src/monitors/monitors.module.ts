@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { GitHostModule } from "../git-host/git-host.module";
+import { GithubRunsReader } from "../git-host/github-runs.reader";
 import { GitlabClient } from "../git-host/gitlab-client";
 import { IntegrationsModule } from "../integrations/integrations.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -33,10 +34,10 @@ export function resolveMonitorEventsDir(): string {
     MonitorEventStore,
     {
       provide: MonitorAdapterRegistry,
-      inject: [GitlabClient],
-      useFactory: (gitlab: GitlabClient) => {
+      inject: [GitlabClient, GithubRunsReader],
+      useFactory: (gitlab: GitlabClient, runs: GithubRunsReader) => {
         const registry = new MonitorAdapterRegistry();
-        registry.register(new GithubCiMonitor());
+        registry.register(new GithubCiMonitor(fetch, runs));
         registry.register(new GitlabCiMonitor(gitlab));
         registry.register(new SentryMonitor()); // NS2 F7a — the second monitor
         return registry;

@@ -3,6 +3,11 @@ import type { CiJob, CiState, CiWorkflowRun, Project, ProjectCi } from "@zibby/c
 import { isDeadTask } from "../inbox/inbox.service";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { resolveGitHostLink } from "../git-host/git-host-link";
+import {
+  GithubRunsHttpError,
+  GithubRunsReader,
+  type GithubWorkflowRun,
+} from "../git-host/github-runs.reader";
 import { GitlabClient } from "../git-host/gitlab-client";
 import { NoGithubLinkError } from "../projects/projects.errors";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -12,7 +17,7 @@ import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.s
 import { TaskSchedulerService } from "../tasks/task-scheduler.service";
 
 const GITHUB_API = "https://api.github.com";
-/** Base-branch CI is polled state; one GitHub read per project per minute at most. */
+/** Base-branch CI is polled state; one GitHub read per project per 5 minutes at most. */
 export const PROJECT_CI_CACHE_MS = 5 * 60_000;
 const FIX_TITLE = "Fix base-branch CI";
 
@@ -37,15 +42,6 @@ interface GhJob {
   status?: string;
   conclusion?: string | null;
   steps?: GhStep[];
-}
-interface GhRun {
-  id?: number;
-  name?: string;
-  workflow_id?: number;
-  html_url?: string;
-  head_sha?: string;
-  status?: string;
-  conclusion?: string | null;
 }
 
 /** GitHub status + conclusion → one CI state. */
@@ -90,9 +86,12 @@ const gitlabUrl = (remote?: string): string | undefined => {
 export class ProjectCiService {
   private readonly fetchImpl: typeof fetch;
   private readonly gitlab: GitlabClient;
+  private readonly runsReader: GithubRunsReader;
   private readonly cache = new Map<string, { at: number; ci: ProjectCi }>();
   /** Jobs of COMPLETED runs per project (immutable once done), keyed by run id. */
   private readonly jobsCache = new Map<string, Map<number, GhJob[]>>();
+  /** Default branch per repo; ponytail: never refreshed, a renamed default needs an API restart. */
+  private readonly defaultBranches = new Map<string, string>();
   /** Per-project chain: concurrent fix clicks run one after another. */
   private readonly locks = new Map<string, Promise<unknown>>();
 
@@ -104,9 +103,11 @@ export class ProjectCiService {
     private readonly tasks: ScheduledTasksStorageService,
     @Optional() fetchImpl?: typeof fetch,
     @Optional() gitlab?: GitlabClient,
+    @Optional() runsReader?: GithubRunsReader,
   ) {
     this.fetchImpl = fetchImpl ?? fetch;
     this.gitlab = gitlab ?? new GitlabClient();
+    this.runsReader = runsReader ?? new GithubRunsReader(this.fetchImpl);
   }
 
   /** `fresh` skips the cache (the fix click acts on the real state). */
@@ -116,7 +117,7 @@ export class ProjectCiService {
     let ci = hit?.ci;
     if (fresh || !hit || now - hit.at >= PROJECT_CI_CACHE_MS) {
       // An unreachable repo is cached as `error` too — a 403 loop must not burn the quota.
-      ci = await this.read(project, now).catch(
+      ci = await this.read(project, now, fresh).catch(
         (err: unknown): ProjectCi => ({
           projectId,
           provider: "github",
@@ -176,7 +177,7 @@ export class ProjectCiService {
     return { taskId: result.task.id };
   }
 
-  private async read(project: Project, now: number): Promise<ProjectCi> {
+  private async read(project: Project, now: number, fresh = false): Promise<ProjectCi> {
     const checkedAt = new Date(now).toISOString();
     const base = { projectId: project.id, state: "none" as const, workflows: [], checkedAt };
     const link = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
@@ -200,11 +201,30 @@ export class ProjectCiService {
       if (!res.ok) throw new Error(`github ${path}: HTTP ${res.status}`);
       return (await res.json()) as T;
     };
-    const { default_branch: branch } = await gh<{ default_branch?: string }>("");
-    if (!branch) return { ...base, provider: "github", repoUrl };
-    const { workflow_runs: runs = [] } = await gh<{ workflow_runs?: GhRun[] }>(
-      `/actions/runs?branch=${encodeURIComponent(branch)}&per_page=50`,
-    );
+    let branch = this.defaultBranches.get(link.repo);
+    if (!branch) {
+      branch = (await gh<{ default_branch?: string }>("")).default_branch;
+      if (!branch) return { ...base, provider: "github", repoUrl };
+      this.defaultBranches.set(link.repo, branch);
+    }
+    // The CI monitor's shared read of the newest runs (all branches) usually has the base
+    // branch's; only a repo busy enough to push it off that page costs a branch-scoped read.
+    const shared = await this.runsReader
+      .runs(link.repo, link.token, fresh)
+      .catch((err: unknown) => {
+        if (err instanceof GithubRunsHttpError && err.rateLimited)
+          throw new Error(`github rate limited (HTTP ${err.status})`);
+        return [];
+      });
+    let runs = shared.filter((r) => r.head_branch === branch);
+    if (runs.length === 0) {
+      runs =
+        (
+          await gh<{ workflow_runs?: GithubWorkflowRun[] }>(
+            `/actions/runs?branch=${encodeURIComponent(branch)}&per_page=50`,
+          )
+        ).workflow_runs ?? [];
+    }
     const headSha = runs[0]?.head_sha;
     // Newest commit with runs; newest run per workflow (a re-run replaces the older one).
     const seen = new Set<number | undefined>();
