@@ -980,7 +980,12 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
           // already delivered create_task's result — that result is the event.
           if (opencodeTurn && name === "create_task") break;
           // The widget itself is the event (emitted when the handler pushes it).
-          if (name === "show_widget" || name === "propose_pr_replies" || name === "publish_canvas")
+          if (
+            name === "show_widget" ||
+            name === "propose_pr_replies" ||
+            name === "publish_canvas" ||
+            name === "set_canvas_params"
+          )
             break;
           const tool = this.describeToolStarted(event.name, event.id);
           if (tool.status === "started") pendingCreateTaskCallIds.push(event.id);

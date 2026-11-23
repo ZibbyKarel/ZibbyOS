@@ -12,7 +12,7 @@ import {
 } from "@zibby/contracts";
 import { z } from "zod";
 import { AutopilotService } from "../autopilot/autopilot.service";
-import { CanvasStore, CanvasStoreError } from "../canvas/canvas.store";
+import { CanvasStore, CanvasStoreError, codeVersionOf } from "../canvas/canvas.store";
 import { parsePrUrl } from "../git-host/git-host-url";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
@@ -507,7 +507,19 @@ export class ChatMcpController {
           "no reliance on localStorage; three.js: `alpha:true`, `setClearColor(0,0)`, no " +
           "scene.background, pause the render loop on the `window` event `zibby:visibility` when " +
           '`detail.state === "hidden"`. To change an existing canvas pass its `id` (a new version ' +
-          "is created, old ones are kept); omit `id` for a new canvas.",
+          "is created, old ones are kept); omit `id` for a new canvas. " +
+          "INTERACTIVITY (all optional). Manifest: " +
+          '`<script type="application/zibby+json">{"params":[{"id","label","type":"number|text|boolean|select",' +
+          '"unit","min","max","step","options","value"}],"net":["https://api.example.com"]}</script>`. ' +
+          'Read `zibby.params`; `zibby.on("params", fn)` fires on agent param changes and local set; ' +
+          "`zibby.set({...})` for in-page controls (persists as an operator param version). For tweaks " +
+          "prefer params + set_canvas_params over republishing code. `await zibby.fetch(url)` -> " +
+          "{status, contentType, body}: only https origins listed in `net`, the operator approves each " +
+          "origin, text only; plain fetch/XHR stay blocked. `zibby.download(filename, data, mime)` " +
+          "(string or ArrayBuffer; e.g. STL/CSV/SVG export buttons). `zibby.ask(text)` prefills the " +
+          "operator's composer. `zibby.propose({title, prompt})` shows an approval banner. " +
+          '`zibby.saveState(obj)` / `zibby.on("state", fn)` keep UI state across reloads (<=64 KB). ' +
+          '`<a href="zibby://runs/<id>">` links into ZibbyOS.',
         inputSchema: {
           title: z.string().min(1).max(120).describe("Short canvas title."),
           html: z.string().describe("Complete HTML document."),
@@ -543,6 +555,88 @@ export class ChatMcpController {
           if (err instanceof CanvasStoreError) return errorText(`Canvas rejected: ${err.message}`);
           throw err;
         }
+      },
+    );
+
+    server.registerTool(
+      "set_canvas_params",
+      {
+        description:
+          "Change the parameter values of an existing canvas (declared in its manifest) without " +
+          "republishing code. Creates a new params version and shows the canvas again. Use " +
+          "get_canvas to see the declared params.",
+        inputSchema: {
+          id: z.string().regex(CANVAS_ID_PATTERN).describe("Canvas id."),
+          params: z
+            .record(z.string(), z.union([z.number(), z.string(), z.boolean()]))
+            .describe("Param id -> new value (only the ones to change)."),
+          note: z.string().max(200).optional().describe("Optional one-line version note."),
+        },
+      },
+      async ({ id, params, note }) => {
+        try {
+          const meta = await this.canvases.setParams(id, params, {
+            by: "agent",
+            ...(note ? { note } : {}),
+          });
+          const shown = this.toolResults.pushWidget(conversationId, {
+            kind: "canvas",
+            id: meta.id,
+            version: meta.current,
+            title: meta.title,
+          });
+          if (!shown)
+            return errorText("No chat turn is in flight — the canvas could not be shown.");
+          return text(`Set params on canvas ${meta.id} (v${meta.current}).`);
+        } catch (err) {
+          if (err instanceof CanvasStoreError) return errorText(`Canvas rejected: ${err.message}`);
+          throw err;
+        }
+      },
+    );
+
+    server.registerTool(
+      "get_canvas",
+      {
+        description:
+          "Read a canvas's state: title, current version, declared params (with limits), current " +
+          "values, net origins and the version list. Read-only.",
+        inputSchema: { id: z.string().regex(CANVAS_ID_PATTERN).describe("Canvas id.") },
+      },
+      async ({ id }) => {
+        const meta = await this.canvases.get(id);
+        if (!meta) return errorText(`Canvas "${id}" not found.`);
+        const eff = await this.canvases.effective(id, meta.current);
+        const manifest = codeVersionOf(meta, meta.current)?.manifest;
+        return text(
+          JSON.stringify({
+            id: meta.id,
+            title: meta.title,
+            current: meta.current,
+            params: (manifest?.params ?? []).map(
+              ({ id, label, type, unit, min, max, step, options }) => ({
+                id,
+                label,
+                type,
+                unit,
+                min,
+                max,
+                step,
+                options,
+              }),
+            ),
+            values: eff?.params ?? {},
+            net: manifest?.net ?? [],
+            versions: meta.versions.map(({ version, kind, base, by, note, at }) => ({
+              version,
+              kind,
+              ...(base !== undefined ? { base } : {}),
+              ...(by ? { by } : {}),
+              ...(note ? { note } : {}),
+              at,
+            })),
+          }),
+        );
       },
     );
 

@@ -27,6 +27,9 @@ const proposeOpenFolder = vi.fn();
 const capturePersonalNote = vi.fn<() => Promise<string>>();
 const autopilotSet = vi.fn();
 const canvasPublish = vi.fn();
+const canvasSetParams = vi.fn();
+const canvasGet = vi.fn();
+const canvasEffective = vi.fn();
 
 /**
  * HTTP e2e for the chat MCP endpoint's NEW auth guard (T9). Same real-listening-port
@@ -62,7 +65,15 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
           useValue: { list: selfApiList, describe: selfApiDescribe, call: selfApiCall },
         },
         { provide: AutopilotService, useValue: { set: autopilotSet } },
-        { provide: CanvasStore, useValue: { publish: canvasPublish } },
+        {
+          provide: CanvasStore,
+          useValue: {
+            publish: canvasPublish,
+            setParams: canvasSetParams,
+            get: canvasGet,
+            effective: canvasEffective,
+          },
+        },
         ChatToolResultRegistry,
         ChatMcpAuthService,
         ChatMcpAuthGuard,
@@ -90,6 +101,9 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
     proposeOpenFolder.mockReset();
     capturePersonalNote.mockReset();
     canvasPublish.mockReset();
+    canvasSetParams.mockReset();
+    canvasGet.mockReset();
+    canvasEffective.mockReset();
   });
 
   const listToolsBody = {
@@ -148,6 +162,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "autopilot_off",
       "capture_note",
       "create_task",
+      "get_canvas",
       "get_status",
       "list_knowledge_bases",
       "machine_rename",
@@ -158,6 +173,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "read_knowledge_base_note",
       "recall_memory",
       "search_knowledge_base",
+      "set_canvas_params",
       "show_widget",
     ]);
 
@@ -392,6 +408,80 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
     expect(rejected.isError).toBe(true);
     expect((rejected.content as Array<{ text: string }>)[0]?.text).toContain("unknown canvas id");
     expect(shown).toHaveLength(2);
+    off();
+    await client.close();
+  });
+
+  it("set_canvas_params pushes the widget, rejects bad params; get_canvas returns JSON", async () => {
+    const shown: unknown[] = [];
+    const off = toolResults.onWidget("conv-canvas2", (w) => shown.push(w));
+    const client = new Client({ name: "chat-mcp-test-client", version: "1.0.0" });
+    await client.connect(
+      new StreamableHTTPClientTransport(
+        new URL(`${baseUrl}/api/chat/mcp?conversationId=conv-canvas2`),
+        { requestInit: { headers: { Authorization: `Bearer ${auth.bearerToken}` } } },
+      ),
+    );
+    canvasSetParams.mockResolvedValueOnce({ id: "abcde12345", title: "Chart", current: 3 });
+    const ok = await client.callTool({
+      name: "set_canvas_params",
+      arguments: { id: "abcde12345", params: { w: 5 }, note: "wider" },
+    });
+    expect(ok.isError).toBeFalsy();
+    expect(canvasSetParams).toHaveBeenLastCalledWith(
+      "abcde12345",
+      { w: 5 },
+      { by: "agent", note: "wider" },
+    );
+    expect((ok.content as Array<{ text: string }>)[0]?.text).toBe(
+      "Set params on canvas abcde12345 (v3).",
+    );
+    expect(shown).toEqual([{ kind: "canvas", id: "abcde12345", version: 3, title: "Chart" }]);
+
+    canvasSetParams.mockRejectedValueOnce(new CanvasStoreError("bad-params", '"w" must be <= 9'));
+    const bad = await client.callTool({
+      name: "set_canvas_params",
+      arguments: { id: "abcde12345", params: { w: 50 } },
+    });
+    expect(bad.isError).toBe(true);
+    expect((bad.content as Array<{ text: string }>)[0]?.text).toBe(
+      'Canvas rejected: "w" must be <= 9',
+    );
+    expect(shown).toHaveLength(1);
+
+    canvasGet.mockResolvedValueOnce({
+      id: "abcde12345",
+      title: "Chart",
+      current: 2,
+      versions: [
+        {
+          version: 1,
+          kind: "code",
+          at: "2026-01-01T00:00:00.000Z",
+          manifest: {
+            params: [{ id: "w", label: "Width", type: "number", min: 1, max: 9, value: 4 }],
+            net: ["https://api.example.com"],
+          },
+        },
+        { version: 2, kind: "params", base: 1, by: "agent", at: "2026-01-01T00:01:00.000Z" },
+      ],
+    });
+    canvasEffective.mockResolvedValueOnce({ html: "", params: { w: 6 }, codeVersion: 1 });
+    const got = await client.callTool({ name: "get_canvas", arguments: { id: "abcde12345" } });
+    expect(got.isError).toBeFalsy();
+    const body = JSON.parse((got.content as Array<{ text: string }>)[0]?.text ?? "");
+    expect(body).toMatchObject({
+      title: "Chart",
+      current: 2,
+      params: [{ id: "w", label: "Width", type: "number", min: 1, max: 9 }],
+      values: { w: 6 },
+      net: ["https://api.example.com"],
+    });
+    expect(body.versions).toHaveLength(2);
+
+    canvasGet.mockResolvedValueOnce(null);
+    const missing = await client.callTool({ name: "get_canvas", arguments: { id: "zzzzzzzzzz" } });
+    expect(missing.isError).toBe(true);
     off();
     await client.close();
   });

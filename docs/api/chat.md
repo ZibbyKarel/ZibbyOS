@@ -309,6 +309,17 @@ reaches the transcript and SSE stream exactly like a `show_widget` card (tool ev
 `show_widget`; the `publish_canvas` stream line itself is suppressed). The tool description
 carries the authoring rules (transparent glass, CSS-var colours, pinned CDN libs, no network).
 Passing an existing `id` creates a new version. Store rejections come back as an MCP error text.
+The description also documents the page API (`<script type="application/zibby+json">` manifest with
+`params` / `net`, `zibby.params|on|set|fetch|download|ask|propose|saveState`, `zibby://` links).
+
+`set_canvas_params({id, params, note?})` calls `CanvasStore.setParams(id, params, {by: "agent", note})`
+(a new params version, validated against the manifest), then pushes the canvas widget with the new
+current version; the `set_canvas_params` stream line is suppressed like `publish_canvas`. Rejections
+(`bad-params`, `not-found`, ...) return `Canvas rejected: <message>` as an MCP error.
+
+`get_canvas({id})` (read-only) returns compact JSON: `id`, `title`, `current`, the declared `params`
+(id, label, type, unit, min, max, step, options) of the current code version, the effective `values`,
+`net` origins and `versions` (`{version, kind, base?, by?, note?, at}`). Unknown id → error text.
 
 ### Inline cards — `show_widget` (Zibby overlay)
 

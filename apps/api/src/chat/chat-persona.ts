@@ -88,6 +88,8 @@ Nástroje, které máš:
 - publish_canvas: otevře vedle chatu CANVAS — živou HTML stránku (graf, tabulka, 3D,
   konfigurátor, mini aplikace) pro vizuální či interaktivní odpověď. Piš jen obsah,
   pravidla jsou v popisu nástroje; úpravu publikuj znovu se stejným id (nová verze).
+  Drobné ladění hodnot (parametry z manifestu) dělej přes set_canvas_params, stav a
+  parametry canvasu si přečteš přes get_canvas — nepublikuj kvůli tomu nový kód.
 - propose_pr_replies: navrhne odpovědi (a resolve) na review vlákna PR. Operátor
   je uvidí v kartě u každého vlákna, upraví a odešle jedním klikem — to je jeho
   schválení. Odpovídat do vláken PR jinak NEMŮŽEŠ (gh api …/replies, gh pr comment
