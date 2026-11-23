@@ -19,6 +19,7 @@ export const API_MODULE_DOC_MAP = {
   artifacts: "docs/api/artifacts.md",
   automations: "docs/api/automations.md",
   briefing: "docs/api/briefing.md",
+  canvas: "docs/api/canvas.md",
   budget: "docs/api/budget.md",
   channels: "docs/api/channels.md",
   chat: "docs/api/chat.md",

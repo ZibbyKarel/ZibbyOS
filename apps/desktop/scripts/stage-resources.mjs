@@ -51,6 +51,7 @@ run(
 // packaged UI at the packaged API (4333), never the dev API on 3333. The remote
 // (tailnet) URL is blanked so the bundle never falls back to it.
 const PACKAGED_API_URL = "http://localhost:4333";
+const PACKAGED_CANVAS_URL = "http://localhost:4334";
 const WEB_DIST_DIR = ".next-desktop";
 // tsconfig includes `.next/types` too: a stale copy from an older `web:dev` (e.g. routes
 // that no longer exist) breaks this build's typecheck. Dev regenerates it on start.
@@ -63,6 +64,8 @@ execFileSync("pnpm", ["web:build"], {
     ...process.env,
     NEXT_PUBLIC_API_URL: PACKAGED_API_URL,
     NEXT_PUBLIC_REMOTE_API_URL: "",
+    NEXT_PUBLIC_CANVAS_URL: PACKAGED_CANVAS_URL,
+    NEXT_PUBLIC_REMOTE_CANVAS_URL: "",
     // Own build dir: never clobber the `.next` a running `pnpm web:dev` serves from.
     NEXT_DIST_DIR: WEB_DIST_DIR,
   },

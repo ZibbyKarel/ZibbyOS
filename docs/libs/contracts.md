@@ -36,6 +36,7 @@ excluding the composite `app.contract.ts` and the shared `common.schema.ts`):
 | `goals/`              | `GoalSchema`, `GoalRunSchema`                                                                                                     | Loop-engine goal definitions + runs                                                                                       |
 | `approvals/`          | `ApprovalSchema`                                                                                                                  | Approval queue                                                                                                            |
 | `artifacts/`          | `ArtifactSchema`                                                                                                                  | Durable artifact provenance registry                                                                                      |
+| `canvas/`             | `CanvasMetaSchema`, `CANVAS_ID_PATTERN`                                                                                           | Chat canvas metadata (read-only); see `docs/api/canvas.md`                                                                |
 | `discovery/`          | `ProposalSchema`                                                                                                                  | Triaged proposal → task flow                                                                                              |
 | `gates/`              | `GateRuleSchema`, `MatchConditionSchema`, `ResolveSchema` (plus the nested `gate-rules.contract.ts` for the global rule catalog)  | Gate rules                                                                                                                |
 | `memory/`             | `NoteSchema`, `IndexEntrySchema`, `MemoryGraphSchema`                                                                             | Vault operations                                                                                                          |
@@ -227,6 +228,7 @@ export const appContract = c.router({
   goals: goalsContract,
   approvals: approvalsContract,
   artifacts: artifactsContract,
+  canvas: canvasContract,
   discovery: discoveryContract,
   gates: gatesContract,
   gateRules: gateRulesContract,

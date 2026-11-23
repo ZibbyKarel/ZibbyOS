@@ -6,6 +6,7 @@ import { ActivityViewModule } from "./activity-view/activity-view.module";
 import { AgentsModule } from "./agents/agents.module";
 import { ApprovalsModule } from "./approvals/approvals.module";
 import { ArtifactsModule } from "./artifacts/artifacts.module";
+import { CanvasModule } from "./canvas/canvas.module";
 import { AutopilotModule } from "./autopilot/autopilot.module";
 import { AutomationsModule } from "./automations/automations.module";
 import { BriefingModule } from "./briefing/briefing.module";
@@ -99,6 +100,7 @@ import { InstanceLockReleaser } from "./shared/instance-role";
     GoalsModule,
     ApprovalsModule,
     ArtifactsModule,
+    CanvasModule,
     GateRulesModule,
     MemoryModule,
     RunRecorderModule,

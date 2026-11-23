@@ -27,6 +27,8 @@ import {
 } from "@zibby/contracts";
 import * as swaggerUi from "swagger-ui-express";
 import { AppModule } from "./app.module";
+import { createCanvasServer } from "./canvas/canvas-server";
+import { CanvasStore } from "./canvas/canvas.store";
 import { resolveDataRoot, resolveRecipesRoot, resolveVaultDir } from "./shared/data-dir";
 import { hydrateDirs } from "./shared/icloud-hydrate";
 import { initInstanceRole } from "./shared/instance-role";
@@ -156,6 +158,29 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(port);
   Logger.log(`api listening on http://localhost:${port} (docs at /docs)`, "Bootstrap");
+
+  // The canvas listener (a second origin for model-authored pages). Started here, never in
+  // onModuleInit — e2e suites boot AppModule many times and must not bind a port.
+  const canvasPort = Number(process.env.CANVAS_PORT ?? port + 1);
+  const canvasServer = createCanvasServer(app.get(CanvasStore));
+  canvasServer.on("error", (err: NodeJS.ErrnoException) => {
+    Logger.warn(
+      err.code === "EADDRINUSE"
+        ? `canvas port ${canvasPort} is taken — canvases will not be served`
+        : `canvas server error: ${err.message}`,
+      "Bootstrap",
+    );
+  });
+  // Loopback only: model-authored pages may carry personal data, and the phone reaches them
+  // through `tailscale serve` (which proxies to localhost), never over the LAN directly.
+  const canvasHost = process.env.CANVAS_HOST ?? "127.0.0.1";
+  canvasServer.listen(canvasPort, canvasHost, () =>
+    Logger.log(`canvas listening on http://${canvasHost}:${canvasPort}`, "Bootstrap"),
+  );
+  app
+    .getHttpAdapter()
+    .getHttpServer()
+    .on("close", () => canvasServer.close());
 }
 
 void bootstrap();

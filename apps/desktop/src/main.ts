@@ -2,7 +2,14 @@ import type { ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import path from "node:path";
 import { BrowserWindow, Menu, app, dialog, ipcMain, session } from "electron";
-import { API_BASE_URL, API_HEALTH_URL, API_PORT, WEB_HEALTH_URL, WEB_PORT } from "./config";
+import {
+  API_BASE_URL,
+  API_HEALTH_URL,
+  API_PORT,
+  CANVAS_PORT,
+  WEB_HEALTH_URL,
+  WEB_PORT,
+} from "./config";
 import { routeExternalLinks } from "./externalLinks";
 import { attachFindBar } from "./findBar";
 import { findForeignOwner, isPidAlive, readLockFile } from "./instanceLock";
@@ -103,6 +110,11 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  // A busy canvas port must not stop the app — canvases just won't load.
+  if (await isPortTaken(CANVAS_PORT)) {
+    console.warn(`Canvas port ${CANVAS_PORT} is already in use; canvases will be unavailable.`);
+  }
+
   showSplash();
   const loginShellPath = await resolveLoginShellPath();
   const { sourceRoot } = readBuildInfo();
@@ -111,6 +123,7 @@ async function bootstrap(): Promise<void> {
     ...process.env,
     PATH: loginShellPath,
     PORT: String(API_PORT),
+    CANVAS_PORT: String(CANVAS_PORT),
     CORS_ORIGIN: `http://localhost:${WEB_PORT}`,
     ZIBBY_ROLE: "primary",
     // Dev reads this from apps/api/.env (cwd-relative, absent in the bundle). The
