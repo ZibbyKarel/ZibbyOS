@@ -10,6 +10,7 @@ import {
   WEB_HEALTH_URL,
   WEB_PORT,
 } from "./config";
+import { guardCanvasFrames } from "./canvasFrames";
 import { routeExternalLinks } from "./externalLinks";
 import { attachFindBar } from "./findBar";
 import { findForeignOwner, isPidAlive, readLockFile } from "./instanceLock";
@@ -213,6 +214,7 @@ function createWindow(): void {
   });
   findInWindow = attachFindBar(mainWindow);
   routeExternalLinks(mainWindow, WEB_ORIGIN);
+  guardCanvasFrames(mainWindow, CANVAS_PORT);
   void mainWindow.loadURL(`${WEB_ORIGIN}/`);
 }
 
