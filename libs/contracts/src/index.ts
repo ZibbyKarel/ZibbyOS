@@ -40,6 +40,8 @@ export * from "./approvals/approval.schema";
 export * from "./approvals/approvals.contract";
 export * from "./artifacts/artifact.schema";
 export * from "./artifacts/artifacts.contract";
+export * from "./canvas/canvas.schema";
+export * from "./canvas/canvas.contract";
 export * from "./gates/gate.schema";
 export * from "./gates/gate.contract";
 export * from "./gates/gate-rules.contract";

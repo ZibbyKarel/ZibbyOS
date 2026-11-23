@@ -325,6 +325,16 @@ describe("ChatWidgetSchema", () => {
     expect(ChatWidgetSchema.safeParse({ kind: "run", runRef: "r-1" }).success).toBe(true);
   });
 
+  it("accepts a canvas widget and rejects a bad id, version 0 or missing title", () => {
+    const canvas = { kind: "canvas", id: "a1b2c3d4e5", version: 1, title: "Orbit" };
+    expect(ChatWidgetSchema.parse(canvas)).toEqual(canvas);
+    expect(ChatWidgetSchema.safeParse({ ...canvas, id: "BAD" }).success).toBe(false);
+    expect(ChatWidgetSchema.safeParse({ ...canvas, version: 0 }).success).toBe(false);
+    expect(ChatWidgetSchema.safeParse({ kind: "canvas", id: canvas.id, version: 1 }).success).toBe(
+      false,
+    );
+  });
+
   it("rejects an unknown kind and an oversized limit", () => {
     expect(ChatWidgetSchema.safeParse({ kind: "budget" }).success).toBe(false);
     expect(ChatWidgetSchema.safeParse({ kind: "runs", limit: 99 }).success).toBe(false);

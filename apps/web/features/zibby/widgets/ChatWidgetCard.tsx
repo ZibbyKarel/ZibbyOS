@@ -44,6 +44,9 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <TodoWidgetCard widget={widget} />;
     case "pr-replies":
       return <PrRepliesWidgetCard widget={widget} />;
+    case "canvas":
+      // Temporary — replaced in T5.
+      return null;
     default: {
       const unreachable: never = widget;
       return unreachable;

@@ -8,6 +8,7 @@ import {
   TaskTargetSchema,
   WorkflowTaskTargetSchema,
 } from "../tasks/task.schema";
+import { CanvasIdSchema } from "../canvas/canvas.schema";
 import { CompanyIdSchema } from "../companies/company.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
 import { SkillIdSchema } from "../skills/skill.schema";
@@ -66,6 +67,7 @@ export const CHAT_WIDGET_KINDS = [
   "ci",
   "todo",
   "pr-replies",
+  "canvas",
 ] as const;
 export const ChatWidgetKindSchema = z.enum(CHAT_WIDGET_KINDS);
 export type ChatWidgetKind = z.infer<typeof ChatWidgetKindSchema>;
@@ -142,6 +144,16 @@ export const ChatWidgetSchema = z.discriminatedUnion("kind", [
     number: z.number().int().positive(),
     url: z.string().url(),
     replies: z.array(ChatPrReplyDraftSchema).min(1).max(MAX_CHAT_PR_REPLIES),
+  }),
+  /**
+   * A published canvas (an HTML page beside the chat). A reference like the others — the
+   * page is served by the canvas listener. Emitted only by `publish_canvas`, never `show_widget`.
+   */
+  z.object({
+    kind: z.literal("canvas"),
+    id: CanvasIdSchema,
+    version: z.number().int().min(1),
+    title: z.string().min(1).max(120),
   }),
 ]);
 export type ChatWidget = z.infer<typeof ChatWidgetSchema>;

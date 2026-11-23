@@ -450,7 +450,10 @@ export class ChatMcpController {
           "one short sentence — do NOT repeat the card's content in prose. Read-only: " +
           "showing a card never performs an action.",
         inputSchema: {
-          kind: z.enum(CHAT_WIDGET_KINDS).exclude(["pr-replies"]).describe("Which card to show."),
+          kind: z
+            .enum(CHAT_WIDGET_KINDS)
+            .exclude(["pr-replies", "canvas"])
+            .describe("Which card to show."),
           runRef: z.string().optional().describe("Run id — required for kind `run`."),
           projectId: z
             .string()
