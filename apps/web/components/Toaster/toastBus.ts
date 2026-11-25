@@ -12,6 +12,8 @@ export interface Toast {
   message?: string;
   /** Visual tone; defaults to `"error"` at render (preserves the MutationCache behavior). */
   severity?: ToastSeverity;
+  /** Trace id of a server 5xx — the toast links to that entry in the activity log. */
+  errorTraceId?: string;
 }
 
 type Listener = (toast: Toast) => void;
@@ -26,12 +28,20 @@ let nextId = 1;
  * the cache callback (outside React, no i18n) from the React toast surface.
  */
 export const toastBus = {
-  emit(toast: { message?: string; severity?: ToastSeverity; operatorToken?: boolean } = {}): void {
+  emit(
+    toast: {
+      message?: string;
+      severity?: ToastSeverity;
+      operatorToken?: boolean;
+      errorTraceId?: string;
+    } = {},
+  ): void {
     const t: Toast = {
       id: nextId++,
       message: toast.message,
       severity: toast.severity,
       operatorToken: toast.operatorToken,
+      errorTraceId: toast.errorTraceId,
     };
     for (const l of listeners) l(t);
   },
@@ -61,5 +71,18 @@ export function isInlineErrorMutation(mutation: MutationMetaCarrier | undefined)
 
 /** `MutationCache.onError`: every failed write toasts; a 401 gets the operator-token copy. */
 export function emitMutationError(error: unknown): void {
-  toastBus.emit({ operatorToken: isOperatorTokenError(error) });
+  toastBus.emit({
+    operatorToken: isOperatorTokenError(error),
+    errorTraceId: serverErrorTraceId(error),
+  });
+}
+
+/** The `traceId` of a ts-rest `{ status >= 500, body: { traceId } }` failure (the API logged it). */
+function serverErrorTraceId(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  const { status, body } = error as { status?: unknown; body?: unknown };
+  if (typeof status !== "number" || status < 500) return undefined;
+  if (typeof body !== "object" || body === null) return undefined;
+  const { traceId } = body as { traceId?: unknown };
+  return typeof traceId === "string" && traceId ? traceId : undefined;
 }

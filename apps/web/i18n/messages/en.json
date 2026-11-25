@@ -1721,7 +1721,8 @@
         "approvals": "Approvals",
         "channels": "Channels",
         "integrations": "Integrations",
-        "briefing": "Briefing"
+        "briefing": "Briefing",
+        "errors": "Errors"
       },
       "was": "was Activity",
       "summary": "What shows up in the live log. {visible} visible · {grouped} grouped · {hidden} hidden",
@@ -3444,6 +3445,15 @@
     "resume": "Resume",
     "clear": "Clear",
     "grouped": "{count}× {group}",
+    "showInLog": "Show in log",
+    "error": {
+      "title": "Server error",
+      "request": "Request",
+      "status": "Status",
+      "time": "Time",
+      "traceId": "Trace ID",
+      "noStack": "No stack trace was recorded for this error."
+    },
     "loadMore": "Load older",
     "loadingMore": "Loading…",
     "filter": {

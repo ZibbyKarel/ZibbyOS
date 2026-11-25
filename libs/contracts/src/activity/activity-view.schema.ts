@@ -17,6 +17,7 @@ export const ActivityGroupSchema = z.enum([
   "channels",
   "integrations",
   "briefing",
+  "errors",
 ]);
 export type ActivityGroup = z.infer<typeof ActivityGroupSchema>;
 
@@ -110,6 +111,8 @@ export const ACTIVITY_GROUP_OF: Record<ActivityKind, ActivityGroup> = {
   // other gate decisions.
   "autopilot-action": "approvals",
   "autopilot-changed": "approvals",
+  // A 5xx API failure — its own group so the operator can hide/group it.
+  "api-error": "errors",
 };
 
 /**
@@ -136,6 +139,8 @@ export const ActivityViewSchema = z
     channels: ActivityViewModeSchema,
     integrations: ActivityViewModeSchema,
     briefing: ActivityViewModeSchema,
+    // `.default` so views saved before this group existed still parse (not wiped to DEFAULT).
+    errors: ActivityViewModeSchema.default("visible"),
   })
   .strict();
 export type ActivityView = z.infer<typeof ActivityViewSchema>;
@@ -154,4 +159,5 @@ export const DEFAULT_ACTIVITY_VIEW: ActivityView = {
   channels: "grouped",
   integrations: "visible",
   briefing: "grouped",
+  errors: "visible",
 };

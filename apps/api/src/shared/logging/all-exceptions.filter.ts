@@ -4,8 +4,10 @@ import {
   type ExceptionFilter,
   HttpException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { ActivityLogService } from "../../activity/activity-log.service";
 import { LoggerService, type ScopedLogger } from "./logger.service";
 import { TraceContextService } from "./trace-context.service";
 
@@ -29,6 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(
     logger: LoggerService,
     private readonly trace: TraceContextService,
+    @Optional() private readonly activity?: ActivityLogService,
   ) {
     this.log = logger.child("Exception");
   }
@@ -47,6 +50,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       err: exception instanceof Error ? exception.message : String(exception),
       ...(level === "error" && exception instanceof Error ? { stack: exception.stack } : {}),
     });
+
+    // Same request scope as `traceId` above, so the entry's `traceId` is the one in the body.
+    // ponytail: a polled GET that keeps returning 500 writes one entry per poll; dedupe if noisy.
+    if (status >= 500) {
+      const message = exception instanceof Error ? exception.message : String(exception);
+      void this.activity?.record({
+        kind: "api-error",
+        summary: `✗ ${req.method} ${req.path} ${status} — ${message.slice(0, 200)}`,
+        refs: {
+          status: String(status),
+          request: `${req.method} ${req.path}`,
+          ...(exception instanceof Error && exception.stack ? { stack: exception.stack } : {}),
+        },
+      });
+    }
 
     const base = isHttp
       ? exception.getResponse()

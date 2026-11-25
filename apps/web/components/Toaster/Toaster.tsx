@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Container, Stack } from "@zibby/design-system";
+import Link from "next/link";
+import { Alert, Container, Stack, type SubNavLinkComponent, TextLink } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { type Toast, toastBus } from "./toastBus";
 
@@ -20,6 +21,7 @@ export enum ToasterTestId {
 export function Toaster() {
   const t = useTranslations("common");
   const tApprovals = useTranslations("approvals");
+  const tLog = useTranslations("activityLog");
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(
@@ -53,6 +55,17 @@ export function Toaster() {
             {toast.operatorToken
               ? tApprovals("operatorTokenMissing")
               : (toast.message ?? t("mutationError"))}
+            {toast.errorTraceId && (
+              <>
+                {" "}
+                <TextLink
+                  href={`/activity/log?error=${encodeURIComponent(toast.errorTraceId)}`}
+                  linkComponent={Link as SubNavLinkComponent}
+                >
+                  {tLog("showInLog")}
+                </TextLink>
+              </>
+            )}
           </Alert>
         ))}
       </Stack>

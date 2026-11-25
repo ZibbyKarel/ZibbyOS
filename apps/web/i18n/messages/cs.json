@@ -1721,7 +1721,8 @@
         "approvals": "Schválení",
         "channels": "Kanály",
         "integrations": "Integrace",
-        "briefing": "Briefing"
+        "briefing": "Briefing",
+        "errors": "Chyby"
       },
       "was": "dříve Aktivita",
       "summary": "Co se ukazuje v živém logu. {visible} viditelné · {grouped} seskupené · {hidden} skryté",
@@ -3444,6 +3445,15 @@
     "resume": "Pokračovat",
     "clear": "Vyčistit",
     "grouped": "{count}× {group}",
+    "showInLog": "Zobrazit v logu",
+    "error": {
+      "title": "Chyba serveru",
+      "request": "Požadavek",
+      "status": "Stav",
+      "time": "Čas",
+      "traceId": "Trace ID",
+      "noStack": "K této chybě nebyl zaznamenán žádný stack trace."
+    },
     "loadMore": "Načíst starší",
     "loadingMore": "Načítám…",
     "filter": {

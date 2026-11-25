@@ -147,6 +147,10 @@ export const ActivityKindSchema = z.enum([
   // Phase 4. The operator turned autopilot on or off (`status` = the new level,
   // `decision` = who: operator | chat).
   "autopilot-changed",
+  // A 5xx / unexpected exception escaped an API handler. `refs.request` = `<METHOD> <path>`,
+  // `refs.status` = the HTTP status, `refs.stack` = the stack trace (never in `summary`);
+  // the entry's `traceId` equals the failed response body's `traceId`.
+  "api-error",
 ]);
 export type ActivityKind = z.infer<typeof ActivityKindSchema>;
 
@@ -173,6 +177,10 @@ export const ActivityRefsSchema = z
     action: z.string().optional(),
     decision: z.string().optional(),
     status: z.string().optional(),
+    /** `api-error`: `<METHOD> <path>` of the failed request (no query string). */
+    request: z.string().optional(),
+    /** `api-error`: the server stack trace; shown in the log's detail dialog only. */
+    stack: z.string().optional(),
     noteId: z.string().optional(),
     /** The automation that produced the entry (`automation-dispatched`). */
     automationId: z.string().optional(),

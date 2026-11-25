@@ -1,6 +1,8 @@
-import type { Ref } from "react";
+import { type Ref, useEffect, useRef } from "react";
 import type { StateTone } from "../../stateTone";
 import { stateToneVar } from "../../stateTone";
+import { cn } from "../../utils/cn";
+import { focusRingInset } from "../../utils/focus";
 import { Typography } from "../Typography/Typography";
 
 export interface LogStreamLine {
@@ -10,6 +12,8 @@ export interface LogStreamLine {
   state?: StateTone;
   source?: string;
   text: string;
+  /** Render the line with the Alert "error" look (tinted surface, bad-tone text). */
+  alert?: boolean;
 }
 
 export enum LogStreamTestId {
@@ -32,6 +36,10 @@ export interface LogStreamProps {
    * list is deferred (no virtualisation dep in the workspace yet). */
   max?: number;
   empty?: string;
+  /** When set, every `alert` line is a keyboard-reachable button (accessible name = its text). */
+  onLineClick?: (id: string) => void;
+  /** The line with this id is scrolled into view (once per change) and outlined. */
+  focusId?: string;
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -41,7 +49,15 @@ export interface LogStreamProps {
  * dimmed to secondary/tertiary. Used standalone (Activity screens) and folded
  * into a task/run detail panel.
  */
-export function LogStream({ lines, paused, max, empty, ref }: LogStreamProps) {
+export function LogStream({
+  lines,
+  paused,
+  max,
+  empty,
+  onLineClick,
+  focusId,
+  ref,
+}: LogStreamProps) {
   const visible = max ? lines.slice(-max) : lines;
   const newestId = visible.at(-1)?.id;
   return (
@@ -73,7 +89,14 @@ export function LogStream({ lines, paused, max, empty, ref }: LogStreamProps) {
           </div>
         ) : (
           visible.map((line) => (
-            <LogLine key={line.id} line={line} live={line.id === newestId} paused={paused} />
+            <LogLine
+              focused={line.id === focusId}
+              key={line.id}
+              line={line}
+              live={line.id === newestId}
+              onClick={onLineClick}
+              paused={paused}
+            />
           ))
         )}
       </div>
@@ -81,11 +104,40 @@ export function LogStream({ lines, paused, max, empty, ref }: LogStreamProps) {
   );
 }
 
-function LogLine({ line, live, paused }: { line: LogStreamLine; live: boolean; paused?: boolean }) {
+function LogLine({
+  line,
+  live,
+  paused,
+  focused,
+  onClick,
+}: {
+  line: LogStreamLine;
+  live: boolean;
+  paused?: boolean;
+  focused: boolean;
+  onClick?: (id: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView?.({ block: "center" });
+  }, [focused]);
+
+  const state = line.state ?? (line.alert ? "error" : undefined);
+  // Only alert lines are actionable — a no-op button on every line would be noise for a11y.
+  const click = line.alert ? onClick : undefined;
+  const Row = click ? "button" : "div";
   return (
-    <div
-      className="grid grid-cols-[78px_110px_minmax(0,1fr)] items-center gap-3 px-4 py-1"
+    <Row
+      className={cn(
+        "grid w-full grid-cols-[78px_110px_minmax(0,1fr)] items-center gap-3 px-4 py-1 text-left",
+        line.alert && "border border-bad/25 bg-bad-solid",
+        click && cn("cursor-pointer", focusRingInset),
+        focused && "outline outline-2 -outline-offset-2 outline-accent",
+      )}
       data-testid={`${LogStreamTestId.Line}-${line.id}`}
+      onClick={click ? () => click(line.id) : undefined}
+      ref={ref}
+      type={click ? "button" : undefined}
     >
       <Typography type="code" variant="tertiary">
         {line.ts}
@@ -96,7 +148,7 @@ function LogLine({ line, live, paused }: { line: LogStreamLine; live: boolean; p
       <Typography
         truncate
         as="span"
-        style={{ color: line.state ? stateToneVar[line.state] : undefined }}
+        style={{ color: state ? stateToneVar[state] : undefined }}
         type="code"
         variant={live ? "primary" : "secondary"}
       >
@@ -113,6 +165,6 @@ function LogLine({ line, live, paused }: { line: LogStreamLine; live: boolean; p
           />
         )}
       </Typography>
-    </div>
+    </Row>
   );
 }

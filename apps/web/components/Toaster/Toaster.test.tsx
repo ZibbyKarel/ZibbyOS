@@ -39,4 +39,15 @@ describe("Toaster (43) — surfaces mutation errors", () => {
     act(() => emitMutationError(new Error("boom")));
     expect(screen.getByText(ERROR_CS)).toBeInTheDocument();
   });
+
+  it("a 5xx with a traceId links to that entry in the activity log; a 4xx does not", () => {
+    render(<Toaster />);
+    act(() => emitMutationError({ status: 400, body: { traceId: "t0" } }));
+    expect(screen.queryByText(cs.activityLog.showInLog)).not.toBeInTheDocument();
+    act(() => emitMutationError({ status: 500, body: { traceId: "t 1" } }));
+    expect(screen.getByText(cs.activityLog.showInLog)).toHaveAttribute(
+      "href",
+      "/activity/log?error=t%201",
+    );
+  });
 });

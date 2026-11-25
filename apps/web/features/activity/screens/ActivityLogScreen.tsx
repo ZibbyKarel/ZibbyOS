@@ -5,7 +5,9 @@ import type { ActivityEntry, ActivityGroup } from "@zibby/contracts";
 import { ACTIVITY_GROUP_OF } from "@zibby/contracts";
 import {
   Button,
+  CodeBlock,
   Container,
+  Dialog,
   FilterBar,
   LogStream,
   type LogStreamLine,
@@ -14,7 +16,8 @@ import {
   Typography,
 } from "@zibby/design-system";
 import { useLocale, useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { QueryLoading } from "../../../components/LoadingState/QueryLoading";
@@ -68,6 +71,9 @@ export function ActivityLogScreen() {
   const [group, setGroup] = useState<ActivityGroup | typeof ALL>(ALL);
   const [paused, setPaused] = useState(false);
   const [clearedAt, setClearedAt] = useState(0);
+  // `?error=<traceId>` — the failure toast's deep link to one `api-error` entry.
+  const errorTraceId = useSearchParams().get("error");
+  const [openErrorId, setOpenErrorId] = useState<string | null>(null);
 
   const liveEntries = useMemo(() => feed.data ?? [], [feed.data]);
   const [frozen, setFrozen] = useState<ActivityEntry[] | null>(null);
@@ -93,6 +99,9 @@ export function ActivityLogScreen() {
   );
 
   const rows = buildActivityLog(filtered, view ?? DEFAULT_ACTIVITY_VIEW);
+  const target = errorTraceId
+    ? entries.find((e) => e.kind === "api-error" && e.traceId === errorTraceId)
+    : undefined;
   const lines: LogStreamLine[] = [...rows].reverse().map((row) => {
     if (row.type === "entry") {
       const source =
@@ -105,6 +114,7 @@ export function ActivityLogScreen() {
         ts: clockTime(row.entry.at, locale),
         source,
         text: row.entry.summary,
+        alert: row.entry.kind === "api-error",
       };
     }
     return {
@@ -117,6 +127,19 @@ export function ActivityLogScreen() {
       }),
     };
   });
+
+  // The linked error exists but its line isn't shown (filtered / hidden / cleared) — open it directly, once.
+  const autoOpened = useRef<string | null>(null);
+  const targetRendered = target ? lines.some((l) => l.id === target.id) : false;
+  useEffect(() => {
+    if (target && !targetRendered && autoOpened.current !== target.id) {
+      autoOpened.current = target.id;
+      setOpenErrorId(target.id);
+    }
+  }, [target, targetRendered]);
+  const openError = openErrorId
+    ? entries.find((e) => e.id === openErrorId && e.kind === "api-error")
+    : undefined;
 
   const hasFilters = Boolean(department || agent || task || group);
   const clearFilters = () => {
@@ -191,7 +214,13 @@ export function ActivityLogScreen() {
           <QueryError onRetry={() => void feed.refetch()} />
         ) : (
           <>
-            <LogStream empty={t("activityLog.empty")} lines={lines} paused={paused} />
+            <LogStream
+              empty={t("activityLog.empty")}
+              focusId={targetRendered ? target?.id : undefined}
+              lines={lines}
+              onLineClick={setOpenErrorId}
+              paused={paused}
+            />
             {feed.hasNextPage && (
               <Button
                 disabled={feed.isFetchingNextPage}
@@ -205,6 +234,27 @@ export function ActivityLogScreen() {
           </>
         )}
       </Stack>
+      <Dialog
+        onClose={() => setOpenErrorId(null)}
+        open={Boolean(openError)}
+        title={openError?.summary ?? t("activityLog.error.title")}
+        width="xl"
+      >
+        {openError && (
+          <Stack gap="150">
+            <Typography type="bodySm" variant="secondary">
+              {t("activityLog.error.request")}: {openError.refs.request ?? "—"} ·{" "}
+              {t("activityLog.error.status")}: {openError.refs.status ?? "—"} ·{" "}
+              {t("activityLog.error.time")}: {clockTime(openError.at, locale)}
+              {openError.traceId && ` · ${t("activityLog.error.traceId")}: ${openError.traceId}`}
+            </Typography>
+            <CodeBlock
+              maxHeight="lg"
+              text={openError.refs.stack ?? t("activityLog.error.noStack")}
+            />
+          </Stack>
+        )}
+      </Dialog>
     </Container>
   );
 }

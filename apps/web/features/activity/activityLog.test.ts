@@ -16,6 +16,7 @@ const ALL_VISIBLE: ActivityView = {
   channels: "visible",
   integrations: "visible",
   briefing: "visible",
+  errors: "visible",
 };
 
 describe("buildActivityLog", () => {

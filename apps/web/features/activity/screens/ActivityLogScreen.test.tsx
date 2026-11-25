@@ -4,6 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
 import { ActivityLogScreen } from "./ActivityLogScreen";
 
+const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/activity/log",
+  useSearchParams: () => searchParams.current,
+}));
+
 const {
   mockUseActivityFeedInfiniteQuery,
   mockUseActivityViewQuery,
@@ -26,9 +33,19 @@ vi.mock("../../agents", () => ({
   useAgentsQuery: mockUseAgentsQuery,
 }));
 
-function seed() {
+const ERROR_ENTRY = {
+  id: "act_err",
+  at: "2026-07-15T10:06:00.000Z",
+  kind: "api-error",
+  summary: "✗ POST /api/x 500 — kaboom",
+  traceId: "trace-1",
+  refs: { request: "POST /api/x", status: "500", stack: "Error: kaboom\n    at handler" },
+};
+
+function seed(extra: unknown[] = []) {
   mockUseActivityFeedInfiniteQuery.mockReturnValue({
     data: [
+      ...extra,
       {
         id: "act_2",
         at: "2026-07-15T10:05:00.000Z",
@@ -85,5 +102,26 @@ describe("ActivityLogScreen (ZB-07)", () => {
     renderWithProviders(<ActivityLogScreen />);
     fireEvent.click(screen.getByText("Vyčistit"));
     expect(screen.queryByText("first entry")).toBeNull();
+  });
+
+  it("opens the stack-trace dialog when an api-error line is clicked", () => {
+    seed([ERROR_ENTRY]);
+    renderWithProviders(<ActivityLogScreen />);
+    fireEvent.click(screen.getByText(ERROR_ENTRY.summary));
+    expect(screen.getByText(/at handler/)).toBeInTheDocument();
+  });
+
+  it("opens the dialog directly for ?error=<traceId> when that line is not rendered", () => {
+    searchParams.current = new URLSearchParams("error=trace-1");
+    mockUseActivityViewQuery.mockReturnValue({
+      data: { ...DEFAULT_ACTIVITY_VIEW, errors: "hidden" },
+    });
+    seed([ERROR_ENTRY]);
+    mockUseActivityViewQuery.mockReturnValue({
+      data: { ...DEFAULT_ACTIVITY_VIEW, errors: "hidden" },
+    });
+    renderWithProviders(<ActivityLogScreen />);
+    expect(screen.getByText(/at handler/)).toBeInTheDocument();
+    searchParams.current = new URLSearchParams();
   });
 });
