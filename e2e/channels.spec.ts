@@ -35,7 +35,7 @@ test("a triaged inbound message surfaces an approval; approving it handles the i
   // The watcher (fast tick seeded via system config) ingests + triages the seeded
   // Tier-3 fixture. The inbox lives on the project's detail page (the `integrations`
   // route-tab, ZB-06). The seeded Slack account belongs to `demo-company`, which serves
-  // `demo-project`; the project's routing rule claims channel C1, so its item shows here.
+  // `demo-project`; the project's routing rule claims its channel, so its item shows here.
   //
   // This route's dynamic `[tab]` segment can hit a Turbopack dev-server cold-compile
   // race the very first time anything requests it in a session (a bare module

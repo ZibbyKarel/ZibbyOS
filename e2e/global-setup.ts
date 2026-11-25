@@ -148,7 +148,7 @@ export default async function globalSetup(): Promise<void> {
   // Seeded company → account → project (the project's routing rule names the account).
   // The Slack account is the company's (an account is owned by a company or is the
   // operator's personal one; a personal Slack never serves a project). The company's
-  // project `demo-project` is served by it and claims channel C1 by its routing rule, so
+  // project `demo-project` is served by it and claims its channel by its routing rule, so
   // the triaged item lands in that project's inbox (`/projects/:id/integrations`).
   await ctx
     .post("/api/companies", { data: { id: "demo-company", name: "Demo Company" } })
@@ -173,8 +173,9 @@ export default async function globalSetup(): Promise<void> {
         name: "Demo Project",
         path: process.cwd(),
         companyId: "demo-company",
+        // The fake channel adapter stamps `externalRef.channel` with the integration id.
         integrationRouting: [
-          { integrationId: "team-slack", match: { kind: "slack", channels: ["C1"] } },
+          { integrationId: "team-slack", match: { kind: "slack", channels: ["team-slack"] } },
         ],
       },
     })

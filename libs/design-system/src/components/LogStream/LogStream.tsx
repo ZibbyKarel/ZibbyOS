@@ -1,3 +1,5 @@
+"use client";
+
 import { type Ref, useEffect, useRef } from "react";
 import type { StateTone } from "../../stateTone";
 import { stateToneVar } from "../../stateTone";
