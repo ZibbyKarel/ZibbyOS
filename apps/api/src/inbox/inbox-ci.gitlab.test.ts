@@ -123,10 +123,15 @@ describe("retryGitlabHeadPipeline", () => {
 });
 
 describe("CI services on a GitLab project", () => {
-  const PROJECT: Project = { id: "app", name: "App", path: "~/app" };
+  const PROJECT: Project = {
+    id: "app",
+    name: "App",
+    path: "~/app",
+    gitRemote: `git@${link.host}:${link.repo}.git`,
+  };
   const GITLAB = {
     id: "gl",
-    config: { kind: "gitlab", host: link.host, repo: link.repo, username: "me" },
+    config: { kind: "gitlab", host: link.host, username: "me" },
   } as unknown as Integration;
   const noGithub = (() => {
     throw new Error("no GitHub call for a GitLab project");

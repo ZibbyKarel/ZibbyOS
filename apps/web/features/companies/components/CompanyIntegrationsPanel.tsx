@@ -3,36 +3,27 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import type { Route } from "next";
-import { Alert, Button, Grid, Panel, Stack, Typography } from "@zibby/design-system";
-import type { Integration } from "@zibby/contracts";
-import { IntegrationCard } from "../../integrations/components/IntegrationCard";
+import { Button, Panel, Stack, Typography } from "@zibby/design-system";
+import { AccountCards } from "../../integrations/components/AccountCards";
 import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
-import {
-  useCompanyIntegrationsQuery,
-  useTestIntegrationMutation,
-  useUpdateIntegrationMutation,
-} from "../../integrations";
+import { accountHref } from "../../integrations/accountHref";
+import { useCompanyIntegrationsQuery } from "../../integrations";
 
 export enum CompanyIntegrationsPanelTestId {
   Add = "company-add-integration",
-  Empty = "company-integrations-empty",
-  TestResult = "company-integration-test-result",
 }
 
 export interface CompanyIntegrationsPanelProps {
   companyId: string;
   ownerName?: string;
-  /** Projects that would inherit a new connection. */
+  /** Projects that a new account would serve. */
   projectCount?: number;
 }
 
 /**
- * The company's own integrations (Phase 128): one connection shared by every linked
- * project, which route its items with their `integrationRouting` rules. Mirrors the
- * project's integrations panel — cards with test / enable quick actions, Configure
- * NAVIGATES to the company-nested detail page, the create dialog is create-only and
- * stamps `companyId` as the owner.
+ * The company's accounts: each one is shared by every linked project, which route its items
+ * with their `integrationRouting` rules. Cards with test / enable quick actions; Configure
+ * NAVIGATES to the company-nested detail page; Connect opens the wizard owned by the company.
  */
 export function CompanyIntegrationsPanel({
   companyId,
@@ -41,26 +32,8 @@ export function CompanyIntegrationsPanel({
 }: CompanyIntegrationsPanelProps) {
   const t = useTranslations();
   const router = useRouter();
-  const integrationsQuery = useCompanyIntegrationsQuery(companyId);
-  const integrations = integrationsQuery.data ?? [];
+  const { data: integrations = [] } = useCompanyIntegrationsQuery(companyId);
   const [creating, setCreating] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
-
-  const update = useUpdateIntegrationMutation();
-  const test = useTestIntegrationMutation();
-
-  const detailHref = (id: string) => `/companies/${companyId}/integrations/${id}` as Route;
-
-  const onTest = (integration: Integration) => {
-    setTestResult(null);
-    test.mutate(
-      { params: { id: integration.id }, body: {} },
-      {
-        onSuccess: ({ body }) => setTestResult({ ok: body.ok, detail: body.detail }),
-        onError: () => setTestResult({ ok: false, detail: t("integrations.testFailed") }),
-      },
-    );
-  };
 
   return (
     <Panel
@@ -82,51 +55,14 @@ export function CompanyIntegrationsPanel({
         <Typography size="xs" type="note" variant="tertiary">
           {t("companies.integrations.hint")}
         </Typography>
-        {testResult && (
-          <Alert
-            data-testid={CompanyIntegrationsPanelTestId.TestResult}
-            onClose={() => setTestResult(null)}
-            severity={testResult.ok ? "ok" : "error"}
-          >
-            {testResult.detail}
-          </Alert>
-        )}
-        {integrations.length === 0 ? (
-          <Typography
-            data-testid={CompanyIntegrationsPanelTestId.Empty}
-            size="sm"
-            type="note"
-            variant="tertiary"
-          >
-            {t("companies.integrations.empty")}
-          </Typography>
-        ) : (
-          <Grid align="stretch" cols={1} gap="150" lg={3} md={2}>
-            {integrations.map((i) => (
-              <IntegrationCard
-                integration={i}
-                key={i.id}
-                onConfigure={(integration) => router.push(detailHref(integration.id))}
-                onTest={onTest}
-                onToggleEnabled={(integration) =>
-                  update.mutate({
-                    params: { id: integration.id },
-                    body: { enabled: !integration.enabled },
-                  })
-                }
-                testing={test.isPending}
-                togglingEnabled={update.isPending}
-              />
-            ))}
-          </Grid>
-        )}
+        <AccountCards emptyLabel={t("companies.integrations.empty")} integrations={integrations} />
       </Stack>
 
       {creating && (
         <ConnectWizardSheet
           inheritingCount={projectCount}
           onClose={() => setCreating(false)}
-          onOpenIntegration={(iid) => router.push(detailHref(iid))}
+          onOpenIntegration={(iid) => router.push(accountHref({ id: iid, companyId }))}
           owner={{ companyId }}
           ownerName={ownerName ?? companyId}
         />

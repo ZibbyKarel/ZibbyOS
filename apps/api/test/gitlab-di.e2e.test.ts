@@ -37,12 +37,16 @@ describe("GitLab DI wiring (e2e)", () => {
     const resolved = moduleRef.get(ResolvedProjectService, { strict: false });
     const integration = {
       id: "gl",
-      config: { kind: "gitlab", host: "gitlab.example.com", repo: "group/sub/project" },
+      config: { kind: "gitlab", host: "gitlab.example.com" },
     } as unknown as Integration;
     const original = resolved.resolveIntegrations.bind(resolved);
     resolved.resolveIntegrations = async () => [integration];
     try {
-      const project = { id: "p1" } as unknown as Project;
+      // The repo comes from the project's gitRemote — an account stores none.
+      const project = {
+        id: "p1",
+        gitRemote: "git@gitlab.example.com:group/sub/project.git",
+      } as unknown as Project;
       const expected = { gitlab: { host: "gitlab.example.com", repo: "group/sub/project" } };
       await expect(
         moduleRef.get(TaskOutputService, { strict: false })["gitlabOpt"](project),

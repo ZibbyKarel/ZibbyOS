@@ -5,7 +5,6 @@ import { GitHubChannelAdapter, parseTokenExpiration } from "./github.adapter";
 const gh: Integration = {
   id: "acme-gh",
   kind: "github",
-  projectId: "acme-app",
   enabled: true,
   config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "octocat" },
   status: "disconnected",

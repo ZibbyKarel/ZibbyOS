@@ -24,7 +24,7 @@ describe("EntityConnections", () => {
     const onOpen = vi.fn();
     render(
       <EntityConnections
-        model={buildConnections([jira], [], { companyId: "acme" }, now)}
+        model={buildConnections([jira], "own", now)}
         onConnect={onConnect}
         onOpen={onOpen}
         ribbon={[]}
@@ -34,5 +34,21 @@ describe("EntityConnections", () => {
     expect(onOpen).toHaveBeenCalledWith(jira);
     await userEvent.click(screen.getByTestId(ConnectionTileTestId.Add));
     expect(onConnect).toHaveBeenCalled();
+  });
+
+  it("an inherited personal account reads Personal, a company one names the company", () => {
+    const mine = { ...jira, id: "my-jira", companyId: undefined } as Integration;
+    render(
+      <EntityConnections
+        canConnect={false}
+        companyName="Acme"
+        model={buildConnections([jira, mine], "inherited", now)}
+        onConnect={vi.fn()}
+        onOpen={vi.fn()}
+        ribbon={[]}
+      />,
+    );
+    expect(screen.getByText("Od Acme")).toBeInTheDocument();
+    expect(screen.getByText("Osobní")).toBeInTheDocument();
   });
 });

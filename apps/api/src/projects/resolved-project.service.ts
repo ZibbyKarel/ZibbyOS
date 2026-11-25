@@ -17,8 +17,8 @@ import {
   type ResolvedProjectContext,
   computeResolvedContext,
   mergeBudget,
-  mergeIntegrationsByKind,
   mergePeople,
+  resolveAccounts,
   resolveEffectiveCompanyId,
   resolveKnowledgeBase,
 } from "./resolved-project.helpers";
@@ -40,7 +40,7 @@ import { ProjectsStorageService } from "./projects.storage.service";
  *
  * The actual field-merge rules are pure functions in `resolved-project.helpers.ts`,
  * unit-tested there without touching storage; this service is only the DB-facing
- * seam (company lookup + integration-ownership fan-out).
+ * seam (company lookup + which accounts serve which project).
  *
  * Phase 3 (team knowledge base): the effective company is now resolved through
  * the project's team when the project has no `companyId` of its own — see
@@ -72,14 +72,14 @@ export class ResolvedProjectService {
     return mergeBudget(company?.budget, project.budget);
   }
 
-  /** Effective (company + project, merged by `kind`) integrations for `project`. */
+  /**
+   * THE seam for "which accounts serve this project": the effective company's accounts,
+   * then the operator's project-scoped personal accounts, first wins per slot
+   * (see {@link resolveAccounts}).
+   */
   async resolveIntegrations(project: Project): Promise<Integration[]> {
     const company = await this.findCompany(await this.effectiveCompanyId(project));
-    const { companyIntegrations, projectIntegrations } = await this.integrationsByOwner(
-      project,
-      company?.id,
-    );
-    return mergeIntegrationsByKind(companyIntegrations, projectIntegrations);
+    return resolveAccounts(await this.integrations.list(), company?.id);
   }
 
   /**
@@ -89,11 +89,7 @@ export class ResolvedProjectService {
    */
   async resolve(project: Project): Promise<ResolvedProjectContext> {
     const company = await this.findCompany(await this.effectiveCompanyId(project));
-    const { companyIntegrations, projectIntegrations } = await this.integrationsByOwner(
-      project,
-      company?.id,
-    );
-    return computeResolvedContext(project, company, companyIntegrations, projectIntegrations);
+    return computeResolvedContext(project, company, await this.integrations.list());
   }
 
   /** The project's effective company record (project → team → company), or `undefined`. */
@@ -102,25 +98,23 @@ export class ResolvedProjectService {
   }
 
   /**
-   * Phase 128 (D1) — the projects a COMPANY-owned integration feeds: every project
-   * whose effective company owns it and that doesn't override its kind with an own
-   * integration. `[]` for a project-owned integration (its owner is the only target).
+   * The projects an account serves: those whose resolved set ({@link resolveIntegrations})
+   * contains it — for a company account and a personal one alike. So a repo is polled by
+   * exactly one account.
    */
   async inheritingProjects(integration: Integration): Promise<Project[]> {
-    if (!integration.companyId || !this.projects) return [];
+    if (!this.projects) return [];
     const all = await this.integrations.list();
     const out: Project[] = [];
     for (const project of await this.projects.list()) {
-      if ((await this.effectiveCompanyId(project)) !== integration.companyId) continue;
-      const overrides = all.some((i) => i.projectId === project.id && i.kind === integration.kind);
-      if (!overrides) out.push(project);
+      const company = await this.findCompany(await this.effectiveCompanyId(project));
+      if (resolveAccounts(all, company?.id).some((i) => i.id === integration.id)) out.push(project);
     }
     return out;
   }
 
   /**
-   * Phase 129 (G2) — the distinct repos a company-owned GitHub integration covers,
-   * each with the inheriting projects on it (repo → project ids, in project order).
+   * The distinct repos a GitHub account covers, each with the served projects on it (repo → project ids, in project order).
    * A project whose repo can't be resolved (no/odd `gitRemote`) is left out.
    */
   async githubRepoTargets(integration: Integration): Promise<Map<string, string[]>> {
@@ -154,6 +148,15 @@ export class ResolvedProjectService {
   async resolveCompanyRef(project: Project): Promise<{ id: string; name: string } | undefined> {
     const company = await this.findCompany(await this.effectiveCompanyId(project));
     return company ? { id: company.id, name: company.name } : undefined;
+  }
+
+  /**
+   * The Jira project key for `project` (accounts-model decision 6): its team's `board`,
+   * else the serving Jira `account`'s `config.projectKey`. `undefined` when neither is set.
+   */
+  async jiraProjectKey(project: Project, account?: Integration): Promise<string | undefined> {
+    const team = await this.findTeam(project.teamId);
+    return team?.board ?? (account?.config.kind === "jira" ? account.config.projectKey : undefined);
   }
 
   /** The project's GitLab link (host + path), `null` for a GitHub / remote-less / unknown project. */
@@ -207,19 +210,5 @@ export class ResolvedProjectService {
   private async effectiveCompanyId(project: Project): Promise<string | undefined> {
     const team = await this.findTeam(project.teamId);
     return resolveEffectiveCompanyId(project, team);
-  }
-
-  /** Split the full integrations listing into this project's and its company's own. */
-  private async integrationsByOwner(
-    project: Project,
-    companyId: string | undefined,
-  ): Promise<{ companyIntegrations: Integration[]; projectIntegrations: Integration[] }> {
-    const all = await this.integrations.list();
-    return {
-      companyIntegrations: companyId
-        ? all.filter((integration) => integration.companyId === companyId)
-        : [],
-      projectIntegrations: all.filter((integration) => integration.projectId === project.id),
-    };
   }
 }

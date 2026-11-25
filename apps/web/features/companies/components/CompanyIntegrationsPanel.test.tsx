@@ -7,6 +7,7 @@ import {
   CompanyIntegrationsPanelTestId as TestId,
 } from "./CompanyIntegrationsPanel";
 import { ConnectWizardTestId } from "../../integrations/components/ConnectWizardSheet";
+import { AccountCardsTestId } from "../../integrations/components/AccountCards";
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
@@ -29,7 +30,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 describe("CompanyIntegrationsPanel", () => {
   it("shows the empty state, then opens the connect wizard owned by the company", async () => {
     render(<CompanyIntegrationsPanel companyId="shoptet" ownerName="Shoptet" projectCount={2} />);
-    expect(screen.getByTestId(TestId.Empty)).toBeInTheDocument();
+    expect(screen.getByTestId(AccountCardsTestId.Empty)).toBeInTheDocument();
 
     await userEvent.click(screen.getByTestId(TestId.Add));
     expect(screen.getByTestId(ConnectWizardTestId.Root)).toBeInTheDocument();

@@ -36,27 +36,12 @@ export function integrationDetail(i: Integration, t: EntityT): string {
   }
 }
 
-/** "needs attention" sentence parts shared by the three headers: the first down tile, if any. */
-export function downSentence(
-  model: ConnectionsModel,
-  t: EntityT,
-  tk: (key: never) => string,
-  ownerName: (i: Integration) => string,
-): string | null {
-  const first = model.down[0];
-  if (!first) return null;
-  return t("connections.down", {
-    service: tk(INTEGRATION_KIND_LABEL_KEY[first.integration.kind] as never),
-    owner: ownerName(first.integration),
-  });
-}
-
 export interface EntityConnectionsProps {
   model: ConnectionsModel;
   ribbon: ConnectionRibbonItem[];
-  /** Name of the company that owns inherited tiles. */
-  companyName?: string;
-  /** Hide the "Connect" tile (a team has no connections of its own yet). */
+  /** Name of the company that owns inherited company tiles (personal ones read "Personal"). */
+  companyName?: string | undefined;
+  /** Hide the "Connect" tile (a project / team has no accounts of its own). */
   canConnect?: boolean;
   onConnect: () => void;
   onOpen: (integration: Integration) => void;
@@ -105,7 +90,9 @@ export function EntityConnections({
       meta,
       origin: tile.origin,
       ownLabel: t("connections.ownChip"),
-      sourceLabel: t("connections.from", { name: companyName ?? "" }),
+      sourceLabel: i.companyId
+        ? t("connections.from", { name: companyName ?? i.companyId })
+        : t("connections.personal"),
       serves: tile.serves > 0 ? t("connections.serves", { count: tile.serves }) : undefined,
       accent: INTEGRATION_ACCENT[i.kind],
       onClick: () => onOpen(i),

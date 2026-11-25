@@ -2,25 +2,22 @@ import { apiClient } from "../../../state/api";
 import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
 
 /**
- * Shared cache key for the integration list. Exported so mutations can invalidate
- * it. The `["integrations"]` prefix means a bare invalidation also clears every
- * project-scoped variant (`["integrations", { projectId }]`) by partial match.
+ * Shared cache key for the account list. Exported so mutations can invalidate it; the
+ * `["integrations"]` prefix also clears every narrowed variant (company / personal / detail).
  */
-export function getIntegrationsQueryKey(projectId?: string) {
-  return projectId ? (["integrations", { projectId }] as const) : (["integrations"] as const);
+export function getIntegrationsQueryKey() {
+  return ["integrations"] as const;
 }
 
 /**
- * Live integration catalog from `GET /api/integrations` — the contract
- * `Integration` entity is the single shape used end to end. Returns the TanStack
- * query result directly; `select` unwraps the response envelope so `data` is
- * `Integration[]`. Pass a `projectId` to fetch only that project's integrations
- * (integrations are owned by a project: one project = one company).
+ * Every account (`Integration`) from `GET /api/integrations` — company and personal alike.
+ * `select` unwraps the response envelope so `data` is `Integration[]`. A project's serving
+ * accounts come from `useResolvedProjectQuery` instead.
  */
-export function useIntegrationsQuery(projectId?: string) {
+export function useIntegrationsQuery() {
   return apiClient.integrations.listIntegrations.useQuery({
-    queryKey: getIntegrationsQueryKey(projectId),
-    queryData: { query: projectId ? { projectId } : {} },
+    queryKey: getIntegrationsQueryKey(),
+    queryData: { query: {} },
     select: selectApiResponseBody,
   });
 }

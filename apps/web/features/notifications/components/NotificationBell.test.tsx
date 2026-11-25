@@ -49,7 +49,7 @@ const tokenIntegration = (id: string, daysLeft: number | null, extra = {}) => ({
   id,
   name: id,
   enabled: true,
-  projectId: "p1",
+  companyId: "acme",
   tokenExpiresAt: daysLeft === null ? null : new Date(Date.now() + daysLeft * DAY).toISOString(),
   ...extra,
 });
@@ -234,14 +234,15 @@ describe("NotificationBell", () => {
       tokenIntegration("far", 40),
       tokenIntegration("none", null),
       tokenIntegration("soon", 5),
-      tokenIntegration("gone", -2),
+      tokenIntegration("gone", -2, { companyId: undefined }),
     ];
     render(<NotificationBell />);
     const rows = screen.getAllByTestId(NotificationBellTestId.TokenItem);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("gone — token vypršel");
     expect(rows[1]).toHaveTextContent("soon — token vyprší za 5 dní");
-    expect(rows[1]).toHaveAttribute("href", "/projects/p1/integrations/soon");
+    expect(rows[1]).toHaveAttribute("href", "/companies/acme/integrations/soon");
+    expect(rows[0]).toHaveAttribute("href", "/system/settings/accounts/gone");
     expect(within(rows[0]!).queryByTestId(NotificationBellTestId.MarkRead)).toBeNull();
     // 2 failed runs + 2 tokens in the badge; the failed runs still render after the tokens.
     expect(screen.getByTestId(NotificationBellTestId.Trigger)).toHaveTextContent("4");

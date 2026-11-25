@@ -7,13 +7,14 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 
-// Integrations are owned by a project (one project = one company); the suite seeds
-// its own `acme-app` + `zibby-self` projects below (self-contained — the shared
-// `data-test/` seed root carries no project registry).
+// An integration is an account owned by a company (`companyId`) or by the operator
+// (none). The suite seeds its own `acme` company with an `acme-app` project and a
+// company-less `zibby-self` project below (self-contained — the shared `data-test/`
+// seed root carries no project registry).
 const SLACK = {
   id: "team-slack",
   kind: "slack",
-  projectId: "acme-app",
+  companyId: "acme",
   name: "Team Slack",
   config: { kind: "slack", channels: ["C123"] },
 };
@@ -45,10 +46,14 @@ describe("Integrations API (e2e)", () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    // The projectId FK is validated on create — seed the owning projects.
+    // The companyId FK is validated on create — seed the owning company + its project.
+    await request(app.getHttpServer())
+      .post("/api/companies")
+      .send({ id: "acme", name: "Acme" })
+      .expect(201);
     await request(app.getHttpServer())
       .post("/api/projects")
-      .send({ id: "acme-app", name: "Acme App", path: projectPath })
+      .send({ id: "acme-app", name: "Acme App", path: projectPath, companyId: "acme" })
       .expect(201);
     await request(app.getHttpServer())
       .post("/api/projects")
@@ -98,7 +103,7 @@ describe("Integrations API (e2e)", () => {
       .send({
         id: "bad",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         config: {
           kind: "email",
           imapHost: "h",
@@ -111,25 +116,36 @@ describe("Integrations API (e2e)", () => {
       .expect(422);
   });
 
-  it("rejects an integration referencing an unknown project (422)", async () => {
+  it("rejects an account referencing an unknown company (422)", async () => {
     await request(app.getHttpServer())
       .post("/api/integrations")
       .send({
         id: "orphan",
         kind: "slack",
-        projectId: "nope-not-a-project",
+        companyId: "nope-not-a-company",
         config: { kind: "slack", channels: [] },
       })
       .expect(422);
   });
 
-  it("lists integrations scoped to a project via ?projectId", async () => {
+  it("rejects a github/gitlab account that stores a repo (400)", async () => {
+    await request(app.getHttpServer())
+      .post("/api/integrations")
+      .send({
+        id: "repo-gh",
+        kind: "github",
+        companyId: "acme",
+        config: { kind: "github", repo: "acme/app", username: "me" },
+      })
+      .expect(400);
+  });
+
+  it("?projectId lists the accounts serving the project; a personal mailbox serves none", async () => {
     await request(app.getHttpServer())
       .post("/api/integrations")
       .send({
         id: "self-mail",
         kind: "email",
-        projectId: "zibby-self",
         config: {
           kind: "email",
           imapHost: "h",
@@ -141,23 +157,37 @@ describe("Integrations API (e2e)", () => {
       })
       .expect(201);
 
+    await request(app.getHttpServer())
+      .post("/api/integrations")
+      .send({
+        id: "my-jira",
+        kind: "jira",
+        config: { kind: "jira", baseUrl: "https://me.atlassian.net", email: "me@x.dev" },
+      })
+      .expect(201);
+
     const acme = await request(app.getHttpServer())
       .get("/api/integrations?projectId=acme-app")
       .expect(200);
     const acmeIds = acme.body.map((i: { id: string }) => i.id);
     expect(acmeIds).toContain("team-slack");
+    expect(acmeIds).toContain("my-jira"); // the company has no Jira: the operator's serves
     expect(acmeIds).not.toContain("self-mail");
 
     const self = await request(app.getHttpServer())
       .get("/api/integrations?projectId=zibby-self")
       .expect(200);
-    expect(self.body.map((i: { id: string }) => i.id)).toEqual(["self-mail"]);
+    expect(self.body.map((i: { id: string }) => i.id)).toEqual(["my-jira"]);
+
+    const unknown = await request(app.getHttpServer())
+      .get("/api/integrations?projectId=no-such-project")
+      .expect(200);
+    expect(unknown.body).toEqual([]);
   });
 
-  it("Phase 70: a project linked to a company sees its EFFECTIVE integrations (company + own, merged by kind)", async () => {
-    // acme-app already owns "team-slack" (kind slack) + "no-creds" isn't created yet
-    // at this point in the suite ordering — seed a fresh, isolated project+company pair
-    // instead of reusing acme-app's evolving fixture state.
+  it("a company's accounts serve its project first; the operator's project-scoped ones fill the rest", async () => {
+    // Seed a fresh, isolated project+company pair instead of reusing acme-app's
+    // evolving fixture state.
     await request(app.getHttpServer())
       .post("/api/projects")
       .send({ id: "acme-branch", name: "Acme Branch", path: projectPath })
@@ -171,54 +201,30 @@ describe("Integrations API (e2e)", () => {
       .send({ companyId: "acme-hq" })
       .expect(200);
 
-    // Company owns a Jira integration; the project owns its own Slack integration —
-    // different kinds, so the effective set is the union of both.
-    await request(app.getHttpServer())
-      .post("/api/integrations")
-      .send({
+    // The company's Jira takes the jira slot (the operator's my-jira does not serve);
+    // its Slack serves too.
+    for (const body of [
+      {
         id: "hq-jira",
         kind: "jira",
         companyId: "acme-hq",
         config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "hq@acme.dev" },
-      })
-      .expect(201);
-    await request(app.getHttpServer())
-      .post("/api/integrations")
-      .send({
-        id: "branch-slack",
-        kind: "slack",
-        projectId: "acme-branch",
-        config: { kind: "slack", channels: ["C1"] },
-      })
-      .expect(201);
-
-    const merged = await request(app.getHttpServer())
-      .get("/api/integrations?projectId=acme-branch")
-      .expect(200);
-    expect(merged.body.map((i: { id: string }) => i.id).sort()).toEqual([
-      "branch-slack",
-      "hq-jira",
-    ]);
-
-    // Same kind (slack) at both company and project → the project's own wins.
-    await request(app.getHttpServer())
-      .post("/api/integrations")
-      .send({
+      },
+      {
         id: "hq-slack",
         kind: "slack",
         companyId: "acme-hq",
         config: { kind: "slack", channels: ["C-hq"] },
-      })
-      .expect(201);
-    const overridden = await request(app.getHttpServer())
+      },
+    ]) {
+      await request(app.getHttpServer()).post("/api/integrations").send(body).expect(201);
+    }
+    const served = await request(app.getHttpServer())
       .get("/api/integrations?projectId=acme-branch")
       .expect(200);
-    expect(overridden.body.map((i: { id: string }) => i.id).sort()).toEqual([
-      "branch-slack",
-      "hq-jira",
-    ]);
+    expect(served.body.map((i: { id: string }) => i.id)).toEqual(["hq-jira", "hq-slack"]);
 
-    // A dangling companyId never 500s — resolves as "no company" (own integrations only).
+    // A dangling companyId never 500s — resolves as "no company" (operator's accounts only).
     await request(app.getHttpServer())
       .patch("/api/projects/acme-branch")
       .send({ companyId: "no-such-company" })
@@ -226,7 +232,7 @@ describe("Integrations API (e2e)", () => {
     const dangling = await request(app.getHttpServer())
       .get("/api/integrations?projectId=acme-branch")
       .expect(200);
-    expect(dangling.body.map((i: { id: string }) => i.id)).toEqual(["branch-slack"]);
+    expect(dangling.body.map((i: { id: string }) => i.id)).toEqual(["my-jira"]);
   });
 
   it("stores credentials separately: the entity file never contains the token", async () => {
@@ -260,7 +266,7 @@ describe("Integrations API (e2e)", () => {
       .send({
         id: "no-creds",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         config: { kind: "slack", channels: [] },
       })
       .expect(201);
@@ -281,13 +287,8 @@ describe("Integrations API (e2e)", () => {
       .send({
         id: "acme-gitlab",
         kind: "gitlab",
-        projectId: "acme-app",
-        config: {
-          kind: "gitlab",
-          host: "gitlab.example.com",
-          repo: "acme/platform/app",
-          username: "karel.zibar",
-        },
+        companyId: "acme",
+        config: { kind: "gitlab", host: "gitlab.example.com", username: "karel.zibar" },
       })
       .expect(201);
     expect(created.body.hasCredentials).toBe(true);
@@ -302,12 +303,40 @@ describe("Integrations API (e2e)", () => {
       .expect(200);
   });
 
-  it("a PATCH cannot leave a project-owned gitlab integration repo-less (422, kind-aware)", async () => {
+  it("a PATCH cannot store a repo on a gitlab account (422, kind-aware)", async () => {
     const res = await request(app.getHttpServer())
       .patch("/api/integrations/acme-gitlab")
-      .send({ config: { kind: "gitlab", host: "gitlab.example.com", username: "karel.zibar" } })
+      .send({
+        config: {
+          kind: "gitlab",
+          host: "gitlab.example.com",
+          repo: "acme/platform/app",
+          username: "karel.zibar",
+        },
+      })
       .expect(422);
-    expect(JSON.stringify(res.body)).toContain("a project-owned gitlab integration needs a repo");
+    expect(JSON.stringify(res.body)).toContain("a gitlab account has no repo");
+  });
+
+  it("PATCH companyId: unknown company → 422; null moves the account to the operator", async () => {
+    await request(app.getHttpServer())
+      .patch("/api/integrations/acme-gitlab")
+      .send({ companyId: "no-such-company" })
+      .expect(422);
+    const moved = await request(app.getHttpServer())
+      .patch("/api/integrations/acme-gitlab")
+      .send({ companyId: null })
+      .expect(200);
+    expect(moved.body).not.toHaveProperty("companyId");
+    const raw = JSON.parse(
+      await fs.readFile(path.join(integrationsDir, "acme-gitlab.json"), "utf8"),
+    );
+    expect(raw).not.toHaveProperty("companyId");
+    const back = await request(app.getHttpServer())
+      .patch("/api/integrations/acme-gitlab")
+      .send({ companyId: "acme" })
+      .expect(200);
+    expect(back.body.companyId).toBe("acme");
   });
 
   it("update cannot change kind (config of a different kind → 422)", async () => {
@@ -337,7 +366,7 @@ describe("Integrations API (e2e)", () => {
       .send({
         id: "no-owner",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         name: "No Owner",
         config: { kind: "slack", channels: ["C123"] },
       });

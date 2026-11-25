@@ -28,6 +28,7 @@ import { useEntityT } from "../../entity/useEntityT";
 import { useIntegrationsQuery } from "../../integrations";
 import { EntityConnections } from "../../integrations/components/EntityConnections";
 import { buildConnections } from "../../integrations/connectionsModel";
+import { accountHref } from "../../integrations/accountHref";
 import { useTeamKbNotesQuery } from "../../knowledge/queries";
 import { useProjectsQuery } from "../../projects";
 import { TeamKbFeed } from "../components/TeamKbFeed";
@@ -87,7 +88,7 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
             ...body,
             companyId: body.companyId ?? undefined,
             slug: body.slug ?? undefined,
-            jiraProjectKey: body.jiraProjectKey ?? undefined,
+            board: body.board ?? undefined,
             id: newId,
           },
         },
@@ -104,12 +105,10 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
 
   const memberProjects = (projectsQ.data ?? []).filter((p) => p.teamId === id);
   const company = companies.find((c) => c.id === team?.companyId);
-  const model = buildConnections(
-    integrationsQ.data ?? [],
-    projectsQ.data ?? [],
-    { teamPage: true, parentCompanyId: team?.companyId },
-    now,
+  const companyAccounts = (integrationsQ.data ?? []).filter(
+    (i) => team?.companyId && i.companyId === team.companyId,
   );
+  const model = buildConnections(companyAccounts, "inherited", now);
   const kb = team?.knowledgeBase;
   const noteCount = notesQ.data?.length;
   const feed = [...(digestQ.data?.decisions ?? []), ...(digestQ.data?.questions ?? [])]
@@ -223,7 +222,7 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
             companyName={company?.name}
             model={model}
             onConnect={() => undefined}
-            onOpen={(i) => router.push(`/companies/${i.companyId}/integrations/${i.id}` as Route)}
+            onOpen={(i) => router.push(accountHref(i))}
             ribbon={[
               ...(company
                 ? [

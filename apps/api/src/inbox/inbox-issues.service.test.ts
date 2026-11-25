@@ -6,7 +6,14 @@ import { InboxIssuesService, InboxItemNotFoundError } from "./inbox-issues.servi
 import { InboxService } from "./inbox.service";
 
 const NOW = "2026-10-01T10:00:00.000Z";
-const acme: Project = { id: "acme", name: "Acme", path: "~/acme", companyId: "co", teamId: "tm" };
+const acme: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  companyId: "co",
+  teamId: "tm",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const beta: Project = {
   id: "beta",
   name: "Beta",
@@ -19,7 +26,7 @@ const jira = {
 } as unknown as Integration;
 const github = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "me" },
+  config: { kind: "github", username: "me" },
 } as unknown as Integration;
 
 const adf = (text: string) => ({
@@ -69,6 +76,10 @@ interface Opts {
   hidden?: { integrationId: string; externalId: string }[];
   prs?: InboxPrsResponse["prs"];
   integrations?: Integration[];
+  /** Overrides acme's `gitRemote`. */
+  acmeRemote?: string;
+  /** Team board per project id (what `jiraProjectKey` resolves to). */
+  boards?: Record<string, string>;
 }
 
 function build(opts: Opts = {}) {
@@ -118,12 +129,15 @@ function build(opts: Opts = {}) {
   const prs: InboxPrsResponse = { prs: opts.prs ?? [], errors: [] };
   const getPrs = vi.fn(async () => prs);
   const service = new InboxIssuesService(
-    { list: async () => [acme, beta] } as never,
+    {
+      list: async () => [opts.acmeRemote ? { ...acme, gitRemote: opts.acmeRemote } : acme, beta],
+    } as never,
     {
       resolveIntegrations: async (p: Project) =>
         (opts.integrations ?? [jira, ...(p.id === "acme" ? [github] : [])]).filter(
           (i) => p.id === "acme" || i.config.kind === "jira",
         ),
+      jiraProjectKey: async (p: Project) => opts.boards?.[p.id],
     } as never,
     { read: async () => ({ token: "tok" }) } as never,
     roadmap as never,
@@ -137,18 +151,27 @@ function build(opts: Opts = {}) {
 
 describe("InboxIssuesService.list", () => {
   it("never builds a GitLab target from a bad host or path", async () => {
-    const gl = (id: string, host: string, repo: string) =>
+    const gl = (id: string, host: string) =>
       ({
         id,
-        projectId: "acme",
-        config: { kind: "gitlab", host, repo, username: "me", streams: ["issues"] },
+        config: { kind: "gitlab", host, username: "me", streams: ["issues"] },
       }) as unknown as Integration;
-    const bad = build({
-      integrations: [gl("g1", "gitlab.example.com", "g/$(id)/p"), gl("g2", "h/evil", "g/p")],
+    const badPath = build({
+      integrations: [gl("g1", "gitlab.example.com")],
+      acmeRemote: "git@gitlab.example.com:g/$(id)/p.git",
     });
-    await bad.service.list(false, async () => ({ prs: [], errors: [] }));
-    expect(bad.glabPaths).toEqual([]);
-    const good = build({ integrations: [gl("g3", "gitlab.example.com", "group/sub/project")] });
+    await badPath.service.list(false, async () => ({ prs: [], errors: [] }));
+    expect(badPath.glabPaths).toEqual([]);
+    const badHost = build({
+      integrations: [gl("g2", "h/evil")],
+      acmeRemote: "git@h:g/p.git",
+    });
+    await badHost.service.list(false, async () => ({ prs: [], errors: [] }));
+    expect(badHost.glabPaths).toEqual([]);
+    const good = build({
+      integrations: [gl("g3", "gitlab.example.com")],
+      acmeRemote: "git@gitlab.example.com:group/sub/project.git",
+    });
     await good.service.list(false, async () => ({ prs: [], errors: [] }));
     expect(good.glabPaths.some((p) => p.includes("group%2Fsub%2Fproject"))).toBe(true);
   });
@@ -245,6 +268,18 @@ describe("InboxIssuesService.list", () => {
     expect(Object.fromEntries(res.items.map((i) => [i.source.externalKey, i.projectId]))).toEqual({
       "BETA-1": "beta",
       "ZZZ-9": "acme",
+    });
+  });
+
+  it("assigns an issue to the project whose team board is its key prefix, before a routing rule", async () => {
+    const { service } = build({
+      jiraIssues: [issue("BETA-1"), issue("ACME-3")],
+      boards: { acme: "BETA" },
+    });
+    const res = await service.list(false, async () => ({ prs: [], errors: [] }));
+    expect(Object.fromEntries(res.items.map((i) => [i.source.externalKey, i.projectId]))).toEqual({
+      "BETA-1": "acme",
+      "ACME-3": "acme",
     });
   });
 

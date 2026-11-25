@@ -5,3 +5,7 @@ export {
   getCompanyIntegrationsQueryKey,
   useCompanyIntegrationsQuery,
 } from "./useCompanyIntegrationsQuery";
+export {
+  getPersonalIntegrationsQueryKey,
+  usePersonalIntegrationsQuery,
+} from "./usePersonalIntegrationsQuery";

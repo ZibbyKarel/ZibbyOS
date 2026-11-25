@@ -1,55 +1,91 @@
 import { renderWithProviders as render, screen } from "../../../test/render";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { IntegrationFormDialog, IntegrationFormTestId } from "./IntegrationFormDialog";
+import type { CreateIntegrationInput } from "@zibby/contracts";
+import {
+  IntegrationFormFields,
+  IntegrationFormTestId,
+  type IntegrationOwner,
+  useIntegrationFormState,
+} from "./IntegrationFormFields";
 
-/**
- * NS2 F7a — Sentry is the first monitor-only integration kind, settable in the
- * web form like any other. Driven through {@link IntegrationFormDialog} (the
- * dialog is a thin controlled wrapper over `IntegrationFormFields` + its hook)
- * so these tests exercise the real kind-switch, field visibility, secret label,
- * and `buildCreate()` payload — no new harness needed.
- */
+const SUBMIT = "harness-submit";
+
+/** The form + its hook, with a submit button emitting `buildCreate()` and the secret. */
+function Harness({
+  owner = {},
+  onCreate,
+}: {
+  owner?: IntegrationOwner;
+  onCreate: (draft: { create: CreateIntegrationInput; secret?: string | undefined }) => void;
+}) {
+  const form = useIntegrationFormState(owner);
+  return (
+    <>
+      <IntegrationFormFields form={form} />
+      <button
+        data-testid={SUBMIT}
+        disabled={!form.canSave(true)}
+        onClick={() => onCreate({ create: form.buildCreate(), secret: form.newSecret() })}
+        type="button"
+      >
+        submit
+      </button>
+    </>
+  );
+}
+
+async function pick(label: string) {
+  // The kind selector is always the first `dropdown-trigger` in DOM order.
+  await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
+  await userEvent.click(screen.getByText(label));
+}
+
+describe("IntegrationFormFields — owner", () => {
+  it("a company account carries its companyId; a personal one has none", async () => {
+    const onCreate = vi.fn();
+    const { unmount } = render(<Harness onCreate={onCreate} owner={{ companyId: "acme" }} />);
+    await userEvent.type(screen.getByTestId("integration-id"), "acme-slack");
+    await userEvent.click(screen.getByTestId(SUBMIT));
+    expect(onCreate.mock.calls[0]![0].create.companyId).toBe("acme");
+    unmount();
+
+    render(<Harness onCreate={onCreate} />);
+    await userEvent.type(screen.getByTestId("integration-id"), "my-slack");
+    await userEvent.click(screen.getByTestId(SUBMIT));
+    expect(onCreate.mock.calls[1]![0].create).not.toHaveProperty("companyId");
+  });
+});
+
 describe("IntegrationFormFields — sentry kind", () => {
-  it("selecting sentry renders org/project fields and hides github/slack fields", async () => {
-    const onSubmit = vi.fn();
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onSubmit} projectId="acme-app" />);
-
-    // The kind selector is always the first `dropdown-trigger` in DOM order.
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("Sentry"));
+  it("selecting sentry renders org/project fields and hides slack fields", async () => {
+    render(<Harness onCreate={vi.fn()} />);
+    await pick("Sentry");
 
     expect(screen.getByTestId(IntegrationFormTestId.SentryOrg)).toBeInTheDocument();
     expect(screen.getByTestId(IntegrationFormTestId.SentryProject)).toBeInTheDocument();
     expect(screen.getByTestId(IntegrationFormTestId.SentryBaseUrl)).toBeInTheDocument();
-    expect(screen.queryByTestId(IntegrationFormTestId.GithubRepo)).not.toBeInTheDocument();
     expect(screen.queryByTestId(IntegrationFormTestId.SlackChannels)).not.toBeInTheDocument();
   });
 
   it("secret label reads API token for sentry", async () => {
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={vi.fn()} projectId="acme-app" />);
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("Sentry"));
-
+    render(<Harness onCreate={vi.fn()} />);
+    await pick("Sentry");
     expect(screen.getByTestId(IntegrationFormTestId.Secret)).toHaveAccessibleName("API token");
   });
 
   it("buildCreate() yields a valid SentryConfig, with the token carried out-of-band", async () => {
-    const onSubmit = vi.fn();
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onSubmit} projectId="acme-app" />);
-
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("Sentry"));
+    const onCreate = vi.fn();
+    render(<Harness onCreate={onCreate} />);
+    await pick("Sentry");
 
     await userEvent.type(screen.getByTestId("integration-id"), "acme-sentry");
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.SentryOrg), "acme");
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.SentryProject), "backend");
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.Secret), "sntrys_secret");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
+    await userEvent.click(screen.getByTestId(SUBMIT));
 
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    const draft = onSubmit.mock.calls[0]![0];
-    expect(draft.create.kind).toBe("sentry");
+    const draft = onCreate.mock.calls[0]![0];
     expect(draft.create.config).toEqual({
       kind: "sentry",
       org: "acme",
@@ -61,167 +97,64 @@ describe("IntegrationFormFields — sentry kind", () => {
   });
 
   it("blocks save until org and project are both filled in", async () => {
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={vi.fn()} projectId="acme-app" />);
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("Sentry"));
-
+    render(<Harness onCreate={vi.fn()} />);
+    await pick("Sentry");
     await userEvent.type(screen.getByTestId("integration-id"), "acme-sentry");
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.SentryOrg), "acme");
-    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
+    expect(screen.getByTestId(SUBMIT)).toBeDisabled();
   });
 });
 
-/**
- * 2026-07-29 design (`source-picker` + "mine" scoping) — `username` is now
- * required on the GitHub config so sync can scope to `assignee:<username>`.
- */
 describe("IntegrationFormFields — github kind", () => {
-  async function selectGithub() {
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("GitHub"));
-  }
-
-  it("blocks save until repo and username are both filled in", async () => {
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={vi.fn()} projectId="acme-app" />);
-    await selectGithub();
+  it("needs only a username, and never sends a repo", async () => {
+    const onCreate = vi.fn();
+    render(<Harness onCreate={onCreate} owner={{ companyId: "acme" }} />);
+    await pick("GitHub");
 
     await userEvent.type(screen.getByTestId("integration-id"), "acme-github");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubRepo), "acme/repo");
-    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
-
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubUsername), "octocat");
-    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeEnabled();
-  });
-
-  it("buildCreate() always includes username in the GitHubConfig", async () => {
-    const onSubmit = vi.fn();
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onSubmit} projectId="acme-app" />);
-    await selectGithub();
-
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-github");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubRepo), "acme/repo");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubUsername), "octocat");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
-
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    const draft = onSubmit.mock.calls[0]![0];
-    expect(draft.create.config).toEqual({
-      kind: "github",
-      repo: "acme/repo",
-      streams: ["issues", "pulls"],
-      username: "octocat",
-    });
-  });
-
-  it("buildCreate() adds includeTeams: true when the team toggle is on", async () => {
-    const onSubmit = vi.fn();
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onSubmit} projectId="acme-app" />);
-    await selectGithub();
-
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-github");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubRepo), "acme/repo");
+    expect(screen.getByTestId(SUBMIT)).toBeDisabled();
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubUsername), "octocat");
     await userEvent.click(screen.getByTestId(IntegrationFormTestId.GithubIncludeTeams));
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
+    await userEvent.click(screen.getByTestId(SUBMIT));
 
-    const draft = onSubmit.mock.calls[0]![0];
-    expect(draft.create.config).toEqual({
+    expect(onCreate.mock.calls[0]![0].create.config).toEqual({
       kind: "github",
-      repo: "acme/repo",
       streams: ["issues", "pulls"],
       username: "octocat",
       includeTeams: true,
     });
   });
-
-  it("phase 129 — a company-owned github integration saves without a repo (hint names the git remote)", async () => {
-    const onSubmit = vi.fn();
-    render(<IntegrationFormDialog companyId="acme" onClose={vi.fn()} onCreate={onSubmit} />);
-    await selectGithub();
-
-    expect(screen.getByText(/git remote/)).toBeInTheDocument();
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-github");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubUsername), "octocat");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
-
-    const draft = onSubmit.mock.calls[0]![0];
-    expect(draft.create.config).toEqual({
-      kind: "github",
-      streams: ["issues", "pulls"],
-      username: "octocat",
-    });
-  });
-
-  it("a project-owned github integration still requires a repo", async () => {
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={vi.fn()} projectId="acme-app" />);
-    await selectGithub();
-
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-github");
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GithubUsername), "octocat");
-    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
-  });
 });
 
 describe("IntegrationFormFields — gitlab kind", () => {
-  async function pickGitlab(props: { projectId?: string; companyId?: string }, onCreate = vi.fn()) {
-    render(<IntegrationFormDialog onClose={vi.fn()} onCreate={onCreate} {...props} />);
-    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
-    await userEvent.click(screen.getByText("GitLab"));
-    return onCreate;
-  }
-
-  it("shows host/repo/username, no credentials field, and a glab login note", async () => {
-    await pickGitlab({ projectId: "acme-app" });
+  it("shows host/username, no repo, no credentials field, and a glab login note", async () => {
+    render(<Harness onCreate={vi.fn()} />);
+    await pick("GitLab");
     expect(screen.getByTestId(IntegrationFormTestId.GitlabHost)).toBeInTheDocument();
-    expect(screen.getByTestId(IntegrationFormTestId.GitlabRepo)).toBeInTheDocument();
     expect(screen.getByTestId(IntegrationFormTestId.GitlabUsername)).toBeInTheDocument();
     expect(screen.getByTestId(IntegrationFormTestId.GitlabLogin)).toBeInTheDocument();
     expect(screen.queryByTestId(IntegrationFormTestId.Secret)).not.toBeInTheDocument();
-    expect(screen.queryByTestId(IntegrationFormTestId.GithubRepo)).not.toBeInTheDocument();
   });
 
-  it("buildCreate() yields a valid GitLabConfig (nested repo, dotted username) and no secret", async () => {
-    const onCreate = await pickGitlab({ projectId: "acme-app" });
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-gitlab");
+  it("buildCreate() yields a GitLabConfig without a repo and no secret", async () => {
+    const onCreate = vi.fn();
+    render(<Harness onCreate={onCreate} />);
+    await pick("GitLab");
+    await userEvent.type(screen.getByTestId("integration-id"), "my-gitlab");
     await userEvent.type(
       screen.getByTestId(IntegrationFormTestId.GitlabHost),
       "gitlab.example.com",
     );
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabRepo), "acme/platform/app");
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
+    await userEvent.click(screen.getByTestId(SUBMIT));
 
     const draft = onCreate.mock.calls[0]![0];
     expect(draft.create.config).toEqual({
       kind: "gitlab",
       host: "gitlab.example.com",
-      repo: "acme/platform/app",
       streams: ["issues", "pulls"],
       username: "karel.zibar",
     });
     expect(draft.secret).toBeUndefined();
-  });
-
-  it("a project-owned integration needs a repo; a company-owned one does not", async () => {
-    await pickGitlab({ projectId: "acme-app" });
-    await userEvent.type(screen.getByTestId("integration-id"), "acme-gitlab");
-    await userEvent.type(
-      screen.getByTestId(IntegrationFormTestId.GitlabHost),
-      "gitlab.example.com",
-    );
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
-    expect(screen.getByTestId(IntegrationFormTestId.Submit)).toBeDisabled();
-  });
-
-  it("company-owned: repo is optional and omitted from the config", async () => {
-    const onCreate = await pickGitlab({ companyId: "acme" });
-    await userEvent.type(screen.getByTestId("integration-id"), "co-gitlab");
-    await userEvent.type(
-      screen.getByTestId(IntegrationFormTestId.GitlabHost),
-      "gitlab.example.com",
-    );
-    await userEvent.type(screen.getByTestId(IntegrationFormTestId.GitlabUsername), "karel.zibar");
-    await userEvent.click(screen.getByTestId(IntegrationFormTestId.Submit));
-    expect(onCreate.mock.calls[0]![0].create.config).not.toHaveProperty("repo");
   });
 });

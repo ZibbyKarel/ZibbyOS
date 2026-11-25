@@ -3,10 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NoGithubLinkError, ProjectNotFoundError } from "../projects/projects.errors";
 import { GithubDiffError, InboxPrDiffService, MAX_DIFF_BYTES } from "./inbox-pr-diff.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "me" },
+  config: { kind: "github", username: "me" },
 } as unknown as Integration;
 
 describe("InboxPrDiffService", () => {

@@ -13,7 +13,6 @@ import {
 const sample: CreateIntegrationInput = {
   id: "team-slack",
   kind: "slack",
-  projectId: "acme-app",
   name: "Team Slack",
   config: { kind: "slack", channels: ["C1"] },
 };
@@ -111,6 +110,17 @@ describe("IntegrationsStorageService", () => {
     });
     expect(updated.kind).toBe("slack");
     expect(updated.enabled).toBe(false);
+  });
+
+  it("companyId on update: a string moves the account, null moves it to the operator (key removed on disk)", async () => {
+    await service.create(sample);
+    expect((await service.update("team-slack", { companyId: "co" })).companyId).toBe("co");
+    expect((await service.update("team-slack", { name: "Renamed" })).companyId).toBe("co");
+    const personal = await service.update("team-slack", { companyId: null });
+    expect("companyId" in personal).toBe(false);
+    const onDisk = JSON.parse(await fs.readFile(fileFor(dir, "team-slack"), "utf8"));
+    expect("companyId" in onDisk).toBe(false);
+    expect((await service.get("team-slack")).companyId).toBeUndefined();
   });
 
   it("refuses unsafe ids (path traversal)", async () => {

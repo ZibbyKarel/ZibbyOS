@@ -20,6 +20,8 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 export const LEGACY_SETTINGS_REDIRECTS: Record<string, string> = {
   "ai-models": "/system/settings/ai-engines",
   activity: "/system/settings/general#live-log",
+  // Personal account details live at /system/settings/accounts/<id>; the list is on Access.
+  accounts: "/system/settings/access#accounts",
 };
 
 /** i18n key segment per section (`ai-engines` is not a valid flat key part). */

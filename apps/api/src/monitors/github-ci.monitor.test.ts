@@ -5,7 +5,6 @@ import { GithubCiMonitor } from "./github-ci.monitor";
 const INTEGRATION: Integration = {
   id: "acme-github",
   kind: "github",
-  projectId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,

@@ -5,7 +5,6 @@ import { SentryChannelAdapter } from "./sentry.adapter";
 const INTEGRATION: Integration = {
   id: "acme-sentry",
   kind: "sentry",
-  projectId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,

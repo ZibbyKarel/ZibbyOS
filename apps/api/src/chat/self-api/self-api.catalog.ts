@@ -161,7 +161,7 @@ export const SELF_API_ALLOWLIST: SelfApiAllowlist = {
     createIntegration: "write",
     // Hosts/ports: repointing them would send the stored credential to another endpoint.
     // `config` is replaced whole on update, so it is merged onto the current one.
-    // Ownership (projectId/companyId) is operator-only: re-owning moves the credential.
+    // Ownership (companyId) is operator-only: re-owning moves the credential.
     updateIntegration: {
       tier: "write",
       allowKeys: ["name", "enabled", "config"],

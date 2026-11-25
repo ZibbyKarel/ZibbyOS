@@ -14,10 +14,15 @@ import {
 import { PrRefusedError } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "Me" },
+  config: { kind: "github", username: "Me" },
 } as unknown as Integration;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });

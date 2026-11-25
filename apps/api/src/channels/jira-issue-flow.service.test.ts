@@ -5,7 +5,6 @@ import { JiraIssueFlowService } from "./jira-issue-flow.service";
 const jiraIntegration: Integration = {
   id: "acme-jira",
   kind: "jira",
-  projectId: "acme-app",
   enabled: true,
   config: {
     kind: "jira",

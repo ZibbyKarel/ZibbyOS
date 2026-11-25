@@ -291,13 +291,21 @@ describe("requestGitlabReview", () => {
 describe("InboxPrThreadsService on a GitLab project", () => {
   const gitlab = {
     id: "gl",
-    config: { kind: "gitlab", host: link.host, repo: link.repo },
+    config: { kind: "gitlab", host: link.host },
   } as unknown as Integration;
   const make = (client: ReturnType<typeof fakeGlab>["client"]) => {
     const dropPrsCache = vi.fn();
     const record = vi.fn(async () => undefined);
     const service = new InboxPrThreadsService(
-      { get: async () => ({ id: "app", name: "App", path: "~/app" }) as Project } as never,
+      {
+        get: async () =>
+          ({
+            id: "app",
+            name: "App",
+            path: "~/app",
+            gitRemote: `git@${link.host}:${link.repo}.git`,
+          }) as Project,
+      } as never,
       { resolveIntegrations: async () => [gitlab] } as never,
       {
         read: async () => {

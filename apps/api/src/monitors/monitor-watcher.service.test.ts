@@ -19,12 +19,15 @@ const fakeTrace = { getTraceId: () => undefined, run: (_c: unknown, fn: () => un
 const GH: Integration = {
   id: "acme-github",
   kind: "github",
-  projectId: "acme",
+  companyId: "acme-co",
   enabled: true,
   status: "connected",
   hasCredentials: true,
-  config: { kind: "github", repo: "acme/app", streams: ["ci"], username: "octocat" },
+  config: { kind: "github", streams: ["ci"], username: "octocat" },
 };
+/** GH serves project `acme` on `acme/app`: its monitor state lives under the per-repo key. */
+const GH_KEY = `${GH.id}--acme-app`;
+const SERVES_ACME = { githubRepoTargets: async () => new Map([["acme/app", ["acme"]]]) };
 
 const ALERT = {
   id: "ci-acme-app-42-1",
@@ -58,7 +61,7 @@ describe("MonitorWatcherService", () => {
   let scheduler: { createTask: ReturnType<typeof vi.fn> };
   let activity: { record: ReturnType<typeof vi.fn> };
 
-  const makeWatcher = (resolvedProjects?: unknown) =>
+  const makeWatcher = (resolvedProjects: unknown = SERVES_ACME) =>
     new MonitorWatcherService(
       integrations as never,
       credentials as never,
@@ -112,14 +115,13 @@ describe("MonitorWatcherService", () => {
       expect.objectContaining({ kind: "monitor-alert" }),
     );
     // Cursor advanced only after the event persisted.
-    expect(await store.readCursor(GH.id, "github-ci")).toBe("C1");
+    expect(await store.readCursor(GH_KEY, "github-ci")).toBe("C1");
   });
 
   it("a repo-less company github integration is polled per inheriting repo, cursors keyed per repo (phase 129)", async () => {
     const company: Integration = {
       ...GH,
       id: "co-github",
-      projectId: undefined,
       companyId: "co",
       config: { kind: "github", streams: ["ci"], username: "octocat" },
     };
@@ -166,7 +168,6 @@ describe("MonitorWatcherService", () => {
       ...GH,
       id: "co-gitlab",
       kind: "gitlab",
-      projectId: undefined,
       companyId: "co",
       config: { kind: "gitlab", host: "gl.example.com", streams: ["ci"], username: "karel.zibar" },
     };
@@ -257,8 +258,8 @@ describe("MonitorWatcherService", () => {
 
     expect(ingested.sort()).toEqual([ALERT.id, "sentry-1"].sort());
     // Each adapter keeps its own cursor namespace on the same integration.
-    expect(await store.readCursor(GH.id, "github-ci")).toBe("C1");
-    expect(await store.readCursor(GH.id, "fake-sentry")).toBe("S1");
+    expect(await store.readCursor(GH_KEY, "github-ci")).toBe("C1");
+    expect(await store.readCursor(GH_KEY, "fake-sentry")).toBe("S1");
   });
 
   // NS2 F7a — real second monitor, not a fake stand-in: proves the seam holds
@@ -267,7 +268,7 @@ describe("MonitorWatcherService", () => {
     const SENTRY: Integration = {
       id: "acme-sentry",
       kind: "sentry",
-      projectId: "acme",
+      companyId: "acme-co",
       enabled: true,
       status: "connected",
       hasCredentials: true,
@@ -302,8 +303,10 @@ describe("MonitorWatcherService", () => {
         text: expect.stringContaining("Investigate the Sentry error"),
       }),
       expect.any(Number),
-      "acme",
+      // A Sentry account has no project attribution (no repo to derive one from).
+      undefined,
     );
+    expect(stored.projectId).toBeUndefined();
     expect(scheduler.createTask).not.toHaveBeenCalledWith(
       expect.objectContaining({ text: expect.stringContaining("failing CI run") }),
       expect.anything(),
@@ -315,7 +318,7 @@ describe("MonitorWatcherService", () => {
     const SENTRY: Integration = {
       id: "acme-sentry",
       kind: "sentry",
-      projectId: "acme",
+      companyId: "acme-co",
       enabled: true,
       status: "connected",
       hasCredentials: true,

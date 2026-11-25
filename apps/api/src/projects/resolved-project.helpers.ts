@@ -1,10 +1,12 @@
-import type {
-  Integration,
-  KnowledgeBaseSource,
-  Project,
-  ProjectBudget,
-  ProjectPerson,
-  Team,
+import {
+  type Integration,
+  type KnowledgeBaseSource,
+  PROJECT_SCOPED_KINDS,
+  type Project,
+  type ProjectBudget,
+  type ProjectPerson,
+  type Team,
+  isPersonalAccount,
 } from "@zibby/contracts";
 
 /**
@@ -77,21 +79,35 @@ export function mergeBudget(
 }
 
 /**
- * Merge a company's integrations with a project's own, by `kind` (Phase 68 decision
- * 3): a `kind` the project itself has an integration for is entirely OWNED by the
- * project's own integration(s) of that kind (the company's same-kind integrations
- * are dropped); a `kind` the project has none of is inherited whole from the
- * company. Different kinds simply union.
+ * The slot an account fills for a project: its kind — except GitLab, where each host is
+ * its own slot (`gitlab:<host>`), so a company's self-hosted GitLab and the operator's
+ * gitlab.com account can both serve one project.
  */
-export function mergeIntegrationsByKind(
-  companyIntegrations: Integration[],
-  projectIntegrations: Integration[],
-): Integration[] {
-  const overriddenKinds = new Set(projectIntegrations.map((integration) => integration.kind));
-  const inherited = companyIntegrations.filter(
-    (integration) => !overriddenKinds.has(integration.kind),
-  );
-  return [...inherited, ...projectIntegrations];
+export function accountSlot(account: Integration): string {
+  return account.config.kind === "gitlab"
+    ? `gitlab:${account.config.host.toLowerCase()}`
+    : account.kind;
+}
+
+/**
+ * The accounts that serve a project (accounts-model decision 4): its effective company's
+ * accounts first, then the operator's personal accounts of a `PROJECT_SCOPED_KINDS` kind
+ * (a personal mailbox / calendar / Slack is never inherited). First wins per
+ * {@link accountSlot}; each group is ordered by id, so the winner is deterministic.
+ */
+export function resolveAccounts(all: Integration[], companyId: string | undefined): Integration[] {
+  const byId = (a: Integration, b: Integration) => a.id.localeCompare(b.id);
+  const company = companyId ? all.filter((i) => i.companyId === companyId).sort(byId) : [];
+  const personal = all
+    .filter((i) => isPersonalAccount(i) && PROJECT_SCOPED_KINDS.includes(i.kind))
+    .sort(byId);
+  const taken = new Set<string>();
+  return [...company, ...personal].filter((account) => {
+    const slot = accountSlot(account);
+    if (taken.has(slot)) return false;
+    taken.add(slot);
+    return true;
+  });
 }
 
 /** The three effective (merged) facets a project resolves at read time. */
@@ -104,21 +120,19 @@ export interface ResolvedProjectContext {
 /**
  * Compute the full resolved context from already-fetched raw inputs — the pure
  * counterpart to {@link ResolvedProjectService.resolve}. `company` is `null` for
- * "no company" (no `companyId`, or a dangling one that failed to resolve): every
- * merge then degrades to the project's own raw data, satisfying both the
- * no-`companyId` identity case and the dangling-`companyId` fallback with the same
- * code path (no special-casing needed).
+ * "no company" (no `companyId`, or a dangling one that failed to resolve): people and
+ * budget then degrade to the project's own raw data, and only the operator's
+ * project-scoped personal accounts serve it.
  */
 export function computeResolvedContext(
   project: Project,
-  company: { people?: ProjectPerson[]; budget?: ProjectBudget } | null,
-  companyIntegrations: Integration[],
-  projectIntegrations: Integration[],
+  company: { id: string; people?: ProjectPerson[]; budget?: ProjectBudget } | null,
+  accounts: Integration[],
 ): ResolvedProjectContext {
   return {
     people: mergePeople(company?.people ?? [], project.identity?.people ?? []),
     budget: mergeBudget(company?.budget, project.budget),
-    integrations: mergeIntegrationsByKind(companyIntegrations, projectIntegrations),
+    integrations: resolveAccounts(accounts, company?.id),
   };
 }
 

@@ -102,10 +102,18 @@ describe("InboxPrDiffService on a GitLab project", () => {
     const { client } = fakeGlab([[/raw_diffs$/, { raw: "diff --git a/x b/x\n" }]]);
     const gitlab = {
       id: "gl",
-      config: { kind: "gitlab", host: link.host, repo: link.repo },
+      config: { kind: "gitlab", host: link.host },
     } as unknown as Integration;
     const service = new InboxPrDiffService(
-      { get: async () => ({ id: "app", name: "App", path: "~/app" }) as Project } as never,
+      {
+        get: async () =>
+          ({
+            id: "app",
+            name: "App",
+            path: "~/app",
+            gitRemote: `git@${link.host}:${link.repo}.git`,
+          }) as Project,
+      } as never,
       { resolveIntegrations: async () => [gitlab] } as never,
       {
         read: async () => {

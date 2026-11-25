@@ -62,3 +62,6 @@ serialised by an in-memory per-project lock, so a double click creates one task.
 
 The PR-level "Fix CI" (`POST /api/inbox/prs/fix-ci`, `pr-fix-ci` workflow) fast-forwards an
 existing PR head and is not used here: a base branch gets a new PR instead.
+
+> The git-host account (and its token) used here is the one that serves the project: its
+> company's account, else the operator's personal one — see `docs/api/integrations.md`.

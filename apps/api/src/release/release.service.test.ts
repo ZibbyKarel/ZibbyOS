@@ -2,18 +2,29 @@ import type { Integration, Project, ProjectPr } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { ReleaseService } from "./release.service";
 
-const ACME: Project = { id: "acme", name: "Acme", path: "~/Projects/acme" };
-const BETA: Project = { id: "beta", name: "Beta", path: "~/Projects/beta" };
+const ACME: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/Projects/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
+const BETA: Project = {
+  id: "beta",
+  name: "Beta",
+  path: "~/Projects/beta",
+  gitRemote: "git@github.com:beta/app.git",
+};
 
-function githubIntegration(projectId: string, repo: string): Integration {
+/** A GitHub account; the repo comes from the project's `gitRemote`. */
+function githubIntegration(owner: string): Integration {
   return {
-    id: `${projectId}-github`,
+    id: `${owner}-github`,
     kind: "github",
-    projectId,
+    companyId: owner,
     enabled: true,
     status: "connected",
     hasCredentials: true,
-    config: { kind: "github", repo, streams: ["issues", "pulls"], username: "octocat" },
+    config: { kind: "github", streams: ["issues", "pulls"], username: "octocat" },
   };
 }
 
@@ -43,7 +54,7 @@ interface BuildOpts {
 function build(opts: BuildOpts) {
   const projects = opts.projects ?? [ACME];
   const integrationsByProject = opts.integrationsByProject ?? {
-    acme: [githubIntegration("acme", "acme/app")],
+    acme: [githubIntegration("acme")],
   };
   const prsByProject = opts.prsByProject ?? { acme: [pr()] };
 
@@ -205,8 +216,8 @@ describe("ReleaseService.queue", () => {
     const { service } = build({
       projects: [ACME, BETA],
       integrationsByProject: {
-        acme: [githubIntegration("acme", "acme/app")],
-        beta: [githubIntegration("beta", "beta/app")],
+        acme: [githubIntegration("acme")],
+        beta: [githubIntegration("beta")],
       },
       prsByProject: {
         acme: [pr({ number: 1 })],
@@ -261,7 +272,7 @@ describe("ReleaseService.queue", () => {
   it("?projectId= filters to one project", async () => {
     const { service } = build({
       projects: [ACME, BETA],
-      integrationsByProject: { acme: [githubIntegration("acme", "acme/app")], beta: [] },
+      integrationsByProject: { acme: [githubIntegration("acme")], beta: [] },
       prsByProject: { acme: [pr()] },
       fetchImpl: routedFetch(readyRoutes()),
     });
@@ -279,15 +290,16 @@ describe("ReleaseService.queue — gitlab project", () => {
     const gitlab = {
       id: "gl",
       kind: "gitlab",
-      projectId: "acme",
+      companyId: "acme",
       enabled: true,
       status: "connected",
       hasCredentials: false,
-      config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+      config: { kind: "gitlab", host: "gl.example.com" },
     } as unknown as Integration;
     const { service, projectPr } = build({
       fetchImpl,
-      integrationsByProject: { acme: [gitlab, githubIntegration("acme", "acme/app")] },
+      projects: [{ ...ACME, gitRemote: "git@gl.example.com:grp/app.git" }],
+      integrationsByProject: { acme: [gitlab, githubIntegration("acme")] },
     });
     const { entries } = await service.queue({}, new Date("2026-07-17T06:00:00.000Z"));
     expect(entries).toEqual([]);

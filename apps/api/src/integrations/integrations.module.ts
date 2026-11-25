@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { AdapterRegistry } from "../channels/adapters/adapter-registry";
+import { CompaniesModule } from "../companies/companies.module";
 import { OperatorChannelStoreModule } from "../operator-channel/operator-channel-store.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -54,6 +55,7 @@ export function resolveCredentialsDir(): string {
 @Module({
   // OperatorChannelStoreModule: the Slack adapter excludes the operator-channel bot DM.
   imports: [
+    CompaniesModule,
     forwardRef(() => ProjectsModule),
     forwardRef(() => ResolvedProjectModule),
     OperatorChannelStoreModule,

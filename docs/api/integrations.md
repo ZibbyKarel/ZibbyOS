@@ -1,13 +1,16 @@
 # Integrations
 
 Integrations are the configured inbound channels ZIBBY watches — Slack, email,
-Jira, GitHub, Google Calendar. Each integration belongs to exactly one project
-(one project = one company): configuration and credentials are CRUD over
+Jira, GitHub, GitLab, Google Calendar. An integration IS an **account**: an identity
+plus its credential and streams, owned by a company or by the operator (a personal
+account — no `companyId`, see `isPersonalAccount`). The entity, ids, routes and on-disk
+dirs keep the name "integration"; the UI says "account". A project never owns one — it
+only says where things are (`gitRemote`, its team's `board`). Configuration and credentials are CRUD over
 HTTP, but the connection itself is exercised by the channel adapters
 documented in `docs/api/channels.md`, not by this module.
 
 **Department membership is derived, not stored.** An integration's only owner is
-its project — it carries no `department` field. Which federation department
+its company (or the operator) — it carries no `department` field. Which federation department
 "has" it follows from what it does: **ops** (the heartbeat watcher) lists every
 integration; **comms** (the outward voice) lists the ones with `mandate.reply`
 on. Both fall out of `DepartmentsService.roster()` over the integration list ×
@@ -33,7 +36,7 @@ integration entity.
 Credentials are kept out of the committed integration entity entirely.
 `IntegrationsStorageService.serialize()` strips `hasCredentials` /
 `status` / `lastSyncAt` / `lastError` before writing — the on-disk entity file
-is config-only (`id`/`kind`/`projectId`/`name`/`enabled`/`config`), so a
+is config-only (`id`/`kind`/`companyId`/`name`/`enabled`/`config`), so a
 watcher tick or a credential swap never touches a git-tracked file. Two things
 live in a separate, gitignored place instead:
 
@@ -74,29 +77,37 @@ create is retried once without them and the result carries a `note`. Used by the
 rewrite would desync the two; `updateIntegration` returns `422` if a patch's
 `config.kind` disagrees with the existing `kind`.
 
-GitHub `repo` (Phase 129): required on a project-owned GitHub integration
-(`IntegrationSchema`/`CreateIntegrationSchema` refine it next to the owner XOR, and
-`updateIntegration` returns `422` for a patch that would drop it), optional on a
-company-owned one, where each inheriting project's repo comes from its `gitRemote`
-(`githubRepoFor` in `libs/contracts`). `pnpm migrate:company-integrations` (dry-run
-by default, `--apply` writes) also merges ≥2 project-owned GitHub integrations of
-one company sharing token + username into a repo-less `<companyId>-github`, but only
-when every project's `gitRemote` resolves to its old `repo` and GitHub reports the
-repo under that same name (a renamed repo skips the group with a reason). A company
-that already owns a GitHub integration is skipped. Tokens are compared, never printed.
+## Ownership and which accounts serve a project
+
+- **Owner** = `companyId`, or none for the operator's personal account.
+  `PATCH` accepts `companyId: null` to move an account to the operator. The `id` is never
+  re-keyed (it keys credentials, channel items, cursors, roadmap ids, approvals).
+- **Which accounts serve a project** (`ResolvedProjectService.resolveIntegrations`): the
+  project's effective company's accounts first, then the operator's personal accounts of
+  `PROJECT_SCOPED_KINDS` (github, gitlab, jira, sentry). First wins per kind; gitlab is one per
+  host (`gitlab:<host>`). A personal mailbox, calendar or Slack login is never inherited by a
+  project. Two accounts of one kind in one company are out of scope (first by id wins).
+- **Repos** are never stored. `config.repo` (github/gitlab) is the watcher's runtime poll scope
+  only; create (and update) reject it with `422`. The covered repos always come from the served
+  projects' `gitRemote`: `githubRepoFor` (host must be github.com, lowercased `owner/name`) and
+  `gitlabRepoFor` (the remote's host must equal `config.host`, path kept as-is, must pass
+  `isGitlabShape`). Both ignore the owner.
+- **Boot-time data migration** `apps/api/src/shared/migrations/accounts.ts` (runs before Nest,
+  primary only, idempotent): backs up `integrations/`, `_projects.json` and `_teams.json` to
+  `.accounts-migration-backup`, moves project-owned accounts to the project's company (mailbox /
+  calendar, or a project without a company, to the operator), drops `config.repo` (seeding the
+  project's `gitRemote` when missing, moving poll cursors to the per-repo slot), renames a team's
+  `jiraProjectKey` to `board`, then writes the marker `.accounts-migration.done` last.
 
 ## GitLab (`gitlab` kind)
 
-Config: `{ kind: "gitlab", host, repo?, streams, username }`. `host` is a bare hostname
-(`gitlab.example.com`, optional `:port`); `repo` is the full project path at any nesting
-depth (`group/sub/name`). There is no token: all GitLab access goes through the `glab` CLI
+Config: `{ kind: "gitlab", host, streams, username }`. `host` is a bare hostname
+(`gitlab.example.com`, optional `:port`). There is no token: all GitLab access goes through the `glab` CLI
 (`GitlabClient` in `apps/api/src/git-host`, `glab api <path> --hostname <host>`), which holds
-the auth. A project-owned gitlab integration must name its `repo`; a company-owned one may omit
-it, then `gitlabRepoFor` takes the project's `gitRemote` path, but only when the remote's host
-equals `config.host`. `githubRepoFor` likewise only derives from a `github.com` remote.
-`resolveGitHostLink` picks the gitlab link first, else the GitHub token link. A PATCH that would
-leave a project-owned github **or** gitlab integration without `repo` is 422
-(`a project-owned <kind> integration needs a repo`).
+the auth. The repo is derived per project by `gitlabRepoFor` from its `gitRemote`, only when the
+remote's host equals `config.host`; `githubRepoFor` likewise only derives from a `github.com` remote.
+`resolveGitHostLink` picks the gitlab link first, else the GitHub token link. A `config.repo` in a
+create or update body is `422`.
 
 **Shape validation.** `isGitlabShape(host, repo)` (`@zibby/contracts`, next to
 `GITLAB_HOST_SHAPE` / `GITLAB_REPO_SHAPE`, the regexes the schema and the web form use) is the
@@ -150,24 +161,21 @@ main search/list call on every heartbeat, so the value appears without a manual
 test. A stamp that doesn't carry it (failed test, first poll) keeps the previous value. The web card and detail page render it as
 "NO EXPIRATION DATE" / "expires in N days" / "token expired".
 
-## Project scoping
+## Ownership scoping
 
-Every integration carries a `projectId` foreign key and `createIntegration`/
-`updateIntegration` both 422 on an unknown project. `listIntegrations` accepts
-an optional `?projectId=` filter. There is no standalone `/integrations`
-route in the web app — integrations are managed from their owning project's
-detail page (see `docs/web/overview.md`'s routing section, the project
-`integrations/[integrationId]` detail route); the API itself is otherwise
-project-agnostic (you can still `GET /integrations` unfiltered).
+`createIntegration`/`updateIntegration` 422 on an unknown `companyId`; omit it for a personal
+account. In the web app accounts are managed on the company detail page and, for the operator's
+personal accounts, in Settings → Accounts (see `docs/web/overview.md`); there is no standalone
+`/integrations` route and no project-level account UI.
 
 ## Endpoints (`/api/integrations`)
 
 - `POST /integrations` — create (`409` on duplicate id, `422` if
-  `config.kind` doesn't match `kind` or the project doesn't exist).
-- `GET /integrations` — list, optionally `?projectId=` scoped.
+  `config.kind` doesn't match `kind`, `config.repo` is set or the company doesn't exist).
+- `GET /integrations` — list.
 - `GET /integrations/:id` — get one.
-- `PATCH /integrations/:id` — update name/enabled/config/projectId (never
-  `kind`; `422` on a kind change or an unknown reassigned project).
+- `PATCH /integrations/:id` — update name/enabled/config/companyId (`null` = personal;
+  never `kind`; `422` on a kind change, a `config.repo` or an unknown company).
 - `DELETE /integrations/:id` — delete; cascades the credentials file and the
   sync-state sidecar.
 - `PUT /integrations/:id/credentials` — set the secret (write-only; `422` on

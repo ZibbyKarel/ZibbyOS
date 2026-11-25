@@ -78,7 +78,6 @@ describe("Briefing (e2e)", () => {
       .send({
         id: "team",
         kind: "slack",
-        projectId: "acme-app",
         name: "Team",
         config: { kind: "slack", channels: ["C1"] },
         department: "ops",

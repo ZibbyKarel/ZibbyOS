@@ -17,11 +17,10 @@ its runtime.
 - Opt-in through the existing GitHub integration: `config.streams` contains
   `"ci"` (the channel adapter naturally ignores this stream; same PAT, same
   credentials).
-- Repo (Phase 129): `config.repo` for a project-owned integration; a company-owned
-  integration without `repo` polls each inheriting project's repo, resolved from its
+- Repo: the account stores none; it polls each served project's repo, resolved from its
   `gitRemote`. Each repo has its own cursor and status sidecar keyed
   `<integrationId>--<owner>-<name>`, and its alerts/status carry the repo's first
-  inheriting project as `projectId`.
+  serving project as `projectId`.
 - Reads `/repos/{repo}/actions/runs` (newest-first) through `GithubRunsReader`, the 5 min
   per-repo cache it shares with project CI (`docs/api/project-ci.md`), cursor = the latest
   `created_at` (per integration × adapter, a sidecar under

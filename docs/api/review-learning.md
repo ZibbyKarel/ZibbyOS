@@ -596,3 +596,6 @@ contents on disk, not just the HTTP response.
 ### GitLab projects
 
 A project with a GitLab link learns from merge-request discussions: `ReviewCommentFetcher.fetchNewGitlab` reads `merge_requests/:iid/discussions` (`review-comment.gitlab.ts`) for each ZIBBY-opened MR, keeping human notes (system notes dropped) newer than the cursor. Records have the same shape: `commentId` `dn-<noteId>`, `commentUrl` `…/-/merge_requests/N#note_<id>`. A failed MR read is a `failedEndpoints` entry, so the cursor is held. `ZibbyPrLocator` reads MR URLs too.
+
+> The git-host account (and its token) used here is the one that serves the project: its
+> company's account, else the operator's personal one — see `docs/api/integrations.md`.

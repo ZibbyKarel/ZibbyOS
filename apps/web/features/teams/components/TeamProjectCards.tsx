@@ -24,7 +24,7 @@ export interface TeamProjectCardsProps {
   onAddExisting: () => void;
 }
 
-/** Member projects as entity cards: name, repo, filled/outlined service marks and CI. */
+/** Member projects as entity cards: name, repo, the company's account marks and CI. */
 export function TeamProjectCards({
   title,
   projects,
@@ -83,14 +83,14 @@ export function TeamProjectCards({
                   </Typography>
                   <Row gap="100" justify="between">
                     <Row gap="50">
-                      {projectMarks(p.id, p.companyId, integrations).map((m) => {
-                        const icon = sourceIcon(m.kind);
+                      {projectMarks(p.companyId, integrations).map((kind) => {
+                        const icon = sourceIcon(kind);
                         return (
                           <IconTile
-                            alt={m.kind}
-                            filled={m.own}
+                            alt={kind}
+                            filled={false}
                             glyph={icon.glyph}
-                            key={m.kind}
+                            key={kind}
                             size="xs"
                             src={icon.src}
                           />

@@ -463,6 +463,8 @@ export class InboxAddressCommentsService implements OnModuleInit {
       const jira = integrations.find((i) => i.config.kind === "jira") as
         | JiraIntegration
         | undefined;
+      const jiraKey =
+        project && jira ? await this.resolvedProjects.jiraProjectKey(project, jira) : undefined;
       const link = await this.linkOf(task);
       for (const threadId of wanted.keys()) {
         const spec = specs.get(threadId);
@@ -473,7 +475,7 @@ export class InboxAddressCommentsService implements OnModuleInit {
         try {
           const useJira = !!jira && (spec.tracker ?? "jira") === "jira";
           const issue = useJira
-            ? await this.fileJira(jira, spec, fix.url)
+            ? await this.fileJira(jira, spec, fix.url, jiraKey)
             : await this.fileGitHost(link, spec, fix.url);
           created.push({ threadId, key: issue.key, url: issue.url });
           if (issue.note) notes.push(`${issue.key}: ${issue.note}`);
@@ -512,10 +514,16 @@ export class InboxAddressCommentsService implements OnModuleInit {
     }
   }
 
-  private async fileJira(jira: JiraIntegration, spec: FollowUpSpec, prUrl: string) {
+  private async fileJira(
+    jira: JiraIntegration,
+    spec: FollowUpSpec,
+    prUrl: string,
+    board: string | undefined,
+  ) {
     const token = tokenOf(await this.credentials.read(jira.id));
     if (!token) throw new Error("no Jira credentials");
-    const projectKey = spec.projectKey ?? jira.config.projectKey;
+    // The spec's explicit key, else the project's board (team board → account key).
+    const projectKey = spec.projectKey ?? board ?? jira.config.projectKey;
     if (!projectKey) throw new Error("no Jira project key");
     const { key, url, note } = await createJiraIssue(
       this.fetchImpl,

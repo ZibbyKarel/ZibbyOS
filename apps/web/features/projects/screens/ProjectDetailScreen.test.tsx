@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { Project, ProjectLocalState, ProjectProfile } from "@zibby/contracts";
-import { TabsTestId } from "@zibby/design-system";
+import { ConnectionTileTestId, TabsTestId } from "@zibby/design-system";
 import { renderWithProviders as render, screen } from "../../../test/render";
 import { ProjectDetailScreen } from "./ProjectDetailScreen";
+import { ProjectIntegrationsPanelTestId } from "../components/ProjectIntegrationsPanel";
 
 const project: Project = {
   id: "media-vault",
@@ -48,7 +49,25 @@ vi.mock("../queries", () => ({
   useProjectIntegrationActivityQuery: () => ({ data: [] }),
   useCiStatusQuery: () => ({ data: [] }),
   useProjectTaskStats: () => ({ total: 0, groups: [] }),
-  useResolvedProjectQuery: () => ({ data: { people: [], integrations: [] } }),
+  useResolvedProjectQuery: () => ({
+    data: {
+      people: [],
+      companyId: "acme",
+      companyName: "Acme",
+      integrations: [
+        {
+          id: "team-slack",
+          kind: "slack",
+          companyId: "acme",
+          name: "Team Slack",
+          enabled: true,
+          config: { kind: "slack", channels: [] },
+          status: "connected",
+          hasCredentials: true,
+        },
+      ],
+    },
+  }),
   useProjectPrsQuery: () => ({ data: [] }),
   useProjectsQuery: () => ({ data: [] }),
   useBudgetQuery: () => ({ data: undefined }),
@@ -76,20 +95,7 @@ vi.mock("../mutations", () => ({
 }));
 
 vi.mock("../../integrations/queries", () => ({
-  useIntegrationsQuery: () => ({
-    data: [
-      {
-        id: "team-slack",
-        kind: "slack",
-        projectId: "media-vault",
-        name: "Team Slack",
-        enabled: true,
-        config: { kind: "slack", channels: [] },
-        status: "connected",
-        hasCredentials: true,
-      },
-    ],
-  }),
+  useIntegrationsQuery: () => ({ data: [] }),
   useChannelItemsQuery: () => ({ data: [] }),
 }));
 
@@ -177,10 +183,12 @@ describe("ProjectDetailScreen (ZB-06)", () => {
     );
   });
 
-  it("lists the project's integrations with an add control", () => {
+  it("lists the accounts serving the project read-only — no connect control", () => {
     render(<ProjectDetailScreen projectId="media-vault" tab="integrations" />);
-    expect(screen.getAllByText("Team Slack").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("add-integration")).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${ProjectIntegrationsPanelTestId.Row}-team-slack`),
+    ).toHaveTextContent("Team Slack");
+    expect(screen.queryByTestId(ConnectionTileTestId.Add)).not.toBeInTheDocument();
   });
 
   describe("new project mode", () => {

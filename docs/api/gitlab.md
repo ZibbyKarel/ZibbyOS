@@ -12,10 +12,10 @@ There is no stored token. Every call goes through the `glab` CLI (`GitlabClient`
 2. Log in once per host: `glab auth login --hostname gitlab.example.com`. The login lives in
    glab's keyring, so a headless host without one is unsupported.
 3. Personal access tokens expire. When glab starts failing with 401, log in again.
-4. Add an integration of kind `gitlab` (project or company owned): `host` (bare hostname),
-   `repo` (full path, e.g. `group/sub/project`; company-owned may omit it and use the project's
-   `gitRemote` when its host equals `host`), `streams` (`issues`, `pulls`, `ci`) and `username`
-   (the operator's login). The connection test is `GET /user`.
+4. Add an account of kind `gitlab` (company-owned, or personal with no company): `host` (bare
+   hostname), `streams` (`issues`, `pulls`, `ci`) and `username` (the operator's login). The
+   repos come from the served projects' `gitRemote` when its host equals `host`; `config.repo` is
+   rejected. The connection test is `GET /user`.
 
 ## What maps to what
 
@@ -81,5 +81,5 @@ without a project get no note (the prompt is byte-identical).
 - Ids derived from a repo path (e.g. the CI monitor alert id) flatten `/` to `-`, so `a/b-c` and
   `a-b/c` collide.
 - A `host:port` integration host never matches a git remote (the remote's host carries no port),
-  so a company-owned integration on such a host needs each project's `repo` set explicitly.
+  so an account on such a host covers no repo.
 - Recipes outside the repo still say `gh` (hence the injected note).

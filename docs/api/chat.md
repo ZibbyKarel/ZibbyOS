@@ -545,3 +545,9 @@ deferred increment (spec §2).
 <!-- Last reviewed 2026-10-23: still accurate after the verify-phase / project-checks removal (D-024). -->
 
 The chat "about" URL may be a GitLab merge request: its host + path is matched against the projects' `gitRemote` to pick the turn project.
+
+## Accounts and the chat self-API
+
+Integrations are accounts owned by a company or by the operator (personal) — never by a
+project (`docs/api/integrations.md`). The chat self-API may create and edit an account, but
+changing its owner (`companyId`) stays operator-only.

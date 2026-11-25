@@ -35,13 +35,11 @@ import { PageContainer } from "../../../components/PageContainer/PageContainer";
 import { slug } from "../../../utils/slug";
 import { useCompaniesQuery } from "../../companies";
 import { useEntityT } from "../../entity/useEntityT";
-import { useIntegrationsQuery } from "../../integrations";
-import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
+import { accountHref } from "../../integrations/accountHref";
 import { EntityConnections } from "../../integrations/components/EntityConnections";
 import { buildConnections } from "../../integrations/connectionsModel";
 import { useTeamsQuery } from "../../teams";
 import { ProjectOverviewKpis, ProjectRunPulse } from "../components/ProjectOverviewKpis";
-import { useProjectsQuery } from "../queries";
 import { InboxPanel } from "../../integrations/components/InboxPanel";
 import { RoadmapPanel } from "../../roadmap/components/RoadmapPanel";
 import { type ProjectBasicsBody, ProjectBasicsPanel } from "../components/ProjectBasicsPanel";
@@ -72,6 +70,7 @@ import {
   useProjectLocalStateQuery,
   useProjectProfileQuery,
   useProjectQuery,
+  useResolvedProjectQuery,
 } from "../queries";
 
 // ---------------------------------------------------------------------------
@@ -215,10 +214,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
   const tk = useTranslations();
   const te = useEntityT();
   const router = useRouter();
-  const [connecting, setConnecting] = useState(false);
   const [now] = useState(() => Date.now());
-  const allIntegrationsQ = useIntegrationsQuery();
-  const allProjectsQ = useProjectsQuery();
   const { data: allTeams = [] } = useTeamsQuery();
   const searchParams = useSearchParams();
 
@@ -233,6 +229,8 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
   const projectQ = useProjectQuery(id, { enabled: !isNew });
   const profileQ = useProjectProfileQuery(id, { enabled: !isNew });
   const localStateQ = useProjectLocalStateQuery(id, { enabled: !isNew });
+  // The accounts serving this project — resolved server-side (company first, then personal).
+  const resolvedQ = useResolvedProjectQuery(id, { enabled: !isNew });
   const { data: categories = [] } = useProjectCategoriesQuery();
   const { data: companies = [] } = useCompaniesQuery();
   const updateProfile = useUpdateProjectProfileMutation(id);
@@ -494,12 +492,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
   const showClonedFromCloneRoot =
     !isNew && localState?.present && localState.source === "cloneRoot";
 
-  const connections = buildConnections(
-    allIntegrationsQ.data ?? [],
-    allProjectsQ.data ?? [],
-    { projectId: id, parentCompanyId: project?.companyId },
-    now,
-  );
+  const connections = buildConnections(resolvedQ.data?.integrations ?? [], "inherited", now);
   const companyName = companies.find((c) => c.id === project?.companyId)?.name;
 
   return (
@@ -542,11 +535,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
               mark={<IconTile glyph="grid" size="lg" src={undefined} />}
               summary={
                 <Typography size="sm" type="note" variant="secondary">
-                  {te("project.summary", {
-                    total: connections.tiles.length,
-                    own: connections.own.length,
-                    inherited: connections.inherited.length,
-                  })}
+                  {te("project.summary", { total: connections.tiles.length })}
                   {connections.down.length > 0 && (
                     <>
                       {" · "}
@@ -568,16 +557,11 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
 
           {!isNew && project && (
             <EntityConnections
+              canConnect={false}
               companyName={companyName}
               model={connections}
-              onConnect={() => setConnecting(true)}
-              onOpen={(i) =>
-                router.push(
-                  (i.companyId
-                    ? `/companies/${i.companyId}/integrations/${i.id}`
-                    : `/projects/${id}/integrations/${i.id}`) as Route,
-                )
-              }
+              onConnect={() => undefined}
+              onOpen={(i) => router.push(accountHref(i))}
               ribbon={[
                 ...(project.companyId
                   ? [
@@ -706,10 +690,9 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
 
               {tab === "integrations" && (
                 <Stack gap="300">
-                  {/* Channels owned by this project (one project = one company) */}
+                  {/* The accounts serving this project (read-only) + its routing rules */}
                   <ProjectIntegrationsPanel
                     gitRemote={project.gitRemote}
-                    ownerName={project.name}
                     projectId={id}
                     routing={project.integrationRouting}
                   />
@@ -725,15 +708,6 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
           ) : null}
         </Stack>
       </PageContainer>
-
-      {connecting && project && (
-        <ConnectWizardSheet
-          onClose={() => setConnecting(false)}
-          onOpenIntegration={(iid) => router.push(`/projects/${id}/integrations/${iid}` as Route)}
-          owner={{ projectId: id }}
-          ownerName={project.name}
-        />
-      )}
 
       {confirmDelete && project && (
         <ConfirmDeleteDialog

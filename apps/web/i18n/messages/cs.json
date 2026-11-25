@@ -900,7 +900,6 @@
     }
   },
   "integrations": {
-    "addIntegration": "Přidat integraci",
     "title": "Integrace",
     "statusConnected": "připojeno",
     "statusDisconnected": "odpojeno",
@@ -939,10 +938,6 @@
     "jiraProjectKey": "Klíč projektu",
     "jiraJql": "JQL filtr",
     "jiraJqlHint": "Zúží stahované issue; výchozí jsou nedávno změněné v projektu",
-    "githubRepo": "Repozitář",
-    "githubRepoHint": "owner/name",
-    "githubRepoOptional": "Repozitář (volitelné)",
-    "githubRepoCompanyHint": "Nech prázdné: repozitář se bere z git remote každého projektu. owner/name vyplň jen pro pevně daný repozitář.",
     "githubStreamIssues": "Sledovat issues",
     "githubStreamPulls": "Sledovat pull requesty",
     "githubUsername": "Tvůj GitHub username",
@@ -951,10 +946,6 @@
     "githubIncludeTeamsHint": "Přidá PR s review požadovaným po tvých týmech a explicitní zmínky @org/team. Token potřebuje scope read:org.",
     "gitlabHost": "Hostitel GitLabu",
     "gitlabHostHint": "Hostname instance GitLabu, např. gitlab.example.com",
-    "gitlabRepo": "Cesta projektu",
-    "gitlabRepoOptional": "Cesta projektu (volitelné)",
-    "gitlabRepoHint": "skupina/podskupina/název",
-    "gitlabRepoCompanyHint": "Nech prázdné: projekt se bere z git remote každého projektu na tomto hostiteli. skupina/název vyplň jen pro pevně daný projekt.",
     "gitlabUsername": "Tvoje uživatelské jméno na GitLabu",
     "gitlabUsernameHint": "Omezí synchronizaci na issues a merge requesty, které jsou tomuto uživateli přiřazené, jím vytvořené, k jeho review nebo ho zmiňují",
     "gitlabStreamIssues": "Sledovat issues",
@@ -980,17 +971,19 @@
     "credentialsStored": "Secret je uložen — zadej nový pro výměnu",
     "credentialsNone": "Zatím bez secretu",
     "enabledLabel": "Aktivní",
-    "create": "Vytvořit",
     "detailPanel": "Konfigurace integrace",
     "autonomyPanel": "Autonomie",
     "autonomyHint": "Ops tenhle kanál sleduje vždy. Tady určíš, co smí ZIBBY dělat sám: dispatch = jednat podle příchozích zpráv (Tier 1), odpověď = sám odepsat (Tier 2, jménem Heralda). Bez nastavení platí výchozí hodnoty ze Settings → Mandate.",
     "autonomyDispatch": "Dispatch (jednat)",
     "autonomyReply": "Odpověď (Comms)",
-    "deleteTitle": "Smazat integraci?",
-    "deleteBody": "Opravdu smazat integraci {name}? Uložené přihlašovací údaje se smažou také. Tuto akci nelze vrátit.",
+    "deleteTitle": "Smazat účet?",
+    "deleteBody": "Opravdu smazat účet {name}? Uložené přihlašovací údaje se smažou také. Tuto akci nelze vrátit.",
     "tokenNoExpiry": "Bez data expirace",
     "tokenExpiresIn": "vyprší za {days, plural, one {# den} few {# dny} other {# dní}}",
-    "tokenExpired": "token vypršel"
+    "tokenExpired": "token vypršel",
+    "ownerLabel": "Vlastník",
+    "ownerPersonal": "Osobní (ty)",
+    "ownerHint": "Přesuň účet k firmě nebo mezi své osobní účty."
   },
   "release": {
     "title": "Fronta ke sloučení",
@@ -1039,11 +1032,6 @@
       "question": "dotaz",
       "request": "požadavek",
       "other": "jiné"
-    },
-    "attention": {
-      "title": "Vyžaduje vaši pozornost",
-      "openEmail": "Otevřít v Gmailu ↗",
-      "dismiss": "Vyřídit"
     }
   },
   "workflows": {
@@ -1918,6 +1906,14 @@
       "channelReady": "Připraveno",
       "channelPending": "Zatím nenalezeno",
       "iphone": "Na iPhonu nejdřív přidej ZibbyOS na plochu. Safari doručuje web push jen nainstalovaným webovým aplikacím."
+    },
+    "accounts": {
+      "title": "Účty",
+      "description": "Tvé osobní účty — nepatří žádné firmě. GitHub, GitLab, Jira a Sentry slouží i projektům, jejichž firma účet daného druhu nemá.",
+      "empty": "Zatím žádné osobní účty.",
+      "connect": "Připojit účet",
+      "servicesTitle": "Připojené služby",
+      "servicesHint": "Přihlášení v prohlížeči, která používají agenti (KDP, MakerWorld)."
     }
   },
   "runs": {
@@ -2416,18 +2412,15 @@
     "deleteBody": "Opravdu smazat projekt {name}? Soubory na disku zůstanou, odebere se jen záznam z velínu.",
     "budgetHeld": "pozdrženo",
     "integrations": {
-      "title": "Integrace",
-      "add": "Přidat integraci",
-      "empty": "Zatím žádné integrace — přidej Slack, e-mail, Jiru nebo GitHub pro tento projekt.",
+      "title": "Účty",
+      "empty": "Tomuto projektu zatím neslouží žádný účet — připoj ho u jeho firmy nebo v Nastavení → Účty.",
       "inherited": {
-        "title": "Zděděno z firmy",
         "fromCompany": "Z firmy {name}",
-        "openCompany": "Otevřít firmu",
-        "override": "Přebít vlastní integrací",
         "githubRoutedBy": "Směrováno podle git remote {repo}",
         "githubNoRemote": "Nastav projektu git remote, aby se mu položky z GitHubu mohly přiřazovat.",
         "gitlabRoutedBy": "Směrováno podle git remote {repo}",
-        "gitlabNoRemote": "Nastav projektu git remote na {host}, aby se mu položky z GitLabu mohly přiřazovat."
+        "gitlabNoRemote": "Nastav projektu git remote na {host}, aby se mu položky z GitLabu mohly přiřazovat.",
+        "personal": "Osobní účet"
       },
       "routing": {
         "projectKey": "Klíč projektu",
@@ -2441,7 +2434,8 @@
         "channelsHint": "ID konverzací oddělená čárkou",
         "save": "Uložit pravidlo směrování",
         "clear": "Odebrat pravidlo"
-      }
+      },
+      "hint": "Účty, které slouží tomuto projektu: nejdřív účty jeho firmy, pak tvé osobní účty GitHub, GitLab, Jira a Sentry. Spravuješ je u firmy nebo v Nastavení → Účty."
     },
     "fields": {
       "name": "Název projektu",
@@ -2510,7 +2504,7 @@
         "overview": "Přehled",
         "profile": "Profil",
         "secrets": "Tajemství",
-        "integrations": "Integrace",
+        "integrations": "Účty",
         "roadmap": "Roadmap"
       },
       "basics": {
@@ -2666,13 +2660,13 @@
     },
     "tabs": {
       "overview": "Přehled",
-      "integrations": "Integrace"
+      "integrations": "Účty"
     },
     "integrations": {
-      "title": "Integrace firmy",
-      "add": "Přidat integraci",
-      "hint": "Sdílené všemi projekty této firmy. Každý projekt si položky přiřazuje vlastními pravidly směrování a může integraci přebít vlastní.",
-      "empty": "Zatím žádné integrace firmy — přidej Jiru, GitHub nebo Slack jednou a sdílej je napříč projekty firmy."
+      "title": "Účty firmy",
+      "add": "Připojit účet",
+      "hint": "Sdílené všemi projekty této firmy. Každý projekt si položky přiřazuje vlastními pravidly směrování.",
+      "empty": "Zatím žádné účty firmy — připoj Jiru, GitHub nebo Slack jednou a sdílej je napříč projekty firmy."
     },
     "section": "Firmy",
     "countCompanies": "{count} firem",
@@ -2704,11 +2698,11 @@
       "slug": "Code owner id týmu",
       "slugPlaceholder": "shoptet/frontend-team",
       "slugHint": "Tým jako v CODEOWNERS: GitHub org/tým nebo GitLab skupina/podskupina, např. shoptet/frontend-team",
-      "jiraProjectKey": "Jira projekt",
-      "jiraProjectKeyPlaceholder": "CZ3TDR1",
-      "jiraProjectKeyHint": "Klíč Jira projektu, ve kterém tým zakládá issues",
       "company": "Firma",
-      "companyNone": "Bez firmy"
+      "companyNone": "Bez firmy",
+      "board": "Board",
+      "boardPlaceholder": "CZ3TDR1",
+      "boardHint": "Klíč Jira projektu, ve kterém tým zakládá a sleduje issues"
     },
     "profile": {
       "basics": {
@@ -5371,7 +5365,6 @@
     "connections": {
       "label": "Připojení",
       "channels": "{count, plural, one {# kanál} few {# kanály} other {# kanálů}}",
-      "down": "{service} ({owner}) nefunguje",
       "expired": "Token vypršel",
       "error": "Chyba připojení",
       "expires": "Vyprší za {days} d",
@@ -5389,7 +5382,8 @@
       "summaryAttention": "{connected} připojeno, {count} vyžaduje pozornost",
       "summary": "{connected} připojeno",
       "connectHint": "Jira, GitHub, GitLab, Slack, Email, Kalendář, Sentry",
-      "connect": "Připojit"
+      "connect": "Připojit",
+      "personal": "Osobní"
     },
     "wizard": {
       "title": "Připojit službu",
@@ -5402,14 +5396,12 @@
       "openSettings": "Otevřít nastavení",
       "done": "Hotovo",
       "contextCompany": "Připojuji pro {name}; zdědí ho {count, plural, one {# projekt} few {# projekty} other {# projektů}}.",
-      "contextProject": "Připojuji jen pro projekt {name}.",
       "need": "Budete potřebovat",
       "testing": "Testuji připojení...",
       "testOk": "Připojení funguje",
       "testFail": "Test selhal",
       "retest": "Otestovat znovu",
-      "doneCompany": "Uloženo. Připojení zdědí {count, plural, one {# projekt} few {# projekty} other {# projektů}}.",
-      "doneProject": "Uloženo pro tento projekt.",
+      "doneCompany": "Uloženo. Účet zdědí {count, plural, one {# projekt} few {# projekty} other {# projektů}}.",
       "failHint": "Připojení je uložené. Zkontrolujte nastavení a otestujte znovu.",
       "createFailed": "Připojení se nepodařilo vytvořit",
       "kind": {
@@ -5441,7 +5433,9 @@
           "desc": "Chyby a releasy",
           "need": "auth token"
         }
-      }
+      },
+      "contextPersonal": "Připojuji jeden z tvých osobních účtů.",
+      "donePersonal": "Uloženo mezi tvé osobní účty."
     },
     "company": {
       "edit": "Upravit",
@@ -5500,7 +5494,7 @@
         "running": "{count} běží"
       },
       "noLocalClone": "Bez lokálního klonu",
-      "summary": "{total, plural, one {# integrace} few {# integrace} other {# integrací}} — {own} vlastní, {inherited} zděděných",
+      "summary": "Projektu slouží {total, plural, one {# účet} few {# účty} other {# účtů}}",
       "down": "{count} nefunguje",
       "tabs": {
         "secrets": "Prostředí"

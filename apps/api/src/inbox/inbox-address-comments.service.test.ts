@@ -13,10 +13,15 @@ import {
 import { PrRefusedError } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "me" },
+  config: { kind: "github", username: "me" },
 } as unknown as Integration;
 
 describe("InboxAddressCommentsService", () => {
@@ -36,6 +41,7 @@ describe("InboxAddressCommentsService", () => {
   let reviews: { author: { __typename: string; login: string }; state: string }[];
   let requestStatus: number;
   let integrations: Integration[];
+  let board: string | undefined;
   let service: InboxAddressCommentsService;
   let deliverAction: (ctx: {
     run: { workflowRunId: string; taskId?: string };
@@ -50,6 +56,7 @@ describe("InboxAddressCommentsService", () => {
     storage = new ScheduledTasksStorageService(path.join(dir, "tasks"));
     await storage.onModuleInit();
     integrations = [GITHUB];
+    board = undefined;
     pull = {
       state: "open",
       mergeable: true,
@@ -168,7 +175,11 @@ describe("InboxAddressCommentsService", () => {
           return PROJECT;
         },
       } as never,
-      { resolveIntegrations: async () => integrations } as never,
+      {
+        resolveIntegrations: async () => integrations,
+        jiraProjectKey: async (_p: Project, jira?: Integration) =>
+          board ?? (jira?.config.kind === "jira" ? jira.config.projectKey : undefined),
+      } as never,
       { read: async () => ({ token: "tok" }) } as never,
       {
         createTask,
@@ -712,6 +723,21 @@ describe("InboxAddressCommentsService", () => {
       const body = JSON.parse(rest.find((r) => r.url.includes("j.example"))?.body ?? "{}");
       expect(body.fields).toMatchObject({ project: { key: "ABC" }, summary: "T" });
       expect(posted()[0]).toContain("[ABC-7](https://j.example/browse/ABC-7)");
+    });
+
+    it("files on the project's team board before the account's projectKey", async () => {
+      board = "TEAM";
+      integrations = [
+        GITHUB,
+        {
+          id: "jr",
+          config: { kind: "jira", baseUrl: "https://j.example", email: "a@b.c", projectKey: "ABC" },
+        } as unknown as Integration,
+      ];
+      const taskId = await approvedGate([FOLLOW]);
+      await finalize(taskId, JSON.stringify([{ threadId: "PRRT_a", title: "T", body: "B" }]));
+      const body = JSON.parse(rest.find((r) => r.url.includes("j.example"))?.body ?? "{}");
+      expect(body.fields).toMatchObject({ project: { key: "TEAM" } });
     });
 
     it("a second deliver is refused and does nothing", async () => {

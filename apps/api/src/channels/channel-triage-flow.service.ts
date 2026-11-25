@@ -13,6 +13,7 @@ import {
   type RoutingItem,
   type TriageVerdict,
   gitRemoteInfo,
+  isPersonalAccount,
   matchRouting,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
@@ -159,19 +160,31 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
 
   /**
    * File a gated Jira issue for a bug report (the finished-day autonomous path).
-   * Targets the operator's first enabled Jira integration; `propose` only PARKS a
+   * Targets the enabled Jira account that serves the item's project, on the project's
+   * board (team board → account key); with no project, the first enabled Jira account
+   * (the old global fallback). A project no Jira account serves files nothing — never
+   * another company's Jira. `propose` only PARKS a
    * `jira-issue` approval, so this is Tier-3-safe. Best-effort — any failure (no Jira
    * configured, network) is logged and swallowed so it never blocks the triage tick.
    */
   private async maybeFileJiraBug(item: ChannelItem): Promise<void> {
     if (!this.jiraFlow) return;
     try {
-      const integrations = await this.integrations.list().catch(() => []);
-      const jira = integrations.find((i) => i.enabled && i.kind === "jira");
+      const project = item.projectId
+        ? await this.projects.get(item.projectId).catch(() => null)
+        : null;
+      const candidates = project
+        ? await this.resolved.resolveIntegrations(project).catch(() => [])
+        : await this.integrations.list().catch(() => []);
+      const jira = candidates.find((i) => i.enabled && i.kind === "jira");
       if (!jira) return;
+      const projectKey = project
+        ? await this.resolved.jiraProjectKey(project, jira)
+        : jira.config?.kind === "jira"
+          ? jira.config.projectKey
+          : undefined;
       // Already tracked in Jira (a Jira item, or text naming an issue key) — filing
       // again would only duplicate it.
-      const projectKey = jira.config?.kind === "jira" ? jira.config.projectKey : undefined;
       const keyRe = projectKey ? new RegExp(`\\b${projectKey}-\\d+\\b`) : /\b[A-Z][A-Z0-9]+-\d+\b/;
       if (item.kind === "jira" || keyRe.test(item.text)) {
         this.log.info("bug already tracked in Jira, not filing", { itemId: item.id });
@@ -183,6 +196,7 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
         summary: `Bug from ${item.integrationId}: ${summary}`,
         description: `Reported via ${item.kind} (${item.integrationId})${item.from ? ` by ${item.from}` : ""}:\n\n${item.text}`,
         ...(item.url ? { sourceUrl: item.url } : {}),
+        ...(projectKey ? { projectKey } : {}),
       });
       this.log.info("bug report filed as a gated Jira issue", { itemId: item.id, jira: jira.id });
     } catch (err) {
@@ -214,23 +228,18 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
     // crafted message naming a project gains nothing but a grouping label).
     const integration = await this.integrations.get(item.integrationId).catch(() => null);
     const projects = await this.projects.list().catch(() => []);
-    // The integration's stored `projectId` (one project = one company) is the
-    // authoritative owner; fall back to text/name attribution only when an item's
-    // integration has no stored project (legacy / un-owned).
-    const owned = integration?.projectId
-      ? (projects.find((p) => p.id === integration.projectId) ?? null)
-      : null;
-    // Phase 128 (D10): a company integration with routing rules is attributed by the
-    // rules alone; 0 or ≥2 matches leave it unattributed and notify-only.
-    const routed = owned || !integration ? undefined : await this.routeByRules(item, integration);
+    // Phase 128 (D10): an account's item is attributed by the routing rules / gitRemote
+    // of the projects it serves; 0 or ≥2 matches leave it unattributed and notify-only.
+    // An account no rule speaks for (e.g. a personal mailbox, which serves no project)
+    // falls back to text/name attribution.
+    const routed = integration ? await this.routeByRules(item, integration) : undefined;
     const unroutable = routed === null;
     const matched =
-      owned ??
-      (routed === undefined
+      routed === undefined
         ? matchProject(projects, {
             text: `${item.text} ${integration?.name ?? item.integrationId}`,
           })
-        : routed);
+        : routed;
     // Enforce per-project autonomy policy (M2): VIP escalation and respond_as.
     // Phase 70: VIP status is checked against the project's EFFECTIVE roster (its
     // company's canonical people merged with its own) — a company VIP escalates
@@ -327,8 +336,8 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
   }
 
   /**
-   * Phase 128 (D10) — attribute an item of a COMPANY-owned integration by the
-   * inheriting projects' routing rules: the single matching project, `null` for
+   * Phase 128 (D10) — attribute an account's item (company or personal) by the
+   * routing rules of the projects it serves: the single matching project, `null` for
    * 0 or ≥2 matches, or `undefined` when no project has a rule for it (caller
    * falls back to the text matcher). A `jql` rule can't be evaluated here without a
    * remote call, so it is judged on its `projectKey`/`components`/`labels` only and
@@ -338,7 +347,6 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
     item: ChannelItem,
     integration: Integration,
   ): Promise<Project | null | undefined> {
-    if (!integration.companyId) return undefined;
     const inheriting = await this.resolved.inheritingProjects(integration).catch(() => []);
     const hasRules = inheriting.some((p) =>
       (p.integrationRouting ?? []).some((r) => r.integrationId === integration.id),
@@ -619,18 +627,24 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
   }
 
   /**
-   * Where a reply acts for autopilot: the item's project's company, else the integration's
-   * company. Never the project's team — several teams work in one project, so its team toggles
-   * would cover every other team's messages.
+   * Where a reply acts for autopilot: the item's project's company, else the account's
+   * company (none for a personal account = global levels only). Never the project's team —
+   * several teams work in one project, so its team toggles would cover every other team's
+   * messages. A personal account's item attributed to a project it does NOT serve (text
+   * match only) stays at global levels: inbound text must never borrow a company's autonomy.
    */
   private async autopilotLocation(
     item: ChannelItem,
-    integrationCompanyId: string | undefined,
+    integration: Integration | null,
   ): Promise<AutopilotLocation> {
     const project = item.projectId
       ? await this.projects.get(item.projectId).catch(() => null)
       : null;
-    if (!project) return { companyId: integrationCompanyId };
+    if (!project) return { companyId: integration?.companyId };
+    if (integration && isPersonalAccount(integration)) {
+      const serving = await this.resolved.resolveIntegrations(project).catch(() => []);
+      if (!serving.some((i) => i.id === integration.id)) return {};
+    }
     const company = await this.resolved.resolveCompany(project).catch(() => undefined);
     return { companyId: company?.id };
   }
@@ -687,7 +701,7 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
         approval,
         undefined,
         undefined,
-        await this.autopilotLocation(item, integration?.companyId),
+        await this.autopilotLocation(item, integration),
       )
     ) {
       try {

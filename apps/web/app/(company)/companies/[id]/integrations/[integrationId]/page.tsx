@@ -3,8 +3,8 @@ import { DetailScreen } from "../../../../../../features/integrations/DetailScre
 export default async function CompanyIntegrationDetailPage({
   params,
 }: {
-  params: Promise<{ id: string; integrationId: string }>;
+  params: Promise<{ integrationId: string }>;
 }) {
-  const { id, integrationId } = await params;
-  return <DetailScreen companyId={id} integrationId={integrationId} />;
+  const { integrationId } = await params;
+  return <DetailScreen integrationId={integrationId} />;
 }

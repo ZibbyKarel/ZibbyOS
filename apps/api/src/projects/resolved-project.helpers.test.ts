@@ -1,10 +1,11 @@
 import type { Integration, ProjectBudget, ProjectPerson } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  accountSlot,
   computeResolvedContext,
   mergeBudget,
-  mergeIntegrationsByKind,
   mergePeople,
+  resolveAccounts,
   resolveEffectiveCompanyId,
   resolveKnowledgeBase,
   samePerson,
@@ -120,28 +121,76 @@ describe("mergeBudget", () => {
   });
 });
 
-describe("mergeIntegrationsByKind", () => {
-  it("same kind: the project's integration wins, the company's is dropped", () => {
-    const company = [integration({ id: "co-slack", kind: "slack" })];
-    const project = [integration({ id: "proj-slack", kind: "slack" })];
-    expect(mergeIntegrationsByKind(company, project)).toEqual([project[0]]);
+const gitlab = (id: string, host: string, companyId?: string): Integration =>
+  integration({
+    id,
+    kind: "gitlab",
+    ...(companyId ? { companyId } : {}),
+    config: { kind: "gitlab", host, streams: ["issues", "pulls"], username: "me" },
   });
 
-  it("different kinds: union of both", () => {
-    const company = [integration({ id: "co-jira", kind: "jira" })];
-    const project = [integration({ id: "proj-slack", kind: "slack" })];
-    const result = mergeIntegrationsByKind(company, project);
-    expect(result.map((i) => i.id).sort()).toEqual(["co-jira", "proj-slack"]);
+describe("accountSlot", () => {
+  it("is the kind, except gitlab, whose slot is per (lowercased) host", () => {
+    expect(accountSlot(integration({ id: "s", kind: "slack" }))).toBe("slack");
+    expect(accountSlot(gitlab("g", "GitLab.Example.com"))).toBe("gitlab:gitlab.example.com");
+  });
+});
+
+describe("resolveAccounts", () => {
+  it("the company's accounts come first; a personal account of the same slot is not inherited", () => {
+    const all = [
+      integration({ id: "mine-jira", kind: "jira" }),
+      integration({ id: "co-jira", kind: "jira", companyId: "co" }),
+    ];
+    expect(resolveAccounts(all, "co").map((i) => i.id)).toEqual(["co-jira"]);
   });
 
-  it("company-only integrations (project has none of that kind) are inherited whole", () => {
-    const company = [integration({ id: "co-jira", kind: "jira" })];
-    expect(mergeIntegrationsByKind(company, [])).toEqual(company);
+  it("personal accounts fill the project-scoped slots the company leaves empty", () => {
+    const all = [
+      integration({ id: "co-slack", kind: "slack", companyId: "co" }),
+      integration({ id: "mine-github", kind: "github" }),
+      integration({ id: "mine-sentry", kind: "sentry" }),
+    ];
+    expect(resolveAccounts(all, "co").map((i) => i.id)).toEqual([
+      "co-slack",
+      "mine-github",
+      "mine-sentry",
+    ]);
   });
 
-  it("project-only integrations (no company) pass through unchanged", () => {
-    const project = [integration({ id: "proj-slack", kind: "slack" })];
-    expect(mergeIntegrationsByKind([], project)).toEqual(project);
+  it("never inherits a personal mailbox, calendar or Slack", () => {
+    const all = [
+      integration({ id: "mine-mail", kind: "email" }),
+      integration({ id: "mine-cal", kind: "calendar" }),
+      integration({ id: "mine-slack", kind: "slack" }),
+      integration({ id: "mine-jira", kind: "jira" }),
+    ];
+    expect(resolveAccounts(all, undefined).map((i) => i.id)).toEqual(["mine-jira"]);
+  });
+
+  it("another company's accounts never serve the project", () => {
+    const all = [integration({ id: "other-jira", kind: "jira", companyId: "other" })];
+    expect(resolveAccounts(all, "co")).toEqual([]);
+    expect(resolveAccounts(all, undefined)).toEqual([]);
+  });
+
+  it("gitlab: one slot per host — the company's host and a personal one both serve", () => {
+    const all = [
+      gitlab("co-gl", "gitlab.co.example", "co"),
+      gitlab("mine-gl", "gitlab.com"),
+      gitlab("mine-gl-co", "GITLAB.co.example"),
+    ];
+    expect(resolveAccounts(all, "co").map((i) => i.id)).toEqual(["co-gl", "mine-gl"]);
+  });
+
+  it("first by id wins within a group, whatever the listing order", () => {
+    const all = [
+      integration({ id: "co-jira-b", kind: "jira", companyId: "co" }),
+      integration({ id: "co-jira-a", kind: "jira", companyId: "co" }),
+      integration({ id: "mine-gh-b", kind: "github" }),
+      integration({ id: "mine-gh-a", kind: "github" }),
+    ];
+    expect(resolveAccounts(all, "co").map((i) => i.id)).toEqual(["co-jira-a", "mine-gh-a"]);
   });
 });
 
@@ -153,33 +202,29 @@ describe("computeResolvedContext", () => {
     identity: { people: [person({ id: "bob", name: "Bob", role: "Engineer" })] },
     budget: { dailyRuns: 3 } as ProjectBudget,
   };
+  const accounts = [
+    integration({ id: "co-jira", kind: "jira", companyId: "co" }),
+    integration({ id: "mine-github", kind: "github" }),
+    integration({ id: "mine-mail", kind: "email" }),
+  ];
 
-  it("company null (no companyId / dangling): degrades to the project's own raw data (identity)", () => {
-    const result = computeResolvedContext(
-      project,
-      null,
-      [],
-      [integration({ id: "proj-slack", kind: "slack" })],
-    );
+  it("company null (no companyId / dangling): own people/budget, only personal project-scoped accounts", () => {
+    const result = computeResolvedContext(project, null, accounts);
     expect(result.people).toEqual(project.identity.people);
     expect(result.budget).toEqual(project.budget);
-    expect(result.integrations.map((i) => i.id)).toEqual(["proj-slack"]);
+    expect(result.integrations.map((i) => i.id)).toEqual(["mine-github"]);
   });
 
   it("with a company: merges all three facets", () => {
     const company = {
+      id: "co",
       people: [person({ id: "alice", name: "Alice", role: "CEO", vip: true })],
       budget: { dailyRuns: 10, weeklyRuns: 50 } as ProjectBudget,
     };
-    const result = computeResolvedContext(
-      project,
-      company,
-      [integration({ id: "co-jira", kind: "jira" })],
-      [integration({ id: "proj-slack", kind: "slack" })],
-    );
+    const result = computeResolvedContext(project, company, accounts);
     expect(result.people.map((p) => p.id).sort()).toEqual(["alice", "bob"]);
     expect(result.budget).toEqual({ dailyRuns: 3, weeklyRuns: 50 });
-    expect(result.integrations.map((i) => i.id).sort()).toEqual(["co-jira", "proj-slack"]);
+    expect(result.integrations.map((i) => i.id)).toEqual(["co-jira", "mine-github"]);
   });
 });
 

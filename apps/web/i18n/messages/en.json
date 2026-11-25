@@ -900,7 +900,6 @@
     }
   },
   "integrations": {
-    "addIntegration": "Add integration",
     "title": "Integrations",
     "statusConnected": "connected",
     "statusDisconnected": "disconnected",
@@ -939,10 +938,6 @@
     "jiraProjectKey": "Project key",
     "jiraJql": "JQL filter",
     "jiraJqlHint": "Narrows polled issues; defaults to the project's recently updated",
-    "githubRepo": "Repository",
-    "githubRepoHint": "owner/name",
-    "githubRepoOptional": "Repository (optional)",
-    "githubRepoCompanyHint": "Leave empty: the repo is taken from each project's git remote. Set owner/name only to pin one repo.",
     "githubStreamIssues": "Watch issues",
     "githubStreamPulls": "Watch pull requests",
     "githubUsername": "Your GitHub username",
@@ -951,10 +946,6 @@
     "githubIncludeTeamsHint": "Adds PRs with a review requested from your teams and explicit @org/team mentions. Token needs the read:org scope.",
     "gitlabHost": "GitLab host",
     "gitlabHostHint": "Hostname of the GitLab instance, e.g. gitlab.example.com",
-    "gitlabRepo": "Project path",
-    "gitlabRepoOptional": "Project path (optional)",
-    "gitlabRepoHint": "group/subgroup/name",
-    "gitlabRepoCompanyHint": "Leave empty: the project is taken from each project's git remote on this host. Set group/name only to pin one project.",
     "gitlabUsername": "Your GitLab username",
     "gitlabUsernameHint": "Scopes sync to issues and merge requests assigned to, authored by, reviewed by or mentioning this user",
     "gitlabStreamIssues": "Watch issues",
@@ -980,17 +971,19 @@
     "credentialsStored": "Secret stored — enter a new one to replace it",
     "credentialsNone": "No secret yet",
     "enabledLabel": "Enabled",
-    "create": "Create",
     "detailPanel": "Integration configuration",
     "autonomyPanel": "Autonomy",
     "autonomyHint": "Ops always watches this channel. Set what ZIBBY may do on its own: dispatch = act on inbound messages (Tier 1), reply = send replies itself (Tier 2, as Comms). With nothing set here, the Settings → Mandate defaults apply.",
     "autonomyDispatch": "Dispatch (act)",
     "autonomyReply": "Reply (Comms)",
-    "deleteTitle": "Delete integration?",
-    "deleteBody": "Really delete integration {name}? Stored credentials are deleted too. This cannot be undone.",
+    "deleteTitle": "Delete account?",
+    "deleteBody": "Really delete account {name}? Stored credentials are deleted too. This cannot be undone.",
     "tokenNoExpiry": "No expiration date",
     "tokenExpiresIn": "expires in {days, plural, one {# day} other {# days}}",
-    "tokenExpired": "token expired"
+    "tokenExpired": "token expired",
+    "ownerLabel": "Owner",
+    "ownerPersonal": "Personal (you)",
+    "ownerHint": "Move the account to a company or to your personal accounts."
   },
   "release": {
     "title": "Merge queue",
@@ -1039,11 +1032,6 @@
       "question": "question",
       "request": "request",
       "other": "other"
-    },
-    "attention": {
-      "title": "Needs your attention",
-      "openEmail": "Open in Gmail ↗",
-      "dismiss": "Dismiss"
     }
   },
   "workflows": {
@@ -1918,6 +1906,14 @@
       "channelReady": "Ready",
       "channelPending": "Not resolved yet",
       "iphone": "On iPhone, add ZibbyOS to the Home Screen first. Safari only delivers web push to installed web apps."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "description": "Your personal accounts — not owned by any company. GitHub, GitLab, Jira and Sentry also serve projects whose company has no account of that kind.",
+      "empty": "No personal accounts yet.",
+      "connect": "Connect account",
+      "servicesTitle": "Connected services",
+      "servicesHint": "Browser sign-ins the agents use (KDP, MakerWorld)."
     }
   },
   "runs": {
@@ -2416,18 +2412,15 @@
     "deleteBody": "Delete project {name}? The files on disk stay; only the registry record is removed.",
     "budgetHeld": "held",
     "integrations": {
-      "title": "Integrations",
-      "add": "Add integration",
-      "empty": "No integrations yet — add Slack, email, Jira or GitHub for this project.",
+      "title": "Accounts",
+      "empty": "No account serves this project yet — connect one on its company or in Settings → Accounts.",
       "inherited": {
-        "title": "Inherited from company",
         "fromCompany": "From company {name}",
-        "openCompany": "Open company",
-        "override": "Override with own integration",
         "githubRoutedBy": "Routed by git remote {repo}",
         "githubNoRemote": "Set a git remote on this project to route GitHub items to it.",
         "gitlabRoutedBy": "Routed by git remote {repo}",
-        "gitlabNoRemote": "Set a git remote on {host} for this project to route GitLab items to it."
+        "gitlabNoRemote": "Set a git remote on {host} for this project to route GitLab items to it.",
+        "personal": "Personal account"
       },
       "routing": {
         "projectKey": "Project key",
@@ -2441,7 +2434,8 @@
         "channelsHint": "Conversation ids, comma-separated",
         "save": "Save routing rule",
         "clear": "Remove rule"
-      }
+      },
+      "hint": "Accounts serving this project: its company's first, then your personal GitHub, GitLab, Jira and Sentry accounts. Manage them on the company or in Settings → Accounts."
     },
     "fields": {
       "name": "Project name",
@@ -2510,7 +2504,7 @@
         "overview": "Overview",
         "profile": "Profile",
         "secrets": "Secrets",
-        "integrations": "Integrations",
+        "integrations": "Accounts",
         "roadmap": "Roadmap"
       },
       "basics": {
@@ -2666,13 +2660,13 @@
     },
     "tabs": {
       "overview": "Overview",
-      "integrations": "Integrations"
+      "integrations": "Accounts"
     },
     "integrations": {
-      "title": "Company integrations",
-      "add": "Add integration",
-      "hint": "Shared by every project of this company. Each project routes the items it owns with its own routing rules, and can override an integration with one of its own.",
-      "empty": "No company integrations yet — add Jira, GitHub or Slack once and share it across the company's projects."
+      "title": "Company accounts",
+      "add": "Connect account",
+      "hint": "Shared by every project of this company. Each project routes the items it owns with its own routing rules.",
+      "empty": "No company accounts yet — connect Jira, GitHub or Slack once and share it across the company's projects."
     },
     "section": "Companies",
     "countCompanies": "{count} companies",
@@ -2704,11 +2698,11 @@
       "slug": "Team code owner id",
       "slugPlaceholder": "shoptet/frontend-team",
       "slugHint": "Team as in CODEOWNERS: GitHub org/team or GitLab group/subgroup, e.g. shoptet/frontend-team",
-      "jiraProjectKey": "Jira project",
-      "jiraProjectKeyPlaceholder": "CZ3TDR1",
-      "jiraProjectKeyHint": "Key of the Jira project the team files its issues in",
       "company": "Company",
-      "companyNone": "No company"
+      "companyNone": "No company",
+      "board": "Board",
+      "boardPlaceholder": "CZ3TDR1",
+      "boardHint": "Key of the Jira project the team files and tracks its issues in"
     },
     "profile": {
       "basics": {
@@ -5371,7 +5365,6 @@
     "connections": {
       "label": "Connections",
       "channels": "{count, plural, one {# channel} other {# channels}}",
-      "down": "{service} ({owner}) is down",
       "expired": "Token expired",
       "error": "Connection error",
       "expires": "Expires in {days} d",
@@ -5389,7 +5382,8 @@
       "summaryAttention": "{connected} connected, {count} needs attention",
       "summary": "{connected} connected",
       "connectHint": "Jira, GitHub, GitLab, Slack, Email, Calendar, Sentry",
-      "connect": "Connect"
+      "connect": "Connect",
+      "personal": "Personal"
     },
     "wizard": {
       "title": "Connect a service",
@@ -5402,14 +5396,12 @@
       "openSettings": "Open settings",
       "done": "Done",
       "contextCompany": "Connecting for {name}; {count, plural, one {# project inherits} other {# projects inherit}} it.",
-      "contextProject": "Connecting for the project {name} only.",
       "need": "You will need",
       "testing": "Testing the connection...",
       "testOk": "Connection works",
       "testFail": "The test failed",
       "retest": "Test again",
-      "doneCompany": "Saved. {count, plural, one {# project inherits} other {# projects inherit}} this connection.",
-      "doneProject": "Saved for this project.",
+      "doneCompany": "Saved. {count, plural, one {# project inherits} other {# projects inherit}} this account.",
       "failHint": "The connection was saved. Check the settings and test again.",
       "createFailed": "Could not create the connection",
       "kind": {
@@ -5441,7 +5433,9 @@
           "desc": "Errors and releases",
           "need": "an auth token"
         }
-      }
+      },
+      "contextPersonal": "Connecting one of your personal accounts.",
+      "donePersonal": "Saved to your personal accounts."
     },
     "company": {
       "edit": "Edit",
@@ -5500,7 +5494,7 @@
         "running": "{count} running"
       },
       "noLocalClone": "No local clone",
-      "summary": "{total, plural, one {# integration} other {# integrations}} — {own} own, {inherited} inherited",
+      "summary": "{total, plural, one {# account} other {# accounts}} serve this project",
       "down": "{count} down",
       "tabs": {
         "secrets": "Environment"

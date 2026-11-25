@@ -6,7 +6,6 @@ import { JiraChannelAdapter } from "./jira.adapter";
 const jira: Integration = {
   id: "acme-jira",
   kind: "jira",
-  projectId: "acme-app",
   enabled: true,
   config: {
     kind: "jira",

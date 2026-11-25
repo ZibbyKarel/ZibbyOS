@@ -17,7 +17,7 @@ import type {
   SentryConfig,
   UpdateIntegrationInput,
 } from "@zibby/contracts";
-import { GITLAB_HOST_SHAPE, GITLAB_REPO_SHAPE, IntegrationIdSchema } from "@zibby/contracts";
+import { GITLAB_HOST_SHAPE, IntegrationIdSchema } from "@zibby/contracts";
 
 type SentryMinLevel = SentryConfig["minLevel"];
 
@@ -37,13 +37,11 @@ export enum IntegrationFormTestId {
   JiraEmail = "integration-jira-email",
   JiraProjectKey = "integration-jira-project-key",
   JiraJql = "integration-jira-jql",
-  GithubRepo = "integration-github-repo",
   GithubStreamIssues = "integration-github-stream-issues",
   GithubStreamPulls = "integration-github-stream-pulls",
   GithubUsername = "integration-github-username",
   GithubIncludeTeams = "integration-github-include-teams",
   GitlabHost = "integration-gitlab-host",
-  GitlabRepo = "integration-gitlab-repo",
   GitlabStreamIssues = "integration-gitlab-stream-issues",
   GitlabStreamPulls = "integration-gitlab-stream-pulls",
   GitlabUsername = "integration-gitlab-username",
@@ -55,12 +53,11 @@ export enum IntegrationFormTestId {
   SentryBaseUrl = "integration-sentry-base-url",
   SentryMinLevel = "integration-sentry-min-level",
   Secret = "integration-secret",
-  Submit = "integration-submit",
 }
 
 /**
- * Controlled form state for an integration, shared by the create dialog and the
- * `/projects/:id/integrations/:integrationId` detail page (N4h) — one place
+ * Controlled form state for an account, shared by the connect wizard and the account
+ * detail page — one place
  * owns the kind-switching config, the validity rules and the payload building.
  * The secret stays write-only: carried out-of-band (never inside the persisted
  * config) and persisted through the separate credentials mutation by the caller
@@ -99,8 +96,6 @@ export interface IntegrationFormState {
   setProjectKey: (v: string) => void;
   jql: string;
   setJql: (v: string) => void;
-  repo: string;
-  setRepo: (v: string) => void;
   streamIssues: boolean;
   setStreamIssues: (v: boolean) => void;
   streamPulls: boolean;
@@ -125,11 +120,6 @@ export interface IntegrationFormState {
   setSentryBaseUrl: (v: string) => void;
   sentryMinLevel: SentryMinLevel;
   setSentryMinLevel: (v: SentryMinLevel) => void;
-  /**
-   * Company-owned (phase 129): a GitHub integration's repo is optional there — each
-   * project's repo comes from its git remote; a project-owned one must name it.
-   */
-  companyOwned: boolean;
   /** Contract-side id validation message while the id is still editable. */
   idError: string | null;
   /** Valid for submit (id counts only while it is still editable). */
@@ -140,16 +130,16 @@ export interface IntegrationFormState {
   newSecret: () => string | undefined;
 }
 
-/** Who owns the integration being created: exactly one of a project or a company (Phase 68 XOR). */
-export type IntegrationOwner = { projectId: string } | { companyId: string };
+/** Who owns the account being created: a company, or no `companyId` = the operator's personal account. */
+export interface IntegrationOwner {
+  companyId?: string | undefined;
+}
 
 export function useIntegrationFormState(
   owner: IntegrationOwner,
   integration?: Integration,
-  /** Prefills the kind of a NEW integration (the "override with own integration" flow). */
-  initialKind?: IntegrationKind,
 ): IntegrationFormState {
-  const [kind, setKind] = useState<IntegrationKind>(integration?.kind ?? initialKind ?? "slack");
+  const [kind, setKind] = useState<IntegrationKind>(integration?.kind ?? "slack");
   const [id, setId] = useState(integration?.id ?? "");
   const [name, setName] = useState(integration?.name ?? "");
   const [enabled, setEnabled] = useState(integration?.enabled ?? true);
@@ -174,8 +164,7 @@ export function useIntegrationFormState(
   const [jiraEmail, setJiraEmail] = useState(jiraCfg?.email ?? "");
   const [projectKey, setProjectKey] = useState(jiraCfg?.projectKey ?? "");
   const [jql, setJql] = useState(jiraCfg?.jql ?? "");
-  const [repo, setRepo] = useState(githubCfg?.repo ?? gitlabCfg?.repo ?? "");
-  // The issues/pulls stream toggles and the repo field are shared by the github and gitlab forms.
+  // The issues/pulls stream toggles are shared by the github and gitlab forms.
   const streamsCfg = githubCfg ?? gitlabCfg;
   const [streamIssues, setStreamIssues] = useState(
     streamsCfg ? streamsCfg.streams.includes("issues") : true,
@@ -196,15 +185,12 @@ export function useIntegrationFormState(
     sentryCfg?.minLevel ?? "error",
   );
 
-  const companyOwned = integration ? integration.companyId !== undefined : "companyId" in owner;
-
   const buildConfig = (): CreateIntegrationInput["config"] => {
     switch (kind) {
       case "gitlab":
         return {
           kind: "gitlab",
           host: gitlabHost.trim(),
-          ...(repo.trim() ? { repo: repo.trim() } : {}),
           streams: [
             ...(streamIssues ? (["issues"] as const) : []),
             ...(streamPulls ? (["pulls"] as const) : []),
@@ -246,7 +232,6 @@ export function useIntegrationFormState(
         ];
         return {
           kind: "github",
-          ...(repo.trim() ? { repo: repo.trim() } : {}),
           streams,
           username: githubUsername.trim(),
           ...(githubIncludeTeams ? { includeTeams: true } : {}),
@@ -273,11 +258,7 @@ export function useIntegrationFormState(
   const configReady = (): boolean => {
     switch (kind) {
       case "gitlab":
-        return (
-          GITLAB_HOST_SHAPE.test(gitlabHost.trim()) &&
-          (companyOwned && repo.trim() === "" ? true : GITLAB_REPO_SHAPE.test(repo.trim())) &&
-          gitlabUsername.trim().length > 0
-        );
+        return GITLAB_HOST_SHAPE.test(gitlabHost.trim()) && gitlabUsername.trim().length > 0;
       case "slack":
         return true;
       case "email":
@@ -285,10 +266,7 @@ export function useIntegrationFormState(
       case "jira":
         return baseUrl.trim().length > 0 && jiraEmail.trim().length > 0;
       case "github":
-        return (
-          (companyOwned && repo.trim() === "" ? true : /^[^/]+\/[^/]+$/.test(repo.trim())) &&
-          githubUsername.trim().length > 0
-        );
+        return githubUsername.trim().length > 0;
       case "calendar":
         return Number(lookaheadDays) > 0;
       case "sentry":
@@ -334,8 +312,6 @@ export function useIntegrationFormState(
     setProjectKey,
     jql,
     setJql,
-    repo,
-    setRepo,
     streamIssues,
     setStreamIssues,
     streamPulls,
@@ -360,14 +336,13 @@ export function useIntegrationFormState(
     setSentryBaseUrl,
     sentryMinLevel,
     setSentryMinLevel,
-    companyOwned,
     idError,
     canSave: (idEditable) =>
       (idEditable ? id.trim().length > 0 && idError === null : true) && configReady(),
     buildCreate: () => ({
       id: id.trim(),
       kind,
-      ...owner,
+      ...(owner.companyId ? { companyId: owner.companyId } : {}),
       name: name.trim() || undefined,
       enabled,
       config: buildConfig(),
@@ -392,8 +367,7 @@ export interface IntegrationFormFieldsProps {
  * The integration form body (N4h): a kind dropdown (locked outside create),
  * name, kind-specific config fields and a write-only secret input. The secret
  * is never read back — the field only shows whether one is already stored and
- * lets the operator replace it. Shared by the create-only
- * {@link IntegrationFormDialog} and the project-nested integration detail page.
+ * lets the operator replace it. Shared by the connect wizard and the account detail page.
  */
 export function IntegrationFormFields({
   form,
@@ -579,22 +553,6 @@ export function IntegrationFormFields({
 
       {kind === "github" && (
         <>
-          <TextInputField
-            data-testid={IntegrationFormTestId.GithubRepo}
-            hint={
-              form.companyOwned
-                ? t("integrations.githubRepoCompanyHint")
-                : t("integrations.githubRepoHint")
-            }
-            label={
-              form.companyOwned
-                ? t("integrations.githubRepoOptional")
-                : t("integrations.githubRepo")
-            }
-            onChange={(e) => form.setRepo(e.target.value)}
-            placeholder="owner/name"
-            value={form.repo}
-          />
           <ToggleField
             checked={form.streamIssues}
             data-testid={IntegrationFormTestId.GithubStreamIssues}
@@ -634,22 +592,6 @@ export function IntegrationFormFields({
             onChange={(e) => form.setGitlabHost(e.target.value)}
             placeholder="gitlab.example.com"
             value={form.gitlabHost}
-          />
-          <TextInputField
-            data-testid={IntegrationFormTestId.GitlabRepo}
-            hint={
-              form.companyOwned
-                ? t("integrations.gitlabRepoCompanyHint")
-                : t("integrations.gitlabRepoHint")
-            }
-            label={
-              form.companyOwned
-                ? t("integrations.gitlabRepoOptional")
-                : t("integrations.gitlabRepo")
-            }
-            onChange={(e) => form.setRepo(e.target.value)}
-            placeholder="group/subgroup/name"
-            value={form.repo}
           />
           <ToggleField
             checked={form.streamIssues}

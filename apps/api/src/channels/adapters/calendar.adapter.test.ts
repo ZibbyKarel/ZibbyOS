@@ -6,7 +6,6 @@ import { CalendarChannelAdapter } from "./calendar.adapter";
 const cal: Integration = {
   id: "acme-cal",
   kind: "calendar",
-  projectId: "acme-app",
   enabled: true,
   config: { kind: "calendar", calendarId: "primary", lookaheadDays: 14 },
   status: "disconnected",

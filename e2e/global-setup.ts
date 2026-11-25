@@ -145,16 +145,13 @@ export default async function globalSetup(): Promise<void> {
   const fakeDir = path.join(E2E_DATA, "channel-fake");
   await fs.rm(fakeDir, { recursive: true, force: true });
   await fs.rm(path.join(E2E_DATA, "channels"), { recursive: true, force: true });
-  // An integration now REQUIRES an owner (Phase 68: exactly one of projectId/companyId).
-  // Seed the owning project first — the inbox that shows the triaged item lives on the
-  // project's detail page (`/projects/:id?tab=integrations`), there is no standalone
-  // `/integrations` route any more.
+  // Seeded company → account → project (the project's routing rule names the account).
+  // The Slack account is the company's (an account is owned by a company or is the
+  // operator's personal one; a personal Slack never serves a project). The company's
+  // project `demo-project` is served by it and claims channel C1 by its routing rule, so
+  // the triaged item lands in that project's inbox (`/projects/:id/integrations`).
   await ctx
-    .post("/api/projects", {
-      // `path` gives the reply researcher a local repo to run in (`ReplyDraftService.repoFor`);
-      // without one it drafts nothing and no channel approval ever surfaces.
-      data: { id: "demo-project", name: "Demo Project", path: process.cwd() },
-    })
+    .post("/api/companies", { data: { id: "demo-company", name: "Demo Company" } })
     .catch(() => {});
   await ctx
     .post("/api/integrations", {
@@ -162,8 +159,23 @@ export default async function globalSetup(): Promise<void> {
         id: "team-slack",
         kind: "slack",
         name: "Team Slack",
-        projectId: "demo-project",
+        companyId: "demo-company",
         config: { kind: "slack", channels: ["C1"] },
+      },
+    })
+    .catch(() => {});
+  await ctx
+    .post("/api/projects", {
+      // `path` gives the reply researcher a local repo to run in (`ReplyDraftService.repoFor`);
+      // without one it drafts nothing and no channel approval ever surfaces.
+      data: {
+        id: "demo-project",
+        name: "Demo Project",
+        path: process.cwd(),
+        companyId: "demo-company",
+        integrationRouting: [
+          { integrationId: "team-slack", match: { kind: "slack", channels: ["C1"] } },
+        ],
       },
     })
     .catch(() => {});

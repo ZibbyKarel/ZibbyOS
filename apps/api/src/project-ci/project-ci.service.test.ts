@@ -11,8 +11,13 @@ import {
   rollup,
 } from "./project-ci.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
-const GITHUB = { id: "gh", config: { kind: "github", repo: "acme/app" } } as unknown as Integration;
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
+const GITHUB = { id: "gh", config: { kind: "github" } } as unknown as Integration;
 const RUNS = "/repos/acme/app/actions/runs?branch=main&per_page=50";
 const SHARED = "/repos/acme/app/actions/runs?per_page=50";
 const JOBS_11 = "/repos/acme/app/actions/runs/11/jobs?per_page=100";

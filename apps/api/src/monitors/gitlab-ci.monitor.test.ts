@@ -6,7 +6,6 @@ import { GitlabCiMonitor } from "./gitlab-ci.monitor";
 const INTEGRATION: Integration = {
   id: "acme-gitlab",
   kind: "gitlab",
-  projectId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,

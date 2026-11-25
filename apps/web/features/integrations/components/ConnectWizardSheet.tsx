@@ -53,13 +53,12 @@ const KINDS: IntegrationKind[] = [
 ];
 
 export interface ConnectWizardSheetProps {
+  /** `{ companyId }` for a company account, `{}` for the operator's personal account. */
   owner: IntegrationOwner;
-  /** Display name of the owner ("checkout-api", "Acme Logistics"). */
-  ownerName: string;
-  /** Company-owned: how many projects will inherit the connection. */
+  /** Display name of the company ("Acme Logistics"); unused for a personal account. */
+  ownerName?: string;
+  /** Company account: how many projects will be served by it. */
   inheritingCount?: number;
-  /** Skip the service step (the "Override with own" flow). */
-  initialKind?: IntegrationKind;
   onClose: () => void;
   /** Open the new integration's settings page (after a failed test). */
   onOpenIntegration: (id: string) => void;
@@ -71,36 +70,37 @@ type TestState =
   | { phase: "done"; ok: boolean; detail: string };
 
 /**
- * The connect wizard side sheet (replaces `IntegrationFormDialog`): 1 pick a service, 2 fill the
- * per-service form, 3 test the connection. Keeps today's create order: create the integration,
+ * The connect wizard side sheet: 1 pick a service, 2 fill the per-service form, 3 test the
+ * connection. Keeps today's create order: create the integration,
  * store its secret, then run the existing pass/fail test.
  */
 export function ConnectWizardSheet({
   owner,
   ownerName,
-  inheritingCount,
-  initialKind,
+  inheritingCount = 0,
   onClose,
   onOpenIntegration,
 }: ConnectWizardSheetProps) {
   const t = useEntityT();
   const tk = useTranslations();
-  const form = useIntegrationFormState(owner, undefined, initialKind);
+  const form = useIntegrationFormState(owner);
   const integrationsQ = useIntegrationsQuery();
   const create = useCreateIntegrationMutation();
   const setCredentials = useSetCredentialsMutation();
   const test = useTestIntegrationMutation();
 
-  const [step, setStep] = useState<1 | 2 | 3>(initialKind ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TestState>({ phase: "idle" });
   const [busy, setBusy] = useState(false);
 
   const existing = new Set((integrationsQ.data ?? []).map((i) => i.id));
-  const ownerKey = "projectId" in owner ? owner.projectId : owner.companyId;
   const uniqueId = (kind: IntegrationKind) => {
-    const base = slug(`${ownerKey}-${kind}`, { fallback: kind, maxLength: 60 });
+    const base = slug(`${owner.companyId ?? "personal"}-${kind}`, {
+      fallback: kind,
+      maxLength: 60,
+    });
     let id = base;
     for (let n = 2; existing.has(id); n++) id = `${base}-${n}`;
     return id;
@@ -111,8 +111,6 @@ export function ConnectWizardSheet({
     form.setId(uniqueId(kind));
     setStep(2);
   };
-  // The "override" flow starts on step 2: give the id its default once.
-  if (initialKind && !form.id) form.setId(uniqueId(initialKind));
 
   const runTest = async (id: string) => {
     setResult({ phase: "running" });
@@ -231,10 +229,12 @@ export function ConnectWizardSheet({
             })}
           </Row>
           <Typography size="sm" type="note" variant="secondary">
-            {t(inheritingCount !== undefined ? "wizard.contextCompany" : "wizard.contextProject", {
-              name: ownerName,
-              count: inheritingCount ?? 0,
-            })}
+            {owner.companyId
+              ? t("wizard.contextCompany", {
+                  name: ownerName ?? owner.companyId,
+                  count: inheritingCount,
+                })
+              : t("wizard.contextPersonal")}
           </Typography>
         </Stack>
 
@@ -345,9 +345,9 @@ export function ConnectWizardSheet({
               )}
               {result.phase === "done" && result.ok && (
                 <Typography size="sm" type="note" variant="secondary">
-                  {inheritingCount !== undefined
+                  {owner.companyId
                     ? t("wizard.doneCompany", { count: inheritingCount })
-                    : t("wizard.doneProject")}
+                    : t("wizard.donePersonal")}
                 </Typography>
               )}
               {result.phase === "done" && !result.ok && (

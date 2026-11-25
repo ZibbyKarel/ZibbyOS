@@ -54,8 +54,8 @@ export class MonitorWatcherService
     private readonly trace: TraceContextService,
     private readonly watcherHealthRegistry: WatcherHealthRegistry,
     logger: LoggerService,
-    // Phase 129 — the repos of a repo-less company GitHub integration. Optional so
-    // existing wiring/tests without it keep polling project-owned integrations.
+    // The repos a GitHub/GitLab account serves (its projects' gitRemotes). Optional so
+    // wiring/tests without it still poll an account that has `config.repo` set.
     @Optional() private readonly resolvedProjects?: ResolvedProjectService,
   ) {
     super();
@@ -127,12 +127,12 @@ export class MonitorWatcherService
   }
 
   /**
-   * Phase 129 (G2) — a company-owned GitHub integration without its own `repo` is
-   * polled once per distinct repo of its inheriting projects, with `config.repo`
-   * filled in. Each repo keeps its own cursor + status sidecar, keyed
-   * `<integrationId>--<owner>-<name>` (so they never collide with each other or a
-   * plain integration's), and its alerts/status carry the repo's first project.
-   * One failing repo doesn't stop the others; the first failure is rethrown.
+   * A GitHub/GitLab account stores no repo: it is polled once per distinct repo of the
+   * projects it serves, with `config.repo` filled in as the runtime poll scope. Each
+   * repo keeps its own cursor + status sidecar, keyed `<integrationId>--<owner>-<name>`
+   * (so they never collide with each other or a plain account's), and its
+   * alerts/status carry the repo's first project. One failing repo doesn't stop the
+   * others; the first failure is rethrown.
    */
   private async pollOne(
     integration: Integration,
@@ -169,10 +169,9 @@ export class MonitorWatcherService
     integration: Integration,
     creds: CredentialsInput,
     adapter: MonitorAdapter,
-    target: { key: string; projectId?: string } = {
-      key: integration.id,
-      ...(integration.projectId ? { projectId: integration.projectId } : {}),
-    },
+    // ponytail: a non-repo account (Sentry) has no project attribution any more — its
+    // alerts stay unattributed. Add a project-level sentry location when someone needs it.
+    target: { key: string; projectId?: string } = { key: integration.id },
   ): Promise<string[]> {
     const cursor = await this.store.readCursor(target.key, adapter.kind);
     const {

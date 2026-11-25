@@ -35,8 +35,8 @@ reach" below).
   desc?: string;
   slug?: string;                      // team code owner id: GitHub `org/team` or GitLab `group/subgroup/…`; trimmed, leading `@`
                                        // stripped; PATCH `slug: null` clears it
-  jiraProjectKey?: string;           // e.g. `CZ3TDR1` (upper-cased); the Jira project the team files issues in, editable in the UI only when its
-                                       // company owns a Jira integration; PATCH `jiraProjectKey: null` clears it
+  board?: string;                    // e.g. `CZ3TDR1` (upper-cased); the team's Jira project key (error "invalid board key"), on its
+                                       // company's Jira account; PATCH `board: null` clears it
   knowledgeBase?: KnowledgeBaseSource; // where the team's read-only KB lives
 }
 ```

@@ -9,22 +9,27 @@ import {
 import { fakeGlab } from "../../test/gitlab-fake";
 import { ProjectPrService } from "./project-pr.service";
 
-const PROJECT: Project = { id: "acme", name: "acme", path: "~/Projects/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "acme",
+  path: "~/Projects/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 
 const GITHUB_INTEGRATION: Integration = {
   id: "acme-github",
   kind: "github",
-  projectId: "acme",
+  companyId: "acme-co",
   enabled: true,
   status: "connected",
   hasCredentials: true,
-  config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "octocat" },
+  config: { kind: "github", streams: ["issues", "pulls"], username: "octocat" },
 };
 
 const SLACK_INTEGRATION: Integration = {
   id: "acme-slack",
   kind: "slack",
-  projectId: "acme",
+  companyId: "acme-co",
   enabled: true,
   status: "connected",
   hasCredentials: false,
@@ -120,12 +125,10 @@ describe("ProjectPrService", () => {
       expect(fetchImpl).not.toHaveBeenCalled();
     });
 
-    it("phase 129 — a company github integration without repo uses the project's gitRemote", async () => {
+    it("a github account takes the repo from the project's gitRemote", async () => {
       const fetchImpl = vi.fn(async () => jsonResponse(200, [])) as unknown as typeof fetch;
       const company: Integration = {
         ...GITHUB_INTEGRATION,
-        projectId: undefined,
-        companyId: "acme-co",
         config: { kind: "github", streams: ["pulls"], username: "octocat" },
       };
       const withRemote = { ...PROJECT, gitRemote: "git@github.com:acme/web.git" };
@@ -138,7 +141,11 @@ describe("ProjectPrService", () => {
       expect(String(vi.mocked(fetchImpl).mock.calls[0]?.[0])).toContain("/repos/acme/web/pulls");
       // No gitRemote → no repo → nothing to show, no fetch.
       const noRemote = vi.fn();
-      const bare = build({ integrations: [company], fetchImpl: noRemote as never });
+      const bare = build({
+        projects: { acme: { ...PROJECT, gitRemote: undefined } },
+        integrations: [company],
+        fetchImpl: noRemote as never,
+      });
       expect(await bare.listOpen("acme")).toEqual([]);
       expect(noRemote).not.toHaveBeenCalled();
     });
@@ -604,11 +611,11 @@ describe("ProjectPrService — gitlab project", () => {
   const GITLAB_INTEGRATION: Integration = {
     id: "acme-gitlab",
     kind: "gitlab",
-    projectId: "acme",
+    companyId: "acme-co",
     enabled: true,
     status: "connected",
     hasCredentials: false,
-    config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+    config: { kind: "gitlab", host: "gl.example.com" },
   } as Integration;
 
   function gitlabService(routes: [RegExp, unknown][]) {
@@ -616,7 +623,9 @@ describe("ProjectPrService — gitlab project", () => {
     const fetchImpl = vi.fn();
     const record = vi.fn(async () => {});
     const onMerge = vi.fn(async () => {});
-    const projectsStore = { get: async () => PROJECT };
+    const projectsStore = {
+      get: async () => ({ ...PROJECT, gitRemote: "git@gl.example.com:grp/app.git" }),
+    };
     const svc = new ProjectPrService(
       projectsStore as never,
       { resolveIntegrations: async () => [GITLAB_INTEGRATION, GITHUB_INTEGRATION] } as never,

@@ -14,7 +14,12 @@ import {
 import { InboxService } from "./inbox.service";
 
 const link = { host: "gl.example.com", repo: "grp/sub/app" };
-const project = { id: "app", name: "App", ciIgnoredChecks: ["lint"] } as unknown as Project;
+const project = {
+  id: "app",
+  name: "App",
+  ciIgnoredChecks: ["lint"],
+  gitRemote: `git@${link.host}:${link.repo}.git`,
+} as unknown as Project;
 const SHA = "a".repeat(40);
 const ago = (iso: string) => new Date(iso).toISOString();
 
@@ -328,7 +333,7 @@ describe("listGitlabInboxPrs mapping", () => {
 const gitlabIntegration = {
   id: "gl1",
   companyId: "c",
-  config: { kind: "gitlab", host: "gl.example.com", repo: "grp/sub/app" },
+  config: { kind: "gitlab", host: "gl.example.com" },
 } as unknown as Integration;
 
 describe("InboxService with a GitLab project", () => {

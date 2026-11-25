@@ -50,13 +50,11 @@ describe("TeamsStorageService", () => {
     expect("slug" in (await service.get("devrel"))).toBe(false);
   });
 
-  it("stores and clears (null) a jiraProjectKey", async () => {
+  it("stores and clears (null) a board", async () => {
     await service.create(base);
-    expect((await service.update("devrel", { jiraProjectKey: "CZ3TDR1" })).jiraProjectKey).toBe(
-      "CZ3TDR1",
-    );
-    await service.update("devrel", { jiraProjectKey: null });
-    expect("jiraProjectKey" in (await service.get("devrel"))).toBe(false);
+    expect((await service.update("devrel", { board: "CZ3TDR1" })).board).toBe("CZ3TDR1");
+    await service.update("devrel", { board: null });
+    expect("board" in (await service.get("devrel"))).toBe(false);
   });
 
   it("rejects a duplicate id (conflict)", async () => {

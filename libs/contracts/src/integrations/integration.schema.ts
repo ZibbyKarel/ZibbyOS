@@ -75,12 +75,11 @@ export const JiraConfigSchema = z
 export type JiraConfig = z.infer<typeof JiraConfigSchema>;
 
 /**
- * GitHub config — the `repo` ("owner/name") to monitor; the PAT lives in the
- * credentials store. Phase 129 (G1): `repo` is required on a PROJECT-owned
- * integration (enforced at the integration level, see `requireGitRepoForProject`)
- * and optional on a COMPANY-owned one, where each inheriting project's repo comes
- * from its `gitRemote` (`githubRepoFor`); a set `repo` there still overrides. `streams` selects which event streams to ingest: `issues`
- * and/or `pulls` (the conversational channel), plus `ci` — which opts the repo
+ * GitHub config. An account never stores a repo: which repos it covers follows from
+ * the `gitRemote` of the projects it serves (`githubRepoFor`). `repo` exists only as the
+ * watcher's per-poll scope (filled in at runtime, one poll per covered repo) and is
+ * rejected on create/update. `streams` selects which event streams to ingest: `issues`
+ * and/or `pulls` (the conversational channel), plus `ci` — which opts the account's repos
  * into the N3 CI monitor (workflow-run status alerts, not messages; the channel
  * adapter ignores it). Defaults to the conversational pair. `username` (required,
  * the operator's GitHub handle) scopes polling and roadmap sync to items that
@@ -121,9 +120,8 @@ export function isGitlabShape(
 
 /**
  * GitLab config (via the `glab` CLI, which holds the auth — no token here). `host` is
- * the hostname only; `repo` is the full project path (any nesting depth) and, as with
- * GitHub, is required on a project-owned integration and optional on a company-owned
- * one (then derived from the project's `gitRemote` when its host equals `host`).
+ * the hostname only. As with GitHub, `repo` (the full project path, any nesting depth) is
+ * runtime-only poll scope: the covered repos are the served projects' `gitRemote`s on `host`.
  * `.strict()`.
  */
 export const GitLabConfigSchema = z
@@ -194,58 +192,41 @@ export const IntegrationStatusSchema = z.enum(["connected", "disconnected", "err
 export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
 
 /**
- * Enforces "exactly one owner": an integration belongs to a project OR a company
- * (Phase 68), never both, never neither. Shared by `IntegrationSchema` and
- * `CreateIntegrationSchema` via `.superRefine`. Not applied to `UpdateIntegrationSchema`
- * — a partial patch may touch neither field (no ownership change) without tripping it.
+ * An account stores no repo — its repos follow from the projects it serves. `config.repo`
+ * is the watcher's runtime poll scope only, so a create body carrying one is rejected
+ * (the controller applies the same rule to updates).
  */
-function requireExactlyOneOwner(
-  data: { projectId?: string | undefined; companyId?: string | undefined },
-  ctx: z.RefinementCtx,
-): void {
-  const hasProject = data.projectId !== undefined;
-  const hasCompany = data.companyId !== undefined;
-  if (hasProject === hasCompany) {
-    const message = "exactly one of projectId or companyId must be set (not both, not neither)";
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ["projectId"] });
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ["companyId"] });
-  }
-}
-
-/**
- * Phase 129 (G1) — a project-owned GitHub or GitLab integration must name its `repo`;
- * only a company-owned one may leave it to each project's `gitRemote`.
- */
-function requireGitRepoForProject(
-  data: { projectId?: string | undefined; config: IntegrationConfig },
-  ctx: z.RefinementCtx,
-): void {
+function rejectStoredRepo(data: { config: IntegrationConfig }, ctx: z.RefinementCtx): void {
   const { config } = data;
-  if (
-    data.projectId !== undefined &&
-    (config.kind === "github" || config.kind === "gitlab") &&
-    !config.repo
-  ) {
+  if ((config.kind === "github" || config.kind === "gitlab") && config.repo !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `a project-owned ${config.kind} integration needs a repo`,
+      message: `a ${config.kind} account has no repo — set the project's gitRemote instead`,
       path: ["config", "repo"],
     });
   }
 }
 
-/** Both integration-level refinements, shared by the entity and the create body. */
-function refineIntegration(
-  data: {
-    projectId?: string | undefined;
-    companyId?: string | undefined;
-    config: IntegrationConfig;
-  },
-  ctx: z.RefinementCtx,
-): void {
-  requireExactlyOneOwner(data, ctx);
-  requireGitRepoForProject(data, ctx);
+/**
+ * True for the operator's personal account (no owning company). Personal accounts feed
+ * the operator-wide surfaces (briefing, mentions, widgets); see `PROJECT_SCOPED_KINDS`
+ * for which of them also serve projects.
+ */
+export function isPersonalAccount(integration: { companyId?: string | undefined }): boolean {
+  return integration.companyId === undefined;
 }
+
+/**
+ * Kinds whose PERSONAL account also serves projects — the ones that live "at" a project
+ * (its repo host, its board, its error tracker). A personal mailbox, calendar or Slack
+ * login belongs to the operator alone and is never inherited by a project.
+ */
+export const PROJECT_SCOPED_KINDS: readonly IntegrationKind[] = [
+  "github",
+  "gitlab",
+  "jira",
+  "sentry",
+];
 
 /**
  * The un-refined object shape shared by the full entity and the create body —
@@ -257,17 +238,12 @@ const IntegrationObjectSchema = z.object({
   id: IntegrationIdSchema,
   kind: IntegrationKindSchema,
   /**
-   * The project this integration belongs to — a foreign key to a project `id`.
-   * Mutually exclusive with `companyId` (Phase 68): an integration is owned by a
-   * project OR a company, never both, never neither (enforced by `.superRefine`
-   * below). Never re-keyed (re-keying the integration `id` would orphan its
-   * credentials / channel items), but the owner field is free to change to
-   * re-assign.
-   */
-  projectId: z.string().min(1).optional(),
-  /**
-   * The company this integration belongs to (Phase 68) — a foreign key to a
-   * company `id`. Mutually exclusive with `projectId`; see `projectId` above.
+   * The owner: a company `id`, or absent for the operator's PERSONAL account. An
+   * integration is an account (identity + credential + streams); projects never own
+   * one — they only say where things are (`gitRemote`, the team's `board`) and are
+   * served by their company's accounts, then the operator's (`PROJECT_SCOPED_KINDS`).
+   * The `id` is never re-keyed (it keys credentials, channel items, cursors, roadmap
+   * ids), but the owner is free to change.
    */
   companyId: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
@@ -287,37 +263,36 @@ const IntegrationObjectSchema = z.object({
 });
 
 /**
- * A configured inbound channel (Phase 5). On disk: one `<id>.json` under
+ * A connected account (historically "integration"; the entity and its ids keep that
+ * name). On disk: one `<id>.json` under
  * `data/integrations`. `status` / `lastSyncAt` / `lastError` are stamped by the
  * watcher and the connection test, never by a client. `hasCredentials` is computed
  * at read time from the separate gitignored credentials store — the secret itself
  * is never stored on, nor served from, the entity (Law 3 / credentials hygiene).
  */
-export const IntegrationSchema = IntegrationObjectSchema.superRefine(refineIntegration);
+export const IntegrationSchema = IntegrationObjectSchema;
 export type Integration = z.infer<typeof IntegrationObjectSchema>;
 
 /**
- * Create body — the operator supplies id, kind, config, exactly one owner
- * (+ optional name/enabled). Status fields and hasCredentials are server-owned,
- * so they're omitted.
+ * Create body — the operator supplies id, kind, config and the owner (`companyId`, or
+ * none for a personal account) (+ optional name/enabled). Status fields and
+ * hasCredentials are server-owned, so they're omitted.
  */
 const CreateIntegrationObjectSchema = z.object({
   id: IntegrationIdSchema,
   kind: IntegrationKindSchema,
-  projectId: z.string().min(1).optional(),
   companyId: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
   config: IntegrationConfigSchema,
 });
-export const CreateIntegrationSchema = CreateIntegrationObjectSchema.superRefine(refineIntegration);
+export const CreateIntegrationSchema = CreateIntegrationObjectSchema.superRefine(rejectStoredRepo);
 export type CreateIntegrationInput = z.infer<typeof CreateIntegrationObjectSchema>;
 
 /**
  * Update body — `id` and `kind` are immutable (kind drives the config union and
  * the adapter; changing it would orphan items + credentials), so both are omitted;
- * the rest is partial. Not refined with `requireExactlyOneOwner`: a patch that
- * touches neither `projectId` nor `companyId` (no ownership change) must stay valid.
+ * the rest is partial. `companyId: null` moves the account to the operator (personal).
  */
 export const UpdateIntegrationSchema = IntegrationObjectSchema.omit({
   id: true,
@@ -327,7 +302,9 @@ export const UpdateIntegrationSchema = IntegrationObjectSchema.omit({
   lastError: true,
   tokenExpiresAt: true,
   hasCredentials: true,
-}).partial();
+})
+  .partial()
+  .extend({ companyId: z.string().min(1).nullable().optional() });
 export type UpdateIntegrationInput = z.infer<typeof UpdateIntegrationSchema>;
 
 /**

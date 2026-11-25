@@ -101,17 +101,17 @@ describe("githubRepoFor", () => {
     username: "me",
     ...(repo ? { repo } : {}),
   });
-  it("project-owned: config.repo, never the gitRemote", () => {
-    expect(githubRepoFor({ projectId: "p", config: gh("acme/api") }, remote)).toBe("acme/api");
-    expect(githubRepoFor({ projectId: "p", config: gh() }, remote)).toBeNull();
-  });
-  it("company-owned: config.repo override, else the project's gitRemote", () => {
-    expect(githubRepoFor({ companyId: "c", config: gh("acme/api") }, remote)).toBe("acme/api");
+  it("derives the repo from the project's gitRemote only", () => {
     expect(githubRepoFor({ config: gh() }, remote)).toBe("acme/web");
     expect(githubRepoFor({ config: gh() }, {})).toBeNull();
   });
+  it("ignores the owner and any config.repo", () => {
+    const owned = { companyId: "c", config: gh("acme/api") };
+    expect(githubRepoFor(owned, remote)).toBe("acme/web");
+    expect(githubRepoFor({ config: gh("acme/api") }, {})).toBeNull();
+  });
   it("null for a non-github integration", () => {
-    expect(githubRepoFor({ projectId: "p", config: { kind: "jira" } }, remote)).toBeNull();
+    expect(githubRepoFor({ config: { kind: "jira" } }, remote)).toBeNull();
   });
 });
 
@@ -178,41 +178,29 @@ describe("gitlabRepoFor", () => {
     ...(repo ? { repo } : {}),
   });
   it("null for a host or path that fails the shape check (every producer inherits it)", () => {
-    expect(gitlabRepoFor({ projectId: "p", config: gl("a/$(id)/c") }, remote)).toBeNull();
-    expect(gitlabRepoFor({ companyId: "c", config: gl("a b/c") }, remote)).toBeNull();
     expect(
-      gitlabRepoFor(
-        { companyId: "c", config: gl() },
-        { gitRemote: "git@gitlab.group.team.blue:a/`x`/c.git" },
-      ),
+      gitlabRepoFor({ config: gl() }, { gitRemote: "git@gitlab.group.team.blue:a/`x`/c.git" }),
     ).toBeNull();
     expect(
-      gitlabRepoFor({ projectId: "p", config: { ...gl("a/b"), host: "h/evil" } }, remote),
+      gitlabRepoFor({ config: { kind: "gitlab", host: "h/evil" } }, { gitRemote: "git@h:a/b.git" }),
     ).toBeNull();
   });
-  it("project-owned: config.repo only", () => {
-    expect(gitlabRepoFor({ projectId: "p", config: gl("a/b/c") }, remote)).toBe("a/b/c");
-    expect(gitlabRepoFor({ projectId: "p", config: gl() }, remote)).toBeNull();
+  it("the remote path when the host matches (case-insensitive)", () => {
+    expect(gitlabRepoFor({ config: gl() }, remote)).toBe("shoptet/projects/app");
+    expect(gitlabRepoFor({ config: { ...gl(), host: "GitLab.Group.Team.Blue" } }, remote)).toBe(
+      "shoptet/projects/app",
+    );
   });
-  it("company-owned: override, else the remote path when the host matches", () => {
-    expect(gitlabRepoFor({ companyId: "c", config: gl("a/b") }, remote)).toBe("a/b");
-    expect(gitlabRepoFor({ companyId: "c", config: gl() }, remote)).toBe("shoptet/projects/app");
-    expect(
-      gitlabRepoFor(
-        { companyId: "c", config: { ...gl(), host: "GitLab.Group.Team.Blue" } },
-        remote,
-      ),
-    ).toBe("shoptet/projects/app");
+  it("ignores the owner and any config.repo", () => {
+    const owned = { companyId: "c", config: gl("a/b") };
+    expect(gitlabRepoFor(owned, remote)).toBe("shoptet/projects/app");
+    expect(gitlabRepoFor({ config: gl("a/b/c") }, {})).toBeNull();
   });
-  it("company-owned: host mismatch or no remote -> null", () => {
-    expect(
-      gitlabRepoFor({ companyId: "c", config: gl() }, { gitRemote: "git@github.com:a/b.git" }),
-    ).toBeNull();
-    expect(gitlabRepoFor({ companyId: "c", config: gl() }, {})).toBeNull();
+  it("host mismatch or no remote -> null", () => {
+    expect(gitlabRepoFor({ config: gl() }, { gitRemote: "git@github.com:a/b.git" })).toBeNull();
+    expect(gitlabRepoFor({ config: gl() }, {})).toBeNull();
   });
   it("null for a non-gitlab integration", () => {
-    expect(
-      gitlabRepoFor({ projectId: "p", config: { kind: "github", repo: "a/b" } }, remote),
-    ).toBeNull();
+    expect(gitlabRepoFor({ config: { kind: "github" } }, remote)).toBeNull();
   });
 });

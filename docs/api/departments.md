@@ -205,7 +205,8 @@ A department's `{ agents, integrations, monitors }`, served by
 `integrations` is **derived, not stored** — integrations
 carry no owner tag:
 
-- **ops** lists EVERY integration (the heartbeat watcher listens to all).
+- **ops** lists EVERY integration — company accounts and the operator's personal ones alike
+  (the heartbeat watcher listens to all).
 - **comms** lists the reply-enabled ones
   (`mandate.channels[id].reply ?? mandate.defaults.reply`) — the same set
   comms replies through.

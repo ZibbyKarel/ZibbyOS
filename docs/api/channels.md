@@ -186,11 +186,10 @@ worth reading if every row is a real answer awaiting a yes. Binds every channel.
 
 ### GitHub adapter
 
-**Which repo (Phase 129).** A project-owned GitHub integration polls its
-`config.repo`. A company-owned one may omit `repo`: the watcher then polls the
-distinct repos of its inheriting projects, each resolved from the project's
+**Which repo.** An account stores no repo: the watcher polls the
+distinct repos of the projects the account serves, each resolved from the project's
 `gitRemote` (`githubRepoFor`), with a cursor per repo (the `repos` map of the
-integration's `cursor.json`; a plain integration's file stays `{ cursor }`). A failing
+account's `cursor.json`). A failing
 repo doesn't stop the others. A reply goes to the item's own repo
 (`externalRef.channel`). Scope per repo is the same
 "mine and mentions" set below.
@@ -239,8 +238,8 @@ for storage itself.
 `gitlab.adapter.ts`, over the `glab` CLI via `GitlabClient` (no stored credential). Same
 contract as the GitHub adapter: a first poll seeds the cursor to now and ingests nothing;
 later polls fetch what changed (`updated_after`, every list call `--paginate`d so a full page
-never hides the rest), the cursor advances to the newest `updated_at`. A company-owned integration without `repo` is polled once per distinct repo of
-its inheriting projects (`ResolvedProjectService.gitlabRepoTargets`, the sibling of
+never hides the rest), the cursor advances to the newest `updated_at`. An account is polled once per distinct repo of
+the projects it serves (`ResolvedProjectService.gitlabRepoTargets`, the sibling of
 `githubRepoTargets`: the project's `gitRemote` path, only when its host equals `config.host`),
 each with its own cursor. Scope is "mine and mentions" for `config.username`:
 
@@ -408,10 +407,11 @@ keep the normal act-by-tier behavior.
 `POST /api/channels/items/:id/dismiss` → `triaged` → `ignored` (the only
 client-driven write; it can't fake a verdict, only retire a surfaced item).
 
-**Project attribution:** an item is attributed to a project via the stored
-`integration.projectId` (the authoritative owner); the text/name heuristic
-`matchProject` is only a fallback for integrations with no stored project.
-Phase 128: for a company-owned integration that any inheriting project has an
+**Project attribution:** an item is attributed through the account's served projects (company first, then the
+operator's personal github/gitlab/jira/sentry accounts); the text/name heuristic
+`matchProject` is the fallback for accounts that serve no single project (personal mail/calendar
+stay visible, unattributed and notify-only when nothing matches).
+Phase 128: for an account whose served projects have an
 `integrationRouting` rule for, the rules alone decide (`matchRouting` over the item's
 Jira key/components/labels, GitHub repo or Slack channel); 0 or ≥2 matches leave the
 item unattributed and notify-only (no dispatch, no reply draft). A `jql` rule is judged
@@ -552,19 +552,17 @@ and only the operator's `PUT` writes it.
   configs)
 - `integrations/connection-tester.ts` — connection verification
 
-**Owned by a project (one project = one company):** every integration carries a
-mandatory `projectId` (FK to a project). Integrations are managed from the
-project's detail page — there is no standalone Integrations page.
-`createIntegration`/`updateIntegration` verify the project exists (otherwise
-`422`). An integration's `id` is never renamed (it keys credentials, the
-`channels/<id>/` items, and the cursor); `projectId` may change (reassigning the
-integration to a different project).
+**Owned by a company or the operator:** an integration (account) carries an optional
+`companyId` (absent = the operator's personal account); there is no `projectId`. Accounts are
+managed on the company detail page and, for personal ones, in Settings → Accounts — there is no
+standalone Integrations page. An integration's `id` is never renamed (it keys credentials, the
+`channels/<id>/` items, and the cursor); `companyId` may change (`null` moves it to the operator).
 
 ```
-GET    /api/integrations                     list (optional ?projectId=<id> filter)
-POST   /api/integrations                     create (body.projectId required; unknown project → 422)
+GET    /api/integrations                     list
+POST   /api/integrations                     create (body.companyId optional; unknown company → 422; config.repo → 422)
 GET    /api/integrations/:id                 detail
-PATCH  /api/integrations/:id                 update (name/enabled/config/projectId; kind immutable)
+PATCH  /api/integrations/:id                 update (name/enabled/config/companyId|null; kind immutable)
 DELETE /api/integrations/:id                 delete (cascades credentials)
 PUT    /api/integrations/:id/credentials     write the secret (write-only)
 DELETE /api/integrations/:id/credentials     remove the secret
@@ -604,4 +602,4 @@ only the computed `hasCredentials` flag.
 | `channel-needs-attention`     | A notify-only item (email) surfaced for the operator       |
 | `integration-retry-exhausted` | An integration's poll failed after exhausting its retries  |
 
-A GitLab item (`…/-/merge_requests/N`) is noted without triage exactly like a GitHub pull request, and company-owned GitLab items route implicitly by the projects' `gitRemote` host (the integration's host) plus full, possibly nested, path; no match falls back to the text matcher.
+A GitLab item (`…/-/merge_requests/N`) is noted without triage exactly like a GitHub pull request, and GitLab items route implicitly by the projects' `gitRemote` host (the integration's host) plus full, possibly nested, path; no match falls back to the text matcher.

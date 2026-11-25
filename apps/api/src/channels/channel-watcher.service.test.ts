@@ -25,24 +25,27 @@ const fakeTrace = { run: (_ctx: unknown, fn: () => unknown) => fn() };
 const slack = (id: string): CreateIntegrationInput => ({
   id,
   kind: "slack",
-  projectId: "acme-app",
+  companyId: "acme",
   config: { kind: "slack", channels: ["C1"] },
 });
 
 const github = (id: string): CreateIntegrationInput => ({
   id,
   kind: "github",
-  projectId: "acme-app",
-  config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "karel" },
+  companyId: "acme",
+  config: { kind: "github", streams: ["issues", "pulls"], username: "karel" },
 });
 
 /** A fake `ModuleRef.get` — the escape hatch `zibbyPrNumbersFor` resolves
- * `ZibbyPrLocator` through. `locator` absent simulates the provider not being
- * reachable (e.g. `ChannelsModule` alone, no `ReviewLearningModule` up) by throwing,
- * exercising the fail-open path. */
+ * `ZibbyPrLocator` through, and `pollOne` the `ResolvedProjectService` (here: a github
+ * account serving one project, `acme-app` on `acme/app`). `locator` absent simulates the
+ * provider not being reachable (e.g. `ChannelsModule` alone, no `ReviewLearningModule`
+ * up) by throwing, exercising the fail-open path. */
 function fakeModuleRef(locator?: { numbersFor: (projectId: string) => Promise<number[]> }) {
+  const resolved = { githubRepoTargets: async () => new Map([["acme/app", ["acme-app"]]]) };
   return {
-    get: () => {
+    get: (token: { name?: string }) => {
+      if (token.name === "ResolvedProjectService") return resolved;
       if (!locator) throw new Error("ZibbyPrLocator not reachable in this test");
       return locator;
     },
@@ -231,17 +234,18 @@ describe("ChannelWatcherService", () => {
     await integrations.create({
       id: "gl",
       kind: "gitlab",
-      projectId: "acme-app",
       config: {
         kind: "gitlab",
         host: "gitlab.example.com",
-        repo: "acme/platform/app",
         streams: ["issues", "pulls"],
         username: "karel.zibar",
       },
     });
     const calls: Array<{ integrationId: string; ctx: PollContext | undefined }> = [];
-    await makeWatcher(spyRegistry(calls)).tick();
+    const moduleRef = {
+      get: () => ({ gitlabRepoTargets: async () => new Map([["acme/platform/app", ["a"]]]) }),
+    } as unknown as ModuleRef;
+    await makeWatcher(spyRegistry(calls), moduleRef).tick();
     expect(calls.map((c) => c.integrationId)).toEqual(["gl"]);
   });
 
@@ -382,8 +386,13 @@ describe("ChannelWatcherService", () => {
     expect((await integrations.get("gh")).status).toBe("connected");
   });
 
-  it("a company-owned github integration unions the PR numbers of its same-repo inheriting projects (phase 128)", async () => {
-    await integrations.create({ ...github("co-gh"), projectId: undefined, companyId: "co" });
+  it("an account given a runtime repo scope unions the PR numbers of its same-repo served projects (phase 128)", async () => {
+    // `config.repo` is never stored by the API (create/update reject it); this is the
+    // runtime-scope path a scoped copy takes.
+    await integrations.create({
+      ...github("co-gh"),
+      config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "karel" },
+    });
     await credentials.write("co-gh", { token: "ghp" });
 
     const calls: Array<{ integrationId: string; ctx: PollContext | undefined }> = [];

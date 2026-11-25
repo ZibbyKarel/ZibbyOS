@@ -266,7 +266,8 @@ App Router route group `(dashboard)`.
 - Each page = `page.tsx` in its own segment. Dashboard segments: `agents`, `automations`,
   `commands`, `gates`, `hooks`, `mcp`, `memory`, `overview`, `workflows`, `projects`,
   `runs`, `settings`, `skills`. There is no standalone `integrations` segment — integrations
-  live on the owning project's detail page.
+  are accounts, managed on the company detail page and, for the operator's personal accounts,
+  in Settings → Accounts.
 - `/workflows/[id]` — workflow detail
 
 ---

@@ -5,7 +5,6 @@ import { SentryMonitor } from "./sentry.monitor";
 const INTEGRATION: Integration = {
   id: "acme-sentry",
   kind: "sentry",
-  projectId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,

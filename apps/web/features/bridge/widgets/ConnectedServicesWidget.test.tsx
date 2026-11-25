@@ -3,7 +3,8 @@ import { fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
-import { ConnectedServicesWidget, ConnectedServicesWidgetTestId } from "./ConnectedServicesWidget";
+import { ConnectedServicesListTestId as ConnectedServicesWidgetTestId } from "../../connected-services/components/ConnectedServicesList";
+import { ConnectedServicesWidget } from "./ConnectedServicesWidget";
 import type { BridgeWidgetProps } from "./registry";
 
 const connect = vi.hoisted(() => vi.fn());

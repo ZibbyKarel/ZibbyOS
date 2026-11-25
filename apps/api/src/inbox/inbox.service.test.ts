@@ -228,10 +228,11 @@ describe("InboxService.listPrs", () => {
     path: "~/acme",
     companyId: "co",
     teamId: "tm",
+    gitRemote: "git@github.com:Acme/app.git",
   };
   const github = {
     id: "gh",
-    config: { kind: "github", repo: "Acme/app", username: "me" },
+    config: { kind: "github", username: "me" },
   } as unknown as Integration;
 
   function build(
@@ -297,7 +298,7 @@ describe("InboxService.listPrs", () => {
         return json({ login: "me" }, opts.userStatus ?? 200);
       }
       if (u.pathname === "/users/alice") return json({ name: "Alice Novak" });
-      if (u.pathname === "/orgs/Acme/teams/devrel-team/members")
+      if (u.pathname === "/orgs/acme/teams/devrel-team/members")
         return json([{ login: "Alice" }, { login: "carol" }]);
       if (u.pathname === "/search/issues") {
         if (q.includes("reviewed-by:@me") && opts.reviewedStatus)
@@ -322,7 +323,7 @@ describe("InboxService.listPrs", () => {
         }
         throw new Error(`unexpected search ${q}`);
       }
-      if (u.pathname === "/repos/Acme/app/pulls") {
+      if (u.pathname === "/repos/acme/app/pulls") {
         const base = u.searchParams.get("base");
         return json(
           Object.entries(opts.stack ?? {})
@@ -330,7 +331,7 @@ describe("InboxService.listPrs", () => {
             .map(([n, s]) => ({ number: Number(n), draft: s.draft })),
         );
       }
-      const pull = u.pathname.match(/^\/repos\/Acme\/app\/pulls\/(\d+)$/);
+      const pull = u.pathname.match(/^\/repos\/acme\/app\/pulls\/(\d+)$/);
       if (pull && opts.limit?.on)
         return new Response("{}", { status: 403, headers: { "x-ratelimit-remaining": "0" } });
       if (pull) {
@@ -416,7 +417,7 @@ describe("InboxService.listPrs", () => {
     const limited = await service.listPrs(true);
     expect(limited.prs.map((p) => p.number)).toEqual(good);
     expect(limited.errors).toContainEqual(
-      expect.objectContaining({ message: "Acme/app: github rate limited (HTTP 403)" }),
+      expect.objectContaining({ message: "acme/app: github rate limited (HTTP 403)" }),
     );
   });
 
@@ -472,13 +473,13 @@ describe("InboxService.listPrs", () => {
       const { service, searches } = build([], {
         teams: [{ slug: "devrel-team" }],
         userTeamsStatus: 403,
-        teamSearches: { "Acme/devrel-team": { numbers: [5] } },
+        teamSearches: { "acme/devrel-team": { numbers: [5] } },
       });
       const pr = (await service.listPrs()).prs.find((p) => p.number === 5);
       expect(pr).toMatchObject({
         bucket: "to-review",
         reviewReason: "team",
-        reviewTeam: "Acme/devrel-team",
+        reviewTeam: "acme/devrel-team",
       });
       expect(teamSearches(searches)).toHaveLength(1);
     });
@@ -486,23 +487,23 @@ describe("InboxService.listPrs", () => {
     it("keeps every team whose search returned the PR in reviewTeams", async () => {
       const { service } = build([], {
         teams: [{ slug: "devrel-team" }],
-        teamSearches: { "Acme/devrel-team": { numbers: [1, 2] } },
+        teamSearches: { "acme/devrel-team": { numbers: [1, 2] } },
       });
       const prs = (await service.listPrs()).prs;
       const two = prs.find((p) => p.number === 2);
       expect(two?.reviewTeam).toBe("acme/core");
-      expect(two?.reviewTeams).toEqual(["acme/core", "Acme/devrel-team"]);
+      expect(two?.reviewTeams).toEqual(["acme/core", "acme/devrel-team"]);
       // direct bucket still wins, but the teams are kept
       const one = prs.find((p) => p.number === 1);
       expect(one).toMatchObject({ reviewReason: "direct" });
       expect(one?.reviewTeam).toBeUndefined();
-      expect(one?.reviewTeams).toEqual(["acme/core", "Acme/devrel-team"]);
+      expect(one?.reviewTeams).toEqual(["acme/core", "acme/devrel-team"]);
     });
 
     it("tags PRs authored by a configured team's member with authorTeams", async () => {
       const { service } = build([], { teams: [{ slug: "devrel-team" }] });
       const prs = (await service.listPrs()).prs;
-      expect(prs.find((p) => p.number === 1)?.authorTeams).toEqual(["Acme/devrel-team"]); // alice
+      expect(prs.find((p) => p.number === 1)?.authorTeams).toEqual(["acme/devrel-team"]); // alice
       expect(prs.find((p) => p.number === 3)?.authorTeams).toBeUndefined(); // me, not a member
     });
 
@@ -516,7 +517,7 @@ describe("InboxService.listPrs", () => {
     it("a configured slug GitHub rejects (422) drops only that search", async () => {
       const { service } = build([], {
         teams: [{ slug: "nope" }],
-        teamSearches: { "Acme/nope": { status: 422 } },
+        teamSearches: { "acme/nope": { status: 422 } },
       });
       const { prs, errors } = await service.listPrs();
       expect(prs.map((p) => p.number).sort()).toEqual([1, 2, 3]);
@@ -526,13 +527,13 @@ describe("InboxService.listPrs", () => {
     it("a team search failing with 429 keeps the repo's PRs and adds one error note", async () => {
       const { service } = build([], {
         teams: [{ slug: "busy" }],
-        teamSearches: { "Acme/busy": { status: 429 } },
+        teamSearches: { "acme/busy": { status: 429 } },
       });
       const { prs, errors } = await service.listPrs();
       expect(prs.map((p) => p.number).sort()).toEqual([1, 2, 3]);
       expect(errors).toHaveLength(1);
       expect(errors[0]).toMatchObject({ projectId: "acme", source: "github" });
-      expect(errors[0]?.message).toContain("Acme/busy");
+      expect(errors[0]?.message).toContain("acme/busy");
       expect(errors[0]?.message).toContain("429");
     });
 
@@ -863,7 +864,7 @@ describe("InboxService.listPrs", () => {
     const init = gqlInits[0];
     expect(init?.method).toBe("POST");
     expect((init?.headers as Record<string, string>)["content-type"]).toBe("application/json");
-    expect(JSON.parse(String(init?.body)).variables).toEqual({ owner: "Acme", name: "app", n: 3 });
+    expect(JSON.parse(String(init?.body)).variables).toEqual({ owner: "acme", name: "app", n: 3 });
     expect(byNumber[3]?.unresolvedThreads).toBe(1);
     expect(byNumber[1]?.unresolvedThreads).toBeUndefined();
     expect(byNumber[2]?.unresolvedThreads).toBeUndefined();

@@ -9,7 +9,6 @@ function slack(channels: string[] = []): Integration {
   return {
     id: "team-slack",
     kind: "slack",
-    projectId: "acme-app",
     enabled: true,
     config: { kind: "slack", channels },
     status: "disconnected",

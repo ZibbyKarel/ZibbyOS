@@ -71,17 +71,32 @@ describe("Channels triage throughline (e2e)", () => {
         department: "dev",
       })
       .expect(201);
-    // Integrations are owned by a project; create one so the FK check passes.
+    // Accounts are owned by a company; create one (+ its project) so the FK check passes.
+    await request(app.getHttpServer())
+      .post("/api/companies")
+      .send({ id: "acme", name: "Acme Co" })
+      .expect(201);
     await request(app.getHttpServer())
       .post("/api/projects")
-      .send({ id: "acme-app", name: "Acme", path: root })
+      .send({ id: "acme-app", name: "Acme", path: root, companyId: "acme" })
       .expect(201);
+    // The company Slack account serves acme-app; its channel routes there (no stored owner
+    // project any more — attribution comes from the project's routing rule). The fake
+    // adapter reports the integration id as the channel.
+    await request(app.getHttpServer())
+      .patch("/api/projects/acme-app")
+      .send({
+        integrationRouting: [
+          { integrationId: "team", match: { kind: "slack", channels: ["team"] } },
+        ],
+      })
+      .expect(200);
     await request(app.getHttpServer())
       .post("/api/integrations")
       .send({
         id: "team",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         name: "Team",
         config: { kind: "slack", channels: ["C1"] },
         department: "ops",
@@ -313,7 +328,6 @@ describe("Channels triage throughline (e2e)", () => {
       .send({
         id: "support",
         kind: "email",
-        projectId: "acme-app",
         name: "Support Mail",
         department: "ops",
         config: {

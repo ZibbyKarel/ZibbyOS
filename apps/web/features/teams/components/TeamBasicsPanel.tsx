@@ -23,8 +23,8 @@ export interface TeamBasicsBody {
   companyId?: string | null;
   /** Team code owner id (GitHub or GitLab); `null` clears it on edit. */
   slug?: string | null;
-  /** Jira project key; `null` clears it on edit. Omitted when the company has no Jira integration. */
-  jiraProjectKey?: string | null;
+  /** The team's board (Jira project key); `null` clears it on edit. Omitted when the company has no Jira account. */
+  board?: string | null;
 }
 
 export interface TeamBasicsPanelProps {
@@ -42,7 +42,7 @@ type TeamEditValues = {
   name: string;
   desc: string;
   slug: string;
-  jiraProjectKey: string;
+  board: string;
   companyId: string;
 };
 
@@ -65,7 +65,7 @@ export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamB
       name: team?.name ?? "",
       desc: team?.desc ?? "",
       slug: team?.slug ?? "",
-      jiraProjectKey: team?.jiraProjectKey ?? "",
+      board: team?.board ?? "",
       companyId: team?.companyId ?? NO_COMPANY,
     },
     onSubmit: (values) => {
@@ -73,10 +73,8 @@ export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamB
         name: values.name.trim(),
         desc: values.desc.trim() || undefined,
         slug: values.slug.trim() || (isNew ? undefined : null),
-        // Hidden field (no Jira integration) -> key omitted so the stored value survives.
-        ...(hasJira
-          ? { jiraProjectKey: values.jiraProjectKey.trim() || (isNew ? undefined : null) }
-          : {}),
+        // Hidden field (no Jira account) -> key omitted so the stored value survives.
+        ...(hasJira ? { board: values.board.trim() || (isNew ? undefined : null) } : {}),
         companyId: values.companyId === NO_COMPANY ? null : values.companyId,
       });
     },
@@ -146,11 +144,11 @@ export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamB
 
         {hasJira && (
           <FormTextInput<TeamEditValues>
-            data-testid="team-jira-project-input"
-            hint={t("fields.jiraProjectKeyHint")}
-            label={t("fields.jiraProjectKey")}
-            name="jiraProjectKey"
-            placeholder={t("fields.jiraProjectKeyPlaceholder")}
+            data-testid="team-board-input"
+            hint={t("fields.boardHint")}
+            label={t("fields.board")}
+            name="board"
+            placeholder={t("fields.boardPlaceholder")}
           />
         )}
 

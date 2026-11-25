@@ -41,7 +41,7 @@ export interface CompanyProjectsPanelProps {
   onAddExisting: () => void;
 }
 
-/** The "Projects" table of the company page: team, repo, filled/outlined service marks, 30-day runs. */
+/** The "Projects" table of the company page: team, repo, the company's account marks, 30-day runs. */
 export function CompanyProjectsPanel({
   companyId,
   projects,
@@ -60,7 +60,7 @@ export function CompanyProjectsPanel({
       ?.replace(/^(https?:\/\/|git@|ssh:\/\/git@)/, "")
       .replace(/:(?!\d)/, "/")
       .replace(/\.git$/, ""),
-    marks: projectMarks(p.id, companyId, integrations),
+    marks: projectMarks(companyId, integrations),
     runs30d: runs30d[p.id] ?? 0,
   }));
   const columns: DataTableColumn<Row_>[] = [
@@ -82,14 +82,14 @@ export function CompanyProjectsPanel({
       width: "xl",
       render: (r) => (
         <Row gap="50">
-          {r.marks.map((m) => {
-            const icon = sourceIcon(m.kind);
+          {r.marks.map((kind) => {
+            const icon = sourceIcon(kind);
             return (
               <IconTile
-                alt={m.kind}
-                filled={m.own}
+                alt={kind}
+                filled={false}
                 glyph={icon.glyph}
-                key={m.kind}
+                key={kind}
                 size="xs"
                 src={icon.src}
               />

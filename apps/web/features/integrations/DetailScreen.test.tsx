@@ -8,12 +8,16 @@ import { IntegrationFormTestId } from "./components/IntegrationFormFields";
 import { TokenExpiryLabelTestId } from "./components/TokenExpiryLabel";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
+vi.mock("../companies", () => ({
+  useCompaniesQuery: () => ({ data: [{ id: "acme", name: "Acme" }] }),
+}));
 
 const INTEGRATION: Integration = {
   id: "team-slack",
   kind: "slack",
-  projectId: "acme",
+  companyId: "acme",
   name: "Team Slack",
   enabled: true,
   status: "connected",
@@ -49,6 +53,7 @@ vi.mock("./mutations", () => ({
 describe("integrations DetailScreen (N4h grammar — closes the series)", () => {
   beforeEach(() => {
     push.mockClear();
+    replace.mockClear();
     hooks.update.mockClear();
     hooks.del.mockClear();
     hooks.setCredentials.mockClear();
@@ -63,17 +68,17 @@ describe("integrations DetailScreen (N4h grammar — closes the series)", () => 
       data: {
         ...INTEGRATION,
         kind: "github",
-        config: { kind: "github", repo: "acme/repo", streams: ["issues"], username: "octocat" },
+        config: { kind: "github", streams: ["issues"], username: "octocat" },
         tokenExpiresAt: "2026-11-15T10:00:00.000Z",
       },
     };
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+    render(<DetailScreen integrationId="team-slack" />);
     expect(screen.getByTestId(TokenExpiryLabelTestId.Root)).toHaveTextContent("vyprší za 3 dny");
     vi.useRealTimers();
   });
 
   it("locks the kind and shows top-right actions by accessible name", () => {
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+    render(<DetailScreen integrationId="team-slack" />);
     expect(screen.getByRole("button", { name: "Uložit" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Smazat" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Test spojení" })).toBeInTheDocument();
@@ -81,22 +86,44 @@ describe("integrations DetailScreen (N4h grammar — closes the series)", () => 
     expect(screen.getByTestId(IntegrationFormTestId.Kind)).toHaveTextContent("slack");
   });
 
-  // F6 (docs/plans/hud2chat-F6-delivery-entities.md): the first dynamic
-  // back link in this migration — two levels deep, it must return to ITS
-  // project's integrations tab, not to `/projects` and not to `/chat`.
-  it("the breadcrumb back link returns to its project's integrations tab", () => {
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+  it("the breadcrumb back link returns to the owner: the company's tab, or settings for a personal account", () => {
+    const { unmount } = render(<DetailScreen integrationId="team-slack" />);
     expect(screen.getByTestId(`${BreadcrumbTestId.Item}-0`)).toHaveAttribute(
       "href",
-      "/projects/acme/integrations",
+      "/companies/acme?tab=integrations",
     );
+    unmount();
+    hooks.integration = {
+      ...hooks.integration,
+      data: { ...INTEGRATION, companyId: undefined },
+    };
+    render(<DetailScreen integrationId="team-slack" />);
+    expect(screen.getByTestId(`${BreadcrumbTestId.Item}-0`)).toHaveAttribute(
+      "href",
+      "/system/settings/access#accounts",
+    );
+    expect(screen.getAllByTestId("dropdown-trigger")[0]).toHaveTextContent("Osobní (ty)");
+  });
+
+  it("moving the account to personal PATCHes companyId: null and follows it to its new route", async () => {
+    hooks.update.mockImplementation((_vars, opts?: { onSuccess?: () => void }) =>
+      opts?.onSuccess?.(),
+    );
+    render(<DetailScreen integrationId="team-slack" />);
+    await userEvent.click(screen.getAllByTestId("dropdown-trigger")[0]!);
+    await userEvent.click(screen.getByText("Osobní (ty)"));
+    expect(hooks.update).toHaveBeenCalledWith(
+      { params: { id: "team-slack" }, body: { companyId: null } },
+      expect.anything(),
+    );
+    expect(replace).toHaveBeenCalledWith("/system/settings/accounts/team-slack");
   });
 
   it("Save patches the config; a fresh secret rides the SEPARATE credentials mutation", async () => {
     hooks.update.mockImplementation((_vars, opts?: { onSuccess?: () => void }) =>
       opts?.onSuccess?.(),
     );
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+    render(<DetailScreen integrationId="team-slack" />);
     await userEvent.type(screen.getByTestId(IntegrationFormTestId.Secret), "xoxb-new");
     await userEvent.click(screen.getByTestId(IntegrationDetailScreenTestId.Save));
 
@@ -120,7 +147,7 @@ describe("integrations DetailScreen (N4h grammar — closes the series)", () => 
       (_vars, opts?: { onSuccess?: (r: { body: { ok: boolean; detail: string } }) => void }) =>
         opts?.onSuccess?.({ body: { ok: true, detail: "Slack OK" } }),
     );
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+    render(<DetailScreen integrationId="team-slack" />);
     await userEvent.click(screen.getByTestId(IntegrationDetailScreenTestId.Test));
     expect(hooks.test).toHaveBeenCalledWith(
       { params: { id: "team-slack" }, body: {} },
@@ -131,11 +158,11 @@ describe("integrations DetailScreen (N4h grammar — closes the series)", () => 
     );
   });
 
-  it("Delete asks in a CONFIRM dialog, then deletes and returns to the project's tab", async () => {
+  it("Delete asks in a CONFIRM dialog, then deletes and returns to the owner's tab", async () => {
     hooks.del.mockImplementation((_args, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
-    render(<DetailScreen integrationId="team-slack" projectId="acme" />);
+    render(<DetailScreen integrationId="team-slack" />);
     await userEvent.click(screen.getByTestId(IntegrationDetailScreenTestId.Delete));
-    expect(screen.getByText("Smazat integraci?")).toBeInTheDocument();
+    expect(screen.getByText("Smazat účet?")).toBeInTheDocument();
     const confirm = screen
       .getAllByRole("button", { name: "Smazat" })
       .find((b) => b !== screen.getByTestId(IntegrationDetailScreenTestId.Delete));
@@ -144,6 +171,6 @@ describe("integrations DetailScreen (N4h grammar — closes the series)", () => 
       { params: { id: "team-slack" } },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
-    expect(push).toHaveBeenCalledWith("/projects/acme/integrations");
+    expect(push).toHaveBeenCalledWith("/companies/acme?tab=integrations");
   });
 });

@@ -14,7 +14,7 @@ const fakeLogger = {
 const integration: Integration = {
   id: "team",
   kind: "slack",
-  projectId: "acme-app",
+  companyId: "co",
   name: "Team Slack",
   enabled: true,
   config: { kind: "slack", channels: ["C1"] },
@@ -58,6 +58,14 @@ describe("ChannelTriageFlowService", () => {
     integration?: Integration;
     /** Phase 128 — `ResolvedProjectService.inheritingProjects` result. */
     inheriting?: Project[];
+    /** `ResolvedProjectService.resolveIntegrations` result (any project). */
+    serving?: Integration[];
+    /** `ResolvedProjectService.jiraProjectKey` result. */
+    board?: string;
+    /** Company the resolver gives every project (`resolveCompany`). */
+    projectCompanyId?: string;
+    /** Autopilot coverage by location (defaults to the real rule, location-blind). */
+    autopilotCovers?: (at: { companyId?: string }) => boolean;
     /** NS2 F6a — a stubbed CommsService (graduation + ledger seam). */
     comms?: {
       isGraduated: ReturnType<typeof vi.fn>;
@@ -93,13 +101,24 @@ describe("ChannelTriageFlowService", () => {
       get: async () => opts.integration ?? integration,
       list: async () => opts.jiraIntegrations ?? [],
     };
-    const projects = { list: async () => opts.projects ?? [] };
+    const projects = {
+      list: async () => opts.projects ?? [],
+      get: async (id: string) => {
+        const found = (opts.projects ?? []).find((p) => p.id === id);
+        if (!found) throw new Error(`no project ${id}`);
+        return found;
+      },
+    };
     // Phase 70: no company in any of these tests — the resolver degrades to the
     // project's own raw `identity.people`, matching pre-Phase-70 behavior exactly.
     // The resolver's own merge rules are unit-tested in resolved-project.helpers.test.ts.
     const resolved = {
       resolvePeople: async (project: Project) => project.identity?.people ?? [],
       inheritingProjects: async () => opts.inheriting ?? [],
+      resolveIntegrations: async () => opts.serving ?? [],
+      jiraProjectKey: async () => opts.board,
+      resolveCompany: async () =>
+        opts.projectCompanyId ? { id: opts.projectCompanyId, name: "Co" } : undefined,
     };
     const credentials = { read: async () => ({ token: "xoxb-1" }) };
     const registry = {
@@ -137,7 +156,16 @@ describe("ChannelTriageFlowService", () => {
       opts.comms as never,
       undefined,
       (opts.autopilot
-        ? { isOn: () => true, coversApproval: autopilotCoversApproval }
+        ? {
+            isOn: () => true,
+            coversApproval: (
+              approval: Parameters<typeof autopilotCoversApproval>[0],
+              head?: string,
+              own?: boolean,
+              at: { companyId?: string } = {},
+            ) =>
+              (opts.autopilotCovers?.(at) ?? true) && autopilotCoversApproval(approval, head, own),
+          }
         : undefined) as never,
     );
     return flow;
@@ -316,20 +344,137 @@ describe("ChannelTriageFlowService", () => {
     expect(createTask.mock.calls[0]![2]).toBeUndefined();
   });
 
-  it("attributes the item to the integration's stored project, even with no text match", async () => {
-    // The integration fixture is owned by "acme-app"; the stored projectId wins over
-    // the text/name attribution (which would not match "Acme" in this body).
-    const flow = makeFlow({
-      verdict: bug,
-      projects: [{ id: "acme-app", name: "Acme", path: "/work/acme" }],
+  describe("accounts model — an account has no stored project", () => {
+    const personalMail: Integration = {
+      id: "team",
+      kind: "email",
+      name: "My mail",
+      enabled: true,
+      config: {
+        kind: "email",
+        imapHost: "imap.example.com",
+        imapPort: 993,
+        smtpHost: "smtp.example.com",
+        smtpPort: 465,
+        username: "me@example.com",
+      },
+      status: "connected",
+      hasCredentials: true,
+    } as unknown as Integration;
+
+    it("a personal mailbox serves no project: text attribution, else unattributed — never dropped", async () => {
+      const projects = [{ id: "alpha", name: "Alpha", path: "/work/alpha" }];
+      const hit = makeFlow({ verdict: question, integration: personalMail, projects });
+      const matched = await hit.handle(item({ kind: "email", text: "the Alpha login is broken" }));
+      expect(matched.projectId).toBe("alpha");
+      expect(matched.state).toBe("triaged"); // notify-only kind, still surfaced
+
+      const miss = makeFlow({ verdict: question, integration: personalMail, projects });
+      const loose = await miss.handle(item({ kind: "email", text: "lunch on friday?" }));
+      expect(loose.projectId).toBeUndefined();
+      expect(loose.state).toBe("triaged");
+      expect(await store.get("team", loose.id)).toBeDefined();
     });
-    const out = await flow.handle(item({ text: "something generic and unrelated" }));
-    expect(out.projectId).toBe("acme-app");
-    expect(createTask.mock.calls[0]![2]).toBe("acme-app");
+
+    it("a personal github account is attributed by the gitRemote of the projects it serves", async () => {
+      const personalGithub: Integration = {
+        ...integration,
+        kind: "github",
+        companyId: undefined,
+        config: { kind: "github", streams: ["issues", "pulls"], username: "me" },
+      };
+      const side = {
+        id: "side",
+        name: "Side",
+        path: "/work/side",
+        gitRemote: "git@github.com:me/side.git",
+      };
+      const flow = makeFlow({ verdict: bug, integration: personalGithub, inheriting: [side] });
+      const out = await flow.handle(
+        item({ kind: "github", externalRef: { channel: "me/side", messageId: "3" }, text: "boom" }),
+      );
+      expect(out.projectId).toBe("side");
+    });
+
+    it("autopilot: a personal account's item text-matched to a company project stays at global levels", async () => {
+      const personalSlack: Integration = { ...integration, companyId: undefined };
+      const acme: Project = { id: "acme", name: "Acme", path: "/work/acme", companyId: "co" };
+      const flow = makeFlow({
+        verdict: scope,
+        integration: personalSlack,
+        projects: [acme],
+        projectCompanyId: "co",
+        serving: [], // the personal Slack serves no project
+        autopilot: true,
+        autopilotCovers: (at) => at.companyId === "co", // only the company is on auto
+      });
+      const out = await researched(flow, item({ text: "Acme: can you check this?" }), "an answer");
+      expect(out.projectId).toBe("acme");
+      expect(requestApproval).toHaveBeenCalledTimes(1);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it("autopilot: a company account's item on its company's project acts at the company's levels", async () => {
+      const acme: Project = { id: "acme", name: "Acme", path: "/work/acme", companyId: "co" };
+      const flow = makeFlow({
+        verdict: scope,
+        projects: [acme],
+        projectCompanyId: "co",
+        autopilot: true,
+        autopilotCovers: (at) => at.companyId === "co",
+      });
+      await researched(flow, item({ text: "Acme: can you check this?" }), "an answer");
+      expect(send).toHaveBeenCalledTimes(1);
+    });
+
+    it("files the bug into the Jira account serving the item's project, on the team board", async () => {
+      const jiraPropose = vi.fn<
+        (input: { integrationId: string; projectKey?: string }) => Promise<{ id: string }>
+      >(async () => ({ id: "appr_jira" }));
+      const servingJira = {
+        id: "co-jira",
+        kind: "jira",
+        enabled: true,
+        config: {
+          kind: "jira",
+          baseUrl: "https://co.atlassian.net",
+          email: "me@co",
+          projectKey: "ACC",
+        },
+      } as unknown as Integration;
+      const flow = makeFlow({
+        verdict: bug,
+        jiraPropose,
+        projects: [{ id: "alpha", name: "Alpha", path: "/work/alpha" }],
+        serving: [servingJira],
+        board: "TEAM",
+        // the global list would pick another company's Jira — it must not be used
+        jiraIntegrations: [{ id: "other-jira", kind: "jira", enabled: true }],
+      });
+      await flow.handle(item({ text: "the Alpha login crashes" }));
+      expect(jiraPropose).toHaveBeenCalledTimes(1);
+      expect(jiraPropose.mock.calls[0]![0]).toMatchObject({
+        integrationId: "co-jira",
+        projectKey: "TEAM",
+      });
+    });
+
+    it("a project no Jira account serves files nothing (never another company's Jira)", async () => {
+      const jiraPropose = vi.fn(async () => ({ id: "x" }));
+      const flow = makeFlow({
+        verdict: bug,
+        jiraPropose,
+        projects: [{ id: "alpha", name: "Alpha", path: "/work/alpha" }],
+        serving: [],
+        jiraIntegrations: [{ id: "other-jira", kind: "jira", enabled: true }],
+      });
+      await flow.handle(item({ text: "the Alpha login crashes" }));
+      expect(jiraPropose).not.toHaveBeenCalled();
+    });
   });
 
   describe("Phase 128 — company integration routing (D10)", () => {
-    const companySlack: Integration = { ...integration, projectId: undefined, companyId: "co" };
+    const companySlack: Integration = { ...integration, companyId: "co" };
     const routedTo = (id: string, channels: string[]): Project => ({
       id,
       name: id,
@@ -380,7 +525,6 @@ describe("ChannelTriageFlowService", () => {
       const companyGithub: Integration = {
         ...integration,
         kind: "github",
-        projectId: undefined,
         companyId: "co",
         config: { kind: "github", repo: "acme/app", streams: ["issues"], username: "me" },
       };
@@ -418,7 +562,6 @@ describe("ChannelTriageFlowService", () => {
       const companyGitlab: Integration = {
         ...integration,
         kind: "gitlab",
-        projectId: undefined,
         companyId: "co",
         config: { kind: "gitlab", host: "gl.example.com" },
       } as Integration;
@@ -478,7 +621,6 @@ describe("ChannelTriageFlowService", () => {
       const companyJira: Integration = {
         ...integration,
         kind: "jira",
-        projectId: undefined,
         companyId: "co",
         config: { kind: "jira", baseUrl: "https://co.atlassian.net", email: "me@co" },
       };
@@ -839,23 +981,26 @@ describe("ChannelTriageFlowService", () => {
   });
 
   describe("autopilot never sends a draft that parked for another reason", () => {
+    // The company Slack account routes channel C1 to acme-app.
     const acme = (policy: Project["autonomy_policy"], people?: Project["identity"]): Project => ({
       id: "acme-app",
       name: "Acme",
       path: "/work/acme",
       autonomy_policy: policy,
+      integrationRouting: [{ integrationId: "team", match: { kind: "slack", channels: ["C1"] } }],
       ...(people ? { identity: people } : {}),
     });
+    const routed = (project: Project) => ({ projects: [project], inheriting: [project] });
     const cases: Array<[string, Parameters<typeof makeFlow>[0], Partial<ChannelItem>?]> = [
       ["mandate reply:false", { verdict: scope, mandate: MANDATE_NO_REPLY }],
-      ["respond_as draft_only", { verdict: scope, projects: [acme({ respond_as: "draft_only" })] }],
+      ["respond_as draft_only", { verdict: scope, ...routed(acme({ respond_as: "draft_only" })) }],
       [
         "VIP escalation",
         {
           verdict: scope,
-          projects: [
+          ...routed(
             acme({ vip_escalation: true }, { people: [{ name: "bob", role: "CEO", vip: true }] }),
-          ],
+          ),
         },
         { from: "bob@corp.com" },
       ],

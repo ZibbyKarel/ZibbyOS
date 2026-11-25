@@ -267,7 +267,7 @@ describe("Projects API (e2e)", () => {
         .send({
           id: "proj-slack",
           kind: "slack",
-          projectId: "linked",
+          companyId: "acme",
           config: { kind: "slack", channels: ["C1"] },
           department: "ops",
         })
@@ -280,7 +280,7 @@ describe("Projects API (e2e)", () => {
       expect(got.body.budget).toEqual({ dailyRuns: 3, weeklyRuns: 50 });
       // People merge by id: company's roster + project's own addition.
       expect(got.body.people.map((p: { id: string }) => p.id).sort()).toEqual(["alice", "bob"]);
-      // Integrations union (different kinds): company's jira + the project's own slack.
+      // The company's accounts are the project's accounts: its jira and its slack.
       expect(got.body.integrations.map((i: { id: string }) => i.id).sort()).toEqual([
         "co-jira",
         "proj-slack",
@@ -328,17 +328,20 @@ describe("Projects API (e2e)", () => {
     it("returns [] for a github integration with no stored token (never an error)", async () => {
       await request(app.getHttpServer())
         .post(BASE)
-        .send({ id: "no-token", name: "no-token", path: "~/p/no-token" })
+        .send({
+          id: "no-token",
+          name: "no-token",
+          path: "~/p/no-token",
+          gitRemote: "git@github.com:acme/app.git",
+        })
         .expect(201);
       await request(app.getHttpServer())
         .post("/api/integrations")
         .send({
           id: "no-token-github",
           kind: "github",
-          projectId: "no-token",
           config: {
             kind: "github",
-            repo: "acme/app",
             streams: ["issues", "pulls"],
             username: "octocat",
           },

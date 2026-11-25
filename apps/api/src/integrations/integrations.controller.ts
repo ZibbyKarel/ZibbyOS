@@ -2,6 +2,7 @@ import { Controller, Inject } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import type { Integration } from "@zibby/contracts";
 import { integrationsContract } from "@zibby/contracts";
+import { CompaniesStorageService } from "../companies/companies.storage.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { makeErrorMapper } from "../shared/http/error-mapping";
@@ -34,6 +35,7 @@ export class IntegrationsController {
     private readonly storage: IntegrationsStorageService,
     private readonly credentials: CredentialsStore,
     private readonly projects: ProjectsStorageService,
+    private readonly companies: CompaniesStorageService,
     private readonly resolved: ResolvedProjectService,
     @Inject(CONNECTION_TESTER) private readonly tester: ConnectionTester,
   ) {}
@@ -46,10 +48,10 @@ export class IntegrationsController {
     return { ...integration, hasCredentials };
   }
 
-  /** FK integrity: an integration must belong to an existing project (else 422). */
-  private async assertProjectExists(projectId: string): Promise<void> {
-    const exists = (await this.projects.list()).some((p) => p.id === projectId);
-    if (!exists) throw new UnknownProjectViolation();
+  /** FK integrity: a company-owned account must name an existing company (else 422). */
+  private async assertCompanyExists(companyId: string): Promise<void> {
+    const exists = (await this.companies.list()).some((c) => c.id === companyId);
+    if (!exists) throw new UnknownCompanyViolation();
   }
 
   @TsRestHandler(integrationsContract)
@@ -61,24 +63,19 @@ export class IntegrationsController {
         }
         return errors.created(
           async () => {
-            // Phase 70: a company-owned integration (`body.companyId` set instead) isn't
-            // FK-checked yet — only project ownership is validated here, unchanged from
-            // before Phase 68 (the contract's superRefine already guarantees exactly one
-            // of projectId/companyId is set).
-            if (body.projectId) await this.assertProjectExists(body.projectId);
+            // No `companyId` = the operator's personal account.
+            if (body.companyId) await this.assertCompanyExists(body.companyId);
             return this.withCredentialState(await this.storage.create(body));
           },
           (error) =>
-            error instanceof UnknownProjectViolation ? unprocessable("unknown project") : undefined,
+            error instanceof UnknownCompanyViolation ? unprocessable("unknown company") : undefined,
         );
       },
 
       listIntegrations: async ({ query }) => {
-        // Phase 70: scoped by a project id, this returns the project's EFFECTIVE
-        // integrations (its own + its company's, merged by `kind`) via the
-        // resolver — never a raw `projectId` filter. An unknown project id (or one
-        // with no company) resolves to the project's own integrations only (the
-        // resolver's dangling-companyId / no-company fallback), not a 500.
+        // Scoped by a project id, this returns the accounts that SERVE the project
+        // (its company's, then the operator's project-scoped ones) via the resolver.
+        // An unknown project id lists nothing, not a 500.
         if (query.projectId) {
           const project = await this.projects.get(query.projectId).catch(() => null);
           const scoped = project ? await this.resolved.resolveIntegrations(project) : [];
@@ -105,26 +102,24 @@ export class IntegrationsController {
             if (body.config && body.config.kind !== existing.kind) {
               throw new ImmutableKindViolation();
             }
-            if (body.projectId) await this.assertProjectExists(body.projectId);
-            // Phase 129 (G1): the patch must not leave a project-owned github/gitlab integration repo-less.
-            const config = body.config ?? existing.config;
-            const projectId = "projectId" in body ? body.projectId : existing.projectId;
+            if (body.companyId) await this.assertCompanyExists(body.companyId);
+            // Same rule as the create body's refinement: an account stores no repo.
+            const { config } = body;
             if (
-              projectId &&
-              (config.kind === "github" || config.kind === "gitlab") &&
-              !config.repo
+              (config?.kind === "github" || config?.kind === "gitlab") &&
+              config.repo !== undefined
             ) {
-              throw new MissingRepoViolation(config.kind);
+              throw new StoredRepoViolation(config.kind);
             }
             return this.withCredentialState(await this.storage.update(id, body));
           },
           (error) =>
             error instanceof ImmutableKindViolation
               ? unprocessable("kind is immutable")
-              : error instanceof MissingRepoViolation
-                ? unprocessable(`a project-owned ${error.kind} integration needs a repo`)
-                : error instanceof UnknownProjectViolation
-                  ? unprocessable("unknown project")
+              : error instanceof StoredRepoViolation
+                ? unprocessable(error.message)
+                : error instanceof UnknownCompanyViolation
+                  ? unprocessable("unknown company")
                   : undefined,
         ),
 
@@ -194,11 +189,11 @@ export class IntegrationsController {
 
 /** Internal control-flow markers mapped to 422/409 by the handler's `extra` callbacks. */
 class ImmutableKindViolation extends Error {}
-class MissingRepoViolation extends Error {
-  constructor(readonly kind: string) {
-    super(`a project-owned ${kind} integration needs a repo`);
+class StoredRepoViolation extends Error {
+  constructor(kind: string) {
+    super(`a ${kind} account has no repo — set the project's gitRemote instead`);
   }
 }
 class CredentialKindViolation extends Error {}
 class NoCredentialsViolation extends Error {}
-class UnknownProjectViolation extends Error {}
+class UnknownCompanyViolation extends Error {}

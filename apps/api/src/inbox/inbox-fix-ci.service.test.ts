@@ -10,10 +10,15 @@ import { PrRefusedError } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
 const FIXED = "f".repeat(40);
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "Me" },
+  config: { kind: "github", username: "Me" },
 } as unknown as Integration;
 
 describe("InboxFixCiService", () => {

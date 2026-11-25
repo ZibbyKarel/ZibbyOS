@@ -2,7 +2,7 @@ import { z } from "zod";
 import { isGitlabShape } from "./integration.schema";
 
 /**
- * Phase 128 (D3) — per-project routing rule for a company-owned integration. The
+ * Phase 128 (D3) — per-project routing rule for an account that serves several projects. The
  * project says "items of integration X that look like THIS belong to me".
  * Discriminated by `kind` (the integration's kind).
  */
@@ -81,49 +81,37 @@ export function repoFromGitRemote(remote: string | undefined): string | null {
 }
 
 /**
- * Phase 129 (G1/G2) — the repo a GitHub integration covers for `project`: a
- * project-owned integration's `config.repo`; a company-owned one's `config.repo`
- * override, else the project's `gitRemote` (only when that remote is on github.com).
- * `null` when there is none (or the integration is not GitHub).
+ * The repo a GitHub account covers for `project`: the project's `gitRemote`, when that
+ * remote is on github.com. `null` when there is none (or the account is not GitHub).
  */
 export function githubRepoFor(
-  integration: {
-    projectId?: string | undefined;
-    companyId?: string | undefined;
-    config: { kind: string; repo?: string | undefined };
-  },
+  integration: { config: { kind: string } },
   project: { gitRemote?: string | undefined },
 ): string | null {
   if (integration.config.kind !== "github") return null;
-  if (integration.projectId !== undefined) return integration.config.repo ?? null;
-  if (integration.config.repo) return integration.config.repo;
   return gitRemoteInfo(project.gitRemote)?.host === "github.com"
     ? repoFromGitRemote(project.gitRemote)
     : null;
 }
 
 /**
- * The project path a GitLab integration covers for `project`: project-owned → its
- * `config.repo`; company-owned → `config.repo`, else the `gitRemote` path when the
+ * The project path a GitLab account covers for `project`: the `gitRemote` path when the
  * remote's host equals `config.host`. `null` otherwise (or when not GitLab), and also when
  * the host or path fails {@link isGitlabShape} — every producer of a GitLab link inherits it.
  */
 export function gitlabRepoFor(
-  integration: {
-    projectId?: string | undefined;
-    companyId?: string | undefined;
-    config: { kind: string; repo?: string | undefined; host?: string | undefined };
-  },
+  integration: { config: { kind: string; host?: string | undefined } },
   project: { gitRemote?: string | undefined },
 ): string | null {
   const { config } = integration;
   if (config.kind !== "gitlab") return null;
-  const shaped = (repo: string | null | undefined) =>
-    repo && isGitlabShape(config.host, repo) ? repo : null;
-  if (integration.projectId !== undefined) return shaped(config.repo);
-  if (config.repo) return shaped(config.repo);
   const info = gitRemoteInfo(project.gitRemote);
-  return info && config.host && info.host === config.host.toLowerCase() ? shaped(info.path) : null;
+  return info &&
+    config.host &&
+    info.host === config.host.toLowerCase() &&
+    isGitlabShape(config.host, info.path)
+    ? info.path
+    : null;
 }
 
 const ci = (s: string) => s.trim().toLowerCase();

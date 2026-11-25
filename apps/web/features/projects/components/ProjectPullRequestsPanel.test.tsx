@@ -12,7 +12,7 @@ import {
 const GITHUB_INTEGRATION: Integration = {
   id: "acme-github",
   kind: "github",
-  projectId: "acme",
+  companyId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,
@@ -22,7 +22,7 @@ const GITHUB_INTEGRATION: Integration = {
 const GITLAB_INTEGRATION: Integration = {
   id: "acme-gitlab",
   kind: "gitlab",
-  projectId: "acme",
+  companyId: "acme",
   enabled: true,
   status: "connected",
   hasCredentials: true,

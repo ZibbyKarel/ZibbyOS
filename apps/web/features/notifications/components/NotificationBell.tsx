@@ -20,6 +20,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatWaited } from "../../approvals/approval";
 import { useNow } from "../../../hooks/useNow";
 import { expiringTokens } from "../../integrations/connectionsModel";
+import { accountHref } from "../../integrations/accountHref";
 import { useIntegrationsQuery } from "../../integrations";
 import { formatWhen } from "../../project-health/formatWhen";
 import { apiErrorMessage } from "../../../state/apiErrorMessage";
@@ -129,14 +130,11 @@ export function NotificationBell() {
         ) : (
           <Stack gap="100">
             {tokens.map(({ integration, daysLeft, expired }) => {
-              const href = integration.projectId
-                ? `/projects/${integration.projectId}/integrations/${integration.id}`
-                : `/companies/${integration.companyId}/integrations/${integration.id}`;
               const name = integration.name ?? integration.id;
               return (
                 <Link
                   data-testid={NotificationBellTestId.TokenItem}
-                  href={href as Route}
+                  href={accountHref(integration)}
                   key={integration.id}
                 >
                   <SheetBanner

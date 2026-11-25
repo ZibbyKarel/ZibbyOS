@@ -61,7 +61,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "jira-1",
       kind: "jira",
-      projectId: "proj-1",
       config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "a@acme.com" },
     });
     await items.put(item());
@@ -76,7 +75,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "gh-1",
       kind: "github",
-      projectId: "proj-1",
       config: {
         kind: "github",
         repo: "acme/repo",
@@ -129,7 +127,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "gl-1",
       kind: "gitlab",
-      projectId: "proj-1",
       config: {
         kind: "gitlab",
         host: "gitlab.example.com",
@@ -170,7 +167,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "slack-1",
       kind: "slack",
-      projectId: "proj-1",
       config: { kind: "slack", channels: ["C1"] },
     });
     await items.put(
@@ -192,7 +188,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "jira-1",
       kind: "jira",
-      projectId: "proj-1",
       config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "a@acme.com" },
     });
     await items.put(item({ url: "https://elsewhere.example/CZ-1" }));
@@ -207,7 +202,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "jira-1",
       kind: "jira",
-      projectId: "proj-1",
       config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "a@acme.com" },
     });
     await items.put(item());
@@ -224,7 +218,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "jira-1",
       kind: "jira",
-      projectId: "proj-1",
       config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "a@acme.com" },
     });
     await items.put(item());
@@ -241,7 +234,6 @@ describe("SourceLinkBackfillService (Phase 127 follow-up)", () => {
     await integrations.create({
       id: "jira-1",
       kind: "jira",
-      projectId: "proj-1",
       config: { kind: "jira", baseUrl: "https://acme.atlassian.net", email: "a@acme.com" },
     });
     await items.put(item());

@@ -7,10 +7,15 @@ import {
   ThreadNotOnPrError,
 } from "./inbox-pr-threads.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "me" },
+  config: { kind: "github", username: "me" },
 } as unknown as Integration;
 
 const node = (id: string, resolved = false) => ({

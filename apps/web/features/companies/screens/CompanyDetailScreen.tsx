@@ -37,6 +37,7 @@ import { useIntegrationsQuery } from "../../integrations";
 import { ConnectWizardSheet } from "../../integrations/components/ConnectWizardSheet";
 import { EntityConnections } from "../../integrations/components/EntityConnections";
 import { buildConnections } from "../../integrations/connectionsModel";
+import { accountHref } from "../../integrations/accountHref";
 import { useEntityT } from "../../entity/useEntityT";
 import { projectRunStats } from "../../projects/projectRunStats";
 import { useBudgetQuery, useProjectsQuery } from "../../projects";
@@ -141,7 +142,12 @@ export function CompanyDetailScreen({ companyId }: CompanyDetailScreenProps) {
   const runs30d = Object.fromEntries(
     memberProjects.map((p) => [p.id, projectRunStats(runs, p.id, now).runs30d]),
   );
-  const model = buildConnections(allIntegrations, projectsQ.data ?? [], { companyId: id }, now);
+  const model = buildConnections(
+    allIntegrations.filter((i) => i.companyId === id),
+    "own",
+    now,
+    memberProjects.length,
+  );
   const usage = companyUsage(
     company?.budget,
     budgetQ.data,
@@ -289,7 +295,7 @@ export function CompanyDetailScreen({ companyId }: CompanyDetailScreenProps) {
             <EntityConnections
               model={model}
               onConnect={() => setConnecting(true)}
-              onOpen={(i) => router.push(`/companies/${id}/integrations/${i.id}` as Route)}
+              onOpen={(i) => router.push(accountHref(i))}
               ribbon={[
                 { kind: "company", label: company.name, icon: "building", current: true },
                 {
@@ -393,7 +399,7 @@ export function CompanyDetailScreen({ companyId }: CompanyDetailScreenProps) {
         <ConnectWizardSheet
           inheritingCount={memberProjects.length}
           onClose={() => setConnecting(false)}
-          onOpenIntegration={(iid) => router.push(`/companies/${id}/integrations/${iid}` as Route)}
+          onOpenIntegration={(iid) => router.push(accountHref({ id: iid, companyId: id }))}
           owner={{ companyId: id }}
           ownerName={company.name}
         />

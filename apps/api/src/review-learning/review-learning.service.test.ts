@@ -96,7 +96,13 @@ describe("ReviewLearningService", () => {
     const distiller = { distill: vi.fn(async () => outcome) };
     const flow = { propose: vi.fn(async (_projectId: string, _rule: unknown) => {}) };
     const service = new ReviewLearningService(
-      { list: async () => opts.projects ?? [project] } as never,
+      {
+        list: async () =>
+          opts.projects ??
+          (opts.gitlab
+            ? [{ ...project, gitRemote: "git@gl.example.com:grp/sub/app.git" }]
+            : [project]),
+      } as never,
       {
         resolveIntegrations: async () =>
           opts.gitlab
@@ -104,7 +110,7 @@ describe("ReviewLearningService", () => {
                 {
                   id: "gl",
                   kind: "gitlab",
-                  config: { kind: "gitlab", host: "gl.example.com", repo: "grp/sub/app" },
+                  config: { kind: "gitlab", host: "gl.example.com" },
                 },
               ]
             : [],

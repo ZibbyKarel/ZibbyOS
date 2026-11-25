@@ -35,6 +35,7 @@ import { installGithubFetchAudit } from "./shared/github-audit";
 import { initInstanceRole } from "./shared/instance-role";
 import { LoggerService } from "./shared/logging/logger.service";
 import { migrateWorkflowRename } from "./shared/migrations/workflow-rename";
+import { migrateAccounts } from "./shared/migrations/accounts";
 
 // Compose the resource contracts into one router purely for documentation. Each
 // child already carries its own `/api` prefix, so the parent adds none — paths
@@ -80,6 +81,13 @@ async function bootstrap(): Promise<void> {
     await migrateWorkflowRename(resolveDataRoot(), (m) => new Logger("Migration").log(m)).catch(
       (err: unknown) =>
         new Logger("Migration").error(`workflow-rename migration failed: ${String(err)}`),
+    );
+
+  // Accounts model: integrations are owned by a company or the operator, never a project.
+  // Same contract as above — once, primary only, before any store parses the files.
+  if (role === "primary")
+    await migrateAccounts(resolveDataRoot(), (m) => new Logger("Migration").log(m)).catch(
+      (err: unknown) => new Logger("Migration").error(`accounts migration failed: ${String(err)}`),
     );
 
   // iCloud may have evicted recipes/vault files; the first read then fails with ETIMEDOUT

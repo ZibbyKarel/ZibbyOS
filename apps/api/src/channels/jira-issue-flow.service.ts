@@ -60,7 +60,7 @@ export class JiraIssueFlowService implements OnModuleInit, ResumableRunner {
       throw new Error(`integration ${req.integrationId} is not a jira integration`);
     const runId = randomUUID();
     this.pending.set(runId, req);
-    const target = integration.config.projectKey ?? req.integrationId;
+    const target = req.projectKey ?? integration.config.projectKey ?? req.integrationId;
     const approval = await this.approvals.requestApproval({
       runId,
       kind: "jira-issue",

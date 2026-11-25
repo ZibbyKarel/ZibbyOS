@@ -8,10 +8,15 @@ import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.s
 import { InboxRebaseService, PrRefusedError, findStackBoundary } from "./inbox-rebase.service";
 import { ReviewRepoMismatchError } from "./inbox-review.service";
 
-const PROJECT: Project = { id: "acme", name: "Acme", path: "~/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "Acme",
+  path: "~/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 const GITHUB = {
   id: "gh",
-  config: { kind: "github", repo: "acme/app", username: "me" },
+  config: { kind: "github", username: "me" },
 } as unknown as Integration;
 
 describe("InboxRebaseService", () => {

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,6 +9,7 @@ import {
   Button,
   Container,
   Panel,
+  SelectField,
   Stack,
   type SubNavLinkComponent,
   Typography,
@@ -23,6 +23,8 @@ import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { IntegrationAutonomyPanel } from "./components/IntegrationAutonomyPanel";
 import { TokenExpiryLabel } from "./components/TokenExpiryLabel";
 import { IntegrationFormFields, useIntegrationFormState } from "./components/IntegrationFormFields";
+import { useCompaniesQuery } from "../companies";
+import { accountHref, accountOwnerHref } from "./accountHref";
 import {
   useDeleteIntegrationMutation,
   useSetCredentialsMutation,
@@ -39,52 +41,32 @@ export enum IntegrationDetailScreenTestId {
 }
 
 export interface IntegrationDetailScreenProps {
-  /** The owning project — the back navigation returns to its integrations tab. */
-  projectId?: string;
-  /** The owning company (company-level integration) — back returns to the company's Integrations tab. */
-  companyId?: string;
   integrationId: string;
 }
 
+/** Placeholder value for "personal" in the owner select — a real company id is never empty. */
+const PERSONAL = "";
+
 /**
- * The project-nested `/projects/:id/integrations/:integrationId` detail page
- * (N4h, closing the grammar series; GitLab's Settings → Webhooks → webhook-page
- * precedent) — the card's Configure action NAVIGATES here, the page IS the edit
- * surface (the same {@link IntegrationFormFields} the create dialog renders;
- * kind + id locked) and Save / Test / Delete sit top-right; delete asks in a
- * confirm dialog (the card used to delete unconfirmed). A freshly entered
- * secret still rides out-of-band through the separate credentials mutation
- * (email → `password`, everything else → `token`).
+ * An account's detail page — `/companies/:id/integrations/:integrationId` for a company
+ * account, `/system/settings/accounts/:integrationId` for a personal one. The card's
+ * Configure action NAVIGATES here; the page IS the edit surface (the same
+ * {@link IntegrationFormFields} the connect wizard renders; kind + id locked), Save / Test /
+ * Delete sit top-right, delete asks in a confirm dialog. The owner select moves the account
+ * to a company or to the operator, then follows it to its new route. A freshly entered
+ * secret rides out-of-band through the separate credentials mutation (email → `password`,
+ * everything else → `token`).
  */
-export function DetailScreen({
-  projectId,
-  companyId,
-  integrationId,
-}: IntegrationDetailScreenProps) {
+export function DetailScreen({ integrationId }: IntegrationDetailScreenProps) {
   const query = useIntegrationQuery(integrationId);
   if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
   if (query.isPending) return <QueryLoading />;
   if (!query.data) return null;
   // The form captures its defaults at mount — key by integration so a different id remounts.
-  return (
-    <IntegrationEditor
-      companyId={companyId}
-      integration={query.data}
-      key={query.data.id}
-      projectId={projectId}
-    />
-  );
+  return <IntegrationEditor integration={query.data} key={query.data.id} />;
 }
 
-function IntegrationEditor({
-  integration,
-  projectId,
-  companyId,
-}: {
-  integration: Integration;
-  projectId?: string | undefined;
-  companyId?: string | undefined;
-}) {
+function IntegrationEditor({ integration }: { integration: Integration }) {
   const t = useTranslations();
   const router = useRouter();
   const updateIntegration = useUpdateIntegrationMutation();
@@ -93,15 +75,22 @@ function IntegrationEditor({
   const testIntegration = useTestIntegrationMutation();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
-  const form = useIntegrationFormState(
-    companyId ? { companyId } : { projectId: projectId ?? "" },
-    integration,
-  );
+  const { data: companies = [] } = useCompaniesQuery();
+  const form = useIntegrationFormState({ companyId: integration.companyId }, integration);
 
   const name = integration.name ?? integration.id;
-  const backHref = (
-    companyId ? `/companies/${companyId}?tab=integrations` : `/projects/${projectId}/integrations`
-  ) as Route;
+  const backHref = accountOwnerHref(integration);
+
+  const moveTo = (owner: string) =>
+    updateIntegration.mutate(
+      { params: { id: integration.id }, body: { companyId: owner === PERSONAL ? null : owner } },
+      {
+        onSuccess: () =>
+          router.replace(
+            accountHref({ id: integration.id, companyId: owner === PERSONAL ? undefined : owner }),
+          ),
+      },
+    );
 
   const save = () => {
     updateIntegration.mutate(
@@ -137,7 +126,15 @@ function IntegrationEditor({
       <PageContainer>
         <Stack gap="250">
           <PageBreadcrumb
-            items={[{ label: t("projects.integrations.title"), href: backHref }, { label: name }]}
+            items={[
+              {
+                label: integration.companyId
+                  ? t("companies.integrations.title")
+                  : t("settings.accounts.title"),
+                href: backHref,
+              },
+              { label: name },
+            ]}
             linkComponent={Link as SubNavLinkComponent}
           />
 
@@ -191,11 +188,23 @@ function IntegrationEditor({
           )}
 
           <Panel header={t("integrations.detailPanel")} padding="200">
-            <IntegrationFormFields
-              kindLocked
-              form={form}
-              hasCredentials={integration.hasCredentials}
-            />
+            <Stack gap="150">
+              <SelectField
+                hint={t("integrations.ownerHint")}
+                label={t("integrations.ownerLabel")}
+                onValueChange={moveTo}
+                options={[
+                  { value: PERSONAL, label: t("integrations.ownerPersonal") },
+                  ...companies.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+                value={integration.companyId ?? PERSONAL}
+              />
+              <IntegrationFormFields
+                kindLocked
+                form={form}
+                hasCredentials={integration.hasCredentials}
+              />
+            </Stack>
           </Panel>
 
           <IntegrationAutonomyPanel integrationId={integration.id} />

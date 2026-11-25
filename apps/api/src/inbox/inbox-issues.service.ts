@@ -80,19 +80,27 @@ function findLinkedPr(key: string, pulls: readonly InboxPr[]): RoadmapLinkedPr |
 const isEpic = (type: { name?: string; hierarchyLevel?: number } | undefined) =>
   type?.hierarchyLevel === 1 || /^epic$/i.test(type?.name ?? "");
 
-/** The project that owns a Jira issue: a routing rule / integration `projectKey` matching the key prefix, else the first. */
-function ownerOf(key: string, integration: JiraIntegration, projects: readonly Project[]): Project {
+/**
+ * The project that owns a Jira issue: the one whose team `board` (`boards`, by project id) is
+ * the key prefix, else a routing rule's `projectKey` matching it, else the first.
+ */
+function ownerOf(
+  key: string,
+  integration: JiraIntegration,
+  projects: readonly Project[],
+  boards: ReadonlyMap<string, string | undefined>,
+): Project {
   const prefix = key.replace(/-\d+$/, "").toLowerCase();
-  const owner = projects.find(
-    (p) =>
-      integration.config.projectKey?.toLowerCase() === prefix ||
+  const owner =
+    projects.find((p) => boards.get(p.id)?.toLowerCase() === prefix) ??
+    projects.find((p) =>
       (p.integrationRouting ?? []).some(
         (rule) =>
           rule.integrationId === integration.id &&
           rule.match.kind === "jira" &&
           rule.match.projectKey?.toLowerCase() === prefix,
       ),
-  );
+    );
   return owner ?? (projects[0] as Project);
 }
 
@@ -317,10 +325,12 @@ export class InboxIssuesService {
           "summary,description,issuetype,parent,status,updated",
         );
         const progress = await this.epicProgress(baseUrl, auth, issues);
+        const boards = new Map<string, string | undefined>();
+        for (const p of owners) boards.set(p.id, await this.resolvedProjects.jiraProjectKey(p));
         for (const issue of issues) {
           const key = issue.key;
           if (!key) continue;
-          const project = ownerOf(key, integration, owners);
+          const project = ownerOf(key, integration, owners, boards);
           const fields = issue.fields;
           const parent = fields?.parent;
           const epicKey = parent?.key && isEpic(parent.fields?.issuetype) ? parent.key : undefined;

@@ -5,7 +5,10 @@ import {
   CredentialsInputSchema,
   IntegrationConfigSchema,
   IntegrationSchema,
+  PROJECT_SCOPED_KINDS,
+  UpdateIntegrationSchema,
   integrationsContract,
+  isPersonalAccount,
 } from "../index";
 
 describe("integrationsContract", () => {
@@ -28,7 +31,7 @@ describe("integration schema", () => {
       IntegrationSchema.safeParse({
         id: "team-slack",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         config: { kind: "slack", channels: ["C123"] },
       }).success,
     ).toBe(true);
@@ -36,7 +39,7 @@ describe("integration schema", () => {
       IntegrationSchema.safeParse({
         id: "support-mail",
         kind: "email",
-        projectId: "acme-app",
+        companyId: "acme",
         config: {
           kind: "email",
           imapHost: "imap.example.com",
@@ -53,38 +56,26 @@ describe("integration schema", () => {
     const parsed = IntegrationSchema.parse({
       id: "x",
       kind: "slack",
-      projectId: "acme-app",
+      companyId: "acme",
       config: { kind: "slack", channels: [] },
     });
     expect(parsed.enabled).toBe(true);
     expect(parsed.status).toBe("disconnected");
     expect(parsed.hasCredentials).toBe(false);
-    expect(parsed.projectId).toBe("acme-app");
+    expect(parsed.companyId).toBe("acme");
   });
 
-  it("rejects an integration with neither projectId nor companyId set (Phase 68 owner refinement)", () => {
-    expect(
-      IntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        config: { kind: "slack", channels: [] },
-      }).success,
-    ).toBe(false);
+  it("parses a personal account (no companyId)", () => {
+    const parsed = IntegrationSchema.parse({
+      id: "x",
+      kind: "slack",
+      config: { kind: "slack", channels: [] },
+    });
+    expect(parsed.companyId).toBeUndefined();
+    expect(isPersonalAccount(parsed)).toBe(true);
   });
 
-  it("rejects an integration with BOTH projectId and companyId set (Phase 68 owner refinement)", () => {
-    expect(
-      IntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        projectId: "acme-app",
-        companyId: "acme",
-        config: { kind: "slack", channels: [] },
-      }).success,
-    ).toBe(false);
-  });
-
-  it("accepts an integration owned by a company only (no projectId)", () => {
+  it("accepts a company-owned account; isPersonalAccount is false for it", () => {
     const parsed = IntegrationSchema.parse({
       id: "x",
       kind: "slack",
@@ -92,49 +83,36 @@ describe("integration schema", () => {
       config: { kind: "slack", channels: [] },
     });
     expect(parsed.companyId).toBe("acme");
-    expect(parsed.projectId).toBeUndefined();
+    expect("projectId" in parsed).toBe(false);
+    expect(isPersonalAccount(parsed)).toBe(false);
   });
 
-  it("CreateIntegrationSchema applies the same exactly-one-owner refinement", () => {
+  it("CreateIntegrationSchema takes a company owner or none (personal)", () => {
+    const config = { kind: "slack" as const, channels: [] };
+    expect(CreateIntegrationSchema.safeParse({ id: "x", kind: "slack", config }).success).toBe(
+      true,
+    );
     expect(
-      CreateIntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        config: { kind: "slack", channels: [] },
-      }).success,
-    ).toBe(false);
-    expect(
-      CreateIntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        projectId: "acme-app",
-        companyId: "acme",
-        config: { kind: "slack", channels: [] },
-      }).success,
-    ).toBe(false);
-    expect(
-      CreateIntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        projectId: "acme-app",
-        config: { kind: "slack", channels: [] },
-      }).success,
+      CreateIntegrationSchema.safeParse({ id: "x", kind: "slack", companyId: "acme", config })
+        .success,
     ).toBe(true);
-    expect(
-      CreateIntegrationSchema.safeParse({
-        id: "x",
-        kind: "slack",
-        companyId: "acme",
-        config: { kind: "slack", channels: [] },
-      }).success,
-    ).toBe(true);
+  });
+
+  it("UpdateIntegrationSchema accepts companyId: null (move to the operator)", () => {
+    expect(UpdateIntegrationSchema.parse({ companyId: null }).companyId).toBeNull();
+    expect(UpdateIntegrationSchema.parse({ companyId: "acme" }).companyId).toBe("acme");
+    expect(UpdateIntegrationSchema.parse({}).companyId).toBeUndefined();
+  });
+
+  it("PROJECT_SCOPED_KINDS are the kinds a project can inherit", () => {
+    expect([...PROJECT_SCOPED_KINDS].sort()).toEqual(["github", "gitlab", "jira", "sentry"]);
   });
 
   it("does not carry an department (membership is derived, not stored)", () => {
     const parsed = IntegrationSchema.parse({
       id: "x",
       kind: "slack",
-      projectId: "acme-app",
+      companyId: "acme",
       config: { kind: "slack", channels: [] },
     });
     expect("department" in parsed).toBe(false);
@@ -145,7 +123,7 @@ describe("integration schema", () => {
       IntegrationSchema.safeParse({
         id: "x",
         kind: "slack",
-        projectId: "acme-app",
+        companyId: "acme",
         config: {
           kind: "email",
           imapHost: "h",
@@ -189,7 +167,7 @@ describe("integration schema", () => {
     const parsed = IntegrationSchema.safeParse({
       id: "acme-sentry",
       kind: "sentry",
-      projectId: "acme-app",
+      companyId: "acme",
       config: { kind: "sentry", org: "acme", project: "backend" },
     });
     expect(parsed.success).toBe(true);
@@ -220,19 +198,22 @@ describe("integration schema", () => {
   });
 });
 
-describe("GitHub repo ownership (phase 129)", () => {
+describe("GitHub account repo", () => {
   const base = { id: "gh", kind: "github" as const };
   const config = { kind: "github" as const, username: "me" };
-  it("a company-owned github integration may omit repo", () => {
-    expect(IntegrationSchema.safeParse({ ...base, companyId: "acme", config }).success).toBe(true);
+  it("an account without repo is valid, company-owned or personal", () => {
+    expect(CreateIntegrationSchema.safeParse({ ...base, companyId: "acme", config }).success).toBe(
+      true,
+    );
+    expect(CreateIntegrationSchema.safeParse({ ...base, config }).success).toBe(true);
   });
-  it("a project-owned github integration needs a repo", () => {
-    const r = CreateIntegrationSchema.safeParse({ ...base, projectId: "p", config });
+  it("create rejects a config.repo", () => {
+    const r = CreateIntegrationSchema.safeParse({
+      ...base,
+      companyId: "acme",
+      config: { ...config, repo: "a/b" },
+    });
     expect(r.success).toBe(false);
-    expect(
-      IntegrationSchema.safeParse({ ...base, projectId: "p", config: { ...config, repo: "a/b" } })
-        .success,
-    ).toBe(true);
   });
 });
 
@@ -258,19 +239,17 @@ describe("gitlab integration", () => {
     expect(IntegrationConfigSchema.safeParse({ ...config, token: "x" }).success).toBe(false);
     expect(IntegrationConfigSchema.safeParse({ ...config, username: "" }).success).toBe(false);
   });
-  it("a project-owned gitlab integration needs a repo; a company-owned one may omit it", () => {
+  it("create accepts an account without repo and rejects a config.repo", () => {
     expect(CreateIntegrationSchema.safeParse({ ...base, companyId: "c", config }).success).toBe(
       true,
     );
-    expect(CreateIntegrationSchema.safeParse({ ...base, projectId: "p", config }).success).toBe(
-      false,
-    );
+    expect(CreateIntegrationSchema.safeParse({ ...base, config }).success).toBe(true);
     expect(
       CreateIntegrationSchema.safeParse({
         ...base,
-        projectId: "p",
+        companyId: "c",
         config: { ...config, repo: "a/b" },
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 });

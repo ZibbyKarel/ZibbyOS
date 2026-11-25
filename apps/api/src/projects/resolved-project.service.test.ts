@@ -104,7 +104,7 @@ describe("ResolvedProjectService", () => {
     });
   });
 
-  it("a resolving companyId merges the company's roster/budget/integrations with the project's own", async () => {
+  it("a resolving companyId merges the company's roster/budget; its accounts + the operator's project-scoped ones serve", async () => {
     const acme: Company = {
       id: "acme",
       name: "Acme Corp",
@@ -115,8 +115,10 @@ describe("ResolvedProjectService", () => {
       companies: [acme],
       integrations: [
         integration({ id: "co-jira", kind: "jira", companyId: "acme" }),
-        integration({ id: "proj-slack", kind: "slack", projectId: "alpha" }),
-        integration({ id: "unrelated-slack", kind: "slack", projectId: "other" }),
+        integration({ id: "co-slack", kind: "slack", companyId: "acme" }),
+        integration({ id: "other-slack", kind: "slack", companyId: "other" }),
+        integration({ id: "mine-slack", kind: "slack" }),
+        integration({ id: "mine-sentry", kind: "sentry" }),
       ],
     });
     const alpha = project({
@@ -128,9 +130,10 @@ describe("ResolvedProjectService", () => {
 
     expect((await service.resolvePeople(alpha)).map((p) => p.id).sort()).toEqual(["alice", "bob"]);
     expect(await service.resolveBudget(alpha)).toEqual({ dailyRuns: 3, weeklyRuns: 50 });
-    expect((await service.resolveIntegrations(alpha)).map((i) => i.id).sort()).toEqual([
+    expect((await service.resolveIntegrations(alpha)).map((i) => i.id)).toEqual([
       "co-jira",
-      "proj-slack",
+      "co-slack",
+      "mine-sentry",
     ]);
   });
 
@@ -211,7 +214,28 @@ describe("ResolvedProjectService", () => {
     });
   });
 
-  describe("Phase 128 — company-owned integration fan-out", () => {
+  describe("jiraProjectKey (accounts-model decision 6)", () => {
+    const jira = integration({
+      id: "jr",
+      kind: "jira",
+      config: { kind: "jira", baseUrl: "https://j.example", email: "a@b.c", projectKey: "ACC" },
+    });
+
+    it("the project's team board wins over the account's projectKey", async () => {
+      const service = build({ teams: [team({ id: "t", board: "TEAM" })] });
+      const alpha = project({ id: "alpha", teamId: "t" });
+      await expect(service.jiraProjectKey(alpha, jira)).resolves.toBe("TEAM");
+    });
+
+    it("no team board: falls back to the account's projectKey, else undefined", async () => {
+      const service = build({ teams: [team({ id: "t" })] });
+      const alpha = project({ id: "alpha", teamId: "t" });
+      await expect(service.jiraProjectKey(alpha, jira)).resolves.toBe("ACC");
+      await expect(service.jiraProjectKey(alpha)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("which projects an account serves", () => {
     const companyJira = integration({
       id: "co-jira",
       kind: "jira",
@@ -219,24 +243,23 @@ describe("ResolvedProjectService", () => {
       config: { kind: "jira", baseUrl: "https://co.atlassian.net", email: "me@co" },
     });
 
-    it("inheritingProjects: the company's projects (direct or via team), minus a same-kind override", async () => {
+    const personalJira = integration({
+      id: "mine-jira",
+      kind: "jira",
+      config: { kind: "jira", baseUrl: "https://me.atlassian.net", email: "me@me" },
+    });
+
+    it("inheritingProjects: the company's projects (direct or via team), never another company's", async () => {
       const service = build({
-        companies: [{ id: "co", name: "Co" }],
-        teams: [team({ id: "t", companyId: "co" })],
-        integrations: [
-          companyJira,
-          integration({
-            id: "own-jira",
-            kind: "jira",
-            projectId: "overrides",
-            config: { kind: "jira", baseUrl: "https://own.atlassian.net", email: "me@own" },
-          }),
-          integration({ id: "own-slack", kind: "slack", projectId: "direct" }),
+        companies: [
+          { id: "co", name: "Co" },
+          { id: "other", name: "Other" },
         ],
+        teams: [team({ id: "t", companyId: "co" })],
+        integrations: [companyJira, personalJira],
         projects: [
           project({ id: "direct", companyId: "co" }),
           project({ id: "via-team", teamId: "t" }),
-          project({ id: "overrides", companyId: "co" }),
           project({ id: "elsewhere", companyId: "other" }),
         ],
       });
@@ -244,6 +267,58 @@ describe("ResolvedProjectService", () => {
       const ids = (await service.inheritingProjects(companyJira)).map((p) => p.id);
 
       expect(ids).toEqual(["direct", "via-team"]);
+    });
+
+    it("inheritingProjects: a personal project-scoped account serves the projects whose company leaves its slot empty", async () => {
+      const service = build({
+        companies: [
+          { id: "co", name: "Co" },
+          { id: "other", name: "Other" },
+        ],
+        integrations: [companyJira, personalJira],
+        projects: [
+          project({ id: "co-project", companyId: "co" }),
+          project({ id: "other-project", companyId: "other" }),
+          project({ id: "loose" }),
+        ],
+      });
+
+      const ids = (await service.inheritingProjects(personalJira)).map((p) => p.id);
+
+      expect(ids).toEqual(["other-project", "loose"]);
+    });
+
+    it("inheritingProjects: a personal mailbox serves no project", async () => {
+      const mail = integration({ id: "mine-mail", kind: "email" });
+      const service = build({
+        integrations: [mail],
+        projects: [project({ id: "loose" })],
+      });
+
+      expect(await service.inheritingProjects(mail)).toEqual([]);
+    });
+
+    it("a repo is polled by exactly one account: the company's, not the operator's", async () => {
+      const github = (id: string, companyId?: string) =>
+        integration({
+          id,
+          kind: "github",
+          ...(companyId ? { companyId } : {}),
+          config: { kind: "github", streams: ["pulls"], username: "me" },
+        });
+      const co = github("co-github", "co");
+      const mine = github("mine-github");
+      const service = build({
+        companies: [{ id: "co", name: "Co" }],
+        integrations: [co, mine],
+        projects: [
+          project({ id: "a", companyId: "co", gitRemote: "git@github.com:co/web.git" }),
+          project({ id: "b", gitRemote: "git@github.com:me/side.git" }),
+        ],
+      });
+
+      expect([...(await service.githubRepoTargets(co))]).toEqual([["co/web", ["a"]]]);
+      expect([...(await service.githubRepoTargets(mine))]).toEqual([["me/side", ["b"]]]);
     });
 
     it("githubRepoTargets: distinct repos of the inheriting projects (phase 129)", async () => {
@@ -308,14 +383,27 @@ describe("ResolvedProjectService", () => {
       ]);
     });
 
-    it("inheritingProjects: a project-owned integration feeds no other project", async () => {
+    it("gitlab: a personal gitlab.com account and the company's self-hosted one each poll their own repos", async () => {
+      const gl = (id: string, host: string, companyId?: string) =>
+        integration({
+          id,
+          kind: "gitlab",
+          ...(companyId ? { companyId } : {}),
+          config: { kind: "gitlab", host, streams: ["pulls"], username: "me" },
+        });
+      const co = gl("co-gl", "gitlab.co.example", "co");
+      const mine = gl("mine-gl", "gitlab.com");
       const service = build({
         companies: [{ id: "co", name: "Co" }],
-        projects: [project({ id: "p", companyId: "co" })],
+        integrations: [co, mine],
+        projects: [
+          project({ id: "a", companyId: "co", gitRemote: "git@gitlab.co.example:grp/web.git" }),
+          project({ id: "b", companyId: "co", gitRemote: "git@gitlab.com:me/lib.git" }),
+        ],
       });
-      const own = integration({ id: "own", kind: "jira", projectId: "p" });
 
-      expect(await service.inheritingProjects(own)).toEqual([]);
+      expect([...(await service.gitlabRepoTargets(co))]).toEqual([["grp/web", ["a"]]]);
+      expect([...(await service.gitlabRepoTargets(mine))]).toEqual([["me/lib", ["b"]]]);
     });
   });
 });

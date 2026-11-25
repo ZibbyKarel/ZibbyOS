@@ -58,7 +58,7 @@ export interface SyncStamp {
 /**
  * Durable, file-backed persistence for integrations — one `<id>.json` each.
  *
- * The entity file holds only the versioned config (`id`/`kind`/`projectId`/
+ * The entity file holds only the versioned config (`id`/`kind`/`companyId`/
  * `name`/`enabled`/`config`). Two kinds of fields are intentionally kept OUT of it
  * so a watcher tick never churns a git-tracked file:
  *  - `status`/`lastSyncAt`/`lastError`/`tokenExpiresAt` — volatile connection health, stamped on
@@ -91,13 +91,17 @@ export class IntegrationsStorageService extends EntityFileStore<Integration> {
 
   async update(id: string, patch: UpdateIntegrationInput): Promise<Integration> {
     const existing = await this.get(id);
+    const { companyId, ...rest } = patch;
     const merged: Integration = {
       ...existing,
-      ...patch,
+      ...rest,
       // Identity + kind are immutable; status fields are server-owned.
       id: existing.id,
       kind: existing.kind,
     };
+    // `companyId: null` moves the account to the operator (personal = no key on disk).
+    if (companyId === null) delete merged.companyId;
+    else if (companyId !== undefined) merged.companyId = companyId;
     await this.writeEntity(merged);
     return merged;
   }

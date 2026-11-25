@@ -6,16 +6,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DepartmentFindingsStore } from "../departments/department-findings.store";
 import { SecurityService } from "./security.service";
 
-const PROJECT: Project = { id: "acme", name: "acme", path: "~/Projects/acme" };
+const PROJECT: Project = {
+  id: "acme",
+  name: "acme",
+  path: "~/Projects/acme",
+  gitRemote: "git@github.com:acme/app.git",
+};
 
 const GITHUB_INTEGRATION: Integration = {
   id: "acme-github",
   kind: "github",
-  projectId: "acme",
+  companyId: "acme-co",
   enabled: true,
   status: "connected",
   hasCredentials: true,
-  config: { kind: "github", repo: "acme/app", streams: ["issues", "pulls"], username: "octocat" },
+  config: { kind: "github", streams: ["issues", "pulls"], username: "octocat" },
 };
 
 const jsonResponse = (status: number, body: unknown) =>
@@ -293,13 +298,17 @@ describe("SecurityService.scan — gitlab project", () => {
     const gitlab = {
       id: "gl",
       kind: "gitlab",
-      projectId: "sec",
+      companyId: "acme-co",
       enabled: true,
       status: "connected",
       hasCredentials: false,
-      config: { kind: "gitlab", host: "gl.example.com", repo: "grp/app" },
+      config: { kind: "gitlab", host: "gl.example.com" },
     } as unknown as Integration;
-    const { service } = await build({ fetchImpl, integrations: [gitlab, GITHUB_INTEGRATION] });
+    const { service } = await build({
+      fetchImpl,
+      projects: [{ ...PROJECT, gitRemote: "git@gl.example.com:grp/app.git" }],
+      integrations: [gitlab, GITHUB_INTEGRATION],
+    });
     const { findings } = await service.scan(new Date("2026-07-17T00:00:00.000Z"));
     expect(findings).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();

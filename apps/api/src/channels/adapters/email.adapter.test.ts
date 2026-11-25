@@ -5,7 +5,6 @@ import { EmailChannelAdapter, type ImapClientLike, type TransportLike } from "./
 const email: Integration = {
   id: "support",
   kind: "email",
-  projectId: "acme-app",
   enabled: true,
   config: {
     kind: "email",

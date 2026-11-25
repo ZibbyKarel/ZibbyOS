@@ -69,14 +69,13 @@ describe.skipIf(!SOAK)("Autonomous-loop soak (opt-in, fake channels)", () => {
       .post("/api/projects")
       .send({ id: "acme-app", name: "Acme", path: root })
       .expect(201);
-    // The three scripted integrations (owned by the project; department membership
-    // is derived — ops listens, comms replies where mandate.reply is on).
+    // The three scripted integrations (the operator's personal accounts; department
+    // membership is derived — ops listens, comms replies where mandate.reply is on).
     await http()
       .post("/api/integrations")
       .send({
         id: "team",
         kind: "slack",
-        projectId: "acme-app",
         name: "Team",
         config: { kind: "slack", channels: ["C1"] },
       })
@@ -87,7 +86,6 @@ describe.skipIf(!SOAK)("Autonomous-loop soak (opt-in, fake channels)", () => {
       .send({
         id: "announcements",
         kind: "slack",
-        projectId: "acme-app",
         name: "Announcements",
         config: { kind: "slack", channels: ["C2"] },
       })
@@ -101,7 +99,6 @@ describe.skipIf(!SOAK)("Autonomous-loop soak (opt-in, fake channels)", () => {
       .send({
         id: "support",
         kind: "email",
-        projectId: "acme-app",
         name: "Support Mail",
         config: {
           kind: "email",

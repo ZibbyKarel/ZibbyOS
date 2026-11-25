@@ -169,8 +169,8 @@ export class TeamsStorageService implements OnModuleInit {
     // value alone (same rationale as `hasCompanyId` above).
     const hasKnowledgeBase = "knowledgeBase" in patch;
     const hasSlug = "slug" in patch; // `slug: null` clears, same as above
-    const hasJiraProjectKey = "jiraProjectKey" in patch; // `jiraProjectKey: null` clears
-    const { companyId, knowledgeBase, slug, jiraProjectKey, ...rest } = patch;
+    const hasBoard = "board" in patch; // `board: null` clears
+    const { companyId, knowledgeBase, slug, board, ...rest } = patch;
     const merged = TeamSchema.parse({
       ...existing,
       ...rest,
@@ -179,9 +179,7 @@ export class TeamsStorageService implements OnModuleInit {
         ? { knowledgeBase: knowledgeBase === null ? undefined : knowledgeBase }
         : {}),
       ...(hasSlug ? { slug: slug === null ? undefined : slug } : {}),
-      ...(hasJiraProjectKey
-        ? { jiraProjectKey: jiraProjectKey === null ? undefined : jiraProjectKey }
-        : {}),
+      ...(hasBoard ? { board: board === null ? undefined : board } : {}),
       id: existing.id,
     });
     if (hasKnowledgeBase) {

@@ -1,11 +1,11 @@
 import userEvent from "@testing-library/user-event";
 import type { Integration, IntegrationRoutingRule } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders as render, screen } from "../../../test/render";
+import { renderWithProviders as render, screen, within } from "../../../test/render";
 import {
-  ProjectInheritedIntegrations,
-  ProjectInheritedIntegrationsTestId as TestId,
-} from "./ProjectInheritedIntegrations";
+  ProjectIntegrationsPanel,
+  ProjectIntegrationsPanelTestId as TestId,
+} from "./ProjectIntegrationsPanel";
 import { IntegrationRoutingEditorTestId } from "./IntegrationRoutingEditor";
 
 const { hooks } = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ const { hooks } = vi.hoisted(() => ({
 vi.mock("../queries", () => ({ useResolvedProjectQuery: () => hooks.resolved }));
 vi.mock("../mutations", () => ({ useUpdateProjectMutation: () => hooks.update }));
 
-const jira: Integration = {
+const jira = {
   id: "jira-shoptet",
   kind: "jira",
   name: "Shoptet Jira",
@@ -28,16 +28,15 @@ const jira: Integration = {
   hasCredentials: true,
   config: { kind: "jira", baseUrl: "https://shoptet.atlassian.net", email: "a@b.cz" },
 } as Integration;
-const github: Integration = {
-  id: "gh-shoptet",
+const github = {
+  id: "my-github",
   kind: "github",
-  companyId: "shoptet",
   enabled: true,
   status: "connected",
   hasCredentials: true,
-  config: { kind: "github", repo: "shoptet/cli", streams: ["issues"], username: "me" },
+  config: { kind: "github", streams: ["issues"], username: "me" },
 } as Integration;
-const gitlab: Integration = {
+const gitlab = {
   id: "gl-shoptet",
   kind: "gitlab",
   companyId: "shoptet",
@@ -45,12 +44,6 @@ const gitlab: Integration = {
   status: "connected",
   hasCredentials: true,
   config: { kind: "gitlab", host: "gitlab.example.com", streams: ["pulls"], username: "me" },
-} as Integration;
-const own: Integration = {
-  ...jira,
-  id: "own",
-  companyId: undefined,
-  projectId: "p1",
 } as Integration;
 
 function resolved(integrations: Integration[]) {
@@ -64,44 +57,35 @@ const slackRule: IntegrationRoutingRule = {
   match: { kind: "slack", channels: ["C1"] },
 };
 
-describe("ProjectInheritedIntegrations", () => {
+describe("ProjectIntegrationsPanel", () => {
   beforeEach(() => {
     hooks.update = { mutate: vi.fn(), isPending: false };
     resolved([jira]);
   });
 
-  it("renders only company-owned integrations, badged and linked to the company", () => {
-    resolved([jira, own]);
-    render(<ProjectInheritedIntegrations onOverride={vi.fn()} projectId="p1" routing={[]} />);
+  it("lists the resolved accounts with their source, each linking to its detail page", () => {
+    resolved([jira, github]);
+    render(<ProjectIntegrationsPanel projectId="p1" />);
 
-    expect(screen.getAllByTestId(TestId.FromCompanyBadge)).toHaveLength(1);
-    expect(screen.getByTestId(TestId.FromCompanyBadge)).toHaveTextContent("Shoptet");
-    expect(screen.getByTestId(TestId.CompanyLink)).toHaveAttribute(
+    const sources = screen.getAllByTestId(TestId.Source).map((s) => s.textContent);
+    expect(sources).toEqual(["Z firmy Shoptet", "Osobní účet"]);
+    expect(
+      within(screen.getByTestId(`${TestId.Row}-jira-shoptet`)).getByRole("link"),
+    ).toHaveAttribute("href", "/companies/shoptet/integrations/jira-shoptet");
+    expect(within(screen.getByTestId(`${TestId.Row}-my-github`)).getByRole("link")).toHaveAttribute(
       "href",
-      "/companies/shoptet?tab=integrations",
+      "/system/settings/accounts/my-github",
     );
-    expect(screen.queryByTestId(`${TestId.Row}-own`)).not.toBeInTheDocument();
   });
 
-  it("renders nothing when the project inherits no integration", () => {
-    resolved([own]);
-    render(<ProjectInheritedIntegrations onOverride={vi.fn()} projectId="p1" routing={[]} />);
-    expect(screen.queryByTestId(TestId.Root)).not.toBeInTheDocument();
+  it("shows the empty state when no account serves the project", () => {
+    resolved([]);
+    render(<ProjectIntegrationsPanel projectId="p1" />);
+    expect(screen.getByTestId(TestId.Empty)).toBeInTheDocument();
   });
 
-  it("override opens the create flow with the same kind", async () => {
-    const onOverride = vi.fn();
-    render(<ProjectInheritedIntegrations onOverride={onOverride} projectId="p1" routing={[]} />);
-
-    await userEvent.click(screen.getByTestId(`${TestId.Override}-jira-shoptet`));
-
-    expect(onOverride).toHaveBeenCalledWith("jira");
-  });
-
-  it("saves a jira rule into integrationRouting, keeping other integrations' rules", async () => {
-    render(
-      <ProjectInheritedIntegrations onOverride={vi.fn()} projectId="p1" routing={[slackRule]} />,
-    );
+  it("saves a jira rule into integrationRouting, keeping other accounts' rules", async () => {
+    render(<ProjectIntegrationsPanel projectId="p1" routing={[slackRule]} />);
 
     await userEvent.type(screen.getByTestId(IntegrationRoutingEditorTestId.ProjectKey), "CMS");
     await userEvent.click(screen.getByTestId(IntegrationRoutingEditorTestId.Save));
@@ -117,18 +101,12 @@ describe("ProjectInheritedIntegrations", () => {
     });
   });
 
-  it("clearing a rule drops only that integration's rule", async () => {
+  it("clearing a rule drops only that account's rule", async () => {
     const mine: IntegrationRoutingRule = {
       integrationId: "jira-shoptet",
       match: { kind: "jira", projectKey: "CMS" },
     };
-    render(
-      <ProjectInheritedIntegrations
-        onOverride={vi.fn()}
-        projectId="p1"
-        routing={[slackRule, mine]}
-      />,
-    );
+    render(<ProjectIntegrationsPanel projectId="p1" routing={[slackRule, mine]} />);
 
     await userEvent.click(screen.getByTestId(IntegrationRoutingEditorTestId.Clear));
 
@@ -138,55 +116,34 @@ describe("ProjectInheritedIntegrations", () => {
     });
   });
 
-  it("github shows only the git-remote routing text, no editor and no switch", () => {
+  it("github shows the repo from the git remote, no editor", () => {
     resolved([github]);
-    render(
-      <ProjectInheritedIntegrations
-        gitRemote="git@github.com:Shoptet/cli.git"
-        onOverride={vi.fn()}
-        projectId="p1"
-        routing={[]}
-      />,
-    );
+    render(<ProjectIntegrationsPanel gitRemote="git@github.com:Shoptet/cli.git" projectId="p1" />);
 
     expect(screen.getByTestId(TestId.GithubRemote)).toHaveTextContent("shoptet/cli");
     expect(screen.queryByTestId(IntegrationRoutingEditorTestId.Root)).not.toBeInTheDocument();
-    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
-  it("github without a gitRemote shows the hint", () => {
+  it("github without a github.com remote warns", () => {
     resolved([github]);
-    render(<ProjectInheritedIntegrations onOverride={vi.fn()} projectId="p1" routing={[]} />);
-
+    render(<ProjectIntegrationsPanel gitRemote="git@gitlab.example.com:a/b.git" projectId="p1" />);
     expect(screen.getByTestId(TestId.GithubRemote)).toHaveTextContent(/git remote/i);
   });
 
   it("gitlab shows the repo routed by a git remote on its host", () => {
     resolved([gitlab]);
     render(
-      <ProjectInheritedIntegrations
+      <ProjectIntegrationsPanel
         gitRemote="git@gitlab.example.com:group/sub/project.git"
-        onOverride={vi.fn()}
         projectId="p1"
-        routing={[]}
       />,
     );
-
     expect(screen.getByTestId(TestId.GitlabRemote)).toHaveTextContent("group/sub/project");
-    expect(screen.queryByTestId(TestId.GithubRemote)).not.toBeInTheDocument();
   });
 
   it("gitlab with a remote on another host names the host it needs", () => {
     resolved([gitlab]);
-    render(
-      <ProjectInheritedIntegrations
-        gitRemote="git@github.com:Shoptet/cli.git"
-        onOverride={vi.fn()}
-        projectId="p1"
-        routing={[]}
-      />,
-    );
-
+    render(<ProjectIntegrationsPanel gitRemote="git@github.com:Shoptet/cli.git" projectId="p1" />);
     expect(screen.getByTestId(TestId.GitlabRemote)).toHaveTextContent("gitlab.example.com");
   });
 });

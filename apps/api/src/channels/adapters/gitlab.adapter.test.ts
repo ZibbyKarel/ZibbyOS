@@ -9,7 +9,6 @@ const PROJECT = "projects/acme%2Fplatform%2Fapp";
 const gl: Integration = {
   id: "acme-gl",
   kind: "gitlab",
-  projectId: "acme-app",
   enabled: true,
   config: {
     kind: "gitlab",

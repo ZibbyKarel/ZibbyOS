@@ -9,7 +9,7 @@ import { TokenExpiryLabelTestId } from "./TokenExpiryLabel";
 const integration = (over: Partial<Integration> = {}): Integration => ({
   id: "team-slack",
   kind: "slack",
-  projectId: "media-vault",
+  companyId: "acme",
   name: "Team Slack",
   enabled: true,
   config: { kind: "slack", channels: ["C1"] },

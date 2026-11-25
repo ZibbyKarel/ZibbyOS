@@ -260,18 +260,16 @@ export class ChannelWatcherService
   }
 
   /**
-   * The locator keys on projectId: a project-owned integration asks for its owner;
-   * a company-owned one (Phase 128) unions the numbers of its inheriting projects
-   * whose `gitRemote` is this integration's repo (another repo's PR numbers would
-   * name the wrong PRs). Fail-open like {@link zibbyPrNumbersFor}.
+   * The locator keys on projectId: an account unions the numbers of the projects it
+   * serves whose `gitRemote` is the polled repo (another repo's PR numbers would name
+   * the wrong PRs). Fail-open like {@link zibbyPrNumbersFor}.
    */
   private async zibbyPrNumbersForIntegration(
     integration: Integration,
     target?: RepoTarget,
   ): Promise<readonly number[]> {
-    if (integration.projectId) return this.zibbyPrNumbersFor(integration.projectId);
     if (target) return this.unionZibbyPrNumbers(target.projectIds);
-    if (!integration.companyId || integration.config.kind !== "github") return [];
+    if (integration.config.kind !== "github") return [];
     const repo = integration.config.repo?.toLowerCase();
     if (!repo) return [];
     try {
@@ -281,7 +279,7 @@ export class ChannelWatcherService
         .map((project) => project.id);
       return this.unionZibbyPrNumbers(projectIds);
     } catch (err) {
-      this.log.debug("company zibby PR lookup failed (fail-open, mentions-only this poll)", {
+      this.log.debug("account zibby PR lookup failed (fail-open, mentions-only this poll)", {
         integrationId: integration.id,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -303,12 +301,11 @@ export class ChannelWatcherService
   }
 
   /**
-   * Phase 129 (G2) — a company-owned GitHub integration without its own `repo` is
-   * polled once per distinct repo of its inheriting projects (from their
-   * `gitRemote`), each with `config.repo` filled in and its own cursor (the
-   * `repos` map of the integration's cursor file). One failing repo doesn't stop
-   * the others; the first failure is rethrown after all were tried. Every other
-   * integration polls exactly as before.
+   * A GitHub/GitLab account stores no repo: it is polled once per distinct repo of
+   * the projects it serves (from their `gitRemote`), each with `config.repo` filled in
+   * as the runtime poll scope and its own cursor (the `repos` map of the account's
+   * cursor file). One failing repo doesn't stop the others; the first failure is
+   * rethrown after all were tried. Every other kind polls once per account.
    */
   private async pollOne(integration: Integration, creds: CredentialsInput): Promise<string[]> {
     const { config } = integration;
