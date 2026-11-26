@@ -447,7 +447,7 @@ action is always a `report` "ready to merge".
   widget settings (`scope.goalIds`; empty or absent = every enabled goal), one row each with the
   status pill, counts ("7/9 hotovo, 1 čeká na tebe"), schedule label and the latest timeline
   line; needs-you goals sort first. A click opens the `goal` `AnchoredSheet` (`GoalSheet`) whose
-  title links to the goal page. The sheet has "Co se dělo" (the full timeline, newest first) and
+  title links to the goal page. The sheet has "Co se dělo" (every stored event, newest first; the store keeps the latest 500 per goal) and
   "Co bude" (per instance what it waits on and when it wakes, the next cycle or the deadline, the
   plan note), plus enable/pause, wake and resume. Live through the `goals` SSE scope.
 - **Autonomy matrix** (`/governance/autonomy`): `autoDecideGoals` ("automatické rozhodování cílů")

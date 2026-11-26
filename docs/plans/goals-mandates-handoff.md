@@ -28,7 +28,7 @@ By area, with commit ranges (exclusive start, inclusive end).
 | Messages | `46a17d0de..48bd9011a` | `message` action: closed recipients, working hours, anti-nagging, approval kind `goal-message`, Slack send + reply wake |
 | Directional goals | `48bd9011a..be5afe532` | `propose` per `autoDecideGoals` (manual / semi / auto), approval kind `goal-decision`, checklist, monthly decision cap |
 | Merge grant | `be5afe532..976e7a4cc` | operator-token `PUT/DELETE /goals/:id/merge-grant`, `GoalMergeService` with the live precondition list, detail-page panel |
-| Dashboard widget "Cíle" | `976e7a4cc..2da40c16d` | Bridge widget `goals`, `GoalSheet` (full log + what comes next) |
+| Dashboard widget "Cíle" | `976e7a4cc..2da40c16d` | Bridge widget `goals`, `GoalSheet` (every stored event, the store keeps the latest 500 per goal, + what comes next) |
 | Docs + handoff | this commit | `docs/api/goals.md` as one document, cross-links, `docs/web/overview.md`, this file |
 
 ## How to use it
@@ -135,6 +135,9 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
   Law 3 exception). This must be stated next to the `CLAUDE.md` Laws wording (see the proposal
   below). Cost: if someone expects the gate to still stop goal merges, it does not; the controls
   are the operator-token grant, its 24 h cap and the live re-check.
+- **Task 14:** the widget is registered without `addable` — that flag is only the header "+"
+  toggle; the add-widget menu lists every `WIDGET_TYPES` key, so the widget is addable (reviewer
+  verified `AddWidgetSlot.tsx:34`). The brief's wording was wrong. Cost: none.
 
 ## Proposed `CLAUDE.md` wording — NOT applied
 
@@ -155,21 +158,25 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
 
 ### (b) Law 3 and the "Never" bullet
 
-Law 3, replacing its last sentences about merge:
+Law 3, complete replacement text (keeps the `prOpenMode` and token/pause sentences):
 
-> 3. **No autonomous commit to the outside world** — no auto-merge, no bare push to a shared
->    branch, no auto-spend past budget. Opening a PR is the one sanctioned autonomous push (Tier-2,
->    act-then-report): it only _requests_ review. The **one sanctioned autonomous merge** is a
->    goal's **merge grant**: set by the operator with the operator token, per project, time-boxed
->    to at most 24 hours, only on a goal with the `tier3` ceiling, GitHub only. ZIBBY merges a PR
->    under it only when, re-checked live at merge time, the grant is unexpired and covers the
->    project, the PR has an approving review from a repo owner/member/collaborator on the current
->    head, CI is green and settled, the PR is `mergeable_state: clean` and Autopilot is not
->    paused; every merge is logged and reported. This path calls the project-PR merge service
->    directly and does **not** go through the gate's "merge = never" system rule — the grant is the
->    operator's explicit, token-protected exception. Without a valid grant the outcome is always
->    "ready to merge". Never-rules are not affected. An `auto` autonomy level moves the covered
->    `ask` classes to Tier 2 for its capability and place; it never grants a merge.
+> 3. **No autonomous commit to the outside world** — no auto-merge, no bare push to a
+>    shared branch, no auto-spend past budget. Opening a PR is the one sanctioned autonomous
+>    push (Tier-2, act-then-report): it only _requests_ review — the operator reviews and
+>    merges. ZIBBY prepares the irreversible step; the operator commits it — and a project
+>    may open its PRs as drafts (`prOpenMode`), which never changes the merge gate. The **one
+>    sanctioned autonomous merge** is a goal's **merge grant**: set by the operator with the
+>    operator token, per project, time-boxed to at most 24 hours, only on a goal with the
+>    `tier3` ceiling, GitHub only. ZIBBY merges a PR under it only when, re-checked live at
+>    merge time, the grant is unexpired and covers the project, the PR has an approving review
+>    from a repo owner/member/collaborator on the current head, CI is green and settled, the PR
+>    is `mergeable_state: clean` and Autopilot is not paused; every merge is logged and
+>    reported. This path calls the project-PR merge service directly and does **not** go
+>    through the gate's "merge = never" system rule — the grant is the operator's explicit,
+>    token-protected exception. Without a valid grant the outcome is always "ready to merge".
+>    An `auto` autonomy level moves the covered `ask` classes to Tier 2 for its capability and
+>    place; it never grants a merge. Never-rules are not affected. Only the operator token
+>    raises a level or resumes ZIBBY, and anyone in the operator chat can pause it.
 
 The "Never" bullet:
 
@@ -321,6 +328,26 @@ Deferred minors and notes from the ledger, grouped by area.
 - A PR with 100 or more reviews/checks fails closed forever (documented in `docs/api/goals.md`).
 - ZIBBY's own account is not excluded from the approval roll-up (safe today: an APPROVE needs an
   operator pick); guard it before any auto-approve path exists.
+
+**Widget and sheet (task 14)**
+
+- One full timeline fetch (up to 500 events) per widget row just for the latest line, and every
+  `goals` SSE event refetches all of them — put the latest line in the list response if the goal
+  count grows.
+- The goal selection has no `href` (a phone opens the sheet instead of the page), deviating from
+  the `BridgeSelection.href` convention.
+- The API caps the timeline at 500 events (`TIMELINE_CAP`); the oldest cycles are dropped with no
+  "truncated" notice, so the sheet's log is every stored event, not the full history.
+- Cannot-verify: widget and sheet layout in a real browser (`SIZE_LIMITS` goals `[3,4,8,16]`,
+  560 px sheet).
+- ts-rest resolves non-2xx bodies as data everywhere: the goal state query's HTTP error can show
+  "nothing planned", and `GoalDetailScreen` and the other goal queries may share the "error body
+  treated as data" gap. Check in the final review.
+
+**Docs / verification (task 13)**
+
+- The api full run had 2 load-dependent failures in `src/runner/runner-core.test.ts` (not in the
+  baseline, they pass alone 48/48, untouched code) — recheck in final verification.
 
 ## Test status vs baseline
 
