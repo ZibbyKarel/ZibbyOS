@@ -29,6 +29,7 @@ import {
   MAX_CATALOG_AGENTS,
   MCP_CONFIG_FILE,
   OPERATING_CONTRACT,
+  READ_ONLY_DENIED_TOOLS,
   SYSTEM_PROMPT_FILE,
   opencodeToolRules,
 } from "./claude-run-command.service";
@@ -1455,5 +1456,84 @@ describe("buildOpencodeCommand BlueCode provider block (A34)", () => {
         await bc.restore();
       }
     }
+  });
+});
+
+describe("readOnly runs (the goal planner)", () => {
+  const busy = {
+    hooks: [
+      {
+        id: "h",
+        event: "PreToolUse",
+        command: "echo hi",
+        enabled: true,
+      } as unknown as Hook,
+    ],
+    mcpServers: [
+      { id: "slack", type: "sse", url: "https://s", enabled: true, hasCredentials: false },
+    ] as McpServer[],
+    marketplaces: async () => {
+      throw new Error("must not be read");
+    },
+  };
+  const opts = {
+    instructions: "PLAN ONLY",
+    task: "plan it",
+    tools: ["read", "bash"],
+    readOnly: true,
+    grounding: "GROUND",
+    grantDirs: ["/grant"],
+    contextDir: "/repo",
+    pluginDirs: ["/plug"],
+    streamTranscript: true,
+  };
+
+  it("claude: no tools, dontAsk, deny list, no MCP/catalog/plugins/dirs/directive/contract", async () => {
+    const svc = makeService([CODER], [WRITER_SKILL], busy);
+    const { args, catalogAgentIds } = await svc.buildClaudeCommand(opts);
+    expect(flagValue(args, "-p")).toBe("plan it");
+    expect(flagValue(args, "--permission-mode")).toBe("dontAsk");
+    expect(flagValue(args, "--tools")).toBe("");
+    const deny = args.slice(args.indexOf("--disallowedTools") + 1);
+    for (const tool of ["Bash", "Write", "Edit", "Agent", "Task", "Skill", "WebFetch"]) {
+      expect(deny).toContain(tool);
+    }
+    expect(args).toContain("--strict-mcp-config");
+    for (const flag of [
+      "--mcp-config",
+      "--agents",
+      "--plugin-dir",
+      "--add-dir",
+      "--allowedTools",
+    ]) {
+      expect(args).not.toContain(flag);
+    }
+    expect(catalogAgentIds).toEqual([]);
+    const system = flagValue(args, "--append-system-prompt") ?? "";
+    expect(system).toContain("GROUND");
+    expect(system).toContain("PLAN ONLY");
+    expect(system).not.toContain(OPERATING_CONTRACT.slice(0, 40));
+    // Only the locked approval hook, no custom hook.
+    expect(flagValue(args, "--settings")).not.toContain("echo hi");
+    expect(args.join(" ")).not.toContain(EXECUTION_DIRECTIVE.trim().slice(0, 30));
+    expect(READ_ONLY_DENIED_TOOLS).toContain("Task");
+  });
+
+  it("opencode: every permission denied, no MCP, no gate plugin, no grants, no directive", async () => {
+    const svc = makeService([CODER], [], busy);
+    const { args, env, opencodeConfig } = await svc.buildOpencodeCommand(opts, "opencode/x");
+    const config = JSON.parse(opencodeConfig) as {
+      permissions: unknown[];
+      plugins?: unknown;
+      mcp?: unknown;
+      agents: Record<string, { system: string }>;
+    };
+    expect(config.permissions).toEqual([{ action: "*", resource: "*", effect: "deny" }]);
+    expect(config.plugins).toBeUndefined();
+    expect(config.mcp).toBeUndefined();
+    expect(Object.values(config.agents)[0]?.system).not.toContain(OPERATING_CONTRACT.slice(0, 40));
+    expect(args.at(-1)).toBe("plan it");
+    expect(env[GRANT_DIRS_ENV]).toBe("");
+    expect(env.ZIBBY_MCP_SERVERS).toBe("");
   });
 });

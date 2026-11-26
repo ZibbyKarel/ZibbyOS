@@ -27,18 +27,17 @@ const POLL_MS = 1000;
 
 /**
  * The synthetic, unstored agent the planner runs as; the engine (global config) picks the
- * model, as for any agent without its own. Its own tools are `read` only, but like every
- * agent run (the loop verifier's too) it still gets the runner's delegation catalog and
- * MCP servers, so it is NOT a hard read-only sandbox. What bounds it: not stored, so the
- * mid-run gate cannot re-load it and every gated intent it announces fails safe to deny;
- * it runs in its own run worktree; its output only counts through `GoalPlanSchema` and
- * the engine's ceiling filter.
+ * model, as for any agent without its own. It runs through
+ * {@link AgentRunnerService.startSynthetic}, which builds the command `readOnly`: no tools
+ * at all (the facts are in the prompt), no delegation catalog, no MCP, no plugins and no
+ * execution directive, on claude and on opencode. Its output only counts through
+ * `GoalPlanSchema` and the engine's ceiling filter.
  */
 export const GOAL_PLANNER_AGENT: Agent = {
   id: "goal-planner",
   name: "Goal planner",
   description: "Plans the next actions of one goal instance; does no work itself.",
-  tools: ["read"],
+  tools: [],
   instructions: [
     "You are ZIBBY's goal planner. You read a goal, its facts and its current plan, and you",
     "return the next actions as one machine-readable plan block. You never do the work",
@@ -128,8 +127,8 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
   const instance = ctx.projectId ? `project ${ctx.projectId}` : "not tied to a project";
   const lines = [
     "You are planning one instance of a ZIBBY goal: a mandate the operator gave. Decide the",
-    "next actions from the goal, the facts and your current plan. You may read files in the",
-    "working directory to judge progress; change nothing.",
+    "next actions from the goal, the facts and your current plan. You have no tools: everything",
+    "you need is below.",
     "",
     "## Goal (from the operator)",
     `Name: ${stripPlanTags(goal.name)}`,

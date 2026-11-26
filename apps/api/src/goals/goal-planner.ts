@@ -43,3 +43,8 @@ export const GOAL_PLANNER = "GOAL_PLANNER";
 export function goalPlanNoteId(goalId: string, instanceKey: string): string {
   return `goal-${goalId}-${instanceKey}-plan`;
 }
+
+/** Whether a vault note id is a {@link goalPlanNoteId} (never grounded: see GroundingService). */
+export function isGoalPlanNoteId(id: string): boolean {
+  return /^goal-.+-plan$/.test(id);
+}

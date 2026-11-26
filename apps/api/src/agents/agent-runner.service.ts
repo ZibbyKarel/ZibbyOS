@@ -81,6 +81,9 @@ export function intersectToolGrants(
  * hook that writes an `intent-request.json` into the sandbox and blocks; the core
  * watches for it and routes the action through {@link onIntent} (allow / ask / deny).
  */
+/** Agents launched through `startSynthetic`: their commands are built `readOnly`. */
+const READ_ONLY_AGENTS = new WeakSet<Agent>();
+
 @Injectable()
 export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
   private readonly dir: string;
@@ -263,10 +266,11 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Start a run of a synthetic agent that is not stored (the goal planner): same launch
-   * path as {@link start}, engine from the agent ?? the global config. Re-run and the
-   * mid-run gate cannot re-load it, so its gated intents fail safe to deny.
-   * `matchedTerms` pick the memory grounding instead of the prompt's own words.
+   * Start a **read-only** run of a synthetic agent that is not stored (the goal planner):
+   * same launch path as {@link start}, engine from the agent ?? the global config, but the
+   * command is built with `readOnly` (no tools, catalog, MCP, plugins or execution
+   * directive; see {@link ClaudeRunOptions.readOnly}). Re-run and the mid-run gate cannot
+   * re-load the agent. `matchedTerms` pick the memory grounding instead of the prompt's words.
    */
   startSynthetic(
     agent: Agent,
@@ -275,6 +279,7 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     title: string,
     matchedTerms?: string[],
   ): Promise<AgentRun> {
+    READ_ONLY_AGENTS.add(agent);
     return this.launch(agent, prompt, project, [], title, undefined, matchedTerms);
   }
 
@@ -856,6 +861,7 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     const opts: ClaudeRunOptions = {
       instructions: agent.instructions,
       task,
+      ...(READ_ONLY_AGENTS.has(agent) ? { readOnly: true } : {}),
       tools: agent.tools,
       model: agent.model,
       thinking: agent.thinking,

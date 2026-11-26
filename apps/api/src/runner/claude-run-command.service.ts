@@ -46,6 +46,12 @@ import { GRANT_DIRS_ENV } from "./runner-core";
 export interface ClaudeRunOptions {
   instructions: string;
   task: string;
+  /**
+   * A run that may only think and answer (the goal planner): no tools at all, no
+   * delegation catalog, no MCP, no plugins, no custom hooks, no operating contract and no
+   * execution directive. See {@link READ_ONLY_DENIED_TOOLS}.
+   */
+  readOnly?: boolean;
   tools?: readonly string[];
   model?: Agent["model"];
   thinking?: Agent["thinking"];
@@ -269,6 +275,34 @@ function withOperatingContract(
   // "continue, don't restart" framing is durable context, before the agent body.
   const resume = resumeContext && resumeContext.trim() ? `${resumeContext.trim()}\n\n---\n\n` : "";
   return `${OPERATING_CONTRACT}${block}${resume}${instructions}`;
+}
+
+/**
+ * Denied by name on a {@link ClaudeRunOptions.readOnly} run, on top of `--tools ""` (no
+ * built-in tools; verified on claude 2.1.332: the init event lists `tools: []`, `mcp: []`).
+ * The reply-draft researcher's list plus `Task`, the older name of `Agent`.
+ */
+export const READ_ONLY_DENIED_TOOLS = [
+  "Bash",
+  "Write",
+  "Edit",
+  "NotebookEdit",
+  "WebFetch",
+  "WebSearch",
+  "Agent",
+  "Task",
+  "Workflow",
+  "Skill",
+  "ToolSearch",
+  "ListAgents",
+  "RemoteTrigger",
+] as const;
+
+/** A read-only run's system prompt: grounding and the body, no operating contract. */
+function readOnlySystemPrompt(instructions: string, grounding?: string): string {
+  return grounding && grounding.trim()
+    ? `${grounding.trim()}\n\n---\n\n${instructions}`
+    : instructions;
 }
 
 /** Append the execution directive so the user turn ends with "act, don't ask". */
@@ -665,7 +699,9 @@ export class ClaudeRunCommandService {
     env: Record<string, string>;
     opencodeConfig: string;
   }> {
-    const mounted = await this.enabledMcpServers(opts);
+    const mounted = opts.readOnly
+      ? { servers: [], operatorConfigs: new Map<string, Record<string, unknown>>() }
+      : await this.enabledMcpServers(opts);
     const enabled = mounted.servers.filter((server) => !OPENCODE_RESERVED_MCP_IDS.has(server.id));
     const mcp = await this.buildMcpConfig(enabled, opts.runId, mounted.operatorConfigs);
     const servers: Record<string, Record<string, unknown>> = {};
@@ -693,14 +729,19 @@ export class ClaudeRunCommandService {
       agents: {
         [OPENCODE_AGENT]: {
           mode: "primary",
-          system: withOperatingContract(opts.instructions, opts.grounding, opts.resumeContext),
+          system: opts.readOnly
+            ? readOnlySystemPrompt(opts.instructions, opts.grounding)
+            : withOperatingContract(opts.instructions, opts.grounding, opts.resumeContext),
         },
       },
-      permissions: [
-        { action: "*", resource: "*", effect: "ask" },
-        ...rules.deny.map((action) => ({ action, resource: "*", effect: "deny" })),
-      ],
-      plugins: [OPENCODE_GATE_PLUGIN],
+      // Read-only: every permission denied (spawnOneShot's `none` profile).
+      permissions: opts.readOnly
+        ? [{ action: "*", resource: "*", effect: "deny" }]
+        : [
+            { action: "*", resource: "*", effect: "ask" },
+            ...rules.deny.map((action) => ({ action, resource: "*", effect: "deny" })),
+          ],
+      ...(opts.readOnly ? {} : { plugins: [OPENCODE_GATE_PLUGIN] }),
       // Global servers the run did not mount stay off: their tool schemas bloat every prompt.
       ...(Object.keys(allServers).length ? { mcp: { servers: allServers } } : {}),
       compaction: { auto: true, buffer: `${100 - pct}%` },
@@ -717,8 +758,11 @@ export class ClaudeRunCommandService {
       OPENCODE_AGENT,
     ];
     if (opts.resumeSessionId) args.push("--session", opts.resumeSessionId);
-    args.push("--", withExecutionDirective(opts.task.trim() ? opts.task : KICKOFF_FALLBACK));
-    const grants = [...new Set([...(opts.grantDirs ?? []), opts.contextDir ?? ""])].filter(Boolean);
+    const task = opts.task.trim() ? opts.task : KICKOFF_FALLBACK;
+    args.push("--", opts.readOnly ? task : withExecutionDirective(task));
+    const grants = opts.readOnly
+      ? []
+      : [...new Set([...(opts.grantDirs ?? []), opts.contextDir ?? ""])].filter(Boolean);
     return {
       command: opencodeBin(),
       args,
@@ -834,6 +878,7 @@ export class ClaudeRunCommandService {
     /** Per-run env the caller merges over the project env (compaction threshold). */
     env: Record<string, string>;
   }> {
+    if (opts.readOnly) return this.buildReadOnlyClaudeCommand(opts);
     // Their tools widen the session allow-list (see buildCatalog) and their
     // connection config rides `--mcp-config`.
     const { servers: mcpServers, operatorConfigs } = await this.enabledMcpServers(opts);
@@ -918,6 +963,44 @@ export class ClaudeRunCommandService {
       command: process.env.CLAUDE_BIN ?? "claude",
       args,
       catalogAgentIds,
+      env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: String(pct) },
+    };
+  }
+
+  /**
+   * The {@link ClaudeRunOptions.readOnly} shape (the reply-draft researcher's precedent,
+   * without even its reads): `--tools ""`, `--permission-mode dontAsk`, the deny list,
+   * `--strict-mcp-config` with no `--mcp-config`, no `--agents`, no `--plugin-dir`, no
+   * `--add-dir`, no custom hooks, and the task without the execution directive.
+   */
+  private async buildReadOnlyClaudeCommand(opts: ClaudeRunOptions) {
+    const args = [
+      "-p",
+      opts.task.trim() ? opts.task : KICKOFF_FALLBACK,
+      ...ISOLATED_SETTING_SOURCES,
+      "--permission-mode",
+      "dontAsk",
+      "--tools",
+      "",
+      "--disallowedTools",
+      ...READ_ONLY_DENIED_TOOLS,
+      "--strict-mcp-config",
+      ...(await this.buildSystemPromptArgs(
+        readOnlySystemPrompt(opts.instructions, opts.grounding),
+        opts.systemPromptDir,
+      )),
+      "--settings",
+      buildSettings([]),
+    ];
+    if (opts.streamTranscript) args.push("--output-format", "stream-json", "--verbose");
+    if (opts.model) args.push("--model", opts.model);
+    const effort = opts.thinking ? THINKING_TO_EFFORT[opts.thinking] : undefined;
+    if (effort) args.push("--effort", effort);
+    const pct = this.systemConfig?.current().autoCompactPct?.claude ?? DEFAULT_AUTO_COMPACT_PCT;
+    return {
+      command: process.env.CLAUDE_BIN ?? "claude",
+      args,
+      catalogAgentIds: [],
       env: { CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: String(pct) },
     };
   }

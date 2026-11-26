@@ -568,6 +568,31 @@ describe("GroundingService.compose", () => {
     expect(block).not.toContain("Osobní poznámka");
   });
 
+  it("never grounds a goal plan note, by title match or by 1-hop from the goals MOC", async () => {
+    const made = await makeVault(async (vault) => {
+      await vault.createNote({
+        id: "goals",
+        tier: "knowledge",
+        title: "Goals merge",
+        body: "[[goal-prs-web-plan]]",
+      });
+      await vault.createNote({
+        id: "goal-prs-web-plan",
+        tier: "knowledge",
+        title: "Plán cíle: merge",
+        body: "SMUGGLED PLAN",
+        frontmatter: { type: "goal-plan" },
+      });
+    });
+    dir = made.dir;
+    const block = await made.grounding.compose({
+      task: "merge plan",
+      matchedTerms: ["merge", "plan"],
+    });
+    expect(block).toContain("Goals merge");
+    expect(block).not.toContain("SMUGGLED PLAN");
+  });
+
   it("F8: a personal-domain compose sees the personal note and grounds the Personal shelf", async () => {
     const made = await makeVault(async (vault) => {
       await vault.createNote({

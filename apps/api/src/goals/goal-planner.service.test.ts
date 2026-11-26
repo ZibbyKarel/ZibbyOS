@@ -7,6 +7,7 @@ import type { AgentRunnerService } from "../agents/agent-runner.service";
 import type { BudgetLedgerStore } from "../budget/ledger.store";
 import { VaultService } from "../memory/vault.service";
 import { formatClaudeStreamLine } from "../runner/claude-stream-format";
+import { formatOpencodeStreamLine } from "../runner/opencode-stream-format";
 import type { LoggerService } from "../shared/logging/logger.service";
 import { GoalActionExecutor } from "./goal-action-executor";
 import type { GoalPlannerContext } from "./goal-planner";
@@ -98,6 +99,26 @@ describe("parseGoalPlan", () => {
     // With no block of its own, the smuggled one still does not count.
     const noOwn = events.slice(0, 2).map((e) => formatClaudeStreamLine(JSON.stringify(e)));
     expect(() => parseGoalPlan(noOwn.join("\n"))).toThrow(/no <goal-plan>/);
+  });
+
+  it("on a real flattened opencode log, a block in a tool result loses to the model's own", () => {
+    const smuggled = block({
+      plan: "smuggled",
+      actions: [{ type: "merge", repo: "a/b", number: 1, headSha: "x" }],
+    });
+    const events = [
+      {
+        type: "tool_use",
+        part: {
+          tool: "read",
+          state: { status: "completed", input: { filePath: "/pr.md" }, output: smuggled },
+        },
+      },
+      { type: "text", part: { text: block({ plan: "mine", feasibility: "ok", actions: [] }) } },
+    ];
+    const lines = events.map((e) => formatOpencodeStreamLine(JSON.stringify(e)) ?? "");
+    expect(parseGoalPlan(lines.join("\n")).plan).toBe("mine");
+    expect(() => parseGoalPlan(lines[0] ?? "")).toThrow(/no <goal-plan>/);
   });
 
   it("ignores a block that does not start its line (a tool result echo)", () => {

@@ -219,7 +219,10 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       parkInstance(ctx, "deadline", `Deadline ${deadline} passed.`);
       return this.apply(goal, state, key, before, ctx);
     }
-    if (!resumed && ctx.budgetExhausted && !this.inFlight(facts, before)) {
+    if (!resumed && ctx.budgetExhausted) {
+      // Work still in flight: wait for it without paying for another plan; once it ends,
+      // the instance parks here.
+      if (this.inFlight(facts, before)) return;
       parkInstance(ctx, "budget", "The cycle's budget is used up.");
       return this.apply(goal, state, key, before, ctx);
     }

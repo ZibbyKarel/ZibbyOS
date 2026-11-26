@@ -196,34 +196,52 @@ describe("GoalEngineService", () => {
     await engine.tick(NOW);
     tasks.set("t1", { id: "t1", status: "dispatched" });
     await setInstance({ taskIds: ["t1"] });
+    // Budget used up with t1 in flight: no paid re-plan, the instance just waits.
     await engine.tick(later(1));
-    expect((await state()).instances._?.status).toBe("acting");
+    expect(planner.plan).toHaveBeenCalledTimes(1);
     tasks.set("t1", {
       id: "t1",
       status: "dispatched",
       outcome: { status: "error", summary: "boom", finishedAt: later(2).toISOString() },
     });
-    const ctx = planner.plan.mock.calls[1]?.[0] as GoalPlannerContext;
-    expect(ctx.remainingBudget).toEqual({ runs: 0 });
     await engine.tick(later(3));
     const s = await state();
     expect(s.instances._?.status).toBe("parked");
     expect(s.instances._?.parkedReason).toBe("budget");
-    // Spec step 2: the budget park comes before planning — no third planner call.
-    expect(planner.plan).toHaveBeenCalledTimes(2);
+    // Spec step 2: the budget park comes before planning.
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+  });
+
+  it("never plans again while the budget is used up and a task is still running", async () => {
+    executor.register("start-task", async (a, ctx) => {
+      await ctx.recordTask(a.text);
+    });
+    await create({ budget: { maxRunsPerCycle: 2 } });
+    planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
+      await ctx.recordRun("goal-planner_1");
+      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "t1" }] };
+    });
+    tasks.set("t1", { id: "t1", status: "dispatched" });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.taskIds).toEqual(["goal-planner_1", "t1"]);
+    tasks.set("t1", { id: "t1", status: "awaiting-output" });
+    await engine.tick(later(1));
+    await engine.tick(later(2));
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    expect((await state()).instances._?.status).toBe("acting");
   });
 
   it("refuses a spending action centrally once the budget is used up", async () => {
     const handler = vi.fn();
     executor.register("start-task", handler);
-    await create({ budget: { maxRunsPerCycle: 1 } });
+    await create({ budget: { maxRunsPerCycle: 2 } });
     await engine.tick(NOW);
     tasks.set("t1", { id: "t1", status: "dispatched" });
     await setInstance({ taskIds: ["t1"] });
-    planner.plan.mockResolvedValueOnce({
-      plan: "",
-      feasibility: "ok",
-      actions: [{ type: "start-task", text: "one more" }],
+    // One run left before this plan; the planner's own run takes it.
+    planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
+      await ctx.recordRun("goal-planner_1");
+      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "one more" }] };
     });
     await engine.tick(later(1));
     expect(handler).not.toHaveBeenCalled();

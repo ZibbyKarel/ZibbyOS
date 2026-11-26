@@ -552,3 +552,29 @@ describe("AgentRunnerService limit reclassification is Claude-only", () => {
     await vi.waitFor(() => expect(reclassify).toHaveBeenCalledWith("ca", 1));
   });
 });
+
+describe("AgentRunnerService.startSynthetic", () => {
+  it("builds the synthetic agent's command readOnly (no tools, no plugins, no directive)", async () => {
+    const runner = makeRunner();
+    const agent = { ...agentFixture, tools: ["read"] } as unknown as Agent;
+    // startSynthetic marks the agent, then launches; the launch itself is not under test.
+    (runner as unknown as { launch: () => Promise<unknown> }).launch = async () => ({});
+    await runner.startSynthetic(agent, "plan", "", "t");
+    const built = await (runner as unknown as { buildCommand: BuildCommand }).buildCommand(
+      agent,
+      "plan",
+      [],
+      "",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      ["/sandbox/zibby-commands"],
+      "/work/tree",
+    );
+    expect(built.args[built.args.indexOf("--tools") + 1]).toBe("");
+    expect(built.args).not.toContain("--plugin-dir");
+    expect(built.args[built.args.indexOf("-p") + 1]).toBe("plan");
+  });
+});

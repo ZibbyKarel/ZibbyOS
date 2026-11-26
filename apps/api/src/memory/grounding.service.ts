@@ -5,6 +5,7 @@ import { gitlabHostNote } from "./gitlab-host-note";
 import { composeTeamKbSection } from "./team-kb-grounding";
 import type { DepartmentId, IndexEntry, Note, NoteDomain } from "@zibby/contracts";
 import { tokenize } from "../tasks/keyword-scorer";
+import { isGoalPlanNoteId } from "../goals/goal-planner";
 import { GLOBAL_REVIEW_RULES_ID, reviewRulesIdFor } from "./review-rules-note";
 import { departmentShelfId } from "./department-shelf";
 import { KbRegistryService } from "./kb-registry.service";
@@ -74,6 +75,15 @@ export function visibleInDomain(
 ): IndexEntry[] {
   if (domain === "personal") return entries;
   return entries.filter((e) => e.domain !== "personal");
+}
+
+/**
+ * Goal plan notes are model output shaped by untrusted facts (PR and channel text), so
+ * they never ground any run: not term-matched, not reached by 1-hop expansion (Law 4).
+ * The planner reads its own note back as a fenced data section instead. Pure — exported for tests.
+ */
+export function withoutGoalPlans(entries: IndexEntry[]): IndexEntry[] {
+  return entries.filter((e) => !isGoalPlanNoteId(e.id));
 }
 
 /**
@@ -222,7 +232,9 @@ export class GroundingService {
       // M7 isolation: restrict the candidate set to this run's project before
       // term-matching, so a run can never ground on another project's notes.
       // F8: then domain isolation — a work run never sees a personal note.
-      const visible = visibleInDomain(visibleToProject(entries, input.projectId), input.domain);
+      const visible = withoutGoalPlans(
+        visibleInDomain(visibleToProject(entries, input.projectId), input.domain),
+      );
       for (const entry of selectIndexes(terms, visible)) {
         const moc = await add(entry.id);
         if (moc) mocs.push(moc);

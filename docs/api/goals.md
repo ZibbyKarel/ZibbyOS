@@ -74,7 +74,8 @@ tick, per enabled goal (one goal failing never blocks the others):
    project gets an instance; one that left the scope becomes `done` ("Left the goal's scope.").
 3. **Per instance** (sorted, each in its own try/catch), skipping `parked` and `done`:
    - Past `cycle.deadlineAt` -> park `deadline`. The cycle budget used up and no task in
-     flight -> park `budget`. Both happen before the wake check, with no planner call, and
+     flight -> park `budget`; used up with a task still in flight -> nothing (no paid
+     re-plan; it parks once the work ends). All happen before the wake check, with no planner call, and
      neither applies to an instance the operator resumed in this cycle (`resumedCycle` = the
      cycle index; a new cycle clears it). A resumed one-off goal past its deadline is not
      parked again for that deadline (the operator's choice); its planner calls stay bounded by
@@ -136,18 +137,22 @@ the `GOAL_FACTS_SOURCES` factory.
 ### Planner (`GoalPlannerService`)
 
 One fresh model run per plan, the loop verifier's precedent: the synthetic, unstored agent
-`goal-planner` (own tools `read`; model and engine from the global config, as for any agent
-without its own) through `AgentRunnerService.startSynthetic`, in the instance's project
-(its usual run worktree) or sandbox-only when there is no project or no local clone. Memory
-grounding is picked by the words of the goal's name and outcome, not by the prompt (so facts
-cannot steer which notes land in the system prompt).
+`goal-planner` (model and engine from the global config, as for any agent without its own)
+through `AgentRunnerService.startSynthetic`, in the instance's project (its usual run
+worktree) or sandbox-only when there is no project or no local clone. Memory grounding is
+picked by the words of the goal's name and outcome, not by the prompt (so facts cannot steer
+which notes land in the system prompt).
 
-**Not a hard read-only sandbox.** Like every agent run (the loop verifier's too), the planner
-run still gets the runner's delegation catalog (with its tools on the allow-list) and the
-enabled MCP servers. What bounds it: the agent is not stored, so any gated intent it
-announces mid-run fails safe to deny; it runs in its own run worktree, not the operator's
-checkout; and its output only counts through `GoalPlanSchema` and the engine's ceiling
-filter. A runner option for an empty catalog without MCP is the follow-up.
+**Read-only run.** `startSynthetic` builds the command with `ClaudeRunOptions.readOnly`: the
+planner has no tools at all (the facts are already in the prompt) and can only answer. On
+claude: `--tools ""`, `--permission-mode dontAsk`, `--disallowedTools` with
+`READ_ONLY_DENIED_TOOLS` (Bash, Write, Edit, NotebookEdit, WebFetch, WebSearch, Agent, Task,
+Workflow, Skill, ToolSearch, ListAgents, RemoteTrigger), `--strict-mcp-config` with no
+`--mcp-config`, no `--agents`, `--plugin-dir`, `--add-dir` or custom hooks, no operating
+contract and no execution directive (verified on claude 2.1.332: the init event lists
+`tools: []`, `mcp_servers: []`). On opencode: one permission rule, `* deny`, no MCP servers,
+no gate plugin, no granted dirs, no directive. Its output only counts through
+`GoalPlanSchema` and the engine's ceiling filter.
 
 - **Prompt** (English; the plan, feasibility and every note/report/message text are asked for
   in Czech). It carries the goal (outcome, predicate), the instance, cycle + deadline + now,
@@ -162,9 +167,9 @@ filter. A runner option for an empty catalog without MCP is the follow-up.
   prompt is not the control: the output is only parsed through `GoalPlanSchema`, and the
   engine's ceiling filter decides.
 - **Output** (`parseGoalPlan`). The **last** `<goal-plan>…</goal-plan>` block whose opening tag
-  starts a line, as JSON through `GoalPlanSchema`. On the claude engine tool results are
-  indented in the flattened run log, so a block inside a file the planner read never counts
-  (the opencode log format is not checked for this). No block, invalid JSON, an unknown
+  starts a line, as JSON through `GoalPlanSchema`. Both flattened run log formats (claude and
+  opencode) indent tool results, so a block inside a tool result never counts (tested for
+  both). No block, invalid JSON, an unknown
   action, a run that did not end `done` (a run waiting on approval or paused on the usage
   limit is stopped) or a first plan without feasibility all throw (a plan failure).
 - **Budget.** The planner's run id is recorded on the instance through `ctx.recordRun` (the
@@ -175,7 +180,10 @@ filter. A runner option for an empty catalog without MCP is the follow-up.
   planning run is the cycle's only run. That plan still carries the feasibility line (and
   the at-risk report) and may note, report, wait or finish, but it is offered no spending
   action; with nothing in flight the next tick parks the instance `budget`. Give a goal that
-  should do work at least 2 runs per cycle.
+  should do work at least 2 runs per cycle. **Each re-plan costs a run:** a task changing
+  state re-plans, so N tasks take roughly 2N+1 runs per cycle (one plan, then a task and the
+  plan its outcome triggers). With the budget used up and work in flight, the engine does not
+  plan again.
 - **Plan note.** A valid plan with a non-empty `plan` is written to the flat vault note
   `goal-<goalId>-<instance>-plan` (tier `knowledge`, frontmatter `type: goal-plan`, `goalId`,
   `instance`): created on the first plan and linked from the `goals` MOC (`updateIndex`),
