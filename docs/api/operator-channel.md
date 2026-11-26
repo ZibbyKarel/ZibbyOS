@@ -125,7 +125,7 @@ never sent.
 | `briefing`         | 2    | `briefing-generated` (off by default)                                                                                       |
 | `autopilot-action` | 2    | `autopilot-action` (a gate or approval autopilot let through; the on/off switch is not pushed). See `docs/api/autopilot.md` |
 | `goal-parked`      | 3    | `goal-parked` (deadline, budget, failed planner, or a plan's `park`)                                                        |
-| `goal-update`      | 2    | `goal-done`, and `goal-acted` with `action: report`. See `docs/api/goals.md`                                                |
+| `goal-update`      | 2    | `goal-done`, `goal-merged`, and `goal-acted` with `action: report`. See `docs/api/goals.md`                                 |
 
 `autopilot-action` is on by default for new settings. Settings saved before Phase 4 keep
 their explicit `notify.events` list, so add `autopilot-action` there to receive it. The same

@@ -77,7 +77,7 @@ const isPrInboxTask = (t: ScheduledTask): boolean =>
  * - `monitor-alert` → `ci-red` (being fixed)
  * - `briefing-generated` → `briefing`
  * - `autopilot-action` → `autopilot-action` (Phase 4); `autopilot-changed` (on/off) is not pushed
- * - `goal-parked` → `goal-parked`; `goal-done` and `goal-acted` with `action: report` →
+ * - `goal-parked` → `goal-parked`; `goal-done`, `goal-merged` and `goal-acted` with `action: report` →
  *   `goal-update` (links to `/work/goals/<id>`; `state` = the entry id, so each one is sent)
  */
 export async function toOperatorEvent(
@@ -236,6 +236,7 @@ export async function toOperatorEvent(
       });
     case "goal-parked":
     case "goal-done":
+    case "goal-merged":
     case "goal-acted": {
       if (!refs.goalId) return null;
       if (entry.kind === "goal-acted" && refs.action !== "report") return null;

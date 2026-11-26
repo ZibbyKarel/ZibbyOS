@@ -7,6 +7,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { GoalStateStore } from "../src/goals/goal-state.store";
+import { withOperator } from "./operator-token";
 
 const BASE = "/api/goals";
 const body = {
@@ -158,5 +159,65 @@ describe("Goals API (e2e)", () => {
     await http().delete(`${BASE}/del`).expect(200);
     await expect(fs.stat(path.join(dir, "state", "del"))).rejects.toThrow();
     await http().delete(`${BASE}/del`).expect(404);
+  });
+
+  describe("merge grant (PUT/DELETE /goals/:id/merge-grant)", () => {
+    const grantUrl = `${BASE}/mg3/merge-grant`;
+    const inHours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+
+    beforeAll(async () => {
+      for (const [id, ceiling] of [
+        ["mg3", "tier3"],
+        ["mg2", "tier2"],
+      ]) {
+        await http()
+          .post(BASE)
+          .send({ ...body, id, ceiling, scope: { kind: "projects", projectIds: ["p1", "p2"] } })
+          .expect(201);
+      }
+    });
+
+    it("needs the operator token (401), even with a valid body; DELETE too", async () => {
+      await http()
+        .put(grantUrl)
+        .send({ projectIds: ["p1"], until: inHours(2) })
+        .expect(401);
+      await http().delete(grantUrl).expect(401);
+      const goal = await http().get(`${BASE}/mg3`).expect(200);
+      expect(goal.body.mergeGrant).toBeUndefined();
+    });
+
+    it("422: more than 24 h, past, tier2 goal, project outside the scope, empty, grantedAt", async () => {
+      const put = (url: string, b: object) => withOperator(http().put(url)).send(b);
+      await put(grantUrl, { projectIds: ["p1"], until: inHours(25) }).expect(422);
+      await put(grantUrl, { projectIds: ["p1"], until: inHours(-1) }).expect(422);
+      await put(`${BASE}/mg2/merge-grant`, { projectIds: ["p1"], until: inHours(2) }).expect(422);
+      await put(grantUrl, { projectIds: ["p9"], until: inHours(2) }).expect(422);
+      await put(grantUrl, { projectIds: [], until: inHours(2) }).expect(422);
+      await put(grantUrl, { projectIds: ["p1"], until: inHours(2), grantedAt: inHours(0) }).expect(
+        422,
+      );
+      await put(`${BASE}/nope/merge-grant`, { projectIds: ["p1"], until: inHours(2) }).expect(404);
+    });
+
+    it("sets with the token (server-stamped grantedAt), survives a PATCH, PATCH cannot write it, DELETE clears", async () => {
+      const until = inHours(23);
+      const set = await withOperator(http().put(grantUrl))
+        .send({ projectIds: ["p1"], until })
+        .expect(200);
+      expect(set.body.mergeGrant).toMatchObject({ projectIds: ["p1"], until });
+      expect(Date.parse(set.body.mergeGrant.grantedAt)).toBeLessThanOrEqual(Date.now());
+
+      const forged = { projectIds: ["p1", "p2"], until: inHours(24), grantedAt: inHours(0) };
+      await withOperator(http().patch(`${BASE}/mg3`))
+        .send({ mergeGrant: forged })
+        .expect(422);
+      await http().patch(`${BASE}/mg3`).send({ name: "Renamed" }).expect(200);
+      const kept = await http().get(`${BASE}/mg3`).expect(200);
+      expect(kept.body.mergeGrant.projectIds).toEqual(["p1"]);
+
+      const cleared = await withOperator(http().delete(grantUrl)).expect(200);
+      expect(cleared.body.mergeGrant).toBeUndefined();
+    });
   });
 });

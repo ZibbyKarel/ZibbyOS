@@ -12,7 +12,8 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 (`goal-presets.ts`), `goalsContract` (`goals.contract.ts`).
 
 - `deadline` and `cadence` are mutually exclusive; `cycleHours` needs `cadence`; `ceiling` defaults to `tier2`.
-- `mergeGrant` exists on `Goal` only. Create and update reject it (422); a later route sets it.
+- `mergeGrant` exists on `Goal` only. Create and update reject it (422); only the token-protected
+  merge-grant route sets or clears it (see [Merge grant](#merge-grant)).
 - Roll-up status: `paused | planning | acting | waiting | needs-you | done`, counts
   `{ total, done, parked, active }` and `needsYou`. Disabled = `paused`; no instances = `planning`;
   any parked instance (every `parkedReason`) = `needs-you`; all done = `done`; otherwise the
@@ -32,17 +33,19 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 
 ## Routes (`/api`)
 
-| Route                                        | Notes                                                                                                            |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `GET /goals`                                 | goals, each with its `rollup`                                                                                    |
-| `POST /goals`                                | 201; 409 duplicate id; 422 invalid / `mergeGrant`                                                                |
-| `GET /goals/:id`                             | 404                                                                                                              |
-| `PATCH /goals/:id`                           | partial; 422 as for create (also if the merged goal is invalid)                                                  |
-| `DELETE /goals/:id`                          | removes the definition and `state/<id>/`                                                                         |
-| `GET /goals/:id/state`                       | `{ state, rollup }`                                                                                              |
-| `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                                                         |
-| `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event                                                       |
-| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason` and `planFailures`, sets `resumedCycle`; 404 unknown, 409 not parked |
+| Route                                        | Notes                                                                                                                                                 |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /goals`                                 | goals, each with its `rollup`                                                                                                                         |
+| `POST /goals`                                | 201; 409 duplicate id; 422 invalid / `mergeGrant`                                                                                                     |
+| `GET /goals/:id`                             | 404                                                                                                                                                   |
+| `PATCH /goals/:id`                           | partial; 422 as for create (also if the merged goal is invalid)                                                                                       |
+| `DELETE /goals/:id`                          | removes the definition and `state/<id>/`                                                                                                              |
+| `GET /goals/:id/state`                       | `{ state, rollup }`                                                                                                                                   |
+| `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                                                                                              |
+| `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event                                                                                            |
+| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason` and `planFailures`, sets `resumedCycle`; 404 unknown, 409 not parked                                      |
+| `PUT /goals/:id/merge-grant`                 | body `{ projectIds, until }`; operator token (401); 422 unless ceiling tier3, `until` in the future and ≤ 24 h ahead, projects non-empty and in scope |
+| `DELETE /goals/:id/merge-grant`              | revokes the grant; operator token (401)                                                                                                               |
 
 ## Engine
 
@@ -131,7 +134,7 @@ Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot over
 | `message`          | `actionId`, `to: { kind: slack-user \| pr, ref }`, `text`, `about?: { repo, number }` (required for `pr`) | tier2       | `GoalMessageService` (below)                              |
 | `propose`          | `candidates[]` (`id`, `title`, `why?`, `size` small\|large, `task`), ranked best first                    | tier1       | `GoalDecisionService` (below)                             |
 | `update-checklist` | `id`, `done`                                                                                              | tier1       | `GoalDecisionService`: ticks a checklist item             |
-| `merge`            | `repo`, `number`, `headSha`                                                                               | tier3       | none yet                                                  |
+| `merge`            | `actionId`, `projectId`, `repo`, `number`, `approvedSha` (40-hex)                                         | tier3       | `GoalMergeService`: only under a merge grant (below)      |
 
 An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
 `report` naming what was not done, and so does a spending action (`start-task`, `run-loop`,
@@ -361,7 +364,45 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
 
 Activity kinds (group `goals`): `goal-started`, `goal-woke`, `goal-acted`, `goal-parked`,
 `goal-done`, `goal-merged`, with refs `goalId`, `itemId` (instance key) and `projectId`. The
-operator channel sends `goal-parked` (Tier 3) and `goal-done` / report `goal-acted` as
-`goal-update` (Tier 2), see `docs/api/operator-channel.md`. Parked instances are briefing
+operator channel sends `goal-parked` (Tier 3) and `goal-done` / `goal-merged` / report `goal-acted`
+as `goal-update` (Tier 2), see `docs/api/operator-channel.md`. Parked instances are briefing
 needs-you items, acting/waiting ones a watching line (`docs/api/briefing.md`). Every state write
 and timeline append emits the SSE scope `goals` (`docs/api/events.md`).
+
+## Merge grant
+
+**The merge grant is the one sanctioned autonomous merge in ZIBBY** (an exception to Law 3's
+"no auto-merge", made explicitly by the operator per goal). Without a valid grant a `merge`
+action is always a `report` "ready to merge".
+
+- `MergeGrant { projectIds, until, grantedAt }` on the goal. Written only by
+  `PUT /goals/:id/merge-grant` (set; `grantedAt` stamped by the server) and
+  `DELETE /goals/:id/merge-grant` (revoke), both behind the operator token (`hasOperatorToken`,
+  the same check as the Autopilot raise/resume). Never accepted by create/update, never written by
+  the engine or the planner, never derived from inbound content.
+- Set only on a goal with ceiling `tier3`; `until` at most 24 h ahead (`MERGE_GRANT_MAX_HOURS`);
+  `projectIds` non-empty and within the goal's scope (a `none` scope cannot have one; for
+  `company` / `all` any project of that scope). An expired grant is treated as absent (no
+  background cleanup).
+- `GoalMergeService` (`apps/api/src/goals/goal-merge.service.ts`) merges only when every
+  precondition holds **at merge time**; anything else, or any error while checking, is a report
+  "Připraveno k merge (ready to merge): repo#n — <the failed precondition>":
+  1. the action's `projectId` is the instance's project (a `_` instance never merges);
+  2. the goal **re-read from storage** still has ceiling `tier3` and an unexpired grant listing
+     the project (a revoke during the tick wins);
+  3. Autopilot is not paused;
+  4. read live from GitHub (`ProjectPrService.mergeState`, never from the facts snapshot or the
+     plan): the PR belongs to the project's repo, is open, not a draft, not yet merged; no
+     reviewer's latest review requests changes; head SHA === `approvedSha` (no commits after the
+     approval) and some reviewer's latest approval was given on that SHA; CI is green and settled
+     (every check run completed with success/neutral/skipped and every commit status `success`;
+     no checks at all is not green); `mergeable === true`. A possibly truncated review/check
+     page fails closed. GitLab projects are not supported (the review's commit is not read
+     there), so they always report.
+- The merge goes through `ProjectPrService.merge` with the head SHA pinned (`sha`), so a push
+  after the check makes GitHub refuse it. On success: the `actionId` is recorded at once, a
+  `merged` timeline line, activity `goal-merged` (operator notification `goal-update`), plus the
+  service's own `merge-completed`. The same `actionId` is skipped on the next tick; a different
+  one on an already merged PR reports "already merged" without a merge call.
+- Web: the goal detail page's "Merge grant" panel (tier3 goals only; otherwise one line saying a
+  grant needs tier3): project multi-select, "until" picker, revoke; a 401 shows the locked state.

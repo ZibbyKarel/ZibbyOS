@@ -5530,6 +5530,22 @@
         "ceiling": "strop cíle je tier1",
         "unknown": "ještě neplánováno"
       }
+    },
+    "mergeGrant": {
+      "title": "Merge grant",
+      "needsTier3": "Merge grant jde udělit jen cíli se stropem tier3.",
+      "noProjects": "Cíl nemá v rozsahu žádný projekt, merge grant nejde udělit.",
+      "intro": "Jediný povolený autonomní merge: ZIBBY smí mergnout PR v těchto projektech do zvolené doby, jen když je PR schválené na aktuálním commitu, CI je zelené a Autopilot běží. Nejvýš 24 h.",
+      "active": "Platí do {until} pro: {projects}",
+      "expired": "Předchozí grant vypršel {until}.",
+      "projects": "Projekty",
+      "projectsPlaceholder": "Vyber projekty",
+      "until": "Platí do",
+      "untilHint": "Nejvýš 24 hodin od teď.",
+      "grant": "Udělit",
+      "revoke": "Odebrat",
+      "locked": "Nepodařilo se: merge grant potřebuje platný operátorský token.",
+      "failed": "Akce se nezdařila."
     }
   }
 }

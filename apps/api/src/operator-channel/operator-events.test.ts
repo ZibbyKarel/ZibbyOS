@@ -81,4 +81,13 @@ describe("toOperatorEvent goal-*", () => {
     ).toBeNull();
     expect(await toOperatorEvent(goal("goal-woke", { goalId: "g" }), lookupsFor())).toBeNull();
   });
+
+  it("a merge under a merge grant is always told (goal-update)", async () => {
+    const merged = goal("goal-merged", { goalId: "g", itemId: "p1", action: "merge" }, "a3");
+    expect(await toOperatorEvent(merged, lookupsFor())).toMatchObject({
+      kind: "goal-update",
+      state: "a3",
+      path: "/work/goals/g",
+    });
+  });
 });

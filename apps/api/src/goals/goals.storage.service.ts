@@ -5,6 +5,7 @@ import {
   type CreateGoalInput,
   type Goal,
   GoalSchema,
+  type MergeGrant,
   type UpdateGoalInput,
 } from "@zibby/contracts";
 import { MarkdownEntityStore } from "../shared/file-storage";
@@ -35,7 +36,13 @@ export class GoalsStorageService extends MarkdownEntityStore<Goal> {
 
   async create(input: CreateGoalInput): Promise<Goal> {
     const now = new Date().toISOString();
-    const parsed = GoalSchema.safeParse({ ...input, createdAt: now, updatedAt: now });
+    // Never a grant from create, even if a caller slipped one past the strict body schema.
+    const parsed = GoalSchema.safeParse({
+      ...input,
+      mergeGrant: undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
     if (!parsed.success) {
       throw new InvalidGoalError(parsed.error.issues[0]?.message ?? "invalid goal");
     }
@@ -47,7 +54,12 @@ export class GoalsStorageService extends MarkdownEntityStore<Goal> {
   async update(id: string, patch: UpdateGoalInput): Promise<Goal> {
     return this.updateEntity(id, (existing) => {
       // `null` clears an optional field (JSON has no undefined); the merge is then validated whole.
-      const merged: Record<string, unknown> = { ...existing, ...patch };
+      // A patch never touches the grant (only `setMergeGrant` does), whatever it carries.
+      const merged: Record<string, unknown> = {
+        ...existing,
+        ...patch,
+        mergeGrant: existing.mergeGrant,
+      };
       for (const key of CLEARABLE_GOAL_FIELDS) if (merged[key] === null) delete merged[key];
       const parsed = GoalSchema.safeParse({
         ...merged,
@@ -58,6 +70,19 @@ export class GoalsStorageService extends MarkdownEntityStore<Goal> {
         throw new InvalidGoalError(parsed.error.issues[0]?.message ?? "invalid goal");
       }
       return parsed.data;
+    });
+  }
+
+  /**
+   * Set or clear (`undefined`) the merge grant. The only writer of `mergeGrant`: called solely
+   * by the token-protected `PUT/DELETE /goals/:id/merge-grant` route, never by the engine.
+   */
+  async setMergeGrant(id: string, grant: MergeGrant | undefined): Promise<Goal> {
+    return this.updateEntity(id, (existing) => {
+      const next: Goal = { ...existing, updatedAt: new Date().toISOString() };
+      if (grant) next.mergeGrant = grant;
+      else delete next.mergeGrant;
+      return next;
     });
   }
 

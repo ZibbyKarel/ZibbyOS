@@ -5530,6 +5530,22 @@
         "ceiling": "the goal's ceiling is tier1",
         "unknown": "not planned yet"
       }
+    },
+    "mergeGrant": {
+      "title": "Merge grant",
+      "needsTier3": "A merge grant needs the goal ceiling tier3.",
+      "noProjects": "The goal covers no project, so no merge grant can be set.",
+      "intro": "The one sanctioned autonomous merge: ZIBBY may merge PRs in these projects until the chosen time, only when the PR is approved on its current commit, CI is green and Autopilot is running. At most 24 h.",
+      "active": "Valid until {until} for: {projects}",
+      "expired": "The previous grant expired at {until}.",
+      "projects": "Projects",
+      "projectsPlaceholder": "Pick projects",
+      "until": "Valid until",
+      "untilHint": "At most 24 hours from now.",
+      "grant": "Grant",
+      "revoke": "Revoke",
+      "locked": "Failed: a merge grant needs a valid operator token.",
+      "failed": "The action failed."
     }
   }
 }

@@ -78,6 +78,8 @@ vi.mock("./mutations", () => ({
   useDeleteGoalMutation: () => ({ mutate: remove, isPending: false }),
   useWakeGoalMutation: () => ({ mutate: wake, isPending: false }),
   useResumeGoalInstanceMutation: () => ({ mutate: resume, isPending: false }),
+  useSetGoalMergeGrantMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useClearGoalMergeGrantMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock("../projects/queries", () => ({
   useProjectsQuery: () => ({

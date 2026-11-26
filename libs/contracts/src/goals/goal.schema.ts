@@ -52,6 +52,21 @@ export const MergeGrantSchema = z.object({
 });
 export type MergeGrant = z.infer<typeof MergeGrantSchema>;
 
+/** A merge grant may run at most this long (spec "Merge grant"). */
+export const MERGE_GRANT_MAX_HOURS = 24;
+
+/** `PUT /goals/:id/merge-grant` body; `grantedAt` is set by the server. Strict (422 otherwise). */
+export const SetMergeGrantSchema = z
+  .object({ projectIds: z.array(z.string().min(1)).min(1), until: IsoDateTimeSchema })
+  .strict();
+export type SetMergeGrantInput = z.infer<typeof SetMergeGrantSchema>;
+
+/**
+ * Transport body of the merge-grant PUT: loose, so a tokenless call is a 401 (not ts-rest's
+ * 400) and a bad body reaches the handler's strict parse (422).
+ */
+export const SetMergeGrantBodySchema = z.object({}).passthrough();
+
 /** Everything the operator may set (no id, no timestamps, no merge grant). */
 const GoalInputObject = z.object({
   name: z.string().min(1),

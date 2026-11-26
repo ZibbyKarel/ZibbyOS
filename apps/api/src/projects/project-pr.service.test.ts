@@ -694,3 +694,105 @@ describe("ProjectPrService — gitlab project", () => {
     );
   });
 });
+
+describe("ProjectPrService.mergeState (goal merge grant, fail-closed)", () => {
+  const HEAD = "a".repeat(40);
+  const OLD = "b".repeat(40);
+  const routes = (over: Record<string, unknown> = {}) => {
+    const bodies: Record<string, unknown> = {
+      "/pulls/42": {
+        state: "open",
+        merged: false,
+        draft: false,
+        mergeable: true,
+        head: { sha: HEAD },
+      },
+      reviews: [
+        { state: "APPROVED", commit_id: OLD, user: { login: "bob" } },
+        { state: "COMMENTED", commit_id: HEAD, user: { login: "bob" } },
+        { state: "APPROVED", commit_id: HEAD, user: { login: "carol" } },
+      ],
+      "check-runs": {
+        total_count: 1,
+        check_runs: [{ status: "completed", conclusion: "success" }],
+      },
+      status: { statuses: [{ state: "success" }] },
+      ...over,
+    };
+    return vi.fn(async (url: string) => {
+      const key = ["reviews", "check-runs", "status", "/pulls/42"].find((k) =>
+        url.includes(k.startsWith("/") ? k : `/${k}`),
+      );
+      const body = key ? bodies[key] : undefined;
+      return body === "fail" ? jsonResponse(500, {}) : jsonResponse(200, body);
+    }) as unknown as typeof fetch;
+  };
+
+  it("reads head, mergeable, approvals per reviewer and a settled green CI", async () => {
+    const state = await build({ fetchImpl: routes() }).mergeState("acme", 42);
+    expect(state).toEqual({
+      repo: "acme/app",
+      state: "open",
+      merged: false,
+      draft: false,
+      headSha: HEAD,
+      mergeable: true,
+      approvedShas: [OLD, HEAD],
+      changesRequested: false,
+      ci: "green",
+    });
+  });
+
+  it("a later dismissal or change request replaces the approval", async () => {
+    const state = await build({
+      fetchImpl: routes({
+        reviews: [
+          { state: "APPROVED", commit_id: HEAD, user: { login: "bob" } },
+          { state: "DISMISSED", commit_id: HEAD, user: { login: "bob" } },
+          { state: "CHANGES_REQUESTED", commit_id: HEAD, user: { login: "carol" } },
+        ],
+      }),
+    }).mergeState("acme", 42);
+    expect(state?.approvedShas).toEqual([]);
+    expect(state?.changesRequested).toBe(true);
+  });
+
+  it("CI: running = pending, failed = red, nothing = none", async () => {
+    const ci = async (checks: unknown, status: unknown = { statuses: [] }) =>
+      (await build({ fetchImpl: routes({ "check-runs": checks, status }) }).mergeState("acme", 42))
+        ?.ci;
+    expect(await ci({ total_count: 1, check_runs: [{ status: "in_progress" }] })).toBe("pending");
+    expect(
+      await ci({ total_count: 1, check_runs: [{ status: "completed", conclusion: "failure" }] }),
+    ).toBe("red");
+    expect(await ci({ total_count: 0, check_runs: [] })).toBe("none");
+    expect(await ci({ total_count: 0, check_runs: [] }, { statuses: [{ state: "pending" }] })).toBe(
+      "pending",
+    );
+  });
+
+  it("throws on a failed or truncated read, null on GitLab-less GitHub link", async () => {
+    await expect(
+      build({ fetchImpl: routes({ reviews: "fail" }) }).mergeState("acme", 42),
+    ).rejects.toThrow();
+    await expect(
+      build({
+        fetchImpl: routes({ "check-runs": { total_count: 101, check_runs: [] } }),
+      }).mergeState("acme", 42),
+    ).rejects.toThrow(/truncated/);
+    expect(
+      await build({ integrations: [], fetchImpl: routes() }).mergeState("acme", 42),
+    ).toBeNull();
+  });
+
+  it("merge pins the head SHA when given", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(200, { merged: true }),
+    ) as unknown as typeof fetch;
+    await build({ fetchImpl }).merge("acme", 42, undefined, false, HEAD);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://api.github.com/repos/acme/app/pulls/42/merge",
+      expect.objectContaining({ body: JSON.stringify({ sha: HEAD }) }),
+    );
+  });
+});

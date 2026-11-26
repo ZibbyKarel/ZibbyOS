@@ -216,6 +216,9 @@ const DENIED_ROUTES = new Set([
   "projects.mergeProjectPr",
   "projects.closeProjectPr",
   "projects.setProjectPrDraft",
+  // The merge grant: operator-token only, never chat-writable (Law 3 exception).
+  "goals.setGoalMergeGrant",
+  "goals.clearGoalMergeGrant",
   "tasks.createTask",
   "automations.triggerAutomation",
   "taskRuns.stopTaskRun",

@@ -94,4 +94,22 @@ describe("GoalsStorageService", () => {
     expect(fm).not.toHaveProperty("deadline");
     expect((await service.get("one-off")).predicate).toBeUndefined();
   });
+
+  it("only setMergeGrant writes the grant: create and update drop a smuggled one", async () => {
+    const grant = {
+      projectIds: ["a"],
+      until: "2026-12-01T00:00:00.000Z",
+      grantedAt: "2026-11-30T00:00:00.000Z",
+    };
+    await service.create({ ...input, mergeGrant: grant } as never);
+    expect((await service.get("my-goal")).mergeGrant).toBeUndefined();
+    await service.update("my-goal", { mergeGrant: grant } as never);
+    expect((await service.get("my-goal")).mergeGrant).toBeUndefined();
+
+    await service.setMergeGrant("my-goal", grant);
+    await service.update("my-goal", { mergeGrant: undefined, name: "x" } as never);
+    expect((await service.get("my-goal")).mergeGrant).toEqual(grant);
+    await service.setMergeGrant("my-goal", undefined);
+    expect((await service.get("my-goal")).mergeGrant).toBeUndefined();
+  });
 });

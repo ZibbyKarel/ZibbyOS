@@ -26,6 +26,7 @@ import { useProjectsQuery } from "../projects/queries";
 import { GoalDirectionalPanel } from "./components/GoalDirectionalPanel";
 import { GoalForm } from "./components/GoalForm";
 import { GoalInstancesPanel } from "./components/GoalInstancesPanel";
+import { GoalMergeGrantPanel } from "./components/GoalMergeGrantPanel";
 import { GoalPlanPanel } from "./components/GoalPlanPanel";
 import { GoalSettingsPanel } from "./components/GoalSettingsPanel";
 import { GoalStatusBadge } from "./components/GoalStatusBadge";
@@ -84,6 +85,15 @@ function GoalDetail({ goal }: { goal: Goal }) {
     projectName: (id: string) => projects.find((p) => p.id === id)?.name ?? id,
     companyName: (id: string) => companies.find((c) => c.id === id)?.name ?? id,
   };
+  const scope = goal.scope;
+  const scopeProjectIds =
+    scope.kind === "none"
+      ? []
+      : scope.kind === "projects"
+        ? scope.projectIds
+        : projects
+            .filter((p) => scope.kind === "all" || p.companyId === scope.companyId)
+            .map((p) => p.id);
   const state = stateQuery.data?.state;
   const rollup = stateQuery.data?.rollup;
   const instances = state?.instances ?? {};
@@ -214,6 +224,10 @@ function GoalDetail({ goal }: { goal: Goal }) {
               />
             </Panel>
           )}
+
+          <Panel header={t("mergeGrant.title")} padding="200">
+            <GoalMergeGrantPanel goal={goal} names={names} projectIds={scopeProjectIds} />
+          </Panel>
 
           <Panel header={t("detail.instancesTitle")} padding="200">
             {stateQuery.isError ? (

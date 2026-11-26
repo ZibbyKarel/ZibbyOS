@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   CreateGoalSchema,
   GOAL_PRESETS,
+  GoalActionSchema,
   type GoalInstance,
   GoalSchema,
   type GoalState,
+  SetMergeGrantSchema,
   UpdateGoalSchema,
   emptyGoalState,
   goalsContract,
@@ -23,6 +25,33 @@ describe("goalsContract", () => {
   it("mounts under /api/goals", () => {
     expect(goalsContract.createGoal.path).toBe("/api/goals");
     expect(goalsContract.resumeGoalInstance.path).toBe("/api/goals/:id/instances/:instance/resume");
+    expect(goalsContract.setGoalMergeGrant.path).toBe("/api/goals/:id/merge-grant");
+    expect(goalsContract.clearGoalMergeGrant.method).toBe("DELETE");
+  });
+});
+
+describe("merge grant", () => {
+  it("SetMergeGrantSchema needs projects, takes no grantedAt (the server sets it)", () => {
+    const until = "2026-12-01T00:00:00.000Z";
+    expect(SetMergeGrantSchema.safeParse({ projectIds: ["p"], until }).success).toBe(true);
+    expect(SetMergeGrantSchema.safeParse({ projectIds: [], until }).success).toBe(false);
+    expect(
+      SetMergeGrantSchema.safeParse({ projectIds: ["p"], until, grantedAt: until }).success,
+    ).toBe(false);
+  });
+
+  it("the merge action carries an actionId, the project and a full approved SHA", () => {
+    const merge = {
+      type: "merge",
+      actionId: "m1",
+      projectId: "p",
+      repo: "o/r",
+      number: 1,
+      approvedSha: "a".repeat(40),
+    };
+    expect(GoalActionSchema.safeParse(merge).success).toBe(true);
+    expect(GoalActionSchema.safeParse({ ...merge, actionId: undefined }).success).toBe(false);
+    expect(GoalActionSchema.safeParse({ ...merge, approvedSha: "abc" }).success).toBe(false);
   });
 });
 

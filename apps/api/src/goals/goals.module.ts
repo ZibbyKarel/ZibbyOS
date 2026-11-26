@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { ApprovalsModule } from "../approvals/approvals.module";
+import { ProjectsModule } from "../projects/projects.module";
 import { dataDir } from "../shared/data-dir";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsController } from "./goals.controller";
@@ -10,6 +12,8 @@ export function resolveGoalsDir(): string {
 }
 
 @Module({
+  // The merge-grant route: the operator token, and the projects a company/all scope covers.
+  imports: [ApprovalsModule, ProjectsModule],
   controllers: [GoalsController],
   providers: [
     { provide: GOALS_DIR, useFactory: resolveGoalsDir },

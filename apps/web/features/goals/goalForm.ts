@@ -72,7 +72,7 @@ export function isoToLocalInput(iso: string): string {
 }
 
 /** `datetime-local` value -> ISO instant (the browser's zone), or undefined when empty/invalid. */
-function localInputToIso(local: string): string | undefined {
+export function localInputToIso(local: string): string | undefined {
   if (!local) return undefined;
   const d = new Date(local);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();

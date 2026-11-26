@@ -118,6 +118,10 @@ describe("buildSelfApiCatalog", () => {
     expect(() => buildSelfApiCatalog(undefined, { gateRules: { listGateRules: "read" } })).toThrow(
       /denied/,
     );
+    // The merge grant is operator-token only: never allowlistable for the chat.
+    expect(() => buildSelfApiCatalog(undefined, { goals: { setGoalMergeGrant: "write" } })).toThrow(
+      /denied/,
+    );
   });
 
   it("throws when an entry is a DELETE or does not exist", () => {

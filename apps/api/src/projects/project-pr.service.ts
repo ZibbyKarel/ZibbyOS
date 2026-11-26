@@ -47,6 +47,32 @@ interface GitHubPull {
   created_at?: string;
 }
 
+/**
+ * goals-mandates — one PR's live merge preconditions, read for the goal merge grant. Every
+ * field is fail-closed: `ci` is `green` only when every check and status finished successfully
+ * (no checks at all = `none`), `approvedShas` holds the commit each reviewer's latest approval
+ * was given on.
+ */
+export interface PrMergeState {
+  repo: string;
+  state: "open" | "closed";
+  merged: boolean;
+  draft: boolean;
+  headSha: string;
+  /** GitHub's `mergeable`; `null` = not computed yet (unknown). */
+  mergeable: boolean | null;
+  /** The commit ids of the reviewers' latest reviews that are approvals (dismissed ones dropped). */
+  approvedShas: string[];
+  /** Some reviewer's latest review requests changes. */
+  changesRequested: boolean;
+  ci: "green" | "pending" | "red" | "none";
+}
+
+/** Check-run conclusions that count as green (anything else finished = red). */
+const GREEN_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
+/** Page size of the review / check reads; a full page fails closed (it could be truncated). */
+const STATE_PAGE = 100;
+
 /** PAT from the closed credentials union (null if absent) — same shape as the CI monitor. */
 function tokenOf(creds: CredentialsInput): string | null {
   return "token" in creds ? creds.token : null;
@@ -235,25 +261,112 @@ export class ProjectPrService {
   }
 
   /**
+   * goals-mandates — one GitHub PR's live merge preconditions (pull, reviews, check runs and
+   * commit statuses of the head), read fresh for the goal merge grant. Returns `null` for a
+   * GitLab project (a review's commit is not read there, so the grant fails closed) or one with
+   * no GitHub link. Throws on any failed or possibly truncated read — never guesses.
+   */
+  async mergeState(projectId: string, number: number): Promise<PrMergeState | null> {
+    const project = await this.projects.get(projectId); // 404 before anything else
+    const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
+    if (host?.kind === "gitlab") return null;
+    const link = await this.resolveGithubLink(project);
+    if (!link) return null;
+    const get = async <T>(path: string): Promise<T> => {
+      const res = await this.fetchImpl(`${GITHUB_API}/repos/${link.repo}${path}`, {
+        headers: { authorization: `Bearer ${link.token}`, accept: "application/vnd.github+json" },
+        signal: AbortSignal.timeout(LIST_OPEN_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`github ${path}: HTTP ${res.status}`);
+      return (await res.json()) as T;
+    };
+    const pull = await get<{
+      state?: string;
+      merged?: boolean;
+      draft?: boolean;
+      mergeable?: boolean | null;
+      head?: { sha?: string };
+    }>(`/pulls/${number}`);
+    const headSha = pull.head?.sha;
+    if (!headSha) throw new Error(`github pull #${number}: no head sha`);
+    const [reviews, checks, status] = await Promise.all([
+      get<{ state?: string; commit_id?: string; user?: { login?: string } }[]>(
+        `/pulls/${number}/reviews?per_page=${STATE_PAGE}`,
+      ),
+      get<{ total_count?: number; check_runs?: { status?: string; conclusion?: string | null }[] }>(
+        `/commits/${headSha}/check-runs?per_page=${STATE_PAGE}`,
+      ),
+      get<{ statuses?: { state?: string }[] }>(`/commits/${headSha}/status?per_page=${STATE_PAGE}`),
+    ]);
+    const runs = checks.check_runs ?? [];
+    const statuses = status.statuses ?? [];
+    if (
+      !Array.isArray(reviews) ||
+      reviews.length >= STATE_PAGE ||
+      (checks.total_count ?? 0) > runs.length ||
+      statuses.length >= STATE_PAGE
+    ) {
+      throw new Error(`github pull #${number}: reviews or checks may be truncated`);
+    }
+    // Reviews come oldest first; a reviewer's latest approve / request-changes / dismiss counts.
+    const latest = new Map<string, { state: string; commitId?: string }>();
+    for (const r of reviews) {
+      const login = r.user?.login;
+      if (!login || !["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state ?? "")) {
+        continue;
+      }
+      latest.set(login, { state: r.state ?? "", commitId: r.commit_id });
+    }
+    const current = [...latest.values()];
+    const ci: PrMergeState["ci"] =
+      runs.some((r) => r.status !== "completed") || statuses.some((x) => x.state === "pending")
+        ? "pending"
+        : runs.some((r) => !GREEN_CONCLUSIONS.has(r.conclusion ?? "")) ||
+            statuses.some((x) => x.state !== "success")
+          ? "red"
+          : runs.length + statuses.length === 0
+            ? "none"
+            : "green";
+    return {
+      repo: link.repo,
+      state: pull.state === "open" ? "open" : "closed",
+      merged: pull.merged === true,
+      draft: pull.draft === true,
+      headSha,
+      mergeable: typeof pull.mergeable === "boolean" ? pull.mergeable : null,
+      approvedShas: current.flatMap((r) =>
+        r.state === "APPROVED" && r.commitId ? [r.commitId] : [],
+      ),
+      changesRequested: current.some((r) => r.state === "CHANGES_REQUESTED"),
+      ci,
+    };
+  }
+
+  /**
    * Merge one open PR (`PUT /repos/{repo}/pulls/{number}/merge`).
    *
-   * **This method is the ONLY merge path in ZIBBY, and it is reached ONLY from
-   * the operator-triggered `POST /projects/:id/prs/:number/merge` controller
-   * route below — it is never called from any scheduler, monitor, or autonomous
-   * runner.** Merging is a Tier-3, "surface and wait" action (CLAUDE.md): the
-   * web UI gates every call behind a mandatory confirm dialog, and the Law
-   * "Never: Auto-merge" means no watcher/workflow in this codebase may invoke
-   * this method on the project's behalf.
+   * **This method is the ONLY merge path in ZIBBY.** It is reached from the operator-triggered
+   * `POST /projects/:id/prs/:number/merge` controller route below, and from exactly one
+   * autonomous caller: the goal engine's `merge` action (`goals/goal-merge.service.ts`), which
+   * runs only under an operator-set, token-protected, time-boxed merge grant (Law 3 exception,
+   * `docs/api/goals.md`) after re-reading every precondition with {@link mergeState} and passes
+   * `sha` so GitHub refuses the merge if the head moved meanwhile. No other scheduler, monitor
+   * or runner may call it.
    */
   async merge(
     projectId: string,
     number: number,
     method?: MergeMethod,
     deleteBranch = false,
+    /** GitHub only: the head SHA the PR must still have, else GitHub refuses (409). */
+    sha?: string,
   ): Promise<MergeProjectPrResult> {
     const project = await this.projects.get(projectId); // 404 before anything else
     const host = await resolveGitHostLink(this.resolvedProjects, this.credentials, project);
     if (host?.kind === "gitlab") {
+      // The head pin is GitHub-only here: a pinned merge never goes through unpinned.
+      if (sha)
+        throw new PrNotMergeableError(projectId, number, "head SHA pin unsupported on GitLab");
       const result = await mergeGitlabMr(
         this.gitlab,
         host,
@@ -278,7 +391,10 @@ export class ProjectPrService {
         accept: "application/vnd.github+json",
         "content-type": "application/json",
       },
-      body: JSON.stringify(method ? { merge_method: method } : {}),
+      body: JSON.stringify({
+        ...(method ? { merge_method: method } : {}),
+        ...(sha ? { sha } : {}),
+      }),
     });
     if (res.status === 405 || res.status === 409) {
       const detail = await res

@@ -6,7 +6,7 @@ import { GoalInstanceSchema, GoalParkedReasonSchema } from "./goal-state.schema"
 const WaitingOnSchema = GoalInstanceSchema.shape.waitingOn.unwrap();
 
 /**
- * The planner's stable id for one piece of work (`start-task`, `run-loop`, `pr-action`). The
+ * The planner's stable id for one piece of work (`start-task`, `run-loop`, `pr-action`, `merge`). The
  * engine skips an id it already applied this cycle, so a re-plan or a retried tick never
  * starts the same work twice.
  */
@@ -114,13 +114,19 @@ export const GoalActionSchema = z.discriminatedUnion("type", [
   }),
   /** Directional goal: tick a checklist item the planner verified; all done = the instance is done. */
   z.object({ type: z.literal("update-checklist"), id: z.string().min(1), done: z.boolean() }),
-  /** Merge a PR — only with a valid merge grant, otherwise a "ready to merge" report. */
+  /**
+   * Merge a PR — only with a valid merge grant, otherwise a "ready to merge" report. Every
+   * precondition is re-read from the git host at merge time; nothing here is trusted.
+   */
   z.object({
     type: z.literal("merge"),
+    actionId: GoalActionIdSchema,
+    /** The PR's project; must be the instance's own (a `_` instance never merges). */
+    projectId: z.string().min(1),
     repo: z.string().min(1),
     number: z.number().int().positive(),
-    /** The head SHA the planner saw approved; re-checked at merge time. */
-    headSha: z.string().min(1),
+    /** The head SHA the planner saw approved: only a claim, compared with the host's. */
+    approvedSha: z.string().regex(/^[0-9a-f]{40}$/),
   }),
 ]);
 export type GoalAction = z.infer<typeof GoalActionSchema>;

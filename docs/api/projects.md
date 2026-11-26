@@ -157,11 +157,15 @@ rate-limit error, injectable `fetchImpl` for tests).
   The request is bounded by `LIST_OPEN_TIMEOUT_MS` (`AbortSignal.timeout`) — this
   feeds Release's merge queue, which in turn feeds the briefing/`get_status`
   chat tool, so a stalled request must not hang that chain.
-- `merge(projectId, number, method?)` — **the only merge path in ZIBBY**,
-  reached only from the operator-triggered controller route. Explicitly
-  documented as never called from any scheduler/monitor/autonomous runner —
-  Law "Never: Auto-merge". 422 with no link, 409 when GitHub reports
-  not-mergeable.
+- `merge(projectId, number, method?, deleteBranch?, sha?)` — **the only merge path in ZIBBY**,
+  reached from the operator-triggered controller route and from exactly one autonomous caller:
+  the goal engine's `merge` action under an operator-set, token-protected, time-boxed merge
+  grant (`docs/api/goals.md` "Merge grant"), which passes `sha` so GitHub refuses a moved head.
+  No other scheduler/monitor/runner calls it. 422 with no link, 409 when GitHub reports
+  not-mergeable (or the pinned `sha` no longer matches).
+- `mergeState(projectId, number)` — the merge grant's fail-closed live read (GitHub only; `null`
+  on GitLab): head SHA, `mergeable`, the commit each reviewer's latest approval was given on, a
+  current change request, and CI rolled up from check runs + commit statuses.
   Body `{ method?, deleteBranch? }` (Phase 129 P3). With `deleteBranch: true`, after a
   successful merge it reads the PR's head and `DELETE /repos/{repo}/git/refs/heads/{branch}`;
   a fork (head repo ≠ base repo) is skipped, a 422 (ref already gone) counts as deleted.

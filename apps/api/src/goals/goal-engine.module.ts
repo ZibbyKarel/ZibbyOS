@@ -18,6 +18,7 @@ import { GOAL_FACTS_SOURCES, GoalFactsService, TaskFactsSource } from "./goal-fa
 import { GoalDecisionService } from "./goal-decision.service";
 import { ApprovalFactsSource, PrFactsSource, ReplyFactsSource } from "./goal-facts-sources";
 import { GOAL_PLANNER } from "./goal-planner";
+import { GoalMergeService } from "./goal-merge.service";
 import { GoalMessageService } from "./goal-message.service";
 import { GoalPlannerService } from "./goal-planner.service";
 import { GoalWorkHandlers } from "./goal-work-handlers";
@@ -76,6 +77,8 @@ import { GoalsModule } from "./goals.module";
     GoalWorkHandlers,
     GoalMessageService,
     GoalDecisionService,
+    // The `merge` action under an operator-set merge grant (ProjectPrService from ProjectsModule).
+    GoalMergeService,
     GoalEngineService,
   ],
   exports: [GoalActionExecutor, GoalEngineService],

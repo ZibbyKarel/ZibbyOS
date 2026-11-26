@@ -1,7 +1,12 @@
 import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { ErrorSchema } from "../common.schema";
-import { CreateGoalBodySchema, GoalSchema, UpdateGoalBodySchema } from "./goal.schema";
+import {
+  CreateGoalBodySchema,
+  GoalSchema,
+  SetMergeGrantBodySchema,
+  UpdateGoalBodySchema,
+} from "./goal.schema";
 import { GoalRollupSchema, GoalStateSchema, GoalTimelineEventSchema } from "./goal-state.schema";
 
 const c = initContract();
@@ -88,6 +93,23 @@ export const goalsContract = c.router(
       body: z.object({}).optional(),
       responses: { 200: GoalStateViewSchema, 404: ErrorSchema, 409: ErrorSchema },
       summary: "Put a parked instance back to planning",
+    },
+    setGoalMergeGrant: {
+      method: "PUT",
+      path: "/goals/:id/merge-grant",
+      pathParams: GoalIdParam,
+      body: SetMergeGrantBodySchema,
+      responses: { 200: GoalSchema, 401: ErrorSchema, 404: ErrorSchema, 422: ErrorSchema },
+      summary:
+        "Set the goal's merge grant (operator token; ceiling tier3; until ≤ 24 h; projects in scope)",
+    },
+    clearGoalMergeGrant: {
+      method: "DELETE",
+      path: "/goals/:id/merge-grant",
+      pathParams: GoalIdParam,
+      body: z.object({}).optional(),
+      responses: { 200: GoalSchema, 401: ErrorSchema, 404: ErrorSchema },
+      summary: "Revoke the goal's merge grant (operator token)",
     },
   },
   { pathPrefix: "/api", strictStatusCodes: true },
