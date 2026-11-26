@@ -33,6 +33,8 @@ export const GoalInstanceSchema = z.object({
   summary: z.string().optional(),
   /** Consecutive planner failures; the engine parks (`failed`) at 3. */
   planFailures: z.number().int().min(0).optional(),
+  /** Cycle index the operator resumed this instance in; the deadline/budget parks skip it. */
+  resumedCycle: z.number().int().min(0).optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 

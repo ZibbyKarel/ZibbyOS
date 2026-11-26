@@ -14,17 +14,27 @@ import { SystemConfigStore } from "../system/system-config.store";
 import {
   GoalActionContext,
   GoalActionExecutor,
+  type GoalBudgetLeft,
   type GoalEffect,
   parkInstance,
 } from "./goal-action-executor";
 import { latestCycleStart } from "./goal-cadence";
-import { GoalFactsService, goalFingerprint, isTaskInFlight, taskFactsOf } from "./goal-facts";
+import {
+  type GoalFacts,
+  GoalFactsService,
+  goalFingerprint,
+  isTaskInFlight,
+  taskFactsOf,
+} from "./goal-facts";
 import { GOAL_PLANNER, type GoalPlanner } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 
 /** Consecutive planner failures before an instance parks (`failed`). */
 export const MAX_PLAN_FAILURES = 3;
+
+/** A planner run longer than this counts as a failure (a hung run would stall every goal). */
+export const PLAN_TIMEOUT_MS = 10 * 60 * 1000;
 
 const HOUR_MS = 60 * 60 * 1000;
 const NO_PROJECT = "_";
@@ -117,6 +127,9 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       try {
         await this.tickGoal(goal, now, dirty, listProjects);
       } catch (error) {
+        // ponytail: which refs were this goal's is unknown here, so all go back (an extra
+        // re-plan at worst); per-goal attribution if that ever costs too much.
+        for (const ref of dirty) this.dirtyRefs.add(ref);
         this.log.warn("goal tick failed for one goal — others unaffected", {
           goalId: goal.id,
           error: errorText(error),
@@ -160,6 +173,11 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       try {
         await this.tickInstance(goal, state, key, now, dirty);
       } catch (error) {
+        // The refs this instance consumed go back, so the next tick still sees them.
+        const instance = state.instances[key];
+        for (const ref of instance ? instanceRefs(instance) : []) {
+          if (dirty.has(ref)) this.dirtyRefs.add(ref);
+        }
         this.log.warn("goal instance tick failed — other instances unaffected", {
           goalId: goal.id,
           instance: key,
@@ -181,39 +199,47 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (!before || before.status === "parked" || before.status === "done") return;
     const work = structuredClone(before);
     const facts = await this.facts.collect({ goal, instanceKey: key, instance: before });
-    const ctx = new GoalActionContext(goal, key, work, facts, now);
+    const remainingBudget = await this.remainingBudget(goal, state, before, now);
+    const ctx = new GoalActionContext(goal, key, work, facts, now, remainingBudget, (taskId) =>
+      this.persistTask(goal, state.cycle.index, key, taskId),
+    );
+    // An operator resume in this cycle overrides the deadline and budget parks.
+    const resumed = before.resumedCycle === state.cycle.index;
 
     const deadline = state.cycle.deadlineAt;
-    if (deadline && now.getTime() >= Date.parse(deadline)) {
+    if (!resumed && deadline && now.getTime() >= Date.parse(deadline)) {
       parkInstance(ctx, "deadline", `Deadline ${deadline} passed.`);
+      return this.apply(goal, state, key, before, ctx);
+    }
+    if (!resumed && ctx.budgetExhausted && !this.inFlight(facts, before)) {
+      parkInstance(ctx, "budget", "The cycle's budget is used up.");
       return this.apply(goal, state, key, before, ctx);
     }
 
     const fingerprint = goalFingerprint(facts);
     const wakeDue = before.wakeAt !== undefined && now.getTime() >= Date.parse(before.wakeAt);
-    const isDirty =
-      before.taskIds.some((id) => dirty.has(id)) ||
-      (before.waitingOn ?? []).some((w) => dirty.has(w.ref));
+    const isDirty = instanceRefs(before).some((ref) => dirty.has(ref));
     if (fingerprint === before.fingerprint && !wakeDue && !isDirty) return;
 
-    const remainingBudget = await this.remainingBudget(goal, state, before, now);
-    ctx.remainingBudget = remainingBudget;
     ctx.activity("goal-woke", `${ctx.label}: planning`);
     let plan;
     try {
-      const raw = await this.planner.plan({
-        goal,
-        instanceKey: key,
-        ...(ctx.projectId ? { projectId: ctx.projectId } : {}),
-        instance: before,
-        cycle: state.cycle,
-        facts,
-        ceiling: goal.ceiling,
-        remainingBudget,
-        nudges: state.nudges,
-        decisionsThisMonth: state.decisionsThisMonth,
-        now: now.toISOString(),
-      });
+      const raw = await withTimeout(
+        this.planner.plan({
+          goal,
+          instanceKey: key,
+          ...(ctx.projectId ? { projectId: ctx.projectId } : {}),
+          instance: before,
+          cycle: state.cycle,
+          facts,
+          ceiling: goal.ceiling,
+          remainingBudget,
+          nudges: state.nudges,
+          decisionsThisMonth: state.decisionsThisMonth,
+          now: now.toISOString(),
+        }),
+        PLAN_TIMEOUT_MS,
+      );
       const parsed = GoalPlanSchema.safeParse(raw);
       if (!parsed.success) throw new Error(`unparseable plan: ${parsed.error.issues[0]?.message}`);
       plan = parsed.data;
@@ -240,17 +266,9 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     await this.executor.execute(plan.actions, ctx);
 
     if (work.status !== "done" && work.status !== "parked") {
-      const tasks = taskFactsOf(facts);
-      const known = new Set(tasks.map((t) => t.id));
-      const inFlight = tasks.some(isTaskInFlight) || work.taskIds.some((id) => !known.has(id));
-      const exhausted =
-        (remainingBudget.runs !== undefined && remainingBudget.runs <= 0) ||
-        (remainingBudget.costUsd !== undefined && remainingBudget.costUsd <= 0);
-      if (exhausted && !inFlight) {
-        parkInstance(ctx, "budget", "The cycle's budget is used up.");
-        // Read through ctx: the handlers mutated it after the deletes above (TS narrows `work`).
-      } else if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
-      else if (inFlight) work.status = "acting";
+      // Read through ctx: the handlers mutated it after the deletes above (TS narrows `work`).
+      if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
+      else if (this.inFlight(facts, work)) work.status = "acting";
       else work.status = "planning";
     }
     // Fingerprint what the next tick will see: the actions' own changes (a new wakeAt, a
@@ -263,14 +281,21 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     return this.apply(goal, state, key, before, ctx);
   }
 
+  /** A task of the instance is still running (or was started and has no facts yet). */
+  private inFlight(facts: GoalFacts, instance: GoalInstance): boolean {
+    const tasks = taskFactsOf(facts);
+    const known = new Set(tasks.map((t) => t.id));
+    return tasks.some(isTaskInFlight) || instance.taskIds.some((id) => !known.has(id));
+  }
+
   private async remainingBudget(
     goal: Goal,
     state: GoalState,
     instance: GoalInstance,
     now: Date,
-  ): Promise<{ runs?: number; costUsd?: number }> {
+  ): Promise<GoalBudgetLeft> {
     const { maxRunsPerCycle, maxCostUsdPerCycle } = goal.budget ?? {};
-    const out: { runs?: number; costUsd?: number } = {};
+    const out: GoalBudgetLeft = {};
     if (maxRunsPerCycle !== undefined) out.runs = maxRunsPerCycle - instance.taskIds.length;
     if (maxCostUsdPerCycle !== undefined) {
       const spent = await this.ledger.sumCostForTasks(
@@ -283,6 +308,15 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     return out;
   }
 
+  /** `GoalActionContext.recordTask`: the task id lands in the stored instance at once. */
+  private async persistTask(goal: Goal, cycle: number, key: string, taskId: string): Promise<void> {
+    await this.store.update(goal.id, goal.createdAt, (fresh) => {
+      const current = fresh.instances[key];
+      if (!current || fresh.cycle.index !== cycle) return;
+      if (!current.taskIds.includes(taskId)) current.taskIds.push(taskId);
+    });
+  }
+
   /** Write the working copy onto the fresh instance under the lock, then the effects. */
   private async apply(
     goal: Goal,
@@ -291,20 +325,32 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     before: GoalInstance,
     ctx: GoalActionContext,
   ): Promise<void> {
-    let written = false;
-    await this.store.update(goal.id, goal.createdAt, (fresh) => {
-      const current = fresh.instances[key];
-      // A new cycle or a removed instance meanwhile: this result is stale.
-      if (!current || fresh.cycle.index !== state.cycle.index) return;
-      if (current.status === "parked" && before.status !== "parked") return;
+    let dropped: string | null = null;
+    const fresh = await this.store.update(goal.id, goal.createdAt, (s) => {
+      const current = s.instances[key];
+      // A new cycle, a removed instance or a park meanwhile: this result is stale.
+      if (!current) dropped = "the instance was removed";
+      else if (s.cycle.index !== state.cycle.index) dropped = "a new cycle started";
+      else if (current.status === "parked" && before.status !== "parked") {
+        dropped = "the instance was parked meanwhile";
+      }
+      if (dropped || !current) return;
       const next = { ...ctx.instance };
+      // Tasks recorded via recordTask are already stored; never lose one.
+      next.taskIds = [...new Set([...current.taskIds, ...next.taskIds])];
       // ponytail: a wake landed while the planner ran — keep its cleared fingerprint so it
-      // re-plans; finer-grained merges (taskIds appended by both) wait for a real need.
+      // re-plans; finer-grained merges wait for a real need.
       if (current.fingerprint !== before.fingerprint) delete next.fingerprint;
-      fresh.instances[key] = next;
-      written = true;
+      s.instances[key] = next;
     });
-    if (written) await this.flush(goal, state.cycle.index, ctx.effects);
+    if (!dropped) return this.flush(goal, state.cycle.index, ctx.effects);
+    await this.store.appendTimeline(goal.id, {
+      at: new Date().toISOString(),
+      cycle: fresh.cycle.index,
+      instance: key,
+      kind: "note",
+      text: `Tick result dropped: ${dropped}.`,
+    });
   }
 
   private async flush(goal: Goal, cycle: number, effects: GoalEffect[]): Promise<void> {
@@ -399,6 +445,19 @@ export function bookkeep(
     delete inst.wakeAt;
     timeline(key, "note", "The project left the goal's scope; instance closed.");
   }
+}
+
+/** The refs whose settling wakes the instance: its tasks and what it waits on. */
+function instanceRefs(instance: GoalInstance): string[] {
+  return [...instance.taskIds, ...(instance.waitingOn ?? []).map((w) => w.ref)];
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`planner timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 function errorText(error: unknown): string {

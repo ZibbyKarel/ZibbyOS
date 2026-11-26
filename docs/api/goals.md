@@ -32,17 +32,17 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 
 ## Routes (`/api`)
 
-| Route                                        | Notes                                                                    |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| `GET /goals`                                 | goals, each with its `rollup`                                            |
-| `POST /goals`                                | 201; 409 duplicate id; 422 invalid / `mergeGrant`                        |
-| `GET /goals/:id`                             | 404                                                                      |
-| `PATCH /goals/:id`                           | partial; 422 as for create (also if the merged goal is invalid)          |
-| `DELETE /goals/:id`                          | removes the definition and `state/<id>/`                                 |
-| `GET /goals/:id/state`                       | `{ state, rollup }`                                                      |
-| `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                 |
-| `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event               |
-| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason`; 404 unknown, 409 not parked |
+| Route                                        | Notes                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `GET /goals`                                 | goals, each with its `rollup`                                                                                    |
+| `POST /goals`                                | 201; 409 duplicate id; 422 invalid / `mergeGrant`                                                                |
+| `GET /goals/:id`                             | 404                                                                                                              |
+| `PATCH /goals/:id`                           | partial; 422 as for create (also if the merged goal is invalid)                                                  |
+| `DELETE /goals/:id`                          | removes the definition and `state/<id>/`                                                                         |
+| `GET /goals/:id/state`                       | `{ state, rollup }`                                                                                              |
+| `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                                                         |
+| `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event                                                       |
+| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason` and `planFailures`, sets `resumedCycle`; 404 unknown, 409 not parked |
 
 ## Engine
 
@@ -72,42 +72,53 @@ tick, per enabled goal (one goal failing never blocks the others):
    the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
    project gets an instance; one that left the scope becomes `done` ("Left the goal's scope.").
 3. **Per instance** (sorted, each in its own try/catch), skipping `parked` and `done`:
-   - Past `cycle.deadlineAt` -> park `deadline`. It is not re-planned in that cycle.
+   - Past `cycle.deadlineAt` -> park `deadline`. The cycle budget used up and no task in
+     flight -> park `budget`. Both happen before the wake check, with no planner call, and
+     neither applies to an instance the operator resumed in this cycle (`resumedCycle` = the
+     cycle index; a new cycle clears it).
    - **Wake check.** The facts are fingerprinted (sha256 of the key-sorted JSON, no clock in
      it). The planner runs only when the fingerprint differs from the stored one, `wakeAt` is
      due, or a dirty ref matches: one of the instance's `taskIds` or a `waitingOn` ref that
      settled (`ApprovalsService.settled()`, a `task-outcome` activity). Otherwise no model call.
-   - A `goal-woke` activity, then `planner.plan(ctx)`, validated with `GoalPlanSchema`. A throw
-     or an invalid plan counts in `planFailures`; 3 in a row park `failed`.
-   - The actions run through the executor. Then: the cycle budget used up and nothing in
-     flight -> park `budget`; `waitingOn`/`wakeAt` set -> `waiting`; a task in flight ->
-     `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
+   - A `goal-woke` activity, then `planner.plan(ctx)`, validated with `GoalPlanSchema`. A throw,
+     an invalid plan or a run over `PLAN_TIMEOUT_MS` (10 min) counts in `planFailures`; 3 in a
+     row park `failed`.
+   - The actions run through the executor. Then: `waitingOn`/`wakeAt` set -> `waiting`; a task
+     in flight -> `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
      so the actions' own changes do not wake the planner on the next tick.
 4. The result is written under the lock onto the freshly read instance. It is dropped when the
-   cycle changed or the instance went away meanwhile; a `wake` that landed meanwhile keeps its
-   cleared fingerprint.
+   cycle changed, the instance went away or was parked meanwhile, and a timeline line
+   ("Tick result dropped: …") says so. A `wake` that landed meanwhile keeps its cleared
+   fingerprint. Task ids recorded by a handler are kept either way (see below).
+
+A goal or instance whose processing throws puts the dirty refs it consumed back, so the next
+tick still sees them. An idle tick writes nothing (`GoalStateStore.update` skips an unchanged
+state), so it emits no `goals` SSE event.
 
 Remaining budget: `maxRunsPerCycle - taskIds.length`, and `maxCostUsdPerCycle` minus
 `BudgetLedgerStore.sumCostForTasks(taskIds, cycle.startedAt, now)` (`docs/api/budget.md`).
 
 ### Actions and the ceiling filter
 
-| Action       | Fields                                                      | Min ceiling | Handler in this phase      |
-| ------------ | ----------------------------------------------------------- | ----------- | -------------------------- |
-| `note`       | `text`                                                      | tier1       | timeline line              |
-| `report`     | `text`                                                      | tier1       | timeline + `goal-acted`    |
-| `wait`       | `waitingOn?`, `wakeAt?` (one required)                      | tier1       | sets the instance fields   |
-| `done`       | `summary?`                                                  | tier1       | status `done`, `goal-done` |
-| `park`       | `reason`, `text?`                                           | tier1       | status `parked`            |
-| `start-task` | `text`, `title?`, `targetId?`                               | tier2       | none yet                   |
-| `run-loop`   | `text`                                                      | tier2       | none yet                   |
-| `pr-action`  | `action` (review/address-comments/fix-ci), `repo`, `number` | tier2       | none yet                   |
-| `message`    | `to`, `text`, `integrationId?`, `threadRef?`                | tier2       | none yet                   |
-| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)            | tier2       | none yet                   |
-| `merge`      | `repo`, `number`, `headSha`                                 | tier3       | none yet                   |
+| Action       | Fields                                                      | Min ceiling | Handler in this phase                   |
+| ------------ | ----------------------------------------------------------- | ----------- | --------------------------------------- |
+| `note`       | `text`                                                      | tier1       | timeline line                           |
+| `report`     | `text`                                                      | tier1       | timeline + `goal-acted`                 |
+| `wait`       | `waitingOn?`, `wakeAt?` (one required)                      | tier1       | sets the fields; `wakeAt` ≥ now + 5 min |
+| `done`       | `summary?`                                                  | tier1       | status `done`, `goal-done`              |
+| `park`       | `reason`, `text?`                                           | tier1       | status `parked`                         |
+| `start-task` | `text`, `title?`, `targetId?`                               | tier2       | none yet                                |
+| `run-loop`   | `text`                                                      | tier2       | none yet                                |
+| `pr-action`  | `action` (review/address-comments/fix-ci), `repo`, `number` | tier2       | none yet                                |
+| `message`    | `to`, `text`, `integrationId?`, `threadRef?`                | tier2       | none yet                                |
+| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)            | tier2       | none yet                                |
+| `merge`      | `repo`, `number`, `headSha`                                 | tier3       | none yet                                |
 
 An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
-`report` naming what was not done. After `done` or `park` no further action runs. A later phase
+`report` naming what was not done, and so does a spending action (`start-task`, `run-loop`)
+once `ctx.remainingBudget` is used up. After `done` or `park` no further action runs. A handler
+that starts a task must `await ctx.recordTask(taskId)` before returning: it writes the id to the
+stored instance at once, so a crash or a dropped result never forgets spent work. A later phase
 adds a handler with `GoalActionExecutor.register(type, handler)`, a facts source by appending to
 the `GOAL_FACTS_SOURCES` factory, and the real planner by replacing the `GOAL_PLANNER` provider.
 

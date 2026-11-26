@@ -8,7 +8,7 @@ import { ActivityEventsService } from "../activity/activity-events.service";
 import { BudgetLedgerStore } from "../budget/ledger.store";
 import { fakeSystemConfigStore } from "../system/system-config.fixture";
 import { GoalActionExecutor } from "./goal-action-executor";
-import { GoalEngineService } from "./goal-engine.service";
+import { GoalEngineService, PLAN_TIMEOUT_MS } from "./goal-engine.service";
 import { GoalFactsService, TaskFactsSource } from "./goal-facts";
 import type { GoalPlanner, GoalPlannerContext } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
@@ -34,6 +34,7 @@ describe("GoalEngineService", () => {
   let engine: GoalEngineService;
   let projectList: { id: string; companyId?: string }[];
   let systemConfig: ReturnType<typeof fakeSystemConfigStore>;
+  let executor: GoalActionExecutor;
 
   beforeEach(async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "goal-engine-"));
@@ -44,6 +45,7 @@ describe("GoalEngineService", () => {
     planner = { plan: vi.fn(async () => ({ plan: "", actions: [] })) };
     activity = { record: vi.fn(async () => undefined) };
     systemConfig = fakeSystemConfigStore();
+    executor = new GoalActionExecutor();
     const taskStore = {
       get: async (id: string) => {
         const t = tasks.get(id);
@@ -57,7 +59,7 @@ describe("GoalEngineService", () => {
       { list: async () => projectList } as never,
       new GoalFactsService([new TaskFactsSource(taskStore as never)]),
       planner,
-      new GoalActionExecutor(),
+      executor,
       new BudgetLedgerStore(path.join(dir, "ledger")),
       activity as never,
       new ActivityEventsService(),
@@ -200,12 +202,120 @@ describe("GoalEngineService", () => {
       status: "dispatched",
       outcome: { status: "error", summary: "boom", finishedAt: later(2).toISOString() },
     });
+    const ctx = planner.plan.mock.calls[1]?.[0] as GoalPlannerContext;
+    expect(ctx.remainingBudget).toEqual({ runs: 0 });
     await engine.tick(later(3));
     const s = await state();
     expect(s.instances._?.status).toBe("parked");
     expect(s.instances._?.parkedReason).toBe("budget");
-    const ctx = planner.plan.mock.calls[2]?.[0] as GoalPlannerContext;
-    expect(ctx.remainingBudget).toEqual({ runs: 0 });
+    // Spec step 2: the budget park comes before planning — no third planner call.
+    expect(planner.plan).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a spending action centrally once the budget is used up", async () => {
+    const handler = vi.fn();
+    executor.register("start-task", handler);
+    await create({ budget: { maxRunsPerCycle: 1 } });
+    await engine.tick(NOW);
+    tasks.set("t1", { id: "t1", status: "dispatched" });
+    await setInstance({ taskIds: ["t1"] });
+    planner.plan.mockResolvedValueOnce({
+      plan: "",
+      actions: [{ type: "start-task", text: "one more" }],
+    });
+    await engine.tick(later(1));
+    expect(handler).not.toHaveBeenCalled();
+    expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
+      expect.stringContaining("Not done: start-task — the cycle's budget is used up."),
+    ]);
+  });
+
+  it("raises a past wakeAt to the 5 min floor, so the planner is not called every tick", async () => {
+    await create();
+    planner.plan.mockImplementation(async () => ({
+      plan: "",
+      actions: [{ type: "wait", wakeAt: new Date(0).toISOString() }],
+    }));
+    for (let m = 0; m < 30; m++) await engine.tick(later(m));
+    // Woken at 0, 5, 10, 15, 20, 25 — never once per tick.
+    expect(planner.plan).toHaveBeenCalledTimes(6);
+    expect((await state()).instances._?.wakeAt).toBe(later(30).toISOString());
+  });
+
+  it("a hung planner times out and counts as a failure", async () => {
+    await create();
+    planner.plan.mockImplementation(() => new Promise(() => undefined));
+    // Only the timeout is faked; file I/O needs the real event loop (setImmediate).
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let settled = false;
+    const tick = engine.tick(NOW).then(() => (settled = true));
+    while (!settled) {
+      await new Promise((r) => setImmediate(r));
+      vi.advanceTimersByTime(PLAN_TIMEOUT_MS);
+    }
+    await tick;
+    const s = await state();
+    expect(s.instances._?.planFailures).toBe(1);
+    expect(s.instances._?.status).toBe("planning");
+  });
+
+  it("recordTask persists a started task even when the tick result is dropped", async () => {
+    executor.register("start-task", async (_a, ctx) => {
+      await ctx.recordTask("t9");
+      // A concurrent park lands before the engine applies its result.
+      await store.update("g", NOW.toISOString(), (s) => {
+        const inst = s.instances._;
+        if (inst) inst.status = "parked";
+      });
+    });
+    await create();
+    planner.plan.mockResolvedValueOnce({ plan: "", actions: [{ type: "start-task", text: "x" }] });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.taskIds).toEqual(["t9"]);
+    const timeline = await store.timeline("g");
+    expect(timeline.map((e) => e.text)).toContain(
+      "Tick result dropped: the instance was parked meanwhile.",
+    );
+  });
+
+  it("resume overrides a deadline park for the rest of the cycle", async () => {
+    await create({ deadline: later(60).toISOString() });
+    await engine.tick(NOW);
+    await engine.tick(later(61));
+    expect((await state()).instances._?.status).toBe("parked");
+    await store.resume("g", "_", NOW.toISOString());
+    await engine.tick(later(62));
+    await engine.tick(later(63));
+    const s = await state();
+    expect(s.instances._?.status).toBe("planning");
+    expect(s.instances._?.resumedCycle).toBe(0);
+    expect(recorded("goal-parked")).toHaveLength(1);
+  });
+
+  it("resume resets planFailures, so a resumed failed instance gets 3 fresh tries", async () => {
+    await create();
+    planner.plan.mockRejectedValue(new Error("boom"));
+    for (let m = 0; m < 3; m++) await engine.tick(later(m));
+    expect((await state()).instances._?.parkedReason).toBe("failed");
+    await store.resume("g", "_", NOW.toISOString());
+    expect((await state()).instances._?.planFailures).toBeUndefined();
+    await engine.tick(later(10));
+    expect((await state()).instances._?.status).toBe("planning");
+  });
+
+  it("puts a failed instance's dirty refs back for the next tick", async () => {
+    await create();
+    await engine.tick(NOW);
+    tasks.set("t1", { id: "t1", status: "dispatched" });
+    await setInstance({ taskIds: ["t1"] });
+    await engine.tick(later(1));
+    const collect = vi.spyOn(GoalFactsService.prototype, "collect");
+    collect.mockRejectedValueOnce(new Error("disk"));
+    engine.markDirty("t1");
+    await engine.tick(later(2)); // throws inside the instance
+    collect.mockRestore();
+    await engine.tick(later(3));
+    expect(planner.plan).toHaveBeenCalledTimes(3);
   });
 
   it("a cadence boundary starts a new cycle, resets taskIds and un-parks", async () => {

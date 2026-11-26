@@ -12,6 +12,17 @@ import type { GoalFacts } from "./goal-facts";
 
 type ParkedReason = NonNullable<GoalInstance["parkedReason"]>;
 
+/** A `wakeAt` earlier than now + this is raised to it, so a plan cannot re-wake every tick. */
+export const WAKE_FLOOR_MS = 5 * 60 * 1000;
+
+/** Actions that spend the cycle's budget; refused centrally once it is used up. */
+const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
+
+export interface GoalBudgetLeft {
+  runs?: number;
+  costUsd?: number;
+}
+
 /** A side effect the engine writes after the instance state (timeline line or activity entry). */
 export type GoalEffect =
   | {
@@ -37,9 +48,25 @@ export class GoalActionContext {
     readonly instance: GoalInstance,
     readonly facts: GoalFacts,
     readonly now: Date,
-    /** What is left of the cycle's budget; a spending handler refuses at 0. Set before acting. */
-    public remainingBudget: { runs?: number; costUsd?: number } = {},
+    /** What is left of the cycle's budget (a field absent = unset). */
+    readonly remainingBudget: GoalBudgetLeft = {},
+    private readonly persistTask: (taskId: string) => Promise<void> = async () => undefined,
   ) {}
+
+  /**
+   * Record a task this instance started: added to the working copy AND written to the
+   * stored instance at once, so a crash or a dropped result never forgets spent work.
+   * **A spending handler (`start-task`, `run-loop`) must await this before returning.**
+   */
+  async recordTask(taskId: string): Promise<void> {
+    if (!this.instance.taskIds.includes(taskId)) this.instance.taskIds.push(taskId);
+    await this.persistTask(taskId);
+  }
+
+  get budgetExhausted(): boolean {
+    const { runs, costUsd } = this.remainingBudget;
+    return (runs !== undefined && runs <= 0) || (costUsd !== undefined && costUsd <= 0);
+  }
 
   get projectId(): string | undefined {
     return this.instanceKey === "_" ? undefined : this.instanceKey;
@@ -106,12 +133,21 @@ export class GoalActionExecutor {
     this.register("report", (a, ctx) => reportFromGoal(ctx, a.text));
     this.register("wait", (a, ctx) => {
       if (a.waitingOn) ctx.instance.waitingOn = a.waitingOn;
-      if (a.wakeAt) ctx.instance.wakeAt = a.wakeAt;
+      if (a.wakeAt) {
+        const floor = ctx.now.getTime() + WAKE_FLOOR_MS;
+        if (Date.parse(a.wakeAt) < floor) {
+          ctx.instance.wakeAt = new Date(floor).toISOString();
+          ctx.timeline(
+            "note",
+            `wakeAt ${a.wakeAt} raised to ${ctx.instance.wakeAt} (5 min floor).`,
+          );
+        } else ctx.instance.wakeAt = a.wakeAt;
+      }
       ctx.timeline(
         "wait",
         [
           a.waitingOn?.map((w) => `${w.kind}:${w.ref}`).join(", "),
-          a.wakeAt ? `until ${a.wakeAt}` : undefined,
+          ctx.instance.wakeAt ? `until ${ctx.instance.wakeAt}` : undefined,
         ]
           .filter(Boolean)
           .join(" "),
@@ -144,6 +180,8 @@ export class GoalActionExecutor {
           ctx,
           `Not done: ${action.type} — the goal's ceiling ${ctx.goal.ceiling} does not allow it.`,
         );
+      } else if (SPENDING_ACTIONS.has(action.type) && ctx.budgetExhausted) {
+        reportFromGoal(ctx, `Not done: ${action.type} — the cycle's budget is used up.`);
       } else if (!handler) {
         reportFromGoal(ctx, `Not done: ${action.type} — not available yet.`);
       } else {

@@ -147,6 +147,9 @@ export class GoalStateStore {
       if (target.status !== "parked") throw new GoalInstanceNotParkedError(goalId, instance);
       target.status = "planning";
       delete target.parkedReason;
+      // Resume takes effect: no deadline/budget re-park this cycle, a fresh failure count.
+      target.resumedCycle = state.cycle.index;
+      delete target.planFailures;
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {
         at: new Date().toISOString(),
