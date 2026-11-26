@@ -7,6 +7,7 @@ const LABELS: CommandPaletteLabels = {
   kind: {
     department: "Department",
     agent: "Agent",
+    goal: "Goal",
     task: "Task",
     company: "Company",
     team: "Team",
@@ -27,6 +28,7 @@ const LABELS: CommandPaletteLabels = {
     departments: "Departments",
     agents: "Agents",
     tasks: "Tasks",
+    goals: "Goals",
     companies: "Companies",
     teams: "Teams",
     projects: "Projects",
@@ -47,6 +49,7 @@ const EMPTY_SOURCES: CommandPaletteSources = {
   departments: [],
   agents: [],
   tasks: [],
+  goals: [],
   companies: [],
   teams: [],
   projects: [],
@@ -192,6 +195,16 @@ describe("buildCommandPaletteIndex", () => {
         group: "automations",
         href: "/work/automations",
       }),
+    );
+  });
+
+  it("routes a goal to its detail page", () => {
+    const entries = buildCommandPaletteIndex(
+      { ...EMPTY_SOURCES, goals: [{ id: "my-prs", name: "Moje PR" }] },
+      LABELS,
+    );
+    expect(entries).toContainEqual(
+      expect.objectContaining({ id: "my-prs", group: "goals", href: "/work/goals/my-prs" }),
     );
   });
 });

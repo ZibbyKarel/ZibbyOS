@@ -7,6 +7,7 @@ export const GROUP_ORDER: readonly CommandPaletteGroupKey[] = [
   "departments",
   "agents",
   "tasks",
+  "goals",
   "companies",
   "teams",
   "projects",

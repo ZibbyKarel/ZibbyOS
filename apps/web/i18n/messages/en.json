@@ -23,6 +23,7 @@
     "knowledge": "Knowledge",
     "subtab": {
       "work": {
+        "goals": "Goals",
         "workflows": "Workflows",
         "automations": "Automations"
       },
@@ -3575,6 +3576,7 @@
     "ariaLabel": "Command palette",
     "empty": "No results",
     "kind": {
+      "goal": "Goal",
       "department": "Department",
       "agent": "Agent",
       "task": "Task",
@@ -3597,6 +3599,7 @@
       "departments": "Departments",
       "agents": "Agents",
       "tasks": "Tasks",
+      "goals": "Goals",
       "companies": "Companies",
       "teams": "Teams",
       "projects": "Projects",
@@ -5333,6 +5336,164 @@
       "feed": {
         "title": "Recently updated knowledge"
       }
+    }
+  },
+  "goals": {
+    "title": "Goals",
+    "toggleLabel": "Enable goal {name}",
+    "open": "Open",
+    "emptyTitle": "No goals yet",
+    "emptyBody": "A goal is a mandate for ZIBBY: what must be true, where, by when and on what budget. Create your own or start from the ready-made goals below.",
+    "list": {
+      "section": "Work",
+      "total": "{count, plural, one {# goal} other {# goals}}",
+      "needsYou": "{count} waiting for you",
+      "newGoal": "New goal",
+      "noMatchTitle": "No goal matches",
+      "noMatchBody": "Try another status filter.",
+      "filter": {
+        "all": "All",
+        "needs-you": "Needs you",
+        "active": "Active",
+        "paused": "Paused",
+        "done": "Done"
+      }
+    },
+    "counts": {
+      "none": "No plan yet",
+      "progress": "{done} of {total} done",
+      "withNeedsYou": "{done} of {total} done · {needsYou} waiting for you"
+    },
+    "status": {
+      "paused": "Paused",
+      "planning": "Planning",
+      "acting": "Working",
+      "waiting": "Waiting",
+      "needs-you": "Needs you",
+      "done": "Done"
+    },
+    "scope": {
+      "none": "No project",
+      "all": "All projects",
+      "company": "Company {name}",
+      "projects": "{names}"
+    },
+    "schedule": {
+      "day": "Daily at {hour}:00",
+      "weekday": "Every weekday at {hour}:00",
+      "week": "Weekly at {hour}:00",
+      "month": "Monthly at {hour}:00",
+      "deadline": "By {date}",
+      "open": "No deadline"
+    },
+    "presets": {
+      "title": "Ready-made goals",
+      "hint": "Prepared templates. They are added paused; switch them on from the detail page once you have read them.",
+      "add": "Add",
+      "added": "Added",
+      "group": {
+        "pr-ci": "PRs and CI",
+        "maintenance": "Project upkeep",
+        "brain": "Brain and personal",
+        "directional": "Directional"
+      }
+    },
+    "form": {
+      "createTitle": "New goal",
+      "create": "Create goal",
+      "name": "Name",
+      "namePlaceholder": "E.g. My PRs are merge-ready",
+      "outcome": "Outcome",
+      "outcomeHint": "What must be true for the goal to count as met. Markdown.",
+      "predicate": "Verifiable sentence",
+      "predicateHint": "One sentence that can be checked. Optional.",
+      "scope": "Scope",
+      "scopeNone": "No project",
+      "scopeProjects": "Projects",
+      "scopeCompany": "Company",
+      "scopeAll": "All",
+      "scopeProjectsPick": "Projects",
+      "scopeProjectsPlaceholder": "Pick projects",
+      "scopeCompanyPick": "Company",
+      "scopeCompanyPlaceholder": "Pick a company",
+      "timing": "Timing",
+      "timingHint": "A one-off goal has an optional deadline, a standing one repeats.",
+      "timingOneOff": "One-off",
+      "timingStanding": "Standing",
+      "deadline": "Deadline",
+      "deadlineHint": "Optional. Time in your time zone.",
+      "cadenceEvery": "Repeats",
+      "everyDay": "Daily",
+      "everyWeekday": "Mon–Fri",
+      "everyWeek": "Weekly",
+      "everyMonth": "Monthly",
+      "cadenceHour": "Hour",
+      "cadenceHourHint": "0 to 23, Prague time.",
+      "cycleHours": "Cycle length (h)",
+      "cycleHoursHint": "How many hours a cycle has to finish. Optional.",
+      "maxRuns": "Max runs per cycle",
+      "maxCost": "Max cost per cycle (USD)",
+      "budgetHint": "Optional.",
+      "ceiling": "Autonomy ceiling",
+      "ceilingHint": "The ceiling only narrows what ZIBBY starts on its own, it never widens anything.",
+      "ceilingOption": {
+        "tier1": "Quiet preparation only",
+        "tier2": "Act, then report",
+        "tier3": "Everything needs approval"
+      }
+    },
+    "settings": {
+      "maxRuns": "{count, plural, one {# run} other {# runs}} per cycle",
+      "maxCost": "{cost} USD per cycle",
+      "cycleHours": "cycle {count} h",
+      "noPredicate": "No verifiable sentence",
+      "budget": "Budget",
+      "noBudget": "No limit"
+    },
+    "instances": {
+      "project": "Project",
+      "noProject": "No project",
+      "status": "Status",
+      "summary": "Summary",
+      "resume": "Resume",
+      "emptyTitle": "No progress yet",
+      "emptyBody": "Per-project progress shows up once ZIBBY has worked on the goal for the first time.",
+      "state": {
+        "planning": "Planning",
+        "acting": "Working",
+        "waiting": "Waiting",
+        "done": "Done",
+        "parked": "Parked"
+      },
+      "parked": {
+        "deadline": "Deadline passed",
+        "budget": "Budget used up",
+        "failed": "Failed",
+        "needs-operator": "Needs you",
+        "infeasible": "Not feasible"
+      }
+    },
+    "plan": {
+      "emptyTitle": "No plan yet",
+      "emptyBody": "It appears at the first wake-up.",
+      "loading": "Loading plan…",
+      "loadFailed": "Could not load the plan."
+    },
+    "timeline": {
+      "noProject": "No project",
+      "allInstances": "All",
+      "cycle": "Cycle {n}",
+      "emptyTitle": "Nothing yet",
+      "emptyBody": "Goal events show up here as things happen."
+    },
+    "detail": {
+      "wake": "Wake now",
+      "settingsTitle": "Outcome and settings",
+      "instancesTitle": "Progress per project",
+      "planTitle": "Plan",
+      "timelineTitle": "Timeline",
+      "deleteTitle": "Delete goal?",
+      "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone."
     }
   }
 }

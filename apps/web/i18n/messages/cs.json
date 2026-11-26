@@ -23,6 +23,7 @@
     "knowledge": "Znalosti",
     "subtab": {
       "work": {
+        "goals": "Cíle",
         "workflows": "Workflows",
         "automations": "Automatizace"
       },
@@ -3575,6 +3576,7 @@
     "ariaLabel": "Paleta příkazů",
     "empty": "Žádné výsledky",
     "kind": {
+      "goal": "Cíl",
       "department": "Oddělení",
       "agent": "Agent",
       "task": "Úkol",
@@ -3597,6 +3599,7 @@
       "departments": "Oddělení",
       "agents": "Agenti",
       "tasks": "Úkoly",
+      "goals": "Cíle",
       "companies": "Firmy",
       "teams": "Týmy",
       "projects": "Projekty",
@@ -5333,6 +5336,164 @@
       "feed": {
         "title": "Nedávno aktualizované znalosti"
       }
+    }
+  },
+  "goals": {
+    "title": "Cíle",
+    "toggleLabel": "Zapnout cíl {name}",
+    "open": "Detail",
+    "emptyTitle": "Zatím žádné cíle",
+    "emptyBody": "Cíl je zadání pro ZIBBY: co má platit, kde, dokdy a s jakým rozpočtem. Vytvoř vlastní, nebo začni z připravených cílů níže.",
+    "list": {
+      "section": "Práce",
+      "total": "{count, plural, one {# cíl} few {# cíle} other {# cílů}}",
+      "needsYou": "{count, plural, one {# čeká na tebe} few {# čekají na tebe} other {# čeká na tebe}}",
+      "newGoal": "Nový cíl",
+      "noMatchTitle": "Žádný cíl neodpovídá",
+      "noMatchBody": "Zkus jiný stav filtru.",
+      "filter": {
+        "all": "Vše",
+        "needs-you": "Čeká na tebe",
+        "active": "Aktivní",
+        "paused": "Pozastavené",
+        "done": "Hotové"
+      }
+    },
+    "counts": {
+      "none": "Zatím bez plánu",
+      "progress": "{done} z {total} hotovo",
+      "withNeedsYou": "{done} z {total} hotovo · {needsYou} čeká na tebe"
+    },
+    "status": {
+      "paused": "Pozastaveno",
+      "planning": "Plánuje",
+      "acting": "Pracuje",
+      "waiting": "Čeká",
+      "needs-you": "Čeká na tebe",
+      "done": "Hotovo"
+    },
+    "scope": {
+      "none": "Bez projektu",
+      "all": "Všechny projekty",
+      "company": "Firma {name}",
+      "projects": "{names}"
+    },
+    "schedule": {
+      "day": "Denně v {hour}:00",
+      "weekday": "Každý pracovní den v {hour}:00",
+      "week": "Týdně v {hour}:00",
+      "month": "Měsíčně v {hour}:00",
+      "deadline": "Do {date}",
+      "open": "Bez termínu"
+    },
+    "presets": {
+      "title": "Připravené cíle",
+      "hint": "Hotové předlohy. Přidají se pozastavené, zapneš je na detailu, až je projdeš.",
+      "add": "Přidat",
+      "added": "Přidáno",
+      "group": {
+        "pr-ci": "PR a CI",
+        "maintenance": "Údržba projektů",
+        "brain": "Mozek a osobní",
+        "directional": "Směrové"
+      }
+    },
+    "form": {
+      "createTitle": "Nový cíl",
+      "create": "Vytvořit cíl",
+      "name": "Název",
+      "namePlaceholder": "Např. Moje PR jsou merge-ready",
+      "outcome": "Výsledek",
+      "outcomeHint": "Co musí platit, aby byl cíl splněn. Markdown.",
+      "predicate": "Ověřitelná věta",
+      "predicateHint": "Jedna věta, kterou jde zkontrolovat. Nepovinné.",
+      "scope": "Rozsah",
+      "scopeNone": "Bez projektu",
+      "scopeProjects": "Projekty",
+      "scopeCompany": "Firma",
+      "scopeAll": "Vše",
+      "scopeProjectsPick": "Projekty",
+      "scopeProjectsPlaceholder": "Vyber projekty",
+      "scopeCompanyPick": "Firma",
+      "scopeCompanyPlaceholder": "Vyber firmu",
+      "timing": "Termín",
+      "timingHint": "Jednorázový cíl má volitelný termín, stálý se opakuje.",
+      "timingOneOff": "Jednorázový",
+      "timingStanding": "Stálý",
+      "deadline": "Termín",
+      "deadlineHint": "Nepovinné. Čas ve tvém časovém pásmu.",
+      "cadenceEvery": "Opakování",
+      "everyDay": "Denně",
+      "everyWeekday": "Po–Pá",
+      "everyWeek": "Týdně",
+      "everyMonth": "Měsíčně",
+      "cadenceHour": "Hodina",
+      "cadenceHourHint": "0 až 23, pražský čas.",
+      "cycleHours": "Délka cyklu (h)",
+      "cycleHoursHint": "Za kolik hodin má být cyklus hotový. Nepovinné.",
+      "maxRuns": "Max. běhů na cyklus",
+      "maxCost": "Max. cena na cyklus (USD)",
+      "budgetHint": "Nepovinné.",
+      "ceiling": "Strop autonomie",
+      "ceilingHint": "Strop jen zužuje, co ZIBBY sama spustí, nikdy nic nerozšíří.",
+      "ceilingOption": {
+        "tier1": "Jen tiše připravovat",
+        "tier2": "Jednat a hlásit",
+        "tier3": "Vše ke schválení"
+      }
+    },
+    "settings": {
+      "maxRuns": "{count, plural, one {# běh} few {# běhy} other {# běhů}} na cyklus",
+      "maxCost": "{cost} USD na cyklus",
+      "cycleHours": "cyklus {count} h",
+      "noPredicate": "Bez ověřitelné věty",
+      "budget": "Rozpočet",
+      "noBudget": "Bez limitu"
+    },
+    "instances": {
+      "project": "Projekt",
+      "noProject": "Bez projektu",
+      "status": "Stav",
+      "summary": "Shrnutí",
+      "resume": "Pokračovat",
+      "emptyTitle": "Zatím žádný průběh",
+      "emptyBody": "Průběh po projektech se objeví, jakmile ZIBBY cíl poprvé zpracuje.",
+      "state": {
+        "planning": "Plánuje",
+        "acting": "Pracuje",
+        "waiting": "Čeká",
+        "done": "Hotovo",
+        "parked": "Zaparkováno"
+      },
+      "parked": {
+        "deadline": "Vypršel termín",
+        "budget": "Vyčerpán rozpočet",
+        "failed": "Selhalo",
+        "needs-operator": "Potřebuje tebe",
+        "infeasible": "Nesplnitelné"
+      }
+    },
+    "plan": {
+      "emptyTitle": "Plán zatím není",
+      "emptyBody": "Vznikne při prvním probuzení.",
+      "loading": "Načítám plán…",
+      "loadFailed": "Plán se nepodařilo načíst."
+    },
+    "timeline": {
+      "noProject": "Bez projektu",
+      "allInstances": "Vše",
+      "cycle": "Cyklus {n}",
+      "emptyTitle": "Zatím nic",
+      "emptyBody": "Události cíle se tu objeví, jakmile se něco stane."
+    },
+    "detail": {
+      "wake": "Probudit",
+      "settingsTitle": "Výsledek a nastavení",
+      "instancesTitle": "Průběh po projektech",
+      "planTitle": "Plán",
+      "timelineTitle": "Časová osa",
+      "deleteTitle": "Smazat cíl?",
+      "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit."
     }
   }
 }

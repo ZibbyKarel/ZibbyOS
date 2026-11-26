@@ -42,6 +42,7 @@ vi.mock("../../agents/queries", () => ({
 vi.mock("../../tasks/queries", () => ({
   useTaskParentsInfiniteQuery: () => ({ data: [] }),
 }));
+vi.mock("../../goals/queries", () => ({ useGoalsQuery: () => ({ data: [] }) }));
 vi.mock("../../companies/queries", () => ({ useCompaniesQuery: () => ({ data: [] }) }));
 vi.mock("../../teams/queries", () => ({ useTeamsQuery: () => ({ data: [] }) }));
 vi.mock("../../projects/queries", () => ({ useProjectsQuery: () => ({ data: [] }) }));

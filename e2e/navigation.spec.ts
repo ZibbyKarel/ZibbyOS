@@ -14,7 +14,7 @@ test("the section nav renders all eight sections and navigates on click", async 
   // [section href, label] — the track's items are keyed by their href.
   const sections: Array<[href: string, label: string]> = [
     ["/dashboard", "Dashboard"],
-    ["/work/workflows", "Work"],
+    ["/work/goals", "Work"],
     ["/companies", "Companies"],
     ["/workforce/agents", "AI"],
     ["/activity/log", "Activity"],
@@ -54,11 +54,12 @@ test("AI and Settings sub-menus list their items; no header cog", async ({ page 
 });
 
 test("the sub-nav lists the active section's tabs; + New offers New task", async ({ page }) => {
-  await page.goto("/work/workflows");
+  await page.goto("/work/goals");
 
   const subnav = page.getByTestId("subnav-root");
   await expect(subnav).toBeVisible();
-  // `work`'s sub-tabs: workflows, automations (todo-14 merged Tasks into Activity → Runs).
+  // `work`'s sub-tabs: goals, workflows, automations (todo-14 merged Tasks into Activity → Runs).
+  await expect(subnav).toContainText("Goals");
   await expect(subnav).toContainText("Workflows");
   await expect(subnav).toContainText("Automations");
 
