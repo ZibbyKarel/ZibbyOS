@@ -117,7 +117,9 @@ themselves agent/workflow runs whose outcomes record cost individually.
 `BudgetLedgerStore.sumCostForTasks(taskIds, since, now)` sums the cost lines whose `taskId`
 is in the set, across the day files from `since` to `now` (`datesBetween`). The goal engine
 uses it for a cycle's `budget.maxCostUsd` (`docs/api/goals.md`). `BudgetModule` exports
-`BudgetLedgerStore` for it.
+`BudgetLedgerStore` for it. The goal planner writes its own model run's cost line
+directly (`BudgetLedgerStore.recordCost`, `kind: "goal-plan"`, `taskId` = `runRef` = the run
+id, `projectId` only for a project instance), so the cycle's cost sum includes planning.
 
 ### Live concurrency
 

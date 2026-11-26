@@ -42,7 +42,7 @@ describe("GoalEngineService", () => {
     store = new GoalStateStore(dir);
     tasks = new Map();
     projectList = [];
-    planner = { plan: vi.fn(async () => ({ plan: "", actions: [] })) };
+    planner = { plan: vi.fn(async () => ({ plan: "", feasibility: "ok", actions: [] })) };
     activity = { record: vi.fn(async () => undefined) };
     systemConfig = fakeSystemConfigStore();
     executor = new GoalActionExecutor();
@@ -160,6 +160,7 @@ describe("GoalEngineService", () => {
     await create();
     planner.plan.mockResolvedValueOnce({
       plan: "",
+      feasibility: "ok",
       actions: [{ type: "wait", wakeAt: later(30).toISOString() }],
     });
     await engine.tick(NOW);
@@ -221,6 +222,7 @@ describe("GoalEngineService", () => {
     await setInstance({ taskIds: ["t1"] });
     planner.plan.mockResolvedValueOnce({
       plan: "",
+      feasibility: "ok",
       actions: [{ type: "start-task", text: "one more" }],
     });
     await engine.tick(later(1));
@@ -234,6 +236,7 @@ describe("GoalEngineService", () => {
     await create();
     planner.plan.mockImplementation(async () => ({
       plan: "",
+      feasibility: "ok",
       actions: [{ type: "wait", wakeAt: new Date(0).toISOString() }],
     }));
     for (let m = 0; m < 30; m++) await engine.tick(later(m));
@@ -257,6 +260,64 @@ describe("GoalEngineService", () => {
     const s = await state();
     expect(s.instances._?.planFailures).toBe(1);
     expect(s.instances._?.status).toBe("planning");
+    // The timeout aborts the planner's signal, so the model run is stopped, not abandoned.
+    expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).signal.aborted).toBe(true);
+  });
+
+  it("requires feasibility on the first plan of a cycle and records it (and the risk) once", async () => {
+    await create();
+    planner.plan.mockResolvedValueOnce({ plan: "p", actions: [] });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.planFailures).toBe(1);
+
+    planner.plan.mockResolvedValueOnce({
+      plan: "p",
+      feasibility: "Do termínu to nestihnu.",
+      atRisk: true,
+      actions: [],
+    });
+    await engine.tick(later(1));
+    let s = await state();
+    expect(s.instances._?.feasibility).toBe("Do termínu to nestihnu.");
+    expect(s.instances._?.planFailures).toBeUndefined();
+    expect(s.instances._?.planNoteId).toBe("goal-g-_-plan");
+    expect((planner.plan.mock.calls[1]?.[0] as GoalPlannerContext).firstPlan).toBe(true);
+
+    planner.plan.mockResolvedValueOnce({
+      plan: "p2",
+      feasibility: "Jiná věta.",
+      atRisk: true,
+      actions: [],
+    });
+    await setInstance({ fingerprint: "stale" });
+    await engine.tick(later(2));
+    s = await state();
+    expect((planner.plan.mock.calls[2]?.[0] as GoalPlannerContext).firstPlan).toBe(false);
+    expect(s.instances._?.feasibility).toBe("Do termínu to nestihnu.");
+    const timeline = await store.timeline("g");
+    expect(timeline.filter((e) => e.kind === "feasibility").map((e) => e.text)).toEqual([
+      "Do termínu to nestihnu.",
+    ]);
+    const reports = recorded("goal-acted");
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.summary).toContain("Cíl je ohrožený: Do termínu to nestihnu.");
+  });
+
+  it("the planner's own run counts against maxRunsPerCycle", async () => {
+    await create({ budget: { maxRunsPerCycle: 1 } });
+    planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
+      await ctx.recordRun("goal-planner_1");
+      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "x" }] };
+    });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.taskIds).toEqual(["goal-planner_1"]);
+    expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
+      expect.stringContaining("budget is used up"),
+    ]);
+    // Nothing in flight and no runs left: the next tick parks without planning.
+    await engine.tick(later(1));
+    expect((await state()).instances._?.parkedReason).toBe("budget");
+    expect(planner.plan).toHaveBeenCalledTimes(1);
   });
 
   it("recordTask persists a started task even when the tick result is dropped", async () => {
@@ -269,7 +330,11 @@ describe("GoalEngineService", () => {
       });
     });
     await create();
-    planner.plan.mockResolvedValueOnce({ plan: "", actions: [{ type: "start-task", text: "x" }] });
+    planner.plan.mockResolvedValueOnce({
+      plan: "",
+      feasibility: "ok",
+      actions: [{ type: "start-task", text: "x" }],
+    });
     await engine.tick(NOW);
     expect((await state()).instances._?.taskIds).toEqual(["t9"]);
     const timeline = await store.timeline("g");
@@ -339,6 +404,7 @@ describe("GoalEngineService", () => {
     await create({ budget: { maxRunsPerCycle: 1 } });
     planner.plan.mockResolvedValueOnce({
       plan: "",
+      feasibility: "ok",
       actions: [
         { type: "start-task", text: "one" },
         { type: "start-task", text: "two" },
@@ -399,6 +465,7 @@ describe("GoalEngineService", () => {
     await create({ ceiling: "tier1" });
     planner.plan.mockResolvedValueOnce({
       plan: "",
+      feasibility: "ok",
       actions: [
         { type: "start-task", text: "fix it" },
         { type: "note", text: "noted" },
@@ -419,6 +486,7 @@ describe("GoalEngineService", () => {
     await store.wake("g", NOW.toISOString());
     planner.plan.mockResolvedValueOnce({
       plan: "",
+      feasibility: "ok",
       actions: [{ type: "start-task", text: "fix it" }],
     });
     await engine.tick(later(1));
@@ -444,7 +512,7 @@ describe("GoalEngineService", () => {
     await create({ scope: { kind: "company", companyId: "c" } });
     planner.plan.mockImplementation(async (ctx: GoalPlannerContext) => {
       if (ctx.instanceKey === "alpha") throw new Error("boom");
-      return { plan: "", actions: [{ type: "done", summary: "ok" }] };
+      return { plan: "", feasibility: "ok", actions: [{ type: "done", summary: "ok" }] };
     });
     await engine.tick(NOW);
     const s = await state();

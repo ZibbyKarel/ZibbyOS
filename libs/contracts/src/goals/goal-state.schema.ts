@@ -35,6 +35,8 @@ export const GoalInstanceSchema = z.object({
   planFailures: z.number().int().min(0).optional(),
   /** Cycle index the operator resumed this instance in; the deadline/budget parks skip it. */
   resumedCycle: z.number().int().min(0).optional(),
+  /** This cycle's feasibility line (from its first plan); absent = the next plan is the first. */
+  feasibility: z.string().optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 

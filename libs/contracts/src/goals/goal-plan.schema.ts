@@ -92,8 +92,10 @@ export type GoalActionType = GoalAction["type"];
 export const GoalPlanSchema = z.object({
   /** The revised plan (markdown). */
   plan: z.string(),
-  /** Early feasibility line. */
+  /** Early feasibility line; the engine requires it on the first plan of a cycle. */
   feasibility: z.string().optional(),
+  /** The planner judges the deadline/outcome unlikely: the operator is notified (first plan). */
+  atRisk: z.boolean().optional(),
   actions: z.array(GoalActionSchema),
 });
 export type GoalPlan = z.infer<typeof GoalPlanSchema>;

@@ -17,6 +17,7 @@ import {
   type GoalBudgetLeft,
   type GoalEffect,
   parkInstance,
+  reportFromGoal,
 } from "./goal-action-executor";
 import { latestCycleStart } from "./goal-cadence";
 import {
@@ -26,7 +27,7 @@ import {
   isTaskInFlight,
   taskFactsOf,
 } from "./goal-facts";
-import { GOAL_PLANNER, type GoalPlanner } from "./goal-planner";
+import { GOAL_PLANNER, type GoalPlanner, goalPlanNoteId } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 
@@ -229,6 +230,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (fingerprint === before.fingerprint && !wakeDue && !isDirty) return;
 
     ctx.activity("goal-woke", `${ctx.label}: planning`);
+    const firstPlan = before.feasibility === undefined;
+    const abort = new AbortController();
     let plan;
     try {
       const raw = await withTimeout(
@@ -244,11 +247,19 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
           nudges: state.nudges,
           decisionsThisMonth: state.decisionsThisMonth,
           now: now.toISOString(),
+          firstPlan,
+          signal: abort.signal,
+          // The planner's own run counts against the cycle's budget (live, like a task).
+          recordRun: (runId) => ctx.recordTask(runId),
         }),
         PLAN_TIMEOUT_MS,
+        abort,
       );
       const parsed = GoalPlanSchema.safeParse(raw);
       if (!parsed.success) throw new Error(`unparseable plan: ${parsed.error.issues[0]?.message}`);
+      if (firstPlan && !parsed.data.feasibility) {
+        throw new Error("the first plan of the cycle has no feasibility");
+      }
       plan = parsed.data;
     } catch (error) {
       // Fingerprint cleared, so the next tick retries even when it was only a dirty ref.
@@ -269,7 +280,12 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     // The planner re-states what it waits on; a consumed wakeAt never re-fires.
     delete work.waitingOn;
     delete work.wakeAt;
-    if (plan.feasibility) ctx.timeline("feasibility", plan.feasibility);
+    if (plan.plan.trim()) work.planNoteId = goalPlanNoteId(goal.id, key);
+    if (firstPlan && plan.feasibility) {
+      work.feasibility = plan.feasibility;
+      ctx.timeline("feasibility", plan.feasibility);
+      if (plan.atRisk) reportFromGoal(ctx, `Cíl je ohrožený: ${plan.feasibility}`);
+    }
     await this.executor.execute(plan.actions, ctx);
 
     if (work.status !== "done" && work.status !== "parked") {
@@ -459,10 +475,14 @@ function instanceRefs(instance: GoalInstance): string[] {
   return [...instance.taskIds, ...(instance.waitingOn ?? []).map((w) => w.ref)];
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+/** Rejects after `ms` and aborts `abort`, so the planner stops its model run. */
+function withTimeout<T>(promise: Promise<T>, ms: number, abort: AbortController): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`planner timed out after ${ms} ms`)), ms);
+    timer = setTimeout(() => {
+      abort.abort();
+      reject(new Error(`planner timed out after ${ms} ms`));
+    }, ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

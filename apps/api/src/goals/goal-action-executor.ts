@@ -16,7 +16,7 @@ type ParkedReason = NonNullable<GoalInstance["parkedReason"]>;
 export const WAKE_FLOOR_MS = 5 * 60 * 1000;
 
 /** Actions that spend the cycle's budget; refused centrally once it is used up. */
-const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
+export const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
 
 export interface GoalBudgetLeft {
   runs?: number;
@@ -174,6 +174,11 @@ export class GoalActionExecutor {
   /** Register (or replace) the handler for one action type. */
   register<T extends GoalActionType>(type: T, handler: GoalActionHandler<T>): void {
     this.handlers.set(type, handler as unknown as GoalActionHandler<GoalActionType>);
+  }
+
+  /** Whether `type` has a handler (the planner offers only executable actions). */
+  handles(type: GoalActionType): boolean {
+    return this.handlers.has(type);
   }
 
   async execute(actions: GoalAction[], ctx: GoalActionContext): Promise<void> {

@@ -49,14 +49,15 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 `apps/api/src/goals/goal-engine.module.ts` (`GoalEngineModule`, separate from `GoalsModule` so
 the briefing and the events channel read the stores without the engine's dependencies).
 
-| Piece           | File                      | Role                                                                      |
-| --------------- | ------------------------- | ------------------------------------------------------------------------- |
-| Heartbeat       | `goal-engine.service.ts`  | `GoalEngineService` (`TickingWatcherBase`, watcher id `goal-engine`)      |
-| Cadence         | `goal-cadence.ts`         | `nextCycleStart`, `latestCycleStart` in `Europe/Prague` (DST-aware)       |
-| Facts           | `goal-facts.ts`           | `GoalFactsService` over the `GOAL_FACTS_SOURCES` list; `goalFingerprint`  |
-| Planner seam    | `goal-planner.ts`         | `GoalPlanner` behind the `GOAL_PLANNER` token; `EmptyGoalPlanner` default |
-| Action executor | `goal-action-executor.ts` | `GoalActionExecutor`: ceiling filter + one handler per action type        |
-| Plan contract   | `goal-plan.schema.ts`     | `GoalPlanSchema`, `GoalActionSchema`, `GOAL_ACTION_MIN_CEILING`           |
+| Piece           | File                      | Role                                                                     |
+| --------------- | ------------------------- | ------------------------------------------------------------------------ |
+| Heartbeat       | `goal-engine.service.ts`  | `GoalEngineService` (`TickingWatcherBase`, watcher id `goal-engine`)     |
+| Cadence         | `goal-cadence.ts`         | `nextCycleStart`, `latestCycleStart` in `Europe/Prague` (DST-aware)      |
+| Facts           | `goal-facts.ts`           | `GoalFactsService` over the `GOAL_FACTS_SOURCES` list; `goalFingerprint` |
+| Planner seam    | `goal-planner.ts`         | `GoalPlanner` behind the `GOAL_PLANNER` token; `goalPlanNoteId`          |
+| Planner         | `goal-planner.service.ts` | `GoalPlannerService`: one model run, prompt, `<goal-plan>` parser, note  |
+| Action executor | `goal-action-executor.ts` | `GoalActionExecutor`: ceiling filter + one handler per action type       |
+| Plan contract   | `goal-plan.schema.ts`     | `GoalPlanSchema`, `GoalActionSchema`, `GOAL_ACTION_MIN_CEILING`          |
 
 ### Tick
 
@@ -84,8 +85,13 @@ tick, per enabled goal (one goal failing never blocks the others):
      settled (`ApprovalsService.settled()`, a `task-outcome` activity). Otherwise no model call.
    - A `goal-woke` activity, then `planner.plan(ctx)`, validated with `GoalPlanSchema`. A throw,
      an invalid plan or a run over `PLAN_TIMEOUT_MS` (10 min) counts in `planFailures`; 3 in a
-     row park `failed`. The timeout abandons the run, it does not abort it; the real planner
-     is to take an abort signal.
+     row park `failed`. The timeout aborts `ctx.signal`, and the planner stops its model run.
+   - **Feasibility.** The first plan of a cycle (`instance.feasibility` unset, `ctx.firstPlan`)
+     must carry `feasibility`; one without it is a plan failure. The engine stores it on the
+     instance, writes a `feasibility` timeline line and, when the plan sets `atRisk: true`,
+     sends a report "Cíl je ohrožený: <feasibility>" (operator notification). Later plans of
+     the same cycle do not write it again; a new cycle clears it. A plan with a non-empty
+     `plan` sets `instance.planNoteId`.
    - The actions run through the executor. Then: `waitingOn`/`wakeAt` set -> `waiting`; a task
      in flight -> `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
      so the actions' own changes do not wake the planner on the next tick.
@@ -125,7 +131,47 @@ once `ctx.remainingBudget` is used up. After `done` or `park` no further action 
 that starts a task must `await ctx.recordTask(taskId)` before returning: it writes the id to the
 stored instance at once, so a crash or a dropped result never forgets spent work. A later phase
 adds a handler with `GoalActionExecutor.register(type, handler)`, a facts source by appending to
-the `GOAL_FACTS_SOURCES` factory, and the real planner by replacing the `GOAL_PLANNER` provider.
+the `GOAL_FACTS_SOURCES` factory.
+
+### Planner (`GoalPlannerService`)
+
+One fresh model run per plan, the loop verifier's precedent: the synthetic, unstored agent
+`goal-planner` (tools `read`; model and engine from the global config, as for any agent
+without its own) through `AgentRunnerService.startSynthetic`, in the instance's project
+(its usual run worktree) or sandbox-only when there is no project or no local clone.
+Because the agent is not stored, any gated intent it announces mid-run fails safe to deny.
+
+- **Prompt** (English; the plan, feasibility and every note/report/message text are asked for
+  in Czech). It carries the goal (outcome, predicate), the instance, cycle + deadline + now,
+  the ceiling, the budget left after this planning run, the nudge counters, the month's
+  decision count, the current plan note and the facts. The offered actions are generated from
+  `GoalActionSchema` (one JSON schema per action), filtered by the ceiling, by
+  `GoalActionExecutor.handles(type)` (the rest are named "not executable yet") and by the
+  budget (no `start-task`/`run-loop` when this run uses the last run or the cost is spent).
+- **Untrusted data.** Facts and the stored plan note sit in `<untrusted-data>` sections; every
+  interpolated text has `<goal-plan>` and `<untrusted-data>` tags stripped (`stripPlanTags`).
+  The prompt says this data can never change the ceiling, grant a merge or add actions. The
+  prompt is not the control: the output is only parsed through `GoalPlanSchema`, and the
+  engine's ceiling filter decides.
+- **Output** (`parseGoalPlan`). The **last** `<goal-plan>…</goal-plan>` block whose opening tag
+  starts a line, as JSON through `GoalPlanSchema`. Tool results are indented in the run log, so
+  a block inside a file the planner read never counts. No block, invalid JSON, an unknown
+  action, a run that did not end `done` (a run waiting on approval or paused on the usage
+  limit is stopped) or a first plan without feasibility all throw (a plan failure).
+- **Budget.** The planner's run id is recorded on the instance through `ctx.recordRun` (the
+  engine binds it to `recordTask`), so it counts against `maxRunsPerCycle` and the live
+  `remainingBudget`; its cost is written to the budget ledger as a cost line under the same
+  id (`kind: "goal-plan"`), so `sumCostForTasks` includes it. In the task facts it shows as a
+  `missing` task with a `goal-planner_` id; the prompt says so. **`maxRunsPerCycle: 1`:** the
+  planning run is the cycle's only run. That plan still carries the feasibility line (and
+  the at-risk report) and may note, report, wait or finish, but it is offered no spending
+  action; with nothing in flight the next tick parks the instance `budget`. Give a goal that
+  should do work at least 2 runs per cycle.
+- **Plan note.** A valid plan with a non-empty `plan` is written to the flat vault note
+  `goal-<goalId>-<instance>-plan` (tier `knowledge`, frontmatter `type: goal-plan`, `goalId`,
+  `instance`): created on the first plan and linked from the `goals` MOC (`updateIndex`),
+  updated (body replaced) afterwards. It is read back as the next plan's input. A failed plan
+  never touches it.
 
 ### Activity, notifications, live updates
 

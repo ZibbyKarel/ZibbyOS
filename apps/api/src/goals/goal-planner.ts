@@ -1,5 +1,4 @@
-import { Injectable } from "@nestjs/common";
-import type { Goal, GoalCeiling, GoalInstance, GoalPlan, GoalState } from "@zibby/contracts";
+import type { Goal, GoalCeiling, GoalInstance, GoalState } from "@zibby/contracts";
 import type { GoalFacts } from "./goal-facts";
 
 /** Everything one planner run receives for one instance (spec "Engine" step 4). */
@@ -18,6 +17,15 @@ export interface GoalPlannerContext {
   nudges: GoalState["nudges"];
   decisionsThisMonth: GoalState["decisionsThisMonth"];
   now: string;
+  /** No feasibility recorded this cycle yet: the plan must carry `feasibility`. */
+  firstPlan: boolean;
+  /** Aborted when the engine's planner timeout expires; the planner stops its run. */
+  signal: AbortSignal;
+  /**
+   * Record the planner's own model run on the instance (it counts against
+   * `maxRunsPerCycle` and the cost budget, like a started task). Lowers `remainingBudget.runs`.
+   */
+  recordRun(runId: string): Promise<void>;
 }
 
 /**
@@ -31,10 +39,7 @@ export interface GoalPlanner {
 /** DI token for the {@link GoalPlanner}. */
 export const GOAL_PLANNER = "GOAL_PLANNER";
 
-/** The default until the real planner exists: no model call, no actions. */
-@Injectable()
-export class EmptyGoalPlanner implements GoalPlanner {
-  async plan(): Promise<GoalPlan> {
-    return { plan: "", actions: [] };
-  }
+/** The flat vault note holding an instance's current plan (written by the planner). */
+export function goalPlanNoteId(goalId: string, instanceKey: string): string {
+  return `goal-${goalId}-${instanceKey}-plan`;
 }
