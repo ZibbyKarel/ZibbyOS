@@ -69,6 +69,7 @@ export const EMPTY_AUTOMATION: AutopilotAutomation = {
   global: { ...NO_AUTOMATION },
   companies: {},
   teams: {},
+  projects: {},
 };
 
 /** Merge `inherited` <- `override` (an absent key inherits). */

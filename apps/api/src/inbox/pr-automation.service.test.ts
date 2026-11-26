@@ -1,11 +1,16 @@
-import type {
-  AutomationToggles,
-  Company,
-  InboxPr,
-  ScheduledTask,
-  SystemConfig,
+import { promises as fs } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import {
+  type AutomationToggles,
+  type Company,
+  type InboxPr,
+  NO_AUTOMATION,
+  type ScheduledTask,
+  type SystemConfig,
 } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AutopilotService } from "../autopilot/autopilot.service";
 import { fakeSystemConfigStore } from "../system/system-config.fixture";
 import { ReviewOutOfScopeError } from "./inbox-review.service";
 import { PR_AUTOMATION_MAX_STARTS_PER_TICK, PrAutomationService } from "./pr-automation.service";
@@ -125,7 +130,7 @@ describe("PrAutomationService (todo-16)", () => {
     },
   };
 
-  const make = (sys: Partial<SystemConfig> = {}) =>
+  const make = (sys: Partial<SystemConfig> = {}, ap: unknown = autopilot) =>
     new PrAutomationService(
       inbox as never,
       review as never,
@@ -140,7 +145,7 @@ describe("PrAutomationService (todo-16)", () => {
       {
         list: async () => Object.keys(configs).map((id) => ({ id, name: id, slug: `${id}-team` })),
       } as never,
-      autopilot as never,
+      ap as never,
       activity as never,
       fakeSystemConfigStore(sys),
       { register: () => {} } as never,
@@ -165,6 +170,50 @@ describe("PrAutomationService (todo-16)", () => {
     activity = { record: vi.fn(async () => {}) };
   });
 
+  describe("project layer (real AutopilotService)", () => {
+    const realAutopilot = async (
+      teams: Record<string, { autoReview: "manual" | "semi" | "auto" }>,
+      projects: Record<string, { autoReview: "manual" | "semi" | "auto" }>,
+    ) => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pr-auto-project-"));
+      const svc = new AutopilotService(dir);
+      await svc.onModuleInit();
+      await svc.set(
+        {
+          automation: {
+            global: { ...NO_AUTOMATION, autoImplement: "semi" },
+            companies: {},
+            teams,
+            projects,
+          },
+        },
+        "operator",
+      );
+      return svc;
+    };
+
+    it("a project manual beats a team auto at every team place of the PR", async () => {
+      configs = { p1: {}, p2: {} };
+      prs = [pr({ reviewTeams: ["acme/p1-team", "acme/p2-team"] })];
+      const ap = await realAutopilot(
+        { p1: { autoReview: "auto" }, p2: { autoReview: "auto" } },
+        { p1: { autoReview: "manual" } },
+      );
+      expect(await make({}, ap).tick()).toEqual({ started: 0 });
+      expect(review.start).not.toHaveBeenCalled();
+    });
+
+    it("a project auto starts a review with no team or company exception", async () => {
+      const ap = await realAutopilot({}, { p1: { autoReview: "auto" } });
+      expect(await make({}, ap).tick()).toEqual({ started: 1 });
+      expect(review.start).toHaveBeenCalledWith(expect.anything(), {
+        auto: true,
+        headSha: A,
+        autopilotAt: [{ teamId: "p1", projectId: "p1" }],
+      });
+    });
+  });
+
   describe("auto review", () => {
     it("starts a review at the level chosen from the PR's files, stamped auto", async () => {
       review.listPrFiles.mockResolvedValue([
@@ -175,7 +224,7 @@ describe("PrAutomationService (todo-16)", () => {
       expect(review.listPrFiles).toHaveBeenCalledWith("p1", "acme/app", 7);
       expect(review.start).toHaveBeenCalledWith(
         { projectId: "p1", repo: "acme/app", number: 7, title: "Add thing", level: "browser" },
-        { auto: true, headSha: A, autopilotAt: [{ teamId: "p1" }] },
+        { auto: true, headSha: A, autopilotAt: [{ teamId: "p1", projectId: "p1" }] },
       );
     });
 

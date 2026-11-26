@@ -3,6 +3,7 @@ import {
   AUTOMATION_KEYS,
   AutomationLevelsSchema,
   type AutopilotAutomation,
+  AutopilotLocationSchema,
   AutopilotStateSchema,
   NO_AUTOMATION,
   SetAutopilotInputSchema,
@@ -22,6 +23,7 @@ const tree: AutopilotAutomation = {
   },
   companies: { shoptet: { autoReview: "auto" } },
   teams: { devrel: { autoReview: "manual", autoAddressComments: "semi" } },
+  projects: {},
 };
 
 describe("resolveAutopilotAutomation", () => {
@@ -99,6 +101,63 @@ describe("resolveAutopilotAutomation", () => {
   });
 });
 
+describe("project layer", () => {
+  const s = {
+    paused: false,
+    automation: {
+      ...tree,
+      companies: { shoptet: { autoReview: "auto" as const, autoFixCi: "semi" as const } },
+      teams: { devrel: { autoReview: "semi" as const, autoFixCi: "auto" as const } },
+      projects: { eshop: { autoReview: "manual" as const } },
+    },
+  };
+
+  it("applies project > team > company > global", () => {
+    const at = { companyId: "shoptet", teamId: "devrel", projectId: "eshop" };
+    expect(resolveAutopilotLevels(s, at)).toMatchObject({
+      autoImplement: "auto", // global
+      autoReview: "manual", // project beats team semi and company auto
+      autoFixCi: "auto", // team beats company
+    });
+    expect(resolveAutopilotLevels(s, { companyId: "shoptet", projectId: "eshop" }).autoFixCi).toBe(
+      "semi",
+    );
+    expect(resolveAutopilotLevels(s, { projectId: "other" })).toEqual(tree.global);
+  });
+
+  it("a project manual beats a team auto at every place of a PR", () => {
+    const places = ["devrel", "frontend"].map((teamId) => ({
+      companyId: "shoptet",
+      teamId,
+      projectId: "eshop",
+    }));
+    const auto = {
+      ...s,
+      automation: {
+        ...s.automation,
+        teams: {
+          devrel: { autoReview: "auto" as const },
+          frontend: { autoReview: "auto" as const },
+        },
+      },
+    };
+    expect(places.some((at) => resolveAutopilotAutomation(auto, at).autoReview)).toBe(false);
+  });
+
+  it("an old file without projects parses with an empty map, and stamps without projectId stay valid", () => {
+    const parsed = AutopilotStateSchema.parse({
+      paused: false,
+      automation: { global: NO_AUTOMATION, companies: {}, teams: {} },
+    });
+    expect(parsed.automation?.projects).toEqual({});
+    expect(AutopilotLocationSchema.parse({ companyId: "c", teamId: "t" })).toEqual({
+      companyId: "c",
+      teamId: "t",
+    });
+    expect(AutopilotLocationSchema.safeParse({ projectId: "" }).success).toBe(false);
+  });
+});
+
 describe("autoDecideGoals", () => {
   it("defaults to manual for trees written without it, and is a key of the table", () => {
     const legacy: Record<string, string> = { ...NO_AUTOMATION };
@@ -131,7 +190,12 @@ describe("autopilot state + input schemas", () => {
       automation: { global: NO_AUTOMATION },
     });
     expect(parsed).toMatchObject({ paused: true });
-    expect(parsed.automation).toEqual({ global: NO_AUTOMATION, companies: {}, teams: {} });
+    expect(parsed.automation).toEqual({
+      global: NO_AUTOMATION,
+      companies: {},
+      teams: {},
+      projects: {},
+    });
     expect(
       SetAutopilotInputSchema.safeParse({ paused: false, automation: { global: NO_AUTOMATION } })
         .success,
@@ -226,16 +290,17 @@ describe("resolveAutopilotLevels copy", () => {
 });
 
 describe("global all-manual", () => {
-  it("is a master switch: company/team exceptions start nothing", () => {
+  it("is a master switch: company/team/project exceptions start nothing", () => {
     const s = {
       paused: false,
       automation: {
         global: { ...NO_AUTOMATION },
         companies: { shoptet: { autoReview: "auto" as const } },
         teams: { devrel: { autoReview: "semi" as const, autoFixCi: "auto" as const } },
+        projects: { eshop: { autoImplement: "auto" as const } },
       },
     };
-    const at = { companyId: "shoptet", teamId: "devrel" };
+    const at = { companyId: "shoptet", teamId: "devrel", projectId: "eshop" };
     expect(resolveAutopilotLevels(s, at)).toEqual(NO_AUTOMATION);
     expect(Object.values(resolveAutopilotAutomation(s, at)).some(Boolean)).toBe(false);
   });

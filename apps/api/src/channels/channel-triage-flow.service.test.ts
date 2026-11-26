@@ -65,7 +65,7 @@ describe("ChannelTriageFlowService", () => {
     /** Company the resolver gives every project (`resolveCompany`). */
     projectCompanyId?: string;
     /** Autopilot coverage by location (defaults to the real rule, location-blind). */
-    autopilotCovers?: (at: { companyId?: string }) => boolean;
+    autopilotCovers?: (at: { companyId?: string; projectId?: string }) => boolean;
     /** NS2 F6a — a stubbed CommsService (graduation + ledger seam). */
     comms?: {
       isGraduated: ReturnType<typeof vi.fn>;
@@ -162,7 +162,7 @@ describe("ChannelTriageFlowService", () => {
               approval: Parameters<typeof autopilotCoversApproval>[0],
               head?: string,
               own?: boolean,
-              at: { companyId?: string } = {},
+              at: { companyId?: string; projectId?: string } = {},
             ) =>
               (opts.autopilotCovers?.(at) ?? true) && autopilotCoversApproval(approval, head, own),
           }
@@ -412,6 +412,36 @@ describe("ChannelTriageFlowService", () => {
       expect(out.projectId).toBe("acme");
       expect(requestApproval).toHaveBeenCalledTimes(1);
       expect(send).not.toHaveBeenCalled();
+    });
+
+    it("autopilot: a personal account's text match never borrows the project's own cells either", async () => {
+      const personalSlack: Integration = { ...integration, companyId: undefined };
+      const acme: Project = { id: "acme", name: "Acme", path: "/work/acme", companyId: "co" };
+      const flow = makeFlow({
+        verdict: scope,
+        integration: personalSlack,
+        projects: [acme],
+        projectCompanyId: "co",
+        serving: [],
+        autopilot: true,
+        autopilotCovers: (at) => at.projectId === "acme", // only the project is on auto
+      });
+      const out = await researched(flow, item({ text: "Acme: can you check this?" }), "an answer");
+      expect(out.projectId).toBe("acme");
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it("autopilot: a company account's item acts at its project's levels", async () => {
+      const acme: Project = { id: "acme", name: "Acme", path: "/work/acme", companyId: "co" };
+      const flow = makeFlow({
+        verdict: scope,
+        projects: [acme],
+        projectCompanyId: "co",
+        autopilot: true,
+        autopilotCovers: (at) => at.projectId === "acme" && at.companyId === "co",
+      });
+      await researched(flow, item({ text: "Acme: can you check this?" }), "an answer");
+      expect(send).toHaveBeenCalledTimes(1);
     });
 
     it("autopilot: a company account's item on its company's project acts at the company's levels", async () => {

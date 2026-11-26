@@ -117,7 +117,7 @@ export class RoadmapTickService
   }
 
   /**
-   * The project's Autopilot automation toggles (company > global; all `false` while Autopilot
+   * The project's Autopilot automation toggles (project > company > global; all `false` while Autopilot
    * is off). No team level: several teams work in one project, and auto-pickup only starts
    * ZIBBY's own (manual) items, which belong to no team. The legacy `_config.json` /
    * `roadmapDefaults` are not read.
@@ -125,7 +125,7 @@ export class RoadmapTickService
   private async effectiveConfig(projectId: string): Promise<AutomationToggles> {
     const project = await this.projects.get(projectId).catch(() => null);
     const company = project ? await this.resolvedProjects.resolveCompany(project) : undefined;
-    return this.autopilot.automationFor({ companyId: company?.id });
+    return this.autopilot.automationFor({ companyId: company?.id, projectId });
   }
 
   private async tickProject(projectId: string, config: AutomationToggles): Promise<void> {

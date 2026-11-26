@@ -1214,6 +1214,7 @@ describe("TaskOutputService", () => {
             },
             companies: {},
             teams: {},
+            projects: {},
           },
         },
         "operator",

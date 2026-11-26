@@ -23,6 +23,7 @@ const AUTO_TREE = {
   },
   companies: {},
   teams: {},
+  projects: {},
 } as const;
 /** Running with the overlay on / paused (every gate asks again). */
 const ON = { paused: false, automation: AUTO_TREE } as const;
@@ -330,6 +331,7 @@ describe("GateEvaluatorService — autopilot overlay", () => {
           },
           companies: {},
           teams: {},
+          projects: {},
         },
       },
       "operator",

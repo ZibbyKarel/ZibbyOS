@@ -502,7 +502,7 @@ The HTTP route never starts an auto run: the body schema is strict, so `{ …, a
 
 `PrAutomationService` (`apps/api/src/inbox/pr-automation.service.ts`) is a heartbeat that starts
 the two actions above on its own, per the autonomy levels `autoReview` and
-`autoAddressComments` (`./autopilot.md` — team > company > global override tree via
+`autoAddressComments` (`./autopilot.md` — project > team > company > global override tree via
 `AutopilotService.automationFor`: a `semi` or `auto` cell starts the work; all `false` while ZIBBY is paused). It shares the roadmap heartbeat
 knob `systemConfig.roadmapTickMs` (read live, `0` disables; no separate knob) and reports on
 `/api/health` as watcher `pr-automation`.
@@ -511,8 +511,9 @@ The team level of that tree is the PR's own team, not the project's (one repo se
 the configured team whose code owner id (`Team.slug`) the PR's review was requested from
 (`reviewTeams`) or whose member authored it (`authorTeams`); a PR of several teams is automated
 when any of them has the toggle on. `Project.teamId` is never used: several teams work in one
-project. A PR of no configured team gets the company/global level; a team without a `slug`
-never matches a PR. The task it starts is stamped with those places (`prReview.autopilotAt` /
+project. A PR of no configured team gets the project/company/global level; a team without a
+`slug` never matches a PR. Every place also carries the PR's `projectId`, and the project cell
+beats the team's: a project `manual` keeps a team `auto` from starting anything there. The task it starts is stamped with those places (`prReview.autopilotAt` /
 `prAddressComments.autopilotAt`), so autopilot later signs off its approvals at the same teams /
 company, not at global (`./autopilot.md`).
 

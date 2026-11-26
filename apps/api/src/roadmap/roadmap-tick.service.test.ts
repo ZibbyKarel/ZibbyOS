@@ -32,12 +32,21 @@ describe("RoadmapTickService", () => {
   let globalToggles: Partial<AutomationToggles>;
   let companyToggles: Record<string, Partial<AutomationToggles>>;
   let teamToggles: Record<string, Partial<AutomationToggles>>;
+  let projectToggles: Record<string, Partial<AutomationToggles>>;
   const projects = {
     get: async (id: string) => ({ id, name: id, path: `/repos/${id}`, teamId: "team-1" }),
   };
   const resolvedProjects = { resolveCompany: async () => company };
   const autopilot = {
-    automationFor: ({ companyId, teamId }: { companyId?: string; teamId?: string }) => {
+    automationFor: ({
+      companyId,
+      teamId,
+      projectId,
+    }: {
+      companyId?: string;
+      teamId?: string;
+      projectId?: string;
+    }) => {
       const off = { autoImplement: false, autoReview: false, autoAddressComments: false };
       if (!autopilotOn) return off;
       return {
@@ -45,6 +54,7 @@ describe("RoadmapTickService", () => {
         ...globalToggles,
         ...(companyId ? companyToggles[companyId] : {}),
         ...(teamId ? teamToggles[teamId] : {}),
+        ...(projectId ? projectToggles[projectId] : {}),
       };
     },
   };
@@ -70,6 +80,7 @@ describe("RoadmapTickService", () => {
     globalToggles = {};
     companyToggles = {};
     teamToggles = {};
+    projectToggles = {};
     gate = {
       reconcileRunning: vi.fn(async () => {}),
       reconcileAwaitingMerge: vi.fn(async () => {}),
@@ -111,6 +122,20 @@ describe("RoadmapTickService", () => {
 
     expect(gate.reconcileRunning).toHaveBeenCalledWith("acme");
     expect(gate.autoPickup).not.toHaveBeenCalled();
+  });
+
+  it("resolves at the project (with its company): a project cell beats the company", async () => {
+    await store.writeConfig("acme", {});
+    company = { id: "co", name: "Co" } as Company;
+    companyToggles = { co: { autoImplement: true } };
+    projectToggles = { acme: { autoImplement: false } };
+    await makeTick().tick();
+    expect(gate.autoPickup).not.toHaveBeenCalled();
+
+    companyToggles = {};
+    projectToggles = { acme: { autoImplement: true } };
+    await makeTick().tick();
+    expect(gate.autoPickup).toHaveBeenCalledWith("acme");
   });
 
   it("the project's team toggle is never applied: several teams work in one project", async () => {

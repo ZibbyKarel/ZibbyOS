@@ -66,7 +66,8 @@ const treeOf = (
   global: Cells = {},
   companies: AutopilotAutomation["companies"] = {},
   teams: AutopilotAutomation["teams"] = {},
-): AutopilotAutomation => ({ global: cells(global), companies, teams });
+  projects: AutopilotAutomation["projects"] = {},
+): AutopilotAutomation => ({ global: cells(global), companies, teams, projects });
 
 /** A global row that is not all-manual, so company/team exceptions apply (all-manual is a master off). */
 const LIVE: Cells = { autoImplement: "semi" };
@@ -108,6 +109,62 @@ describe("automationRaises", () => {
         treeOf({}, { co: { autoReview: "auto" } }, { t: { autoReview: "manual" } }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("automationRaises — project cells", () => {
+  it("raising a project cell raises, on its own and under any company or team", () => {
+    expect(
+      automationRaises(treeOf(LIVE), treeOf(LIVE, {}, {}, { p: { autoReview: "semi" } })),
+    ).toBe(true);
+    expect(
+      automationRaises(treeOf(LIVE), treeOf(LIVE, {}, {}, { p: { autoDecideGoals: "auto" } })),
+    ).toBe(true);
+    // A project already semi under a company that is semi: going auto raises.
+    expect(
+      automationRaises(
+        treeOf(LIVE, {}, {}, { p: { autoReview: "semi" } }),
+        treeOf(LIVE, {}, {}, { p: { autoReview: "auto" } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("removing a project's manual override re-exposes a team/company auto: a raise", () => {
+    const company = { co: { autoReview: "auto" as const } };
+    const team = { t: { autoFixCi: "auto" as const } };
+    expect(
+      automationRaises(
+        treeOf(LIVE, company, {}, { p: { autoReview: "manual" } }),
+        treeOf(LIVE, company),
+      ),
+    ).toBe(true);
+    expect(
+      automationRaises(
+        treeOf(LIVE, {}, team, { p: { autoFixCi: "manual" } }),
+        treeOf(LIVE, {}, team),
+      ),
+    ).toBe(true);
+    // Under company AND team only (neither alone shows it).
+    expect(
+      automationRaises(
+        treeOf(
+          LIVE,
+          { co: { autoImplement: "manual" } },
+          { t: { autoImplement: "auto" } },
+          {
+            p: { autoImplement: "manual" },
+          },
+        ),
+        treeOf(LIVE, { co: { autoImplement: "manual" } }, { t: { autoImplement: "auto" } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("lowering or keeping a project cell is not a raise", () => {
+    const up = treeOf(LIVE, {}, {}, { p: { autoReview: "auto" } });
+    expect(automationRaises(up, treeOf(LIVE, {}, {}, { p: { autoReview: "semi" } }))).toBe(false);
+    expect(automationRaises(up, treeOf(LIVE))).toBe(false);
+    expect(automationRaises(up, up)).toBe(false);
   });
 });
 
@@ -241,6 +298,18 @@ describe("AutopilotService", () => {
     await svc.set({ paused: true }, "chat");
     expect(svc.isOn()).toBe(false);
     expect(svc.isPaused()).toBe(true);
+  });
+
+  it("isOn: a project-only auto cell turns the overlay on, and covers only that project", async () => {
+    const svc = await boot();
+    await svc.set(
+      { automation: treeOf(LIVE, {}, {}, { p: { autoAddressComments: "auto" } }) },
+      "operator",
+    );
+    expect(svc.isOn()).toBe(true);
+    expect(svc.scope({ projectId: "p" }).comments).toBe(true);
+    expect(svc.scope({ projectId: "other" }).comments).toBe(false);
+    expect(svc.scope().comments).toBe(false);
   });
 
   it("an all-manual global row (TopBar Ručně) switches every exception off", async () => {

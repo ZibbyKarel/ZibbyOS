@@ -196,7 +196,7 @@ export class PrAutomationService
     return { started };
   }
 
-  /** True when any project (company/global level) or any configured team has a toggle on. */
+  /** True when any project (project/company/global level) or any configured team has a toggle on. */
   private async anyAutomationOn(teams: Team[]): Promise<boolean> {
     const projects = await this.projects.list().catch((error: unknown) => {
       this.log.warn("pr automation: projects unreadable — tick skipped", { error: errMsg(error) });
@@ -332,7 +332,12 @@ export class PrAutomationService
   private async locationOf(projectId: string, teamId?: string): Promise<AutopilotLocation> {
     const project = await this.projects.get(projectId).catch(() => null);
     const company = project ? await this.resolvedProjects.resolveCompany(project) : undefined;
-    return { ...(company?.id ? { companyId: company.id } : {}), ...(teamId ? { teamId } : {}) };
+    // The project node is the most specific: a project `manual` beats the PR's team `auto`.
+    return {
+      ...(company?.id ? { companyId: company.id } : {}),
+      ...(teamId ? { teamId } : {}),
+      projectId,
+    };
   }
 }
 

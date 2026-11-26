@@ -205,32 +205,50 @@ export async function autopilotActors(
   throw new Error(`autopilot: no gate actors for a ${target?.kind ?? "missing"} target`);
 }
 
-/** Every node of a tree (global, each company, each team). */
+/** Every node of a tree (global, each company, each team, each project). */
 function nodesOf(automation: AutopilotAutomation | undefined): AutopilotLocation[] {
-  const { companies = {}, teams = {} } = automation ?? {};
+  const { companies = {}, teams = {}, projects = {} } = automation ?? {};
   return [
     {},
     ...Object.keys(companies).map((companyId) => ({ companyId })),
     ...Object.keys(teams).map((teamId) => ({ teamId })),
+    ...Object.keys(projects).map((projectId) => ({ projectId })),
+  ];
+}
+
+/** The ids of one tree level across both trees, plus `undefined` for "no node at this level". */
+function idsOf(
+  prev: AutopilotAutomation | undefined,
+  next: AutopilotAutomation,
+  level: "companies" | "teams" | "projects",
+): (string | undefined)[] {
+  return [
+    undefined,
+    ...new Set([...Object.keys(prev?.[level] ?? {}), ...Object.keys(next[level] ?? {})]),
   ];
 }
 
 /**
  * Whether `next` raises any cell over `prev` anywhere in the tree (manual < semi < auto). Raising
  * needs the operator token; lowering and re-arranging at the same or a lower level never does.
- * A team is checked under every company the two trees know, so a team override is never missed.
+ * Every combination of company, team and project the two trees know (each also absent) is
+ * checked, so an override that only shows under another node is never missed. An id in neither
+ * tree resolves like an absent one, so this covers every place a caller can pass.
+ * ponytail: companies x teams x projects places; fine for a hand-edited table of tens of nodes.
  */
 export function automationRaises(
   prev: AutopilotAutomation | undefined,
   next: AutopilotAutomation,
 ): boolean {
-  const companies = new Set([
-    ...Object.keys(prev?.companies ?? {}),
-    ...Object.keys(next.companies),
-  ]);
-  const places: AutopilotLocation[] = [...nodesOf(prev), ...nodesOf(next)];
-  for (const teamId of new Set([...Object.keys(prev?.teams ?? {}), ...Object.keys(next.teams)]))
-    for (const companyId of companies) places.push({ companyId, teamId });
+  const places: AutopilotLocation[] = [];
+  for (const companyId of idsOf(prev, next, "companies"))
+    for (const teamId of idsOf(prev, next, "teams"))
+      for (const projectId of idsOf(prev, next, "projects"))
+        places.push({
+          ...(companyId ? { companyId } : {}),
+          ...(teamId ? { teamId } : {}),
+          ...(projectId ? { projectId } : {}),
+        });
   return places.some((at) => {
     const before = resolveAutopilotLevels({ automation: prev }, at);
     const after = resolveAutopilotLevels({ automation: next }, at);
@@ -270,9 +288,12 @@ export class AutopilotService implements OnModuleInit {
   isOn(): boolean {
     const a = this.state.automation;
     if (this.state.paused || !a || isGlobalManual(a)) return false;
-    return [a.global, ...Object.values(a.companies), ...Object.values(a.teams)].some((node) =>
-      Object.values(node).includes("auto"),
-    );
+    return [
+      a.global,
+      ...Object.values(a.companies),
+      ...Object.values(a.teams),
+      ...Object.values(a.projects ?? {}),
+    ].some((node) => Object.values(node).includes("auto"));
   }
 
   /** {@link scope} at any node of the tree — for an action that has no location of its own. */
@@ -285,7 +306,7 @@ export class AutopilotService implements OnModuleInit {
   }
 
   /**
-   * The classes the overlay covers at a company/team (global when `at` is empty): the class's
+   * The classes the overlay covers at a place (global when `at` is empty): the class's
    * capability is `auto` there (any of several places), and nothing is paused.
    */
   scope(at: AutopilotAt = {}): AutopilotScope {
@@ -303,7 +324,7 @@ export class AutopilotService implements OnModuleInit {
     return out;
   }
 
-  /** Which capabilities start work at a company/team (`semi` or `auto`); all false while paused. */
+  /** Which capabilities start work at a place (`semi` or `auto`); all false while paused. */
   automationFor(at: AutopilotLocation): AutomationToggles {
     return resolveAutopilotAutomation(this.state, at);
   }

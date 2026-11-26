@@ -98,11 +98,25 @@ describe("Autopilot API (e2e)", () => {
     await request(server()).put("/api/autopilot").send({ automation: team }).expect(401);
   });
 
+  it("raising a project cell without the token is 401; lowering one is 200", async () => {
+    const base = { global: cells({ autoAddressComments: "semi" }), companies: {}, teams: {} };
+    const raised = { ...base, projects: { eshop: { autoReview: "auto" } } };
+    await request(server()).put("/api/autopilot").send({ automation: raised }).expect(401);
+    expect((await request(server()).get("/api/autopilot")).body.automation.projects).toEqual({});
+    await withOperator(request(server()).put("/api/autopilot"))
+      .send({ automation: raised })
+      .expect(200);
+    const lowered = { ...base, projects: { eshop: { autoReview: "semi" } } };
+    await request(server()).put("/api/autopilot").send({ automation: lowered }).expect(200);
+    await request(server()).put("/api/autopilot").send({ automation: base }).expect(200);
+  });
+
   it("stores and echoes the automation tree", async () => {
     const automation = {
       global: cells({ autoImplement: "semi" }),
       companies: { acme: { autoReview: "auto" } },
       teams: {},
+      projects: { eshop: { autoFixCi: "semi" } },
     };
     const put = await withOperator(request(server()).put("/api/autopilot"))
       .send({ automation })

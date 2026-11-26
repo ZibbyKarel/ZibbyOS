@@ -627,7 +627,7 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
   }
 
   /**
-   * Where a reply acts for autopilot: the item's project's company, else the account's
+   * Where a reply acts for autopilot: the item's project (with its company), else the account's
    * company (none for a personal account = global levels only). Never the project's team —
    * several teams work in one project, so its team toggles would cover every other team's
    * messages. A personal account's item attributed to a project it does NOT serve (text
@@ -645,8 +645,9 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
       const serving = await this.resolved.resolveIntegrations(project).catch(() => []);
       if (!serving.some((i) => i.id === integration.id)) return {};
     }
+    // Only past the personal-account check: inbound text never borrows a project's autonomy either.
     const company = await this.resolved.resolveCompany(project).catch(() => undefined);
-    return { companyId: company?.id };
+    return { companyId: company?.id, projectId: project.id };
   }
 
   // ---- Tier 3 / fallback: park a kind-"channel" approval ----------------------

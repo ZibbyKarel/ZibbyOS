@@ -42,8 +42,8 @@ export type AutopilotScope = z.infer<typeof AutopilotScopeSchema>;
 export type AutopilotScopeKey = keyof AutopilotScope;
 
 /**
- * The autonomy table, one Global -> Company -> Team override tree. Precedence
- * team > company > global. `semi` and `auto` start the work (`autoReview` /
+ * The autonomy table, one Global -> Company -> Team -> Project override tree. Precedence
+ * project > team > company > global. `semi` and `auto` start the work (`autoReview` /
  * `autoAddressComments` / `autoImplement` / `autoFixCi`); only `auto` also lets the gate overlay
  * act on its outcome. `autoCommunicate` and `autoDecideGoals` start nothing (channel items arrive on their own; the goal engine reads the latter).
  */
@@ -91,12 +91,13 @@ export const AutomationOverrideSchema = z
   .strict();
 export type AutomationOverride = z.infer<typeof AutomationOverrideSchema>;
 
-/** `companies` / `teams` are keyed by company id / team id. */
+/** `companies` / `teams` / `projects` are keyed by company id / team id / project id. */
 export const AutopilotAutomationSchema = z
   .object({
     global: AutomationLevelsSchema,
     companies: z.record(z.string(), AutomationOverrideSchema).default({}),
     teams: z.record(z.string(), AutomationOverrideSchema).default({}),
+    projects: z.record(z.string(), AutomationOverrideSchema).default({}),
   })
   .strict();
 export type AutopilotAutomation = z.infer<typeof AutopilotAutomationSchema>;
@@ -134,7 +135,12 @@ export function migrateLegacyAutopilotState(raw: unknown): unknown {
     }
     const map = (m: unknown) =>
       isRecord(m) ? Object.fromEntries(Object.entries(m).map(([k, v]) => [k, node(v)])) : m;
-    out.automation = { global, companies: map(tree.companies), teams: map(tree.teams) };
+    out.automation = {
+      global,
+      companies: map(tree.companies),
+      teams: map(tree.teams),
+      projects: {},
+    };
   }
   return out;
 }
@@ -153,9 +159,17 @@ export const AutopilotStateSchema = z.preprocess(
 );
 export type AutopilotState = z.infer<typeof AutopilotStateSchema>;
 
-/** Where an action happens in the automation tree; empty = global. */
+/**
+ * Where an action happens in the automation tree; empty = global. A project place carries its
+ * company (and, for a PR, the team) so the levels merge company -> team -> project. Task stamps
+ * (`autopilotAt`) written before `projectId` resolve as before.
+ */
 export const AutopilotLocationSchema = z
-  .object({ companyId: z.string().min(1).optional(), teamId: z.string().min(1).optional() })
+  .object({
+    companyId: z.string().min(1).optional(),
+    teamId: z.string().min(1).optional(),
+    projectId: z.string().min(1).optional(),
+  })
   .strict();
 export type AutopilotLocation = z.infer<typeof AutopilotLocationSchema>;
 
@@ -164,20 +178,22 @@ export function isGlobalManual(automation: Pick<AutopilotAutomation, "global">):
   return AUTOMATION_KEYS.every((k) => automation.global[k] === "manual");
 }
 
-/** The resolved level of every capability at a company/team: global <- company <- team. */
+/** The resolved level of every capability at a place: global <- company <- team <- project. */
 export function resolveAutopilotLevels(
   state: Pick<AutopilotState, "automation">,
-  at: { companyId?: string | undefined; teamId?: string | undefined },
+  at: AutopilotLocation,
 ): AutomationLevels {
   if (!state.automation) return { ...NO_AUTOMATION };
-  const { global, companies, teams } = state.automation;
+  // `projects` may be missing on a tree built in code rather than parsed.
+  const { global, companies, teams, projects = {} } = state.automation;
   // Global all-manual (the TopBar "Ručně") is a master switch: no company/team exception
   // starts work. The exceptions stay stored and apply again once the global row is raised.
   if (isGlobalManual(state.automation)) return { ...NO_AUTOMATION };
   const company = at.companyId ? companies[at.companyId] : undefined;
   const team = at.teamId ? teams[at.teamId] : undefined;
+  const project = at.projectId ? projects[at.projectId] : undefined;
   const out = { ...global };
-  for (const node of [company, team]) {
+  for (const node of [company, team, project]) {
     if (!node) continue;
     for (const k of AUTOMATION_KEYS) {
       const v = node[k];
@@ -187,10 +203,10 @@ export function resolveAutopilotLevels(
   return out;
 }
 
-/** Which capabilities start work at a company/team: the cell is `semi` or `auto` and nothing is paused. */
+/** Which capabilities start work at a place: the cell is `semi` or `auto` and nothing is paused. */
 export function resolveAutopilotAutomation(
   state: Pick<AutopilotState, "paused" | "automation">,
-  at: { companyId?: string | undefined; teamId?: string | undefined },
+  at: AutopilotLocation,
 ): AutomationToggles {
   const levels = resolveAutopilotLevels(state, at);
   const out = {} as AutomationToggles;

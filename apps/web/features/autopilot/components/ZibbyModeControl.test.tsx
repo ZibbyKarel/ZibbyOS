@@ -52,6 +52,7 @@ beforeEach(() => {
       global: { ...NO_AUTOMATION },
       companies: { acme: { autoReview: "auto" } },
       teams: {},
+      projects: {},
     },
   };
 });
@@ -89,6 +90,7 @@ describe("ZibbyModeControl", () => {
         global: Object.fromEntries(AUTOMATION_KEYS.map((k) => [k, "semi"])) as never,
         companies: {},
         teams: {},
+        projects: {},
       },
     };
     renderAutonomy(<ZibbyModeControl />);
@@ -103,6 +105,7 @@ describe("ZibbyModeControl", () => {
         global: { ...NO_AUTOMATION, autoReview: "auto" },
         companies: {},
         teams: {},
+        projects: {},
       },
     };
     renderAutonomy(<ZibbyModeControl />);
@@ -193,6 +196,7 @@ describe("ZibbyModeControl", () => {
         global: { ...NO_AUTOMATION, autoReview: "auto" },
         companies: {},
         teams: {},
+        projects: {},
       },
     };
     renderAutonomy(<ZibbyModeControl />);
@@ -224,6 +228,7 @@ describe("ZibbyModeControl", () => {
         global: Object.fromEntries(AUTOMATION_KEYS.map((k) => [k, "auto"])) as never,
         companies: {},
         teams: {},
+        projects: {},
       },
     };
     const { unmount } = renderAutonomy(<ZibbyModeControl />);

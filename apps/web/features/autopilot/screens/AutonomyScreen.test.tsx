@@ -47,6 +47,7 @@ beforeEach(() => {
       global: { ...NO_AUTOMATION, autoReview: "semi" },
       companies: { acme: { autoReview: "auto" } },
       teams: {},
+      projects: {},
     },
   };
 });
@@ -129,6 +130,7 @@ describe("AutonomyScreen", () => {
         global: { ...NO_AUTOMATION },
         companies: { acme: { autoReview: "semi" } },
         teams: { web: { autoReview: "auto" } },
+        projects: {},
       },
     };
     renderAutonomy(<AutonomyScreen />);

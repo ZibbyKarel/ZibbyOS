@@ -38,7 +38,8 @@ pops a system notification for every new approval (`approval-requested` activity
       "autoDecideGoals": "manual"
     },
     "companies": { "acme": { "autoCommunicate": "auto" } },
-    "teams": { "frontend": { "autoReview": "manual" } }
+    "teams": { "frontend": { "autoReview": "manual" } },
+    "projects": { "eshop": { "autoFixCi": "semi" } }
   }
 }
 ```
@@ -47,7 +48,8 @@ pops a system notification for every new approval (`approval-requested` activity
 `manual`. A pre-redesign file (`level: off|full` with boolean toggles) is migrated on read
 (`migrateLegacyAutopilotState`): `false` -> `manual`; `true` -> `auto` when the level was
 `full`, else `semi`; a tree without `autoCommunicate` takes it from the stored
-`scope.communication`. A legacy state without a tree starts nothing. The file is rewritten in
+`scope.communication`. A legacy state without a tree starts nothing. A tree written before the
+project layer reads with `projects: {}`. The file is rewritten in
 the new shape on the next change.
 
 ## The six capabilities
@@ -61,28 +63,38 @@ the new shape on the next change.
 | `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`)                                     | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
 | `autoDecideGoals`     | none by itself; the goal engine reads it: `semi` = a proposal behind an approval, `auto` = ZIBBY decides | none (no gate class)                                                                     |
 
-`companies` / `teams` are keyed by id and hold only the cells the node overrides. Precedence is
-team > company > global (`resolveAutopilotLevels`; `resolveAutopilotAutomation` /
+`companies` / `teams` / `projects` are keyed by id and hold only the cells the node overrides.
+Precedence is project > team > company > global (`resolveAutopilotLevels` merges company, team,
+project in that order; `resolveAutopilotAutomation` /
 `AutopilotService.automationFor` turn it into "starts" flags, all false while paused). A global
 row that is all `manual` (the pill's `Ručně`) is a master off: every company/team exception
-resolves to `manual` too (`isGlobalManual`), so nothing is picked up or auto-approved and
+resolves to `manual` too (`isGlobalManual`), project ones included, so nothing is picked up or auto-approved and
 `isOn()` is false; the exceptions stay stored and apply again once the global row is raised.
 Configured automations don't go through this tree and keep running. The pill is greyed (muted
 tone, sleeping orb) in `Ručně` as while paused. The gate
 class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`): a
-`channel` reply resolves at the item's project's company, or the integration's company.
+`channel` reply resolves at the item's project (with its company), or the integration's company.
+A personal account's item that is only text-matched to a project it does not serve stays at
+global: inbound text borrows neither the company's nor the project's cells.
 `Project.teamId` never picks the team level: several teams work in one project. Only the PR
 automation applies team cells, at the PR's own teams (`docs/api/inbox.md`); the roadmap tick
-and channel replies resolve at company > global. A review or address-comments task the PR
+and channel replies resolve at project > company > global. A project place always carries its
+company (and, in the PR automation, the PR's team), so for a PR of several teams there is one
+place per team, each with the same `projectId`: a project `manual` beats every team `auto`. A review or address-comments task the PR
 automation starts is stamped with the places it resolved at (`prReview.autopilotAt` /
-`prAddressComments.autopilotAt`: one `{ companyId, teamId }` per team of the PR, or just the
-company). Its approvals, the pr-review workflow sign-off and the gate check behind them
+`prAddressComments.autopilotAt`: one `{ companyId, teamId, projectId }` per team of the PR, or
+just the company and project). Stamps written before `projectId` resolve as before. Its approvals, the pr-review workflow sign-off and the gate check behind them
 (`AutopilotContext.at`) resolve there, covered when any of the places is `auto`. Other
 approvals from tasks and workflow gates (a review the operator started, say) resolve at global.
 A flaky-CI rerun carries no place, so `auto` CI anywhere covers it (`scopeAnywhere`).
 
+Hook intents carry no project (nor company or team): the gate evaluator's hook path checks
+them at global, or at the `AutopilotContext.at` a caller hands it. Project cells therefore apply
+only where a caller passes a place: the PR automation, the roadmap tick, channel replies and the
+approvals and gate checks of the tasks they stamp.
+
 A hook `git.push` onto `zibby/*` is covered while the overlay is on at all (`isOn()`: not paused
-and some cell anywhere is `auto`). The file is read once at boot and cached, because the gate
+and some cell anywhere is `auto`, project cells included). The file is read once at boot and cached, because the gate
 evaluator is synchronous. Use the API to change it: a hand edit only takes effect after a restart.
 
 ## Endpoints
@@ -92,8 +104,9 @@ evaluator is synchronous. Use the API to change it: a hand edit only takes effec
 | `GET /api/autopilot` | none                                     | The state plus `pendingApprovals` (the count waiting now)        |
 | `PUT /api/autopilot` | operator token to resume or raise a cell | `{ paused?, automation? }`; omitted fields keep the stored value |
 
-`automationRaises(prev, next)` compares every cell at every node (teams under every known
-company) and asks for the token when any rises; pausing and lowering return `200` without it.
+`automationRaises(prev, next)` compares every cell at every combination of company, team and
+project the two trees know (each also absent), so an override that only shows under another node
+is never missed, and asks for the token when any rises (raising a project cell included); pausing and lowering return `200` without it.
 Setting the same state again is a no-op (the file isn't written). Slack notifications are only
 sent while the overlay is on; changing the table is never pushed to Slack. The per-project
 `_config.json` toggles and `Company.roadmapDefaults` are deprecated and no longer read.
