@@ -87,6 +87,12 @@ describe("CreateGoalSchema", () => {
     expect(UpdateGoalSchema.safeParse({ mergeGrant }).success).toBe(false);
   });
 
+  it("update applies no defaults: a lone enabled patch carries only enabled", () => {
+    expect(Object.keys(UpdateGoalSchema.parse({ enabled: true }))).toEqual(["enabled"]);
+    expect(Object.keys(UpdateGoalSchema.parse({}))).toEqual([]);
+    expect(UpdateGoalSchema.parse({ ceiling: "tier3" })).toEqual({ ceiling: "tier3" });
+  });
+
   it("update accepts a lone cycleHours (timing is checked on the merged goal) and null clears", () => {
     expect(UpdateGoalSchema.safeParse({ cycleHours: 12 }).success).toBe(true);
     expect(

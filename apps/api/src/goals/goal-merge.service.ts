@@ -133,10 +133,14 @@ export class GoalMergeService implements OnModuleInit {
     if (goal.ceiling !== "tier3") return "strop cíle už není tier3";
     const grant = goal.mergeGrant;
     if (!grant) return "cíl nemá merge grant";
+    const now = Date.now();
     const until = Date.parse(grant.until);
-    if (!(until > Date.now())) return "merge grant vypršel";
-    // The file is hand-editable: the 24 h cap is re-checked here, not only on write.
-    if (!(until - Date.parse(grant.grantedAt) <= MERGE_GRANT_MAX_HOURS * 3_600_000)) {
+    const granted = Date.parse(grant.grantedAt);
+    const max = MERGE_GRANT_MAX_HOURS * 3_600_000;
+    if (!(until > now)) return "merge grant vypršel";
+    // The file is hand-editable: the 24 h cap is re-checked here, not only on write — from both
+    // ends, so a future `grantedAt` cannot stretch it. Unparseable dates fail closed (NaN).
+    if (!(granted <= now && until - granted <= max && until - now <= max)) {
       return `merge grant je delší než ${MERGE_GRANT_MAX_HOURS} h`;
     }
     if (!grant.projectIds.includes(a.projectId)) return "merge grant nepokrývá tento projekt";

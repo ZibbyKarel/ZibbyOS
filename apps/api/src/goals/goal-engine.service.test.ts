@@ -36,8 +36,11 @@ describe("GoalEngineService", () => {
   let projectList: { id: string; companyId?: string }[];
   let systemConfig: ReturnType<typeof fakeSystemConfigStore>;
   let executor: GoalActionExecutor;
+  let paused: boolean;
 
   beforeEach(async () => {
+    paused = false;
+    const autopilot = { isPaused: () => paused };
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "goal-engine-"));
     goals = new GoalsStorageService(dir);
     store = new GoalStateStore(dir);
@@ -46,7 +49,7 @@ describe("GoalEngineService", () => {
     planner = { plan: vi.fn(async () => ({ plan: "", feasibility: "ok", actions: [] })) };
     activity = { record: vi.fn(async () => undefined) };
     systemConfig = fakeSystemConfigStore();
-    executor = new GoalActionExecutor();
+    executor = new GoalActionExecutor(autopilot as never);
     const taskStore = {
       get: async (id: string) => {
         const t = tasks.get(id);
@@ -68,6 +71,9 @@ describe("GoalEngineService", () => {
       systemConfig,
       { register: vi.fn() } as never,
       fakeLogger as never,
+      undefined,
+      undefined,
+      autopilot as never,
     );
   });
   afterEach(async () => {
@@ -410,6 +416,106 @@ describe("GoalEngineService", () => {
     expect((await state()).instances._?.planFailures).toBeUndefined();
     await engine.tick(later(10));
     expect((await state()).instances._?.status).toBe("planning");
+  });
+
+  it("resume over budget buys exactly one more plan, then the budget parks again", async () => {
+    let run = 0;
+    planner.plan.mockImplementation(async (ctx: GoalPlannerContext) => {
+      await ctx.recordRun(`goal-planner_${++run}`);
+      return { plan: "", feasibility: "ok", actions: [] };
+    });
+    await create({ budget: { maxRunsPerCycle: 1 } });
+    await engine.tick(NOW);
+    await engine.tick(later(1));
+    expect((await state()).instances._?.parkedReason).toBe("budget");
+    await store.resume("g", "_", NOW.toISOString());
+    expect((await state()).instances._?.resumedRuns).toBe(1);
+    await engine.tick(later(2));
+    expect(planner.plan).toHaveBeenCalledTimes(2);
+    // Every later wake would pay for another planner run: the budget parks it instead.
+    await store.wake("g", NOW.toISOString());
+    await engine.tick(later(10));
+    await store.wake("g", NOW.toISOString());
+    await engine.tick(later(20));
+    expect(planner.plan).toHaveBeenCalledTimes(2);
+    const s = await state();
+    expect(s.instances._?.status).toBe("parked");
+    expect(s.instances._?.parkedReason).toBe("budget");
+    expect(recorded("goal-parked")).toHaveLength(2);
+  });
+
+  it("while Autopilot is paused nothing plans, parks or counts a failure; resume continues", async () => {
+    await create({ deadline: later(60).toISOString() });
+    await engine.tick(NOW);
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    paused = true;
+    planner.plan.mockRejectedValue(new Error("boom"));
+    await store.wake("g", NOW.toISOString());
+    engine.markDirty("t-during-pause");
+    for (let m = 1; m <= 4; m++) await engine.tick(later(m * 30)); // past the deadline too
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    let s = await state();
+    expect(s.instances._?.status).not.toBe("parked");
+    expect(s.instances._?.planFailures).toBeUndefined();
+    expect(recorded("goal-parked")).toHaveLength(0);
+    // After the resume the goal continues where it was (here: its deadline has passed).
+    paused = false;
+    await engine.tick(later(130));
+    s = await state();
+    expect(s.instances._?.parkedReason).toBe("deadline");
+  });
+
+  it("resumed Autopilot: a waiting instance plans again on the next tick", async () => {
+    await create();
+    await engine.tick(NOW);
+    paused = true;
+    await store.wake("g", NOW.toISOString());
+    await engine.tick(later(1));
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    paused = false;
+    await engine.tick(later(2));
+    expect(planner.plan).toHaveBeenCalledTimes(2);
+  });
+
+  it("a plan finishing after Autopilot was paused starts no spending action", async () => {
+    const handler = vi.fn();
+    executor.register("start-task", handler);
+    await create();
+    planner.plan.mockImplementationOnce(async () => {
+      paused = true;
+      return {
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "start-task", actionId: "a1", text: "x" }],
+      };
+    });
+    await engine.tick(NOW);
+    expect(handler).not.toHaveBeenCalled();
+    expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
+      expect.stringContaining("Not done: start-task — Autopilot is paused."),
+    ]);
+  });
+
+  it("a corrupt state file fails that goal's tick only and is not overwritten", async () => {
+    await create();
+    await goals.create({
+      id: "a",
+      name: "A",
+      outcome: "x",
+      scope: { kind: "none" },
+      enabled: true,
+    });
+    const file = path.join(dir, "state", "a", "state.json");
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const corrupt = JSON.stringify({
+      goalId: "a",
+      instances: { _: { status: "from-the-future" } },
+    });
+    await fs.writeFile(file, corrupt);
+    await expect(engine.tick(NOW)).resolves.toBeUndefined();
+    expect(await fs.readFile(file, "utf8")).toBe(corrupt);
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).goal.id).toBe("g");
   });
 
   it("a goal failing every tick does not make another goal re-plan every tick", async () => {

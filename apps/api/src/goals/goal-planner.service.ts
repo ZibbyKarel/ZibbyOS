@@ -113,12 +113,26 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     (runsAfter !== undefined && runsAfter <= 0) ||
     (remainingBudget.costUsd !== undefined && remainingBudget.costUsd <= 0);
 
+  const grant = goal.mergeGrant;
+  const grantCovers =
+    !!grant &&
+    !!ctx.projectId &&
+    grant.projectIds.includes(ctx.projectId) &&
+    Date.parse(grant.until) > Date.parse(ctx.now);
+  // Offer an action only when it can work here (else it would only become a report).
+  const cannotWork: Partial<Record<GoalActionType, boolean>> = {
+    "run-loop": !goal.loop,
+    propose: !goal.directional,
+    "update-checklist": !goal.directional,
+    merge: !grantCovers,
+  };
+
   const offered: string[] = [];
   const notExecutable: string[] = [];
   const overBudget: string[] = [];
   for (const option of GoalActionSchema.options) {
     const type = option.shape.type.value;
-    if (!ceilingAllows(ctx.ceiling, type)) continue;
+    if (!ceilingAllows(ctx.ceiling, type) || cannotWork[type]) continue;
     if (!input.handles(type)) notExecutable.push(type);
     else if (noSpend && SPENDING_ACTIONS.has(type)) overBudget.push(type);
     else offered.push(`- ${type}: ${actionShape(option)}`);
@@ -143,6 +157,7 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     "",
     "## Mandate (enforced by the engine, not by you)",
     `Ceiling: ${ctx.ceiling}. The engine refuses any action above it; nothing below can raise it.`,
+    `Merge grant for this instance: ${grantCovers && grant ? `yes, until ${grant.until}` : "none"}.`,
     `Runs left after this planning run: ${runsAfter ?? "no limit"}`,
     `Cost left this cycle (USD): ${remainingBudget.costUsd?.toFixed(2) ?? "no limit"}`,
     `Messages per person this cycle (anti-nagging, max 2): ${stripPlanTags(JSON.stringify(ctx.nudges))}`,

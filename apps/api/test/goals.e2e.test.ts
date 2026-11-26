@@ -29,6 +29,9 @@ describe("Goals API (e2e)", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
+    // Bind loopback once so supertest reuses this server instead of listen(0) on the wildcard
+    // address per request (on macOS another process could answer 127.0.0.1:<port> — rare 401s).
+    await app.listen(0, "127.0.0.1");
     states = app.get(GoalStateStore);
   });
 
@@ -88,6 +91,20 @@ describe("Goals API (e2e)", () => {
       .send({ deadline: "2026-12-01T00:00:00.000Z", cadence: { every: "day", hour: 9 } })
       .expect(422);
     await http().get(`${BASE}/mg`).expect(404);
+  });
+
+  it("PATCH { enabled } keeps the stored ceiling (tier1 and tier3 are not reset to tier2)", async () => {
+    for (const ceiling of ["tier1", "tier3"] as const) {
+      const id = `keep-${ceiling}`;
+      await http()
+        .post(BASE)
+        .send({ ...body, id, ceiling, enabled: false })
+        .expect(201);
+      const on = await http().patch(`${BASE}/${id}`).send({ enabled: true }).expect(200);
+      expect(on.body.ceiling).toBe(ceiling);
+      await http().patch(`${BASE}/${id}`).send({ enabled: false }).expect(200);
+      expect((await http().get(`${BASE}/${id}`).expect(200)).body.ceiling).toBe(ceiling);
+    }
   });
 
   it("PATCH validates the merged goal and null clears fields", async () => {

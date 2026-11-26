@@ -19,6 +19,11 @@ export interface GoalPrRow {
   projectId: string;
   repo: string;
   number: number;
+  /**
+   * The author's login (structural, from the snapshot): a `message` recipient the planner can
+   * name. Reviewer logins are not in the snapshot (an extra host call per PR), see the handoff.
+   */
+  author: string;
   bucket: InboxPr["bucket"];
   headSha: string | null;
   review: InboxPr["review"];
@@ -125,6 +130,7 @@ export class PrFactsSource implements GoalFactsSource {
       projectId: pr.projectId,
       repo: pr.repo,
       number: pr.number,
+      author: pr.author,
       bucket: pr.bucket,
       headSha: pr.headSha ?? null,
       review: pr.review,

@@ -134,15 +134,18 @@ export const CLEARABLE_GOAL_FIELDS = [
   "loop",
 ] as const;
 
-const GoalPatchObject = GoalInputObject.partial().extend(
-  Object.fromEntries(
+// `.partial()` keeps zod defaults, so a patch without `ceiling` would reset it to tier2:
+// every defaulted input field (only `ceiling` today) gets a default-less optional here.
+const GoalPatchObject = GoalInputObject.partial().extend({
+  ceiling: GoalCeilingSchema.optional(),
+  ...(Object.fromEntries(
     CLEARABLE_GOAL_FIELDS.map((k) => [k, GoalInputObject.shape[k].unwrap().nullable().optional()]),
   ) as {
     [K in (typeof CLEARABLE_GOAL_FIELDS)[number]]: z.ZodOptional<
       z.ZodNullable<ReturnType<(typeof GoalInputObject.shape)[K]["unwrap"]>>
     >;
-  },
-);
+  }),
+});
 
 /** Update body: every operator field optional, clearable ones also nullable. Strict, so `mergeGrant` is rejected (422). */
 export const UpdateGoalSchema = GoalPatchObject.strict();

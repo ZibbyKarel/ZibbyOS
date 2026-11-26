@@ -35,6 +35,11 @@ export const GoalInstanceSchema = z.object({
   planFailures: z.number().int().min(0).optional(),
   /** Cycle index the operator resumed this instance in; the deadline/budget parks skip it. */
   resumedCycle: z.number().int().min(0).optional(),
+  /**
+   * `taskIds.length` at that resume: the budget park is skipped only until one more run is
+   * recorded past it (absent = no budget grace, the budget park applies).
+   */
+  resumedRuns: z.number().int().min(0).optional(),
   /** This cycle's feasibility line (from its first plan); absent = the next plan is the first. */
   feasibility: z.string().optional(),
   /** `actionId`s of the work this cycle already started (start-task, run-loop, pr-action). */

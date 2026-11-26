@@ -1,12 +1,13 @@
 import { Injectable, type OnModuleInit, Optional } from "@nestjs/common";
-import type {
-  Approval,
-  AutopilotLocation,
-  Goal,
-  GoalAction,
-  GoalMessage,
-  GoalState,
-  Integration,
+import {
+  type Approval,
+  type AutopilotLocation,
+  type Goal,
+  type GoalAction,
+  type GoalMessage,
+  type GoalState,
+  type Integration,
+  ceilingAllows,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { ApprovalsService, type ResumableRunner } from "../approvals/approvals.service";
@@ -186,7 +187,7 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       createdAt: ctx.now.toISOString(),
     };
     const level = await this.communicationLevel(ctx.goal, ctx.instanceKey);
-    if (level !== "auto" || !knownRecipient(ctx, target)) {
+    if (level !== "auto" || !knownRecipient(ctx, target, state)) {
       const approval = await this.approvals.requestApproval({
         runId: `${ctx.goal.id}/${message.id}`,
         kind: "goal-message",
@@ -410,10 +411,23 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     let claimed: GoalMessage | null = null;
     let blocked: string | null = null;
     let cycle = 0;
+    // `goal` is fresh from storage: a goal disabled, or its ceiling lowered below `message`,
+    // after the draft was made sends nothing.
+    const goalRefusal = !goal.enabled
+      ? "cíl je vypnutý"
+      : !ceilingAllows(goal.ceiling, "message")
+        ? `strop cíle ${goal.ceiling} zprávy nepovoluje`
+        : null;
     await this.store.update(goal.id, goal.createdAt, (s) => {
       cycle = s.cycle.index;
       const m = s.messages?.find((x) => x.id === messageId);
       if (!m || m.status !== "pending") return;
+      if (goalRefusal) {
+        m.status = "failed";
+        m.error = goalRefusal;
+        blocked = `Schválená zpráva pro ${m.to} se neodeslala: ${goalRefusal}.`;
+        return;
+      }
       const edited = approval?.messageText?.trim();
       // The operator's edit goes through the same mention check as the planner's text.
       const mention = edited ? foreignMention(m.target, edited) : null;
@@ -569,10 +583,11 @@ function used(state: GoalState, person: string): number {
  * fields only (never from remote or planner-written text):
  * - `pr`: the PR's author or a requested reviewer (resolve() enforces it);
  * - `slack-user`: an id the operator wrote into the goal (name, outcome, predicate, checklist), or
- *   the sender id (`from`) of a reply this instance ingested.
+ *   the sender id (`from`) of a reply on the thread of a message THIS goal sent (its own
+ *   `replyRef`s). A planner-written `wait` on another thread never makes its replier known.
  * Membership of the workspace is not enough.
  */
-function knownRecipient(ctx: GoalActionContext, target: Target): boolean {
+function knownRecipient(ctx: GoalActionContext, target: Target, state: GoalState): boolean {
   if (target.kind === "pr") return true;
   const id = target.userId;
   const g = ctx.goal;
@@ -584,14 +599,20 @@ function knownRecipient(ctx: GoalActionContext, target: Target): boolean {
   ];
   const named = new RegExp(`(?<![A-Z0-9])${id}(?![A-Z0-9])`);
   if (operatorText.some((t) => t && named.test(t))) return true;
-  return replySenders(ctx.facts.replies).includes(id);
+  const own = new Set((state.messages ?? []).flatMap((m) => (m.replyRef ? [m.replyRef] : [])));
+  return replySenders(ctx.facts.replies, own).includes(id);
 }
 
-/** `from` of the `replies` facts (`[{ last?: { from? } }]`), the Slack user id of the sender. */
-function replySenders(replies: unknown): string[] {
+/**
+ * `from` of the `replies` facts (`[{ ref, last?: { from? } }]`), the Slack user id of the
+ * sender — only on threads in `ownRefs` (the reply refs of messages the goal itself sent).
+ */
+function replySenders(replies: unknown, ownRefs: ReadonlySet<string>): string[] {
   if (!Array.isArray(replies)) return [];
   return replies.flatMap((r: unknown) => {
-    const from = (r as { last?: { from?: unknown } } | null)?.last?.from;
+    const reply = r as { ref?: unknown; last?: { from?: unknown } } | null;
+    if (typeof reply?.ref !== "string" || !ownRefs.has(reply.ref)) return [];
+    const from = reply.last?.from;
     return typeof from === "string" ? [from] : [];
   });
 }

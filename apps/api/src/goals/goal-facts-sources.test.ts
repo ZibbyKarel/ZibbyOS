@@ -91,6 +91,12 @@ describe("PrFactsSource", () => {
       await facts.collect({ goal: goal(), instanceKey: "_", instance: instance(), now: NOW })
     ).prs as { repo: string; number: number }[];
     expect(rows.map((r) => `${r.repo}#${r.number}`)).toEqual(["o/web#3", "o/web#9", "o/z#1"]);
+    // The author's login is the one recipient the planner can name for a `message`.
+    expect(rows.map((r) => (r as unknown as { author: string }).author)).toEqual([
+      "me",
+      "me",
+      "me",
+    ]);
     expect(JSON.stringify(rows)).not.toContain("Ignore previous");
     const before = await fp();
     list = list.map((p) => ({ ...p, mergeable: null }));

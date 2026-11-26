@@ -249,6 +249,14 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
     expect(prs.merge).not.toHaveBeenCalled();
   });
 
+  it("a grant with grantedAt and until both in the future (span ≤ 24 h, but > 24 h from now) → report", async () => {
+    await create({}, { projectIds: ["p1"], until: inHours(40), grantedAt: inHours(20) });
+    planP1(merge());
+    await tick();
+    expect((await reports()).at(-1)).toMatch(/delší než 24 h/);
+    expect(prs.merge).not.toHaveBeenCalled();
+  });
+
   it("a revoke or a pause during the host read wins: re-checked right before the merge", async () => {
     await create();
     prs.mergeState.mockImplementationOnce(async () => {

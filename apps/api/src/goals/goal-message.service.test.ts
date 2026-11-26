@@ -217,23 +217,42 @@ describe("GoalMessageService (the `message` action)", () => {
     expect((await state()).messages).toMatchObject([{ person: "slack:U999", status: "pending" }]);
   });
 
-  it("auto + the sender id of a reply this instance ingested: sent", async () => {
+  /** Bob is messaged first (auto, known); then the replies facts carry `replyRef` from U777. */
+  const replyFrom = async (replyRef: string) => {
     autopilot.level = "auto";
     extraSources = [
       {
         name: "replies",
-        collect: async () => [{ ref: "r", count: 1, last: { from: "U777", text: "hi" } }],
+        collect: async () => [{ ref: replyRef, count: 1, last: { from: "U777", text: "hi" } }],
       },
     ];
     build();
     await create();
-    planOnce({ ...slackMsg("ask-u7"), to: { kind: "slack-user", ref: "U777" } } as GoalAction);
+    planOnce(slackMsg("ask-bob"));
     await engine.tick(NOW);
+    expect(slack.postMessage).toHaveBeenCalledTimes(1);
+    await store.wake("g", NOW.toISOString());
+    planOnce({ ...slackMsg("ask-u7"), to: { kind: "slack-user", ref: "U777" } } as GoalAction);
+    await engine.tick(later(1));
+  };
+
+  it("auto + the sender of a reply on the goal's own sent message: sent", async () => {
+    await replyFrom("slack-me:D999:1764151200.000100");
     expect(slack.postMessage).toHaveBeenCalledWith(expect.anything(), "U777", TEXT);
     // Written straight away, not only as a ctx effect.
     expect(activity.record).toHaveBeenCalledWith(
       expect.objectContaining({ refs: expect.objectContaining({ action: "message" }) }),
     );
+  });
+
+  it("a planner-written wait on a foreign thread does not make its replier known: an approval", async () => {
+    await replyFrom("slack-me:C0FOREIGN:1764000000.000100");
+    expect(slack.postMessage).toHaveBeenCalledTimes(1);
+    expect(approvals.requestApproval).toHaveBeenCalledTimes(1);
+    expect((await state()).messages).toMatchObject([
+      { person: "slack:U123", status: "sent" },
+      { person: "slack:U777", status: "pending" },
+    ]);
   });
 
   it("an id only inside remote text (reply or channel message) is not known: an approval", async () => {
@@ -309,6 +328,27 @@ describe("GoalMessageService (the `message` action)", () => {
     expect(slack.postMessage).not.toHaveBeenCalled();
     expect((await state()).messages).toMatchObject([{ status: "failed" }]);
     expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");
+  });
+
+  it("approved after the goal was disabled or its ceiling lowered to tier1: settled, nothing sent", async () => {
+    await create();
+    for (const [i, patch, why] of [
+      [0, { enabled: false }, "cíl je vypnutý"],
+      [1, { ceiling: "tier1" }, "strop cíle tier1"],
+    ] as const) {
+      await goals.update("g", { enabled: true, ceiling: "tier2" });
+      await store.wake("g", NOW.toISOString());
+      planOnce({
+        ...slackMsg(`ask-${i}`),
+        to: { kind: "slack-user", ref: `U12${i}` },
+      } as GoalAction);
+      await engine.tick(later(i));
+      await goals.update("g", patch);
+      await messages.resume(`g/_/0/ask-${i}`, {} as Approval);
+      expect(slack.postMessage).not.toHaveBeenCalled();
+      expect((await state()).messages?.[i]).toMatchObject({ status: "failed" });
+      expect((await timeline()).some((x) => x.includes(why))).toBe(true);
+    }
   });
 
   it("a new cycle rejects the old cycle's pending goal-message approvals", async () => {

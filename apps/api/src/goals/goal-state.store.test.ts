@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { GoalState } from "@zibby/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GoalStateStore, TIMELINE_CAP } from "./goal-state.store";
 import { GoalInstanceNotFoundError, GoalInstanceNotParkedError } from "./goals.errors";
 
@@ -35,6 +35,31 @@ describe("GoalStateStore", () => {
     await fs.mkdir(path.join(dir, "state", "g"), { recursive: true });
     await fs.writeFile(path.join(dir, "state", "g", "state.json"), "{nope");
     expect((await store.read("g", T0)).instances).toEqual({});
+  });
+
+  it("update, wake and resume throw on an existing unparseable file and never overwrite it", async () => {
+    const file = path.join(dir, "state", "g", "state.json");
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const bad = JSON.stringify({ goalId: "g", taskIds: ["keep"], cycle: { index: "x" } });
+    await fs.writeFile(file, bad);
+    const fn = vi.fn();
+    await expect(store.update("g", T0, fn)).rejects.toThrow(/does not parse/);
+    await expect(store.wake("g", T0)).rejects.toThrow(/does not parse/);
+    await expect(store.resume("g", "_", T0)).rejects.toThrow(/does not parse/);
+    expect(fn).not.toHaveBeenCalled();
+    expect(await fs.readFile(file, "utf8")).toBe(bad);
+    // A missing file still starts from the empty state.
+    await expect(store.update("other", T0, () => undefined)).resolves.toMatchObject({
+      instances: {},
+    });
+  });
+
+  it("resume records the run count, so the budget grace ends after one more run", async () => {
+    await seed();
+    await store.update("g", T0, (s) => {
+      if (s.instances.b) s.instances.b.taskIds = ["r1", "r2"];
+    });
+    expect((await store.resume("g", "b", T0)).instances.b?.resumedRuns).toBe(2);
   });
 
   it("update mutates under the lock without losing a concurrent wake, and fires onChange", async () => {

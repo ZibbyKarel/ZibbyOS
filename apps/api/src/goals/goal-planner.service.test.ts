@@ -187,6 +187,36 @@ describe("buildGoalPlanPrompt", () => {
     expect(tier2).toContain("Exist but not executable yet: start-task");
   });
 
+  it("offers run-loop, propose/update-checklist and merge only where they can work", () => {
+    const all = { planNote: "", handles: () => true };
+    const t3 = (
+      goal: Partial<GoalPlannerContext["goal"]>,
+      over: Partial<GoalPlannerContext> = {},
+    ) =>
+      buildGoalPlanPrompt(context({ ceiling: "tier3", goal: { ...GOAL, ...goal }, ...over }), all);
+    const bare = t3({});
+    for (const type of ["run-loop", "propose", "update-checklist", "merge"]) {
+      expect(bare).not.toContain(`- ${type}:`);
+    }
+    expect(bare).toContain("Merge grant for this instance: none.");
+    const until = "2026-11-27T00:00:00.000Z";
+    const rich = t3({
+      loop: { loopId: "my-loop" },
+      directional: { maxDecisionsPerMonth: 3, checklist: [] },
+      mergeGrant: { projectIds: ["web"], until, grantedAt: "2026-11-26T00:00:00.000Z" },
+    });
+    for (const type of ["run-loop", "propose", "update-checklist", "merge"]) {
+      expect(rich).toContain(`- ${type}:`);
+    }
+    expect(rich).toContain(`Merge grant for this instance: yes, until ${until}.`);
+    // A grant for another project, or an expired one, offers no merge.
+    const grant = { projectIds: ["api"], until, grantedAt: "2026-11-26T00:00:00.000Z" };
+    expect(t3({ mergeGrant: grant })).not.toContain("- merge:");
+    expect(
+      t3({ mergeGrant: { ...grant, projectIds: ["web"] } }, { now: "2026-11-28T00:00:00.000Z" }),
+    ).not.toContain("- merge:");
+  });
+
   it("does not offer spending actions when this planning run uses the last run", () => {
     const prompt = buildGoalPlanPrompt(context({ remainingBudget: { runs: 1 } }), {
       planNote: "",

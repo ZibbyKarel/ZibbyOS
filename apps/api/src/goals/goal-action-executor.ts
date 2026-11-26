@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import {
   type ActivityKind,
   type ActivityRefs,
@@ -8,6 +8,7 @@ import {
   type GoalInstance,
   ceilingAllows,
 } from "@zibby/contracts";
+import { AutopilotService } from "../autopilot/autopilot.service";
 import type { GoalFacts } from "./goal-facts";
 
 type ParkedReason = NonNullable<GoalInstance["parkedReason"]>;
@@ -161,7 +162,8 @@ export function reportFromGoal(ctx: GoalActionContext, text: string): void {
 export class GoalActionExecutor {
   private readonly handlers = new Map<GoalActionType, GoalActionHandler<GoalActionType>>();
 
-  constructor() {
+  /** Optional so unit tests can `new` it; the module always provides it. */
+  constructor(@Optional() private readonly autopilot?: AutopilotService) {
     this.register("note", (a, ctx) => ctx.timeline("note", a.text));
     this.register("report", (a, ctx) => reportFromGoal(ctx, a.text));
     this.register("wait", (a, ctx) => {
@@ -222,6 +224,9 @@ export class GoalActionExecutor {
           ctx,
           `Not done: ${action.type} — the goal's ceiling ${ctx.goal.ceiling} does not allow it.`,
         );
+      } else if (SPENDING_ACTIONS.has(action.type) && this.autopilot?.isPaused()) {
+        // A plan that was running when Autopilot was paused starts no paid work.
+        reportFromGoal(ctx, `Not done: ${action.type} — Autopilot is paused.`);
       } else if (SPENDING_ACTIONS.has(action.type) && ctx.budgetExhausted) {
         reportFromGoal(ctx, `Not done: ${action.type} — the cycle's budget is used up.`);
       } else if (!handler) {

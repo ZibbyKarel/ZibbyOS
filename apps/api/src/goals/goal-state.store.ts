@@ -26,8 +26,9 @@ export interface TimelineQuery {
 }
 
 /**
- * `<goals dir>/state/<id>/state.json` + append-only `timeline.jsonl`. Reads fail
- * open: a missing or corrupt file reads as an empty state / skipped line, never throws.
+ * `<goals dir>/state/<id>/state.json` + append-only `timeline.jsonl`. Display reads fail
+ * open: a missing or corrupt file reads as an empty state / skipped line. The write paths
+ * (update, wake, resume) throw on a corrupt state file instead of overwriting it.
  */
 @Injectable()
 export class GoalStateStore {
@@ -52,6 +53,29 @@ export class GoalStateStore {
     return parsed?.success ? parsed.data : emptyGoalState(goalId, startedAt);
   }
 
+  /**
+   * The read every write path starts from: a missing file is the empty state, but an existing
+   * file that does not parse throws — writing an empty state over it would wipe `taskIds`,
+   * `appliedActionIds` and `nudges` (a hand edit or a downgrade must not reset the work).
+   */
+  private async readForWrite(goalId: string, startedAt: string): Promise<GoalState> {
+    const file = path.join(this.dirOf(goalId), "state.json");
+    let raw: string;
+    try {
+      raw = await fs.readFile(file, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return emptyGoalState(goalId, startedAt);
+      }
+      throw error;
+    }
+    const parsed = GoalStateSchema.safeParse(safeJson(raw));
+    if (parsed.success) return parsed.data;
+    throw new Error(
+      `goal state ${file} does not parse (${parsed.error.issues[0]?.message ?? "invalid JSON"}) — not overwriting it`,
+    );
+  }
+
   /** Fires with the goal id after every state or timeline write (the SSE `goals` scope). */
   onChange(listener: (goalId: string) => void): () => void {
     this.events.on("change", listener);
@@ -74,7 +98,7 @@ export class GoalStateStore {
   ): Promise<GoalState> {
     const dir = this.dirOf(goalId);
     return withPathLock(dir, async () => {
-      const state = await this.read(goalId, startedAt);
+      const state = await this.readForWrite(goalId, startedAt);
       const before = JSON.stringify(state);
       await fn(state);
       if (JSON.stringify(state) !== before) await this.writeUnlocked(dir, state);
@@ -121,7 +145,7 @@ export class GoalStateStore {
   wake(goalId: string, startedAt: string): Promise<GoalState> {
     const dir = this.dirOf(goalId);
     return withPathLock(dir, async () => {
-      const state = await this.read(goalId, startedAt);
+      const state = await this.readForWrite(goalId, startedAt);
       for (const instance of Object.values(state.instances)) delete instance.fingerprint;
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {
@@ -139,7 +163,7 @@ export class GoalStateStore {
   resume(goalId: string, instance: string, startedAt: string): Promise<GoalState> {
     const dir = this.dirOf(goalId);
     return withPathLock(dir, async () => {
-      const state = await this.read(goalId, startedAt);
+      const state = await this.readForWrite(goalId, startedAt);
       const target = Object.hasOwn(state.instances, instance)
         ? state.instances[instance]
         : undefined;
@@ -149,6 +173,8 @@ export class GoalStateStore {
       delete target.parkedReason;
       // Resume takes effect: no deadline/budget re-park this cycle, a fresh failure count.
       target.resumedCycle = state.cycle.index;
+      // Budget grace ends once one more run is recorded past this point.
+      target.resumedRuns = target.taskIds.length;
       delete target.planFailures;
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {

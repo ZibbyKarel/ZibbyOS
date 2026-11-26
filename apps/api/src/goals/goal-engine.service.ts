@@ -10,6 +10,7 @@ import type { Subscription } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { AutopilotService } from "../autopilot/autopilot.service";
 import { BudgetLedgerStore } from "../budget/ledger.store";
 import { WatcherHealthRegistry } from "../health/watcher-health.registry";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -90,6 +91,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     /** Optional so engine tests without messaging can `new` it; the module always provides it. */
     @Optional() private readonly messages?: GoalMessageService,
     @Optional() private readonly decisions?: GoalDecisionService,
+    @Optional() private readonly autopilot?: AutopilotService,
   ) {
     super();
     this.log = logger.child(GoalEngineService.name);
@@ -130,6 +132,9 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
   }
 
   async tick(now: Date = new Date()): Promise<void> {
+    // Autopilot paused: nothing new starts — no plan, no park, no failure count. The dirty
+    // refs stay queued and every goal simply continues on the first tick after resume.
+    if (this.autopilot?.isPaused()) return;
     const dirty = new Set(this.dirtyRefs);
     this.dirtyRefs.clear();
     // Sources that fetch once per tick (the PR inbox) drop their per-tick memo here.
@@ -245,15 +250,19 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       remainingBudget,
       (taskId, actionId) => this.persistTask(goal, state.cycle.index, key, taskId, actionId),
     );
-    // An operator resume in this cycle overrides the deadline and budget parks.
+    // An operator resume in this cycle overrides the deadline park for the cycle, and the
+    // budget park only until one more run is recorded past the resume (else a one-off goal
+    // would pay for a planner run on every wake for good).
     const resumed = before.resumedCycle === state.cycle.index;
+    const budgetGrace =
+      resumed && before.resumedRuns !== undefined && before.taskIds.length <= before.resumedRuns;
 
     const deadline = state.cycle.deadlineAt;
     if (!resumed && deadline && now.getTime() >= Date.parse(deadline)) {
       parkInstance(ctx, "deadline", `Deadline ${deadline} passed.`);
       return this.apply(goal, state, key, before, ctx);
     }
-    if (!resumed && ctx.budgetExhausted) {
+    if (!budgetGrace && ctx.budgetExhausted) {
       // Work still in flight: wait for it without paying for another plan; once it ends,
       // the instance parks here.
       if (this.inFlight(facts, before)) return;
