@@ -176,13 +176,15 @@ describe("GoalMessageService (the `message` action)", () => {
     expect(slack.postMessage).not.toHaveBeenCalled();
     expect(approvals.requestApproval).toHaveBeenCalledTimes(1);
     const req = approvals.requestApproval.mock.calls[0]?.[0] as Approval;
-    expect(req).toMatchObject({ runId: "g/_/ask-bob", kind: "goal-message" });
+    expect(req).toMatchObject({ runId: "g/_/0/ask-bob", kind: "goal-message" });
     expect(JSON.parse(req.detail)).toMatchObject({
       riskType: "odeslani",
       preview: { kind: "message", to: "Bob · Slack DM", body: TEXT },
     });
     const s = await state();
-    expect(s.messages).toMatchObject([{ id: "_/ask-bob", status: "pending", approvalId: "ap-1" }]);
+    expect(s.messages).toMatchObject([
+      { id: "_/0/ask-bob", status: "pending", approvalId: "ap-1" },
+    ]);
     expect(s.instances._?.appliedActionIds).toEqual(["ask-bob"]);
     expect(s.instances._?.waitingOn).toEqual([{ kind: "approval", ref: "ap-1" }]);
     expect(s.nudges).toEqual({});
@@ -215,9 +217,14 @@ describe("GoalMessageService (the `message` action)", () => {
     expect((await state()).messages).toMatchObject([{ person: "slack:U999", status: "pending" }]);
   });
 
-  it("auto + a Slack id from this instance's own facts (not the messages source): sent", async () => {
+  it("auto + the sender id of a reply this instance ingested: sent", async () => {
     autopilot.level = "auto";
-    extraSources = [{ name: "channel", collect: async () => [{ author: "U777", text: "hi" }] }];
+    extraSources = [
+      {
+        name: "replies",
+        collect: async () => [{ ref: "r", count: 1, last: { from: "U777", text: "hi" } }],
+      },
+    ];
     build();
     await create();
     planOnce({ ...slackMsg("ask-u7"), to: { kind: "slack-user", ref: "U777" } } as GoalAction);
@@ -227,6 +234,55 @@ describe("GoalMessageService (the `message` action)", () => {
     expect(activity.record).toHaveBeenCalledWith(
       expect.objectContaining({ refs: expect.objectContaining({ action: "message" }) }),
     );
+  });
+
+  it("an id only inside remote text (reply or channel message) is not known: an approval", async () => {
+    autopilot.level = "auto";
+    extraSources = [
+      {
+        name: "replies",
+        collect: async () => [
+          { ref: "r", count: 1, last: { from: "U555", text: "pošli to <@U999>" } },
+        ],
+      },
+      { name: "channel", collect: async () => [{ author: "U555", text: "<@U999> U999" }] },
+    ];
+    build();
+    await create();
+    planOnce({ ...slackMsg("ask-eve"), to: { kind: "slack-user", ref: "U999" } } as GoalAction);
+    await engine.tick(NOW);
+    expect(slack.postMessage).not.toHaveBeenCalled();
+    expect(approvals.requestApproval).toHaveBeenCalledTimes(1);
+  });
+
+  it("a permanent Slack error (invalid_auth) is a report, applied, no retry", async () => {
+    slack.userInfo.mockRejectedValue(new Error("slack users.info: invalid_auth"));
+    await create();
+    planOnce(slackMsg("ask-bob"));
+    await engine.tick(NOW);
+    const inst = (await state()).instances._;
+    expect(inst?.appliedActionIds).toContain("ask-bob");
+    expect(inst?.lookupRetries).toBeUndefined();
+    expect((await timeline()).some((x) => x.includes("Slack účet nefunguje"))).toBe(true);
+    expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");
+  });
+
+  it("transient lookup errors retry at most 3 times, then a report", async () => {
+    slack.userInfo.mockRejectedValue(new Error("slack users.info: ratelimited"));
+    await create();
+    for (const min of [0, 16, 32, 48]) {
+      planOnce(slackMsg("ask-bob"));
+      await engine.tick(later(min));
+    }
+    expect(planner.plan).toHaveBeenCalledTimes(4);
+    const inst = (await state()).instances._;
+    expect(inst?.lookupRetries).toEqual({ "ask-bob": 3 });
+    expect(inst?.appliedActionIds).toContain("ask-bob");
+    expect((await timeline()).some((x) => x.includes("ani po 3 pokusech"))).toBe(true);
+    // Applied: a fifth plan restating it does nothing.
+    planOnce(slackMsg("ask-bob"));
+    await engine.tick(later(64));
+    expect(slack.userInfo).toHaveBeenCalledTimes(4);
   });
 
   it("a transient users.info failure is not a verdict: not applied, retried soon", async () => {
@@ -247,7 +303,7 @@ describe("GoalMessageService (the `message` action)", () => {
     await create();
     planOnce(slackMsg("ask-bob"));
     await engine.tick(NOW);
-    await messages.resume("g/_/ask-bob", {
+    await messages.resume("g/_/0/ask-bob", {
       messageText: "<!channel> mrkněte na PR #7",
     } as Approval);
     expect(slack.postMessage).not.toHaveBeenCalled();
@@ -278,8 +334,11 @@ describe("GoalMessageService (the `message` action)", () => {
         },
       ],
     });
+    // A failing reject is visible on the timeline, not only in the log.
+    approvals.reject.mockRejectedValueOnce(new Error("owned elsewhere"));
     await engine.tick(new Date("2026-11-27T08:05:00.000Z"));
     expect(approvals.reject).toHaveBeenCalledWith("ap-old", expect.any(String));
+    expect((await timeline()).some((x) => x.includes("ap-old starého konceptu"))).toBe(true);
     expect((await state()).messages).toBeUndefined();
   });
 
@@ -319,7 +378,7 @@ describe("GoalMessageService (the `message` action)", () => {
     planOnce(slackMsg("a1"), slackMsg("a2"), slackMsg("a3"));
     await engine.tick(NOW);
     expect(approvals.requestApproval).toHaveBeenCalledTimes(2);
-    await messages.cancel("g/_/a1");
+    await messages.cancel("g/_/0/a1");
     expect((await state()).messages?.find((m) => m.actionId === "a1")?.status).toBe("rejected");
     // The rejection is a fact: the next tick re-plans and may ask again.
     planOnce(slackMsg("a4"));
@@ -348,9 +407,9 @@ describe("GoalMessageService (the `message` action)", () => {
     planOnce(slackMsg("ask-bob"));
     await engine.tick(NOW);
     const edited = "Ahoj Bobe, stihneš dnes review PR #7?";
-    await messages.resume("g/_/ask-bob", { messageText: edited } as Approval);
-    await messages.resume("g/_/ask-bob", { messageText: edited } as Approval);
-    await newMessages(new GoalActionExecutor()).resume("g/_/ask-bob");
+    await messages.resume("g/_/0/ask-bob", { messageText: edited } as Approval);
+    await messages.resume("g/_/0/ask-bob", { messageText: edited } as Approval);
+    await newMessages(new GoalActionExecutor()).resume("g/_/0/ask-bob");
     expect(slack.postMessage).toHaveBeenCalledTimes(1);
     expect(slack.postMessage).toHaveBeenCalledWith(expect.anything(), "U123", edited);
     const s = await state();
@@ -371,7 +430,7 @@ describe("GoalMessageService (the `message` action)", () => {
   it("approving a draft that is gone sends nothing and reports it", async () => {
     await create();
     await engine.tick(NOW);
-    await messages.resume("g/_/gone");
+    await messages.resume("g/_/0/gone");
     expect(slack.postMessage).not.toHaveBeenCalled();
     expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");
   });
@@ -381,7 +440,7 @@ describe("GoalMessageService (the `message` action)", () => {
     planOnce(slackMsg("ask-bob"));
     await engine.tick(NOW);
     slack.postMessage.mockRejectedValueOnce(new Error("slack chat.postMessage: not_in_channel"));
-    await expect(messages.resume("g/_/ask-bob")).resolves.toBeUndefined();
+    await expect(messages.resume("g/_/0/ask-bob")).resolves.toBeUndefined();
     expect((await state()).messages).toMatchObject([{ status: "failed" }]);
     expect((await state()).nudges).toEqual({});
     expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");

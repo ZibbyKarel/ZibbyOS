@@ -39,6 +39,8 @@ export const GoalInstanceSchema = z.object({
   feasibility: z.string().optional(),
   /** `actionId`s of the work this cycle already started (start-task, run-loop, pr-action). */
   appliedActionIds: z.array(z.string()).optional(),
+  /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */
+  lookupRetries: z.record(z.string(), z.number().int().min(0)).optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 
@@ -48,7 +50,7 @@ export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
  * counted toward the cap, so a colleague is never messaged twice); `sent` carries where it went.
  */
 export const GoalMessageSchema = z.object({
-  /** `<instance>/<actionId>`; the approval's runId is `<goalId>/<id>`. */
+  /** `<instance>/<cycle>/<actionId>`; the approval's runId is `<goalId>/<id>`. */
   id: z.string().min(1),
   instance: z.string(),
   actionId: z.string(),

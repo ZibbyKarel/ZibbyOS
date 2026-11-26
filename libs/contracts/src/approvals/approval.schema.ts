@@ -111,7 +111,7 @@ export const ApprovalRunKindSchema = z.enum([
   // `github.actions.rerun`; `detail` = verdict + report). Approved by Autopilot instead of
   // queued when it is on; rejecting discards.
   "pr-ci-rerun",
-  // A goal's message to a colleague, sent as the operator (runId = `<goalId>/<instance>/<actionId>`;
+  // A goal's message to a colleague, sent as the operator (runId = `<goalId>/<instance>/<cycle>/<actionId>`;
   // `detail` = the JSON preview: recipient, channel/PR and the full text). Approving sends it once,
   // with the operator's edited `messageText` when given; rejecting drops it. Lifted only where the
   // place's `autoCommunicate` is `auto` (then no approval is created at all).

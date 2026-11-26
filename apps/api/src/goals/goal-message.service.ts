@@ -50,8 +50,13 @@ const MENTION = /(?<![\w.])@([A-Za-z0-9][\w.-]*)/g;
 const ERROR_MAX = 300;
 /** A remote display name embedded in facts and approvals is capped (remote-controlled text). */
 const NAME_MAX = 80;
-/** A transient Slack lookup failure is retried this soon (not recorded as applied). */
+/** A transient Slack lookup failure is retried this soon (not recorded as applied)… */
 const RETRY_MS = 15 * 60 * 1000;
+/** …at most this many times per `actionId` and cycle; then it is a report. */
+const LOOKUP_RETRIES = 3;
+/** Slack errors no retry fixes (the account, its token or its scopes). */
+const PERMANENT_SLACK =
+  /: (invalid_auth|not_authed|account_inactive|token_revoked|token_expired|missing_scope|no_permission|not_allowed_token_type|team_access_not_granted|org_login_required|ekm_access_denied)$/;
 
 /**
  * The goal engine's `message` action (spec "Closed action set", "Anti-nagging", "Rulings →
@@ -130,7 +135,15 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     const resolved = await this.resolve(a, ctx);
     if (typeof resolved === "string") return notDone(resolved);
     if ("retry" in resolved) {
+      const retries = ctx.instance.lookupRetries ?? {};
+      const n = (retries[a.actionId] ?? 0) + 1;
+      if (n > LOOKUP_RETRIES) {
+        return notDone(
+          `${resolved.retry.replace(/, zkusím znovu\.$/, "")} ani po ${LOOKUP_RETRIES} pokusech.`,
+        );
+      }
       // Transient: not applied, so the next plan may restate it.
+      ctx.instance.lookupRetries = { ...retries, [a.actionId]: n };
       keepEarlierWake(ctx.instance, new Date(ctx.now.getTime() + RETRY_MS).toISOString());
       ctx.timeline("note", `Zpráva (${a.actionId}) odložena: ${resolved.retry}`);
       return;
@@ -160,7 +173,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     };
 
     const message: GoalMessage = {
-      id: `${ctx.instanceKey}/${a.actionId}`,
+      // The cycle is part of the id: an old cycle's approval can never claim a new cycle's draft.
+      id: `${ctx.instanceKey}/${state.cycle.index}/${a.actionId}`,
       instance: ctx.instanceKey,
       actionId: a.actionId,
       person,
@@ -231,6 +245,7 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     if (a.to.kind === "slack-user") {
       if (!SLACK_USER_ID.test(ref)) return `${ref} není Slack user id (U…).`;
       let lookupFailed = false;
+      let permanent: string | null = null;
       for (const account of await this.slackAccounts(ctx.projectId)) {
         const creds = await this.credentials.read(account.id).catch(() => null);
         if (!creds) continue;
@@ -242,7 +257,10 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
               integrationId: account.id,
               error: String(error),
             });
-            lookupFailed = true;
+            const msg = errorText(error);
+            if (PERMANENT_SLACK.test(msg))
+              permanent ??= `${account.id}: ${msg.slice(0, ERROR_MAX)}`;
+            else lookupFailed = true;
             return null;
           });
         if (user) {
@@ -256,6 +274,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       }
       // Not found anywhere, but a lookup errored (rate limit, network): not a verdict yet.
       if (lookupFailed) return { retry: `ověření ${ref} ve Slacku selhalo, zkusím znovu.` };
+      // A broken account is the operator's to fix: say so instead of retrying or "not found".
+      if (permanent) return `Slack účet nefunguje (${permanent}) — oprav připojení.`;
       return `${ref} není uživatel Slacku, ke kterému má tvůj účet přístup.`;
     }
     const about = a.about;
@@ -440,14 +460,24 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
   }
 
   /** A new cycle dropped these drafts: their pending approvals are rejected, not left dangling. */
-  async rejectStale(approvalIds: string[]): Promise<void> {
-    for (const id of approvalIds) {
-      await this.approvals.reject(id, "nový cyklus cíle").catch((error: unknown) =>
+  async rejectStale(
+    goal: Goal,
+    cycle: number,
+    drafts: { approvalId: string; instance: string }[],
+  ): Promise<void> {
+    for (const { approvalId, instance } of drafts) {
+      await this.approvals.reject(approvalId, "nový cyklus cíle").catch(async (error: unknown) => {
         this.log?.warn("goal message: stale approval reject failed", {
-          id,
+          approvalId,
           error: String(error),
-        }),
-      );
+        });
+        await this.note(
+          goal,
+          cycle,
+          instance,
+          `Schválení ${approvalId} starého konceptu se nepodařilo zamítnout: ${errorText(error).slice(0, ERROR_MAX)}`,
+        ).catch(() => undefined);
+      });
     }
   }
 
@@ -534,16 +564,35 @@ function used(state: GoalState, person: string): number {
 }
 
 /**
- * Auto may send without approval only to someone the goal already knows: a PR author/reviewer
- * (resolve() enforces it), or a Slack id named in the goal definition or in this instance's own
- * facts (its ingested channel items, PR participants). Membership of the workspace is not enough.
- * The `messages` facts are excluded: a rejected draft must not make its recipient "known".
+ * Auto may send without approval only to someone the goal already knows, read from structural
+ * fields only (never from remote or planner-written text):
+ * - `pr`: the PR's author or a requested reviewer (resolve() enforces it);
+ * - `slack-user`: an id the operator wrote into the goal (name, outcome, predicate, checklist), or
+ *   the sender id (`from`) of a reply this instance ingested.
+ * Membership of the workspace is not enough.
  */
 function knownRecipient(ctx: GoalActionContext, target: Target): boolean {
   if (target.kind === "pr") return true;
-  const id = new RegExp(`(?<![A-Z0-9])${target.userId}(?![A-Z0-9])`);
-  const facts = Object.entries(ctx.facts).filter(([source]) => source !== "messages");
-  return id.test(JSON.stringify(ctx.goal)) || id.test(JSON.stringify(facts));
+  const id = target.userId;
+  const g = ctx.goal;
+  const operatorText = [
+    g.name,
+    g.outcome,
+    g.predicate,
+    ...(g.directional?.checklist ?? []).flatMap((c) => [c.title, c.acceptance]),
+  ];
+  const named = new RegExp(`(?<![A-Z0-9])${id}(?![A-Z0-9])`);
+  if (operatorText.some((t) => t && named.test(t))) return true;
+  return replySenders(ctx.facts.replies).includes(id);
+}
+
+/** `from` of the `replies` facts (`[{ last?: { from? } }]`), the Slack user id of the sender. */
+function replySenders(replies: unknown): string[] {
+  if (!Array.isArray(replies)) return [];
+  return replies.flatMap((r: unknown) => {
+    const from = (r as { last?: { from?: unknown } } | null)?.last?.from;
+    return typeof from === "string" ? [from] : [];
+  });
 }
 
 const PRAGUE = new Intl.DateTimeFormat("cs-CZ", {

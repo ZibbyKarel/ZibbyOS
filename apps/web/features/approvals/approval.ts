@@ -300,7 +300,7 @@ export function approvalOrigin(
       return { origin: "pr-review", href: `/work/tasks/${encodeURIComponent(a.runId)}`, ...url };
     case "machine":
       return { origin: "chat", ...url };
-    // runId = `<goalId>/<instance>/<actionId>`: the goal raised it on the operator's behalf.
+    // runId = `<goalId>/<instance>/<cycle>/<actionId>`: the goal raised it on the operator's behalf.
     case "goal-message":
       return {
         origin: "system",

@@ -25,7 +25,7 @@ describe("parseApprovalDetail", () => {
   it("a goal-message's JSON detail (as GoalMessageService writes it) parses to a message preview", () => {
     const parsed = parseApprovalDetail({
       id: "a9",
-      runId: "g/_/ask-bob",
+      runId: "g/_/0/ask-bob",
       kind: "goal-message",
       skill: "goal",
       action: "message.send",
