@@ -456,8 +456,9 @@ live only in the vault.
 
 - **Rider:** `buildStageTask` adds a `## Review rule packs` section before
   `## Zadání kroku`. It tells the agent to read `INDEX.md` and list the changed files.
-  The agent then reads only the lanes that match those files, tags rule findings
-  `Important [TEST-01]`, and ends with `Rule packs read: <lanes>`.
+  The agent then reads only the lanes that match those files, starts each rule
+  finding's description with the rule id (`[TEST-01] …`, never inside the severity
+  label or a heading, which other parsers read) and adds `Rule packs read: <lanes>`.
 - **Audit trail:** `offered.json` says which rules were offered. The
   `● read …/review-rules/<lane>.md` lines in the stage log show which lanes were read.
   The `[RULE-ID]` tags in `review.md` show which rules produced findings.

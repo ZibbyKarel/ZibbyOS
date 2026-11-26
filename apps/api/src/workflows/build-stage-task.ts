@@ -11,7 +11,7 @@ export const QUALIFY_VERDICT_RIDER =
 /**
  * The review-packs rider: where the staged rule packs live and how to use them —
  * read the index, then only the lanes matching the changed files, tag findings with
- * rule ids, and close with a `Rule packs read:` audit line.
+ * rule ids (in the description, never in the severity label) and add a `Rule packs read:` audit line.
  */
 export function reviewPacksRider(dir: string): string {
   return [
@@ -21,8 +21,8 @@ export function reviewPacksRider(dir: string): string {
     "2. List the changed files (`gh pr diff --name-only` / `glab mr diff --name-only` / `git diff --name-only <base>...HEAD`).",
     '3. Read only the lane files whose paths or "runs" line match the changed files. Do not read lanes that do not apply.',
     "4. Check the change against every rule in the lanes you read, at every place it applies.",
-    "5. Tag each finding that comes from a rule with the rule id in square brackets right after the severity, e.g. `Important [TEST-01]`. Findings outside the packs are still welcome, untagged.",
-    "6. End your output with one line: `Rule packs read: <lanes>` (or `Rule packs read: none` with the reason).",
+    "5. Mark each finding that comes from a rule by starting its description with the rule id in square brackets, e.g. `[TEST-01] …`. Keep the severity label and any heading exactly as the output format asks — the id never goes inside them. Findings outside the packs are still welcome, unmarked.",
+    "6. Add one line `Rule packs read: <lanes>` (or `Rule packs read: none` with the reason) at the end of your write-up, before any `<verdict>` tag.",
   ].join("\n");
 }
 

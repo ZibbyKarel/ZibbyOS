@@ -93,6 +93,10 @@ describe("buildStageTask review packs", () => {
     expect(task).toContain(reviewPacksRider("/run/review/review-rules"));
     expect(task).toContain('1. Read "/run/review/review-rules/INDEX.md".');
     expect(task).toContain("`Rule packs read: <lanes>`");
+    // The id rides the description: a tag inside the severity label would break the
+    // `Important:` / `(Important)` finding parsers downstream.
+    expect(task).toContain("`[TEST-01] …`");
+    expect(task).not.toMatch(/(Critical|Important|Minor) \[/);
   });
 
   it("has no review-packs section without reviewPacksDirAbs", () => {
