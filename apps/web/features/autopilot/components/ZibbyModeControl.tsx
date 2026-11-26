@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { useChat } from "../../chat/ChatContext";
 import { useCompaniesQuery } from "../../companies";
+import { useProjectsQuery } from "../../projects";
 import { useTeamsQuery } from "../../teams";
 import { useZibbyLive } from "../../zibby/live/ZibbyLiveContext";
 import { formatShortcut } from "../../zibby/shortcut/shortcut";
@@ -40,7 +41,8 @@ function useStatusUi() {
   const sw = usePauseSwitch();
   const { data: companies = [] } = useCompaniesQuery();
   const { data: teams = [] } = useTeamsQuery();
-  const exceptionNames = exceptionsOf(sw.automation, buildScopes(companies, teams)).map(
+  const { data: projects = [] } = useProjectsQuery();
+  const exceptionNames = exceptionsOf(sw.automation, buildScopes(companies, teams, projects)).map(
     (s) => s.label,
   );
   const level = sharedLevel(sw.automation);

@@ -22,6 +22,7 @@ vi.mock("../../companies", () => ({
   useCompaniesQuery: () => ({ data: [{ id: "acme", name: "Acme" }] }),
 }));
 vi.mock("../../teams", () => ({ useTeamsQuery: () => ({ data: [] }) }));
+vi.mock("../../projects", () => ({ useProjectsQuery: () => ({ data: [] }) }));
 vi.mock("../queries", () => ({ useAutopilotQuery: () => ({ data: status }) }));
 vi.mock("../mutations", () => ({
   useSetAutopilotMutation: () => ({ mutate, mutateAsync, isPending: false }),

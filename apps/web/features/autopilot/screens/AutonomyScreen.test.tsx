@@ -19,6 +19,9 @@ vi.mock("../../companies", () => ({
 vi.mock("../../teams", () => ({
   useTeamsQuery: () => ({ data: [{ id: "web", name: "Web", companyId: "acme" }] }),
 }));
+vi.mock("../../projects", () => ({
+  useProjectsQuery: () => ({ data: [{ id: "shop", name: "Shop", companyId: "acme" }] }),
+}));
 vi.mock("../../gates", () => ({
   useGateRulesQuery: () => ({
     data: [
@@ -138,6 +141,16 @@ describe("AutonomyScreen", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0]?.[0].teams).toEqual({});
     expect(await screen.findByTestId(AutonomyScreenTestId.Toast)).toHaveTextContent("zase dědí");
+  });
+
+  it("toggling a project chip saves projects.<id>, inheriting from its company", async () => {
+    renderAutonomy(<AutonomyScreen />);
+    // acme sets review to auto, the project inherits it (not from the team)
+    expect(chip("project:shop", "autoReview", "auto")).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(chip("project:shop", "autoFixCi", "semi"));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].projects).toEqual({ shop: { autoFixCi: "semi" } });
+    expect(save.mock.calls[0]?.[0].teams).toEqual({});
   });
 
   it("'Dědit vše' removes every override of the row", async () => {

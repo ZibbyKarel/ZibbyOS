@@ -45,7 +45,7 @@ export enum AutonomyMatrixTestId {
 interface MatrixRow {
   scope: AutonomyScope;
   nested: boolean;
-  teamCount: number;
+  childCount: number;
   open: boolean;
 }
 
@@ -59,7 +59,7 @@ export interface AutonomyMatrixProps {
 }
 
 /**
- * The levels table: rows = Výchozí, companies and (collapsible) teams; two additive columns,
+ * The levels table: rows = Výchozí, companies and (collapsible) teams and projects; two additive columns,
  * Poloautomat and Automat. Every cell lists all capabilities as toggle chips (on = colour + ✓,
  * off = outline + "+"); a dot marks an exception against the parent row. Setting a capability back
  * to what the parent has removes the exception.
@@ -75,9 +75,9 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
   const rows: MatrixRow[] = scopes.flatMap((scope) => {
     const parent = parentOf(scope);
     if (parent?.kind === "company" && closed[parent.node]) return [];
-    const teamCount =
+    const childCount =
       scope.kind === "company" ? scopes.filter((s) => s.parent === scope.node).length : 0;
-    return [{ scope, nested: parent?.kind === "company", teamCount, open: !closed[scope.node] }];
+    return [{ scope, nested: parent?.kind === "company", childCount, open: !closed[scope.node] }];
   });
 
   const toggle = (scope: AutonomyScope, key: AutomationKey, column: Column) => {
@@ -144,18 +144,26 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
     );
   };
 
-  const rowHeader = ({ scope, teamCount, open }: MatrixRow) => {
+  const rowHeader = ({ scope, childCount, open }: MatrixRow) => {
     const parent = parentOf(scope);
     const own = hasOverride(overrideOf(automation, scope));
     const manual = manualKeys(eff[scope.node] ?? automation.global);
     const glyph: IconName =
-      scope.kind === "global" ? "globe" : scope.kind === "company" ? "building" : "users";
+      scope.kind === "global"
+        ? "globe"
+        : scope.kind === "company"
+          ? "building"
+          : scope.kind === "project"
+            ? "portfolio"
+            : "users";
     const kind =
       scope.kind === "global"
         ? t("globalSub")
         : scope.kind === "company"
           ? t("companyKind")
-          : t("teamKind", { company: scope.companyName ?? "" });
+          : t(scope.kind === "project" ? "projectKind" : "teamKind", {
+              company: scope.companyName ?? "",
+            });
     return (
       <Row align="start" gap="100">
         <IconTile glyph={glyph} size="sm" tone="neutral" />
@@ -182,9 +190,9 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
                 : t("manualList", { list: manual.map((k) => t(k)).join(", ") })}
             </Typography>
           ) : null}
-          {teamCount > 0 || (scope.kind !== "global" && own) ? (
+          {childCount > 0 || (scope.kind !== "global" && own) ? (
             <Row wrap gap="50">
-              {teamCount > 0 ? (
+              {childCount > 0 ? (
                 <Button
                   aria-expanded={open}
                   aria-label={`${open ? t("collapse") : t("expand")}: ${scope.label}`}
@@ -194,7 +202,7 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
                   onClick={() => setClosed((c) => ({ ...c, [scope.node]: open }))}
                   size="sm"
                 >
-                  {t("teamsCount", { count: teamCount })}
+                  {t("placesCount", { count: childCount })}
                 </Button>
               ) : null}
               {scope.kind !== "global" && own ? (

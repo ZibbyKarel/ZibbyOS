@@ -7,6 +7,7 @@ import {
   type AutopilotAutomation,
   type Company,
   NO_AUTOMATION,
+  type Project,
   type Team,
 } from "@zibby/contracts";
 import type { ZibbyOrbState, ZibbyStatus } from "@zibby/design-system";
@@ -85,24 +86,31 @@ export const applyOverride = (
 export const hasOverride = (override: AutomationOverride | undefined) =>
   !!override && Object.keys(override).length > 0;
 
-export type ScopeKind = "global" | "company" | "team";
+export type ScopeKind = "global" | "company" | "team" | "project";
 
 export interface AutonomyScope {
-  /** `global` / `company:<id>` / `team:<id>`: also the row key. */
+  /** `global` / `company:<id>` / `team:<id>` / `project:<id>`: also the row key. */
   node: string;
   kind: ScopeKind;
   id: string;
   label: string;
   /** The node this one inherits from; `null` for the global row. */
   parent: string | null;
-  /** Owning company's name, for the team subtitle. */
+  /** Owning company's name, for the team/project subtitle. */
   companyName?: string;
 }
 
 export const GLOBAL_NODE = "global";
 
-/** Global first, then each company followed by its teams, then teams without a known company. */
-export function buildScopes(companies: Company[], teams: Team[]): AutonomyScope[] {
+/**
+ * Global first, then each company followed by its teams and projects, then teams and projects
+ * without a known company. A project inherits from its company only (not from a team).
+ */
+export function buildScopes(
+  companies: Company[],
+  teams: Team[],
+  projects: Project[] = [],
+): AutonomyScope[] {
   const companyIds = new Set(companies.map((c) => c.id));
   const team = (tm: Team, parent: string, companyName?: string): AutonomyScope => ({
     node: `team:${tm.id}`,
@@ -112,6 +120,15 @@ export function buildScopes(companies: Company[], teams: Team[]): AutonomyScope[
     parent,
     ...(companyName ? { companyName } : {}),
   });
+  const project = (p: Project, parent: string, companyName?: string): AutonomyScope => ({
+    node: `project:${p.id}`,
+    kind: "project",
+    id: p.id,
+    label: p.name,
+    parent,
+    ...(companyName ? { companyName } : {}),
+  });
+  const known = (companyId?: string | null) => !!companyId && companyIds.has(companyId);
   return [
     { node: GLOBAL_NODE, kind: "global", id: GLOBAL_NODE, label: "", parent: null },
     ...companies.flatMap((c): AutonomyScope[] => [
@@ -119,10 +136,12 @@ export function buildScopes(companies: Company[], teams: Team[]): AutonomyScope[
       ...teams
         .filter((tm) => tm.companyId === c.id)
         .map((tm) => team(tm, `company:${c.id}`, c.name)),
+      ...projects
+        .filter((p) => p.companyId === c.id)
+        .map((p) => project(p, `company:${c.id}`, c.name)),
     ]),
-    ...teams
-      .filter((tm) => !tm.companyId || !companyIds.has(tm.companyId))
-      .map((tm) => team(tm, GLOBAL_NODE)),
+    ...teams.filter((tm) => !known(tm.companyId)).map((tm) => team(tm, GLOBAL_NODE)),
+    ...projects.filter((p) => !known(p.companyId)).map((p) => project(p, GLOBAL_NODE)),
   ];
 }
 
@@ -133,6 +152,7 @@ export function overrideOf(
 ): AutomationOverride | undefined {
   if (scope.kind === "company") return automation.companies[scope.id];
   if (scope.kind === "team") return automation.teams[scope.id];
+  if (scope.kind === "project") return automation.projects[scope.id];
   return undefined;
 }
 
@@ -154,9 +174,10 @@ export function effectiveByNode(
   return out;
 }
 
-const bucket = (scope: AutonomyScope) => (scope.kind === "company" ? "companies" : "teams");
+const bucket = (scope: AutonomyScope) =>
+  scope.kind === "company" ? "companies" : scope.kind === "project" ? "projects" : "teams";
 
-/** Replace one company/team override (an empty one removes it). */
+/** Replace one company/team/project override (an empty one removes it). */
 function withOverride(
   automation: AutopilotAutomation,
   scope: AutonomyScope,
@@ -191,7 +212,7 @@ export function setLevel(
 export const inheritAll = (automation: AutopilotAutomation, scope: AutonomyScope) =>
   scope.kind === "global" ? automation : withOverride(automation, scope, {});
 
-/** Companies/teams that override something (the header menu and the levels page list them). */
+/** Companies/teams/projects that override something (the header menu and the levels page list them). */
 export const exceptionsOf = (automation: AutopilotAutomation, scopes: AutonomyScope[]) =>
   scopes.filter((scope) => hasOverride(overrideOf(automation, scope)));
 

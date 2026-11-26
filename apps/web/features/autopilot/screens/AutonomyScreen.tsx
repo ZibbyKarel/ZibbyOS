@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { useCompaniesQuery } from "../../companies";
+import { useProjectsQuery } from "../../projects";
 import { useTeamsQuery } from "../../teams";
 import { AlwaysAskList } from "../components/AlwaysAskList";
 import { AutonomyMatrix } from "../components/AutonomyMatrix";
@@ -52,6 +53,7 @@ export function AutonomyScreen() {
   const router = useRouter();
   const { data: companies = [] } = useCompaniesQuery();
   const { data: teams = [] } = useTeamsQuery();
+  const { data: projects = [] } = useProjectsQuery();
   const hasToken = useHasOperatorToken();
   const save = useSaveAutomation();
   const sw = usePauseSwitch();
@@ -60,7 +62,7 @@ export function AutonomyScreen() {
   const [typed, setTyped] = useState("");
 
   const automation: AutopilotAutomation = sw.automation;
-  const scopes = buildScopes(companies, teams);
+  const scopes = buildScopes(companies, teams, projects);
 
   useEffect(() => {
     if (!toast) return;

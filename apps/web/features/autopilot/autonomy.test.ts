@@ -1,4 +1,4 @@
-import { type Company, NO_AUTOMATION, type Team } from "@zibby/contracts";
+import { type Company, NO_AUTOMATION, type Project, type Team } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_AUTOMATION,
@@ -19,9 +19,14 @@ const teams = [
   { id: "web", name: "Web", companyId: "acme" },
   { id: "lone", name: "Lone" },
 ] as Team[];
-const scopes = buildScopes(companies, teams);
-const [global, acme, web, lone] = scopes;
-if (!global || !acme || !web || !lone) throw new Error("scopes");
+const projects = [
+  { id: "shop", name: "Shop", companyId: "acme" },
+  { id: "free", name: "Free" },
+  { id: "ghost", name: "Ghost", companyId: "gone" },
+] as Project[];
+const scopes = buildScopes(companies, teams, projects);
+const [global, acme, web, shop, lone, free] = scopes;
+if (!global || !acme || !web || !shop || !lone || !free) throw new Error("scopes");
 
 describe("autonomy tree helpers", () => {
   it("nests teams under their company and orphans under global", () => {
@@ -29,7 +34,10 @@ describe("autonomy tree helpers", () => {
       ["global", null],
       ["company:acme", "global"],
       ["team:web", "company:acme"],
+      ["project:shop", "company:acme"],
       ["team:lone", "global"],
+      ["project:free", "global"],
+      ["project:ghost", "global"],
     ]);
   });
 
@@ -80,6 +88,21 @@ describe("autonomy tree helpers", () => {
   it("exceptionsOf lists the companies/teams that override something", () => {
     const a = { ...EMPTY_AUTOMATION, teams: { web: { autoReview: "semi" as const } } };
     expect(exceptionsOf(a, scopes)).toEqual([web]);
+  });
+
+  it("a project writes projects.<id>, inherits its company (not a team), and inheritAll clears it", () => {
+    const base = setLevel(EMPTY_AUTOMATION, acme, NO_AUTOMATION, "autoReview", "auto");
+    const eff = effectiveByNode(base, scopes);
+    expect(eff["project:shop"]?.autoReview).toBe("auto");
+    const on = setLevel(base, shop, eff["company:acme"] ?? NO_AUTOMATION, "autoFixCi", "semi");
+    expect(on.projects).toEqual({ shop: { autoFixCi: "semi" } });
+    expect(on.teams).toEqual({});
+    expect(inheritAll(on, shop).projects).toEqual({});
+  });
+
+  it("exceptionsOf lists a project that overrides something", () => {
+    const a = { ...EMPTY_AUTOMATION, projects: { shop: { autoReview: "semi" as const } } };
+    expect(exceptionsOf(a, scopes)).toEqual([shop]);
   });
 
   it("manualKeys lists what resolves to manual", () => {
