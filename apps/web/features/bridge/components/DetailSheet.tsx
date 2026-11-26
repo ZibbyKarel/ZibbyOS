@@ -15,6 +15,7 @@ import { findRow, rowPosition, stepRow, useRowKeyNav } from "../state/useRowKeyN
 import type { BridgeSelection } from "../widgets/registry";
 import { ApprovalSheet } from "../../approvals/components/ApprovalSheet";
 import { AutomationSheet } from "./sheets/AutomationSheet";
+import { GoalSheet } from "./sheets/GoalSheet";
 import { IssueSheet } from "./sheets/IssueSheet";
 import { NoteSheet } from "./sheets/NoteSheet";
 import { PrSheet } from "./sheets/PrSheet";
@@ -234,6 +235,7 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
       {kind === "note" ? <NoteSheet key={k} {...common} /> : null}
       {kind === "automation" ? <AutomationSheet key={k} {...common} /> : null}
       {kind === "project" ? <ProjectSheet key={k} {...common} /> : null}
+      {kind === "goal" ? <GoalSheet key={k} {...common} /> : null}
       {kind === "approval" ? (
         <ApprovalSheet
           anchor={placed}

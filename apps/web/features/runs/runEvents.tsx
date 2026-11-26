@@ -129,6 +129,7 @@ export function RunEventsProvider({ children }: { children: ReactNode }) {
           getTaskDetailRootKey(),
           getActivityQueryKey(),
           getBriefingQueryKey(),
+          getGoalsQueryKey(),
         ])
           void qc.invalidateQueries({ queryKey });
       dropped = false;

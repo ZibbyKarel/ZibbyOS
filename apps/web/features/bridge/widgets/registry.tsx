@@ -6,6 +6,7 @@ import { AutomationRunsWidget } from "./AutomationRunsWidget";
 import { BriefingWidget } from "./BriefingWidget";
 import { BudgetsWidget } from "./BudgetsWidget";
 import { ConnectedServicesWidget } from "./ConnectedServicesWidget";
+import { GoalsWidget, GoalsWidgetSettings } from "./GoalsWidget";
 import { IndicatorsWidget } from "./IndicatorsWidget";
 import { IssuesFilterControls, IssuesWidget } from "./IssuesWidget";
 import { MentionsWidget } from "./MentionsWidget";
@@ -33,7 +34,8 @@ export interface BridgeSelection {
     | "automation"
     | "project"
     | "vaultNote"
-    | "approval";
+    | "approval"
+    | "goal";
   id: string;
   /** Id of the widget the row lives in (arrow keys navigate within it). */
   widgetId: string;
@@ -249,6 +251,14 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     icon: "plug",
     species: "readingList",
     Component: ConnectedServicesWidget,
+  },
+  goals: {
+    labelKey: "bridge.widget.goals.label",
+    descKey: "bridge.widget.goals.desc",
+    icon: "compass",
+    species: "stackList",
+    Component: GoalsWidget,
+    Settings: GoalsWidgetSettings,
   },
 };
 

@@ -5,6 +5,7 @@ import {
   ModelFamilySchema,
   OpencodeTierModelsSchema,
 } from "../ai-providers/ai-providers.schema";
+import { AgentIdSchema } from "../agents/agent.schema";
 import { ChatPersonaSchema } from "../chat/chat.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
 import { TeamIdSchema } from "../teams/team.schema";
@@ -82,6 +83,7 @@ export const BridgeWidgetSchema = z.preprocess(
       "projectStatus",
       "notes",
       "connectedServices",
+      "goals",
     ]),
     x: z.number().int().min(0).max(11),
     y: z.number().int().min(0),
@@ -89,12 +91,14 @@ export const BridgeWidgetSchema = z.preprocess(
     h: z.number().int().min(1),
     /**
      * Optional scope: `teamId` = the team a `teamKb` widget shows; `projectIds` = the projects a
-     * `projectStatus` widget shows (absent / empty = every project).
+     * `projectStatus` widget shows (absent / empty = every project); `goalIds` = the goals a
+     * `goals` widget shows (absent / empty = every enabled goal).
      */
     scope: z
       .object({
         teamId: TeamIdSchema.optional(),
         projectIds: z.array(ProjectIdSchema).optional(),
+        goalIds: z.array(AgentIdSchema).optional(),
       })
       .strict()
       .optional(),

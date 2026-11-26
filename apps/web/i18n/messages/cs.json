@@ -4431,6 +4431,30 @@
         "signInHint": "Přihlaste se v okně Chrome a pak ho zavřete",
         "connectLabel": "Připojit službu {name}",
         "editLabel": "Upravit službu {name}"
+      },
+      "goals": {
+        "goals": "Cíle",
+        "allGoals": "Všechny zapnuté cíle",
+        "empty": "Zatím žádné cíle.",
+        "noMatch": "Žádný z vybraných cílů už neexistuje.",
+        "openGoals": "Otevřít cíle",
+        "noEvents": "Zatím se nic nestalo.",
+        "whatHappened": "Co se dělo",
+        "whatNext": "Co bude",
+        "pause": "Pozastavit",
+        "enable": "Zapnout",
+        "waitingOn": "Čeká na {kind}: {ref}",
+        "wakesAt": "Probudí se {when}",
+        "nextCycle": "Další cyklus začne {when}",
+        "deadline": "Termín {when}",
+        "nothingYet": "Zatím nic naplánováno — první plán vznikne při prvním probuzení.",
+        "waiting": {
+          "task": "úkol",
+          "approval": "schválení",
+          "pr": "pull request",
+          "reply": "odpověď",
+          "time": "čas"
+        }
       }
     },
     "you": "{n} na tebe",
@@ -4499,6 +4523,10 @@
       "connectedServices": {
         "label": "Připojené služby",
         "desc": "Služby, do kterých se ZIBBY přihlašuje ve vlastním prohlížeči"
+      },
+      "goals": {
+        "label": "Cíle",
+        "desc": "Aktuální stav vybraných cílů, s logem toho, co se dělo a co bude."
       }
     },
     "sheet": {
@@ -4512,7 +4540,8 @@
         "automation": "Automatizace",
         "project": "Projekt",
         "vaultNote": "Poznámka z mozku",
-        "approval": "Schválení"
+        "approval": "Schválení",
+        "goal": "Cíl"
       },
       "needsYou": "Čeká na tebe · {kind}",
       "waiting": "Čeká {wait}",

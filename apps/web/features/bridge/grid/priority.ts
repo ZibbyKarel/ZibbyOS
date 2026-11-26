@@ -8,8 +8,12 @@ export const PRIORITY_WEIGHT = { you: 3, blocked: 3, proposal: 3, error: 2, budg
 /** At most this many widgets are raised to `primary`. */
 const MAX_PRIMARY = 2;
 
-/** Widget types whose empty state is an inline add row — they never auto-collapse. */
-const KEEPS_BODY_WHEN_EMPTY: ReadonlySet<BridgeWidget["type"]> = new Set(["todo", "quickActions"]);
+/** Widget types whose empty state is an inline add row or a link — they never auto-collapse. */
+const KEEPS_BODY_WHEN_EMPTY: ReadonlySet<BridgeWidget["type"]> = new Set([
+  "todo",
+  "quickActions",
+  "goals",
+]);
 
 export interface PriorityInput {
   you?: number;

@@ -4431,6 +4431,30 @@
         "signInHint": "Sign in in the Chrome window, then close it",
         "connectLabel": "Connect {name}",
         "editLabel": "Edit {name}"
+      },
+      "goals": {
+        "goals": "Goals",
+        "allGoals": "All enabled goals",
+        "empty": "No goals yet.",
+        "noMatch": "None of the picked goals exist any more.",
+        "openGoals": "Open goals",
+        "noEvents": "Nothing has happened yet.",
+        "whatHappened": "What happened",
+        "whatNext": "What comes next",
+        "pause": "Pause",
+        "enable": "Enable",
+        "waitingOn": "Waiting on {kind}: {ref}",
+        "wakesAt": "Wakes {when}",
+        "nextCycle": "Next cycle starts {when}",
+        "deadline": "Deadline {when}",
+        "nothingYet": "Nothing planned yet — the first plan appears at the first wake-up.",
+        "waiting": {
+          "task": "task",
+          "approval": "approval",
+          "pr": "pull request",
+          "reply": "reply",
+          "time": "time"
+        }
       }
     },
     "you": "{n} for you",
@@ -4499,6 +4523,10 @@
       "connectedServices": {
         "label": "Connected services",
         "desc": "Services ZIBBY signs in to in its own browser"
+      },
+      "goals": {
+        "label": "Goals",
+        "desc": "Current state of the picked goals, with the log of what was done and what comes next."
       }
     },
     "sheet": {
@@ -4512,7 +4540,8 @@
         "automation": "Automation",
         "project": "Project",
         "vaultNote": "Brain note",
-        "approval": "Approval"
+        "approval": "Approval",
+        "goal": "Goal"
       },
       "needsYou": "Needs you · {kind}",
       "waiting": "Waiting {wait}",

@@ -34,6 +34,7 @@ export const SIZE_LIMITS: Record<WidgetType, readonly [number, number, number, n
   pins: [2, 3, 6, 8],
   notes: [2, 4, 6, 20],
   connectedServices: [2, 3, 6, 10],
+  goals: [3, 4, 8, 16],
 };
 
 export function fromArr(a: readonly WidgetTuple[]): BridgeWidget[] {

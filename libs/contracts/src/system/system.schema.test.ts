@@ -25,6 +25,12 @@ describe("BridgeWidgetSchema scope", () => {
     expect(w.scope).toEqual({ teamId: "devrel" });
   });
 
+  it("accepts a goals widget scoped to goals", () => {
+    const w = BridgeWidgetSchema.parse({ ...base, type: "goals", scope: { goalIds: ["g1"] } });
+    expect(w.scope).toEqual({ goalIds: ["g1"] });
+    expect(BridgeWidgetSchema.safeParse({ ...base, type: "goals" }).success).toBe(true);
+  });
+
   it("accepts an old widget without scope", () => {
     expect(BridgeWidgetSchema.parse({ ...base, type: "todo" }).scope).toBeUndefined();
   });

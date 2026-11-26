@@ -211,6 +211,7 @@ describe("RunEventsProvider — SSE-driven invalidation (N1)", () => {
       getTaskDetailRootKey(),
       getActivityQueryKey(),
       getBriefingQueryKey(),
+      getGoalsQueryKey(),
     ])
       expect(invalidate).toHaveBeenCalledWith({ queryKey });
     // Never a blanket refetch: the PR inbox hits GitHub and polls on its own (15 min).
