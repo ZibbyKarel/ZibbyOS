@@ -74,7 +74,7 @@ describe("PrFactsSource", () => {
     const { fp } = prSetup(() => list);
     const first = await fp();
     expect(await fp()).toBe(first);
-    // Same rows in another order, a new title, a later updatedAt in the same age bucket: noise.
+    // A new title, a later updatedAt in the same age bucket: noise.
     list = [pr({ title: "renamed", updatedAt: hoursAgo(1) })];
     expect(await fp(goal(), new Date(NOW.getTime() + 60_000))).toBe(first);
     list = [pr({ review: "approved" })];
@@ -107,8 +107,16 @@ describe("PrFactsSource", () => {
       instance: instance(),
       now: NOW,
     });
+    // Czech words starting with "pr"/containing "ci" are not PR words (JS `\b` is ASCII-only).
+    const czech = await facts.collect({
+      goal: goal({ name: "Dokončit práci na webu", outcome: "Právě v průběhu, žádné akce." }),
+      instanceKey: "_",
+      instance: instance(),
+      now: NOW,
+    });
     expect(listPrs).toHaveBeenCalledTimes(1);
     expect(other).toEqual({}); // no prs key at all: the fingerprint of other goals is unchanged
+    expect(czech).toEqual({});
     facts.beginTick();
     await facts.collect({ goal: goal(), instanceKey: "_", instance: instance(), now: NOW });
     expect(listPrs).toHaveBeenCalledTimes(2);
@@ -132,6 +140,23 @@ describe("PrFactsSource", () => {
     mode = "ok";
     list = [];
     expect(await fp()).not.toBe(first);
+  });
+
+  it("a project that has never been read is unavailable, not empty", async () => {
+    let failing = true;
+    const { facts } = prSetup(
+      () => (failing ? [] : [pr()]),
+      () => (failing ? [{ projectId: "web" }] : []),
+    );
+    const web = async () => {
+      facts.beginTick();
+      return (
+        await facts.collect({ goal: goal(), instanceKey: "web", instance: instance(), now: NOW })
+      ).prs;
+    };
+    expect(await web()).toEqual({ unavailable: true });
+    failing = false;
+    expect(await web()).toHaveLength(1);
   });
 
   it("a project instance sees its project's PRs, `_` only my own", async () => {

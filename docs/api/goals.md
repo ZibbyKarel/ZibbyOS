@@ -177,11 +177,13 @@ without PR, approval or reply waits keep their fingerprint):
 | `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300                                     |
 
 - `prs`: a project instance sees its project's PRs, a `_` instance the operator's own. Only for
-  goals that watch PRs: the goal's name/outcome/predicate mentions PR/MR/pull request/merge/CI, or
-  the instance waits on a `pr`. `InboxService.listPrs()` (itself cached 5 min) runs at most once
-  per tick (`GoalFactsSource.beginTick` drops the memo). A failed fetch, or a project the inbox
-  reports an error for, keeps the previous rows; a transient `mergeable: null` keeps the last
-  known value. No title or body: PR text stays out of the facts.
+  goals that watch PRs: the goal's name/outcome/predicate mentions PR/MR/CI (case-sensitive) or
+  pull request/merge (Unicode word edges, so Czech "práci" does not match), or the instance waits
+  on a `pr`. `InboxService.listPrs()` (itself cached 5 min) runs at most once per tick
+  (`GoalFactsSource.beginTick` drops the memo). A failed fetch, or a project the inbox reports an
+  error for, keeps the previous rows; `{ unavailable: true }` before the first successful fetch,
+  and for a project instance whose project has never been read. A transient `mergeable: null`
+  keeps the last known value. No title or body: PR text stays out of the facts.
 - `approvals` reads the approvals store, so a settled approval wakes the goal after a restart
   too (the in-memory dirty ref alone would be lost).
 - `replies` reads the channel items of that integration only for instances waiting on a reply.

@@ -40,11 +40,15 @@ export function ageBucket(iso: string, now: Date): GoalPrRow["age"] {
  * ponytail: a goal "watches PRs" when its own text says so (or it waits on a PR) — a keyword
  * rule matching the PR presets. Add an explicit goal field if a PR goal is ever missed.
  */
-const PR_WORDS = /\b(PRs?|MRs?|pull requests?|merge\w*|CI)\b/i;
+// Unicode-aware word edges: JS `\b` is ASCII-only, so it would match "pr" in Czech "práci".
+// The acronyms are case-sensitive (no "ci" in Czech text), the phrases are not.
+const PR_ACRONYMS = /(?<![\p{L}\p{N}_])(PRs?|MRs?|CI)(?![\p{L}\p{N}_])/u;
+const PR_PHRASES = /(?<![\p{L}\p{N}_])(pull requests?|merge\p{L}*)(?![\p{L}\p{N}_])/iu;
 
 export function watchesPrs(goal: Goal, instance: GoalInstance): boolean {
   if (instance.waitingOn?.some((w) => w.kind === "pr")) return true;
-  return PR_WORDS.test([goal.name, goal.outcome, goal.predicate ?? ""].join("\n"));
+  const text = [goal.name, goal.outcome, goal.predicate ?? ""].join("\n");
+  return PR_ACRONYMS.test(text) || PR_PHRASES.test(text);
 }
 
 /**
@@ -60,6 +64,8 @@ export class PrFactsSource implements GoalFactsSource {
   private tickFetch: Promise<InboxPr[]> | null = null;
   private lastGood: InboxPr[] = [];
   private fetchedOnce = false;
+  /** Projects in the inbox's `errors` on every fetch so far: no rows ever read, not "no PRs". */
+  private neverRead = new Set<string>();
   /** `repo#n` → the last non-null `mergeable`. */
   private readonly mergeable = new Map<string, boolean>();
 
@@ -77,7 +83,7 @@ export class PrFactsSource implements GoalFactsSource {
   async collect({ goal, instanceKey, instance, now }: GoalFactsContext): Promise<unknown> {
     if (!watchesPrs(goal, instance)) return undefined;
     const prs = await (this.tickFetch ??= this.fetch());
-    if (!this.fetchedOnce) return { unavailable: true };
+    if (!this.fetchedOnce || this.neverRead.has(instanceKey)) return { unavailable: true };
     return prs
       .filter((pr) => (instanceKey === "_" ? pr.bucket === "mine" : pr.projectId === instanceKey))
       .map((pr) => this.row(pr, now))
@@ -96,6 +102,9 @@ export class PrFactsSource implements GoalFactsSource {
       // A project whose PRs could not be read keeps its previous rows.
       const kept = this.lastGood.filter((pr) => failed.has(pr.projectId));
       this.lastGood = [...prs.filter((pr) => !failed.has(pr.projectId)), ...kept];
+      this.neverRead = this.fetchedOnce
+        ? new Set([...this.neverRead].filter((id) => failed.has(id)))
+        : failed;
       this.fetchedOnce = true;
     } catch (error) {
       this.log.warn("goal facts: PR inbox unreadable — previous rows kept", {
