@@ -149,15 +149,21 @@ Autopilot, error) records no id.
 **Work handlers** (`GoalWorkHandlers`, registered in `onModuleInit`):
 
 - `start-task`: `TaskSchedulerService.createTask({ text, title?, source: "goal", goalId },
-now, <instance's project>, target, false)`, exactly as any task: gates, limits, approvals and
-  the delivery loop apply. `targetId` becomes an explicit target only when that agent or
+now, <instance's project> ?? null, target, false)`, exactly as any task: gates, limits,
+  approvals and the delivery loop apply. A `_` instance passes `null`: the task has NO project
+  and the text project matcher is skipped (planner text may quote untrusted facts, so naming a
+  project must not move the task into it). `targetId` becomes an explicit target only when that agent or
   workflow exists; otherwise the classifier routes the text (timeline note). A `goal` task runs
   `immediate` like an `automation` one (no run slot; budget, limits and gates still apply).
 - `run-loop`: the same path with target `{ kind: "loop", id: goal.loop.loopId }`; a goal
   without `loop` gets a report.
-- `pr-action`: scope first. A project instance acts only when `projectId` is its own (the
-  service also rejects a repo that is not the project's); a `_` instance only on one of the
-  operator's own PRs (`bucket: "mine"` in this tick's PR inbox). Then the place, as
+- `pr-action`: the PR must be in this tick's PR inbox (otherwise a report). Scope: a project
+  instance acts only when `projectId` is its own (the service also rejects a repo that is not
+  the project's); a `_` instance only on one of the operator's own PRs (`bucket: "mine"`).
+  Eligibility, with `PrAutomationService`'s own helpers, so a toggle covers exactly the PRs it
+  covers there: `review` needs `wantsReview` (to-review, not a draft, a head) and no review run
+  for that head (`isFresh`); `address-comments` needs `wantsAddressing` (my PR with unresolved
+  threads) and `isFresh`; `fix-ci` only on my own PR. Anything else is a report. Then the place, as
   `PrAutomationService` resolves it (`prLocationOf`: company + the PR's teams + project): when no
   place's Autopilot automation toggle (`autoReview` / `autoAddressComments` / `autoFixCi`) starts
   that op, the action is a report "<op> <repo#n>: připraveno, čeká na tebe" — the goal's
@@ -174,7 +180,7 @@ without PR, approval or reply waits keep their fingerprint):
 | `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                    |
 | `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt` |
 | `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                          |
-| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300                                     |
+| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80                       |
 
 - `prs`: a project instance sees its project's PRs, a `_` instance the operator's own. Only for
   goals that watch PRs: the goal's name/outcome/predicate mentions PR/MR/CI (case-sensitive) or
@@ -185,7 +191,9 @@ without PR, approval or reply waits keep their fingerprint):
   and for a project instance whose project has never been read. A transient `mergeable: null`
   keeps the last known value. No title or body: PR text stays out of the facts.
 - `approvals` reads the approvals store, so a settled approval wakes the goal after a restart
-  too (the in-memory dirty ref alone would be lost).
+  too (the in-memory dirty ref alone would be lost). Only a gone or malformed id is `missing`;
+  any other read error (here and in `replies`) fails that instance's tick, leaving its
+  fingerprint as it was.
 - `replies` reads the channel items of that integration only for instances waiting on a reply.
 
 ### Planner (`GoalPlannerService`)

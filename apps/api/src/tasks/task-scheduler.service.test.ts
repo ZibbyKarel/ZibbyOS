@@ -3129,6 +3129,15 @@ describe("run slots (global + per-project cap)", () => {
     expect(stored).toMatchObject({ source: "goal", goalId: "g", immediate: true });
   });
 
+  it("a null trustedProjectId skips the text project match (a project-less goal task)", async () => {
+    makeService();
+    const text = "tidy up proj_B notes";
+    const none = await service.createTask({ text, title: text, source: "goal" }, undefined, null);
+    expect((await storage.get(none.task.id)).projectId).toBeUndefined();
+    const matched = await service.createTask({ text, title: text });
+    expect((await storage.get(matched.task.id)).projectId).toBe("proj_B");
+  });
+
   it("an immediate task also bypasses a full per-project cap", async () => {
     makeService(1000, { proj_A: 1 });
     await dispatched("do A", "proj_A");

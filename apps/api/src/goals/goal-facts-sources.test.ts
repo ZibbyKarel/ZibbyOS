@@ -1,9 +1,11 @@
 import type { Goal, GoalInstance, InboxPr } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { GoalFactsService, goalFingerprint } from "./goal-facts";
+import { ApprovalNotFoundError } from "../approvals/approvals.errors";
 import {
   ApprovalFactsSource,
   PrFactsSource,
+  REPLY_FROM_MAX,
   REPLY_TEXT_MAX,
   ReplyFactsSource,
 } from "./goal-facts-sources";
@@ -196,6 +198,19 @@ describe("ApprovalFactsSource", () => {
       await facts.collect({ goal: goal(), instanceKey: "_", instance: instance(), now: NOW }),
     ).toEqual({});
   });
+
+  it("only a gone approval is missing; an I/O error fails the collect (no fingerprint flip)", async () => {
+    let fail: Error = new ApprovalNotFoundError("ap-1");
+    const facts = new GoalFactsService([
+      new ApprovalFactsSource({ get: async () => Promise.reject(fail) } as never),
+    ]);
+    const waiting = instance({ waitingOn: [{ kind: "approval", ref: "ap-1" }] });
+    const collect = () =>
+      facts.collect({ goal: goal(), instanceKey: "_", instance: waiting, now: NOW });
+    expect((await collect()).approvals).toEqual([{ id: "ap-1", status: "missing" }]);
+    fail = new Error("EIO");
+    await expect(collect()).rejects.toThrow("EIO");
+  });
 });
 
 describe("ReplyFactsSource", () => {
@@ -215,12 +230,16 @@ describe("ReplyFactsSource", () => {
       id: "C1-102",
       externalRef: { channel: "C1", ts: "102", threadTs: "100" },
       text: "x".repeat(1000),
-    });
+      from: "y".repeat(500),
+    } as (typeof items)[number]);
     const after = await collect();
     expect(goalFingerprint(after)).not.toBe(none);
     const [reply] = after.replies as { count: number; last: { text: string } }[];
     expect(reply?.count).toBe(1);
     expect(reply?.last.text).toHaveLength(REPLY_TEXT_MAX);
+    expect((reply?.last as { from?: string }).from).toHaveLength(REPLY_FROM_MAX);
+    list.mockRejectedValueOnce(new Error("EIO"));
+    await expect(collect()).rejects.toThrow("EIO");
     expect(list).toHaveBeenCalledWith({ integrationId: "slack" });
   });
 });

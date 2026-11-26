@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { Goal, GoalInstance, InboxPr } from "@zibby/contracts";
+import { ApprovalNotFoundError, InvalidApprovalIdError } from "../approvals/approvals.errors";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { ChannelItemStore } from "../channels/channel-item.store";
 import { InboxService } from "../inbox/inbox.service";
@@ -9,6 +10,8 @@ import type { GoalFactsContext, GoalFactsSource } from "./goal-facts";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A channel reply's text in the facts: a capped data field (the prompt fences all facts). */
 export const REPLY_TEXT_MAX = 300;
+/** The reply's sender, capped too (a display name is remote-controlled text). */
+export const REPLY_FROM_MAX = 80;
 
 /** One PR the instance watches, reduced to structure (no title, no body: untrusted text stays out). */
 export interface GoalPrRow {
@@ -150,7 +153,14 @@ export class ApprovalFactsSource implements GoalFactsSource {
     if (!ids.length) return undefined;
     return Promise.all(
       ids.map(async (id) => {
-        const approval = await this.approvals.get(id).catch(() => null);
+        // Only a gone (or malformed) id is "missing"; an I/O error fails this instance's tick
+        // and leaves the fingerprint as it was, like the PR source.
+        const approval = await this.approvals.get(id).catch((error: unknown) => {
+          if (error instanceof ApprovalNotFoundError || error instanceof InvalidApprovalIdError) {
+            return null;
+          }
+          throw error;
+        });
         return { id, status: approval?.status ?? "missing" };
       }),
     );
@@ -175,9 +185,8 @@ export class ReplyFactsSource implements GoalFactsSource {
       refs.map(async (ref) => {
         const thread = parseReplyRef(ref);
         if (!thread) return { ref, count: 0 };
-        const items = await this.channels
-          .list({ integrationId: thread.integrationId })
-          .catch(() => []);
+        // `list` already reads a missing integration as empty; any other error propagates.
+        const items = await this.channels.list({ integrationId: thread.integrationId });
         // `list` is sorted by receivedAt, so the last one is the latest.
         const replies = items.filter(
           (i) =>
@@ -193,7 +202,7 @@ export class ReplyFactsSource implements GoalFactsSource {
             ? {
                 last: {
                   id: last.id,
-                  ...(last.from ? { from: last.from } : {}),
+                  ...(last.from ? { from: last.from.slice(0, REPLY_FROM_MAX) } : {}),
                   text: last.text.slice(0, REPLY_TEXT_MAX),
                 },
               }

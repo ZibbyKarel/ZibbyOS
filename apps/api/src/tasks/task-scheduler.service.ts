@@ -375,12 +375,14 @@ export class TaskSchedulerService
    * @param trustedProjectId set ONLY by server-side callers (the channel triage flow,
    * which already matched the engagement over sanitized text). It bypasses the
    * matcher; the public contract never accepts it from a client (Law 4 — attribution
-   * is server-derived, never client-asserted).
+   * is server-derived, never client-asserted). `null` = explicitly NO project: the text
+   * matcher is skipped too (a project-less goal instance, whose planner text may quote
+   * untrusted facts, must not pick a project by naming one).
    */
   async createTask(
     input: ServerCreateTaskInput,
     now: number = Date.now(),
-    trustedProjectId?: string,
+    trustedProjectId?: string | null,
     /**
      * Phase 10: a pre-chosen target that bypasses classification (an approved
      * proposed-task whose suggested target is a loop/agent/workflow). The immediate
@@ -426,7 +428,7 @@ export class TaskSchedulerService
   private async createTaskInner(
     input: ServerCreateTaskInput,
     now: number,
-    trustedProjectId: string | undefined,
+    trustedProjectId: string | null | undefined,
     explicitTarget: TaskTarget | undefined,
     background: boolean,
   ): Promise<CreateTaskResult> {
@@ -481,10 +483,12 @@ export class TaskSchedulerService
       background && (resolvedInput.source === "operator" || resolvedInput.source === "department");
     const project = trustedProjectId
       ? await this.projects.get(trustedProjectId).catch((): Project | null => null)
-      : matchProject(await this.projects.list().catch((): Project[] => []), {
-          text: input.text,
-          paths: input.paths,
-        });
+      : trustedProjectId === null
+        ? null
+        : matchProject(await this.projects.list().catch((): Project[] => []), {
+            text: input.text,
+            paths: input.paths,
+          });
 
     if (input.scheduledAt != null && input.scheduledAt > now) {
       const task = await this.storage.create(

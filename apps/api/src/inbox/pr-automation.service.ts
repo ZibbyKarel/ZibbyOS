@@ -427,11 +427,11 @@ function ciFixRunsOf(tasks: ScheduledTask[]): Map<string, CiFixRun[]> {
 const headKey = (pr: InboxPr): string =>
   `${pr.repo.toLowerCase()}#${pr.number}@${pr.headSha ?? ""}`;
 
-function wantsReview(pr: InboxPr): boolean {
+export function wantsReview(pr: InboxPr): boolean {
   return pr.bucket === "to-review" && !pr.draft;
 }
 
-function wantsAddressing(pr: InboxPr): boolean {
+export function wantsAddressing(pr: InboxPr): boolean {
   return (
     // Any unresolved thread on my PR counts: plain review comments (no CHANGES_REQUESTED) too.
     pr.bucket === "mine" && (pr.unresolvedThreads ?? 0) > 0
@@ -439,7 +439,7 @@ function wantsAddressing(pr: InboxPr): boolean {
 }
 
 /** Past runs of one kind per `repo#number` (lowercased repo), with the dead-task state folded in. */
-function runsOf(
+export function runsOf(
   tasks: ScheduledTask[],
   pick: (task: ScheduledTask) => PrRun | undefined,
 ): Map<string, PrRun[]> {
@@ -455,7 +455,7 @@ function runsOf(
 }
 
 /** No run for this head (nor one whose approved push produced it) in any state, and none of the PR in flight. */
-function isFresh(pr: InboxPr, runs: Map<string, PrRun[]>): boolean {
+export function isFresh(pr: InboxPr, runs: Map<string, PrRun[]>): boolean {
   const past = runs.get(`${pr.repo.toLowerCase()}#${pr.number}`) ?? [];
   return !past.some(
     (r) =>

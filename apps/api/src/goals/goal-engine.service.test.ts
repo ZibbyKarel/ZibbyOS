@@ -600,7 +600,21 @@ describe("GoalEngineService", () => {
       bucket: string;
       headSha?: string;
       title: string;
+      draft?: boolean;
+      unresolvedThreads?: number;
     }[];
+    const prRow = (over: Partial<Prs[number]> = {}): Prs[number] => ({
+      projectId: "web",
+      repo: "o/web",
+      number: 7,
+      bucket: "to-review",
+      headSha: "a".repeat(40),
+      title: "T",
+      draft: false,
+      unresolvedThreads: 0,
+      ...over,
+    });
+    let scheduled: unknown[];
     let createTask: ReturnType<typeof vi.fn>;
     let review: ReturnType<typeof vi.fn>;
     let addressComments: ReturnType<typeof vi.fn>;
@@ -621,6 +635,7 @@ describe("GoalEngineService", () => {
       toggles = { autoReview: true, autoAddressComments: false, autoFixCi: false };
       prs = [];
       atSeen = [];
+      scheduled = [];
       new GoalWorkHandlers(
         executor,
         { createTask } as never,
@@ -642,6 +657,7 @@ describe("GoalEngineService", () => {
         { get: async (id: string) => ({ id }) } as never,
         { resolveCompany: async () => ({ id: "acme" }) } as never,
         { list: async () => [] } as never,
+        { list: async () => scheduled } as never,
       ).onModuleInit();
     });
 
@@ -657,7 +673,7 @@ describe("GoalEngineService", () => {
       expect(createTask.mock.calls[0]?.slice(0, 5)).toEqual([
         { text: "Fix the build", source: "goal", goalId: "g" },
         expect.any(Number),
-        undefined,
+        null, // a `_` instance's task has explicitly no project (no text match)
         { kind: "agent", id: "coder", name: "Coder" },
         false,
       ]);
@@ -704,16 +720,7 @@ describe("GoalEngineService", () => {
 
     it("pr-action calls the right service with auto: true at the PR's place", async () => {
       await create({ scope: { kind: "projects", projectIds: ["web"] } });
-      prs = [
-        {
-          projectId: "web",
-          repo: "o/web",
-          number: 7,
-          bucket: "to-review",
-          headSha: "a".repeat(40),
-          title: "T",
-        },
-      ];
+      prs = [prRow()];
       plan({
         type: "pr-action",
         actionId: "r7",
@@ -737,6 +744,7 @@ describe("GoalEngineService", () => {
 
     it("pr-action where Autopilot does not start that op is reported as prepared, never forced", async () => {
       await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      prs = [prRow({ bucket: "mine", unresolvedThreads: 2 })];
       plan({
         type: "pr-action",
         actionId: "c7",
@@ -761,6 +769,7 @@ describe("GoalEngineService", () => {
         repo: "o/api",
         number: 1,
       });
+      prs = [prRow({ projectId: "api", repo: "o/api", number: 1 })];
       await engine.tick(NOW);
       // A `_` instance acts only on my own PRs.
       await goals.update("g", { scope: { kind: "none" } });
@@ -780,6 +789,7 @@ describe("GoalEngineService", () => {
 
     it("a throwing service becomes a report, not a plan failure", async () => {
       await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      prs = [prRow()];
       review.mockRejectedValueOnce(new Error("review of o/web#7 is out of my teams' scope"));
       plan({
         type: "pr-action",
@@ -796,6 +806,79 @@ describe("GoalEngineService", () => {
       expect(acted()).toContainEqual(
         expect.stringContaining("Not done: pr-action — review of o/web#7"),
       );
+    });
+
+    const prAction = (op: string, actionId: string) =>
+      plan({ type: "pr-action", actionId, op, projectId: "web", repo: "o/web", number: 7 });
+
+    it("pr-action only on the PRs the toggle covers: no address-comments on a PR I review, none on an unknown PR", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      toggles = { autoReview: true, autoAddressComments: true, autoFixCi: true };
+      prs = [prRow({ bucket: "to-review", unresolvedThreads: 3 })];
+      const on = (op: string, actionId: string, number = 7) => ({
+        type: "pr-action",
+        actionId,
+        op,
+        projectId: "web",
+        repo: "o/web",
+        number,
+      });
+      plan(on("address-comments", "c7"), on("fix-ci", "f7"), on("review", "r9", 9));
+      await engine.tick(NOW);
+      expect(addressComments).not.toHaveBeenCalled();
+      expect(review).not.toHaveBeenCalled();
+      expect(fixCi).not.toHaveBeenCalled();
+      expect(acted()).toContainEqual(expect.stringContaining("not one Autopilot does that for"));
+      expect(acted()).toContainEqual(expect.stringContaining("not in the PR inbox"));
+      expect(acted()).toContainEqual(expect.stringContaining("operator's own PRs"));
+    });
+
+    it("pr-action review of a head that already has a review run is skipped", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      prs = [prRow()];
+      scheduled = [
+        {
+          id: "old",
+          status: "dispatched",
+          prReview: { repo: "o/web", number: 7, headSha: "a".repeat(40), state: "done" },
+        },
+      ];
+      prAction("review", "r7-again");
+      await engine.tick(NOW);
+      expect(review).not.toHaveBeenCalled();
+      expect(acted()).toContainEqual(expect.stringContaining("already done or running"));
+    });
+
+    it("pr-action address-comments and fix-ci on my own PR start with auto: true", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      toggles = { autoReview: false, autoAddressComments: true, autoFixCi: true };
+      prs = [prRow({ bucket: "mine", unresolvedThreads: 1 })];
+      plan(
+        {
+          type: "pr-action",
+          actionId: "c7",
+          op: "address-comments",
+          projectId: "web",
+          repo: "o/web",
+          number: 7,
+        },
+        {
+          type: "pr-action",
+          actionId: "f7",
+          op: "fix-ci",
+          projectId: "web",
+          repo: "o/web",
+          number: 7,
+        },
+      );
+      await engine.tick(NOW);
+      const input = { projectId: "web", repo: "o/web", number: 7, title: "T" };
+      expect(addressComments).toHaveBeenCalledWith(input, {
+        auto: true,
+        autopilotAt: [{ companyId: "acme", projectId: "web" }],
+      });
+      expect(fixCi).toHaveBeenCalledWith(input, { auto: true });
+      expect((await state()).instances.web?.taskIds).toEqual(["ac-1", "ci-1"]);
     });
   });
 });

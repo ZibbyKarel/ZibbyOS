@@ -5,9 +5,17 @@ import { AutopilotService } from "../autopilot/autopilot.service";
 import { InboxAddressCommentsService } from "../inbox/inbox-address-comments.service";
 import { InboxFixCiService } from "../inbox/inbox-fix-ci.service";
 import { InboxReviewService } from "../inbox/inbox-review.service";
-import { prLocationOf, teamsOfPr } from "../inbox/pr-automation.service";
+import {
+  isFresh,
+  prLocationOf,
+  runsOf,
+  teamsOfPr,
+  wantsAddressing,
+  wantsReview,
+} from "../inbox/pr-automation.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
+import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 import { TaskSchedulerService } from "../tasks/task-scheduler.service";
 import { TeamsStorageService } from "../teams/teams.storage.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
@@ -30,11 +38,13 @@ const PR_OP_TOGGLE: Record<PrAction["op"], keyof AutomationToggles> = {
  * report there. Every handler records the started task with its `actionId` in one write.
  *
  * - `start-task` / `run-loop` go through `TaskSchedulerService.createTask` like any task (gates,
- *   limits, approvals and the delivery loop apply), in the instance's project, stamped
- *   `source: "goal"` + `goalId`.
- * - `pr-action` runs only inside the instance's scope and only where the place's Autopilot
- *   automation toggle starts that op on its own (as `PrAutomationService` checks); otherwise
- *   it is reported as prepared for the operator. The goal's ceiling never raises a level.
+ *   limits, approvals and the delivery loop apply), in the instance's project (a `_` instance:
+ *   no project at all), stamped `source: "goal"` + `goalId`.
+ * - `pr-action` runs only on a PR in the inbox, inside the instance's scope, on a PR that op's
+ *   toggle covers (`wantsReview` / `wantsAddressing` / my own for CI, a fresh head) and only
+ *   where the place's Autopilot automation toggle starts that op on its own (as
+ *   `PrAutomationService` checks); otherwise it is a report. The goal's ceiling never raises
+ *   a level.
  */
 @Injectable()
 export class GoalWorkHandlers implements OnModuleInit {
@@ -51,6 +61,7 @@ export class GoalWorkHandlers implements OnModuleInit {
     private readonly projects: ProjectsStorageService,
     private readonly resolvedProjects: ResolvedProjectService,
     private readonly teams: TeamsStorageService,
+    private readonly tasks: ScheduledTasksStorageService,
   ) {}
 
   onModuleInit(): void {
@@ -86,7 +97,8 @@ export class GoalWorkHandlers implements OnModuleInit {
     const { task } = await this.scheduler.createTask(
       { text, ...(title ? { title } : {}), source: "goal", goalId: ctx.goal.id },
       Date.now(),
-      ctx.projectId,
+      // `_` instance → explicitly no project: its text must not pick one by naming it.
+      ctx.projectId ?? null,
       target,
       false,
     );
@@ -109,19 +121,32 @@ export class GoalWorkHandlers implements OnModuleInit {
 
   private async prAction(a: PrAction, ctx: GoalActionContext): Promise<void> {
     const ref = `${a.repo}#${a.number}`;
+    const notDone = (why: string) =>
+      reportFromGoal(ctx, `Not done: pr-action ${a.op} ${ref} — ${why}.`);
     const pr = (await this.prs.current()).find(
       (p) =>
         p.projectId === a.projectId &&
         p.repo.toLowerCase() === a.repo.toLowerCase() &&
         p.number === a.number,
     );
+    if (!pr) return notDone("not in the PR inbox");
     // Scope: a project instance acts only in its project (the service also checks the repo);
     // a `_` instance only on one of the operator's own PRs. The planner cannot widen it.
-    const inScope = ctx.projectId ? a.projectId === ctx.projectId : pr?.bucket === "mine";
-    if (!inScope) {
-      return reportFromGoal(ctx, `Not done: pr-action ${a.op} ${ref} — outside the goal's scope.`);
+    const inScope = ctx.projectId ? a.projectId === ctx.projectId : pr.bucket === "mine";
+    if (!inScope) return notDone("outside the goal's scope");
+    // Eligibility: the PRs each Autopilot toggle covers, exactly as PrAutomationService checks
+    // them — the toggle is not a blanket permission for any PR.
+    if (a.op === "review" || a.op === "address-comments") {
+      const eligible = a.op === "review" ? wantsReview(pr) && !!pr.headSha : wantsAddressing(pr);
+      if (!eligible) return notDone("this PR is not one Autopilot does that for");
+      const runs = runsOf(await this.tasks.list(), (t) =>
+        a.op === "review" ? t.prReview : t.prAddressComments,
+      );
+      if (!isFresh(pr, runs)) return notDone("already done or running for this head");
+    } else if (pr.bucket !== "mine") {
+      return notDone("CI is fixed only on the operator's own PRs");
     }
-    const teamIds = pr ? teamsOfPr(pr, await this.teams.list().catch(() => [])) : [];
+    const teamIds = teamsOfPr(pr, await this.teams.list().catch(() => []));
     const places = await Promise.all(
       (teamIds.length ? teamIds : [undefined]).map((teamId) =>
         prLocationOf(this.projects, this.resolvedProjects, a.projectId, teamId),
@@ -138,13 +163,13 @@ export class GoalWorkHandlers implements OnModuleInit {
       projectId: a.projectId,
       repo: a.repo,
       number: a.number,
-      ...(pr?.title ? { title: pr.title } : {}),
+      ...(pr.title ? { title: pr.title } : {}),
     };
     const { taskId } =
       a.op === "review"
         ? await this.reviews.start(input, {
             auto: true,
-            ...(pr?.headSha ? { headSha: pr.headSha } : {}),
+            ...(pr.headSha ? { headSha: pr.headSha } : {}),
             autopilotAt: places,
           })
         : a.op === "address-comments"
