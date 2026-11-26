@@ -25,7 +25,7 @@ import { TEST_SYSTEM_CONFIG } from "./src/system/system-config.fixture";
  *
  * The temp data root is SEEDED from the real data dir (agents, workflows, skills,
  * projects, vault, gate-rules/mandate/budget/POLICY) so suites that read seeds
- * keep passing — but every volatile/runtime subtree (`runs/`, `loops`, `tasks`,
+ * keep passing — but every volatile/runtime subtree (`runs/`, `loops`, `goals`, `tasks`,
  * `activity`, `approvals`, `channels`, `proposals`, `credentials`, `budget-ledger`)
  * is filtered out, so nothing reconstructible is ever copied in.
  */
@@ -34,6 +34,7 @@ import { TEST_SYSTEM_CONFIG } from "./src/system/system-config.fixture";
 const VOLATILE_SEGMENTS = new Set([
   "runs",
   "loops",
+  "goals",
   "tasks",
   "activity",
   "approvals",

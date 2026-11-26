@@ -205,7 +205,7 @@ export const taskRunsContract = c.router(
         503: ErrorSchema,
       },
       summary:
-        "Hand a run's task over to another agent/workflow/department with its loop, folder and artifacts",
+        "Hand a run's task over to another agent/workflow/department with its goal, folder and artifacts",
     },
 
     sendTaskRunMessage: {

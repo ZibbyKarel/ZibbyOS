@@ -32,8 +32,8 @@ export type LoopState = z.infer<typeof LoopStateSchema>;
  * - `awaiting-resume` (Phase 12.4): on API restart a `running`/`paused-limit` loop is
  *   rehydrated but NOT auto-re-dispatched (Law 3 / Tier 3 — a respawn must not spawn
  *   a maker without approval). It is surfaced here as a pending operator resume
- *   decision; `resumeParked` continues it. The `GOAL_AUTO_RESUME=1` daemon flag
- *   restores the old auto-reconcile.
+ *   decision; `resumeParked` continues it. The operator-owned
+ *   `systemConfig.goalAutoResume: true` (read at boot) restores the old auto-reconcile.
  * All are durable, no-live-child parks, resumable with an operator note.
  */
 export const LoopParkedReasonSchema = z.enum(["iterations", "budget", "limit", "awaiting-resume"]);

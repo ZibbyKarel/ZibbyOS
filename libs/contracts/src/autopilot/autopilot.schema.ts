@@ -173,9 +173,18 @@ export const AutopilotLocationSchema = z
   .strict();
 export type AutopilotLocation = z.infer<typeof AutopilotLocationSchema>;
 
-/** Every global capability is `manual` (the TopBar "Ručně"): a master off over all exceptions. */
+/**
+ * The capabilities under the master switch: every one but `autoDecideGoals`, which resolves on
+ * its own (most specific cell wins) and never turns the rest of Autopilot on.
+ */
+export const MASTER_SWITCH_KEYS = AUTOMATION_KEYS.filter((k) => k !== "autoDecideGoals");
+
+/**
+ * Every global capability under the master switch is `manual` (the TopBar "Ručně"): a master
+ * off over all their exceptions. `autoDecideGoals` neither counts nor is switched off by it.
+ */
 export function isGlobalManual(automation: Pick<AutopilotAutomation, "global">): boolean {
-  return AUTOMATION_KEYS.every((k) => automation.global[k] === "manual");
+  return MASTER_SWITCH_KEYS.every((k) => automation.global[k] === "manual");
 }
 
 /** The resolved level of every capability at a place: global <- company <- team <- project. */
@@ -186,9 +195,6 @@ export function resolveAutopilotLevels(
   if (!state.automation) return { ...NO_AUTOMATION };
   // `projects` may be missing on a tree built in code rather than parsed.
   const { global, companies, teams, projects = {} } = state.automation;
-  // Global all-manual (the TopBar "Ručně") is a master switch: no company/team exception
-  // starts work. The exceptions stay stored and apply again once the global row is raised.
-  if (isGlobalManual(state.automation)) return { ...NO_AUTOMATION };
   const company = at.companyId ? companies[at.companyId] : undefined;
   const team = at.teamId ? teams[at.teamId] : undefined;
   const project = at.projectId ? projects[at.projectId] : undefined;
@@ -199,6 +205,12 @@ export function resolveAutopilotLevels(
       const v = node[k];
       if (v !== undefined) out[k] = v;
     }
+  }
+  // Global all-manual (the TopBar "Ručně") is a master switch: no company/team exception
+  // starts work. The exceptions stay stored and apply again once the global row is raised.
+  // `autoDecideGoals` is outside it: project > team > company > global, whatever the rest says.
+  if (isGlobalManual(state.automation)) {
+    return { ...NO_AUTOMATION, autoDecideGoals: out.autoDecideGoals };
   }
   return out;
 }

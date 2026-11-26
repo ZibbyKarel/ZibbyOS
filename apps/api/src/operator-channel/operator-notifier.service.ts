@@ -136,8 +136,12 @@ export class OperatorNotifier implements OnModuleInit, OnModuleDestroy {
       const settings = await this.store.readSettings();
       if (!settings.enabled) return;
       const event = await toOperatorEvent(entry, this.lookups);
-      if (!event || !settings.notify.events.includes(event.kind)) return;
+      if (!event) return;
+      // A merge under a merge grant is always told: no toggle and no Autopilot state hides it.
+      const always = entry.kind === "goal-merged";
+      if (!always && !settings.notify.events.includes(event.kind)) return;
       if (
+        !always &&
         !this.autopilot.isOn() &&
         !(event.taskId && (await this.store.threads.forTask(event.taskId)))
       )

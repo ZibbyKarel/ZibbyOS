@@ -6,6 +6,7 @@ import {
   OperatorChannelSettingsSchema,
   type OperatorDeliveryEntry,
   OperatorDeliveryEntrySchema,
+  type OperatorEventKind,
 } from "@zibby/contracts";
 import { ensureDir, safeJson, writeFileAtomic } from "../shared/file-storage";
 import { ThreadBindingStore } from "./thread-binding.store";
@@ -16,6 +17,10 @@ export const OPERATOR_CHANNEL_DIR = "OPERATOR_CHANNEL_DIR";
 const SETTINGS_FILE = "operator-channel.json";
 const DELIVERIES_FILE = "deliveries.jsonl";
 const INBOUND_SEEN_FILE = "inbound-seen.json";
+/** Marker: the one-time goal-kinds migration of a stored `notify.events` list has run. */
+const GOAL_EVENTS_MIGRATED_FILE = "goal-events-migrated";
+/** The goal notification kinds (added by the goals feature). */
+const GOAL_EVENT_KINDS: readonly OperatorEventKind[] = ["goal-parked", "goal-update"];
 
 /** Inbound dedupe window: Slack redelivers within minutes; a day is plenty, 1000 ids bound the file. */
 const SEEN_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -47,7 +52,33 @@ export class OperatorChannelStore {
     const raw = await fs.readFile(path.join(this.dir, SETTINGS_FILE), "utf8").catch(() => null);
     const parsed = OperatorChannelSettingsSchema.safeParse(raw === null ? {} : safeJson(raw));
     this.cached = parsed.success ? parsed.data : OperatorChannelSettingsSchema.parse({});
+    if (raw !== null && parsed.success) await this.migrateGoalEvents(this.cached);
     return this.cached;
+  }
+
+  /**
+   * Once per install: a stored `notify.events` list written before goals existed has none of
+   * the goal kinds, so no goal notification would ever be sent — add them and save. A list
+   * that already has a goal kind is the operator's choice and is left alone; after the marker
+   * exists a later prune is respected too.
+   */
+  private async migrateGoalEvents(settings: OperatorChannelSettings): Promise<void> {
+    const marker = path.join(this.dir, GOAL_EVENTS_MIGRATED_FILE);
+    if (
+      await fs.access(marker).then(
+        () => true,
+        () => false,
+      )
+    )
+      return;
+    const events = settings.notify.events;
+    if (!events.some((k) => GOAL_EVENT_KINDS.includes(k))) {
+      await this.writeSettings({
+        ...settings,
+        notify: { ...settings.notify, events: [...events, ...GOAL_EVENT_KINDS] },
+      });
+    }
+    await writeFileAtomic(marker, `${new Date().toISOString()}\n`);
   }
 
   async writeSettings(settings: OperatorChannelSettings): Promise<OperatorChannelSettings> {

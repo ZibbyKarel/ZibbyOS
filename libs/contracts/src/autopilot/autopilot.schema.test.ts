@@ -7,6 +7,7 @@ import {
   AutopilotStateSchema,
   NO_AUTOMATION,
   SetAutopilotInputSchema,
+  isGlobalManual,
   migrateLegacyAutopilotState,
   resolveAutopilotAutomation,
   resolveAutopilotLevels,
@@ -25,6 +26,34 @@ const tree: AutopilotAutomation = {
   teams: { devrel: { autoReview: "manual", autoAddressComments: "semi" } },
   projects: {},
 };
+
+describe("autoDecideGoals and the master switch", () => {
+  const manual = { ...NO_AUTOMATION };
+
+  it("is not part of isGlobalManual", () => {
+    expect(isGlobalManual({ global: { ...manual, autoDecideGoals: "auto" } })).toBe(true);
+    expect(isGlobalManual({ global: { ...manual, autoFixCi: "semi" } })).toBe(false);
+  });
+
+  it("resolves most-specific-wins even under an all-manual global row; the others stay off", () => {
+    const automation = {
+      global: { ...manual, autoDecideGoals: "semi" as const },
+      companies: { co: { autoReview: "auto" as const } },
+      teams: { devrel: { autoFixCi: "auto" as const, autoDecideGoals: "manual" as const } },
+      projects: { p: { autoDecideGoals: "auto" as const } },
+    };
+    expect(resolveAutopilotLevels({ automation }, { companyId: "co" })).toEqual({
+      ...manual,
+      autoDecideGoals: "semi",
+    });
+    expect(resolveAutopilotLevels({ automation }, { companyId: "co", teamId: "devrel" })).toEqual(
+      manual,
+    );
+    expect(
+      resolveAutopilotLevels({ automation }, { companyId: "co", teamId: "devrel", projectId: "p" }),
+    ).toEqual({ ...manual, autoDecideGoals: "auto" });
+  });
+});
 
 describe("resolveAutopilotAutomation", () => {
   it("is not-manual per cell: semi and auto both start work", () => {

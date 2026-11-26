@@ -141,7 +141,7 @@ export const ActivityViewSchema = z
     tasks: ActivityViewModeSchema,
     runs: ActivityViewModeSchema,
     workflows: ActivityViewModeSchema,
-    loops: ActivityViewModeSchema,
+    loops: ActivityViewModeSchema.default("visible"),
     goals: ActivityViewModeSchema.default("visible"),
     approvals: ActivityViewModeSchema,
     channels: ActivityViewModeSchema,

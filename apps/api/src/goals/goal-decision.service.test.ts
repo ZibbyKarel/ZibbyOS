@@ -5,6 +5,8 @@ import type { Approval, CreateGoalInput, GoalAction } from "@zibby/contracts";
 import { Subject } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityEventsService } from "../activity/activity-events.service";
+import { ApprovalsService } from "../approvals/approvals.service";
+import { ApprovalsStorageService } from "../approvals/approvals.storage.service";
 import { BudgetLedgerStore } from "../budget/ledger.store";
 import { fakeSystemConfigStore } from "../system/system-config.fixture";
 import { GoalActionExecutor } from "./goal-action-executor";
@@ -194,6 +196,24 @@ describe("GoalDecisionService (directional goals, autoDecideGoals)", () => {
     await engine.tick(NOW);
     await decisions.resume("g/p1/0/0", { id: "ap-1", reason: "y" } as Approval);
     expect(started).toMatchObject([{ text: "Build feature y" }]);
+  });
+
+  it("ApprovalsService.answer with a candidate id starts that candidate", async () => {
+    const storage = new ApprovalsStorageService(path.join(dir, "approvals"));
+    await storage.onModuleInit();
+    const real = new ApprovalsService(storage);
+    real.register("goal-decision", decisions);
+    approvals.requestApproval.mockImplementationOnce(
+      (input: Parameters<ApprovalsService["requestApproval"]>[0]) => real.requestApproval(input),
+    );
+    await create();
+    planOnce(propose(cand("x"), cand("y")));
+    await engine.tick(NOW);
+    const [pending] = await real.list("pending");
+    expect(pending?.kind).toBe("goal-decision");
+    await real.answer(pending?.id ?? "", "y");
+    expect(started).toMatchObject([{ text: "Build feature y", projectId: "p1" }]);
+    expect((await state()).decisions).toMatchObject([{ status: "started", chosen: "y" }]);
   });
 
   it("reject is recorded and starts nothing; a second approve is refused", async () => {

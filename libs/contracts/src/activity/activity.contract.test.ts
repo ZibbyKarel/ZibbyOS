@@ -3,6 +3,8 @@ import {
   ActivityEntrySchema,
   ActivityKindSchema,
   ActivityRefsSchema,
+  ActivityViewSchema,
+  DEFAULT_ACTIVITY_VIEW,
   activityContract,
 } from "../index";
 
@@ -109,5 +111,16 @@ describe("ActivityEntrySchema", () => {
     expect(ActivityKindSchema.options).toContain("channel-reply");
     expect(ActivityKindSchema.options).toContain("task-held");
     expect(ActivityKindSchema.options).toContain("task-queued");
+  });
+});
+
+describe("ActivityViewSchema", () => {
+  it("a view stored before the loops group existed still parses (loops defaults to visible)", () => {
+    const older: Record<string, string> = { ...DEFAULT_ACTIVITY_VIEW, tasks: "hidden" };
+    for (const k of ["loops", "goals", "errors"]) delete older[k];
+    const parsed = ActivityViewSchema.parse(older);
+    expect(parsed.loops).toBe("visible");
+    expect(parsed.goals).toBe("visible");
+    expect(parsed.tasks).toBe("hidden");
   });
 });

@@ -335,6 +335,20 @@ describe("OperatorNotifier — thread bindings (Phase 3)", () => {
 });
 
 describe("OperatorNotifier — autopilot gate", () => {
+  it("a merge under a grant is delivered even with goal kinds toggled off and Autopilot off", async () => {
+    const h = await harness({ notify: { events: ["ci-red"] } });
+    autopilotOn = false;
+    await feed(h, entry("goal-done", { goalId: "g", itemId: "p1" }));
+    expect(h.service.fake.sent).toHaveLength(0);
+    await feed(h, entry("goal-merged", { goalId: "g", itemId: "p1" }));
+    expect(h.service.fake.sent).toHaveLength(1);
+    expect(h.service.fake.sent[0]?.notification.kind).toBe("goal-update");
+    expect((await h.store.recentDeliveries())[0]).toMatchObject({
+      kind: "goal-update",
+      status: "sent",
+    });
+  });
+
   it("autopilot off: nothing is pushed", async () => {
     const h = await harness();
     autopilotOn = false;
@@ -392,5 +406,38 @@ describe("secrets", () => {
       .calls[0]![1];
     expect((init.headers as Record<string, string>).authorization).toBe(`Bearer ${BOT_TOKEN}`);
     expect(String(init.body)).not.toContain(BOT_TOKEN);
+  });
+});
+
+describe("OperatorChannelStore — goal notification kinds on an existing install", () => {
+  const stored = async (events: string[]) => {
+    await fs.writeFile(
+      path.join(dir, "operator-channel.json"),
+      JSON.stringify({ enabled: true, notify: { events } }),
+    );
+  };
+  const fresh = () => new OperatorChannelStore(dir);
+  const onDisk = async () =>
+    JSON.parse(await fs.readFile(path.join(dir, "operator-channel.json"), "utf8")).notify.events;
+
+  it("a stored list without any goal kind gets them added once and saved; a later prune stays", async () => {
+    await stored(["ci-red", "pr-opened"]);
+    expect((await fresh().readSettings()).notify.events).toEqual([
+      "ci-red",
+      "pr-opened",
+      "goal-parked",
+      "goal-update",
+    ]);
+    expect(await onDisk()).toContain("goal-update");
+    // The operator removes them again: respected from now on.
+    const store = fresh();
+    const s = await store.readSettings();
+    await store.writeSettings({ ...s, notify: { ...s.notify, events: ["ci-red"] } });
+    expect((await fresh().readSettings()).notify.events).toEqual(["ci-red"]);
+  });
+
+  it("a stored list that already has a goal kind is the operator's choice", async () => {
+    await stored(["ci-red", "goal-parked"]);
+    expect((await fresh().readSettings()).notify.events).toEqual(["ci-red", "goal-parked"]);
   });
 });

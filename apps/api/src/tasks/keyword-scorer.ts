@@ -15,7 +15,7 @@ function fold(text: string): string {
 /**
  * Phase 11 loop cues (cs + en), diacritics-folded. Each is a substring probe over
  * the folded task text — a deterministic signal that the operator asked to
- * iterate-until-satisfied, so the classifier proposes a loop (a loop) rather than a
+ * iterate-until-satisfied, so the classifier proposes a loop rather than a
  * one-shot dispatch. This is the always-available leg behind the LLM router's own
  * `loop` annotation; either firing flips the verdict to `mode: "loop"`.
  */

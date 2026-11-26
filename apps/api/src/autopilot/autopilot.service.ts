@@ -18,6 +18,7 @@ import {
   type AutopilotStatus,
   type DepartmentId,
   type IntendedAction,
+  MASTER_SWITCH_KEYS,
   type Workflow,
   isGlobalManual,
   resolveAutopilotAutomation,
@@ -302,7 +303,10 @@ export class AutopilotService implements OnModuleInit {
       ...Object.values(a.companies),
       ...Object.values(a.teams),
       ...Object.values(a.projects ?? {}),
-    ].some((node) => Object.values(node).includes("auto"));
+    ].some((node) =>
+      // A goal-decision cell alone never turns the overlay on (it resolves on its own).
+      MASTER_SWITCH_KEYS.some((k) => node[k] === "auto"),
+    );
   }
 
   /** {@link scope} at any node of the tree — for an action that has no location of its own. */

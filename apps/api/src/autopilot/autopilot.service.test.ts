@@ -35,6 +35,9 @@ describe("autopilotCoversApproval — the approval allowlist", () => {
     [{ kind: "task", action: "spend-past-cap" }, undefined, false],
     [{ kind: "jira-issue", action: "jira.create" }, undefined, false],
     [{ kind: "comms-graduation", action: "graduate" }, undefined, false],
+    // Goal decisions and messages answer to autoDecideGoals and the goal ceiling, never the allowlist.
+    [{ kind: "goal-decision", action: "goal.decide" }, undefined, false],
+    [{ kind: "goal-message", action: "message.send" }, undefined, false],
   ])("%o on %s → %s", (approval, head, expected) => {
     expect(autopilotCoversApproval(approval, head)).toBe(expected);
   });
@@ -481,5 +484,40 @@ describe("AutopilotService", () => {
     const svc = await boot();
     expect(svc.isOn()).toBe(false);
     expect(svc.automation()).toBeUndefined();
+  });
+
+  // autoDecideGoals resolves on its own (outside the master switch).
+  const devrel = { companyId: "co", teamId: "devrel" };
+
+  it("a global goal-decision cell alone wakes no dormant exception of another capability", async () => {
+    const svc = await boot();
+    await svc.set(
+      {
+        automation: treeOf({ autoDecideGoals: "semi" }, {}, { devrel: { autoFixCi: "auto" } }),
+      },
+      "operator",
+    );
+    expect(svc.levelsAt(devrel)).toEqual({ ...cells(), autoDecideGoals: "semi" });
+    expect(svc.automationFor(devrel).autoFixCi).toBe(false);
+    expect(svc.scope(devrel).ci).toBe(false);
+  });
+
+  it("a project goal-decision cell under an all-manual global row is auto there only", async () => {
+    const svc = await boot();
+    await svc.set(
+      { automation: treeOf({}, {}, {}, { p: { autoDecideGoals: "auto" } }) },
+      "operator",
+    );
+    expect(svc.levelsAt({ projectId: "p" }).autoDecideGoals).toBe("auto");
+    expect(svc.levelsAt({ projectId: "other" }).autoDecideGoals).toBe("manual");
+    expect(svc.levelsAt({}).autoDecideGoals).toBe("manual");
+    // The rest of Autopilot stays off: a goal-only cell does not turn isOn() true.
+    expect(svc.isOn()).toBe(false);
+  });
+
+  it("raising a project goal-decision cell under an all-manual global row is a raise (token)", () => {
+    expect(automationRaises(treeOf(), treeOf({}, {}, {}, { p: { autoDecideGoals: "semi" } }))).toBe(
+      true,
+    );
   });
 });

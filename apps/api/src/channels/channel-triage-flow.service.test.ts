@@ -56,6 +56,8 @@ describe("ChannelTriageFlowService", () => {
     degraded?: boolean;
     /** Phase 128 — override the fixture integration (e.g. a company-owned one). */
     integration?: Integration;
+    /** The account cannot be read (`integrations.get` throws → `null` in the flow). */
+    integrationUnreadable?: boolean;
     /** Phase 128 — `ResolvedProjectService.inheritingProjects` result. */
     inheriting?: Project[];
     /** `ResolvedProjectService.resolveIntegrations` result (any project). */
@@ -98,7 +100,10 @@ describe("ChannelTriageFlowService", () => {
     };
     const gateRules = { list: async () => [] };
     const integrations = {
-      get: async () => opts.integration ?? integration,
+      get: async () => {
+        if (opts.integrationUnreadable) throw new Error("unreadable");
+        return opts.integration ?? integration;
+      },
       list: async () => opts.jiraIntegrations ?? [],
     };
     const projects = {
@@ -429,6 +434,28 @@ describe("ChannelTriageFlowService", () => {
       const out = await researched(flow, item({ text: "Acme: can you check this?" }), "an answer");
       expect(out.projectId).toBe("acme");
       expect(send).not.toHaveBeenCalled();
+    });
+
+    it("autopilot: an unreadable account never borrows a project's or company's autonomy", async () => {
+      const acme: Project = { id: "acme", name: "Acme", path: "/work/acme", companyId: "co" };
+      const covers = vi.fn((_at: { companyId?: string; projectId?: string }) => true);
+      const flow = makeFlow({
+        verdict: scope,
+        integrationUnreadable: true,
+        projects: [acme],
+        projectCompanyId: "co",
+        autopilot: true,
+        autopilotCovers: covers,
+      });
+      const out = await researched(
+        flow,
+        item({ text: "Acme: can you check this?", projectId: "acme" }),
+        "an answer",
+      );
+      expect(out.projectId).toBe("acme");
+      // Asked at global levels only — never at the project or its company.
+      expect(covers).toHaveBeenCalled();
+      for (const [at] of covers.mock.calls) expect(at).toEqual({});
     });
 
     it("autopilot: a company account's item acts at its project's levels", async () => {

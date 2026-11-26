@@ -637,11 +637,13 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
     item: ChannelItem,
     integration: Integration | null,
   ): Promise<AutopilotLocation> {
+    // An unreadable account cannot be checked for "personal": global levels only (Law 4).
+    if (!integration) return {};
     const project = item.projectId
       ? await this.projects.get(item.projectId).catch(() => null)
       : null;
-    if (!project) return { companyId: integration?.companyId };
-    if (integration && isPersonalAccount(integration)) {
+    if (!project) return { companyId: integration.companyId };
+    if (isPersonalAccount(integration)) {
       const serving = await this.resolved.resolveIntegrations(project).catch(() => []);
       if (!serving.some((i) => i.id === integration.id)) return {};
     }
