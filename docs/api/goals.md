@@ -389,7 +389,8 @@ action is always a `report` "ready to merge".
   "Připraveno k merge (ready to merge): repo#n — <the failed precondition>":
   1. the action's `projectId` is the instance's project (a `_` instance never merges);
   2. the goal **re-read from storage** still has ceiling `tier3` and an unexpired grant listing
-     the project (a revoke during the tick wins);
+     the project whose `until - grantedAt` is at most 24 h (the file is hand-editable, so the
+     cap is re-checked here; a missing `grantedAt` fails); a revoke during the tick wins;
   3. Autopilot is not paused;
   4. read live from GitHub (`ProjectPrService.mergeState`, never from the facts snapshot or the
      plan): the PR belongs to the project's repo, is open, not a draft, not yet merged; no
@@ -397,9 +398,12 @@ action is always a `report` "ready to merge".
      approval) and some reviewer's latest approval was given on that SHA (only an approval from
      a repo OWNER/MEMBER/COLLABORATOR counts; a change request blocks from anyone); CI is green and settled
      (every check run completed with success/neutral/skipped and every commit status `success`;
-     no checks at all is not green); `mergeable === true`. A possibly truncated review/check
-     page fails closed. GitLab projects are not supported (the review's commit is not read
+     no checks at all is not green); `mergeable === true` and `mergeable_state === "clean"` (every
+     branch-protection requirement met, so an admin token never merges past protection;
+     `blocked`, `unstable`, `behind`, `unknown`, `has_hooks`, `dirty` or missing all report). A PR
+     with 100 or more reviews, check runs or statuses never auto-merges (page limit, fail closed). GitLab projects are not supported (the review's commit is not read
      there), so they always report.
+- Points 2 and 3 are checked again right before the merge, after the slow host read.
 - The merge goes through `ProjectPrService.merge` with the head SHA pinned (`sha`), so a push
   after the check makes GitHub refuse it. On success: the `actionId` is recorded at once, a
   `merged` timeline line, activity `goal-merged` (operator notification `goal-update`), plus the

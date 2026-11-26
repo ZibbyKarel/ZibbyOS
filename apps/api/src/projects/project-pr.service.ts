@@ -61,6 +61,8 @@ export interface PrMergeState {
   headSha: string;
   /** GitHub's `mergeable`; `null` = not computed yet (unknown). */
   mergeable: boolean | null;
+  /** GitHub's `mergeable_state` (`clean` = every branch-protection requirement met); `null` = absent. */
+  mergeableState: string | null;
   /** The commit ids of the reviewers' latest reviews that are approvals (dismissed ones dropped). */
   approvedShas: string[];
   /** Some reviewer's latest review requests changes. */
@@ -286,6 +288,7 @@ export class ProjectPrService {
       merged?: boolean;
       draft?: boolean;
       mergeable?: boolean | null;
+      mergeable_state?: string;
       head?: { sha?: string };
     }>(`/pulls/${number}`);
     const headSha = pull.head?.sha;
@@ -343,6 +346,7 @@ export class ProjectPrService {
       draft: pull.draft === true,
       headSha,
       mergeable: typeof pull.mergeable === "boolean" ? pull.mergeable : null,
+      mergeableState: pull.mergeable_state ?? null,
       approvedShas: current.flatMap((r) =>
         r.state === "APPROVED" && r.commitId ? [r.commitId] : [],
       ),

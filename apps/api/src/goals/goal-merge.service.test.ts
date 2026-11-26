@@ -62,6 +62,7 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
       draft: false,
       headSha: HEAD,
       mergeable: true,
+      mergeableState: "clean",
       approvedShas: [HEAD],
       changesRequested: false,
       ci: "green",
@@ -222,6 +223,8 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
       [/není mergeable/, () => (pr.mergeable = null)],
       [/žádá změny/, () => (pr.changesRequested = true)],
       [/draft/, () => (pr.draft = true)],
+      [/mergeable_state blocked/, () => (pr.mergeableState = "blocked")],
+      [/mergeable_state unknown/, () => (pr.mergeableState = "unknown")],
     ];
     for (const [why, set] of cases) {
       const saved = { ...pr };
@@ -231,6 +234,43 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
       expect((await reports()).at(-1)).toMatch(why);
       Object.assign(pr, saved);
     }
+    expect(prs.merge).not.toHaveBeenCalled();
+  });
+
+  it("a grant spanning more than 24 h (hand-edited file) or without grantedAt → report", async () => {
+    await create({}, { projectIds: ["p1"], until: inHours(2), grantedAt: inHours(-23) });
+    planP1(merge());
+    await tick();
+    expect((await reports()).at(-1)).toMatch(/delší než 24 h/);
+    await goals.setMergeGrant("g", { projectIds: ["p1"], until: inHours(2) } as never);
+    planP1(merge({ actionId: "m2" }));
+    await tick();
+    expect((await reports()).at(-1)).toMatch(/delší než 24 h/);
+    expect(prs.merge).not.toHaveBeenCalled();
+  });
+
+  it("a revoke or a pause during the host read wins: re-checked right before the merge", async () => {
+    await create();
+    prs.mergeState.mockImplementationOnce(async () => {
+      await goals.setMergeGrant("g", undefined);
+      return { ...pr };
+    });
+    planP1(merge());
+    await tick();
+    expect((await reports()).at(-1)).toMatch(/nemá merge grant/);
+
+    await goals.setMergeGrant("g", {
+      projectIds: ["p1"],
+      until: inHours(2),
+      grantedAt: inHours(0),
+    });
+    prs.mergeState.mockImplementationOnce(async () => {
+      paused = true;
+      return { ...pr };
+    });
+    planP1(merge({ actionId: "m2" }));
+    await tick();
+    expect((await reports()).at(-1)).toMatch(/pozastavený/);
     expect(prs.merge).not.toHaveBeenCalled();
   });
 

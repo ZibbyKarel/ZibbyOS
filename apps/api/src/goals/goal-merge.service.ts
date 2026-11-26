@@ -1,5 +1,5 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { GoalAction } from "@zibby/contracts";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { type GoalAction, MERGE_GRANT_MAX_HOURS } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { AutopilotService } from "../autopilot/autopilot.service";
 import { ProjectPrService } from "../projects/project-pr.service";
@@ -20,13 +20,17 @@ type MergeAction = Extract<GoalAction, { type: "merge" }>;
  * 3. Autopilot is not paused;
  * 4. live from the git host ({@link ProjectPrService.mergeState}): same repo, open, not draft,
  *    not merged yet, no current change request, head SHA === `approvedSha` and an approving
- *    review given on that SHA, CI green and settled, `mergeable === true`.
+ *    review given on that SHA, CI green and settled, `mergeable === true`, `mergeable_state`
+ *    `clean`;
+ * 5. 2–3 again right before the merge (the host read is slow).
  *
  * The merge itself goes through {@link ProjectPrService.merge} with the head pinned, so a push
  * after the check makes GitHub refuse it. The planner's payload is only a claim to compare.
  */
 @Injectable()
 export class GoalMergeService implements OnModuleInit {
+  private readonly log = new Logger(GoalMergeService.name);
+
   constructor(
     private readonly executor: GoalActionExecutor,
     private readonly goals: GoalsStorageService,
@@ -50,6 +54,9 @@ export class GoalMergeService implements OnModuleInit {
       if (typeof why === "string") return ready(why);
       if (why.merged) return reportFromGoal(ctx, `${ref} už je mergnuté (already merged).`);
       headSha = why.headSha;
+      // Again right before the merge: a revoke or a pause during the slow host read wins.
+      const late = await this.grantUnmet(a, ctx);
+      if (late) return ready(late);
     } catch (error) {
       return ready(`podmínku nešlo ověřit (${errorText(error)})`);
     }
@@ -70,7 +77,9 @@ export class GoalMergeService implements OnModuleInit {
           (inst.appliedActionIds ??= []).push(a.actionId);
         }
       })
-      .catch(() => undefined);
+      .catch((e: unknown) =>
+        this.log.error(`merged ${ref} but recording ${a.actionId} failed: ${errorText(e)}`),
+      );
     const text = `Mergnuto na základě merge grantu: ${ref} (${headSha.slice(0, 7)}).`;
     ctx.timeline("merged", text, { actionId: a.actionId });
     await this.activity
@@ -84,7 +93,9 @@ export class GoalMergeService implements OnModuleInit {
           action: "merge",
         },
       })
-      .catch(() => undefined);
+      .catch((e: unknown) =>
+        this.log.error(`merged ${ref} but the goal-merged activity failed: ${errorText(e)}`),
+      );
   }
 
   /** The first unmet precondition (text), or the live PR state when all hold. */
@@ -93,14 +104,8 @@ export class GoalMergeService implements OnModuleInit {
     ctx: GoalActionContext,
   ): Promise<string | { merged: boolean; headSha: string }> {
     if (!ctx.projectId || a.projectId !== ctx.projectId) return "mimo projekt této instance";
-    // Fresh from storage: the tick's cached goal may predate a revoke or a lowered ceiling.
-    const goal = await this.goals.get(ctx.goal.id);
-    if (goal.ceiling !== "tier3") return "strop cíle už není tier3";
-    const grant = goal.mergeGrant;
-    if (!grant) return "cíl nemá merge grant";
-    if (!(Date.parse(grant.until) > Date.now())) return "merge grant vypršel";
-    if (!grant.projectIds.includes(a.projectId)) return "merge grant nepokrývá tento projekt";
-    if (this.autopilot.isPaused()) return "Autopilot je pozastavený";
+    const grantWhy = await this.grantUnmet(a, ctx);
+    if (grantWhy) return grantWhy;
 
     const pr = await this.prs.mergeState(a.projectId, a.number);
     if (!pr) return "git host neumí ověřit commit schválení (jen GitHub)";
@@ -113,7 +118,30 @@ export class GoalMergeService implements OnModuleInit {
     if (!pr.approvedShas.includes(pr.headSha)) return "chybí schválení na aktuálním head SHA";
     if (pr.ci !== "green") return `CI není zelené a dokončené (${pr.ci})`;
     if (pr.mergeable !== true) return "PR není mergeable (nebo to host ještě nespočítal)";
+    // `clean` = every branch-protection requirement met (required checks/reviews, codeowners),
+    // so an admin token cannot merge past protection.
+    if (pr.mergeableState !== "clean") {
+      return `branch protection není splněná (mergeable_state ${pr.mergeableState ?? "chybí"})`;
+    }
     return { merged: false, headSha: pr.headSha };
+  }
+
+  /** Goal (fresh from storage), grant and pause preconditions, or null when they hold. */
+  private async grantUnmet(a: MergeAction, ctx: GoalActionContext): Promise<string | null> {
+    // Fresh from storage: the tick's cached goal may predate a revoke or a lowered ceiling.
+    const goal = await this.goals.get(ctx.goal.id);
+    if (goal.ceiling !== "tier3") return "strop cíle už není tier3";
+    const grant = goal.mergeGrant;
+    if (!grant) return "cíl nemá merge grant";
+    const until = Date.parse(grant.until);
+    if (!(until > Date.now())) return "merge grant vypršel";
+    // The file is hand-editable: the 24 h cap is re-checked here, not only on write.
+    if (!(until - Date.parse(grant.grantedAt) <= MERGE_GRANT_MAX_HOURS * 3_600_000)) {
+      return `merge grant je delší než ${MERGE_GRANT_MAX_HOURS} h`;
+    }
+    if (!grant.projectIds.includes(a.projectId)) return "merge grant nepokrývá tento projekt";
+    if (this.autopilot.isPaused()) return "Autopilot je pozastavený";
+    return null;
   }
 }
 

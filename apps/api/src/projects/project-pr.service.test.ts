@@ -705,6 +705,7 @@ describe("ProjectPrService.mergeState (goal merge grant, fail-closed)", () => {
         merged: false,
         draft: false,
         mergeable: true,
+        mergeable_state: "clean",
         head: { sha: HEAD },
       },
       reviews: [
@@ -742,6 +743,7 @@ describe("ProjectPrService.mergeState (goal merge grant, fail-closed)", () => {
       draft: false,
       headSha: HEAD,
       mergeable: true,
+      mergeableState: "clean",
       approvedShas: [OLD, HEAD],
       changesRequested: false,
       ci: "green",
