@@ -20,7 +20,7 @@ import { RoadmapStore } from "./roadmap.store";
  *    poll half of the two release signals (master plan "Release signals"): an
  *    operator who merges a PR straight on GitHub must still see its dependents
  *    released.
- * 2. **Auto-pickup** — if the project's effective `autoImplement` (company > global) is `true`,
+ * 2. **Auto-pickup** — if the project's effective `autoImplement` (project > company > global) is `true`,
  *    `RoadmapGateService.autoPickup` enqueues its unblocked `todo` tasks and
  *    decomposes its never-decomposed childless epics. Skipped entirely for a
  *    project with the toggle off. Runs LAST so it sees the slots the reconcile

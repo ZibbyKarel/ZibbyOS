@@ -37,7 +37,7 @@ const errMsg = (error: unknown): string => (error instanceof Error ? error.messa
  * todo-16 — the PR automation heartbeat (docs/api/inbox.md "Automatic review & comment
  * handling"). Shares `systemConfig.roadmapTickMs` with the roadmap heartbeat (read live, `0`
  * disables; tests drive {@link tick} directly). Each tick reads the PR inbox and, per PR, the
- * PR's EFFECTIVE Autopilot automation toggles (team > company > global; all off while Autopilot is off).
+ * PR's EFFECTIVE Autopilot automation toggles (project > team > company > global; all off while Autopilot is off).
  * The team is the PR's own — a configured team whose code owner id the review was requested from
  * or whose member wrote it ({@link teamsOfPr}) — never the project's: one repo serves many teams.
  *

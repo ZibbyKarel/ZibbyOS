@@ -228,22 +228,30 @@ function idsOf(
   ];
 }
 
+/** Above this many places {@link automationRaises} stops enumerating and asks for the token. */
+export const AUTOMATION_RAISE_MAX_PLACES = 20_000;
+
 /**
  * Whether `next` raises any cell over `prev` anywhere in the tree (manual < semi < auto). Raising
  * needs the operator token; lowering and re-arranging at the same or a lower level never does.
  * Every combination of company, team and project the two trees know (each also absent) is
  * checked, so an override that only shows under another node is never missed. An id in neither
  * tree resolves like an absent one, so this covers every place a caller can pass.
- * ponytail: companies x teams x projects places; fine for a hand-edited table of tens of nodes.
+ * The places grow as companies x teams x projects and the tree comes from a tokenless `PUT`, so
+ * past {@link AUTOMATION_RAISE_MAX_PLACES} it fails closed: counted as a raise (token needed).
  */
 export function automationRaises(
   prev: AutopilotAutomation | undefined,
   next: AutopilotAutomation,
 ): boolean {
+  const companies = idsOf(prev, next, "companies");
+  const teams = idsOf(prev, next, "teams");
+  const projects = idsOf(prev, next, "projects");
+  if (companies.length * teams.length * projects.length > AUTOMATION_RAISE_MAX_PLACES) return true;
   const places: AutopilotLocation[] = [];
-  for (const companyId of idsOf(prev, next, "companies"))
-    for (const teamId of idsOf(prev, next, "teams"))
-      for (const projectId of idsOf(prev, next, "projects"))
+  for (const companyId of companies)
+    for (const teamId of teams)
+      for (const projectId of projects)
         places.push({
           ...(companyId ? { companyId } : {}),
           ...(teamId ? { teamId } : {}),

@@ -4,7 +4,12 @@ import * as path from "node:path";
 import type { Approval, AutopilotAutomation } from "@zibby/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ApprovalsService } from "../approvals/approvals.service";
-import { AutopilotService, automationRaises, autopilotCoversApproval } from "./autopilot.service";
+import {
+  AUTOMATION_RAISE_MAX_PLACES,
+  AutopilotService,
+  automationRaises,
+  autopilotCoversApproval,
+} from "./autopilot.service";
 
 type Covered = Pick<Approval, "kind" | "action" | "suggestedReviewEvent">;
 
@@ -158,6 +163,19 @@ describe("automationRaises — project cells", () => {
         treeOf(LIVE, { co: { autoImplement: "manual" } }, { t: { autoImplement: "auto" } }),
       ),
     ).toBe(true);
+  });
+
+  it("a tree too big to enumerate fails closed: it counts as a raise", () => {
+    const many = (n: number, prefix: string) =>
+      Object.fromEntries(
+        Array.from({ length: n }, (_, i) => [`${prefix}${i}`, { autoReview: "manual" as const }]),
+      );
+    const huge = treeOf(LIVE, many(30, "c"), many(30, "t"), many(30, "p"));
+    expect(30 ** 3).toBeGreaterThan(AUTOMATION_RAISE_MAX_PLACES);
+    // Only lowers, yet too many places to check: the token is asked for.
+    expect(automationRaises(huge, huge)).toBe(true);
+    const small = treeOf(LIVE, many(10, "c"), many(10, "t"), many(10, "p"));
+    expect(automationRaises(small, small)).toBe(false);
   });
 
   it("lowering or keeping a project cell is not a raise", () => {

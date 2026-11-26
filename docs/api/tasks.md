@@ -147,7 +147,7 @@ error outcome (a run that ends while the task is still `approved`, i.e. the `del
 a heartbeat-started run: its push is never approved on the spot, even after `Addressed: all`.
 `prReview.auto: true` marks a heartbeat-started review the same way (posting is gated as always).
 A heartbeat-started review or address-comments task also carries `autopilotAt`: the PR's places in
-the autopilot tree (one `{ companyId, teamId }` per team, or just the company) where autopilot
+the autopilot tree (one `{ companyId, teamId, projectId }` per team, or just the company and project) where autopilot
 resolves its approvals (`docs/api/autopilot.md`).
 
 **`prFixCi`** ("Fix CI") mirrors `prAddressComments` without replies: stamped by
