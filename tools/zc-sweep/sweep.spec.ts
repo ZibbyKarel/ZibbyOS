@@ -22,7 +22,6 @@ type SweepIds = {
   departmentId: string;
   departmentWorkflowId: string;
   chainId: string;
-  goalId: string;
   companyId: string;
   teamId: string;
   projectId: string;
@@ -107,8 +106,6 @@ function routes(): RouteCase[] {
     { slug: "work-chains", path: () => "/work/chains" },
     { slug: "work-chain-detail", path: (i) => `/work/chains/${i?.chainId ?? "sweep-chain"}` },
     { slug: "work-chains-new", path: () => "/work/chains/new" },
-    { slug: "work-goals", path: () => "/work/goals" },
-    { slug: "work-goal-detail", path: (i) => `/work/goals/${i?.goalId ?? "sweep-goal"}` },
     { slug: "work-companies", path: () => "/work/companies" },
     {
       slug: "work-company-detail",

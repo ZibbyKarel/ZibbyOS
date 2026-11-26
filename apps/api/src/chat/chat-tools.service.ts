@@ -327,7 +327,7 @@ export function describeTarget(target: TaskTarget): string {
       return `agent ${target.name}`;
     case "workflow":
       return `workflow ${target.name}`;
-    case "goal":
+    case "loop":
       return `cíl ${target.name}`;
     case "department":
       return `oddělení ${target.name}`;

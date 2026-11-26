@@ -93,9 +93,9 @@ interface OwnedWorkflowRun {
  *   phase 82 scope; a run's own finish time can be added later without
  *   affecting this shape).
  *
- * Goal-kind (and not-yet-dispatched `scheduled`-kind) runs are deliberately left
+ * Loop-kind (and not-yet-dispatched `scheduled`-kind) runs are deliberately left
  * unattributed (D16, `docs/plans/phase-126g-department-orb-agent-runs.md`) — no
- * `department` concept exists anywhere on the goal schemas.
+ * `department` concept exists anywhere on the loop schemas.
  *
  * Counts are independent of the headline `state` — a department can carry a
  * `tier2Count` while its state reads `waiting` because a Tier-3 item outranks it.

@@ -845,7 +845,7 @@ idempotent `migrateWorkflowRename` (`apps/api/src/shared/migrations/workflow-ren
 `*.pipeline.md`, and rewrites only the known persisted keys/values (`pipelineId`,
 `pipelineRunId`, `kind|type|targetKind|makerKind|actorKind: "pipeline"`, `pipeline-stage`,
 `pipeline-started|finished|parked`, a phase's `pipeline:` field, `AUTO:PIPELINES` markers) in
-JSON/JSONL and in workflow/goal frontmatter. Free text is never rewritten. A per-machine
+JSON/JSONL and in workflow/loop frontmatter. Free text is never rewritten. A per-machine
 marker (`.zibby/data/.workflow-rename.done`, git-ignored) makes it run once; an interrupted
 run is simply re-run. The old env names (`PIPELINES_DIR`, `PIPELINE_RUNS_DIR`,
 `PIPELINE_DEMO_*`) are still read as a fallback. Old web URLs (`/pipelines…`) redirect.

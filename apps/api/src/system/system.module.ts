@@ -12,7 +12,7 @@ export function resolveSystemConfigFile(): string {
 /**
  * The runtime system config (formerly start-only env vars). `@Global` because the
  * consumers span many modules (the four schedulers, the channel adapter registry, the
- * goal runner) and an import edge into each would be pure noise — the same posture as
+ * loop runner) and an import edge into each would be pure noise — the same posture as
  * {@link ActivityLogModule}. Exports {@link SystemConfigStore} so any module injects it
  * without re-importing this one.
  *

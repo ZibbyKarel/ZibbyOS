@@ -1,12 +1,12 @@
 import { Controller, type MessageEvent, Sse } from "@nestjs/common";
-import type { AgentRun, GoalRun, WorkflowRun } from "@zibby/contracts";
+import type { AgentRun, LoopRun, WorkflowRun } from "@zibby/contracts";
 import { Observable, map, merge } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
 import { AgentRunnerService } from "../agents/agent-runner.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { AutomationFiresStore } from "../automations/automation-fires.store";
 import { ChannelEventsService } from "../channels/channel-events.service";
-import { GoalRunnerService } from "../goals/goal-runner.service";
+import { LoopRunnerService } from "../loops/loop-runner.service";
 import { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { fromRunStatus, heartbeats } from "../shared/sse/sse";
 
@@ -24,7 +24,7 @@ export class EventsController {
   constructor(
     private readonly agents: AgentRunnerService,
     private readonly workflows: WorkflowRunnerService,
-    private readonly goals: GoalRunnerService,
+    private readonly loops: LoopRunnerService,
     private readonly channels: ChannelEventsService,
     private readonly activity: ActivityEventsService,
     private readonly approvals: ApprovalsService,
@@ -44,12 +44,12 @@ export class EventsController {
         (listener) => this.workflows.onRunStatus(listener),
         (run) => ({ runId: run.workflowRunId, status: run.status }),
       ),
-      // Phase 10: goal-run transitions — the web feed invalidates the goal-runs
+      // Phase 10: loop-run transitions — the web feed invalidates the loop-runs
       // query off this scope (unknown-scope tolerant, like the others).
-      fromRunStatus<GoalRun>(
-        "goal-runs",
-        (listener) => this.goals.onRunStatus(listener),
-        (run) => ({ runId: run.goalRunId, status: run.status }),
+      fromRunStatus<LoopRun>(
+        "loop-runs",
+        (listener) => this.loops.onRunStatus(listener),
+        (run) => ({ runId: run.loopRunId, status: run.status }),
       ),
       // Additive `"channel-items"` scope — the web RunEventsProvider ignores
       // scopes it doesn't know, so this is safe to merge in (decision 15).

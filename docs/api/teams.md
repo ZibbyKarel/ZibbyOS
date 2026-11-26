@@ -422,7 +422,7 @@ accepts a well-formed team id — it is the seam a later branch builds on — bu
 nothing on the task path sets it any more, and nothing on the API reads it: a
 task's dispatched run has no field to carry an explicit team tag through to
 its KB scope. Wiring one through needs a new field on each of three persisted
-schemas that don't have one today — `WorkflowRunSchema`, `GoalRunSchema`, and
+schemas that don't have one today — `WorkflowRunSchema`, `LoopRunSchema`, and
 `ScheduledTaskSchema` (a task itself, the earliest point the tag would
 otherwise die) — plus the `rootsForRun` resolution above extended to prefer
 that explicit tag over the project's own team. That's deferred, deliberately,

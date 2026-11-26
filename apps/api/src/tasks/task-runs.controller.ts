@@ -1,7 +1,7 @@
 import { Controller } from "@nestjs/common";
 import { TsRestHandler, tsRestHandler } from "@ts-rest/nest";
 import { taskRunsContract } from "@zibby/contracts";
-import { GoalRunNotParkedError } from "../goals/goals.errors";
+import { LoopRunNotParkedError } from "../loops/loops.errors";
 import { RunNotRetriesParkedError } from "../workflows/workflow-runner.service";
 import { ClaudeUnavailableError } from "../runner/claude-preflight.service";
 import { DepartmentEmptyRosterError, EmptyCatalogError } from "./task-scheduler.service";
@@ -139,7 +139,7 @@ export class TaskRunsController {
           if (
             error instanceof TaskRunNotResumableError ||
             error instanceof RunNotRetriesParkedError ||
-            error instanceof GoalRunNotParkedError
+            error instanceof LoopRunNotParkedError
           ) {
             return { status: 409, body: { message: error.message } };
           }

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@zibby/contracts";
 import type { AgentRunnerService } from "../agents/agent-runner.service";
 import type { AgentsStorageService } from "../agents/agents.storage.service";
-import type { GoalRunnerService } from "../goals/goal-runner.service";
+import type { LoopRunnerService } from "../loops/loop-runner.service";
 import type { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import type { WorkflowsStorageService } from "../workflows/workflows.storage.service";
 import type { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -90,7 +90,7 @@ function makeService(over: {
   vault: ReturnType<typeof makeVault>;
   workflows?: Partial<WorkflowRunnerService>;
   agents?: Partial<AgentRunnerService>;
-  goals?: Partial<GoalRunnerService>;
+  loops?: Partial<LoopRunnerService>;
   projects?: Partial<ProjectsStorageService>;
   chat?: Partial<ChatTranscriptStore>;
   learnings?: Learning[];
@@ -144,7 +144,7 @@ function makeService(over: {
     distiller,
     (over.agents ?? { listAll: async () => [] }) as unknown as AgentRunnerService,
     (over.workflows ?? { listAll: async () => [] }) as unknown as WorkflowRunnerService,
-    (over.goals ?? { listAll: async () => [] }) as unknown as GoalRunnerService,
+    (over.loops ?? { listAll: async () => [] }) as unknown as LoopRunnerService,
     projects as ProjectsStorageService,
     chat as ChatTranscriptStore,
     importer,
@@ -599,11 +599,11 @@ describe("MemoryDistillerService — import ingest front-phase (phase 112)", () 
     }
   });
 
-  it("F4a: a mixed batch (research workflow + dev agent + unowned goal) links exactly two shelves", async () => {
+  it("F4a: a mixed batch (research workflow + dev agent + unowned loop) links exactly two shelves", async () => {
     const vault = makeVault();
     const workflowCwd = await fs.mkdtemp(path.join(os.tmpdir(), "distiller-workflow-"));
     const agentCwd = await fs.mkdtemp(path.join(os.tmpdir(), "distiller-agent-"));
-    const goalCwd = await fs.mkdtemp(path.join(os.tmpdir(), "distiller-goal-"));
+    const loopCwd = await fs.mkdtemp(path.join(os.tmpdir(), "distiller-loop-"));
     try {
       const service = makeService({
         vault,
@@ -620,19 +620,19 @@ describe("MemoryDistillerService — import ingest front-phase (phase 112)", () 
           ],
           readLog: async () => ({ content: "" }),
         } as unknown as AgentRunnerService,
-        goals: {
+        loops: {
           listAll: async () => [
             {
               status: "done",
-              goalRunId: "g1",
-              goalId: "explorer",
+              loopRunId: "g1",
+              loopId: "explorer",
               currentIteration: null,
               iterations: [],
               startedAt: now.toISOString(),
-              cwd: goalCwd,
+              cwd: loopCwd,
             },
           ],
-        } as unknown as GoalRunnerService,
+        } as unknown as LoopRunnerService,
         workflowsStore: {
           get: async () => ({ department: "rnd" }),
         } as unknown as WorkflowsStorageService,
@@ -657,7 +657,7 @@ describe("MemoryDistillerService — import ingest front-phase (phase 112)", () 
     } finally {
       await fs.rm(workflowCwd, { recursive: true, force: true });
       await fs.rm(agentCwd, { recursive: true, force: true });
-      await fs.rm(goalCwd, { recursive: true, force: true });
+      await fs.rm(loopCwd, { recursive: true, force: true });
     }
   });
 

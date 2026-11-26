@@ -8,8 +8,8 @@ import {
   type ArchiveCounts,
   type ArchivePage,
   type ArchiveSort,
-  type GoalRun,
   type HandoverTaskRunInput,
+  type LoopRun,
   type Processor,
   type ResumeTaskRunInput,
   type RunFiles,
@@ -27,9 +27,9 @@ import {
 import { AgentRunnerService } from "../agents/agent-runner.service";
 import { AgentsStorageService } from "../agents/agents.storage.service";
 import { ApprovalsService } from "../approvals/approvals.service";
-import { GoalRunnerService } from "../goals/goal-runner.service";
-import { GoalRunNotStoppableError } from "../goals/goals.errors";
-import { GoalsStorageService } from "../goals/goals.storage.service";
+import { LoopRunnerService } from "../loops/loop-runner.service";
+import { LoopRunNotStoppableError } from "../loops/loops.errors";
+import { LoopsStorageService } from "../loops/loops.storage.service";
 import {
   WorkflowRunNotMessageableError,
   WorkflowRunNotPausableError,
@@ -67,22 +67,22 @@ export class TaskRunNotStoppableError extends Error {
 }
 
 /**
- * The run's kind/state has no resume: a parked workflow/goal run can be resumed, and
+ * The run's kind/state has no resume: a parked workflow/loop run can be resumed, and
  * (Phase 49) an errored/interrupted agent run can be re-run — anything else (a running
- * run, a non-parked workflow/goal, an agent run that didn't end in error/interrupted)
+ * run, a non-parked workflow/loop, an agent run that didn't end in error/interrupted)
  * throws this, which the controller maps to a 409.
  */
 export class TaskRunNotResumableError extends Error {
   constructor(runId: string) {
     super(
-      `Task run "${runId}" cannot be resumed (parked workflow/goal runs, or errored/interrupted agent runs)`,
+      `Task run "${runId}" cannot be resumed (parked workflow/loop runs, or errored/interrupted agent runs)`,
     );
     this.name = "TaskRunNotResumableError";
   }
 }
 
 /**
- * Only a running workflow run has a stage boundary to pause at (agent/goal runs have
+ * Only a running workflow run has a stage boundary to pause at (agent/loop runs have
  * none; STOP + continue session is their equivalent) → 409.
  */
 export class TaskRunNotPausableError extends Error {
@@ -93,7 +93,7 @@ export class TaskRunNotPausableError extends Error {
 }
 
 /**
- * Messages are delivered between workflow stages; agent/goal/scheduled runs have no
+ * Messages are delivered between workflow stages; agent/loop/scheduled runs have no
  * such boundary, and a finished run starts nothing that could receive one → 409.
  */
 export class TaskRunNotMessageableError extends Error {
@@ -122,7 +122,7 @@ const STOP_BEFORE_HANDOVER = new Set(["paused-limit", "awaiting-approval", "park
 interface NameMaps {
   agent: ReadonlyMap<string, string>;
   workflow: ReadonlyMap<string, string>;
-  goal: ReadonlyMap<string, string>;
+  loop: ReadonlyMap<string, string>;
 }
 
 /** Registered project id / absolute path → human name, for resolving a run's display project. */
@@ -142,7 +142,7 @@ const openInFinder: FolderOpener = async (folder) => {
 /**
  * The unified task-run surface. Owns the merge that used to live in the web
  * (`mergeRunFeed` + the per-kind `*ToView` converters): it reads all three runner
- * histories plus the still-waiting scheduled tasks, folds a goal's maker/verifier
+ * histories plus the still-waiting scheduled tasks, folds a loop's maker/verifier
  * child runs out of the feed (shipped Phase-26 behaviour — one card per task), and
  * resolves the human processor name from the definition stores.
  *
@@ -154,10 +154,10 @@ export class TaskRunsService {
   constructor(
     private readonly agentRunner: AgentRunnerService,
     private readonly workflowRunner: WorkflowRunnerService,
-    private readonly goalRunner: GoalRunnerService,
+    private readonly loopRunner: LoopRunnerService,
     private readonly agentsStore: AgentsStorageService,
     private readonly workflowsStore: WorkflowsStorageService,
-    private readonly goalsStore: GoalsStorageService,
+    private readonly loopsStore: LoopsStorageService,
     private readonly projectsStore: ProjectsStorageService,
     private readonly scheduled: ScheduledTasksStorageService,
     private readonly scheduler: TaskSchedulerService,
@@ -197,10 +197,10 @@ export class TaskRunsService {
   }
 
   /**
-   * The unified feed, newest-first. A goal dispatches its maker as a child
+   * The unified feed, newest-first. A loop dispatches its maker as a child
    * agent/workflow run (`iteration.makerRunRef`) and its claude verifier as another
-   * (`verifier.runRef`); those are execution detail of the goal task, so they are
-   * folded **out** here (their data surfaces inside the goal's detail).
+   * (`verifier.runRef`); those are execution detail of the loop task, so they are
+   * folded **out** here (their data surfaces inside the loop's detail).
    */
   async listTaskRuns(): Promise<TaskRun[]> {
     const { runs, childRunIds } = await this.collect();
@@ -295,8 +295,8 @@ export class TaskRunsService {
   }
 
   /**
-   * A single run by id — searched in the **unfolded** set, so a goal's folded
-   * maker/verifier child run is still reachable (the goal detail fetches it by ref).
+   * A single run by id — searched in the **unfolded** set, so a loop's folded
+   * maker/verifier child run is still reachable (the loop detail fetches it by ref).
    * Resolves historical on-disk runs (the per-kind `listAll()` merge disk + memory).
    * A task id also resolves — to the newest run that task dispatched — because a
    * still-scheduled task's feed row carries the task id as its `runId`, so a link
@@ -313,7 +313,7 @@ export class TaskRunsService {
     return found;
   }
 
-  /** Read an agent (or goal-child agent) run's log from a byte offset. */
+  /** Read an agent (or loop-child agent) run's log from a byte offset. */
   async getLogs(runId: string, offset: number): Promise<RunLogChunk> {
     const kind = await this.kindOf(runId);
     if (kind !== "agent") throw new TaskRunNotFoundError(runId);
@@ -350,7 +350,7 @@ export class TaskRunsService {
   ): Promise<{ name: string; content: string } | null> {
     const kind = await this.kindOf(runId);
     if (kind === "workflow") return this.workflowRunner.readArtifact(runId, name);
-    if (kind === "goal") return this.goalRunner.readArtifact(runId, name);
+    if (kind === "loop") return this.loopRunner.readArtifact(runId, name);
     return null;
   }
 
@@ -362,21 +362,21 @@ export class TaskRunsService {
   async getChanges(runId: string): Promise<TaskRunChanges | null> {
     // `listAll()` merges disk + memory — the runners' `get()` is memory-only and throws for
     // a run past RETENTION_MS / an API restart, which is the common case here.
-    const [agents, workflows, goals] = await Promise.all([
+    const [agents, workflows, loops] = await Promise.all([
       this.agentRunner.listAll(),
       this.workflowRunner.listAll(),
-      this.goalRunner.listAll(),
+      this.loopRunner.listAll(),
     ]);
-    // A goal's child run shares the goal's cumulative workspace; the goal shows that diff.
-    const isGoalChild = goals.some((g) =>
+    // A loop's child run shares the loop's cumulative workspace; the loop shows that diff.
+    const isLoopChild = loops.some((g) =>
       g.iterations.some((it) => it.makerRunRef === runId || it.verifier.runRef === runId),
     );
-    if (isGoalChild) return null;
+    if (isLoopChild) return null;
     const workflow = workflows.find((r) => r.workflowRunId === runId);
-    const goal = workflow ? undefined : goals.find((r) => r.goalRunId === runId);
-    const run: AgentRun | WorkflowRun | GoalRun | undefined =
-      workflow ?? goal ?? agents.find((r) => r.runId === runId);
-    const repoPath = workflow?.projectPath ?? goal?.projectPath;
+    const loop = workflow ? undefined : loops.find((r) => r.loopRunId === runId);
+    const run: AgentRun | WorkflowRun | LoopRun | undefined =
+      workflow ?? loop ?? agents.find((r) => r.runId === runId);
+    const repoPath = workflow?.projectPath ?? loop?.projectPath;
     const ws = run?.workspace;
     if (!run || !ws) return null;
     let task: Awaited<ReturnType<ScheduledTasksStorageService["get"]>> | undefined;
@@ -400,7 +400,7 @@ export class TaskRunsService {
   }
 
   /**
-   * Phase 43 — stop a running agent, workflow, or goal run: resolve the owning
+   * Phase 43 — stop a running agent, workflow, or loop run: resolve the owning
    * runner and delegate to its own `stop`, which kills the live child through the
    * shared RunnerCore process governance (pgid kill, `interrupted` landing). A
    * scheduled run (or a kind-specific run that isn't currently running) has
@@ -412,12 +412,12 @@ export class TaskRunsService {
     try {
       if (kind === "agent") this.agentRunner.stop(runId);
       else if (kind === "workflow") await this.workflowRunner.stop(runId);
-      else if (kind === "goal") await this.goalRunner.stop(runId);
+      else if (kind === "loop") await this.loopRunner.stop(runId);
       else throw new TaskRunNotStoppableError(runId);
     } catch (error) {
       if (
         error instanceof WorkflowRunNotStoppableError ||
-        error instanceof GoalRunNotStoppableError
+        error instanceof LoopRunNotStoppableError
       ) {
         throw new TaskRunNotStoppableError(runId);
       }
@@ -462,10 +462,10 @@ export class TaskRunsService {
   }
 
   /**
-   * Resume a run. A parked workflow/goal run resumes in place with an operator note.
+   * Resume a run. A parked workflow/loop run resumes in place with an operator note.
    * Phase 49: an errored/interrupted AGENT run is instead re-run — a NEW run spawns
    * (with `--resume <sessionId>` when the errored run captured one, else fresh). An
-   * errored/interrupted workflow/goal run CONTINUES in place from the phase/iteration
+   * errored/interrupted workflow/loop run CONTINUES in place from the phase/iteration
    * it stopped on (finished work is kept); only when there is nothing to continue at
    * is it re-run fresh. A task-backed continue goes through the queue
    * (`TaskSchedulerService.queueContinue`): the run reads `queued` until a run slot
@@ -480,7 +480,7 @@ export class TaskRunsService {
     const { note, mode = "continue" } = input;
     const kind = await this.kindOf(runId);
     if (mode === "fresh") return this.resumeFresh(runId, kind, note);
-    if (kind === "workflow" || kind === "goal") {
+    if (kind === "workflow" || kind === "loop") {
       const run = await this.getTaskRun(runId);
       // RESUME while PAUSING: the pause has not landed yet — just withdraw it.
       if (kind === "workflow" && run.status === "running" && run.pauseRequested) {
@@ -494,17 +494,17 @@ export class TaskRunsService {
           await this.scheduler.queueContinue(run.taskId, { kind, runRef: runId, note });
           return this.getTaskRun(runId);
         }
-        // ponytail: a run with no backing task (a self-dev goal) continues uncounted.
+        // ponytail: a run with no backing task (a self-dev loop) continues uncounted.
         const continued =
           kind === "workflow"
             ? await this.workflowRunner.continueFailed(runId, note)
-            : await this.goalRunner.continueFailed(runId);
+            : await this.loopRunner.continueFailed(runId);
         if (!continued) return this.rerunTask(run, note);
         return this.getTaskRun(runId);
       }
     }
     if (kind === "workflow") await this.workflowRunner.resumeParked(runId, note);
-    else if (kind === "goal") await this.goalRunner.resumeParked(runId, note);
+    else if (kind === "loop") await this.loopRunner.resumeParked(runId, note);
     else if (kind === "agent") return this.rerunAgent(runId, note);
     else throw new TaskRunNotResumableError(runId);
     return this.getTaskRun(runId);
@@ -516,7 +516,7 @@ export class TaskRunsService {
     kind: Exclude<RunKind, "scheduled">,
     note: string | undefined,
   ): Promise<TaskRun> {
-    if (kind !== "agent" && kind !== "workflow" && kind !== "goal") {
+    if (kind !== "agent" && kind !== "workflow" && kind !== "loop") {
       throw new TaskRunNotResumableError(runId);
     }
     const run = await this.getTaskRun(runId);
@@ -562,7 +562,7 @@ export class TaskRunsService {
   }
 
   /**
-   * Re-run a failed/interrupted workflow or goal run: a NEW task from the original
+   * Re-run a failed/interrupted workflow or loop run: a NEW task from the original
    * task's inputs (text, paths, attachment set, tool grants, output, target), through
    * the normal create path so budget/staffing/approval gates all apply again. The old
    * run stays as history. A run with no backing task has nothing to rebuild from (409).
@@ -594,7 +594,7 @@ export class TaskRunsService {
   /**
    * Hand a run's task over to another unit (todo-8): a NEW task for the operator's
    * explicit target (classifier skipped), through the normal create path so budget/
-   * staffing/approval gates apply. Its text is the original goal plus a handover
+   * staffing/approval gates apply. Its text is the original loop plus a handover
    * section naming the original run, its folder and artifacts (PR, branch, output
    * file, outcome) and the operator's note. When the original branch still resolves,
    * the new run's worktree is cut from it server-side (`baseBranch`) so the work is
@@ -611,14 +611,14 @@ export class TaskRunsService {
           throw error;
         })
       : undefined;
-    const [agents, workflows, goals] = await Promise.all([
+    const [agents, workflows, loops] = await Promise.all([
       this.agentRunner.listAll(),
       this.workflowRunner.listAll(),
-      this.goalRunner.listAll(),
+      this.loopRunner.listAll(),
     ]);
     const workflow = workflows.find((r) => r.workflowRunId === runId);
-    const raw: AgentRun | WorkflowRun | GoalRun | undefined =
-      workflow ?? goals.find((r) => r.goalRunId === runId) ?? agents.find((r) => r.runId === runId);
+    const raw: AgentRun | WorkflowRun | LoopRun | undefined =
+      workflow ?? loops.find((r) => r.loopRunId === runId) ?? agents.find((r) => r.runId === runId);
     const folder = workflow ? await this.workflowRunner.runFolder(runId) : raw?.cwd;
     const branch = raw?.workspace?.branch;
     // The original worktree shares the project's refs; a pruned one reads as unresolved.
@@ -644,10 +644,10 @@ export class TaskRunsService {
       input.note ? `Operator note: ${input.note}` : null,
     ].filter((l): l is string => l !== null);
     const handoverText = lines.join("\n");
-    const goal = (task?.text ?? run.taskText ?? run.prompt) || run.title || runId;
-    // The handover section must survive the cap; the goal is what gets cut.
+    const loop = (task?.text ?? run.taskText ?? run.prompt) || run.title || runId;
+    // The handover section must survive the cap; the loop is what gets cut.
     const room = TASK_TEXT_MAX - handoverText.length - 2;
-    const goalText = goal.length > room ? `${goal.slice(0, Math.max(0, room - 1))}…` : goal;
+    const loopText = loop.length > room ? `${loop.slice(0, Math.max(0, room - 1))}…` : loop;
     if (STOP_BEFORE_HANDOVER.has(run.status)) {
       await this.stop(runId).catch((error: unknown) => {
         if (error instanceof TaskRunNotStoppableError) throw new TaskRunNotHandoverableError(runId);
@@ -657,7 +657,7 @@ export class TaskRunsService {
     const result = await this.scheduler.createTask(
       {
         title: task?.title || run.taskTitle || undefined,
-        text: `${goalText}\n\n${handoverText}`.slice(0, TASK_TEXT_MAX),
+        text: `${loopText}\n\n${handoverText}`.slice(0, TASK_TEXT_MAX),
         paths: task?.paths,
         attachmentSetId: task?.attachmentSetId,
         toolGrants: task?.toolGrants,
@@ -679,7 +679,7 @@ export class TaskRunsService {
    * task gets at creation time. Persists onto the run's backing scheduled-task
    * record (the join `enrichRunWithTask`/`scheduledTaskToView` read from), since
    * that record — not the per-kind run — is `projectId`'s source of truth. A run
-   * with no backing task (e.g. a self-dev goal started outside the task flow) has
+   * with no backing task (e.g. a self-dev loop started outside the task flow) has
    * nowhere durable to persist the assignment, so it is returned unchanged.
    */
   async assignProject(runId: string, projectId: string | null): Promise<TaskRun> {
@@ -694,7 +694,7 @@ export class TaskRunsService {
     const kind = await this.kindOf(runId);
     if (kind === "agent") await this.agentRunner.delete(runId);
     else if (kind === "workflow") await this.workflowRunner.delete(runId);
-    else if (kind === "goal") await this.goalRunner.delete(runId);
+    else if (kind === "loop") await this.loopRunner.delete(runId);
     else throw new TaskRunNotFoundError(runId);
   }
 
@@ -707,7 +707,7 @@ export class TaskRunsService {
   private async kindOf(runId: string): Promise<Exclude<RunKind, "scheduled">> {
     if (tryGet(() => this.agentRunner.get(runId))) return "agent";
     if (tryGet(() => this.workflowRunner.get(runId))) return "workflow";
-    if (tryGet(() => this.goalRunner.get(runId))) return "goal";
+    if (tryGet(() => this.loopRunner.get(runId))) return "loop";
     const { runs } = await this.collect();
     const found = runs.find((r) => r.runId === runId);
     if (found && found.kind !== "scheduled") return found.kind;
@@ -715,8 +715,8 @@ export class TaskRunsService {
   }
 
   /**
-   * The full unfolded set of run views (every agent/workflow/goal run + still-waiting
-   * scheduled task), with processor + task enrichment attached, plus the set of goal
+   * The full unfolded set of run views (every agent/workflow/loop run + still-waiting
+   * scheduled task), with processor + task enrichment attached, plus the set of loop
    * child run ids the feed folds out, and the workflow-definition lookup the archive
    * endpoints join through for department attribution ({@link archiveDepartmentId}).
    */
@@ -730,21 +730,21 @@ export class TaskRunsService {
     const [
       agents,
       workflows,
-      goals,
+      loops,
       scheduled,
       agentDefs,
       workflowDefs,
-      goalDefs,
+      loopDefs,
       projects,
       approvals,
     ] = await Promise.all([
       this.agentRunner.listAll(),
       this.workflowRunner.listAll(),
-      this.goalRunner.listAll(),
+      this.loopRunner.listAll(),
       this.scheduled.list(),
       this.agentsStore.list(),
       this.workflowsStore.list(),
-      this.goalsStore.list(),
+      this.loopsStore.list(),
       this.projectsStore.list(),
       this.approvals.list(),
     ]);
@@ -752,7 +752,7 @@ export class TaskRunsService {
     const names: NameMaps = {
       agent: new Map(agentDefs.map((d) => [d.id, d.name ?? d.id])),
       workflow: new Map(workflowDefs.map((d) => [d.id, d.name ?? d.id])),
-      goal: new Map(goalDefs.map((d) => [d.id, d.name ?? d.id])),
+      loop: new Map(loopDefs.map((d) => [d.id, d.name ?? d.id])),
     };
     const projectNames: ProjectNameMaps = {
       byId: new Map(projects.map((p) => [p.id, p.name])),
@@ -768,7 +768,7 @@ export class TaskRunsService {
     const workflowDefsById = new Map(workflowDefs.map((d) => [d.id, d]));
 
     const childRunIds = new Set<string>();
-    for (const g of goals) {
+    for (const g of loops) {
       for (const it of g.iterations) {
         if (it.makerRunRef) childRunIds.add(it.makerRunRef);
         if (it.verifier.runRef) childRunIds.add(it.verifier.runRef);
@@ -809,10 +809,10 @@ export class TaskRunsService {
           projectNames,
         ),
       ),
-      ...goals.map((r) =>
+      ...loops.map((r) =>
         resolveProjectDisplay(
           enrichRunWithTask(
-            this.withProcessor(goalRunToView(r, projectNames), names),
+            this.withProcessor(loopRunToView(r, projectNames), names),
             tasksById,
             pendingTaskIds,
           ),
@@ -848,7 +848,7 @@ export class TaskRunsService {
     return { runs, childRunIds, workflowDefsById, projectCompany };
   }
 
-  /** Attach the processor metadata for an agent/workflow/goal run view. */
+  /** Attach the processor metadata for an agent/workflow/loop run view. */
   private withProcessor(view: TaskRun, names: NameMaps): TaskRun {
     const processor = processorFor(view.kind, view.owner, names);
     return processor ? { ...view, processor } : view;
@@ -867,7 +867,7 @@ function tryGet<T>(fn: () => T): boolean {
 
 /** The processor for a run-kind/owner pair, falling its name back to the id when the definition is gone. */
 function processorFor(kind: RunKind, owner: string, names: NameMaps): Processor | undefined {
-  if (kind === "agent" || kind === "workflow" || kind === "goal") {
+  if (kind === "agent" || kind === "workflow" || kind === "loop") {
     if (!owner) return undefined;
     return { kind, id: owner, name: names[kind].get(owner) ?? owner };
   }
@@ -974,7 +974,7 @@ export function sumStageCosts(stageRuns: readonly { costUsd?: number }[]): numbe
 
 /**
  * The run's target-project display label, resolved from the resolved project's
- * absolute `projectPath` — never the run's own sandbox `cwd` (a workflow/goal run's
+ * absolute `projectPath` — never the run's own sandbox `cwd` (a workflow/loop run's
  * `cwd` is its per-phase sandbox root, named `${id}_${startedMs}`, which reads as a
  * meaningless id when shown as "project"). Falls back to the path's basename when
  * the project isn't (or is no longer) in the registry; "" when the run has no
@@ -1076,7 +1076,7 @@ function workflowRunToView(
   };
 }
 
-function goalRunToView(r: GoalRun, projectNames: ProjectNameMaps): TaskRun {
+function loopRunToView(r: LoopRun, projectNames: ProjectNameMaps): TaskRun {
   const status: TaskRun["status"] =
     r.status === "paused-limit"
       ? "paused-limit"
@@ -1090,9 +1090,9 @@ function goalRunToView(r: GoalRun, projectNames: ProjectNameMaps): TaskRun {
               ? "interrupted"
               : "running";
   return {
-    runId: r.goalRunId,
-    kind: "goal",
-    owner: r.goalId,
+    runId: r.loopRunId,
+    kind: "loop",
+    owner: r.loopId,
     status,
     pct: null,
     title: "",
@@ -1103,10 +1103,10 @@ function goalRunToView(r: GoalRun, projectNames: ProjectNameMaps): TaskRun {
     taskId: r.taskId,
     resumeAt: r.resumeAt,
     limitResumeCycles: r.limitResumeCycles,
-    goalId: r.goalId,
+    loopId: r.loopId,
     iterations: r.iterations,
-    goalParked: r.parked,
-    goalParkedReason: r.parkedReason,
+    loopParked: r.parked,
+    loopParkedReason: r.parkedReason,
   };
 }
 
@@ -1177,10 +1177,10 @@ function enrichRunWithTask(
     // F2c: the switchboard's stage-1 classification trace, enriched onto the run
     // exactly like every other task-sourced field here — read-model-only.
     ...(task.classification ? { classification: task.classification } : {}),
-    // The engagement id lives on the scheduled task; agent/workflow/goal run
+    // The engagement id lives on the scheduled task; agent/workflow/loop run
     // views don't carry it themselves, so join it in here (scheduled rows set it
     // directly). This is what lets the feed be filtered by project and the project
-    // detail summarise its runs. Runs with no owning task (e.g. a self-dev goal)
+    // detail summarise its runs. Runs with no owning task (e.g. a self-dev loop)
     // simply keep no projectId and fall outside every project filter.
     ...(task.projectId ? { projectId: task.projectId } : {}),
     // The roadmap issue this run was released for (the reverse of
@@ -1201,7 +1201,7 @@ function enrichRunWithTask(
 /**
  * The task's `projectId` (the engagement FK) is the authoritative source for a
  * run's project — it wins over the kind-specific `project` label (an agent run's
- * free-form reference, or a workflow/goal run's resolved-path guess) whenever it
+ * free-form reference, or a workflow/loop run's resolved-path guess) whenever it
  * resolves to a registered project. Runs with no owning task, or whose project was
  * since deleted, keep their existing `project` label unchanged.
  */
@@ -1220,7 +1220,7 @@ function targetOwner(target: TaskTarget | undefined): string {
 /** A processor for a scheduled task's chosen target, when it references a stored definition. */
 function scheduledProcessor(target: TaskTarget | undefined): Processor | undefined {
   if (!target) return undefined;
-  if (target.kind === "agent" || target.kind === "workflow" || target.kind === "goal") {
+  if (target.kind === "agent" || target.kind === "workflow" || target.kind === "loop") {
     return { kind: target.kind, id: target.id, name: target.name };
   }
   return undefined;

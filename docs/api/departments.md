@@ -147,8 +147,8 @@ unified task-runs feed (`TaskRunsService.listTaskRuns()`), and `ApprovalsService
   timestamp of its own, so this reads the best available signal: the backing
   task's `taskOutcomeFinishedAt` when the run was dispatched from one, else the
   run's own `startedAt`.
-- **Not attributed:** goal-kind runs (no `department` concept exists on any
-  goal schema — phase-126g D16) and `scheduled`-kind rows, which are tasks that
+- **Not attributed:** loop-kind runs (no `department` concept exists on any
+  loop schema — phase-126g D16) and `scheduled`-kind rows, which are tasks that
   have not dispatched into a run yet.
 - **Precedence** when several conditions apply to one department:
   `waiting > error > running > report > idle` — waiting-on-you is never masked by

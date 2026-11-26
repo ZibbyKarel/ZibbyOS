@@ -27,7 +27,7 @@ system-config section — link there rather than duplicating the table here.
 2. The store is `@Global` and holds the config in memory, exposed
    synchronously via `current()`. This matters because its consumers are
    synchronous hot paths that can't await a read: `AdapterRegistry.resolve()`
-   (per-integration, on every channel tick), `GoalRunnerService`'s shell
+   (per-integration, on every channel tick), `LoopRunnerService`'s shell
    timeout lookup, and the various schedulers' arm logic. `@Global` gives
    every module visibility into the store but not init-order guarantees, so a
    consumer's `onModuleInit` could in principle run before an async load
@@ -43,7 +43,7 @@ system-config section — link there rather than duplicating the table here.
    `goalAutoResume` is only read at boot, so it applies on the _next_ start,
    not immediately.
    - `maxConcurrentRuns` is the global run-slot cap: the most task runs (a single-agent
-     run, an orchestrator run, a whole workflow run, a goal run) in flight at once. It
+     run, an orchestrator run, a whole workflow run, a loop run) in flight at once. It
      defaults to **`3`** and is always set (never `null`). A project can add its own lower
      cap via `budget.maxConcurrent`. It reads live, so a save (or a raised cap) admits
      queued tasks immediately. The interim key `maxWorkingAgents` migrates to it on read

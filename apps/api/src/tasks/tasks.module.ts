@@ -4,7 +4,7 @@ import { ApprovalsModule } from "../approvals/approvals.module";
 import { BudgetModule } from "../budget/budget.module";
 import { RunSlotsModule } from "../run-slots/run-slots.module";
 import { GatesModule } from "../gates/gates.module";
-import { GoalsModule } from "../goals/goals.module";
+import { LoopsModule } from "../loops/loops.module";
 import { LimitsModule } from "../limits/limits.module";
 import { MemoryModule } from "../memory/memory.module";
 import { WorkflowsModule } from "../workflows/workflows.module";
@@ -44,7 +44,7 @@ import { MachineConfigModule } from "../machine/machine-config.module";
     AgentsModule,
     RunSlotsModule,
     WorkflowsModule,
-    GoalsModule,
+    LoopsModule,
     ProjectsModule,
     ResolvedProjectModule,
     BudgetModule,

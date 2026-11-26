@@ -126,7 +126,7 @@ interface ReviewLearnTarget {
 interface PromptAutomationTarget {
   type: "task";
   text: string; // the typed prompt — forwarded as the task's free-text
-  target?: RunTarget; // optional @-mentioned run target (agent/workflow/department/goal/…);
+  target?: RunTarget; // optional @-mentioned run target (agent/workflow/department/loop/…);
   // absent = the task classifier/orchestrator-fallback decides at fire time
   attachmentSetId?: string; // uploaded files (a tasks attachment-set id)
   output?: TaskOutput; // chosen terminal output (pr / file / void)
@@ -135,7 +135,7 @@ interface PromptAutomationTarget {
 ```
 
 `RunTarget` here is `TaskTarget` from `libs/contracts/src/tasks/task.schema.ts` (the
-same discriminated union a New Task uses: `agent` / `workflow` / `goal` /
+same discriminated union a New Task uses: `agent` / `workflow` / `loop` /
 `department` / `orchestrator`); `TaskOutput` is that same file's terminal-output
 schema (`pr` / `file` / `void`).
 
@@ -151,7 +151,7 @@ schema (`pr` / `file` / `void`).
 > created from the New Task dialog. `target` (the @-mention) is optional: when
 > present it bypasses classification (an explicit override); when absent the
 > classifier/orchestrator-fallback picks a destination at fire time. As with an
-> ordinary task, attachments flow to an agent/orchestrator/goal destination and,
+> ordinary task, attachments flow to an agent/orchestrator/loop destination and,
 > for a workflow/department target, are copied into the run's
 > `context/attachments/` and listed in the first phase's input. An attachment set
 > referenced by a `task`-target automation is exempted from the tasks
@@ -325,7 +325,7 @@ way grounding writes context _in_).
 
 `MemoryDistillerService.distill()` (`apps/api/src/memory/memory-distiller.service.ts`):
 
-1. Walks terminal workflow/agent/goal runs that haven't been distilled yet
+1. Walks terminal workflow/agent/loop runs that haven't been distilled yet
    (a `memory-distilled.json` marker in the run's `cwd`; capped at
    `MAX_RUNS_PER_PASS` per pass — the remainder rolls to the next night, nothing
    is lost);

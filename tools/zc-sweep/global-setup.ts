@@ -10,7 +10,7 @@ const API = "http://localhost:3333";
  * cookie, the seeded gated agent + approval, `demo-project`/`demo-pipe`/`demo-skill`,
  * the `team-slack` integration, the vault notes) with the handful of extra entities
  * ROUTE-MAP §1 needs a real id for and the shared setup doesn't already seed: an
- * chain, a goal, a company, a team, a second (unrestricted)
+ * chain, a company, a team, a second (unrestricted)
  * task/run, and one MCP server / hook / slash command for the registries screens.
  *
  * Every id here is written to `.e2e-data/zc-sweep-ids.json`, which `sweep.spec.ts`
@@ -48,21 +48,6 @@ export default async function globalSetup(): Promise<void> {
           { department: "qa", gate: "ask" },
         ],
         enabled: true,
-      },
-    })
-    .catch(() => {});
-
-  // A goal for `/work/goals/[id]`.
-  await ctx
-    .post("/api/goals", {
-      data: {
-        id: "sweep-goal",
-        name: "Sweep Goal",
-        objective: "keep the sweep spec green",
-        maker: { kind: "agent", id: "sweep-agent" },
-        verifier: { kind: "checks", commands: ["true"] },
-        maxIterations: 1,
-        instructions: "a plain demo goal for the ZB-14 sweep",
       },
     })
     .catch(() => {});
@@ -133,7 +118,6 @@ export default async function globalSetup(): Promise<void> {
     departmentId: "dev",
     departmentWorkflowId: "demo-pipe",
     chainId: "sweep-chain",
-    goalId: "sweep-goal",
     companyId: "sweep-company",
     teamId: "sweep-team",
     projectId: "demo-project",

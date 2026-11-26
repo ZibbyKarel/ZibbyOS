@@ -22,8 +22,8 @@ export interface OwnerDepartmentMaps {
  *
  * D8: only a `workflow` run ever carries a department — it comes from
  * `Workflow.department` on the run's owning definition, joined by id
- * (`run.owner`). An `agent` or `goal` run has NO department at all (there is no
- * `department` field on an agent/goal definition) — callers must treat
+ * (`run.owner`). An `agent` or `loop` run has NO department at all (there is no
+ * `department` field on an agent/loop definition) — callers must treat
  * `runDepartmentId(...) === null` as an explicit "bez oddělení" bucket, never
  * hide those runs.
  *
@@ -45,7 +45,7 @@ export function useOwnerDepartmentMaps(): OwnerDepartmentMaps {
 
 /**
  * The department a single run is attributed to, or `null` when it has none —
- * either because it's an `agent`/`goal` run (no department concept applies at
+ * either because it's an `agent`/`loop` run (no department concept applies at
  * all, D8) or because its owning workflow has no `department` set. Both
  * cases are indistinguishable to a caller and BOTH belong in an explicit "bez
  * oddělení" group — never filtered out silently.

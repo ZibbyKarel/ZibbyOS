@@ -112,7 +112,7 @@ describe("RoadmapGateService", () => {
         matchedTerms: ["rollout"],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
         runnerUp: null,
@@ -239,7 +239,7 @@ describe("RoadmapGateService", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
       });
@@ -955,7 +955,7 @@ describe("RoadmapGateService", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
         runnerUp: {
@@ -1075,7 +1075,7 @@ describe("RoadmapGateService", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
         runnerUp: {

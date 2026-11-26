@@ -478,7 +478,7 @@ Both require `lifecycle === "failed"` (409 otherwise):
   `runs[]` as history; a new entry is appended once the gate releases it
   again.
 - **`resume`** — reuses `TaskRunsService.resume`, the SAME unified resume
-  machinery the run detail already exposes (Phase 49: a parked workflow/goal
+  machinery the run detail already exposes (Phase 49: a parked workflow/loop
   resumes in place; an errored/interrupted agent run re-runs with
   `--resume <sessionId>` when one was captured). Updates the item's LAST
   `runs[]` entry in place (new `runRef`, `outcome: "running"`, fresh

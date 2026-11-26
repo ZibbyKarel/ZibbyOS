@@ -6,7 +6,7 @@ const logger = new Logger("spawnClaudeCli");
 
 /**
  * Per-stream cap on accumulated stdout/stderr, in characters. Reuses the exact
- * number already established by `goals/goal-runner.service.ts` `SHELL_OUTPUT_CAP`
+ * number already established by `loops/loop-runner.service.ts` `SHELL_OUTPUT_CAP`
  * and `runner/runner-core.ts` `MAX_LOG_READ_BYTES` — don't invent a third.
  */
 const DEFAULT_MAX_OUTPUT_CHARS = 1_000_000;
@@ -59,7 +59,7 @@ export interface SpawnClaudeCliOptions {
  * parsing, and schema — only this spawn/timeout/collect body was duplicated.
  *
  * **Bare `child.kill()` is intentional here — NOT `killGroup(pgid)`.**
- * `runner-core.ts`/`goal-runner.service.ts` spawn long-running `detached: true`
+ * `runner-core.ts`/`loop-runner.service.ts` spawn long-running `detached: true`
  * processes that can themselves fork a subprocess tree, so they must kill the
  * whole process group to avoid orphans. Every caller of this helper is a
  * one-shot `claude -p` classify/summarize call — not detached, no group to
@@ -94,7 +94,7 @@ export function spawnClaudeCli(opts: SpawnClaudeCliOptions): Promise<string> {
 
     child.stdout?.on("data", (buf: Buffer) => {
       // Head-truncate: stop appending once the cap is hit, rather than
-      // goal-runner's tail-keeping. `extractResultText` (each caller's own
+      // loop-runner's tail-keeping. `extractResultText` (each caller's own
       // parser) reads the JSON verdict from the FRONT of the reply (the
       // first `{` … the last `}` within what it captured) — a tail-cap could
       // cut off the opening brace a truncated reply still needs.

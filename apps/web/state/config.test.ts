@@ -52,8 +52,8 @@ describe("SECTIONS sub-menus", () => {
     ]);
     expect(SECTIONS.find((s) => s.id === "system")?.href).toBe("/system/settings/general");
     // todo-14: the Tasks list is gone (merged into Activity → Runs).
-    expect(ids("work")).toEqual(["goals", "workflows", "automations"]);
-    expect(SECTIONS.find((s) => s.id === "work")?.href).toBe("/work/goals");
+    expect(ids("work")).toEqual(["workflows", "automations"]);
+    expect(SECTIONS.find((s) => s.id === "work")?.href).toBe("/work/workflows");
     // todo-19: Approvals moved from Governance to Activity.
     expect(ids("activity")).toEqual(["log", "runs", "approvals", "pull-requests", "channels"]);
     expect(ids("governance")).toEqual(["gates", "autonomy", "patterns", "budgets", "spend"]);

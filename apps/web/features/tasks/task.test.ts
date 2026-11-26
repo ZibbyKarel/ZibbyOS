@@ -61,7 +61,7 @@ describe("toClientRouting (Phase 11 fields)", () => {
     matchedTerms: [],
     candidates: [{ kind: "agent", id: "koder", name: "Kodér" }],
     mode: "single",
-    proposedGoal: null,
+    proposedLoop: null,
     paths: [],
     toolGrants: [],
     // NS2 F10 — schema-defaulted, so non-optional on a PARSED routing (this fixture
@@ -70,12 +70,12 @@ describe("toClientRouting (Phase 11 fields)", () => {
     ambiguous: false,
   };
 
-  it("carries mode / proposedGoal / paths through to the client shape", () => {
+  it("carries mode / proposedLoop / paths through to the client shape", () => {
     const loop: ApiTaskRouting = {
       ...base,
       target: { kind: "workflow", id: "delivery", name: "Delivery" },
       mode: "loop",
-      proposedGoal: {
+      proposedLoop: {
         objective: "go until green",
         maker: { kind: "workflow", id: "delivery" },
         verifier: { kind: "claude", agent: "reviewer" },
@@ -86,7 +86,7 @@ describe("toClientRouting (Phase 11 fields)", () => {
     };
     const r = toClientRouting(loop);
     expect(r.mode).toBe("loop");
-    expect(r.proposedGoal?.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(r.proposedLoop?.maker).toEqual({ kind: "workflow", id: "delivery" });
     expect(r.paths[0]?.project?.name).toBe("Alpha");
   });
 

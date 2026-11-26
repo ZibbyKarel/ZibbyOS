@@ -496,8 +496,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     projectRef?: string,
     matchedTerms?: string[],
     /**
-     * Phase 10: a goal supplies its per-run worktree so every stage of this maker
-     * iteration spawns on the goal's branch. When present the runner skips
+     * Phase 10: a loop supplies its per-run worktree so every stage of this maker
+     * iteration spawns on the loop's branch. When present the runner skips
      * self-creating a worktree. Absent for every existing caller (no behaviour change).
      */
     externalWorkspace?: Workspace,
@@ -605,7 +605,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       // run (void → [] suppresses even a declared PR). Absent = inherit.
       ...(taskOutput ? { outputsOverride: this.toOutputsOverride(taskOutput, workflow) } : {}),
       // P1-03: snapshot the spend cap so a later edit of the workflow never moves
-      // the goalposts under a run already in flight.
+      // the loopposts under a run already in flight.
       ...budgetSnapshot(workflow.budget, child?.maxCostUsd),
       ...(child ? { parentRunId: child.parentRunId } : {}),
     };
@@ -631,7 +631,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     // the main checkout — that is exactly what 3.1 prevents — so the run is born
     // failed (no driver) with the reason logged.
     if (externalWorkspace) {
-      // Phase 10: spawn every stage on the goal's branch; the goal owns the worktree.
+      // Phase 10: spawn every stage on the loop's branch; the loop owns the worktree.
       run.workspace = externalWorkspace;
       await this.writeAggregate(run);
     } else if (project) {

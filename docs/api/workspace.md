@@ -16,7 +16,7 @@ apps/api/src` turns up only those call sites, never a route).
 | Piece   | File                                          | Role                                                                                      |
 | ------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Service | `apps/api/src/workspace/workspace.service.ts` | `WorkspaceService` — worktree create/remove, checkpoint commits, PR open, diff/commit log |
-| Module  | `apps/api/src/workspace/workspace.module.ts`  | Leaf module (no DI deps of its own); imported by the agent, workflow, and goal runners    |
+| Module  | `apps/api/src/workspace/workspace.module.ts`  | Leaf module (no DI deps of its own); imported by the agent, workflow, and loop runners    |
 
 ## Callers
 
@@ -24,7 +24,7 @@ apps/api/src` turns up only those call sites, never a route).
   agent run starts against a git project.
 - `apps/api/src/workflows/workflow-runner.service.ts` — cuts a worktree per
   workflow run; also drives `openPr` and `commitLog` for the `pr` output sink.
-- `apps/api/src/goals/goal-runner.service.ts` — cuts the worktree the goal
+- `apps/api/src/loops/loop-runner.service.ts` — cuts the worktree the loop
   loop's maker/verifier cycle iterates in.
 - `apps/api/src/tasks/task-output.service.ts` — calls `checkpoint`,
   `commitLog`, and `diffstat` when a task's `pr` output is assembled at

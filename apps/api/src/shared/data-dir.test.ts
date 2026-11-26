@@ -37,7 +37,7 @@ describe("resolveDataRoot", () => {
   it("resolves ZIBBY_DATA_DIR (set globally under test) to an absolute path", () => {
     process.env.ZIBBY_DATA_DIR = "/tmp/zibby-root";
     expect(resolveDataRoot()).toBe("/tmp/zibby-root");
-    expect(dataDir("goals", "runs")).toBe("/tmp/zibby-root/goals/runs");
+    expect(dataDir("loops", "runs")).toBe("/tmp/zibby-root/loops/runs");
   });
 
   it("refuses the live .zibby/data anchor under VITEST without an override", () => {

@@ -237,7 +237,7 @@ writes context _into_ a run, the distiller reads insights _out_ of it; the agent
 never knows any of this memory exists (learning is NOT an agent capability). It's
 driven by the nightly [`memory-distill` system automation](./automations.md#memory-distillation-memory-distill).
 
-`MemoryDistillerService.distill()` walks terminal workflow/agent/goal runs, a cheap
+`MemoryDistillerService.distill()` walks terminal workflow/agent/loop runs, a cheap
 model (haiku tier through `spawnOneShot`: `claude -p`, or opencode per the engine, A32 —
 see [ai-engines.md](./ai-engines.md#one-shot-calls-a32); fail-open) extracts durable insights from them, and saves them as one
 nightly digest `distilled-<date>` in `knowledge/`, linked from the affected projects'
@@ -341,7 +341,7 @@ granted the seeded `zibby-entities` MCP server row:
 
 - `list_entities {kind, query?}` — structured, on-demand lookup over a named catalog
   (`skills`, `mcp`, `commands`, `hooks`, `projects`, `companies`,
-  `integrations`, `goals`, `automations`), reduced to `{id, name?, description?}` and
+  `integrations`, `loops`, `automations`), reduced to `{id, name?, description?}` and
   optionally filtered by a case-insensitive substring. Fail-open per catalog — a
   storage hiccup logs and returns `[]`.
 - `recall_memory {query}` — the same vault search as the chat MCP's tool (see below).

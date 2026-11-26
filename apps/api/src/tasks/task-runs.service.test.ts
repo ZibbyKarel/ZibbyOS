@@ -2,8 +2,8 @@ import type {
   Agent,
   AgentRun,
   Approval,
-  Goal,
-  GoalRun,
+  Loop,
+  LoopRun,
   Project,
   ScheduledTask,
   TaskRunChanges,
@@ -15,9 +15,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { AgentRunnerService } from "../agents/agent-runner.service";
 import type { AgentsStorageService } from "../agents/agents.storage.service";
 import type { ApprovalsService } from "../approvals/approvals.service";
-import type { GoalRunnerService } from "../goals/goal-runner.service";
-import { GoalRunNotStoppableError } from "../goals/goals.errors";
-import type { GoalsStorageService } from "../goals/goals.storage.service";
+import type { LoopRunnerService } from "../loops/loop-runner.service";
+import { LoopRunNotStoppableError } from "../loops/loops.errors";
+import type { LoopsStorageService } from "../loops/loops.storage.service";
 import {
   WorkflowRunNotMessageableError,
   WorkflowRunNotPausableError,
@@ -62,7 +62,7 @@ const agentA: AgentRun = {
   logFile: "/tmp/researcher_1.log",
 };
 
-// A goal's maker child run — same store as standalone agent runs, but folded out of the feed.
+// A loop's maker child run — same store as standalone agent runs, but folded out of the feed.
 const makerChild: AgentRun = {
   ...agentA,
   runId: "koder_2",
@@ -86,9 +86,9 @@ const pipeP: WorkflowRun = {
   projectPath: acmeProject.path,
 };
 
-const goalG: GoalRun = {
-  goalRunId: "ship-it_4",
-  goalId: "ship-it",
+const loopG: LoopRun = {
+  loopRunId: "ship-it_4",
+  loopId: "ship-it",
   status: "running",
   currentIteration: 0,
   iterations: [
@@ -120,7 +120,7 @@ const scheduledS: ScheduledTask = {
 
 const agentDef = { id: "researcher", name: "Researcher" } as Agent;
 const workflowDef = { id: "delivery", name: "Delivery Workflow" } as Workflow;
-// goal definition intentionally absent → processor.name must fall back to the id
+// loop definition intentionally absent → processor.name must fall back to the id
 
 function build() {
   const agentRunner = {
@@ -155,21 +155,21 @@ function build() {
     continueFailed: vi.fn(async (): Promise<WorkflowRun | null> => null),
     delete: vi.fn(async () => {}),
   };
-  const goalRunner = {
-    listAll: vi.fn(async () => [goalG]),
+  const loopRunner = {
+    listAll: vi.fn(async () => [loopG]),
     get: vi.fn((id: string) => {
-      if (id !== goalG.goalRunId) throw new Error("not found");
-      return goalG;
+      if (id !== loopG.loopRunId) throw new Error("not found");
+      return loopG;
     }),
     readArtifact: vi.fn(async () => ({ name: "verdict.txt", content: "ok" })),
     stop: vi.fn(async () => {}),
-    resumeParked: vi.fn(async () => goalG),
-    continueFailed: vi.fn(async (): Promise<GoalRun | null> => null),
+    resumeParked: vi.fn(async () => loopG),
+    continueFailed: vi.fn(async (): Promise<LoopRun | null> => null),
     delete: vi.fn(async () => {}),
   };
   const agentsStore = { list: vi.fn(async () => [agentDef]) };
   const workflowsStore = { list: vi.fn(async () => [workflowDef]) };
-  const goalsStore = { list: vi.fn(async () => [] as Goal[]) };
+  const loopsStore = { list: vi.fn(async () => [] as Loop[]) };
   const projectsStore = { list: vi.fn(async () => [acmeProject]) };
   const scheduled = {
     list: vi.fn(async () => [scheduledS]),
@@ -192,10 +192,10 @@ function build() {
   const service = new TaskRunsService(
     agentRunner as unknown as AgentRunnerService,
     workflowRunner as unknown as WorkflowRunnerService,
-    goalRunner as unknown as GoalRunnerService,
+    loopRunner as unknown as LoopRunnerService,
     agentsStore as unknown as AgentsStorageService,
     workflowsStore as unknown as WorkflowsStorageService,
-    goalsStore as unknown as GoalsStorageService,
+    loopsStore as unknown as LoopsStorageService,
     projectsStore as unknown as ProjectsStorageService,
     scheduled as unknown as ScheduledTasksStorageService,
     scheduler as unknown as TaskSchedulerService,
@@ -209,7 +209,7 @@ function build() {
     approvals,
     agentRunner,
     workflowRunner,
-    goalRunner,
+    loopRunner,
     workflowsStore,
     projectsStore,
     scheduled,
@@ -219,7 +219,7 @@ function build() {
 }
 
 describe("TaskRunsService", () => {
-  describe("listTaskRuns — goal child folding", () => {
+  describe("listTaskRuns — loop child folding", () => {
     it("hides a pending task row once its run exists, but keeps a run-less pending task", async () => {
       const { service, scheduled } = build();
       const shadow = { ...scheduledS, id: "task1", status: "pending" as const };
@@ -238,7 +238,7 @@ describe("TaskRunsService", () => {
       expect(feed.filter((r) => r.kind === "scheduled").map((r) => r.runId)).toEqual(["task1"]);
     });
 
-    it("folds a goal's maker child run out of the feed", async () => {
+    it("folds a loop's maker child run out of the feed", async () => {
       const { service } = build();
       const feed = await service.listTaskRuns();
       const ids = feed.map((r) => r.runId);
@@ -250,7 +250,7 @@ describe("TaskRunsService", () => {
       expect(ids).not.toContain("koder_2");
     });
 
-    it("keeps the folded child reachable by id (goal detail fetches it)", async () => {
+    it("keeps the folded child reachable by id (loop detail fetches it)", async () => {
       const { service } = build();
       const child = await service.getTaskRun("koder_2");
       expect(child.kind).toBe("agent");
@@ -425,9 +425,9 @@ describe("TaskRunsService", () => {
     it("falls back to the id when the definition is gone", async () => {
       const { service } = build();
       const feed = await service.listTaskRuns();
-      const goal = feed.find((r) => r.runId === "ship-it_4");
-      // goal definition absent → name === id
-      expect(goal?.processor).toEqual({ kind: "goal", id: "ship-it", name: "ship-it" });
+      const loop = feed.find((r) => r.runId === "ship-it_4");
+      // loop definition absent → name === id
+      expect(loop?.processor).toEqual({ kind: "loop", id: "ship-it", name: "ship-it" });
     });
 
     it("carries the processor on a scheduled task from its chosen target", async () => {
@@ -614,9 +614,9 @@ describe("TaskRunsService", () => {
       expect(run.project).toBe("acme");
     });
 
-    it("shows no project for a workflow/goal run with no resolved projectPath", async () => {
+    it("shows no project for a workflow/loop run with no resolved projectPath", async () => {
       const { service } = build();
-      const run = await service.getTaskRun(goalG.goalRunId);
+      const run = await service.getTaskRun(loopG.loopRunId);
       expect(run.project).toBe("");
     });
 
@@ -644,7 +644,7 @@ describe("TaskRunsService", () => {
 
     // BUG: a roadmap release that hit the concurrency cap persists `queued` with
     // `projectId` correctly set (`TaskSchedulerService.createTask` → `storage.createQueued`
-    // does thread it through), but `scheduledTaskToView` — unlike the agent/workflow/goal
+    // does thread it through), but `scheduledTaskToView` — unlike the agent/workflow/loop
     // view builders — is never passed through `resolveProjectDisplay`, so its `project`
     // display label stays the hardcoded `""` even though `projectId` resolves to a real,
     // registered project. The web reads `run.project` (not `projectId`) for the card
@@ -953,37 +953,37 @@ describe("TaskRunsService", () => {
       expect(workflowRunner.onStageLogAppend).toHaveBeenCalledWith("delivery_3", "kodér", listener);
     });
 
-    it("routes artifacts to the goal runner for a goal run", async () => {
-      const { service, goalRunner } = build();
+    it("routes artifacts to the loop runner for a loop run", async () => {
+      const { service, loopRunner } = build();
       const artifact = await service.getArtifact("ship-it_4", "verdict.txt");
-      expect(goalRunner.readArtifact).toHaveBeenCalledWith("ship-it_4", "verdict.txt");
+      expect(loopRunner.readArtifact).toHaveBeenCalledWith("ship-it_4", "verdict.txt");
       expect(artifact).toEqual({ name: "verdict.txt", content: "ok" });
     });
 
-    it("stops an agent, workflow, or goal run via its own runner", async () => {
-      const { service, agentRunner, workflowRunner, goalRunner } = build();
+    it("stops an agent, workflow, or loop run via its own runner", async () => {
+      const { service, agentRunner, workflowRunner, loopRunner } = build();
       await service.stop("researcher_1");
       expect(agentRunner.stop).toHaveBeenCalledWith("researcher_1");
       await service.stop("delivery_3");
       expect(workflowRunner.stop).toHaveBeenCalledWith("delivery_3");
       await service.stop("ship-it_4");
-      expect(goalRunner.stop).toHaveBeenCalledWith("ship-it_4");
+      expect(loopRunner.stop).toHaveBeenCalledWith("ship-it_4");
     });
 
-    it("normalizes a workflow/goal runner's own 'not stoppable' error to the unified one", async () => {
-      const { service, workflowRunner, goalRunner } = build();
+    it("normalizes a workflow/loop runner's own 'not stoppable' error to the unified one", async () => {
+      const { service, workflowRunner, loopRunner } = build();
       workflowRunner.stop.mockRejectedValueOnce(new WorkflowRunNotStoppableError("delivery_3"));
       await expect(service.stop("delivery_3")).rejects.toBeInstanceOf(TaskRunNotStoppableError);
-      goalRunner.stop.mockRejectedValueOnce(new GoalRunNotStoppableError("ship-it_4"));
+      loopRunner.stop.mockRejectedValueOnce(new LoopRunNotStoppableError("ship-it_4"));
       await expect(service.stop("ship-it_4")).rejects.toBeInstanceOf(TaskRunNotStoppableError);
     });
 
-    it("resumes workflow/goal runs, refuses to resume an agent run", async () => {
-      const { service, workflowRunner, goalRunner } = build();
+    it("resumes workflow/loop runs, refuses to resume an agent run", async () => {
+      const { service, workflowRunner, loopRunner } = build();
       await service.resume("delivery_3", { note: "go" });
       expect(workflowRunner.resumeParked).toHaveBeenCalledWith("delivery_3", "go");
       await service.resume("ship-it_4", { note: "again" });
-      expect(goalRunner.resumeParked).toHaveBeenCalledWith("ship-it_4", "again");
+      expect(loopRunner.resumeParked).toHaveBeenCalledWith("ship-it_4", "again");
       await expect(service.resume("researcher_1")).rejects.toBeInstanceOf(TaskRunNotResumableError);
     });
 
@@ -1143,9 +1143,9 @@ describe("TaskRunsService", () => {
         expect(workflowRunner.stop).not.toHaveBeenCalled();
       });
 
-      it("fresh on a parked goal or while pausing is 409", async () => {
-        const { service, goalRunner, workflowRunner } = build();
-        goalRunner.listAll.mockResolvedValue([{ ...goalG, status: "parked" }]);
+      it("fresh on a parked loop or while pausing is 409", async () => {
+        const { service, loopRunner, workflowRunner } = build();
+        loopRunner.listAll.mockResolvedValue([{ ...loopG, status: "parked" }]);
         await expect(service.resume("ship-it_4", { mode: "fresh" })).rejects.toBeInstanceOf(
           TaskRunNotResumableError,
         );
@@ -1157,7 +1157,7 @@ describe("TaskRunsService", () => {
       });
     });
 
-    it("pauses a workflow run; agent/goal runs and refused pauses are not pausable", async () => {
+    it("pauses a workflow run; agent/loop runs and refused pauses are not pausable", async () => {
       const { service, workflowRunner } = build();
       await service.pause("delivery_3");
       expect(workflowRunner.requestPause).toHaveBeenCalledWith("delivery_3");
@@ -1463,14 +1463,14 @@ describe("TaskRunsService", () => {
       expect(workspace.runChanges).toHaveBeenCalled();
     });
 
-    it("is null for a workflow run driven by a goal (the goal shows the cumulative diff)", async () => {
-      const { service, workflowRunner, goalRunner, workspace } = build();
+    it("is null for a workflow run driven by a loop (the loop shows the cumulative diff)", async () => {
+      const { service, workflowRunner, loopRunner, workspace } = build();
       workflowRunner.listAll.mockResolvedValue([wfRun]);
-      goalRunner.listAll.mockResolvedValue([
+      loopRunner.listAll.mockResolvedValue([
         {
-          ...goalG,
+          ...loopG,
           iterations: [
-            { ...goalG.iterations[0]!, makerKind: "workflow", makerRunRef: "delivery_3" },
+            { ...loopG.iterations[0]!, makerKind: "workflow", makerRunRef: "delivery_3" },
           ],
         },
       ]);
@@ -1535,7 +1535,7 @@ describe("TaskRunsService", () => {
       return h;
     }
 
-    it("creates a task for the explicit target with goal, run folder, artifacts and note", async () => {
+    it("creates a task for the explicit target with loop, run folder, artifacts and note", async () => {
       const { service, scheduler } = failedWorkflow();
       const res = await service.handover("delivery_3", { target, note: "finish it in delivery" });
       expect(scheduler.createTask).toHaveBeenCalledOnce();

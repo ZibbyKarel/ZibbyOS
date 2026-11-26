@@ -5,7 +5,7 @@ import {
 } from "../automations/automations.storage.service";
 import { CommandsModule } from "../commands/commands.module";
 import { CompaniesModule } from "../companies/companies.module";
-import { GOALS_DIR, GoalsStorageService } from "../goals/goals.storage.service";
+import { LOOPS_DIR, LoopsStorageService } from "../loops/loops.storage.service";
 import { HooksModule } from "../hooks/hooks.module";
 import {
   INTEGRATIONS_DIR,
@@ -40,8 +40,8 @@ export { resolveVaultDir };
  * read access to nine catalogs. Five have leaf modules with no imports of their
  * own (`SkillsModule`/`McpModule`/`CommandsModule`/`HooksModule`/`CompaniesModule`)
  * — imported directly below, zero cycle risk. The other four
- * (projects/integrations/goals/automations) all transitively import
- * `MemoryModule` already (`ProjectsModule` directly; `GoalsModule`
+ * (projects/integrations/loops/automations) all transitively import
+ * `MemoryModule` already (`ProjectsModule` directly; `LoopsModule`
  * via `ProjectsModule`; `IntegrationsModule` via `ProjectsModule` (forwardRef);
  * `AutomationsModule` via `MemoryDistillerModule`, which imports `MemoryModule`
  * directly) — importing THOSE modules here would close a Nest DI cycle. Instead
@@ -76,8 +76,8 @@ export { resolveVaultDir };
       useFactory: () => process.env.INTEGRATION_STATE_DIR ?? dataDir("integration-state"),
     },
     IntegrationsStorageService,
-    { provide: GOALS_DIR, useFactory: () => process.env.GOALS_DIR ?? dataDir("goals") },
-    GoalsStorageService,
+    { provide: LOOPS_DIR, useFactory: () => process.env.LOOPS_DIR ?? dataDir("loops") },
+    LoopsStorageService,
     {
       provide: AUTOMATIONS_DIR,
       useFactory: () => process.env.AUTOMATIONS_DIR ?? recipesDir("automations"),

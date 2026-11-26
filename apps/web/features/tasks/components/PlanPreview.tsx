@@ -10,18 +10,18 @@ export interface PlanPreviewProps {
  * The compact "ZIBBY will…" preview the unified composer renders from the live
  * classify verdict (Phase 11.2) — the mode is shown, never chosen. A `single`
  * verdict reads as one dispatch to the routed target; a `loop` verdict reads as a
- * synthesized goal (maker · reviewer agent · iteration cap). The advanced
+ * synthesized loop (maker · reviewer agent · iteration cap). The advanced
  * controls live behind the "Edit" disclosure; this is read-only signal.
  */
 export function PlanPreview({ routing }: PlanPreviewProps) {
   const t = useTranslations("tasks.preview");
-  const { mode, target, proposedGoal, reason, confidence, ambiguous, runnerUp } = routing;
+  const { mode, target, proposedLoop, reason, confidence, ambiguous, runnerUp } = routing;
 
-  if (mode === "loop" && proposedGoal) {
+  if (mode === "loop" && proposedLoop) {
     const makerName =
       routing.candidates.find(
-        (c) => c.kind === proposedGoal.maker.kind && "id" in c && c.id === proposedGoal.maker.id,
-      )?.name ?? proposedGoal.maker.id;
+        (c) => c.kind === proposedLoop.maker.kind && "id" in c && c.id === proposedLoop.maker.id,
+      )?.name ?? proposedLoop.maker.id;
     return (
       <Container>
         <Stack align="center" direction="row" gap="150">
@@ -30,7 +30,7 @@ export function PlanPreview({ routing }: PlanPreviewProps) {
             <Typography mono size="sm" type="note" weight="bold">
               {t("loopSummary", {
                 maker: makerName,
-                n: proposedGoal.maxIterations,
+                n: proposedLoop.maxIterations,
               })}
             </Typography>
             <Typography size="sm" type="note" variant="secondary">

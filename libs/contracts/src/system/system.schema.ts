@@ -209,8 +209,8 @@ export const SystemConfigSchema = z
     /** Max auto-resume cycles a limit-paused run gets before it is parked/failed. */
     limitResumeMax: z.number().int().min(1).default(3),
     /**
-     * On boot, auto-re-dispatch `running`/`paused-limit` goals (unattended/headless
-     * mode). Default `false` → goals are parked `awaiting-resume` for an explicit
+     * On boot, auto-re-dispatch `running`/`paused-limit` loops (unattended/headless
+     * mode). Default `false` → loops are parked `awaiting-resume` for an explicit
      * operator resume (Law 3). The operator enables this for a launchd daemon.
      */
     goalAutoResume: z.boolean().default(false),
@@ -237,7 +237,7 @@ export const SystemConfigSchema = z
     ttsVoice: z.string().min(1).nullable().default(null),
     /**
      * The global run-slot cap (docs/plans/remove-employees.md): at most this many runs
-     * started by the task system (single-agent, orchestrator, workflow or goal — one slot
+     * started by the task system (single-agent, orchestrator, workflow or loop — one slot
      * per run, however many agents it spawns) are in flight at once; the rest queue. A run
      * holds its slot until a terminal status, including while it awaits an approval. Read
      * live by `RunSlots`. Migrated from the interim `maxWorkingAgents` on read

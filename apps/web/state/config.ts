@@ -48,9 +48,8 @@ export const SECTIONS = [
     id: "work",
     glyph: "tasks",
     // todo-14: the Tasks list merged into `/activity/runs`; `/work/tasks` redirects there.
-    href: "/work/goals" as Route,
+    href: "/work/workflows" as Route,
     tabs: [
-      { id: "goals", href: "/work/goals" as Route },
       { id: "workflows", href: "/work/workflows" as Route },
       { id: "automations", href: "/work/automations" as Route },
     ],

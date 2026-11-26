@@ -191,9 +191,9 @@ describe("HandoverTaskRunSchema", () => {
     ).toBe(true);
   });
 
-  it("refuses a goal or orchestrator target and an over-long note", () => {
+  it("refuses a loop or orchestrator target and an over-long note", () => {
     expect(
-      HandoverTaskRunSchema.safeParse({ target: { kind: "goal", id: "g", name: "G" } }).success,
+      HandoverTaskRunSchema.safeParse({ target: { kind: "loop", id: "g", name: "G" } }).success,
     ).toBe(false);
     expect(
       HandoverTaskRunSchema.safeParse({ target: { kind: "orchestrator", name: "O" } }).success,

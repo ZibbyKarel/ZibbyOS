@@ -2,8 +2,8 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import type { TaskOutput } from "@zibby/contracts";
 import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
-import { useCreateGoalMutation } from "../../goals";
-import { type LoopFormState, buildCreateGoalBody, canSubmitLoop, makeGoalId } from "../loop";
+import { useCreateLoopMutation } from "../../loops";
+import { type LoopFormState, buildCreateLoopBody, canSubmitLoop, makeLoopId } from "../loop";
 import { useCreateTaskMutation } from "../mutations";
 import { type TaskTarget, toApiTarget, whenLabel } from "../task";
 
@@ -49,13 +49,13 @@ export interface UseTaskSubmit {
   /** `scheduledAt` is resolved by the caller per action (e.g. a DropDownButton's
    *  "now" / "in 1h" / "when limits reset" options) — `null` runs immediately. */
   handleSubmit: (scheduledAt: number | null) => void;
-  /** True while a create-task or create-goal mutation is in flight. */
+  /** True while a create-task or create-loop mutation is in flight. */
   busy: boolean;
 }
 
 /**
  * Owns dispatch: a single task (auto or to an explicit target), or a loop (create the
- * goal, then enter it through a task carrying its goal target so the scheduler's
+ * loop, then enter it through a task carrying its loop target so the scheduler's
  * defer/limit/budget machinery owns the run). A dispatched run routes to `/activity/runs`
  * (F8d — `/runs` is gone); a scheduled one shows the lingering confirmation, then
  * closes.
@@ -78,8 +78,8 @@ export function useTaskSubmit({
 }: UseTaskSubmitArgs): UseTaskSubmit {
   const router = useRouter();
   const { mutate: createTask, isPending: creatingTask } = useCreateTaskMutation();
-  const { mutate: createGoal, isPending: creatingGoal } = useCreateGoalMutation();
-  const busy = creatingTask || creatingGoal;
+  const { mutate: createLoop, isPending: creatingLoop } = useCreateLoopMutation();
+  const busy = creatingTask || creatingLoop;
 
   const handleCreateTaskSuccess = useCallback(
     (res: Parameters<typeof selectApiResponseBody>[0]) => {
@@ -140,15 +140,15 @@ export function useTaskSubmit({
   const submitLoop = useCallback(
     (scheduledAt: number | null) => {
       const seed = title.trim() || loop.objective;
-      const goalId = makeGoalId(seed, now);
-      const body = buildCreateGoalBody(loop, goalId, title);
-      createGoal(
+      const loopId = makeLoopId(seed, now);
+      const body = buildCreateLoopBody(loop, loopId, title);
+      createLoop(
         { body },
         {
           onSuccess: () => {
-            // Every loop enters through a task carrying its goal target — the scheduler's
+            // Every loop enters through a task carrying its loop target — the scheduler's
             // defer/limit/budget machinery owns the dispatch (immediate when scheduledAt is
-            // null, deferred otherwise). There is no direct goal-run start: only a task runs.
+            // null, deferred otherwise). There is no direct loop-run start: only a task runs.
             createTask(
               {
                 body: {
@@ -157,7 +157,7 @@ export function useTaskSubmit({
                   paths,
                   ...(attachmentSetId ? { attachmentSetId } : {}),
                   scheduledAt,
-                  target: { kind: "goal", id: goalId, name: body.name ?? seed.slice(0, 80) },
+                  target: { kind: "loop", id: loopId, name: body.name ?? seed.slice(0, 80) },
                   ...(toolGrants && toolGrants.length > 0 ? { toolGrants } : {}),
                 },
               },
@@ -175,7 +175,7 @@ export function useTaskSubmit({
       paths,
       attachmentSetId,
       toolGrants,
-      createGoal,
+      createLoop,
       createTask,
       handleCreateTaskSuccess,
     ],

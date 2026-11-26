@@ -52,7 +52,7 @@ export interface NewTaskDialogProps {
  * {@link LoopComposer} editor, entered through the SAME run control CommandLine renders
  * (its label switches to "Run loop"). File/folder paths referenced in the description
  * are highlighted inline and folded into the run's allowed directories automatically.
- * Submitting dispatches a task or — for a loop — creates the goal and starts its run.
+ * Submitting dispatches a task or — for a loop — creates the loop and starts its run.
  * Risky actions are still caught later by the approval gate.
  *
  * `text`/`target`/`taskProjectId` below are MIRRORS of CommandLine's own internal
@@ -123,7 +123,7 @@ export function NewTaskForm({
         matchedTerms: [],
         candidates: activeRouting?.candidates ?? [target],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: activeRouting?.paths ?? [],
         toolGrants: activeRouting?.toolGrants ?? [],
       }

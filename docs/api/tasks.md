@@ -69,7 +69,7 @@ Body: {
                                # outputs:, an agent/orchestrator target delivers
                                # nothing). See "Task output" below.
   target?: TaskTarget          # Phase 11: a pre-chosen target that skips classification
-                               # (a scheduled loop carries { kind: "goal", id }; the
+                               # (a scheduled loop carries { kind: "loop", id }; the
                                # scheduler re-dispatches to that target on tick instead
                                # of re-classifying)
   source?: TaskSource          # ZB-04a / O-18: who created this task. Only "operator" /
@@ -243,7 +243,7 @@ The classifier finds the best target for the task's text, in up to two stages:
 
 2. Keyword scoring — counts word overlap between the task text and each candidate's
    `search` blob (an LLM router runs first in production; the keyword scorer is the
-   deterministic fallback; `isCoherent` rejects an orchestrator/goal pick, but a
+   deterministic fallback; `isCoherent` rejects an orchestrator/loop pick, but a
    seated `department` pick is coherent)
 3. Returns a `TaskRouting`:
    ```typescript
@@ -548,18 +548,18 @@ Before every dispatch (immediate or from the scheduler):
 The only concurrency throttle. `RunSlots` (`apps/api/src/run-slots/run-slots.service.ts`,
 provided by `RunSlotsModule`) hands out **one slot per run instance** the task system
 starts: a single-agent run, an orchestrator run, a whole workflow run (however many stages
-or agents it spawns inside) or a goal run. Two caps apply, both must have room:
+or agents it spawns inside) or a loop run. Two caps apply, both must have room:
 
 - **global** — `systemConfig.maxConcurrentRuns` (default `3`, read live);
 - **per project** — the project's effective `budget.maxConcurrent` (company defaults
   merged, `BudgetService.maxConcurrent(projectId)`), optional; empty = only the global cap.
 
 `dispatch()` takes the slot (`tryTake`) **before** spawning and `startHolding()` records it
-by run ref (`runId` / `workflowRunId` / `goalRunId`). It is released on the run's terminal
-status (agent `done|error|interrupted`, workflow/goal `done|failed|interrupted`), or at
+by run ref (`runId` / `workflowRunId` / `loopRunId`). It is released on the run's terminal
+status (agent `done|error|interrupted`, workflow/loop `done|failed|interrupted`), or at
 once if the spawn throws or the run was already terminal when `start()` returned. A run
 **keeps its slot** while it waits on an approval (`awaiting-approval`), is `parked` or
-`paused-limit` — it is still in flight. Nested runs (a workflow's child workflow, a goal's
+`paused-limit` — it is still in flight. Nested runs (a workflow's child workflow, a loop's
 maker/verifier iterations) ride on the parent's slot; chat conversation, channel triage
 and system automations (briefing, distill, …) take none. Everything that creates a run
 instance through the scheduler counts, including tasks started from chat and `agent` /
@@ -578,10 +578,10 @@ can briefly over-admit after a reboot.
 An operator "continue" of a failed/interrupted run (resume `mode: "continue"`) goes
 through the same queue: `queueContinue` marks the task **queued** with a
 `continueRun: { kind, runRef, note? }` marker (clearing the old outcome), and the drain
-takes a slot and continues the workflow/goal in place or re-runs the agent. Until then
+takes a slot and continues the workflow/loop in place or re-runs the agent. Until then
 the run itself reads `queued` in the feed (no separate task row). A run with nothing
 left to continue at is dispatched fresh from the same task, with the note appended. A
-run with no backing task (a self-dev goal) still continues at once, uncounted.
+run with no backing task (a self-dev loop) still continues at once, uncounted.
 
 On every terminal run, slot release or `maxConcurrentRuns` change the scheduler calls
 `drainQueues()`: queued tasks are tried by project round-robin, then oldest first; a task
@@ -720,13 +720,13 @@ override endpoint.
 
 ## The unified run surface (`/api/tasks/runs`)
 
-A task is the entity that runs; the processor (agent / workflow / goal) is metadata.
+A task is the entity that runs; the processor (agent / workflow / loop) is metadata.
 Every operation on a run lives under one surface — no per-kind run routes. A run is
 only ever started by creating a task (`POST /api/tasks`); starting is not part of
 this surface. `TaskRunSchema` is a superset of the feed row plus an optional
 `processor: { kind, id, name }` (the name falls back to the id when the definition
-was deleted). Goal maker/verifier child runs are folded into the feed (not peer
-rows), but stay reachable from the goal's detail view. Workflow sub-runs (a run with
+was deleted). Loop maker/verifier child runs are folded into the feed (not peer
+rows), but stay reachable from the loop's detail view. Workflow sub-runs (a run with
 `parentRunId`, started by a `workflow` phase) are hidden the same way; the parent's
 stage links to them. `TaskRun.department` (ZB-04a) is
 enriched from the underlying task's `department` field in `enrichRunWithTask` — the same
@@ -752,14 +752,14 @@ currently running (cleared once it lands), which the live rail row uses as its c
 next stage boundary (the current stage finishes; nothing is killed). Until it lands
 the view stays `running` with `pauseRequested: true` (the UI shows PAUSING); then the
 run reads `status: "paused"` (a `parked` aggregate with `parkedReason: "paused"`).
-Agent, goal and scheduled runs have no boundary → 409 (`TaskRunNotPausableError`);
+Agent, loop and scheduled runs have no boundary → 409 (`TaskRunNotPausableError`);
 so does a workflow run that is not running. RESUME on a `paused` run re-enters it in
 place; RESUME while it is still pausing just withdraws the request. `paused` is not
 an archived state.
 
 **Stop.** `POST /tasks/runs/:runId/stop` also takes a run waiting on the usage window
 (`paused-limit`, agent or workflow): it lands `interrupted` and is never auto-resumed.
-A goal run is stoppable only while `running`. The run detail keeps PAUSE / STOP
+A loop run is stoppable only while `running`. The run detail keeps PAUSE / STOP
 reachable in every state that has them (a button, else the ··· menu); STOP on a
 still-queued task cancels it out of the queue.
 
@@ -777,7 +777,7 @@ on a new branch; the text only says so. No git command is put in the text. An
 unresolved branch starts from the usual base and the text says that. The new run opens
 its own PR through its normal output (it never pushes onto the original PR branch).
 A run that would resume on its own (`paused-limit`, `awaiting-approval`, `parked`,
-`paused`) is stopped first, so it can't finish too; if it can't be stopped (a goal),
+`paused`) is stopped first, so it can't finish too; if it can't be stopped (a loop),
 the handover is refused (409), as it is for a live or not-yet-dispatched run. 422 / 503
 mirror `createTask` (empty catalog or department roster / claude unavailable).
 
@@ -788,23 +788,23 @@ or when the named phase next runs) through that stage's resume-context system pr
 `TaskRun.messages[]` is the run's record: `{ id, text, to, at, deliveredAt?,
 deliveredPhaseId? }` (no `deliveredAt` = still queued; still queued on a finished run =
 not delivered). A resume note on a paused run is queued the same way; a resume note on
-another park is recorded as already delivered to the phase it re-enters. Agent, goal
+another park is recorded as already delivered to the phase it re-enters. Agent, loop
 and scheduled runs, finished runs, and a `to` that is not an agent phase of the
 workflow → 409 (`TaskRunNotMessageableError`). Nothing replies on the agent's behalf.
 
 **Resume modes.** `POST /tasks/runs/:runId/resume { note?, mode = "continue" }`.
 `continue` keeps the old context: a parked/paused workflow resumes in place, a failed
-workflow/goal continues from where it stopped, an errored agent run re-runs with
+workflow/loop continues from where it stopped, an errored agent run re-runs with
 `--resume <sessionId>` (the note, when given, is the `-p` prompt of that resumed turn).
 A failed/errored/interrupted task-backed run is queued for a run slot first (see Run
 slots) and the call returns the run as `queued`.
 `fresh` throws the context away: a `done`, errored or interrupted run is re-run as a
 NEW task from the original inputs (an agent run with no backing task re-runs without
 `--resume`); a parked/paused workflow is stopped (kept as `interrupted` history) and
-re-run as a new task. `continue` on a `done` run, `fresh` on a parked goal or a
+re-run as a new task. `continue` on a `done` run, `fresh` on a parked loop or a
 still-pausing run, and `fresh` with no backing task to rebuild from → 409. The note is
 never dropped: it reaches the resumed stage/session, or is appended to the re-run
-task's text as `Operator note: …`. (A goal's continue-in-place does not take a note
+task's text as `Operator note: …`. (A loop's continue-in-place does not take a note
 yet.)
 
 `TaskRun.diffstat` (`{ files[], additions, deletions }`, per-file rows from
@@ -814,7 +814,7 @@ cleared when the gate resolves), otherwise the published PR's `prOutput.files`. 
 legacy `diffstat.txt` artifact is still written.
 
 ```
-GET    /api/tasks/runs                                       the unified feed (newest-first; agent/workflow/goal/scheduled)
+GET    /api/tasks/runs                                       the unified feed (newest-first; agent/workflow/loop/scheduled)
 GET    /api/tasks/runs/archive                                the `/archiv` page's feed: cursor-paginated, search/department-
                                                                 filtered, archived-only (below)
 GET    /api/tasks/runs/archive/counts                          per-department archive counts (search-scoped) + the unsearched total
@@ -838,11 +838,11 @@ POST   /api/tasks/runs/:runId/handover                        hand the run's tas
 POST   /api/tasks/runs/:runId/messages                        queue an operator message for the next agent stage of an open
                                                                 workflow run (409 for other kinds / finished runs)
 POST   /api/tasks/runs/:runId/open-folder                     open a workflow run's `book/` (else run root) folder in Finder, or with `{ artifact }` that run artifact (same allowlist as `artifacts/:name`; viewer file types only) in its default app; operator-initiated, no approval; 404 for non-workflow runs / missing artifacts
-POST   /api/tasks/runs/:runId/resume                          resume a parked/paused workflow or parked goal run (with a note;
+POST   /api/tasks/runs/:runId/resume                          resume a parked/paused workflow or parked loop run (with a note;
                                                                 on a still-pausing run it withdraws the pause), or re-run an
                                                                 errored/interrupted agent run (with `--resume` if a session id
                                                                 was captured, else a fresh run of the same task), or CONTINUE an
-                                                                errored/interrupted workflow/goal run in place from the phase /
+                                                                errored/interrupted workflow/loop run in place from the phase /
                                                                 iteration it stopped on (finished phases are kept; fresh retry
                                                                 budget) — a task-backed run waits `queued` for a run slot
                                                                 first. Nothing to continue at (failed before any stage, or
@@ -884,7 +884,7 @@ separate archive store.
 GET /api/tasks/runs/archive?search=&departments=&before=&limit=
   search       free text, matched against a run's display title and project
   departments   comma-separated department ids, or "none" for runs with no department
-               attribution (an agent/goal run, or a workflow whose owner isn't
+               attribution (an agent/loop run, or a workflow whose owner isn't
                tagged) — omitted/empty means "all departments"
   before       opaque `<startedAt>|<runId>` cursor from the previous page's
                `nextCursor` — keyset pagination, not offset-based
@@ -893,7 +893,7 @@ GET /api/tasks/runs/archive?search=&departments=&before=&limit=
                the Activity → Runs table passes every status so live runs list too
   project      (todo-14) one projectId
   company      (todo-14) one company id — runs whose project belongs to it (via projectId)
-  kind         (todo-14) agent | workflow | goal | scheduled
+  kind         (todo-14) agent | workflow | loop | scheduled
   sort, dir    (todo-14) started | title | state | duration | cost, asc | desc (default
                desc). With `sort` the cursor is an offset (`@<n>`), not the keyset one;
                an unfinished run's duration counts up to now
@@ -920,10 +920,10 @@ task's PR-gate `headSha` (`prAddressComments` ?? `prFixCi` ?? `prRebase`), else 
 `workspace.baseRef`. The run is resolved from the runners' on-disk + in-memory listing, so
 historic runs (past the in-memory retention, or from before an API restart) work. A live
 worktree is diffed against its working tree (a running run's uncommitted edits show); a
-removed worktree falls back to `from..branch` in the project repo (workflow/goal runs only;
+removed worktree falls back to `from..branch` in the project repo (workflow/loop runs only;
 agent runs carry no `projectPath`) **only when `from` is the workspace `baseRef`** — for a
 PR-gate `headSha` the branch never receives the run's commits, so the answer is 404. 404
-also when the run is unknown, has no `workspace`, is a child run of a goal (the goal shows
+also when the run is unknown, has no `workspace`, is a child run of a loop (the loop shows
 the cumulative diff), its task lookup fails for any reason but "task gone", or git cannot
 produce a diff (bad `from`, missing branch).
 The diff is capped at `MAX_DIFF_BYTES` (500k) at a file boundary; `truncated` says so.
@@ -972,7 +972,7 @@ parked on disk from before this change; new PR outputs never park.)_
 ## Phase 11 — unified assignment (loop shape + path scoping)
 
 Classification stays **free of side effects**, and the catalog still only routes to
-agent/workflow/orchestrator (an `isCoherent` `goal` target is still excluded). But
+agent/workflow/orchestrator (an `isCoherent` `loop` target is still excluded). But
 `TaskRouting` now carries three additional, backward-compatible fields (an old client
 ignores them):
 
@@ -980,7 +980,7 @@ ignores them):
 {
   // …target, confidence, reason, matchedTerms, candidates…
   mode: "single" | "loop"            // default "single"
-  proposedGoal: ProposedGoal | null  // the synthesized goal, when mode === "loop"
+  proposedLoop: ProposedLoop | null  // the synthesized loop, when mode === "loop"
   paths: ResolvedPath[]              // detected paths attributed to projects
 }
 ```
@@ -989,13 +989,13 @@ ignores them):
   annotation on its own agent/workflow pick), or the deterministic
   `detectLoopCue(text)` (cs+en, diacritic-folded) finds a cue like "until it passes"
   or "keep retrying". When either fires and there is a concrete maker, the classifier
-  assembles a `proposedGoal` (`synthesizeGoal`): `objective`/`instructions` = the raw
+  assembles a `proposedLoop` (`synthesizeLoop`): `objective`/`instructions` = the raw
   task text (Law 4 — data, not a command), `maker` = the chosen agent/workflow
   (orchestrator → the first workflow in the catalog, otherwise `mode` falls back to
   `single`), `verifier: { kind: "claude", agent: "code-reviewer" }`,
-  `maxIterations = DEFAULT_GOAL_ITERATIONS`. **Nothing is written** — the `.goal.md`
-  is only created on submit from the web (`createGoal` → `startGoalRun`; for a
-  scheduled loop, `createGoal` → `createTask` with `target: goal`).
+  `maxIterations = DEFAULT_LOOP_ITERATIONS`. **Nothing is written** — the `.loop.md`
+  is only created on submit from the web (`createLoop` → `startLoopRun`; for a
+  scheduled loop, `createLoop` → `createTask` with `target: loop`).
 
 - **Path scoping.** The classifier attributes each `paths[]` entry to a project via
   `matchProject` (read-only attribution). The web renders "in project <name>", or —

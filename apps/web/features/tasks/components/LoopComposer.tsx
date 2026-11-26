@@ -12,9 +12,9 @@ export interface LoopComposerProps {
 }
 
 /**
- * The Loop tab body: capture a goal (objective), pick the maker that does the work,
+ * The Loop tab body: capture a loop (objective), pick the maker that does the work,
  * pick the reviewer agent that judges each iteration, and cap the iterations. Submitting creates a
- * goal definition and starts its run — the maker ⇄ verifier loop in the goals engine.
+ * loop definition and starts its run — the maker ⇄ verifier loop in the loops engine.
  */
 export function LoopComposer({ state, onChange }: LoopComposerProps) {
   const t = useTranslations("tasks");

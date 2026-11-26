@@ -33,13 +33,13 @@ export const ActivityKindSchema = z.enum([
   "run-paused-limit",
   "run-resumed-limit",
   "task-deferred-limit",
-  // Phase 10 (loop engine, Tier 1 — silent + recorded). A goal dispatched a maker
-  // iteration, a verifier returned a verdict, or a goal parked (bounded effort
-  // exhausted). None notify on their own; a parked goal rides the parked
-  // notification, the briefing reads in-flight/paused goals off the live state.
-  "goal-dispatched",
-  "goal-verdict",
-  "goal-parked",
+  // Phase 10 (loop engine, Tier 1 — silent + recorded). A loop dispatched a maker
+  // iteration, a verifier returned a verdict, or a loop parked (bounded effort
+  // exhausted). None notify on their own; a parked loop rides the parked
+  // notification, the briefing reads in-flight/paused loops off the live state.
+  "loop-dispatched",
+  "loop-verdict",
+  "loop-parked",
   "approval-requested",
   "approval-approved",
   "approval-rejected",
@@ -166,9 +166,9 @@ export const ActivityRefsSchema = z
     runRef: z.string().optional(),
     workflowId: z.string().optional(),
     agentId: z.string().optional(),
-    /** Phase 10: the goal run and goal definition a goal-loop entry is attributed to. */
-    goalRunId: z.string().optional(),
-    goalId: z.string().optional(),
+    /** Phase 10: the loop run and loop definition a loop entry is attributed to. */
+    loopRunId: z.string().optional(),
+    loopId: z.string().optional(),
     /** The engagement an entry is attributed to (Phase 8) — grouping, not authz. */
     projectId: z.string().optional(),
     approvalId: z.string().optional(),

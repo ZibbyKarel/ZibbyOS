@@ -46,7 +46,7 @@ export function matchesArchiveSearch(
  * The department a single run is attributed to, or `null` when it has none — mirrors
  * `apps/web/features/departments/useOwnerDepartment.ts#runDepartmentId` (D8): only a
  * `workflow` run ever carries a department (from its owning definition's
- * `department`); an `agent`/`goal`/`scheduled` run has no department concept at all.
+ * `department`); an `agent`/`loop`/`scheduled` run has no department concept at all.
  */
 export function runDepartmentId(
   run: Pick<TaskRun, "kind" | "owner">,

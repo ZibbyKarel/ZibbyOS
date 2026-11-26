@@ -180,9 +180,9 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     taskId?: string,
     matchedTerms?: string[],
     /**
-     * Phase 10: a goal supplies its per-run worktree so the maker iteration spawns
-     * on the goal's branch. When present the runner skips self-creating a worktree
-     * and spawns with `cwd = workspace.path`; the goal owns the worktree's lifecycle
+     * Phase 10: a loop supplies its per-run worktree so the maker iteration spawns
+     * on the loop's branch. When present the runner skips self-creating a worktree
+     * and spawns with `cwd = workspace.path`; the loop owns the worktree's lifecycle
      * (this run never prunes it). Absent for every existing caller (no behaviour change).
      */
     workspace?: Workspace,
@@ -390,8 +390,8 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     // non-git project, or a worktree-setup failure → today's behavior (sandbox-only).
     let workspace: Workspace | undefined;
     let spawnCwd: string | undefined;
-    // Phase 10: a goal-supplied worktree only changes the spawn cwd — this run does
-    // NOT record or prune it (the goal owns its lifecycle), keeping the maker run's
+    // Phase 10: a loop-supplied worktree only changes the spawn cwd — this run does
+    // NOT record or prune it (the loop owns its lifecycle), keeping the maker run's
     // artifact/sidecar layout identical to a normal run.
     if (externalWorkspace) {
       spawnCwd = externalWorkspace.path;

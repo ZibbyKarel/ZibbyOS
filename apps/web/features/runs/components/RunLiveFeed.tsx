@@ -17,7 +17,7 @@ import type { RunView } from "../run";
 import { agentBody } from "../runDetailModel";
 import type { AgentBlock, FeedItem } from "../runDetailModel";
 import { useStageRunLogQuery } from "../queries/useStageRunLogQuery";
-import { GoalDetailPanel } from "./GoalDetailPanel";
+import { LoopDetailPanel } from "./LoopDetailPanel";
 
 export enum RunLiveFeedTestId {
   Root = "run-live-feed",
@@ -147,7 +147,7 @@ function FeedYou({ item, stageLabel }: { item: Item<"you">; stageLabel?: string 
 
 /** The LIVE view: the selected stage's log, then my messages with their delivery state. The run's one banner sits above, in `RunDetail`. */
 export function RunLiveFeed({ run, items }: RunLiveFeedProps) {
-  if (run.kind === "goal") return <GoalDetailPanel run={run} />;
+  if (run.kind === "loop") return <LoopDetailPanel run={run} />;
 
   const dividerLabel = new Map(
     items.flatMap((i) => (i.kind === "divider" ? [[i.phaseId, i.label] as const] : [])),

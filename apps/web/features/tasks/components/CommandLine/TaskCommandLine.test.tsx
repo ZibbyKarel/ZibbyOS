@@ -8,7 +8,7 @@ import { TaskCommandLine, TaskCommandLineTestId } from "./TaskCommandLine";
 /**
  * Phase 118b: TaskCommandLine is the task-launch CONTAINER composed on top of the
  * generic CommandLine. Mocking mirrors CommandLine.test.tsx's own setup — the same
- * catalog/limits/project queries and create-task/create-goal mutations, since the
+ * catalog/limits/project queries and create-task/create-loop mutations, since the
  * container renders the generic composer internally and feeds the same hooks.
  */
 const push = vi.fn();
@@ -109,20 +109,20 @@ vi.mock("../../mutations", () => ({
   useCreateTaskMutation: () => ({ mutate: createTask, isPending: false }),
 }));
 
-type GoalVars = { params?: { id: string }; body: Record<string, unknown> };
-type GoalOpts = { onSuccess?: (res: { status: 201; body: unknown }) => void };
-const createGoal = vi.fn((_vars: GoalVars, opts?: GoalOpts) =>
+type LoopVars = { params?: { id: string }; body: Record<string, unknown> };
+type LoopOpts = { onSuccess?: (res: { status: 201; body: unknown }) => void };
+const createLoop = vi.fn((_vars: LoopVars, opts?: LoopOpts) =>
   opts?.onSuccess?.({ status: 201, body: {} }),
 );
-vi.mock("../../../goals/mutations", () => ({
-  useCreateGoalMutation: () => ({ mutate: createGoal, isPending: false }),
+vi.mock("../../../loops/mutations", () => ({
+  useCreateLoopMutation: () => ({ mutate: createLoop, isPending: false }),
 }));
 
 describe("TaskCommandLine (Phase 118b task-launch container)", () => {
   beforeEach(() => {
     push.mockClear();
     createTask.mockClear();
-    createGoal.mockClear();
+    createLoop.mockClear();
     limitsResetAt.value = null;
   });
 
@@ -331,7 +331,7 @@ describe("TaskCommandLine (Phase 118b task-launch container)", () => {
     expect(screen.getByTestId(DropDownButtonTestId.Primary)).toBeDisabled();
   });
 
-  it("dispatches via createGoal then createTask once the loop form is complete", async () => {
+  it("dispatches via createLoop then createTask once the loop form is complete", async () => {
     const user = userEvent.setup();
     render(
       <TaskCommandLine
@@ -352,8 +352,8 @@ describe("TaskCommandLine (Phase 118b task-launch container)", () => {
     );
     await user.click(screen.getByTestId(DropDownButtonTestId.Primary));
 
-    expect(createGoal).toHaveBeenCalledTimes(1);
+    expect(createLoop).toHaveBeenCalledTimes(1);
     expect(createTask).toHaveBeenCalledTimes(1);
-    expect(createTask.mock.calls[0]?.[0].body.target?.kind).toBe("goal");
+    expect(createTask.mock.calls[0]?.[0].body.target?.kind).toBe("loop");
   });
 });

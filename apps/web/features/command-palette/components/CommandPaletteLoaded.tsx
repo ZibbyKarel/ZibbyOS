@@ -15,7 +15,6 @@ import { useAppearance } from "../../../state/appearance";
 import { useDepartmentsQuery } from "../../departments/queries";
 import { useAgentsQuery } from "../../agents/queries";
 import { useTaskParentsInfiniteQuery } from "../../tasks/queries";
-import { useGoalsQuery } from "../../goals/queries";
 import { useCompaniesQuery } from "../../companies/queries";
 import { useTeamsQuery } from "../../teams/queries";
 import { useProjectsQuery } from "../../projects/queries";
@@ -68,7 +67,6 @@ export function CommandPaletteLoaded({
   const { data: departments } = useDepartmentsQuery();
   const { data: agents } = useAgentsQuery();
   const { data: tasks } = useTaskParentsInfiniteQuery({});
-  const { data: goals } = useGoalsQuery();
   const { data: companies } = useCompaniesQuery();
   const { data: teams } = useTeamsQuery();
   const { data: projects } = useProjectsQuery();
@@ -103,7 +101,6 @@ export function CommandPaletteLoaded({
             department: a.department,
           })),
           tasks: (tasks ?? []).map((t) => ({ id: t.id, title: t.title, department: t.department })),
-          goals: (goals ?? []).map((g) => ({ id: g.id, name: g.name, objective: g.objective })),
           companies: (companies ?? []).map((c) => ({ id: c.id, name: c.name })),
           teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
           projects: (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
@@ -130,7 +127,6 @@ export function CommandPaletteLoaded({
       departments,
       agents,
       tasks,
-      goals,
       companies,
       teams,
       projects,

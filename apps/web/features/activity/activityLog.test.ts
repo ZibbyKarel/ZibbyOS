@@ -11,7 +11,7 @@ const ALL_VISIBLE: ActivityView = {
   tasks: "visible",
   runs: "visible",
   workflows: "visible",
-  goals: "visible",
+  loops: "visible",
   approvals: "visible",
   channels: "visible",
   integrations: "visible",

@@ -29,11 +29,11 @@ describe("Unified run surface (Phase D guard)", () => {
     // Direct-start routes are gone (you start a run only via POST /api/tasks).
     await request(http()).post("/api/agents/whoever/run").send({ prompt: "x" }).expect(404);
     await request(http()).post("/api/workflows/whatever/run").send({ project: "" }).expect(404);
-    await request(http()).post("/api/goals/whichever/run").send({}).expect(404);
+    await request(http()).post("/api/loops/whichever/run").send({}).expect(404);
     // Run-history / list routes are gone (the unified feed replaces them).
     await request(http()).get("/api/agents/runs").expect(404);
     await request(http()).get("/api/workflows/run-history").expect(404);
-    await request(http()).get("/api/goals/run-history").expect(404);
+    await request(http()).get("/api/loops/run-history").expect(404);
     // Per-kind run lifecycle routes are gone (they live on /api/tasks/runs now).
     await request(http()).get("/api/agents/runs/nope/logs").expect(404);
     await request(http()).post("/api/workflows/runs/nope/resume").send({}).expect(404);

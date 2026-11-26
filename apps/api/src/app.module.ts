@@ -18,7 +18,7 @@ import { CommandsModule } from "./commands/commands.module";
 import { CompaniesModule } from "./companies/companies.module";
 import { EventsModule } from "./events/events.module";
 import { GateRulesModule } from "./gate-rules/gate-rules.module";
-import { GoalsModule } from "./goals/goals.module";
+import { LoopsModule } from "./loops/loops.module";
 import { HealthModule } from "./health/health.module";
 import { WatcherHealthModule } from "./health/watcher-health.module";
 import { HooksModule } from "./hooks/hooks.module";
@@ -97,7 +97,7 @@ import { InstanceLockReleaser } from "./shared/instance-role";
     TeamsModule,
     DepartmentsStoreModule,
     WorkflowsModule,
-    GoalsModule,
+    LoopsModule,
     ApprovalsModule,
     ArtifactsModule,
     CanvasModule,

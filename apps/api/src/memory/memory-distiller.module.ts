@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AgentsModule } from "../agents/agents.module";
 import { ChatModule } from "../chat/chat.module";
-import { GoalsModule } from "../goals/goals.module";
+import { LoopsModule } from "../loops/loops.module";
 import { WorkflowsModule } from "../workflows/workflows.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ClaudeCliDistiller } from "./claude-cli-distiller";
@@ -9,7 +9,7 @@ import { MemoryModule } from "./memory.module";
 import { MemoryDistillerService } from "./memory-distiller.service";
 
 /**
- * Nightly memory distillation. Consumes the three runners (Agents/Workflows/Goals)
+ * Nightly memory distillation. Consumes the three runners (Agents/Workflows/Loops)
  * AND the vault (Memory), so it sits a level ABOVE all of them — the runners already
  * import Memory for grounding, so a distiller inside MemoryModule would close a Nest
  * DI cycle. Same shape as RunRecorderModule and BriefingModule. AutomationsModule
@@ -17,7 +17,7 @@ import { MemoryDistillerService } from "./memory-distiller.service";
  * nothing here imports AutomationsModule, so there is no cycle.
  */
 @Module({
-  imports: [MemoryModule, AgentsModule, WorkflowsModule, GoalsModule, ProjectsModule, ChatModule],
+  imports: [MemoryModule, AgentsModule, WorkflowsModule, LoopsModule, ProjectsModule, ChatModule],
   providers: [ClaudeCliDistiller, MemoryDistillerService],
   exports: [MemoryDistillerService],
 })

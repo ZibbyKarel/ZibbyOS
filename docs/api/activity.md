@@ -46,9 +46,9 @@ type ActivityKind =
   | "run-paused-limit" // a run halted on the subscription usage limit
   | "run-resumed-limit" // ...and auto-resumed when the window reset
   | "task-deferred-limit" // a task was re-deferred at dispatch (window exhausted)
-  | "goal-dispatched" // a goal's maker/verifier loop dispatched an iteration
-  | "goal-verdict"
-  | "goal-parked" // bounded effort exhausted
+  | "loop-dispatched" // a loop's maker/verifier loop dispatched an iteration
+  | "loop-verdict"
+  | "loop-parked" // bounded effort exhausted
   | "approval-requested"
   | "approval-approved"
   | "approval-rejected"
@@ -83,8 +83,8 @@ interface ActivityRefs {
   runRef?: string;
   workflowId?: string;
   agentId?: string;
-  goalRunId?: string;
-  goalId?: string;
+  loopRunId?: string;
+  loopId?: string;
   projectId?: string; // project attribution (Phase 8)
   automationId?: string; // the signal-triggered automation that dispatched
   approvalId?: string;
@@ -154,7 +154,7 @@ format.
 
 An operator-owned document (twin of `mandate.json`) controls how the activity
 log is rendered in the right rail (the live log). Every **group** of kinds
-(`tasks · runs · workflows · goals · approvals · channels · integrations ·
+(`tasks · runs · workflows · loops · approvals · channels · integrations ·
 briefing`) has a mode: `visible` (each entry shown individually),
 `grouped` (merged into one row with a count), or `hidden` (left out of the log
 entirely). The kind → group map and defaults live in
@@ -184,7 +184,7 @@ briefing, not a firehose:
 > about feature Y; I answered. Nothing else needs you."
 
 `BriefingService` (`apps/api/src/briefing/briefing.service.ts`) assembles it
-from pending approvals, parked runs/goals, in-flight channel items, and
+from pending approvals, parked runs/loops, in-flight channel items, and
 activity since the last briefing; `briefing-assembly.ts` is the pure function
 that groups and filters that into `BriefingItem[]` sections; `claude-cli-briefer.ts`
 is an optional richer-prose pass over CLI. A cron-triggered `briefing` automation

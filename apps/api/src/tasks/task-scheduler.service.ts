@@ -15,7 +15,7 @@ import type {
   CreateTaskInput,
   CreateTaskResult,
   DepartmentId,
-  GoalRun,
+  LoopRun,
   Project,
   ScheduledTask,
   TaskOutcome,
@@ -37,7 +37,7 @@ import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { WatcherHealthRegistry } from "../health/watcher-health.registry";
 import { LimitsService } from "../limits/limits.service";
 import { type RunSlot, RunSlots } from "../run-slots/run-slots.service";
-import { GoalRunnerService } from "../goals/goal-runner.service";
+import { LoopRunnerService } from "../loops/loop-runner.service";
 import { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -154,12 +154,12 @@ const ATTACHMENT_TTL_MS = 24 * 60 * 60 * 1000;
 /** Agent run statuses that free a concurrency slot. */
 const TERMINAL_AGENT = new Set<AgentRun["status"]>(["done", "error", "interrupted"]);
 /**
- * Workflow / goal run statuses that free a run slot. `parked` and `paused-limit` keep
+ * Workflow / loop run statuses that free a run slot. `parked` and `paused-limit` keep
  * it (the run is still in flight, waiting on the operator or the usage window). An
  * operator "continue" re-queues the task and takes a new slot ({@link queueContinue}).
  */
 const TERMINAL_WORKFLOW = new Set<WorkflowRun["status"]>(["done", "failed", "interrupted"]);
-const TERMINAL_GOAL = new Set<GoalRun["status"]>(["done", "failed", "interrupted"]);
+const TERMINAL_LOOP = new Set<LoopRun["status"]>(["done", "failed", "interrupted"]);
 
 /**
  * The deferred-task daemon. {@link createTask} is the single action behind the New
@@ -199,9 +199,9 @@ export class TaskSchedulerService
   private readonly budgetApproved = new Set<string>();
   /**
    * The run slot each in-flight dispatched run holds, keyed by its run ref (agent
-   * `runId`, `workflowRunId` or `goalRunId`) — taken in {@link dispatch}, released on
+   * `runId`, `workflowRunId` or `loopRunId`) — taken in {@link dispatch}, released on
    * the run's terminal status. Runs a run starts itself (a workflow's sub-run, a
-   * goal's maker/verifier iterations) are not dispatched here and ride on the
+   * loop's maker/verifier iterations) are not dispatched here and ride on the
    * parent's slot.
    */
   private readonly runSlots = new Map<string, RunSlot>();
@@ -218,7 +218,7 @@ export class TaskSchedulerService
     private readonly agentsStore: AgentsStorageService,
     /** The run-slot limiter every dispatched run takes a slot from. */
     private readonly slots: RunSlots,
-    private readonly goalRunner: GoalRunnerService,
+    private readonly loopRunner: LoopRunnerService,
     private readonly logger: LoggerService,
     private readonly trace: TraceContextService,
     private readonly activity: ActivityLogService,
@@ -276,10 +276,10 @@ export class TaskSchedulerService
           this.requestDrain();
         }
       }),
-      this.goalRunner.onRunStatus((run) => {
-        if (run.taskId) void this.writeGoalOutcome(run.taskId, run);
-        if (TERMINAL_GOAL.has(run.status)) {
-          this.releaseRunSlot(run.goalRunId);
+      this.loopRunner.onRunStatus((run) => {
+        if (run.taskId) void this.writeLoopOutcome(run.taskId, run);
+        if (TERMINAL_LOOP.has(run.status)) {
+          this.releaseRunSlot(run.loopRunId);
           this.requestDrain();
         }
       }),
@@ -345,7 +345,7 @@ export class TaskSchedulerService
    * queued-drain and the scheduled-tick recover their own waiting states, this re-runs
    * the classify+spawn so the work still executes (Law 5: a described task is never
    * silently dropped). The title is already persisted, so it dispatches as-is (no
-   * re-titling); a pre-chosen `target` (a goal loop) rides along exactly as on create.
+   * re-titling); a pre-chosen `target` (a loop) rides along exactly as on create.
    */
   private async recoverPending(): Promise<void> {
     const tasks = await this.storage.list().catch((): ScheduledTask[] => []);
@@ -383,7 +383,7 @@ export class TaskSchedulerService
     trustedProjectId?: string,
     /**
      * Phase 10: a pre-chosen target that bypasses classification (an approved
-     * proposed-task whose suggested target is a goal/agent/workflow). The immediate
+     * proposed-task whose suggested target is a loop/agent/workflow). The immediate
      * dispatch path routes straight to it; absent → classify as before.
      */
     explicitTarget?: TaskTarget,
@@ -445,7 +445,7 @@ export class TaskSchedulerService
       : [];
     const resolvedInput: CreateTaskInputResolved = { ...input, attachments };
     // Phase 11: the unified composer carries a pre-chosen target on the wire (a
-    // scheduled loop's goal). A server-side `explicitTarget` arg (proposed-task
+    // scheduled loop's loop). A server-side `explicitTarget` arg (proposed-task
     // resume) still wins when both are present.
     const rawTarget = explicitTarget ?? input.target;
     // Phase 91: an explicit department target is resolved to a concrete workflow
@@ -1185,7 +1185,7 @@ export class TaskSchedulerService
     }
     const guard = await this.guardExisting(task, project, at, opts.skipBudget);
     if (guard !== "ok") return guard;
-    // Phase 10: a task that already carries a target (e.g. a goal, never classifiable,
+    // Phase 10: a task that already carries a target (e.g. a loop, never classifiable,
     // or a task queued for a run slot after its classification) re-dispatches to it;
     // otherwise classify as before.
     const dispatched =
@@ -1386,8 +1386,8 @@ export class TaskSchedulerService
     taskId: string,
     projectId: string | undefined,
     /**
-     * Phase 10: a pre-chosen target that BYPASSES classification — a goal is never
-     * auto-classified, so a goal-targeted task (the goals contract / an approved
+     * Phase 10: a pre-chosen target that BYPASSES classification — a loop is never
+     * auto-classified, so a loop-targeted task (the loops contract / an approved
      * proposed-task) carries its target explicitly. Absent → classify as before.
      */
     explicitTarget?: TaskTarget,
@@ -1401,7 +1401,7 @@ export class TaskSchedulerService
     /**
      * Task 8: the task's persisted attachment set id + resolved metadata (Task 6).
      * When present, an absolute reference dir + the filenames are threaded into the
-     * agent/orchestrator/goal runner (Task 7's `--add-dir` grant). Absent → no
+     * agent/orchestrator/loop runner (Task 7's `--add-dir` grant). Absent → no
      * attachments (every pre-attachments caller is unaffected).
      */
     attachmentSetId?: string,
@@ -1545,16 +1545,16 @@ export class TaskSchedulerService
       );
       return { runRef: run.workflowRunId, target, classification };
     }
-    if (target.kind === "goal") {
-      const goalId = target.id;
-      // Phase 10: route a goal-targeted task through the outer-loop runner. It flows
-      // the projectId/taskId through so the goal writes its outcome back exactly like
+    if (target.kind === "loop") {
+      const loopId = target.id;
+      // Phase 10: route a loop-targeted task through the outer-loop runner. It flows
+      // the projectId/taskId through so the loop writes its outcome back exactly like
       // any other dispatched run. Its maker/verifier iterations ride on this slot.
       const run = await this.startHolding(
         slot,
         () =>
-          this.goalRunner.start(
-            goalId,
+          this.loopRunner.start(
+            loopId,
             text,
             projectId ?? "",
             paths,
@@ -1563,10 +1563,10 @@ export class TaskSchedulerService
             matchedTerms,
             runAttachments,
           ),
-        (r) => r.goalRunId,
-        (r) => TERMINAL_GOAL.has(this.liveStatus(() => this.goalRunner.get(r.goalRunId), r)),
+        (r) => r.loopRunId,
+        (r) => TERMINAL_LOOP.has(this.liveStatus(() => this.loopRunner.get(r.loopRunId), r)),
       );
-      return { runRef: run.goalRunId, target, classification };
+      return { runRef: run.loopRunId, target, classification };
     }
     // Phase 4a (Agent Factory telemetry): record a fallback ONLY when the
     // classifier itself picked the orchestrator (its terminal "nothing matched
@@ -1618,7 +1618,7 @@ export class TaskSchedulerService
   }
 
   /**
-   * Continue a queued run under a fresh run slot: a workflow/goal continues in place,
+   * Continue a queued run under a fresh run slot: a workflow/loop continues in place,
    * an agent re-runs (`--resume` when it captured a session). Null when there is no
    * phase/iteration left to continue at — the caller then dispatches the task fresh
    * (the note appended to its text; `markDispatched` drops the marker).
@@ -1651,13 +1651,13 @@ export class TaskSchedulerService
           TERMINAL_WORKFLOW.has(this.liveStatus(() => this.workflowRunner.get(r.workflowRunId), r)),
       );
       ref = run?.workflowRunId;
-    } else if (kind === "goal") {
+    } else if (kind === "loop") {
       const run = await hold(
-        () => this.goalRunner.continueFailed(runRef),
-        (r) => r.goalRunId,
-        (r) => TERMINAL_GOAL.has(this.liveStatus(() => this.goalRunner.get(r.goalRunId), r)),
+        () => this.loopRunner.continueFailed(runRef),
+        (r) => r.loopRunId,
+        (r) => TERMINAL_LOOP.has(this.liveStatus(() => this.loopRunner.get(r.loopRunId), r)),
       );
-      ref = run?.goalRunId;
+      ref = run?.loopRunId;
     } else {
       const run = await hold(
         () => this.agentRunner.rerun(runRef, { note }),
@@ -1929,8 +1929,8 @@ export class TaskSchedulerService
     try {
       if (task.target?.kind === "workflow") {
         await this.writeWorkflowOutcome(task.id, this.workflowRunner.get(task.runRef));
-      } else if (task.target?.kind === "goal") {
-        await this.writeGoalOutcome(task.id, this.goalRunner.get(task.runRef));
+      } else if (task.target?.kind === "loop") {
+        await this.writeLoopOutcome(task.id, this.loopRunner.get(task.runRef));
       } else {
         await this.writeAgentOutcome(task.id, this.agentRunner.get(task.runRef));
       }
@@ -2277,7 +2277,7 @@ export class TaskSchedulerService
     return after?.prAddressComments?.state === "failed" ? "fail" : "handled";
   }
 
-  private async writeGoalOutcome(taskId: string, run: GoalRun): Promise<void> {
+  private async writeLoopOutcome(taskId: string, run: LoopRun): Promise<void> {
     if (run.status !== "done" && run.status !== "failed") return;
     const verified = run.iterations.filter((i) => i.verifier.satisfied).length;
     const outcome: TaskOutcome = {
@@ -2291,7 +2291,7 @@ export class TaskSchedulerService
         const task = await this.storage.writeOutcome(taskId, outcome);
         this.log.info("task outcome written", {
           taskId,
-          runRef: run.goalRunId,
+          runRef: run.loopRunId,
           status: run.status,
         });
         void this.activity.record({
@@ -2299,13 +2299,13 @@ export class TaskSchedulerService
           summary: `task ${outcome.status}: ${outcome.summary}`,
           refs: {
             taskId,
-            runRef: run.goalRunId,
+            runRef: run.loopRunId,
             status: outcome.status,
             ...(task.projectId ? { projectId: task.projectId } : {}),
           },
         });
-        // Phase 12: no cost line here — `GoalRunSchema` carries no top-level `costUsd`
-        // (only its per-iteration makers do, tracked by `goal-runner.service.ts`'s own
+        // Phase 12: no cost line here — `LoopRunSchema` carries no top-level `costUsd`
+        // (only its per-iteration makers do, tracked by `loop-runner.service.ts`'s own
         // `recordDispatch`, dispatch-only). Cost lines currently flow only from the
         // agent/workflow outcome paths above.
       } catch (error) {

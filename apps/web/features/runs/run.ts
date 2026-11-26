@@ -3,9 +3,9 @@ import type { DotTone, IconName, LegacyStateTone, TagTone } from "@zibby/design-
 
 /**
  * The Runs screen is a task feed: what the user asked for is the headline, the
- * agent/workflow/goal that processes it is metadata (`processor`). The merge that
+ * agent/workflow/loop that processes it is metadata (`processor`). The merge that
  * used to live here (the per-kind run lists + still-waiting scheduled tasks, with a
- * goal's child runs folded out) now runs server-side — this file is types + the
+ * loop's child runs folded out) now runs server-side — this file is types + the
  * pure presentation helpers the feed/detail render with.
  *
  * `RunView` is the web alias of the contract's {@link TaskRun}: a single import-swap
@@ -43,7 +43,7 @@ export function findSelectedRun(list: readonly RunView[], selId: string | null):
  * 43 — `stopTaskRun` generalized past agent-only). A `scheduled` row has no run
  * behind it yet — nothing to interrupt.
  */
-const STOPPABLE_KINDS = new Set<RunKind>(["agent", "workflow", "goal"]);
+const STOPPABLE_KINDS = new Set<RunKind>(["agent", "workflow", "loop"]);
 
 /** Not yet started: the Bridge Runs widget lists these below the started runs in its Active group. */
 export const WAITING_STATES = new Set(["scheduled", "queued", "held"]);
@@ -61,14 +61,14 @@ export function isStoppableRun(run: Pick<RunView, "kind" | "status">): boolean {
       return true;
     // Held on an approval: a workflow's stage child, or an agent's held intent (cancel denies it).
     case "awaiting-approval":
-      return run.kind !== "goal";
+      return run.kind !== "loop";
     // A parked/paused workflow has no process — stop cancels it (→ interrupted).
     case "parked":
     case "paused":
       return run.kind === "workflow";
-    // Waiting on the usage window — stop drops the auto-resume (goals have no such path yet).
+    // Waiting on the usage window — stop drops the auto-resume (loops have no such path yet).
     case "paused-limit":
-      return run.kind !== "goal";
+      return run.kind !== "loop";
     default:
       return false;
   }
@@ -94,7 +94,7 @@ export function isPausableRun(run: Pick<RunView, "kind" | "status" | "pauseReque
 /**
  * Whether the "Resume" (re-run) action applies: a run that ended in error or
  * interrupted. An AGENT run re-runs in place (Phase 49 — continuing its claude session
- * via `--resume` when one was captured, see {@link RunView.sessionId}); a workflow/goal
+ * via `--resume` when one was captured, see {@link RunView.sessionId}); a workflow/loop
  * run continues from the phase/iteration it stopped on (the API falls back to a fresh
  * task re-run when nothing ran yet).
  */
@@ -103,7 +103,7 @@ export function isResumableRun(run: Pick<RunView, "kind" | "status" | "parked">)
   // (e.g. a legacy staffing park) has nothing else to offer, so it gets the plain re-run button.
   const parkedNoPanel = run.status === "parked" && !run.parked;
   if (run.status !== "error" && run.status !== "interrupted" && !parkedNoPanel) return false;
-  return run.kind === "agent" || run.kind === "workflow" || run.kind === "goal";
+  return run.kind === "agent" || run.kind === "workflow" || run.kind === "loop";
 }
 
 /**
@@ -353,7 +353,7 @@ export function runStateTone(status: FeedStatus): LegacyStateTone | undefined {
 const KIND_GLYPH: Record<RunKind, IconName> = {
   agent: "bot",
   workflow: "flow",
-  goal: "retry",
+  loop: "retry",
   scheduled: "clock",
 };
 

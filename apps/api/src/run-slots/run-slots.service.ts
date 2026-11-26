@@ -7,7 +7,7 @@ export type RunSlot = () => void;
 /**
  * The only concurrency throttle (docs/plans/remove-employees.md, decision 2): one
  * slot per run instance the task system starts — a single-agent, orchestrator,
- * workflow or goal run, however many agents it spawns inside. At most
+ * workflow or loop run, however many agents it spawns inside. At most
  * `systemConfig.maxConcurrentRuns` runs hold a slot at once, and at most the
  * project's `budget.maxConcurrent` (when set) inside one project. A run holds its
  * slot until its terminal status, including while it waits on an approval. Nothing

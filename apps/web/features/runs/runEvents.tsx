@@ -33,7 +33,7 @@ export interface RunStatusEvent {
   scope:
     | "agent-runs"
     | "workflow-runs"
-    | "goal-runs"
+    | "loop-runs"
     | "channel-items"
     | "activity"
     | "approvals"
@@ -172,14 +172,14 @@ export function RunEventsProvider({ children }: { children: ReactNode }) {
         }
       } else if (parsed.scope === "workflow-runs" && parsed.runId) {
         void qc.invalidateQueries({ queryKey: taskRunsRootKey });
-        // The single-run aggregate (a goal's workflow maker timeline) is keyed by id.
+        // The single-run aggregate (a loop's workflow maker timeline) is keyed by id.
         void qc.invalidateQueries({ queryKey: getWorkflowRunQueryKey(parsed.runId) });
         void qc.invalidateQueries({ queryKey: getBudgetQueryKey() });
         if (parsed.status === "parked") {
           void qc.invalidateQueries({ queryKey: getApprovalsQueryKey() });
         }
-      } else if (parsed.scope === "goal-runs") {
-        // Phase 10: a goal transition refreshes the feed; a parked goal is a Tier-3
+      } else if (parsed.scope === "loop-runs") {
+        // Phase 10: a loop transition refreshes the feed; a parked loop is a Tier-3
         // decision, so refresh the approvals/briefing surfaces it rides too.
         void qc.invalidateQueries({ queryKey: taskRunsRootKey });
         void qc.invalidateQueries({ queryKey: getBudgetQueryKey() });

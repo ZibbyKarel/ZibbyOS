@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   INITIAL_LOOP_STATE,
   type LoopFormState,
-  buildCreateGoalBody,
+  buildCreateLoopBody,
   canSubmitLoop,
   decodeMaker,
   encodeMaker,
-  makeGoalId,
+  makeLoopId,
   slugify,
 } from "./loop";
 
@@ -45,19 +45,19 @@ describe("encodeMaker / decodeMaker", () => {
   });
 });
 
-describe("slugify / makeGoalId", () => {
+describe("slugify / makeLoopId", () => {
   it("produces a filename-safe lowercase-kebab slug, stripping diacritics", () => {
     expect(slugify("Zkontroluj zálohy na Holly!")).toBe("zkontroluj-zalohy-na-holly");
   });
 
   it("falls back to 'loop' and appends a base-36 time suffix for uniqueness", () => {
-    expect(makeGoalId("", 0)).toBe("loop-0");
-    const id = makeGoalId("Ship it", 123456789);
+    expect(makeLoopId("", 0)).toBe("loop-0");
+    const id = makeLoopId("Ship it", 123456789);
     expect(id).toMatch(/^ship-it-[a-z0-9]+$/);
   });
 
   it("keeps the seed within the 128-char id cap", () => {
-    const id = makeGoalId("x".repeat(200), 1);
+    const id = makeLoopId("x".repeat(200), 1);
     expect(id.length).toBeLessThanOrEqual(128);
   });
 });
@@ -83,11 +83,11 @@ describe("canSubmitLoop", () => {
   });
 });
 
-describe("buildCreateGoalBody", () => {
-  it("maps the form to a claude-verified goal, defaulting instructions to the objective", () => {
-    const body = buildCreateGoalBody(loop(), "goal-1", "  ");
+describe("buildCreateLoopBody", () => {
+  it("maps the form to a claude-verified loop, defaulting instructions to the objective", () => {
+    const body = buildCreateLoopBody(loop(), "loop-1", "  ");
     expect(body).toEqual({
-      id: "goal-1",
+      id: "loop-1",
       name: undefined,
       objective: "All e2e tests pass",
       maker: { kind: "agent", id: "koder" },
@@ -98,9 +98,9 @@ describe("buildCreateGoalBody", () => {
   });
 
   it("trims the title and instructions when present", () => {
-    const body = buildCreateGoalBody(
+    const body = buildCreateLoopBody(
       loop({ instructions: " follow CLAUDE.md " }),
-      "goal-2",
+      "loop-2",
       " Green CI ",
     );
     expect(body.name).toBe("Green CI");

@@ -34,7 +34,7 @@ Imports in `AppModule`, in the order they're registered:
 | `ProjectsModule`          | `projects/projects.module`             | Projects, categories, matching                                                                                                                                                                                           |
 | `CompaniesModule`         | `companies/companies.module`           | Company registry CRUD (client/org records)                                                                                                                                                                               |
 | `WorkflowsModule`         | `workflows/workflows.module`           | Workflow CRUD + orchestration                                                                                                                                                                                            |
-| `GoalsModule`             | `goals/goals.module`                   | Goal loop engine (maker/verifier cycle)                                                                                                                                                                                  |
+| `LoopsModule`             | `loops/loops.module`                   | Loop engine (maker/verifier cycle)                                                                                                                                                                                       |
 | `ApprovalsModule`         | `approvals/approvals.module`           | Approvals (all kinds)                                                                                                                                                                                                    |
 | `ArtifactsModule`         | `artifacts/artifacts.module`           | Durable artifact provenance registry                                                                                                                                                                                     |
 | `GateRulesModule`         | `gate-rules/gate-rules.module`         | Global gate-rule catalog                                                                                                                                                                                                 |
@@ -113,7 +113,7 @@ data/
 ├── budget-ledger/       spend-ledger JSON records
 ├── gate-rules.json      global gate-rule catalog (single file, not a directory)
 ├── channels/            channel-item JSON state
-├── goals/               goal definitions + run state
+├── loops/               loop definitions + run state
 ├── artifacts/            durable artifact provenance registry
 ├── hooks/                custom Claude Code hook catalog
 ├── mcp-servers/          MCP server catalog (committed config)

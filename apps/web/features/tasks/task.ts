@@ -2,7 +2,7 @@ import type {
   TaskRouting as ApiTaskRouting,
   TaskTarget as ApiTaskTarget,
   DepartmentId,
-  ProposedGoal,
+  ProposedLoop,
   ResolvedPath,
   TaskMode,
 } from "@zibby/contracts";
@@ -10,7 +10,7 @@ import type { IconName } from "@zibby/design-system";
 
 export type { DepartmentId };
 
-export type { ProposedGoal, ResolvedPath, TaskMode };
+export type { ProposedLoop, ResolvedPath, TaskMode };
 
 /**
  * Detects file/folder references inside a free-text task description so they can
@@ -59,11 +59,11 @@ export function basename(path: string): string {
 }
 
 /**
- * A destination for a task — an agent, workflow, goal, a named department
+ * A destination for a task — an agent, workflow, loop, a named department
  * (Phase 91, explicit-only — never emitted by the top-level classifier), or the
  * orchestrator fallback.
  */
-export type TaskTargetKind = "agent" | "workflow" | "goal" | "department" | "orchestrator";
+export type TaskTargetKind = "agent" | "workflow" | "loop" | "department" | "orchestrator";
 
 /** A stable key for a target, used to pre-select and dedupe entries in the picker. */
 export function targetKey(target: TaskTarget): string {
@@ -91,8 +91,8 @@ export function toApiTarget(target: TaskTarget) {
       return { kind: "agent" as const, id: target.id, name, glyph, category };
     case "workflow":
       return { kind: "workflow" as const, id: target.id, name, glyph, category };
-    case "goal":
-      return { kind: "goal" as const, id: target.id, name, glyph, category };
+    case "loop":
+      return { kind: "loop" as const, id: target.id, name, glyph, category };
     case "department":
       return { kind: "department" as const, id: target.id, name, glyph, category };
   }
@@ -107,7 +107,7 @@ interface TaskTargetDisplay {
 }
 
 /**
- * Mirrors the contract's discriminated union: agents/workflows/goals carry
+ * Mirrors the contract's discriminated union: agents/workflows/loops carry
  * the filesystem-safe `id` of their stored definition, a department (Phase 91)
  * carries the closed `DepartmentId` enum, and the orchestrator is synthetic (no
  * stored definition, no id) and exists in the UI purely as a name + glyph.
@@ -124,7 +124,7 @@ export type TaskTarget = TaskTargetDisplay &
   (
     | { kind: "agent"; id: string }
     | { kind: "workflow"; id: string }
-    | { kind: "goal"; id: string }
+    | { kind: "loop"; id: string }
     | { kind: "department"; id: DepartmentId }
     | { kind: "orchestrator" }
   );
@@ -145,8 +145,8 @@ export interface TaskRouting {
   candidates: TaskTarget[];
   /** Phase 11: execute as a one-shot dispatch (`single`) or a synthesized `loop`. */
   mode: TaskMode;
-  /** Phase 11: the synthesized goal proposal when `mode === "loop"`, else `null`. */
-  proposedGoal: ProposedGoal | null;
+  /** Phase 11: the synthesized loop proposal when `mode === "loop"`, else `null`. */
+  proposedLoop: ProposedLoop | null;
   /** Phase 11: detected paths resolved against the project registry (scoped vs grant). */
   paths: ResolvedPath[];
   /**
@@ -187,7 +187,7 @@ export interface TaskRouting {
 const KIND_FALLBACK_GLYPH: Record<TaskTargetKind, IconName> = {
   agent: "bot",
   workflow: "flow",
-  goal: "retry",
+  loop: "retry",
   department: "grid",
   orchestrator: "compass",
 };
@@ -209,8 +209,8 @@ export function toClientTarget(target: ApiTaskTarget): TaskTarget {
       return { kind: "agent", id: target.id, ...display };
     case "workflow":
       return { kind: "workflow", id: target.id, ...display };
-    case "goal":
-      return { kind: "goal", id: target.id, ...display };
+    case "loop":
+      return { kind: "loop", id: target.id, ...display };
     case "department":
       return { kind: "department", id: target.id, ...display };
   }
@@ -225,7 +225,7 @@ export function toClientRouting(body: ApiTaskRouting): TaskRouting {
     matchedTerms: body.matchedTerms,
     candidates: body.candidates.map(toClientTarget),
     mode: body.mode,
-    proposedGoal: body.proposedGoal,
+    proposedLoop: body.proposedLoop,
     paths: body.paths,
     toolGrants: body.toolGrants ?? [],
     ambiguous: body.ambiguous ?? false,

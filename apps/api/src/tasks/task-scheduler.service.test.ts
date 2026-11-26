@@ -90,7 +90,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
   let workflowsStore: { list: ReturnType<typeof vi.fn> };
   /** F2b — {@link TaskSchedulerService}'s owned-agents lookup for department resolution. */
   let agentsStore: { listActive: ReturnType<typeof vi.fn> };
-  let goalRunner: {
+  let loopRunner: {
     start: ReturnType<typeof vi.fn>;
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
@@ -165,10 +165,10 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
     };
     workflowsStore = { list: vi.fn(async () => []) };
     agentsStore = { listActive: vi.fn(async () => []) };
-    goalRunner = {
-      start: vi.fn(async () => ({ goalRunId: "goal_1" })),
+    loopRunner = {
+      start: vi.fn(async () => ({ loopRunId: "loop_1" })),
       onRunStatus: vi.fn(() => () => {}),
-      get: vi.fn(() => ({ goalRunId: "goal_1", status: "done", iterations: [] })),
+      get: vi.fn(() => ({ loopRunId: "loop_1", status: "done", iterations: [] })),
     };
     classifier = {
       classify: vi.fn(async () => ({
@@ -230,7 +230,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
       workflowsStore as never,
       agentsStore as never,
       new RunSlots(fakeSystemConfigStore()),
-      goalRunner as never,
+      loopRunner as never,
       fakeLogger as never,
       fakeTrace as never,
       activity as never,
@@ -489,7 +489,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         workflowsStore as never,
         agentsStore as never,
         new RunSlots(fakeSystemConfigStore()),
-        goalRunner as never,
+        loopRunner as never,
         logger as never,
         fakeTrace as never,
         activity as never,
@@ -577,7 +577,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
       workflowsStore as never,
       agentsStore as never,
       new RunSlots(fakeSystemConfigStore()),
-      goalRunner as never,
+      loopRunner as never,
       fakeLogger as never,
       fakeTrace as never,
       activity as never,
@@ -1230,7 +1230,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
       });
       const result = await service.createTask({
@@ -1274,7 +1274,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
       });
       const result = await service.createTask({
@@ -1383,7 +1383,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
       });
       const result = await service.createTask({
@@ -1475,7 +1475,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
       });
       await service.createTask({
@@ -1537,7 +1537,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
       });
       await service.createTask({
@@ -1569,7 +1569,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
         matchedTerms: ["code"],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         leg: "router",
       });
@@ -1583,7 +1583,7 @@ describe("TaskSchedulerService — task → run → outcome linkage", () => {
           { kind: "workflow", id: "delivery", name: "Delivery" },
         ],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         leg: "scorer",
       });
@@ -2331,10 +2331,10 @@ describe("Task 3b — concurrent terminal handlers must not double-open a PR (fi
     };
     const workflowsStore = { list: vi.fn(async () => []) };
     const agentsStore = { listActive: vi.fn(async () => []) };
-    const goalRunner = {
-      start: vi.fn(async () => ({ goalRunId: "goal_1" })),
+    const loopRunner = {
+      start: vi.fn(async () => ({ loopRunId: "loop_1" })),
       onRunStatus: vi.fn(() => () => {}),
-      get: vi.fn(() => ({ goalRunId: "goal_1", status: "done", iterations: [] })),
+      get: vi.fn(() => ({ loopRunId: "loop_1", status: "done", iterations: [] })),
     };
     const classifier = {
       classify: vi.fn(async () => ({
@@ -2396,7 +2396,7 @@ describe("Task 3b — concurrent terminal handlers must not double-open a PR (fi
       workflowsStore as never,
       agentsStore as never,
       new RunSlots(fakeSystemConfigStore()),
-      goalRunner as never,
+      loopRunner as never,
       fakeLogger as never,
       fakeTrace as never,
       activity as never,
@@ -2498,10 +2498,10 @@ describe("Task 3c — project-capacity lock closes the budget check→record rac
     };
     const workflowsStore = { list: vi.fn(async () => []) };
     const agentsStore = { listActive: vi.fn(async () => []) };
-    const goalRunner = {
-      start: vi.fn(async () => ({ goalRunId: "goal_1" })),
+    const loopRunner = {
+      start: vi.fn(async () => ({ loopRunId: "loop_1" })),
       onRunStatus: vi.fn(() => () => {}),
-      get: vi.fn(() => ({ goalRunId: "goal_1", status: "done", iterations: [] })),
+      get: vi.fn(() => ({ loopRunId: "loop_1", status: "done", iterations: [] })),
     };
     let runId = 0;
     let onRunStatusListener: ((run: AgentRun) => void) | undefined;
@@ -2569,7 +2569,7 @@ describe("Task 3c — project-capacity lock closes the budget check→record rac
       workflowsStore as never,
       agentsStore as never,
       new RunSlots(fakeSystemConfigStore({ maxConcurrentRuns })),
-      goalRunner as never,
+      loopRunner as never,
       fakeLogger as never,
       fakeTrace as never,
       activity as never,
@@ -2875,7 +2875,7 @@ describe("run slots (global + per-project cap)", () => {
   let slots: RunSlots;
   let agentListener: ((run: AgentRun) => void) | undefined;
   let workflowListener: ((run: WorkflowRun) => void) | undefined;
-  let goalListener: ((run: { goalRunId: string; status: string }) => void) | undefined;
+  let loopListener: ((run: { loopRunId: string; status: string }) => void) | undefined;
   let agentRunner: {
     start: ReturnType<typeof vi.fn>;
     startOrchestrator: ReturnType<typeof vi.fn>;
@@ -2891,7 +2891,7 @@ describe("run slots (global + per-project cap)", () => {
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
   };
-  let goalRunner: {
+  let loopRunner: {
     start: ReturnType<typeof vi.fn>;
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
@@ -2906,7 +2906,7 @@ describe("run slots (global + per-project cap)", () => {
     { id: "proj_B", name: "B" },
   ];
   const RELEASE: TaskTarget = { kind: "workflow", id: "release", name: "Release" };
-  const GOAL: TaskTarget = { kind: "goal", id: "ship-it", name: "Ship it" };
+  const LOOP: TaskTarget = { kind: "loop", id: "ship-it", name: "Ship it" };
 
   /** A scheduler over REAL run slots; `caps` is the per-project `budget.maxConcurrent`. */
   function makeService(
@@ -2936,10 +2936,10 @@ describe("run slots (global + per-project cap)", () => {
       }),
       get: vi.fn(() => workflowRun({})),
     };
-    goalRunner = {
-      start: vi.fn(async () => ({ goalRunId: `goal_${++runSeq}` })),
-      onRunStatus: vi.fn((l: (run: { goalRunId: string; status: string }) => void) => {
-        goalListener = l;
+    loopRunner = {
+      start: vi.fn(async () => ({ loopRunId: `loop_${++runSeq}` })),
+      onRunStatus: vi.fn((l: (run: { loopRunId: string; status: string }) => void) => {
+        loopListener = l;
         return () => {};
       }),
       get: vi.fn(() => ({ status: "running" })),
@@ -2984,7 +2984,7 @@ describe("run slots (global + per-project cap)", () => {
       } as never,
       { listActive: async () => [] } as never,
       slots,
-      goalRunner as never,
+      loopRunner as never,
       fakeLogger as never,
       fakeTrace as never,
       { record: vi.fn(async () => {}) } as never,
@@ -3033,7 +3033,7 @@ describe("run slots (global + per-project cap)", () => {
     await storage.onModuleInit();
     agentListener = undefined;
     workflowListener = undefined;
-    goalListener = undefined;
+    loopListener = undefined;
   });
 
   afterEach(async () => {
@@ -3132,13 +3132,13 @@ describe("run slots (global + per-project cap)", () => {
     expect(slots.inUse("proj_A")).toBe(1);
   });
 
-  it("a goal run holds one slot; a second task queues until the goal ends", async () => {
+  it("a loop run holds one slot; a second task queues until the loop ends", async () => {
     makeService(1);
-    const ref = await dispatched("work towards it", undefined, GOAL);
+    const ref = await dispatched("work towards it", undefined, LOOP);
     expect(slots.inUse()).toBe(1);
     const queuedId = await queued("do B");
 
-    goalListener?.({ goalRunId: ref, status: "done" });
+    loopListener?.({ loopRunId: ref, status: "done" });
     await vi.waitFor(async () => {
       expect((await storage.get(queuedId)).status).toBe("dispatched");
     });

@@ -31,7 +31,7 @@ true })`).
 | `HEAP_SNAPSHOT_ON_SIGUSR2`    | _(unset)_                                                                     | `1` = write a heap snapshot on `SIGUSR2` (`main.ts`), for diagnosing memory growth in the running API process                                                       |
 | `HTTP_SHUTDOWN_GRACE_MS`      | `250`                                                                         | How long an open connection may drain on SIGTERM before it is destroyed (`HttpConnectionReaper`) — see _Shutdown_ below                                             |
 
-Every entity store built on `EntityFileStore` (agents, workflows, goals, tasks,
+Every entity store built on `EntityFileStore` (agents, workflows, loops, tasks,
 approvals, artifacts, channels, integrations, projects, companies, skills,
 commands, mcp, hooks, gate-rules, automations, monitors, …) also honors
 its own `<NAME>_DIR` (or `_FILE` for singletons) override, following the same
@@ -141,7 +141,7 @@ applies on the next boot.
 | `automationTickMs`    | `0`      | Automation scheduler loop interval (`0` = disabled; the historical default)                                                                                                                              |
 | `limitResumeTickMs`   | `60000`  | Limit-resume daemon scan interval (`0` = disabled)                                                                                                                                                       |
 | `limitResumeMax`      | `3`      | Max resume cycles before a limit-paused run is parked/failed                                                                                                                                             |
-| `goalAutoResume`      | `false`  | **Phase 12.4** — `true` = on boot, auto-re-drive `running`/`paused-limit` goals (the unattended launchd daemon). Default: park `awaiting-resume` (Law 3)                                                 |
+| `goalAutoResume`      | `false`  | **Phase 12.4** — `true` = on boot, auto-re-drive `running`/`paused-limit` loops (the unattended launchd daemon). Default: park `awaiting-resume` (Law 3)                                                 |
 | `chatPersona`         | `jarvis` | The chat butler's personality (`jarvis`/`concise`/`formal`) — changes tone only, never the dispatch governor. Read per turn, set in `/settings`                                                          |
 | `maxWorkingAgents`    | `3`      | Machine fuse — most task-system agents working at once (single-agent runs, workflow agent stages). Over it → `queued`. Replaces the removed `maxConcurrentRuns` (legacy value migrates; `null` → `3`)    |
 | `roadmapTickMs`       | `60000`  | **Phase 125h** — roadmap gate-poll heartbeat (`0` = disabled). Polls `awaiting-merge` items' PR state for every project (the release-signal poll); then auto-picks-up work for `autoPlay: true` projects |
@@ -183,7 +183,7 @@ overrides) — both iCloud-synced via Desktop & Documents. The repo has no `.zib
 Several API processes may share the data root. Exactly one **primary** owns the
 autonomous work: every `TickingWatcherBase` heartbeat, the Slack Socket Mode
 listener, task recovery on boot, and boot-time run reconciliation in
-`RunnerCore.init` / workflow + goal `reconstruct`. A **secondary** serves the
+`RunnerCore.init` / workflow + loop `reconstruct`. A **secondary** serves the
 API/UI over the same files and runs what it is asked to run, but mirrors the
 primary's runs read-only and never relabels, resumes or sweeps them — so a dev
 server respawning on every source edit can't kill or fail the app's runs.

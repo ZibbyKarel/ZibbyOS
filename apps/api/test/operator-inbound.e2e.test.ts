@@ -14,7 +14,7 @@ import { AppModule } from "../src/app.module";
 import { ChatSessionService, type ClaudeProcess } from "../src/chat/chat-session.service";
 import { ChatToolResultRegistry } from "../src/chat/chat-tool-result.registry";
 import { ChatToolsService } from "../src/chat/chat-tools.service";
-import { GoalRunnerService } from "../src/goals/goal-runner.service";
+import { LoopRunnerService } from "../src/loops/loop-runner.service";
 import type { OperatorInboundMessage } from "../src/operator-channel/operator-channel.port";
 import { OperatorChannelService } from "../src/operator-channel/operator-channel.service";
 import { OperatorChannelStore } from "../src/operator-channel/operator-channel.store";
@@ -179,7 +179,7 @@ describe("Operator channel inbound (e2e)", () => {
   const fake = () => app.get(OperatorChannelService).fake;
 
   const runStatus = (runRef: string): string | undefined => {
-    for (const runner of [WorkflowRunnerService, AgentRunnerService, GoalRunnerService]) {
+    for (const runner of [WorkflowRunnerService, AgentRunnerService, LoopRunnerService]) {
       try {
         return app.get(runner).get(runRef).status;
       } catch {

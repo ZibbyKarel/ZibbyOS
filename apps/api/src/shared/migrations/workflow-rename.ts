@@ -9,7 +9,7 @@ import * as path from "node:path";
  *
  *  1. `pipelines/` → `workflows/` (merged, runs/ and assets/ included).
  *  2. `workflows/*.pipeline.md` → `*.workflow.md`.
- *  3. Frontmatter of `workflows/*.workflow.md` and `goals/*.goal.md` — only the
+ *  3. Frontmatter of `workflows/*.workflow.md` and `loops/*.loop.md` — only the
  *     known keys/values (`type: pipeline`, `kind: pipeline`, `pipeline:`, `pipelineId:`).
  *  4. Persisted JSON / JSONL — known KEYS (`pipelineRunId`, `pipelineId`, …) and
  *     exact known VALUES (`kind|type|… : "pipeline"`, `"pipeline-stage"`,
@@ -263,13 +263,13 @@ export async function migrateWorkflowRename(
       }
     }
   }
-  // 3b. goals' frontmatter (maker.kind)
-  const goalsDir = path.join(root, "goals");
-  if (await exists(goalsDir)) {
-    for (const name of await fs.readdir(goalsDir)) {
+  // 3b. loops' frontmatter (maker.kind)
+  const loopsDir = path.join(root, "loops");
+  if (await exists(loopsDir)) {
+    for (const name of await fs.readdir(loopsDir)) {
       if (
-        name.endsWith(".goal.md") &&
-        (await rewriteMarkdownFrontmatter(path.join(goalsDir, name)))
+        name.endsWith(".loop.md") &&
+        (await rewriteMarkdownFrontmatter(path.join(loopsDir, name)))
       ) {
         rewritten++;
       }

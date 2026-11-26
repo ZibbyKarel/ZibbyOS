@@ -7,7 +7,7 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
-import { GoalRunnerService } from "../src/goals/goal-runner.service";
+import { LoopRunnerService } from "../src/loops/loop-runner.service";
 import { WorkflowRunnerService } from "../src/workflows/workflow-runner.service";
 import { isAlive } from "../src/runner/runner-core";
 import { TaskSchedulerService } from "../src/tasks/task-scheduler.service";
@@ -383,22 +383,22 @@ describe("Tasks API (e2e)", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.mode).toBe("loop");
-      expect(res.body.proposedGoal).toBeTruthy();
-      expect(res.body.proposedGoal.verifier).toEqual({ kind: "claude", agent: "code-reviewer" });
-      expect(["agent", "workflow"]).toContain(res.body.proposedGoal.maker.kind);
-      // The target stays the maker — never a synthesized goal target (Decision 1).
-      expect(res.body.target.kind).not.toBe("goal");
+      expect(res.body.proposedLoop).toBeTruthy();
+      expect(res.body.proposedLoop.verifier).toEqual({ kind: "claude", agent: "code-reviewer" });
+      expect(["agent", "workflow"]).toContain(res.body.proposedLoop.maker.kind);
+      // The target stays the maker — never a synthesized loop target (Decision 1).
+      expect(res.body.target.kind).not.toBe("loop");
     });
 
-    it("classify writes no goal files (side-effect-free preview)", async () => {
+    it("classify writes no loop files (side-effect-free preview)", async () => {
       await seedCatalog();
-      const goalsBefore = await request(app.getHttpServer()).get("/api/goals").expect(200);
+      const loopsBefore = await request(app.getHttpServer()).get("/api/loops").expect(200);
       await request(app.getHttpServer())
         .post(CLASSIFY)
         .send({ text: "fix the build and keep retrying until it passes" })
         .expect(200);
-      const goalsAfter = await request(app.getHttpServer()).get("/api/goals").expect(200);
-      expect(goalsAfter.body.length).toBe(goalsBefore.body.length);
+      const loopsAfter = await request(app.getHttpServer()).get("/api/loops").expect(200);
+      expect(loopsAfter.body.length).toBe(loopsBefore.body.length);
     });
 
     it("resolves a granted folder's path to its project on a later classify", async () => {
@@ -499,13 +499,13 @@ describe("Tasks API (e2e)", () => {
     });
   });
 
-  // ── Phase 43 — stop a running task (agent/workflow/goal) ───────────────────
+  // ── Phase 43 — stop a running task (agent/workflow/loop) ───────────────────
   describe("Phase 43 — stop a running task", () => {
     // The committed `apps/api/.env` defaults `AGENT_DEMO_STEPS=25` /
     // `AGENT_DEMO_DELAY_MS=1000` (a human-watchable demo pace, ~25s) — a workflow
     // stage's demo child (apps/api/src/workflows/demo-stage.mjs) reads these, NOT
     // `FAKE_CLAUDE_*` (that governs the agent runner's `claude` stand-in, used by
-    // a goal's agent maker below). Fast values here so "runs to done" tests don't
+    // a loop's agent maker below). Fast values here so "runs to done" tests don't
     // wait out the real demo pace; restored after every test in the block.
     afterEach(() => {
       process.env.AGENT_DEMO_STEPS = "2";
@@ -571,12 +571,12 @@ describe("Tasks API (e2e)", () => {
         .expect(409);
     });
 
-    it("stops a running goal run: it lands interrupted without dispatching a further iteration", async () => {
+    it("stops a running loop run: it lands interrupted without dispatching a further iteration", async () => {
       await seedCatalog();
       await request(app.getHttpServer())
-        .post("/api/goals")
+        .post("/api/loops")
         .send({
-          id: "stop-goal",
+          id: "stop-loop",
           objective: "Ship the thing",
           maker: { kind: "agent", id: "coder" },
           verifier: { kind: "claude", agent: "coder" },
@@ -585,26 +585,26 @@ describe("Tasks API (e2e)", () => {
         })
         .expect(201);
 
-      // The goal's agent maker spawns through the agent runner (always `CLAUDE_BIN`
+      // The loop's agent maker spawns through the agent runner (always `CLAUDE_BIN`
       // — the fake claude fixture), so it's `FAKE_CLAUDE_*`, not `AGENT_DEMO_*`.
       process.env.FAKE_CLAUDE_STEPS = "8";
       process.env.FAKE_CLAUDE_DELAY_MS = "300";
 
-      const goals = app.get(GoalRunnerService);
-      const start = await goals.start("stop-goal", "do it", "", [], "Stop goal test");
+      const loops = app.get(LoopRunnerService);
+      const start = await loops.start("stop-loop", "do it", "", [], "Stop loop test");
       expect(start.status).toBe("running");
 
       await until(async () => {
-        const rec = goals.get(start.goalRunId);
+        const rec = loops.get(start.loopRunId);
         return rec.iterations[0]?.makerRunRef ? rec : null;
       });
 
       await request(app.getHttpServer())
-        .post(`/api/tasks/runs/${start.goalRunId}/stop`)
+        .post(`/api/tasks/runs/${start.loopRunId}/stop`)
         .expect(200);
 
       const stopped = await until(async () => {
-        const res = await request(app.getHttpServer()).get(`/api/tasks/runs/${start.goalRunId}`);
+        const res = await request(app.getHttpServer()).get(`/api/tasks/runs/${start.loopRunId}`);
         return res.body.status === "interrupted" ? res.body : null;
       });
       expect(stopped.status).toBe("interrupted");

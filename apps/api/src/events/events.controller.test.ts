@@ -2,14 +2,14 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { MessageEvent } from "@nestjs/common";
-import type { AgentRun, GoalRun, WorkflowRun } from "@zibby/contracts";
+import type { AgentRun, LoopRun, WorkflowRun } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import { Subject } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
 import type { ApprovalSettledEvent, ApprovalsService } from "../approvals/approvals.service";
 import type { AgentRunnerService } from "../agents/agent-runner.service";
 import { ChannelEventsService } from "../channels/channel-events.service";
-import type { GoalRunnerService } from "../goals/goal-runner.service";
+import type { LoopRunnerService } from "../loops/loop-runner.service";
 import type { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { AutomationFiresStore } from "../automations/automation-fires.store";
 import { EventsController } from "./events.controller";
@@ -33,15 +33,15 @@ function approvalsStub(subject = new Subject<ApprovalSettledEvent>()) {
 }
 
 describe("EventsController — merged `/api/events` SSE", () => {
-  it("carries agent/workflow/goal transitions in the merged stream", () => {
+  it("carries agent/workflow/loop transitions in the merged stream", () => {
     const agents = fakeRunner<AgentRun>();
     const workflows = fakeRunner<WorkflowRun>();
-    const goals = fakeRunner<GoalRun>();
+    const loops = fakeRunner<LoopRun>();
 
     const controller = new EventsController(
       agents as unknown as AgentRunnerService,
       workflows as unknown as WorkflowRunnerService,
-      goals as unknown as GoalRunnerService,
+      loops as unknown as LoopRunnerService,
       new ChannelEventsService(),
       new ActivityEventsService(),
       approvalsStub(),
@@ -52,7 +52,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
     const sub = controller.events().subscribe((e) => events.push(e));
 
     workflows.emit({ workflowRunId: "delivery_1", status: "running" } as WorkflowRun);
-    goals.emit({ goalRunId: "ship-it_1", status: "running" } as GoalRun);
+    loops.emit({ loopRunId: "ship-it_1", status: "running" } as LoopRun);
 
     const parsed = events.map((e) => JSON.parse(String(e.data)));
     expect(parsed).toContainEqual({
@@ -60,7 +60,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
       runId: "delivery_1",
       status: "running",
     });
-    expect(parsed).toContainEqual({ scope: "goal-runs", runId: "ship-it_1", status: "running" });
+    expect(parsed).toContainEqual({ scope: "loop-runs", runId: "ship-it_1", status: "running" });
 
     sub.unsubscribe();
   });
@@ -70,7 +70,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
     const controller = new EventsController(
       fakeRunner<AgentRun>() as unknown as AgentRunnerService,
       fakeRunner<WorkflowRun>() as unknown as WorkflowRunnerService,
-      fakeRunner<GoalRun>() as unknown as GoalRunnerService,
+      fakeRunner<LoopRun>() as unknown as LoopRunnerService,
       new ChannelEventsService(),
       new ActivityEventsService(),
       approvalsStub(settled),
@@ -94,7 +94,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
     const controller = new EventsController(
       fakeRunner<AgentRun>() as unknown as AgentRunnerService,
       fakeRunner<WorkflowRun>() as unknown as WorkflowRunnerService,
-      fakeRunner<GoalRun>() as unknown as GoalRunnerService,
+      fakeRunner<LoopRun>() as unknown as LoopRunnerService,
       new ChannelEventsService(),
       new ActivityEventsService(),
       approvalsStub(),

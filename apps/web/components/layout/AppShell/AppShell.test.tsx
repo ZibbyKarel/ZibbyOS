@@ -192,7 +192,7 @@ describe("AppShell", () => {
 
   it.each([
     ["/projects/cms4/integrations", "/projects"],
-    ["/work/goals", "/work/goals"],
+    ["/work/workflows", "/work/workflows"],
   ])("marks the owning sub-nav tab current on %s", (path, href) => {
     mockPath = path;
     try {
@@ -334,7 +334,7 @@ describe("AppShell top menu sections", () => {
 });
 
 describe("AppShell phone layout", () => {
-  const renderPhone = (path = "/work/goals") => {
+  const renderPhone = (path = "/work/workflows") => {
     mockPhone = true;
     mockPath = path;
     return renderWithProviders(
@@ -369,7 +369,7 @@ describe("AppShell phone layout", () => {
   it("renders the sub-nav row with the pin and page actions", () => {
     renderPhone();
     const subnav = screen.getByTestId(AppFrameTestId.SubNav);
-    expect(subnav).toContainElement(screen.getByTestId(`${SubNavTestId.Item}-/work/goals`));
+    expect(subnav).toContainElement(screen.getByTestId(`${SubNavTestId.Item}-/work/workflows`));
     expect(subnav).toContainElement(screen.getByTestId(AppShellTestId.PinToggle));
     expect(subnav).toContainElement(screen.getByTestId(AppShellTestId.PageActions));
   });
@@ -395,7 +395,7 @@ describe("AppShell phone layout", () => {
   it("opens the section tree with the active section expanded", async () => {
     renderPhone();
     await userEvent.click(screen.getByTestId(MobileMenuTestId.Trigger));
-    expect(screen.getByTestId(`${MobileMenuTestId.Item}-/work/goals`)).toHaveAttribute(
+    expect(screen.getByTestId(`${MobileMenuTestId.Item}-/work/workflows`)).toHaveAttribute(
       "aria-current",
       "page",
     );

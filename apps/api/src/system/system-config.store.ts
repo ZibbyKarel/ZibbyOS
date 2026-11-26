@@ -12,7 +12,7 @@ export const SYSTEM_CONFIG_FILE = "SYSTEM_CONFIG_FILE";
  * to parse and drop EVERY knob back to its default. Legacy keys are migrated or dropped
  * here; the file is rewritten in the current shape on the next save.
  * - `maxWorkingAgents` → `maxConcurrentRuns` (run slots, docs/plans/remove-employees.md).
- * - `goalVerifyTimeoutMs` dropped with the goal `checks` verifier (D-024).
+ * - `goalVerifyTimeoutMs` dropped with the loop `checks` verifier (D-024).
  */
 export function migrateLegacySystemConfig(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") return raw;
@@ -34,7 +34,7 @@ export type SystemConfigListener = (config: SystemConfig) => void;
  *
  * The config is held IN MEMORY and exposed synchronously via {@link current}, because
  * the consumers are sync call-sites: `AdapterRegistry.resolve()` (hot per-integration
- * path), `GoalRunnerService`'s auto-resume check, the schedulers' arm logic. The initial
+ * path), `LoopRunnerService`'s auto-resume check, the schedulers' arm logic. The initial
  * load is a synchronous `readFileSync` in the constructor — `@Global` gives the store
  * visibility but NOT init-order guarantees, so a consumer's `onModuleInit` may run
  * before any async load would have resolved; a sync load at construction sidesteps that

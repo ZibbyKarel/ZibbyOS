@@ -8,8 +8,8 @@ import { TEST_SYSTEM_CONFIG } from "./src/system/system-config.fixture";
  * Phase 12.5 — global e2e isolation barrier (the meta-circular safety net).
  *
  * 26 of 28 e2e suites boot the full `AppModule`; only a couple isolate their
- * goal/data dirs. Without a global data-root override every un-isolated suite
- * reads and writes the repo's REAL `apps/api/data` — so one suite's workflow/goal
+ * loop/data dirs. Without a global data-root override every un-isolated suite
+ * reads and writes the repo's REAL `apps/api/data` — so one suite's workflow/loop
  * run is `reconstruct()`ed by the next suite that boots (the cross-suite flake),
  * and the committed-`.env` `AGENT_RUNNER_MODE=claude` would drive a REAL `claude`
  * from inside the test run. That is exactly the "target IS ZIBBY" collapse the
@@ -21,11 +21,11 @@ import { TEST_SYSTEM_CONFIG } from "./src/system/system-config.fixture";
  *   2. `AGENT_RUNNER_MODE` → `demo` (neutralises the local `.env` claude leak;
  *      `dotenv`/`ConfigModule` never overrides an already-set process.env var).
  *   3. `CLAUDE_BIN` → the token-free fake (the agent runner has no demo mode, so a
- *      reconstructed agent-maker goal must never reach real claude).
+ *      reconstructed agent-maker loop must never reach real claude).
  *
  * The temp data root is SEEDED from the real data dir (agents, workflows, skills,
  * projects, vault, gate-rules/mandate/budget/POLICY) so suites that read seeds
- * keep passing — but every volatile/runtime subtree (`runs/`, `goals`, `tasks`,
+ * keep passing — but every volatile/runtime subtree (`runs/`, `loops`, `tasks`,
  * `activity`, `approvals`, `channels`, `proposals`, `credentials`, `budget-ledger`)
  * is filtered out, so nothing reconstructible is ever copied in.
  */
@@ -33,7 +33,7 @@ import { TEST_SYSTEM_CONFIG } from "./src/system/system-config.fixture";
 /** Runtime/volatile path segments never copied into the seeded test data root. */
 const VOLATILE_SEGMENTS = new Set([
   "runs",
-  "goals",
+  "loops",
   "tasks",
   "activity",
   "approvals",
@@ -74,7 +74,7 @@ if (!process.env.ZIBBY_WORKTREE_ROOT) {
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 }
 
-// The runtime system config (tick intervals, goal auto-resume) is now file-backed,
+// The runtime system config (tick intervals, loop auto-resume) is now file-backed,
 // not env-driven. Seed a config file with the test defaults (every heartbeat OFF) and
 // point SYSTEM_CONFIG_FILE at it — independent of any per-suite ZIBBY_DATA_DIR override,
 // like ACTIVITY_DIR. A suite that needs a different knob writes this file (merged)

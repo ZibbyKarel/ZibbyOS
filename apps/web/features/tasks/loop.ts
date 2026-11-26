@@ -1,4 +1,4 @@
-import type { CreateGoalInput, ProposedGoal } from "@zibby/contracts";
+import type { CreateLoopInput, ProposedLoop } from "@zibby/contracts";
 import { slug } from "../../utils/slug";
 
 /** The two kinds of work a loop iteration can run — an agent or a whole workflow. */
@@ -6,7 +6,7 @@ export type MakerKind = "agent" | "workflow";
 
 /** The Loop tab's controlled form state, lifted into the dialog. */
 export interface LoopFormState {
-  /** The outcome the loop drives toward (the human goal statement). */
+  /** The outcome the loop drives toward (the human loop statement). */
   objective: string;
   /** The maker selection, encoded as `"<kind>:<id>"` for a single Select. */
   maker: string;
@@ -29,18 +29,18 @@ export const INITIAL_LOOP_STATE: LoopFormState = {
 
 /**
  * Phase 11: seed the Loop form (the "Edit" disclosure) from the classifier's
- * synthesized {@link ProposedGoal}. Lossless with {@link buildCreateGoalBody}: an
- * unedited submit reproduces the same goal the preview implied — encode the maker,
+ * synthesized {@link ProposedLoop}. Lossless with {@link buildCreateLoopBody}: an
+ * unedited submit reproduces the same loop the preview implied — encode the maker,
  * map the reviewer, stringify the iteration cap. The dialog re-seeds this
  * whenever a fresh proposal arrives and the operator hasn't manually edited it.
  */
-export function proposedGoalToLoopState(goal: ProposedGoal): LoopFormState {
+export function proposedLoopToLoopState(loop: ProposedLoop): LoopFormState {
   return {
-    objective: goal.objective,
-    maker: encodeMaker(goal.maker.kind, goal.maker.id),
-    reviewer: goal.verifier.agent,
-    maxIterations: String(goal.maxIterations),
-    instructions: goal.instructions,
+    objective: loop.objective,
+    maker: encodeMaker(loop.maker.kind, loop.maker.id),
+    reviewer: loop.verifier.agent,
+    maxIterations: String(loop.maxIterations),
+    instructions: loop.instructions,
   };
 }
 
@@ -62,7 +62,7 @@ export function decodeMaker(value: string): { kind: MakerKind; id: string } | nu
 }
 
 /**
- * Turn arbitrary text into a filename-safe, lowercase-kebab goal id seed.
+ * Turn arbitrary text into a filename-safe, lowercase-kebab loop id seed.
  * `AgentIdSchema` caps ids at 128 chars; we leave room for the uniqueness suffix.
  */
 export function slugify(input: string): string {
@@ -70,11 +70,11 @@ export function slugify(input: string): string {
 }
 
 /**
- * Derive a unique goal id from a human seed plus a timestamp. Goals are file-backed
- * (`<id>.goal.md`), so the id must be unique and filename-safe; the base-36 time
+ * Derive a unique loop id from a human seed plus a timestamp. Loops are file-backed
+ * (`<id>.loop.md`), so the id must be unique and filename-safe; the base-36 time
  * suffix keeps repeated submissions from colliding.
  */
-export function makeGoalId(seed: string, nowMs: number): string {
+export function makeLoopId(seed: string, nowMs: number): string {
   const slug = slugify(seed) || "loop";
   return `${slug}-${nowMs.toString(36)}`;
 }
@@ -89,21 +89,21 @@ export function canSubmitLoop(state: LoopFormState): boolean {
 }
 
 /**
- * Assemble the `POST /api/goals` body from the Loop form. Assumes `canSubmitLoop`
+ * Assemble the `POST /api/loops` body from the Loop form. Assumes `canSubmitLoop`
  * already passed — `decodeMaker` is non-null and the objective is present.
  */
-export function buildCreateGoalBody(
+export function buildCreateLoopBody(
   state: LoopFormState,
-  goalId: string,
+  loopId: string,
   title: string,
-): CreateGoalInput {
+): CreateLoopInput {
   const maker = decodeMaker(state.maker);
-  if (!maker) throw new Error("buildCreateGoalBody called with invalid maker");
+  if (!maker) throw new Error("buildCreateLoopBody called with invalid maker");
 
   const objective = state.objective.trim();
 
   return {
-    id: goalId,
+    id: loopId,
     name: title.trim() || undefined,
     objective,
     maker,

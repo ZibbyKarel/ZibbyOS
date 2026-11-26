@@ -9,10 +9,10 @@ import { ToolGrantsFieldTestId } from "./ToolGrantsField";
 
 /**
  * Phase 11 unified composer, collapsed onto the Phase 26 {@link CommandLine} launcher.
- * The create-task/create-goal/classify mutations and the limits/catalog queries are
+ * The create-task/create-loop/classify mutations and the limits/catalog queries are
  * mocked so the one-field → live-preview → dispatch flow runs without a backend.
  * `classify` echoes a {@link TaskRouting} derived from the typed text (loop-shaped
- * text → `mode: "loop"` carrying a synthesized `proposedGoal`); the dialog renders the
+ * text → `mode: "loop"` carrying a synthesized `proposedLoop`); the dialog renders the
  * preview and branches submit on the inferred mode. Assigning a destination now goes
  * through CommandLine's Phase 45 inline `@` dropdown (no more "Předat" override
  * select, and no separate search box) — exercised here via `CommandLineTestId`
@@ -53,7 +53,7 @@ function apiRouting(
       matchedTerms: [],
       candidates: CANDIDATES,
       mode: "loop",
-      proposedGoal: {
+      proposedLoop: {
         objective: text,
         maker: { kind: "workflow", id: "delivery" },
         verifier: { kind: "claude", agent: "reviewer" },
@@ -71,7 +71,7 @@ function apiRouting(
     matchedTerms: [],
     candidates: CANDIDATES,
     mode: "single",
-    proposedGoal: null,
+    proposedLoop: null,
     paths: resolvePaths(paths),
     toolGrants,
   };
@@ -166,13 +166,13 @@ vi.mock("../mutations/useUploadTaskAttachmentsMutation", () => ({
   useUploadTaskAttachmentsMutation: () => ({ mutateAsync: uploadMutateAsync, isPending: false }),
 }));
 
-type GoalVars = { params?: { id: string }; body: Record<string, unknown> };
-type GoalOpts = { onSuccess?: (res: { status: 201; body: unknown }) => void };
-const createGoal = vi.fn((_vars: GoalVars, opts?: GoalOpts) =>
+type LoopVars = { params?: { id: string }; body: Record<string, unknown> };
+type LoopOpts = { onSuccess?: (res: { status: 201; body: unknown }) => void };
+const createLoop = vi.fn((_vars: LoopVars, opts?: LoopOpts) =>
   opts?.onSuccess?.({ status: 201, body: {} }),
 );
-vi.mock("../../goals/mutations", () => ({
-  useCreateGoalMutation: () => ({ mutate: createGoal, isPending: false }),
+vi.mock("../../loops/mutations", () => ({
+  useCreateLoopMutation: () => ({ mutate: createLoop, isPending: false }),
 }));
 
 vi.mock("../../projects/queries/useProjectsQuery", () => ({
@@ -228,7 +228,7 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
     push.mockClear();
     classify.mockClear();
     createTask.mockClear();
-    createGoal.mockClear();
+    createLoop.mockClear();
     createProject.mockClear();
     uploadMutateAsync.mockClear();
     toolGrantsFixture.length = 0;
@@ -333,7 +333,7 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
     expect(sentText).toContain("https://github.com/acme/app/pull/42");
   });
 
-  it("infers a loop and dispatches it as a task carrying its goal target on one click", async () => {
+  it("infers a loop and dispatches it as a task carrying its loop target on one click", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<NewTaskDialog onClose={onClose} />);
@@ -346,17 +346,17 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
 
     await user.click(screen.getByRole("button", { name: /Spustit loop/ }));
 
-    expect(createGoal).toHaveBeenCalledTimes(1);
-    const goalBody = createGoal.mock.calls[0]?.[0].body as Record<string, unknown>;
-    expect(goalBody.maker).toEqual({ kind: "workflow", id: "delivery" });
-    expect(goalBody.verifier).toEqual({ kind: "claude", agent: "reviewer" });
-    expect(goalBody.maxIterations).toBe(6);
+    expect(createLoop).toHaveBeenCalledTimes(1);
+    const loopBody = createLoop.mock.calls[0]?.[0].body as Record<string, unknown>;
+    expect(loopBody.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(loopBody.verifier).toEqual({ kind: "claude", agent: "reviewer" });
+    expect(loopBody.maxIterations).toBe(6);
 
-    // Only a task runs: the immediate loop enters through createTask with a goal target
-    // (scheduledAt null → the scheduler dispatches it now), never a direct goal-run start.
+    // Only a task runs: the immediate loop enters through createTask with a loop target
+    // (scheduledAt null → the scheduler dispatches it now), never a direct loop-run start.
     expect(createTask).toHaveBeenCalledTimes(1);
     const taskBody = createTask.mock.calls[0]?.[0].body;
-    expect(taskBody?.target?.kind).toBe("goal");
+    expect(taskBody?.target?.kind).toBe("loop");
     expect(taskBody?.scheduledAt).toBeFalsy();
     expect(push).toHaveBeenCalledWith("/activity/runs/task_1");
     expect(onClose).toHaveBeenCalled();
@@ -374,11 +374,11 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
     await user.type(iterations, "9");
 
     await user.click(screen.getByRole("button", { name: /Spustit loop/ }));
-    const goalBody = createGoal.mock.calls[0]?.[0].body as Record<string, unknown>;
-    expect(goalBody.maxIterations).toBe(9);
+    const loopBody = createLoop.mock.calls[0]?.[0].body as Record<string, unknown>;
+    expect(loopBody.maxIterations).toBe(9);
     // Unedited fields round-trip losslessly from the proposal.
-    expect(goalBody.maker).toEqual({ kind: "workflow", id: "delivery" });
-    expect(goalBody.verifier).toEqual({ kind: "claude", agent: "reviewer" });
+    expect(loopBody.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(loopBody.verifier).toEqual({ kind: "claude", agent: "reviewer" });
   });
 
   it("shows a low-confidence hint on the preview for a vague single verdict", async () => {
@@ -410,7 +410,7 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
     });
   });
 
-  it("defers a scheduled loop through createTask with a goal target", async () => {
+  it("defers a scheduled loop through createTask with a loop target", async () => {
     const user = userEvent.setup();
     render(<NewTaskDialog onClose={() => {}} />);
     await user.type(screen.getByLabelText(/Zadání/), "keep retrying the deploy until it passes");
@@ -419,9 +419,9 @@ describe("NewTaskDialog (Phase 11 unified composer, on the Phase 26 CommandLine)
     await user.click(screen.getByTestId(DropDownButtonTestId.Trigger));
     await user.click(screen.getByTestId(`${DropDownButtonTestId.Item}-in-1h`));
 
-    expect(createGoal).toHaveBeenCalledTimes(1);
+    expect(createLoop).toHaveBeenCalledTimes(1);
     const taskBody = createTask.mock.calls.at(-1)?.[0].body;
-    expect(taskBody?.target?.kind).toBe("goal");
+    expect(taskBody?.target?.kind).toBe("loop");
     expect(taskBody?.scheduledAt).toBeGreaterThan(Date.now());
   });
 

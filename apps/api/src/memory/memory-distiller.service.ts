@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type {
   AgentRun,
   DepartmentId,
-  GoalRun,
+  LoopRun,
   Note,
   NoteType,
   Project,
@@ -11,7 +11,7 @@ import type {
 } from "@zibby/contracts";
 import { AgentRunnerService } from "../agents/agent-runner.service";
 import { AgentsStorageService } from "../agents/agents.storage.service";
-import { GoalRunnerService } from "../goals/goal-runner.service";
+import { LoopRunnerService } from "../loops/loop-runner.service";
 import { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { WorkflowsStorageService } from "../workflows/workflows.storage.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
@@ -57,7 +57,7 @@ const MAX_RUNS_PER_PASS = 30;
 
 const TERMINAL_AGENT = new Set<AgentRun["status"]>(["done", "error", "interrupted"]);
 const TERMINAL_WORKFLOW = new Set<WorkflowRun["status"]>(["done", "failed"]);
-const TERMINAL_GOAL = new Set<GoalRun["status"]>(["done", "failed"]);
+const TERMINAL_LOOP = new Set<LoopRun["status"]>(["done", "failed"]);
 
 interface Candidate {
   cwd: string;
@@ -66,7 +66,7 @@ interface Candidate {
   /**
    * The owning department (F4a), resolved from the run's agent/workflow
    * `department`. `null` when the run has no owner (unowned agent/workflow)
-   * or no owner path exists at all (goal/chat/raw-note candidates — correction
+   * or no owner path exists at all (loop/chat/raw-note candidates — correction
    * #4: those reference no owned entity in F1).
    */
   departmentId: DepartmentId | null;
@@ -85,7 +85,7 @@ interface Candidate {
 
 /**
  * Nightly memory distillation (the system-owned "learn from every run"). Agents
- * stay memory-blind: this sweeps the terminal workflow/agent/goal runs that haven't
+ * stay memory-blind: this sweeps the terminal workflow/agent/loop runs that haven't
  * been distilled yet, has a cheap model extract DURABLE learnings, and files them as
  * one digest knowledge note linked from each contributing project MOC. It is the
  * output-side mirror of grounding — the system reads learnings OUT just as grounding
@@ -104,7 +104,7 @@ export class MemoryDistillerService {
     private readonly distiller: ClaudeCliDistiller,
     private readonly agents: AgentRunnerService,
     private readonly workflows: WorkflowRunnerService,
-    private readonly goals: GoalRunnerService,
+    private readonly loops: LoopRunnerService,
     private readonly projects: ProjectsStorageService,
     private readonly chat: ChatTranscriptStore,
     private readonly importer: MemoryImportService,
@@ -210,12 +210,12 @@ export class MemoryDistillerService {
         (await this.agentsStore.get(run.agentId).catch(() => null))?.department ?? null;
       await consider(run.cwd, projectId, departmentId, () => this.summarizeAgent(run, projectId));
     }
-    for (const run of await this.goals.listAll().catch((): GoalRun[] => [])) {
-      if (!TERMINAL_GOAL.has(run.status)) continue;
+    for (const run of await this.loops.listAll().catch((): LoopRun[] => [])) {
+      if (!TERMINAL_LOOP.has(run.status)) continue;
       const projectId = await this.byPath(run.projectPath);
-      // Correction #4: goal runs reference no owned entity (goals were not given
+      // Correction #4: loop runs reference no owned entity (loops were not given
       // `department` in F1) — no owner path, always null.
-      await consider(run.cwd, projectId, null, async () => this.summarizeGoal(run, projectId));
+      await consider(run.cwd, projectId, null, async () => this.summarizeLoop(run, projectId));
     }
     // Chat conversations distill INCREMENTALLY (a thread is long-lived): only messages
     // past the marker's count are fed, and the count is advanced after filing.
@@ -301,15 +301,15 @@ export class MemoryDistillerService {
     };
   }
 
-  private summarizeGoal(run: GoalRun, projectId: string | null): RunDigest {
+  private summarizeLoop(run: LoopRun, projectId: string | null): RunDigest {
     const last = run.iterations.at(-1);
     const verdict = last
       ? `verifier(${last.verifier.kind}) satisfied=${last.verifier.satisfied}: ${last.verifier.output}`
       : "";
     return {
-      kind: "goal",
-      id: run.goalRunId,
-      name: run.goalId,
+      kind: "loop",
+      id: run.loopRunId,
+      name: run.loopId,
       status: run.status,
       ...(projectId ? { project: projectId } : {}),
       excerpt: verdict.slice(0, EXCERPT_LIMIT),

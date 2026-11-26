@@ -120,8 +120,8 @@ export class ScheduledTasksStorageService extends EntityFileStore<ScheduledTask>
       ...(projectId ? { projectId } : {}),
       ...(input.attachmentSetId ? { attachmentSetId: input.attachmentSetId } : {}),
       ...(input.output ? { output: input.output } : {}),
-      // Phase 11: a scheduled loop carries its `{ kind: "goal", id }` target so the
-      // tick re-dispatches to it instead of re-classifying (goals are never routed).
+      // Phase 11: a scheduled loop carries its `{ kind: "loop", id }` target so the
+      // tick re-dispatches to it instead of re-classifying (loops are never routed).
       ...(input.target ? { target: input.target } : {}),
       ...provenanceFields(input),
     };
@@ -175,7 +175,7 @@ export class ScheduledTasksStorageService extends EntityFileStore<ScheduledTask>
    * Persist a freshly-accepted task as `pending`: its guards (limit/budget/capacity)
    * already passed synchronously, and its dispatch (classify + spawn) is about to run
    * in the BACKGROUND. The `id` is pre-generated so the run is born linked, and the
-   * chosen `target` (a goal loop, an approved proposal) rides along so the background
+   * chosen `target` (a loop, an approved proposal) rides along so the background
    * dispatch routes to it instead of re-classifying. Flips to `dispatched` on success
    * or `failed` if it can't route.
    */

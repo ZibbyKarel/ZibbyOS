@@ -133,7 +133,7 @@ side effect only.
   otherwise `validateRemote()` gates the remote (defense-in-depth, the same
   check the schema already enforces) immediately before the **only production
   call site** of `WorkspaceService.clone()`.
-- `resolveForRun(project)` (Phase 77) — what a run dispatch (agent/goal/
+- `resolveForRun(project)` (Phase 77) — what a run dispatch (agent/loop/
   workflow) should actually use on this machine: present → use it; absent with
   a `gitRemote` → clone then use it; absent with no remote but `path` is an
   ordinary (non-git) folder → use it directly, no worktree (the pre-Phase-76
@@ -318,7 +318,7 @@ without pulling in the whole projects module.
   `docs/api/companies.md`.
 - **`integrations`** — merged by kind into effective context; PR merge reads a
   resolved github integration's token via `CredentialsStore`.
-- **`runner`/`agents`/`workflows`/`goals`** — `ProjectLocalService.resolveForRun`
+- **`runner`/`agents`/`workflows`/`loops`** — `ProjectLocalService.resolveForRun`
   is the seam every run dispatch calls to get a real, on-this-machine path
   before spawning; see `docs/api/runner.md`.
 - **`tasks`** — `matchProject` is the attribution step feeding budget/queue/

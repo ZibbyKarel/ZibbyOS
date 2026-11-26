@@ -12,7 +12,7 @@ const WORKFLOW_RUN_POLL_MS = 1000;
 
 /**
  * Track a workflow run's aggregate (`GET /api/tasks/runs/:runId`, resolved to the
- * owning workflow runner) while it runs — used by the goal detail to render a
+ * owning workflow runner) while it runs — used by the loop detail to render a
  * workflow maker's stage timeline inline. The unified row is a `TaskRun`, so read
  * the workflow fields off it (`owner` is the workflow id, `processor.id` the same).
  * `enabled` gates the query on having an id. Freshness is push-driven: the

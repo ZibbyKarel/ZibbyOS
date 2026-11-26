@@ -9,7 +9,7 @@ import { prepareWorktreeDir, resolveWorktreeRoot } from "./worktree-root";
  * points its loop at a repo (the subject), the subject's worktree must NEVER resolve
  * inside the builder's own tree, even when the builder's `ZIBBY_DATA_DIR` lives inside
  * a repo. The worktree root is deliberately decoupled from the data root (12.7), so a
- * goal targeting a sibling checkout can never edit files under the builder's feet.
+ * loop targeting a sibling checkout can never edit files under the builder's feet.
  */
 describe("self-development isolation (12.8)", () => {
   const savedData = process.env.ZIBBY_DATA_DIR;
@@ -39,7 +39,7 @@ describe("self-development isolation (12.8)", () => {
     process.env.ZIBBY_DATA_DIR = path.join(builderRepo, "apps/api/data");
     process.env.ZIBBY_WORKTREE_ROOT = path.join(tmpdir(), `selfdev-${process.pid}`);
 
-    const dir = await prepareWorktreeDir("subjectgoal_1");
+    const dir = await prepareWorktreeDir("subjectloop_1");
     expect(dir.startsWith(builderRepo)).toBe(false);
     expect(dir.startsWith(resolveDataRoot())).toBe(false);
     expect(dir.startsWith(tmpdir())).toBe(true);

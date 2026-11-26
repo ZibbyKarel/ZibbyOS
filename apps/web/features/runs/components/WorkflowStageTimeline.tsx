@@ -29,7 +29,7 @@ import { RunStateBadge } from "./RunStateBadge";
 import { RunTranscript } from "./RunTranscript";
 
 export interface WorkflowStageTimelineProps {
-  /** The workflow run whose stages to show (its own runId, or a goal's workflow maker ref). */
+  /** The workflow run whose stages to show (its own runId, or a loop's workflow maker ref). */
   workflowRunId: string;
   /** The workflow definition id, for resolving each phase's agent (avatar/name) + loop
    * (retry) metadata. */
@@ -217,7 +217,7 @@ function RetryBlock({ attempts, maxRetries, loopTo, escalated }: RetryBlockProps
  * cost, its produced hand-off file once done, a nested retry block when it looped, and
  * an expandable log (opened via a labeled control — Law 4: nothing interactive is
  * unlabeled, so the design's bare chevron becomes a real button). Mirrors
- * `GoalDetailPanel`'s iteration timeline so a workflow run is "always answerable"
+ * `LoopDetailPanel`'s iteration timeline so a workflow run is "always answerable"
  * without leaving the task detail.
  */
 export function WorkflowStageTimeline({

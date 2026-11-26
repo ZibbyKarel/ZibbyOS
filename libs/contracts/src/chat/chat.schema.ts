@@ -16,7 +16,7 @@ import { TeamIdSchema } from "../teams/team.schema";
 
 /**
  * D-020 — the restricted subset of {@link TaskTargetSchema} a chat `@mention` may
- * name: a real, dispatchable agent/workflow, or a named department — never a goal,
+ * name: a real, dispatchable agent/workflow, or a named department — never a loop,
  * a chain, or the synthetic orchestrator (none of those are something the operator
  * "addresses" in a turn the way they address a unit that can pick up work).
  */

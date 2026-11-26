@@ -24,7 +24,7 @@ const RunIdParam = z.object({ runId: z.string() });
 
 /**
  * The unified task-run surface (replaces the per-kind `agentRuns` / `workflowRuns` /
- * `goalRuns` run routes). A task is the entity that runs; the agent/workflow/goal that
+ * `loopRuns` run routes). A task is the entity that runs; the agent/workflow/loop that
  * processes it is metadata on the row. Every lifecycle sub-resource takes a bare
  * `runId` and the backend resolves the owning runner — run ids are not reliably
  * distinguishable by shape, so the resolver is load-bearing.
@@ -90,7 +90,7 @@ export const taskRunsContract = c.router(
         200: RunLogChunkSchema,
         404: ErrorSchema,
       },
-      summary: "Read an agent (or goal-child agent) run's log from a byte offset",
+      summary: "Read an agent (or loop-child agent) run's log from a byte offset",
     },
 
     getTaskRunStageLogs: {
@@ -156,7 +156,7 @@ export const taskRunsContract = c.router(
         // The run isn't currently running, or its kind has no stop (chain/scheduled).
         409: ErrorSchema,
       },
-      summary: "Stop a running task (agent, workflow, or goal runs)",
+      summary: "Stop a running task (agent, workflow, or loop runs)",
     },
 
     resumeTaskRun: {
@@ -167,15 +167,15 @@ export const taskRunsContract = c.router(
       responses: {
         200: TaskRunSchema,
         404: ErrorSchema,
-        // The run's kind/state has no resume: a running/done run, a workflow/goal run
+        // The run's kind/state has no resume: a running/done run, a workflow/loop run
         // that is neither parked nor errored/interrupted, or one with no backing task.
         409: ErrorSchema,
       },
       summary:
-        "Resume a run: a parked workflow/goal run (with an operator note), or re-run an " +
+        "Resume a run: a parked workflow/loop run (with an operator note), or re-run an " +
         "errored/interrupted agent run (returns the NEW run — with --resume when a session " +
         "id was captured, else a fresh run of the same task), or continue an errored/interrupted " +
-        "workflow/goal run in place from where it stopped (falls back to a NEW task from the " +
+        "workflow/loop run in place from where it stopped (falls back to a NEW task from the " +
         "original task's inputs when nothing ran yet)",
     },
 
@@ -205,7 +205,7 @@ export const taskRunsContract = c.router(
         503: ErrorSchema,
       },
       summary:
-        "Hand a run's task over to another agent/workflow/department with its goal, folder and artifacts",
+        "Hand a run's task over to another agent/workflow/department with its loop, folder and artifacts",
     },
 
     sendTaskRunMessage: {

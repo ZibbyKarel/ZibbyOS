@@ -13,10 +13,10 @@ const NOTE_TRIAGE_BODY_LIMIT = 2400;
 
 /** A finished run reduced to what the distiller model needs to see. */
 export interface RunDigest {
-  kind: "workflow" | "agent" | "goal" | "chat" | "note";
+  kind: "workflow" | "agent" | "loop" | "chat" | "note";
   /** The run id (forensic; the model shouldn't echo it back as a learning). */
   id: string;
-  /** workflowId / agentId / goalId — the reusable identity. */
+  /** workflowId / agentId / loopId — the reusable identity. */
   name: string;
   status: string;
   /** Resolved project id, when the run targeted one. */
@@ -103,7 +103,7 @@ const NOTE_TRIAGE_SYSTEM_PROMPT = [
 
 const DISTILLER_SYSTEM_PROMPT = [
   "You are ZIBBY's memory distiller. You are given a batch of FINISHED runs",
-  "(workflows, agents, goals) with short excerpts of their outputs. Extract only",
+  "(workflows, agents, loops) with short excerpts of their outputs. Extract only",
   "DURABLE, REUSABLE learnings about the projects or domain that will still be true",
   "next time: conventions, architectural decisions, recurring gotchas, constraints.",
   "Do NOT restate run-specific changelog, numbers, commit ids, or what a single run",

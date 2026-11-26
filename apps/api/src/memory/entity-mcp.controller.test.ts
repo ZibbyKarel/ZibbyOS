@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { AutomationsStorageService } from "../automations/automations.storage.service";
 import { CommandsStorageService } from "../commands/commands.storage.service";
 import { CompaniesStorageService } from "../companies/companies.storage.service";
-import { GoalsStorageService } from "../goals/goals.storage.service";
+import { LoopsStorageService } from "../loops/loops.storage.service";
 import { HooksStorageService } from "../hooks/hooks.storage.service";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { McpServersStorageService } from "../mcp/mcp.storage.service";
@@ -49,7 +49,7 @@ describe("POST /api/memory/mcp", () => {
         { provide: ProjectsStorageService, useValue: { list: emptyList() } },
         { provide: CompaniesStorageService, useValue: { list: emptyList() } },
         { provide: IntegrationsStorageService, useValue: { list: emptyList() } },
-        { provide: GoalsStorageService, useValue: { list: emptyList() } },
+        { provide: LoopsStorageService, useValue: { list: emptyList() } },
         { provide: AutomationsStorageService, useValue: { list: emptyList() } },
       ],
     }).compile();

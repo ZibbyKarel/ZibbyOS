@@ -128,9 +128,9 @@ describe("D-020 — chat mentions + attachments", () => {
       expect(ChatMentionTargetSchema.safeParse(target).success).toBe(true);
     });
 
-    it("rejects a goal/chain/orchestrator mention — explicit-only kinds stay out of chat", () => {
+    it("rejects a loop/chain/orchestrator mention — explicit-only kinds stay out of chat", () => {
       expect(
-        ChatMentionTargetSchema.safeParse({ kind: "goal", id: "g1", name: "Goal" }).success,
+        ChatMentionTargetSchema.safeParse({ kind: "loop", id: "g1", name: "Loop" }).success,
       ).toBe(false);
       expect(
         ChatMentionTargetSchema.safeParse({ kind: "chain", id: "c1", name: "Chain" }).success,

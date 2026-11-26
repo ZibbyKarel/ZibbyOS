@@ -10,7 +10,7 @@ const SINGLE: TaskRouting = {
   matchedTerms: [],
   candidates: [{ kind: "agent", id: "koder", name: "Kodér", glyph: "bot" }],
   mode: "single",
-  proposedGoal: null,
+  proposedLoop: null,
   paths: [],
 };
 
@@ -21,7 +21,7 @@ const LOOP: TaskRouting = {
   matchedTerms: [],
   candidates: [{ kind: "workflow", id: "delivery", name: "Delivery", glyph: "flow" }],
   mode: "loop",
-  proposedGoal: {
+  proposedLoop: {
     objective: "keep going until green",
     maker: { kind: "workflow", id: "delivery" },
     verifier: { kind: "claude", agent: "reviewer" },

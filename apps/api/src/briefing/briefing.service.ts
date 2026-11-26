@@ -12,7 +12,7 @@ import { ACTIVITY_DIR, ActivityLogService } from "../activity/activity-log.servi
 import { ApprovalsService } from "../approvals/approvals.service";
 import { ChannelItemStore } from "../channels/channel-item.store";
 import { DuplicateNoteError, VaultService } from "../memory/vault.service";
-import { GoalRunnerService } from "../goals/goal-runner.service";
+import { LoopRunnerService } from "../loops/loop-runner.service";
 import { LimitsService } from "../limits/limits.service";
 import { ArchService } from "../arch/arch.service";
 import { ReleaseService } from "../release/release.service";
@@ -96,7 +96,7 @@ export class BriefingService {
   constructor(
     private readonly approvals: ApprovalsService,
     private readonly workflows: WorkflowRunnerService,
-    private readonly goals: GoalRunnerService,
+    private readonly loops: LoopRunnerService,
     private readonly channels: ChannelItemStore,
     private readonly activity: ActivityLogService,
     private readonly briefer: ClaudeCliBriefer,
@@ -143,7 +143,7 @@ export class BriefingService {
     const [
       approvals,
       allRuns,
-      allGoalRuns,
+      allLoopRuns,
       channelItems,
       activity,
       allTasks,
@@ -155,7 +155,7 @@ export class BriefingService {
     ] = await Promise.all([
       this.approvals.list("pending"),
       this.workflows.listAll(),
-      this.goals.listAll(),
+      this.loops.listAll(),
       this.channels.list(),
       this.activity.readSince(since, now),
       this.tasks.list().catch(() => []),
@@ -173,8 +173,8 @@ export class BriefingService {
       // never surface a false drift flag, so it collapses to `false`.
       this.selfKnowledge.check().catch(() => false),
     ]);
-    // Phase 10: in-flight (running/paused) goals feed "watching"; parked goals "needs you".
-    const goalRuns = allGoalRuns.filter(
+    // Phase 10: in-flight (running/paused) loops feed "watching"; parked loops "needs you".
+    const loopRuns = allLoopRuns.filter(
       (g) => g.status === "running" || g.status === "paused-limit" || g.status === "parked",
     );
     const parkedRuns = allRuns.filter((r) => r.status === "parked");
@@ -239,7 +239,7 @@ export class BriefingService {
       approvals,
       parkedRuns,
       pausedLimitRuns,
-      goalRuns,
+      loopRuns,
       channelItems: inFlight,
       activity,
       tasks,

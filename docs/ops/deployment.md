@@ -104,7 +104,7 @@ launchctl kickstart -k gui/$UID/com.zibby.api
 `GOAL_AUTO_RESUME` is **not** a plist environment key anymore — see the next
 section.
 
-### Goal auto-resume — the unattended builder (Phase 13.3)
+### Loop auto-resume — the unattended builder (Phase 13.3)
 
 Unattended-builder resume is no longer an env var: it is the file-backed
 `goalAutoResume` knob in the runtime system config (`data/system-config.json`,
@@ -115,8 +115,8 @@ editable from `/settings` — see `docs/ops/environment.md`). Installing this da
 
 | `goalAutoResume`       | Behavior after restart                                                                                                  |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `true` (daemon)        | Rehydrates the registry **and** re-drives `running`/`paused-limit` goals (continuation, not a restart — Phase 9.3/12.4) |
-| `false` (attended dev) | Rehydrates the registry, but parks live goals `awaiting-resume` — waits for the operator (Law 3)                        |
+| `true` (daemon)        | Rehydrates the registry **and** re-drives `running`/`paused-limit` loops (continuation, not a restart — Phase 9.3/12.4) |
+| `false` (attended dev) | Rehydrates the registry, but parks live loops `awaiting-resume` — waits for the operator (Law 3)                        |
 
 **Self-development:** if this daemon is meant to drive the loop against **its own**
 repo, follow [`self-development.md`](./self-development.md) — builder ≠ subject

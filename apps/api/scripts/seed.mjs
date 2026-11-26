@@ -797,39 +797,6 @@ async function seedAutomations() {
   return AUTOMATIONS.length;
 }
 
-// --------------------------------------------------------------- goals ----
-// Phase 10: a goal definition — the outer loop's recipe. The maker is an existing
-// agent/workflow; the verifier here is the project's deterministic checks. Stored
-// as `<id>.goal.md` (frontmatter carries maker/verifier/maxIterations).
-const GOALS = [
-  {
-    id: "ship-auth-feature",
-    name: "Ship the auth feature green",
-    desc: "Iterate the build-feature workflow until the auth-svc checks pass.",
-    objective: "Implement the new login flow in auth-svc and get all checks green.",
-    maker: { kind: "workflow", id: "build-feature" },
-    verifier: { kind: "checks" },
-    maxIterations: 5,
-    instructions:
-      "Drive the build-feature workflow toward green checks. Each iteration, address what the verifier flagged last time; do not re-do already-committed work.",
-  },
-];
-
-async function seedGoals() {
-  for (const g of GOALS) {
-    const fm = {
-      name: g.name,
-      objective: g.objective,
-      maker: g.maker,
-      verifier: g.verifier,
-      maxIterations: g.maxIterations,
-      desc: g.desc,
-    };
-    await writeFile(dir("goals", `${g.id}.goal.md`), md(g.instructions, fm));
-  }
-  return GOALS.length;
-}
-
 // ----------------------------------------------------------------- vault ----
 // tier comes from the top dir: root + MOC/ → memory, knowledge/ → knowledge, daily/ → daily.
 const NOTES = [
@@ -1247,7 +1214,6 @@ async function main() {
   const agents = await seedAgents();
   const projects = await seedProjects();
   const workflows = await seedWorkflows();
-  const goals = await seedGoals();
   const automations = await seedAutomations();
   const notes = await seedVault();
   const { approvals, runs } = await seedRunsAndApprovals();
@@ -1260,7 +1226,6 @@ async function main() {
     `  projects      ${projects.count ? projects.count : "registry left as it was"} · ${cats(projects.cats)}`,
   );
   console.log(`  workflows     ${workflows}`);
-  console.log(`  goals         ${goals}`);
   console.log(`  automations   ${automations}`);
   console.log(`  vault notes   ${notes}`);
   console.log(`  approvals     ${approvals} (pending)`);

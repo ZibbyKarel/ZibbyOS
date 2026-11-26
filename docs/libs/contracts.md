@@ -33,7 +33,7 @@ excluding the composite `app.contract.ts` and the shared `common.schema.ts`):
 | `companies/`          | `CompanySchema`                                                                                                                   | Company registry CRUD — the super-entity above `Project`                                                                  |
 | `teams/`              | `TeamSchema`, `KnowledgeBaseSourceSchema`                                                                                         | Team CRUD — the layer between `Company` and `Project` that owns a read-only knowledge base; see `docs/api/teams.md`       |
 | `workflows/`          | `WorkflowSchema`, `WorkflowRunSchema`, `StageVerdictSchema`                                                                       | Workflow CRUD + runs                                                                                                      |
-| `goals/`              | `GoalSchema`, `GoalRunSchema`                                                                                                     | Loop-engine goal definitions + runs                                                                                       |
+| `loops/`              | `LoopSchema`, `LoopRunSchema`                                                                                                     | Loop-engine loop definitions + runs                                                                                       |
 | `approvals/`          | `ApprovalSchema`                                                                                                                  | Approval queue                                                                                                            |
 | `artifacts/`          | `ArtifactSchema`                                                                                                                  | Durable artifact provenance registry                                                                                      |
 | `canvas/`             | `CanvasMetaSchema`, `CANVAS_ID_PATTERN`                                                                                           | Chat canvas metadata (read-only); see `docs/api/canvas.md`                                                                |
@@ -225,7 +225,7 @@ export const appContract = c.router({
   teams: teamsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract, // now just GET /workflows/runs (catalog liveness)
-  goals: goalsContract,
+  loops: loopsContract,
   approvals: approvalsContract,
   artifacts: artifactsContract,
   canvas: canvasContract,
@@ -257,7 +257,7 @@ export const appContract = c.router({
   budget: budgetContract,
   chat: chatContract,
   speech: speechContract,
-  // ... (no goalRunsContract — goal runs live on taskRuns)
+  // ... (no loopRunsContract — loop runs live on taskRuns)
 });
 ```
 
@@ -268,6 +268,6 @@ Used to generate OpenAPI documentation in `main.ts`.
 > started only via a task (`POST /api/tasks`), and every operation on a run
 > lives on `taskRunsContract` under `/api/tasks/runs/*`. `agentRunsContract`
 > and `workflowRunsContract` only keep their liveness listings; the former
-> `goalRunsContract` was removed entirely — goal runs share the task-run
+> `loopRunsContract` was removed entirely — loop runs share the task-run
 > surface. The run **schemas** (`AgentRunSchema`, `WorkflowRunSchema`,
-> `GoalRunSchema`) remain and are shared via `task-run.schema`.
+> `LoopRunSchema`) remain and are shared via `task-run.schema`.

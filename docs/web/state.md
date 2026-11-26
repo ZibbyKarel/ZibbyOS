@@ -98,7 +98,7 @@ getter" — e.g.:
   than any single `getXxxQueryKey()`.
 - **A cross-domain key that isn't itself a zero-arg getter** — several
   `runs`-adjacent mutations (`useDeleteAgentRunMutation`,
-  `useResumeGoalRunMutation`) invalidate `allTaskRunsKey`, a shared constant
+  `useResumeLoopRunMutation`) invalidate `allTaskRunsKey`, a shared constant
   rather than a `getKey()` function.
 
 ```typescript
@@ -156,7 +156,7 @@ similar. No global store for UI state.
 invalidation, rather than polling:
 
 - Merges five scopes into one stream: `agent-runs`, `workflow-runs`,
-  `goal-runs`, `channel-items`, `activity`
+  `loop-runs`, `channel-items`, `activity`
 - Each event is a thin signal (`{ scope, runId, status }` or, for the
   activity scope, `{ scope: "channel-items"/"activity", ... }` with the full
   entry) — "this family changed, refetch"; the channel is not the source of

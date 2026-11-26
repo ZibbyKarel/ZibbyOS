@@ -59,7 +59,7 @@ export const TargetSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("workflow"), workflowId: AgentIdSchema }),
   z.object({ type: z.literal("agent"), agentId: AgentIdSchema }),
   z.object({ type: z.literal("briefing") }),
-  // Memory distillation: nightly sweep of terminal workflow/agent/goal runs, a cheap
+  // Memory distillation: nightly sweep of terminal workflow/agent/loop runs, a cheap
   // model (haiku) extracts durable learnings into the vault. Agents stay memory-blind;
   // learning is a SYSTEM capability — this is the canonical system automation. The
   // scheduler dispatches it straight to the memory-distiller service.
@@ -121,14 +121,14 @@ export const TargetSchema = z.discriminatedUnion("type", [
     /** The typed prompt — forwarded as the task's free-text (`CreateTaskInput.text`). */
     text: z.string().min(1),
     /**
-     * Optional @-mentioned run target (agent/workflow/department/goal/…).
+     * Optional @-mentioned run target (agent/workflow/department/loop/…).
      * Absent = the task classifier/orchestrator-fallback decides at fire time,
      * exactly like an unrouted task from the dialog.
      */
     target: TaskTargetSchema.optional(),
     /**
      * Files uploaded into the automation's context (a tasks attachment-set id, see
-     * `AttachmentSchema`). Fed to the run for agent/orchestrator/goal targets;
+     * `AttachmentSchema`). Fed to the run for agent/orchestrator/loop targets;
      * workflow/department targets cannot carry attachments yet (pre-existing
      * runner gap — same limitation an ordinary task has today).
      */

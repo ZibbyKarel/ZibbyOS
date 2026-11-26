@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { AiEngineSchema } from "../ai-providers/ai-providers.schema";
 import {
-  GoalIterationSchema,
-  GoalParkedDetailSchema,
-  GoalParkedReasonSchema,
-} from "../goals/goal-run.schema";
+  LoopIterationSchema,
+  LoopParkedDetailSchema,
+  LoopParkedReasonSchema,
+} from "../loops/loop-run.schema";
 import { DiffstatSchema, RunArtifactSchema, RunStatusSchema } from "../common.schema";
 import { DepartmentIdSchema } from "../departments/department.schema";
 import {
@@ -27,7 +27,7 @@ import {
  * dispatched yet (it has no run behind it — its `runId` is the task id), the other
  * three are the live/finished run kinds.
  */
-export const RunKindSchema = z.enum(["agent", "workflow", "goal", "scheduled"]);
+export const RunKindSchema = z.enum(["agent", "workflow", "loop", "scheduled"]);
 export type RunKind = z.infer<typeof RunKindSchema>;
 
 /**
@@ -54,14 +54,14 @@ export const TaskRunStatusSchema = z.enum([
 export type TaskRunStatus = z.infer<typeof TaskRunStatusSchema>;
 
 /**
- * The processor handling a task: which kind (agent / workflow / goal), the stored
+ * The processor handling a task: which kind (agent / workflow / loop), the stored
  * definition `id`, and the human `name`. The operator model is "task is the entity,
  * the processor is metadata" — this is that metadata. Absent on a not-yet-dispatched
  * scheduled task whose target the classifier will pick later. `name` falls back to the
  * id when the definition was deleted (mirrors the web `runGlyph` catalog-miss handling).
  */
 export const ProcessorSchema = z.object({
-  kind: z.enum(["agent", "workflow", "goal"]),
+  kind: z.enum(["agent", "workflow", "loop"]),
   id: z.string().min(1),
   name: z.string().min(1),
 });
@@ -69,13 +69,13 @@ export type Processor = z.infer<typeof ProcessorSchema>;
 
 /**
  * One row of the unified task feed — the server-side promotion of the web `RunView`.
- * A task is the entity that runs; the agent/workflow/goal that processes it is the
+ * A task is the entity that runs; the agent/workflow/loop that processes it is the
  * `processor`. The merge (per-kind run lists + still-waiting scheduled tasks, with a
- * goal's maker/verifier child runs folded out) lives in the API now, not the client.
+ * loop's maker/verifier child runs folded out) lives in the API now, not the client.
  *
  * Carries every kind-specific optional the detail surfaces need: agent `pct`/`prompt`,
- * workflow `stageRuns`/`currentStage`/`parked`/`checkpoints`, goal `iterations`/
- * `goalParked`. Most are optional and present only for the relevant kind.
+ * workflow `stageRuns`/`currentStage`/`parked`/`checkpoints`, loop `iterations`/
+ * `loopParked`. Most are optional and present only for the relevant kind.
  */
 export const TaskRunSourcePrSchema = z.object({
   kind: z.enum(["review", "rebase", "address-comments", "fix-ci", "ci-triage"]),
@@ -88,10 +88,10 @@ export type TaskRunSourcePr = z.infer<typeof TaskRunSourcePrSchema>;
 export const TaskRunSchema = z.object({
   runId: z.string().min(1),
   kind: RunKindSchema,
-  /** The routed agent/workflow/goal id — `""` for a not-yet-dispatched scheduled task. */
+  /** The routed agent/workflow/loop id — `""` for a not-yet-dispatched scheduled task. */
   owner: z.string(),
   status: TaskRunStatusSchema,
-  /** 0–100 for agent runs; null for workflow/goal runs and scheduled tasks. */
+  /** 0–100 for agent runs; null for workflow/loop runs and scheduled tasks. */
   pct: z.number().nullable(),
   /** Short human task name from the New Task dialog; `""` when absent. */
   title: z.string(),
@@ -208,14 +208,14 @@ export const TaskRunSchema = z.object({
   stageRuns: z.array(StageRunSchema).optional(),
   /** Workflow runs: the phase currently executing, for the timeline's live stage row. */
   currentStage: z.string().nullable().optional(),
-  /** Phase 10 (goal runs): the goal definition id, for the detail's maxIterations lookup. */
-  goalId: z.string().optional(),
-  /** Phase 10 (goal runs): the per-iteration maker→verifier log for the timeline. */
-  iterations: z.array(GoalIterationSchema).optional(),
-  /** Phase 10 (goal runs): the parked surface (iteration, attempts, verdict file). */
-  goalParked: GoalParkedDetailSchema.optional(),
-  /** Phase 10 (goal runs): why the goal parked (iterations / budget / limit). */
-  goalParkedReason: GoalParkedReasonSchema.optional(),
+  /** Phase 10 (loop runs): the loop definition id, for the detail's maxIterations lookup. */
+  loopId: z.string().optional(),
+  /** Phase 10 (loop runs): the per-iteration maker→verifier log for the timeline. */
+  iterations: z.array(LoopIterationSchema).optional(),
+  /** Phase 10 (loop runs): the parked surface (iteration, attempts, verdict file). */
+  loopParked: LoopParkedDetailSchema.optional(),
+  /** Phase 10 (loop runs): why the loop parked (iterations / budget / limit). */
+  loopParkedReason: LoopParkedReasonSchema.optional(),
   /**
    * Phase 49 (agent runs): the captured `claude` session id, when the run emitted a
    * `system/init` line. Its presence tells the detail whether a re-run of an
@@ -245,7 +245,7 @@ export type TaskRun = z.infer<typeof TaskRunSchema>;
 
 /**
  * One whitelisted task-run artifact: its name and text content. The unified
- * counterpart of the per-kind `WorkflowRunArtifact` / `GoalRunArtifact` — the owning
+ * counterpart of the per-kind `WorkflowRunArtifact` / `LoopRunArtifact` — the owning
  * runner still enforces its own allowlist server-side, so `name` is a plain string here.
  */
 export const TaskRunArtifactSchema = RunArtifactSchema;
@@ -318,7 +318,7 @@ export const AssignTaskRunProjectSchema = z.object({
 export type AssignTaskRunProjectInput = z.infer<typeof AssignTaskRunProjectSchema>;
 
 /**
- * Pseudo department id for a run with no department attribution — an agent/goal run
+ * Pseudo department id for a run with no department attribution — an agent/loop run
  * (no department concept applies at all) or a workflow run whose owner isn't tagged.
  * Shared between the API (which filters/counts archived runs by department) and the
  * web (which renders the "bez oddělení" bucket) so both sides match the exact

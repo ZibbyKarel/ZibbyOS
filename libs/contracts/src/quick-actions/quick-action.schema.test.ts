@@ -29,8 +29,8 @@ describe("QuickActionSchema", () => {
     expect("immediate" in QuickActionSchema.parse(base)).toBe(false);
   });
 
-  it("rejects a goal target", () => {
-    const target = { kind: "goal", id: "g", name: "G" };
+  it("rejects a loop target", () => {
+    const target = { kind: "loop", id: "g", name: "G" };
     expect(QuickActionSchema.safeParse({ ...base, target }).success).toBe(false);
   });
 });

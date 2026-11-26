@@ -22,9 +22,9 @@ vi.mock("../mutations", () => ({
   useCreateTaskMutation: () => ({ mutate: createTask, isPending: false }),
 }));
 
-const createGoal = vi.fn();
-vi.mock("../../goals", () => ({
-  useCreateGoalMutation: () => ({ mutate: createGoal, isPending: false }),
+const createLoop = vi.fn();
+vi.mock("../../loops", () => ({
+  useCreateLoopMutation: () => ({ mutate: createLoop, isPending: false }),
 }));
 
 const BASE_ARGS = {
@@ -44,7 +44,7 @@ const BASE_ARGS = {
 describe("useTaskSubmit", () => {
   beforeEach(() => {
     createTask.mockClear();
-    createGoal.mockClear();
+    createLoop.mockClear();
   });
 
   it("never puts a teamId key on the dispatched createTask body — Task 9b, the option is gone", () => {

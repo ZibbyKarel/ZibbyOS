@@ -33,7 +33,7 @@ function pollWhileLive(query: {
 /**
  * The unified runs feed. One query against `GET /api/tasks/runs` — the server merges
  * the per-kind run histories with the still-waiting scheduled tasks (and folds a
- * goal's maker/verifier child runs out), so the client no longer merges anything.
+ * loop's maker/verifier child runs out), so the client no longer merges anything.
  *
  * Freshness is push-driven via the `/api/events` SSE channel, which invalidates the
  * feed key on every run transition. The self-gating poll (refetch while any row is

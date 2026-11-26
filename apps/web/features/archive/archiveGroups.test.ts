@@ -29,8 +29,8 @@ describe("archiveDepartmentFilterId / D8 join", () => {
     expect(id).toBe(NO_DEPARTMENT);
   });
 
-  it("returns NO_DEPARTMENT for a goal run", () => {
-    const id = archiveDepartmentFilterId(run({ kind: "goal", owner: "g1" }), maps());
+  it("returns NO_DEPARTMENT for a loop run", () => {
+    const id = archiveDepartmentFilterId(run({ kind: "loop", owner: "g1" }), maps());
     expect(id).toBe(NO_DEPARTMENT);
   });
 

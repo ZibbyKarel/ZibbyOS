@@ -9,7 +9,7 @@ import type {
   BriefingWatchItem,
   ChannelItem,
   CiStatus,
-  GoalRun,
+  LoopRun,
   ScheduledTask,
   WorkflowRun,
 } from "@zibby/contracts";
@@ -24,8 +24,8 @@ export interface BriefingInput {
   parkedRuns: WorkflowRun[];
   /** Phase 9: workflow runs currently paused on the usage limit (status "paused-limit"). */
   pausedLimitRuns?: WorkflowRun[];
-  /** Phase 10: goal runs in flight (running / paused-limit) and parked (needs-you). */
-  goalRuns?: GoalRun[];
+  /** Phase 10: loop runs in flight (running / paused-limit) and parked (needs-you). */
+  loopRuns?: LoopRun[];
   /** Channel items still in flight (state new or triaged). */
   channelItems: ChannelItem[];
   /** Activity entries recorded since the cursor (newest-first is fine; we sort). */
@@ -108,17 +108,17 @@ export function buildPersonalAgenda(channelItems: ChannelItem[], now: Date): str
  * first-class output.
  */
 export function assembleBriefing(input: BriefingInput): Briefing {
-  const goalRuns = input.goalRuns ?? [];
+  const loopRuns = input.loopRuns ?? [];
   const personalAgenda = buildPersonalAgenda(input.channelItems, input.now);
   const needsYou = buildNeedsYou(
     input.approvals,
     input.parkedRuns,
-    goalRuns,
+    loopRuns,
     input.deadLetteredTasks ?? [],
     input.ciStatuses ?? [],
   );
   const didForYou = buildDidForYou(input.activity);
-  const watching = buildWatching(input.channelItems, input.pausedLimitRuns ?? [], goalRuns);
+  const watching = buildWatching(input.channelItems, input.pausedLimitRuns ?? [], loopRuns);
   const engagements = buildEngagements(
     input.tasks ?? [],
     didForYou,
@@ -216,7 +216,7 @@ export function buildEngagements(
 function buildNeedsYou(
   approvals: Approval[],
   parkedRuns: WorkflowRun[],
-  goalRuns: GoalRun[],
+  loopRuns: LoopRun[],
   deadLetteredTasks: ScheduledTask[],
   ciStatuses: CiStatus[],
 ): BriefingNeedsYouItem[] {
@@ -234,16 +234,16 @@ function buildNeedsYou(
     at: r.startedAt,
     refs: { runRef: r.workflowRunId, workflowId: r.workflowId, status: "parked" },
   }));
-  // Phase 10: a parked goal (bounded effort exhausted) is a Tier-3 decision too —
+  // Phase 10: a parked loop (bounded effort exhausted) is a Tier-3 decision too —
   // it rides the same `parked` notification, no new kind (decision 11).
-  const fromParkedGoals: BriefingNeedsYouItem[] = goalRuns
+  const fromParkedLoops: BriefingNeedsYouItem[] = loopRuns
     .filter((g) => g.status === "parked")
     .map((g) => ({
       kind: "parked",
-      id: g.goalRunId,
-      summary: `goal ${g.goalId} parked${g.parkedReason ? ` (${g.parkedReason})` : ""}`,
+      id: g.loopRunId,
+      summary: `loop ${g.loopId} parked${g.parkedReason ? ` (${g.parkedReason})` : ""}`,
       at: g.startedAt,
-      refs: { runRef: g.goalRunId, goalId: g.goalId, status: "parked" },
+      refs: { runRef: g.loopRunId, loopId: g.loopId, status: "parked" },
     }));
   // M8: a dead-lettered task (dispatch exhausted its retries) needs the operator —
   // it rides the same `parked` notification (no new kind), so a repeatedly-failing
@@ -279,7 +279,7 @@ function buildNeedsYou(
   return [
     ...fromApprovals,
     ...fromParked,
-    ...fromParkedGoals,
+    ...fromParkedLoops,
     ...fromDeadLetter,
     ...fromRedCi,
   ].sort((a, b) => b.at.localeCompare(a.at));
@@ -301,7 +301,7 @@ function buildDidForYou(activity: ActivityEntry[]): BriefingDidItem[] {
 function buildWatching(
   channelItems: ChannelItem[],
   pausedLimitRuns: WorkflowRun[],
-  goalRuns: GoalRun[],
+  loopRuns: LoopRun[],
 ): BriefingWatchItem[] {
   const byIntegration = new Map<string, { newItems: number; lastReceivedAt?: string }>();
   for (const item of channelItems) {
@@ -327,20 +327,20 @@ function buildWatching(
       resumeAt: r.resumeAt ?? null,
     }))
     .sort((a, b) => (a.resumeAt ?? Infinity) - (b.resumeAt ?? Infinity));
-  // Phase 10: an in-flight goal (running) or a goal reflecting a maker pause are
+  // Phase 10: an in-flight loop (running) or a loop reflecting a maker pause are
   // things ZIBBY is working on, not decisions — surface them in "watching".
-  const goals: BriefingWatchItem[] = goalRuns
+  const loops: BriefingWatchItem[] = loopRuns
     .filter((g) => g.status === "running" || g.status === "paused-limit")
     .map((g) => ({
-      runRef: g.goalRunId,
+      runRef: g.loopRunId,
       summary:
         g.status === "paused-limit"
-          ? `goal ${g.goalId} paused on the usage limit`
-          : `goal ${g.goalId} iterating (${(g.currentIteration ?? 0) + 1})`,
+          ? `loop ${g.loopId} paused on the usage limit`
+          : `loop ${g.loopId} iterating (${(g.currentIteration ?? 0) + 1})`,
       resumeAt: g.resumeAt ?? null,
     }))
     .sort((a, b) => (a.resumeAt ?? Infinity) - (b.resumeAt ?? Infinity));
-  return [...channels, ...paused, ...goals];
+  return [...channels, ...paused, ...loops];
 }
 
 function isFinished(e: ActivityEntry): boolean {

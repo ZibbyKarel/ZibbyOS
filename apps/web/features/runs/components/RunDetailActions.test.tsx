@@ -69,7 +69,7 @@ describe("RunDetailActions", () => {
     ["waiting", { kind: "scheduled", status: "queued" }, ["stop"]],
     ["waiting", { kind: "scheduled", status: "pending" }, []],
     ["limit", { status: "paused-limit" }, ["stop"]],
-    ["limit", { kind: "goal", status: "paused-limit" }, []],
+    ["limit", { kind: "loop", status: "paused-limit" }, []],
   ])("%s %o → %o", (mode, run, expected) => {
     renderActions(mode, run);
     expect(actionIds()).toEqual(expected);

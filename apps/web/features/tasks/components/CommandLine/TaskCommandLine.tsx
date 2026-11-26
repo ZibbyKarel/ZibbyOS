@@ -67,7 +67,7 @@ export interface TaskCommandLineProps {
   /** Prior-run context ("Continue in a new task") appended to the dispatched text. */
   context?: string;
   /** True when the caller's own live classify verdict says this text synthesizes a
-   *  loop — flips the run control to "Run loop" and routes dispatch through the goal
+   *  loop — flips the run control to "Run loop" and routes dispatch through the loop
    *  creation path. Defaults to false. */
   isLoop?: boolean;
   /** The Loop form state — read when `isLoop` is true. */
@@ -181,7 +181,7 @@ export function TaskCommandLine({
   );
   const voice = useVoiceMode({ onFinal: appendDictated });
   const [scheduledWhen, setScheduledWhen] = useState<string | null>(null);
-  // A stable "now" for this instance's lifetime — presets and the goal id's uniqueness
+  // A stable "now" for this instance's lifetime — presets and the loop id's uniqueness
   // suffix resolve against it (lazy: Date.now() in render is lint-banned).
   const [now] = useState(() => Date.now());
 
@@ -228,7 +228,7 @@ export function TaskCommandLine({
   const ackKindLabel: Record<TaskTargetKind, string> = {
     agent: t("commandLine.ack.kind.agent"),
     workflow: t("commandLine.ack.kind.workflow"),
-    goal: t("commandLine.ack.kind.goal"),
+    loop: t("commandLine.ack.kind.loop"),
     department: t("commandLine.ack.kind.department"),
     orchestrator: t("commandLine.ack.kind.orchestrator"),
   };

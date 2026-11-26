@@ -139,7 +139,7 @@ export function streamRunLog(
 /** The shape every run-status event carries on the unified `/api/events` channel. */
 export interface RunStatusEvent {
   /** Which client query family to refetch. */
-  scope: "agent-runs" | "workflow-runs" | "goal-runs" | "chain-runs";
+  scope: "agent-runs" | "workflow-runs" | "loop-runs" | "chain-runs";
   runId: string;
   status: string;
 }

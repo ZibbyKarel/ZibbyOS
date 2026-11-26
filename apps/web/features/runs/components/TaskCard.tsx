@@ -46,7 +46,7 @@ export function TaskCard({
   const headline = runTitle(run);
   const tone = runStateTone(run.status);
   // Agent runs carry a live `pct`; a done run of any kind reads as complete.
-  // Workflow/goal runs otherwise have no run-level percentage (only their stage
+  // Workflow/loop runs otherwise have no run-level percentage (only their stage
   // timeline does) — the bar is honestly omitted rather than a fabricated guess.
   const pct = run.status === "done" ? 100 : (run.pct ?? null);
   // The task-origin line is only worth a row when it adds something the

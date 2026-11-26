@@ -442,12 +442,12 @@ describe("DepartmentsService", () => {
       expect(dev.state).toBe("idle");
     });
 
-    it("a goal-kind run never attributes (D16 — goal runs are deliberately unattributed)", async () => {
+    it("a loop-kind run never attributes (D16 — loop runs are deliberately unattributed)", async () => {
       const { service } = build({
         workflows: [workflowFixture("delivery", "dev")],
         agents: [{ id: "koder", department: "dev", instructions: "x" } as Agent],
         runs: [
-          taskRunFixture({ runId: "goal_1", kind: "goal", owner: "koder", status: "running" }),
+          taskRunFixture({ runId: "loop_1", kind: "loop", owner: "koder", status: "running" }),
         ],
       });
       const dev = await service.get("dev");

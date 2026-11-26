@@ -187,7 +187,7 @@ export function buildStageRail(
   definedPhaseIds: string[] | undefined,
   now: number,
 ): StageRailRow[] {
-  if (run.kind === "goal") return [];
+  if (run.kind === "loop") return [];
   if (run.kind !== "workflow") {
     const started = Date.parse(run.startedAt);
     const finished = run.taskOutcomeFinishedAt;

@@ -229,7 +229,7 @@ echo-guarded while any reply is read aloud. The composer offers no attach contro
 because the chat API has no attachment channel. A settled reply's
 **Create task** opens `/work/tasks/new?text=…(&entry=<dept>)`. ⌘/Ctrl+K opens
 the `CommandPaletteHost` (`features/command-palette`), which indexes
-departments, people, tasks, goals, companies, teams, projects,
+departments, people, tasks, companies, teams, projects,
 workflows, registries, automations, vault notes, settings and gate
 sections, plus actions. "Approve next" never quick-approves a high-risk item: it
 opens the approval sheet instead.
@@ -316,7 +316,7 @@ features/
 ├── departments/    `/org/departments/[id]/[tab]` — department detail; "Chat with"
 │                   opens the COO dock with an explicit department target
 ├── gates/          Gate rule catalog
-├── goals/          Loop engine — goal definitions + runs (maker ⇄ verifier)
+├── loops/          Loop engine — loop definitions + runs (maker ⇄ verifier)
 ├── health/         System health status
 ├── hooks/          Hook catalog
 ├── integrations/   Channel adapters (email, Slack), scoped under a project
@@ -406,7 +406,7 @@ madge.)
   overview, workflows, projects, runs, settings, skills, teams (`gates` is
   route-only, with no nav item).
 - **Shared services** (no `Screen`, consumed by other features / mounted in
-  chrome): approvals, chat, goals, health, integrations, limits, notifications,
+  chrome): approvals, chat, loops, health, integrations, limits, notifications,
   pins, research, speech, system, tasks.
 
 ### Open follow-up cleanups

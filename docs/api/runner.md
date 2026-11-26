@@ -1,10 +1,10 @@
 # Runner (the shared process-spawn engine)
 
 `apps/api/src/runner/` is the execution core every run kind spawns through:
-agent runs, workflow stage runs, goal-loop runs, and skill runs. It owns
+agent runs, workflow stage runs, loop runs, and skill runs. It owns
 **process lifecycle** (spawn, output capture, restart survival, cancellation),
 the **`claude -p` command builder**, and the **mid-run approval-gate wiring**.
-It does not know about agents, workflows, or goals as concepts — those live in
+It does not know about agents, workflows, or loops as concepts — those live in
 their own modules and each instantiate their own `RunnerCore`, passing in a
 kind-specific `KindStrategy`. For orchestration-level detail (how an agent run
 is dispatched, how a workflow phase retries/escalates/parks), see
@@ -622,7 +622,7 @@ Four callers each own their own `RunnerCore` instance and runs directory:
   consumer; wires every optional callback. See `docs/api/agents-runs.md`.
 - **`workflows`** (`apps/api/src/workflows/workflow-runner.service.ts`) —
   one stage attempt per spawn. See `docs/api/workflows.md`.
-- **`goals`** (`apps/api/src/goals/goal-runner.service.ts`) — imports
+- **`loops`** (`apps/api/src/loops/loop-runner.service.ts`) — imports
   `RunNotFoundError`/`isAlive`/`killGroup` directly rather than instantiating
   its own core (delegates the actual spawn to the workflow/agent runner it
   drives).

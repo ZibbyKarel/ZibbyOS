@@ -114,8 +114,8 @@ describe("buildStageRail", () => {
     expect(rail).toMatchObject([{ n: "01", name: "Kodér", stateKey: "running", meta: "10:00" }]);
   });
 
-  it("a goal run has no rail", () => {
-    expect(buildStageRail(run({ kind: "goal" }), "running", undefined, NOW)).toEqual([]);
+  it("a loop run has no rail", () => {
+    expect(buildStageRail(run({ kind: "loop" }), "running", undefined, NOW)).toEqual([]);
   });
 });
 

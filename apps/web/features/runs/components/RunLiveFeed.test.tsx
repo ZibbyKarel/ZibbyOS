@@ -16,8 +16,8 @@ vi.mock("../../approvals", () => ({
 vi.mock("../queries/useStageRunLogQuery", () => ({
   useStageRunLogQuery: vi.fn(() => ({ data: { content: "Round one text." } })),
 }));
-vi.mock("./GoalDetailPanel", () => ({
-  GoalDetailPanel: () => <div data-testid="goal-detail" />,
+vi.mock("./LoopDetailPanel", () => ({
+  LoopDetailPanel: () => <div data-testid="loop-detail" />,
 }));
 
 const run: RunView = {
@@ -134,9 +134,9 @@ describe("RunLiveFeed", () => {
     expect(screen.queryByTestId(RunLiveFeedTestId.Streaming)).not.toBeInTheDocument();
   });
 
-  it("a goal run renders the goal panel instead of items", () => {
-    renderFeed({ kind: "goal" });
-    expect(screen.getByTestId("goal-detail")).toBeInTheDocument();
+  it("a loop run renders the loop panel instead of items", () => {
+    renderFeed({ kind: "loop" });
+    expect(screen.getByTestId("loop-detail")).toBeInTheDocument();
     expect(screen.queryByTestId(RunLiveFeedTestId.Root)).not.toBeInTheDocument();
   });
 

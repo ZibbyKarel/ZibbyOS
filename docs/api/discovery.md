@@ -47,7 +47,7 @@ above) and, once it exists:
 3. **On approval** (`ProposedTaskFlowService.resume(proposalId)`): the
    proposal's `suggestedTarget` (if any) is converted to a `TaskTarget` — an
    `orchestrator` suggestion needs no id; a stored-definition kind
-   (`agent`/`workflow`/`goal`) with no id degrades to classification rather
+   (`agent`/`workflow`/`loop`) with no id degrades to classification rather
    than dispatching a malformed target — and the candidate's `text`/`title`
    go through the **normal** `TaskSchedulerService.createTask` path, so a
    discovery-sourced task gets the same budget/concurrency/outcome handling

@@ -216,11 +216,11 @@ describe("parked workflow actions", () => {
     expect(isStoppableRun({ kind: "agent", status: "awaiting-approval" })).toBe(true);
   });
 
-  it("a paused workflow and a limit-paused agent/workflow can be stopped; a limit-paused goal cannot", () => {
+  it("a paused workflow and a limit-paused agent/workflow can be stopped; a limit-paused loop cannot", () => {
     expect(isStoppableRun({ kind: "workflow", status: "paused" })).toBe(true);
     expect(isStoppableRun({ kind: "agent", status: "paused-limit" })).toBe(true);
     expect(isStoppableRun({ kind: "workflow", status: "paused-limit" })).toBe(true);
-    expect(isStoppableRun({ kind: "goal", status: "paused-limit" })).toBe(false);
+    expect(isStoppableRun({ kind: "loop", status: "paused-limit" })).toBe(false);
   });
 
   it("only a workflow with a stage boundary ahead can be paused", () => {
@@ -240,7 +240,7 @@ describe("parked workflow actions", () => {
     expect(isHandoverableRun({ kind: "workflow", status: "queued" })).toBe(false);
     expect(isHandoverableRun({ kind: "workflow", status: "paused-limit" })).toBe(true);
     expect(isHandoverableRun({ kind: "workflow", status: "parked" })).toBe(true);
-    expect(isHandoverableRun({ kind: "goal", status: "paused-limit" })).toBe(false);
-    expect(isHandoverableRun({ kind: "goal", status: "parked" })).toBe(false);
+    expect(isHandoverableRun({ kind: "loop", status: "paused-limit" })).toBe(false);
+    expect(isHandoverableRun({ kind: "loop", status: "parked" })).toBe(false);
   });
 });

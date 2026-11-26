@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ApprovalsModule } from "../approvals/approvals.module";
 import { ChannelsModule } from "../channels/channels.module";
-import { GoalsModule } from "../goals/goals.module";
+import { LoopsModule } from "../loops/loops.module";
 import { LimitsModule } from "../limits/limits.module";
 import { ArchModule } from "../arch/arch.module";
 import { ReleaseModule } from "../release/release.module";
@@ -29,7 +29,7 @@ import { ClaudeCliBriefer } from "./claude-cli-briefer";
   imports: [
     ApprovalsModule,
     WorkflowsModule,
-    GoalsModule,
+    LoopsModule,
     ChannelsModule,
     MemoryModule,
     MonitorsModule,

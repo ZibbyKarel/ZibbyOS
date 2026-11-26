@@ -254,7 +254,7 @@ export class RoadmapGateService {
   /**
    * Resume a `failed` item's LAST run in place, reusing `TaskRunsService.resume` —
    * the same unified resume machinery the run detail already exposes (a parked
-   * workflow/goal resumes; an errored/interrupted agent run re-runs with
+   * workflow/loop resumes; an errored/interrupted agent run re-runs with
    * `--resume <sessionId>` when one was captured). Chosen over "restart" when the
    * run itself is resumable because it is strictly cheaper (continues the same
    * session/branch instead of starting over) — the operator gets both options on a

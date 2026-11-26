@@ -1,7 +1,7 @@
 # Budget (Phase 8.1, dollar caps Phase 12)
 
 The budget guard decides whether a dispatch (an agent run, a workflow run, or one
-goal iteration) is allowed to start. It is **fail-closed**: an unreadable ledger or
+loop iteration) is allowed to start. It is **fail-closed**: an unreadable ledger or
 usage snapshot reads as "spend position unknown" and is treated as over-cap (hold +
 approval), never as "assume fine." This is the one place in ZIBBY where fail-open
 would be wrong.
@@ -38,7 +38,7 @@ engagement's `dailyRuns`/`weeklyRuns`/`monthlyRuns`/
 
 ### The dispatch-time check
 
-Every dispatch path (agent run, workflow run, one goal iteration) calls
+Every dispatch path (agent run, workflow run, one loop iteration) calls
 `BudgetService.check(projectId, now, { offClaude })` before starting:
 
 1. **Global account ceiling first**, regardless of project — skipped when `offClaude`
@@ -46,9 +46,9 @@ Every dispatch path (agent run, workflow run, one goal iteration) calls
    Claude subscription (the same `targetOffClaude` that skips the limit deferral: an
    agent on a non-`claude-agent/*` opencode model, or a workflow none of whose agent
    phases' attempts spends Claude). The ceiling is Claude's 5h / weekly %, so it must
-   not hold an opencode run (A16/A18). The per-project caps below still apply. A goal
-   iteration always gets the ceiling (known gap: the goal runner doesn't resolve its
-   maker's engine, so an opencode goal maker is still held by Claude's %). Otherwise read `budget.json`
+   not hold an opencode run (A16/A18). The per-project caps below still apply. A loop
+   iteration always gets the ceiling (known gap: the loop runner doesn't resolve its
+   maker's engine, so an opencode loop maker is still held by Claude's %). Otherwise read `budget.json`
    (`pauseAtRollingPct`/`pauseAtWeeklyPct`) and the current usage snapshot from
    `LimitsService` (see `docs/api/limits.md`). If the account's 5h rolling or weekly
    usage is at or above the configured pause percentage, the dispatch is refused
@@ -81,8 +81,8 @@ Every dispatch path (agent run, workflow run, one goal iteration) calls
 4. Otherwise `{ ok: true }`.
 
 A refused check surfaces to the operator as a held task or a parked run, depending on
-which layer called it (a goal iteration parks with reason `budget` — see
-`docs/api/goals.md`). A dollar-cap hold's `metrics` ride into
+which layer called it (a loop iteration parks with reason `budget` — see
+`docs/api/loops.md`). A dollar-cap hold's `metrics` ride into
 `GateEvaluatorService.evaluate({ action: "spend-past-cap", metrics })` so a
 `threshold` floor rule can read `costUsd`/`capUsd`.
 
@@ -110,8 +110,8 @@ dispatch lines live in; `BudgetLedgerStore.countDaily`/`countWeekly`/`countMonth
 skip `type: "cost"` lines so the run-count caps are unaffected, while the new
 `sumCostDaily`/`sumCostWeekly`/`sumCostMonthly` read only them. A workflow run's cost
 is the sum of its stage costs (`sumStageCosts`, shared with `task-runs.service.ts`'s
-`TaskRun.costUsd` projection); a goal or chain run carries no aggregate `costUsd` today,
-so no cost line is written directly on their outcomes — a goal's own maker runs are
+`TaskRun.costUsd` projection); a loop or chain run carries no aggregate `costUsd` today,
+so no cost line is written directly on their outcomes — a loop's own maker runs are
 themselves agent/workflow runs whose outcomes record cost individually.
 
 ### Live concurrency
@@ -129,7 +129,7 @@ caps) is the project's run-slot cap: `BudgetService.maxConcurrent(projectId)` fe
 spend cap). The global counterpart is the system config's `maxConcurrentRuns`. See
 [tasks.md](./tasks.md) → _Run slots_.
 
-Goal runs are not counted by `countRunning` (the readout's `running` figure).
+Loop runs are not counted by `countRunning` (the readout's `running` figure).
 
 ### The status readout
 

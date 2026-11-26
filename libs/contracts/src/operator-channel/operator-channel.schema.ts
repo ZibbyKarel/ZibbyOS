@@ -17,7 +17,7 @@ export const OperatorEventKindSchema = z.enum([
   "run-completed",
   /** Tier-3 — any other approval is waiting for the operator. */
   "approval-waiting",
-  /** Tier-3 — a run/goal parked for human review (retries or limit exhausted). */
+  /** Tier-3 — a run/loop parked for human review (retries or limit exhausted). */
   "run-parked",
   /** Tier-3 — a task was held over its budget cap. */
   "budget-cap",

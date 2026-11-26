@@ -59,9 +59,9 @@ describe("useOwnerDepartment", () => {
     expect(runDepartmentId(run, result.current)).toBeNull();
   });
 
-  it("returns null for a goal run — goal runs have no department concept at all", () => {
+  it("returns null for a loop run — loop runs have no department concept at all", () => {
     const { result } = renderHook(() => useOwnerDepartmentMaps());
-    const run = runFixture({ kind: "goal", owner: "some-goal" });
+    const run = runFixture({ kind: "loop", owner: "some-loop" });
     expect(runDepartmentId(run, result.current)).toBeNull();
   });
 

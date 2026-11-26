@@ -40,7 +40,7 @@ import { selfKnowledgeContract } from "./self-knowledge/self-knowledge.contract"
 import { hooksContract } from "./hooks/hooks.contract";
 import { limitsContract } from "./limits/limits.contract";
 import { workflowRunsContract, workflowsContract } from "./workflows/workflows.contract";
-import { goalsContract } from "./goals/goals.contract";
+import { loopsContract } from "./loops/loops.contract";
 import { notesContract } from "./notes/notes.contract";
 import { connectedServicesContract } from "./connected-services/connected-services.contract";
 import { pinsContract } from "./pins/pins.contract";
@@ -86,7 +86,7 @@ export const appContract = c.router({
   teams: teamsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract,
-  goals: goalsContract,
+  loops: loopsContract,
   approvals: approvalsContract,
   artifacts: artifactsContract,
   canvas: canvasContract,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AvatarSchema, DiffFileSchema, IsoDateTimeSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { AiEngineSchema } from "../ai-providers/ai-providers.schema";
-import { MakerRefSchema, VerifierSpecSchema } from "../goals/goal.schema";
+import { MakerRefSchema, VerifierSpecSchema } from "../loops/loop.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
 import { DepartmentIdSchema } from "../departments/department.schema";
 import { TeamIdSchema } from "../teams/team.schema";
@@ -50,13 +50,13 @@ export const WorkflowTaskTargetSchema = z.object({
 });
 
 /**
- * A stored goal as a routing destination (Phase 10). Like a workflow it references
+ * A stored loop as a routing destination (Phase 10). Like a workflow it references
  * a stored definition (`id`), but it is NEVER auto-classified — the classifier only
- * routes to agent/workflow/orchestrator. A goal-targeted task is created explicitly
- * (the goals contract) or by approving a `proposed-task`.
+ * routes to agent/workflow/orchestrator. A loop-targeted task is created explicitly
+ * (the loops contract) or by approving a `proposed-task`.
  */
-export const GoalTaskTargetSchema = z.object({
-  kind: z.literal("goal"),
+export const LoopTaskTargetSchema = z.object({
+  kind: z.literal("loop"),
   id: AgentIdSchema,
   ...taskTargetDisplayShape,
 });
@@ -74,7 +74,7 @@ export const OrchestratorTaskTargetSchema = z.object({
 
 /**
  * Phase 91 — a named department as a routing destination (the `@`-mention /
- * "dispatch to Comms" case). Like goal it is EXPLICIT-ONLY: the top-level
+ * "dispatch to Comms" case). Like loop it is EXPLICIT-ONLY: the top-level
  * `TaskClassifierService` never emits this kind (scope guard — see
  * `docs/plans/phase-91-department-dispatch.md`). It never reaches a stored run
  * record either — `TaskSchedulerService` resolves it to a concrete
@@ -98,7 +98,7 @@ export const DepartmentTaskTargetSchema = z.object({
 export const TaskTargetSchema = z.discriminatedUnion("kind", [
   AgentTaskTargetSchema,
   WorkflowTaskTargetSchema,
-  GoalTaskTargetSchema,
+  LoopTaskTargetSchema,
   DepartmentTaskTargetSchema,
   OrchestratorTaskTargetSchema,
 ]);
@@ -235,30 +235,30 @@ export type ClassifyTaskInput = z.infer<typeof ClassifyTaskInputSchema>;
 /**
  * Phase 11: how a classified task should EXECUTE. `single` is the default
  * agent/workflow/orchestrator dispatch; `loop` means the task asked to
- * iterate-until-satisfied and the classifier synthesized a goal proposal. `mode`
+ * iterate-until-satisfied and the classifier synthesized a loop proposal. `mode`
  * is an orthogonal overlay on the routing — the `target` always stays the maker
- * (agent/workflow/orchestrator); a synthesized loop has no stored goal id yet, so
- * it is NEVER a `target.kind: "goal"` at classify time (goal targets require a
- * persisted `.goal.md`). Persistence happens only on submit.
+ * (agent/workflow/orchestrator); a synthesized loop has no stored loop id yet, so
+ * it is NEVER a `target.kind: "loop"` at classify time (loop targets require a
+ * persisted `.loop.md`). Persistence happens only on submit.
  */
 export const TaskModeSchema = z.enum(["single", "loop"]);
 export type TaskMode = z.infer<typeof TaskModeSchema>;
 
 /**
- * Phase 11: a synthesized (un-persisted) goal definition the classifier proposes
- * when it detects a loop. It is the {@link CreateGoalInput} shape minus a committed
+ * Phase 11: a synthesized (un-persisted) loop definition the classifier proposes
+ * when it detects a loop. It is the {@link CreateLoopInput} shape minus a committed
  * `id` — editable in the dialog's "Edit" disclosure before submit, then turned into
- * a real `<id>.goal.md` only when the operator confirms. The classifier writes
+ * a real `<id>.loop.md` only when the operator confirms. The classifier writes
  * nothing; this is an in-memory proposal carried on the verdict.
  */
-export const ProposedGoalSchema = z.object({
+export const ProposedLoopSchema = z.object({
   objective: z.string().min(1),
   maker: MakerRefSchema,
   verifier: VerifierSpecSchema,
   maxIterations: z.number().int().positive(),
   instructions: z.string().min(1),
 });
-export type ProposedGoal = z.infer<typeof ProposedGoalSchema>;
+export type ProposedLoop = z.infer<typeof ProposedLoopSchema>;
 
 /**
  * Phase 11: one of the task's detected paths resolved against the project registry
@@ -307,7 +307,7 @@ export type RoutingAlternative = z.infer<typeof RoutingAlternativeSchema>;
  *
  * Phase 11 adds three additive/optional fields (an old-shaped response still
  * parses, defaults applied): `mode` (`single` vs a synthesized `loop`),
- * `proposedGoal` (the loop's editable goal proposal, `null` for single mode), and
+ * `proposedLoop` (the loop's editable loop proposal, `null` for single mode), and
  * `paths` (each detected path resolved to a project or `null`).
  *
  * NS2 F10 adds two more, same additive/defaulted posture: `runnerUp` (the
@@ -325,8 +325,8 @@ export const TaskRoutingSchema = z.object({
   candidates: z.array(TaskTargetSchema).min(1),
   /** Phase 11: execute as a one-shot dispatch (`single`) or a synthesized loop. */
   mode: TaskModeSchema.default("single"),
-  /** Phase 11: the synthesized goal proposal when `mode === "loop"`, else `null`. */
-  proposedGoal: ProposedGoalSchema.nullable().default(null),
+  /** Phase 11: the synthesized loop proposal when `mode === "loop"`, else `null`. */
+  proposedLoop: ProposedLoopSchema.nullable().default(null),
   /** Phase 11: detected paths resolved against the project registry. */
   paths: z.array(ResolvedPathSchema).default([]),
   /**
@@ -700,12 +700,12 @@ export const ScheduledTaskSchema = z.object({
   /**
    * An operator "continue" of this task's failed/interrupted run, waiting in the
    * queue for a run slot like any dispatch (status `queued`). The drain continues
-   * `runRef` in place (a workflow/goal) or re-runs it (an agent) instead of starting
+   * `runRef` in place (a workflow/loop) or re-runs it (an agent) instead of starting
    * a fresh run; cleared once dispatched.
    */
   continueRun: z
     .object({
-      kind: z.enum(["agent", "workflow", "goal"]),
+      kind: z.enum(["agent", "workflow", "loop"]),
       runRef: z.string().min(1),
       note: z.string().optional(),
     })
@@ -1069,9 +1069,9 @@ export const CreateTaskInputSchema = z.object({
   output: TaskOutputSchema.optional(),
   /**
    * Phase 11: a pre-chosen dispatch target that bypasses classification — used by
-   * the unified composer for a SCHEDULED loop, where the goal is created up front
-   * and the task carries its `{ kind: "goal", id }` target so the scheduler's
-   * defer/limit/budget machinery owns it (an immediate loop starts the goal run
+   * the unified composer for a SCHEDULED loop, where the loop is created up front
+   * and the task carries its `{ kind: "loop", id }` target so the scheduler's
+   * defer/limit/budget machinery owns it (an immediate loop starts the loop run
    * directly instead). The scheduler already accepts an `explicitTarget`; this
    * threads it from the wire. Attribution stays server-derived (Law 4) — this is a
    * dispatch destination, not a project assertion.
@@ -1080,7 +1080,7 @@ export const CreateTaskInputSchema = z.object({
   /**
    * Task 8: the operator's explicit team tag, carried alongside (never inside)
    * `target` — deliberately NOT a `TaskTarget` variant. `target` answers WHO runs
-   * this (agent/workflow/goal/department/orchestrator); `teamId` is INTENDED to
+   * this (agent/workflow/loop/department/orchestrator); `teamId` is INTENDED to
    * answer WHAT it can see, by wiring the `zibby-kb` MCP server's
    * team-knowledge-base scope the same way a chat turn's tagged team does.
    *
@@ -1092,7 +1092,7 @@ export const CreateTaskInputSchema = z.object({
    * through to `KbScopeService.rootsForRun`. Wiring it needs a new field on each
    * of three persisted schemas that don't have one today —
    * `ScheduledTaskSchema` (this task itself, the earliest point the tag would
-   * otherwise die), `WorkflowRunSchema`, and `GoalRunSchema` — plus
+   * otherwise die), `WorkflowRunSchema`, and `LoopRunSchema` — plus
    * `rootsForRun` extended to prefer that explicit tag over the project's own
    * team. That work is deliberately deferred to a later branch.
    */

@@ -2,7 +2,7 @@ import type { TaskOutput } from "@zibby/contracts";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
-import { INITIAL_LOOP_STATE, type LoopFormState, proposedGoalToLoopState } from "../loop";
+import { INITIAL_LOOP_STATE, type LoopFormState, proposedLoopToLoopState } from "../loop";
 import { useClassifyTaskMutation } from "../mutations";
 import { type TaskRouting, type TaskTarget, targetKey, toClientRouting } from "../task";
 
@@ -44,7 +44,7 @@ export interface UseTaskClassification {
 /**
  * Owns the live classification of the typed task: the debounced side-effect-free
  * classify call, the inferred single-vs-loop mode, the target picker's options and
- * the goal-form seeding. The dialog reads the derived verdict; it never drives the
+ * the loop-form seeding. The dialog reads the derived verdict; it never drives the
  * classifier itself.
  */
 export function useTaskClassification({
@@ -92,13 +92,13 @@ export function useTaskClassification({
   // Seed the Loop form from a fresh proposal during render (the React-sanctioned
   // "adjust state on prop change" pattern, guarded against re-running) — unless the
   // operator has already edited it.
-  const proposedGoalKey = activeRouting?.proposedGoal
-    ? JSON.stringify(activeRouting.proposedGoal)
+  const proposedLoopKey = activeRouting?.proposedLoop
+    ? JSON.stringify(activeRouting.proposedLoop)
     : null;
-  if (proposedGoalKey && proposedGoalKey !== seededKey) {
-    setSeededKey(proposedGoalKey);
-    if (!loopEdited && activeRouting?.proposedGoal) {
-      setLoop(proposedGoalToLoopState(activeRouting.proposedGoal));
+  if (proposedLoopKey && proposedLoopKey !== seededKey) {
+    setSeededKey(proposedLoopKey);
+    if (!loopEdited && activeRouting?.proposedLoop) {
+      setLoop(proposedLoopToLoopState(activeRouting.proposedLoop));
     }
   }
 
@@ -144,7 +144,7 @@ export function useTaskClassification({
         matchedTerms: [],
         candidates: activeRouting?.candidates ?? [chosenTarget],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: activeRouting?.paths ?? [],
         // Carries over the last classify's proposal (same posture as `paths`/
         // `candidates` above) — imprecise if the operator's pick differs from the

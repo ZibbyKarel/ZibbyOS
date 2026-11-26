@@ -6,7 +6,7 @@ import {
   type DepartmentId,
   type MakerRef,
   ORCHESTRATOR_TARGET,
-  type ProposedGoal,
+  type ProposedLoop,
   type ResolvedPath,
   type TaskRouting,
   TaskRoutingSchema,
@@ -102,16 +102,16 @@ export type RouteResult =
 /**
  * Phase 11: the iteration fuse a synthesized loop proposes by default. The operator
  * can edit it in the dialog's "Edit" disclosure before submit; it only ever caps a
- * proposal, never an existing goal.
+ * proposal, never an existing loop.
  */
-export const DEFAULT_GOAL_ITERATIONS = 6;
+export const DEFAULT_LOOP_ITERATIONS = 6;
 
 /**
  * The reviewer a synthesized loop proposes as its `claude` verifier. The operator
- * can swap it in the dialog's "Edit" disclosure; a goal has no shell-checks verifier
+ * can swap it in the dialog's "Edit" disclosure; a loop has no shell-checks verifier
  * (a project verifies itself through its own repo, D-024).
  */
-export const DEFAULT_GOAL_VERIFIER_AGENT = "code-reviewer";
+export const DEFAULT_LOOP_VERIFIER_AGENT = "code-reviewer";
 
 /**
  * The complexity-ladder rule appended to every scoped stage-2 router preamble
@@ -446,7 +446,7 @@ export class TaskClassifierService {
   /**
    * Resolve the base verdict (the maker pick): the LLM router when coherent, else
    * the keyword scorer, else the terminal fallback (the orchestrator, by default).
-   * This is the pre-Phase-11 routing — `mode`/`proposedGoal`/`paths` are overlaid by
+   * This is the pre-Phase-11 routing — `mode`/`proposedLoop`/`paths` are overlaid by
    * {@link enrich}. Phase 91: `opts.fallback` lets a scoped caller
    * ({@link classifyWithinDepartment}) swap the terminal target/reason without
    * duplicating the router/scorer flow. F2b: `opts.preamble` is threaded into the
@@ -523,7 +523,7 @@ export class TaskClassifierService {
         matchedTerms: scored?.matchedTerms ?? [],
         candidates: candidates.map(toTaskTarget),
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         // Phase 108: no grant proposal at the terminal-fallback rule — enrich() overlays it.
         toolGrants: [],
@@ -541,10 +541,10 @@ export class TaskClassifierService {
   /**
    * Phase 11 overlay (side-effect-free, Decision 1/3): detect the loop shape (the
    * router's `loop` annotation OR a deterministic loop cue), synthesize an in-memory
-   * goal proposal when looped AND a concrete maker is resolvable, and resolve each
-   * input path against the project registry. NOTHING is persisted — the `.goal.md`
+   * loop proposal when looped AND a concrete maker is resolvable, and resolve each
+   * input path against the project registry. NOTHING is persisted — the `.loop.md`
    * is written only on submit. `target` stays the maker; a synthesized loop is never
-   * a `target.kind: "goal"` (those require a stored id).
+   * a `target.kind: "loop"` (those require a stored id).
    */
   private async enrich(
     base: TaskRouting,
@@ -552,10 +552,10 @@ export class TaskClassifierService {
     candidates: RoutableTarget[],
   ): Promise<TaskRouting> {
     const looped = base.mode === "loop" || detectLoopCue(input.text);
-    const proposedGoal = looped ? await this.synthesizeGoal(base.target, input, candidates) : null;
+    const proposedLoop = looped ? await this.synthesizeLoop(base.target, input, candidates) : null;
     const paths = await this.resolvePaths(input.paths ?? []);
     const toolGrants = await this.proposeToolGrants(base.target, input.text);
-    return { ...base, mode: proposedGoal ? "loop" : "single", proposedGoal, paths, toolGrants };
+    return { ...base, mode: proposedLoop ? "loop" : "single", proposedLoop, paths, toolGrants };
   }
 
   /**
@@ -571,7 +571,7 @@ export class TaskClassifierService {
    * no extra latency/cost per classify call) while still being useful — most
    * `optionalTools` ids read as `snake_case` words (`recall_memory`,
    * `list_entities`) that plausibly appear in a task description verbatim.
-   * Only an agent target is considered; a workflow/goal/orchestrator pick (no
+   * Only an agent target is considered; a workflow/loop/orchestrator pick (no
    * agent definition to read `optionalTools` off) always proposes `[]`.
    */
   private async proposeToolGrants(target: TaskTarget, text: string): Promise<string[]> {
@@ -590,25 +590,25 @@ export class TaskClassifierService {
   }
 
   /**
-   * Build an in-memory goal proposal from the routed maker + the raw task text. The
-   * verifier is a `claude` reviewer ({@link DEFAULT_GOAL_VERIFIER_AGENT}); objective/instructions are
+   * Build an in-memory loop proposal from the routed maker + the raw task text. The
+   * verifier is a `claude` reviewer ({@link DEFAULT_LOOP_VERIFIER_AGENT}); objective/instructions are
    * the operator's text verbatim (Law 4 — data, never a command). Returns `null` when
    * no concrete maker can be resolved (an orchestrator pick with no workflow to
    * iterate), so the caller falls back to `mode: "single"` rather than minting a
    * bogus maker.
    */
-  private async synthesizeGoal(
+  private async synthesizeLoop(
     target: TaskTarget,
     input: ClassifyTaskInput,
     candidates: RoutableTarget[],
-  ): Promise<ProposedGoal | null> {
+  ): Promise<ProposedLoop | null> {
     const maker = await this.resolveMaker(target, candidates);
     if (!maker) return null;
     return {
       objective: input.text,
       maker,
-      verifier: { kind: "claude", agent: DEFAULT_GOAL_VERIFIER_AGENT },
-      maxIterations: DEFAULT_GOAL_ITERATIONS,
+      verifier: { kind: "claude", agent: DEFAULT_LOOP_VERIFIER_AGENT },
+      maxIterations: DEFAULT_LOOP_ITERATIONS,
       instructions: input.text,
     };
   }
@@ -620,7 +620,7 @@ export class TaskClassifierService {
    * explicit target, and from `classifyWithinDepartment`'s enriched stage-2
    * verdict). NS2 F9 added the `department` branch: stage 1 now emits nothing but
    * department and orchestrator picks, and the stage-1 catalog holds no workflows
-   * to scan, so a looped task would otherwise have silently lost its goal
+   * to scan, so a looped task would otherwise have silently lost its loop
    * proposal and degraded to `mode: "single"`. Resolve it the same way stage 2
    * would: the department's cheapest owned workflow.
    *
@@ -849,17 +849,17 @@ export class TaskClassifierService {
     if (!TaskRoutingSchema.safeParse(routing).success) return false;
     const target = routing.target;
     // The orchestrator is this service's own terminal rule — a router that picks
-    // it (instead of a catalog entry) is not a usable verdict. A goal (Phase 10)
+    // it (instead of a catalog entry) is not a usable verdict. A loop (Phase 10)
     // is explicit-only: it never appears in the routable catalog, so the
     // classifier must never route to one (the same posture as orchestrator —
     // this is also the scope-guard belt to the `candidates.some(...)` check
     // below, which already rejects it structurally since neither
-    // `buildCandidates` nor `workflowCandidates` ever emits a `kind: "goal"`
+    // `buildCandidates` nor `workflowCandidates` ever emits a `kind: "loop"`
     // entry). F2a: `department` is REMOVED from this rejection list — the top-level
     // catalog now legitimately offers department candidates (`stage1DepartmentCandidates`),
     // so a seated department verdict is coherent; `classifyWithinDepartment`'s own
     // catalog never emits one, so this widening can't recurse.
-    if (target.kind === "orchestrator" || target.kind === "goal") {
+    if (target.kind === "orchestrator" || target.kind === "loop") {
       return false;
     }
     // NS2 F9: an `agent`/`workflow` verdict is now rejected STRUCTURALLY at stage 1

@@ -72,7 +72,7 @@ const isPrInboxTask = (t: ScheduledTask): boolean =>
  * - `task-outcome` done → `pr-opened` (the task's `pr` output) or `run-completed`
  * - `approval-requested` → `review-finished` (a `pr-review` approval), `budget-cap`
  *   (`spend-past-cap`) or `approval-waiting`
- * - `workflow-parked` (retries/limit only) / `goal-parked` → `run-parked`
+ * - `workflow-parked` (retries/limit only) / `loop-parked` → `run-parked`
  * - `monitor-alert` → `ci-red` (being fixed)
  * - `briefing-generated` → `briefing`
  * - `autopilot-action` → `autopilot-action` (Phase 4); `autopilot-changed` (on/off) is not pushed
@@ -174,15 +174,15 @@ export async function toOperatorEvent(
         path: `/activity/runs/${refs.runRef}`,
       });
     }
-    case "goal-parked": {
-      if (!refs.goalRunId) return null;
+    case "loop-parked": {
+      if (!refs.loopRunId) return null;
       return event({
         kind: "run-parked",
-        target: refs.goalRunId,
+        target: refs.loopRunId,
         state: "parked",
         title: entry.summary,
-        runId: refs.goalRunId,
-        ...(refs.goalId ? { path: `/work/goals/${refs.goalId}` } : {}),
+        runId: refs.loopRunId,
+        path: `/activity/runs/${refs.loopRunId}`,
       });
     }
     case "monitor-alert":

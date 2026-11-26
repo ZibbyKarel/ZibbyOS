@@ -182,9 +182,9 @@ export class ClaudeCliRouter implements TaskRouter {
       runnerUp: this.resolveRunnerUp(verdict.runnerUp, candidates, chosen),
       ambiguous: false,
       // Phase 11: carry the model's loop annotation through as the mode overlay. The
-      // target stays the maker; the classifier synthesizes the goal proposal + paths.
+      // target stays the maker; the classifier synthesizes the loop proposal + paths.
       mode: verdict.loop ? "loop" : "single",
-      proposedGoal: null,
+      proposedLoop: null,
       paths: [],
       // Phase 108: the router itself never invents a grant proposal — that's
       // computed downstream by TaskClassifierService.enrich() (it resolves the

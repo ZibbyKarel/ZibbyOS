@@ -3,7 +3,7 @@ import {
   AttachmentSchema,
   ClassificationTraceSchema,
   CreateTaskInputSchema,
-  ProposedGoalSchema,
+  ProposedLoopSchema,
   ResolvedPathSchema,
   ScheduledTaskSchema,
   ScheduledTaskStatusSchema,
@@ -65,13 +65,13 @@ describe("TaskRoutingSchema", () => {
     expect(TaskRoutingSchema.safeParse(routing).success).toBe(false);
   });
 
-  // ── Phase 11: mode / proposedGoal / paths (additive, back-compatible) ──────
+  // ── Phase 11: mode / proposedLoop / paths (additive, back-compatible) ──────
   it("applies defaults to an old-shaped response (single / null / [])", () => {
     const parsed = TaskRoutingSchema.safeParse(valid);
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     expect(parsed.data.mode).toBe("single");
-    expect(parsed.data.proposedGoal).toBeNull();
+    expect(parsed.data.proposedLoop).toBeNull();
     expect(parsed.data.paths).toEqual([]);
     expect(parsed.data.toolGrants).toEqual([]);
   });
@@ -91,11 +91,11 @@ describe("TaskRoutingSchema", () => {
     expect(parsed.data.toolGrants).toEqual(["recall_memory"]);
   });
 
-  it("round-trips a loop verdict carrying a synthesized proposedGoal + resolved paths", () => {
+  it("round-trips a loop verdict carrying a synthesized proposedLoop + resolved paths", () => {
     const loop = {
       ...valid,
       mode: "loop" as const,
-      proposedGoal: {
+      proposedLoop: {
         objective: "fix the failing test until it's green",
         maker: { kind: "workflow", id: "delivery" },
         verifier: { kind: "claude", agent: "code-reviewer" },
@@ -111,13 +111,13 @@ describe("TaskRoutingSchema", () => {
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     expect(parsed.data.mode).toBe("loop");
-    expect(parsed.data.proposedGoal?.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(parsed.data.proposedLoop?.maker).toEqual({ kind: "workflow", id: "delivery" });
     expect(parsed.data.paths[0]?.project?.name).toBe("Alpha");
     expect(parsed.data.paths[1]?.project).toBeNull();
   });
 });
 
-describe("ProposedGoalSchema (Phase 11)", () => {
+describe("ProposedLoopSchema (Phase 11)", () => {
   const valid = {
     objective: "keep going until tests pass",
     maker: { kind: "agent" as const, id: "coder" },
@@ -126,16 +126,16 @@ describe("ProposedGoalSchema (Phase 11)", () => {
     instructions: "keep going until tests pass",
   };
 
-  it("validates a synthesized goal proposal", () => {
-    expect(ProposedGoalSchema.safeParse(valid).success).toBe(true);
+  it("validates a synthesized loop proposal", () => {
+    expect(ProposedLoopSchema.safeParse(valid).success).toBe(true);
   });
 
   it("rejects a non-positive maxIterations", () => {
-    expect(ProposedGoalSchema.safeParse({ ...valid, maxIterations: 0 }).success).toBe(false);
+    expect(ProposedLoopSchema.safeParse({ ...valid, maxIterations: 0 }).success).toBe(false);
   });
 
   it("rejects an empty objective", () => {
-    expect(ProposedGoalSchema.safeParse({ ...valid, objective: "" }).success).toBe(false);
+    expect(ProposedLoopSchema.safeParse({ ...valid, objective: "" }).success).toBe(false);
   });
 });
 
@@ -155,10 +155,10 @@ describe("ResolvedPathSchema (Phase 11)", () => {
 });
 
 describe("CreateTaskInputSchema (Phase 11 explicit target)", () => {
-  it("accepts an optional goal target (scheduled-loop dispatch)", () => {
+  it("accepts an optional loop target (scheduled-loop dispatch)", () => {
     const parsed = CreateTaskInputSchema.safeParse({
       text: "loop it",
-      target: { kind: "goal", id: "my-goal", name: "My Goal" },
+      target: { kind: "loop", id: "my-loop", name: "My Loop" },
     });
     expect(parsed.success).toBe(true);
   });

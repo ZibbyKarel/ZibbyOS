@@ -195,7 +195,7 @@ export const DEPARTMENTS: readonly Department[] = DEPARTMENT_SEED;
  * A department's current activity, as read by the top-level UI. `idle` idle,
  * `running` actively working (Tier 1, quiet), `report` has a Tier-2 report ready,
  * `waiting` needs a Tier-3 decision. Phase 80 always serves `idle`; real
- * aggregation across running workflows/goals/approvals lands in phase 82.
+ * aggregation across running workflows/loops/approvals lands in phase 82.
  */
 export const DepartmentStateSchema = z.enum(["idle", "running", "report", "waiting", "error"]);
 export type DepartmentState = z.infer<typeof DepartmentStateSchema>;

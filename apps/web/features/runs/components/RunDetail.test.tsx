@@ -71,8 +71,8 @@ vi.mock("../queries/useRunArtifactQuery", () => ({
 vi.mock("../queries/useTaskRunFilesQuery", () => ({
   useTaskRunFilesQuery: () => ({ data: undefined }),
 }));
-vi.mock("./GoalDetailPanel", () => ({
-  GoalDetailPanel: () => <div data-testid="goal-detail" />,
+vi.mock("./LoopDetailPanel", () => ({
+  LoopDetailPanel: () => <div data-testid="loop-detail" />,
 }));
 
 const workflowRun: RunView = {
@@ -164,8 +164,8 @@ describe("RunDetail", () => {
     expect(screen.getByTestId(`${RunDetailActionsTestId.Action}-resume`)).toBeInTheDocument();
   });
 
-  it("a goal run renders the goal panel in LIVE", () => {
-    render(<RunDetail run={{ ...workflowRun, kind: "goal", owner: "g1" }} />);
-    expect(screen.getByTestId("goal-detail")).toBeInTheDocument();
+  it("a loop run renders the loop panel in LIVE", () => {
+    render(<RunDetail run={{ ...workflowRun, kind: "loop", owner: "g1" }} />);
+    expect(screen.getByTestId("loop-detail")).toBeInTheDocument();
   });
 });

@@ -68,7 +68,7 @@ describe("migrateWorkflowRename", () => {
       "pipelines/runs/delivery_1.plan_2.json",
       JSON.stringify({ runId: "x", kind: "pipeline-stage", pipelineRunId: "delivery_1" }),
     );
-    // task, approval (stringified detail), automation, goal, pins, activity-view
+    // task, approval (stringified detail), automation, loop, pins, activity-view
     await write(
       "tasks/t1.json",
       JSON.stringify({ title: "run the pipeline", target: { kind: "pipeline", id: "delivery" } }),
@@ -86,8 +86,8 @@ describe("migrateWorkflowRename", () => {
       JSON.stringify({ target: { type: "pipeline", pipelineId: "research" } }),
     );
     await write(
-      "goals/g.goal.md",
-      "---\nname: g\nmaker:\n  kind: pipeline\n  id: delivery\n---\nGoal about a pipeline.\n",
+      "loops/g.loop.md",
+      "---\nname: g\nmaker:\n  kind: pipeline\n  id: delivery\n---\nLoop about a pipeline.\n",
     );
     await write("pins.json", JSON.stringify([{ kind: "pipeline", id: "delivery" }]));
     await write("activity-view.json", JSON.stringify({ runs: "visible", pipelines: "hidden" }));
@@ -147,8 +147,8 @@ describe("migrateWorkflowRename", () => {
     expect(await readJson("automations/au.json")).toEqual({
       target: { type: "workflow", workflowId: "research" },
     });
-    expect(await read("goals/g.goal.md")).toContain("maker:\n  kind: workflow\n");
-    expect(await read("goals/g.goal.md")).toContain("Goal about a pipeline.");
+    expect(await read("loops/g.loop.md")).toContain("maker:\n  kind: workflow\n");
+    expect(await read("loops/g.loop.md")).toContain("Loop about a pipeline.");
     expect(await readJson("pins.json")).toEqual([{ kind: "workflow", id: "delivery" }] as never);
     expect(await readJson("activity-view.json")).toEqual({ runs: "visible", workflows: "hidden" });
 

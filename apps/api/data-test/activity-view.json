@@ -2,7 +2,7 @@
   "tasks": "visible",
   "runs": "visible",
   "workflows": "visible",
-  "goals": "visible",
+  "loops": "visible",
   "approvals": "visible",
   "channels": "grouped",
   "integrations": "visible",

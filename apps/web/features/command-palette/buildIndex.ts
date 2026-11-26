@@ -9,7 +9,6 @@ export interface CommandPaletteSources {
   departments: Array<{ id: string; name: string }>;
   agents: Array<{ id: string; name: string; department?: string }>;
   tasks: Array<{ id: string; title: string; department?: string }>;
-  goals: Array<{ id: string; name?: string; objective: string }>;
   companies: Array<{ id: string; name: string }>;
   teams: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
@@ -93,16 +92,6 @@ export function buildCommandPaletteIndex(
       label: t.title,
       meta: t.department,
       href: `/work/tasks/${t.id}` as Route,
-    });
-  }
-
-  for (const g of sources.goals) {
-    entries.push({
-      id: g.id,
-      group: "goals",
-      kind: "goal",
-      label: g.name ?? g.objective,
-      href: `/work/goals/${g.id}` as Route,
     });
   }
 

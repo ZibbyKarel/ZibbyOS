@@ -17,8 +17,8 @@ import type { ProjectsStorageService } from "../projects/projects.storage.servic
 import type { LoggerService } from "../shared/logging/logger.service";
 import { KeywordScorer } from "./keyword-scorer";
 import {
-  DEFAULT_GOAL_ITERATIONS,
-  DEFAULT_GOAL_VERIFIER_AGENT,
+  DEFAULT_LOOP_ITERATIONS,
+  DEFAULT_LOOP_VERIFIER_AGENT,
   ROUTER_AMBIGUOUS_MARGIN,
   ROUTER_CONFIDENCE_FLOOR,
   TaskClassifierService,
@@ -111,7 +111,7 @@ function departmentVerdict(
     matchedTerms: [],
     candidates: [{ kind: "department", id, name }],
     mode: "single",
-    proposedGoal: null,
+    proposedLoop: null,
     paths: [],
     toolGrants: [],
     ...over,
@@ -197,14 +197,14 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     const r = await svc.classify({ text: "fix the failing test and keep going until it's green" });
     expect(r).not.toBeNull();
     expect(r?.mode).toBe("loop");
-    expect(r?.proposedGoal?.maker).toEqual({ kind: "workflow", id: "delivery" });
-    expect(r?.proposedGoal?.verifier).toEqual({
+    expect(r?.proposedLoop?.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(r?.proposedLoop?.verifier).toEqual({
       kind: "claude",
-      agent: DEFAULT_GOAL_VERIFIER_AGENT,
+      agent: DEFAULT_LOOP_VERIFIER_AGENT,
     });
-    expect(r?.proposedGoal?.maxIterations).toBe(DEFAULT_GOAL_ITERATIONS);
-    // The target stays the maker — never a synthesized goal target (Decision 1).
-    expect(r?.target.kind).not.toBe("goal");
+    expect(r?.proposedLoop?.maxIterations).toBe(DEFAULT_LOOP_ITERATIONS);
+    // The target stays the maker — never a synthesized loop target (Decision 1).
+    expect(r?.target.kind).not.toBe("loop");
   });
 
   // Pre-F9 this asserted `target.kind === "agent"` straight off `classify()`.
@@ -218,7 +218,7 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
       router: fixedRouter(departmentVerdict("dev", "Dev")),
     }).classify({ text: "rename the Button component" });
     expect(stage1?.mode).toBe("single");
-    expect(stage1?.proposedGoal).toBeNull();
+    expect(stage1?.proposedLoop).toBeNull();
     expect(stage1?.target).toMatchObject({ kind: "department", id: "dev" });
 
     const stage2 = await makeService({
@@ -256,7 +256,7 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     });
     const r = await svc.classify({ text: "oprav rozbitý test, dokud neprojde" });
     expect(r?.mode).toBe("loop");
-    expect(r?.proposedGoal?.maker.kind).toBe("workflow");
+    expect(r?.proposedLoop?.maker.kind).toBe("workflow");
   });
 
   // Pre-F9 the router named the `coder` AGENT and the maker was that agent. A
@@ -274,12 +274,12 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     const r = await svc.classify({ text: "make the dashboard nicer" });
     expect(r?.mode).toBe("loop");
     expect(r?.target).toMatchObject({ kind: "department", id: "dev" });
-    expect(r?.proposedGoal?.maker).toEqual({ kind: "workflow", id: "delivery" });
+    expect(r?.proposedLoop?.maker).toEqual({ kind: "workflow", id: "delivery" });
   });
 
   // The other half of that branch: a looped DEPARTMENT verdict for a department
   // that owns no workflow at all can't be iterated, so it degrades honestly to
-  // `single` rather than minting an agent maker a goal runner can't drive.
+  // `single` rather than minting an agent maker a loop runner can't drive.
   it("does not synthesize a maker for a looped department verdict when that department owns no workflow", async () => {
     const svc = makeService({
       agents: [agent({ id: "watcher", name: "Watcher", department: "ops" })],
@@ -289,7 +289,7 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     const r = await svc.classify({ text: "watch the heartbeat" });
     expect(r?.target).toMatchObject({ kind: "department", id: "ops" });
     expect(r?.mode).toBe("single");
-    expect(r?.proposedGoal).toBeNull();
+    expect(r?.proposedLoop).toBeNull();
   });
 
   it("returns null when the catalog is empty (unchanged)", async () => {
@@ -303,8 +303,8 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     const r = await svc.classify({ text });
     expect(r?.mode).toBe("loop");
     // The text is carried as data — never parsed into an action or a raised tier.
-    expect(r?.proposedGoal?.objective).toBe(text);
-    expect(r?.proposedGoal?.instructions).toBe(text);
+    expect(r?.proposedLoop?.objective).toBe(text);
+    expect(r?.proposedLoop?.instructions).toBe(text);
   });
 
   it("does NOT synthesize a maker when the orchestrator is picked and no workflow exists", async () => {
@@ -319,7 +319,7 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     expect(r?.target.kind).toBe("orchestrator");
     // A loop needs a concrete maker; there is none → fall back to single, no bogus maker.
     expect(r?.mode).toBe("single");
-    expect(r?.proposedGoal).toBeNull();
+    expect(r?.proposedLoop).toBeNull();
   });
 
   it("synthesizes a workflow maker for an orchestrator pick when a workflow is available", async () => {
@@ -330,7 +330,7 @@ describe("TaskClassifierService — Phase 11 loop synthesis", () => {
     const r = await svc.classify({ text: "xyzzy zzz keep retrying" });
     expect(r?.target.kind).toBe("orchestrator");
     expect(r?.mode).toBe("loop");
-    expect(r?.proposedGoal?.maker.kind).toBe("workflow");
+    expect(r?.proposedLoop?.maker.kind).toBe("workflow");
   });
 });
 
@@ -602,7 +602,7 @@ describe("TaskClassifierService — Phase 91 / F2b classifyWithinDepartment (rec
       matchedTerms: [],
       candidates: [{ kind: "workflow", id: "build-feature", name: "Build Feature" }],
       mode: "single",
-      proposedGoal: null,
+      proposedLoop: null,
       paths: [],
       toolGrants: [],
       runnerUp: null,
@@ -700,7 +700,7 @@ describe("TaskClassifierService — F2a switchboard department verdicts", () => 
       matchedTerms: [],
       candidates: [{ kind: "department", id: "dev", name: "Dev" }],
       mode: "single",
-      proposedGoal: null,
+      proposedLoop: null,
       paths: [],
       toolGrants: [],
       runnerUp: null,
@@ -714,10 +714,10 @@ describe("TaskClassifierService — F2a switchboard department verdicts", () => 
     expect(r?.target).toEqual({ kind: "department", id: "dev", name: "Dev" });
   });
 
-  it("isCoherent still rejects orchestrator/goal router verdicts (department widening doesn't loosen these)", async () => {
+  it("isCoherent still rejects orchestrator/loop router verdicts (department widening doesn't loosen these)", async () => {
     const kinds: TaskRouting["target"][] = [
       { kind: "orchestrator", name: "Orchestrator" } as TaskRouting["target"],
-      { kind: "goal", id: "nightly-cleanup", name: "Nightly Cleanup" } as TaskRouting["target"],
+      { kind: "loop", id: "nightly-cleanup", name: "Nightly Cleanup" } as TaskRouting["target"],
     ];
     for (const target of kinds) {
       const svc = makeService({
@@ -730,17 +730,17 @@ describe("TaskClassifierService — F2a switchboard department verdicts", () => 
           matchedTerms: [],
           candidates: [{ kind: "agent", id: "coder", name: "Kodér", glyph: "bot" }],
           mode: "single",
-          proposedGoal: null,
+          proposedLoop: null,
           paths: [],
           toolGrants: [],
         } as unknown as TaskRouting),
       });
       const r = await svc.classify({ text: "rename component button" });
-      // A goal is never routable at all. The orchestrator IS reachable — but only
+      // A loop is never routable at all. The orchestrator IS reachable — but only
       // as this service's OWN terminal rule, never as the router's verdict — so
       // for both kinds the check that the verdict was discarded is that none of
       // the router's own payload survived.
-      expect(r?.target.kind).not.toBe("goal");
+      expect(r?.target.kind).not.toBe("loop");
       expect(r?.reason).not.toBe("router picked a non-catalog kind");
       expect(r?.confidence).not.toBe(0.95);
     }
@@ -754,7 +754,7 @@ describe("TaskClassifierService — F2a switchboard department verdicts", () => 
       matchedTerms: [],
       candidates: [{ kind: "workflow", id: "delivery", name: "Delivery" }],
       mode: "single",
-      proposedGoal: null,
+      proposedLoop: null,
       paths: [],
       toolGrants: [],
     } as unknown as TaskRouting;
@@ -947,7 +947,7 @@ describe("TaskClassifierService — classifyDepartment (stage 1 only)", () => {
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
       } as unknown as TaskRouting),
@@ -957,12 +957,12 @@ describe("TaskClassifierService — classifyDepartment (stage 1 only)", () => {
     expect(r?.target).toMatchObject({ kind: "department", id: "dev" });
   });
 
-  it("does not synthesize a goal even on loop-cued text (no enrich on this path)", async () => {
+  it("does not synthesize a loop even on loop-cued text (no enrich on this path)", async () => {
     const svc = makeService({ workflows: [devWorkflow], router: silentRouter });
     const r = await svc.classifyDepartment({
       text: "fix the failing test and keep going until it's green",
     });
-    expect(r?.proposedGoal).toBeNull();
+    expect(r?.proposedLoop).toBeNull();
     expect(r?.mode).toBe("single");
   });
 });
@@ -1021,7 +1021,7 @@ describe("TaskClassifierService — explicit-only agents are never routable", ()
         matchedTerms: [],
         candidates: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
       } as unknown as TaskRouting),
@@ -1345,7 +1345,7 @@ describe("TaskClassifierService — a required PR sink constrains the stage-2 ca
         reason: "multi-surface scaffolding",
         matchedTerms: [],
         mode: "single",
-        proposedGoal: null,
+        proposedLoop: null,
         paths: [],
         toolGrants: [],
         runnerUp: null,
