@@ -70,6 +70,7 @@ export interface PrMergeState {
 
 /** Check-run conclusions that count as green (anything else finished = red). */
 const GREEN_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
+const TRUSTED_APPROVERS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 /** Page size of the review / check reads; a full page fails closed (it could be truncated). */
 const STATE_PAGE = 100;
 
@@ -290,9 +291,14 @@ export class ProjectPrService {
     const headSha = pull.head?.sha;
     if (!headSha) throw new Error(`github pull #${number}: no head sha`);
     const [reviews, checks, status] = await Promise.all([
-      get<{ state?: string; commit_id?: string; user?: { login?: string } }[]>(
-        `/pulls/${number}/reviews?per_page=${STATE_PAGE}`,
-      ),
+      get<
+        {
+          state?: string;
+          commit_id?: string;
+          author_association?: string;
+          user?: { login?: string };
+        }[]
+      >(`/pulls/${number}/reviews?per_page=${STATE_PAGE}`),
       get<{ total_count?: number; check_runs?: { status?: string; conclusion?: string | null }[] }>(
         `/commits/${headSha}/check-runs?per_page=${STATE_PAGE}`,
       ),
@@ -315,6 +321,9 @@ export class ProjectPrService {
       if (!login || !["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state ?? "")) {
         continue;
       }
+      // Anyone who can see the repo may approve; only a repo owner/member/collaborator counts.
+      // A change request blocks from anyone.
+      if (r.state === "APPROVED" && !TRUSTED_APPROVERS.has(r.author_association ?? "")) continue;
       latest.set(login, { state: r.state ?? "", commitId: r.commit_id });
     }
     const current = [...latest.values()];

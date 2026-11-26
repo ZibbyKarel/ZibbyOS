@@ -708,9 +708,14 @@ describe("ProjectPrService.mergeState (goal merge grant, fail-closed)", () => {
         head: { sha: HEAD },
       },
       reviews: [
-        { state: "APPROVED", commit_id: OLD, user: { login: "bob" } },
+        { state: "APPROVED", commit_id: OLD, author_association: "MEMBER", user: { login: "bob" } },
         { state: "COMMENTED", commit_id: HEAD, user: { login: "bob" } },
-        { state: "APPROVED", commit_id: HEAD, user: { login: "carol" } },
+        {
+          state: "APPROVED",
+          commit_id: HEAD,
+          author_association: "COLLABORATOR",
+          user: { login: "carol" },
+        },
       ],
       "check-runs": {
         total_count: 1,
@@ -743,11 +748,34 @@ describe("ProjectPrService.mergeState (goal merge grant, fail-closed)", () => {
     });
   });
 
+  it("an approval from outside the repo (no write association) does not count", async () => {
+    const state = await build({
+      fetchImpl: routes({
+        reviews: [
+          { state: "APPROVED", commit_id: HEAD, author_association: "NONE", user: { login: "x" } },
+          {
+            state: "APPROVED",
+            commit_id: HEAD,
+            author_association: "CONTRIBUTOR",
+            user: { login: "y" },
+          },
+          { state: "APPROVED", commit_id: HEAD, user: { login: "z" } },
+        ],
+      }),
+    }).mergeState("acme", 42);
+    expect(state?.approvedShas).toEqual([]);
+  });
+
   it("a later dismissal or change request replaces the approval", async () => {
     const state = await build({
       fetchImpl: routes({
         reviews: [
-          { state: "APPROVED", commit_id: HEAD, user: { login: "bob" } },
+          {
+            state: "APPROVED",
+            commit_id: HEAD,
+            author_association: "OWNER",
+            user: { login: "bob" },
+          },
           { state: "DISMISSED", commit_id: HEAD, user: { login: "bob" } },
           { state: "CHANGES_REQUESTED", commit_id: HEAD, user: { login: "carol" } },
         ],

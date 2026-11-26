@@ -394,7 +394,8 @@ action is always a `report` "ready to merge".
   4. read live from GitHub (`ProjectPrService.mergeState`, never from the facts snapshot or the
      plan): the PR belongs to the project's repo, is open, not a draft, not yet merged; no
      reviewer's latest review requests changes; head SHA === `approvedSha` (no commits after the
-     approval) and some reviewer's latest approval was given on that SHA; CI is green and settled
+     approval) and some reviewer's latest approval was given on that SHA (only an approval from
+     a repo OWNER/MEMBER/COLLABORATOR counts; a change request blocks from anyone); CI is green and settled
      (every check run completed with success/neutral/skipped and every commit status `success`;
      no checks at all is not green); `mergeable === true`. A possibly truncated review/check
      page fails closed. GitLab projects are not supported (the review's commit is not read

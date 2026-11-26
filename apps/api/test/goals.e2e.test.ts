@@ -200,6 +200,21 @@ describe("Goals API (e2e)", () => {
       await put(`${BASE}/nope/merge-grant`, { projectIds: ["p1"], until: inHours(2) }).expect(404);
     });
 
+    it("422: a company-scoped goal only grants that company's existing projects", async () => {
+      await http()
+        .post(BASE)
+        .send({
+          ...body,
+          id: "mgc",
+          ceiling: "tier3",
+          scope: { kind: "company", companyId: "ghost" },
+        })
+        .expect(201);
+      await withOperator(http().put(`${BASE}/mgc/merge-grant`))
+        .send({ projectIds: ["p1"], until: inHours(2) })
+        .expect(422);
+    });
+
     it("sets with the token (server-stamped grantedAt), survives a PATCH, PATCH cannot write it, DELETE clears", async () => {
       const until = inHours(23);
       const set = await withOperator(http().put(grantUrl))
