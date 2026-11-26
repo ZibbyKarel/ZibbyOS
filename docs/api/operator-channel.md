@@ -128,8 +128,12 @@ never sent.
 | `goal-update`      | 2    | `goal-done`, `goal-merged`, and `goal-acted` with `action: report`. See `docs/api/goals.md`                                 |
 
 `autopilot-action` is on by default for new settings. Settings saved before Phase 4 keep
-their explicit `notify.events` list, so add `autopilot-action` there to receive it. The same
-holds for `goal-parked` and `goal-update`. Both link to `/work/goals/<goalId>`; the dedupe
+their explicit `notify.events` list, so add `autopilot-action` there to receive it. For the goal
+kinds the store does this once: a stored list with neither `goal-parked` nor `goal-update` gets both
+added on the first read, and a marker file (`goal-events-migrated` next to the settings) makes
+sure a later prune by the operator is respected. `goal-merged` (sent as `goal-update`) is always
+pushed, regardless of `notify.events` and of whether Autopilot is on: every autonomous merge is
+told. Both goal kinds link to `/work/goals/<goalId>`; the dedupe
 target is `<goalId>:<instanceKey>` and the state is the activity entry id, so each goal event
 is sent once.
 
@@ -141,8 +145,9 @@ Not mapped on purpose: failed or dead-lettered runs (not in the Phase 1 list) an
 Applied in this order, per event:
 
 1. **Toggle.** The channel must be `enabled` and the kind must be in `notify.events`.
-   Autopilot must also be on. With autopilot off nothing is pushed, except an event
-   whose task already has a bound Slack thread (a task started or announced on Slack),
+   Autopilot must also be on. With autopilot off nothing is pushed, except a `goal-merged`
+   event (always sent, the toggle does not apply either) and an event whose task already has a
+   bound Slack thread (a task started or announced on Slack),
    which is still answered in that thread. Inbound (listening) is never gated.
 2. **Dedupe.** `kind + target + state` is sent once per 24 h. This is in memory only,
    which is safe because the activity stream doesn't replay after a restart.

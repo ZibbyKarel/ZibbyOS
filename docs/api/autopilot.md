@@ -73,6 +73,12 @@ project in that order; `resolveAutopilotAutomation` /
 row that is all `manual` (the pill's `Ručně`) is a master off: every company/team exception
 resolves to `manual` too (`isGlobalManual`), project ones included, so nothing is picked up or auto-approved and
 `isOn()` is false; the exceptions stay stored and apply again once the global row is raised.
+`autoDecideGoals` is outside the master switch (`MASTER_SWITCH_KEYS` = every key but it): it
+does not count when deciding whether the global row is all manual, it resolves on its own
+(project > team > company > global) even under an all-manual global row, and a goal-only `auto`
+cell does not turn `isOn()` true. So goal decisions can run on one project while every other cell
+is manual, and raising them never wakes a dormant exception of another capability. Raising it is
+still a raise (operator token). The pause stops goals too (see [goals.md](./goals.md)).
 Configured automations don't go through this tree and keep running. The pill is greyed (muted
 tone, sleeping orb) in `Ručně` as while paused. The gate
 class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`;
@@ -100,7 +106,8 @@ only where a caller passes a place: the PR automation, the roadmap tick, channel
 approvals and gate checks of the tasks they stamp.
 
 A hook `git.push` onto `zibby/*` is covered while the overlay is on at all (`isOn()`: not paused
-and some cell anywhere is `auto`, project cells included). The file is read once at boot and cached, because the gate
+and some cell of a capability other than `autoDecideGoals` is `auto` anywhere, project cells
+included). The file is read once at boot and cached, because the gate
 evaluator is synchronous. Use the API to change it: a hand edit only takes effect after a restart.
 
 ## Endpoints

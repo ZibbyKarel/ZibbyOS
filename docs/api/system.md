@@ -1,7 +1,7 @@
 # System config
 
 The runtime system config replaces a set of knobs that used to be start-only
-environment variables (`TASK_TICK_MS`, `GOAL_AUTO_RESUME`, and friends) with a
+environment variables (`TASK_TICK_MS`, the old `GOAL_AUTO_RESUME` flag, and friends) with a
 single file the operator can edit live from `/settings` — in keeping with the
 "files are the source of truth" law. This page covers the store and its two
 endpoints; the full key-by-key table (what each knob does, its default, and

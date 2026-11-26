@@ -129,8 +129,8 @@ verdict (`kind`, `satisfied`, `output`), and status. Restart rebuilds the whole
 registry from these files (`reconstruct()`); a `running`/`paused-limit` loop is
 **not** auto-re-dispatched on boot by default (Law 3 / Tier 3 — a bare respawn must
 not spawn a maker without approval) but parked `awaiting-resume` for an explicit
-operator resume, unless the `GOAL_AUTO_RESUME=1` daemon flag is set (see
-`docs/ops/environment.md`).
+operator resume, unless the operator-owned `systemConfig.goalAutoResume` is `true` (read
+at boot; the key keeps its old name, see `docs/ops/environment.md`).
 
 ### Park reasons and resume
 

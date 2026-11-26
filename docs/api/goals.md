@@ -41,12 +41,12 @@ as an internal way to execute work (`run-loop`).
 | `GET /goals`                                 | goals, each with its `rollup`                                                                                                                         |
 | `POST /goals`                                | 201; 409 duplicate id; 422 invalid / `mergeGrant`                                                                                                     |
 | `GET /goals/:id`                             | 404                                                                                                                                                   |
-| `PATCH /goals/:id`                           | partial; 422 as for create (also if the merged goal is invalid)                                                                                       |
+| `PATCH /goals/:id`                           | partial, no defaults applied (a lone `{ enabled }` keeps the stored `ceiling`); 422 as for create (also if the merged goal is invalid)                |
 | `DELETE /goals/:id`                          | removes the definition and `state/<id>/`                                                                                                              |
 | `GET /goals/:id/state`                       | `{ state, rollup }`                                                                                                                                   |
 | `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                                                                                              |
 | `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event                                                                                            |
-| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason` and `planFailures`, sets `resumedCycle`; 404 unknown, 409 not parked                                      |
+| `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason` and `planFailures`, sets `resumedCycle` and `resumedRuns`; 404 unknown, 409 not parked                    |
 | `PUT /goals/:id/merge-grant`                 | body `{ projectIds, until }`; operator token (401); 422 unless ceiling tier3, `until` in the future and ≤ 24 h ahead, projects non-empty and in scope |
 | `DELETE /goals/:id/merge-grant`              | revokes the grant; operator token (401)                                                                                                               |
 
@@ -70,8 +70,12 @@ the briefing and the events channel read the stores without the engine's depende
 
 ### Tick
 
-`systemConfig.goalEngineTickMs` (default `60_000`, `0` disables, primary instance only). Each
-tick, per enabled goal (one goal failing never blocks the others):
+`systemConfig.goalEngineTickMs` (default `60_000`, `0` disables, primary instance only). While
+Autopilot is paused the tick does nothing at all (no bookkeeping, no plan, no park, no failure
+count); the queued dirty refs stay and the next tick after resume picks them up. A plan that
+finishes after the pause starts no spending action (`start-task`, `run-loop`, `pr-action`: a
+report "Not done: <type> — Autopilot is paused."). Paused goals can miss a deadline silently; the
+timeline shows the wait. Each tick, per enabled goal (one goal failing never blocks the others):
 
 1. **Instances** from the scope: none -> `_`; `projects` -> those ids; `company` -> that
    company's projects; `all` -> every project.
@@ -86,11 +90,14 @@ tick, per enabled goal (one goal failing never blocks the others):
    - Past `cycle.deadlineAt` -> park `deadline`. The cycle budget used up and no task in
      flight -> park `budget`; used up with a task still in flight -> nothing (no paid
      re-plan; it parks once the work ends). All happen before the wake check, with no planner
-     call, and
-     neither applies to an instance the operator resumed in this cycle (`resumedCycle` = the
-     cycle index; a new cycle clears it). A resumed one-off goal past its deadline is not
-     parked again for that deadline (the operator's choice); its planner calls stay bounded by
-     the fingerprint and the wake floor.
+     call. The deadline park does not apply to an instance the operator resumed in this cycle
+     (`resumedCycle` = the cycle index; a new cycle clears it): a resumed one-off goal past its
+     deadline is not parked again for that deadline (the operator's choice); its planner calls
+     stay bounded by the fingerprint and the wake floor. The budget park gives a resumed instance
+     exactly one more run: resume stores `resumedRuns` = the instance's `taskIds.length`, and the
+     budget park is skipped only while `taskIds.length <= resumedRuns`. After that one run the
+     budget parks it again. A resumed instance without `resumedRuns` (written before this field)
+     parks on the budget as before.
    - **Wake check.** The facts are fingerprinted (sha256 of the key-sorted JSON, no clock in
      it). The planner runs only when the fingerprint differs from the stored one, `wakeAt` is
      due, or a dirty ref matches: one of the instance's `taskIds` or a `waitingOn` ref that
@@ -114,6 +121,11 @@ tick, per enabled goal (one goal failing never blocks the others):
    cycle changed, the instance went away or was parked meanwhile, and a timeline line
    ("Tick result dropped: …") says so. A `wake` that landed meanwhile keeps its cleared
    fingerprint. Task ids recorded by a handler are kept either way (see below).
+
+The state store's `update`, `wake` and `resume` read the file before writing: a missing file
+starts from an empty state, but an existing file that does not parse (or a read error) throws and
+is never overwritten. That fails only this goal's tick (the per-goal try/catch); the display read
+still falls back to an empty state.
 
 An instance whose processing throws puts back the dirty refs it consumed, so the next tick
 still sees them. A goal that throws before reaching its instances puts back only the refs that
@@ -225,8 +237,9 @@ colleague for something, sent as the operator. In order:
    recipient always is (author/requested reviewer); a Slack id only when the operator wrote it
    into the goal (`name`, `outcome`, `predicate`, checklist `title`/`acceptance`; no stored goal
    field is written by the planner or a remote) or it is the sender id (`replies[].last.from`) of
-   a reply this instance ingested. An id inside a reply's or a channel message's text does not
-   count. Workspace membership alone is not enough: an unknown
+   a reply to one of this instance's own sent messages (its `replyRef` in `state.messages`). A
+   reply on a thread the planner only waits on does not count, nor does an id inside a reply's or
+   a channel message's text. Workspace membership alone is not enough: an unknown
    member gets a `goal-message` approval instead. The auto send's activity is written at once,
    not as a deferred effect. Otherwise a `goal-message`
    approval (`docs/api/approvals.md`) with the recipient, the channel/PR and the full text; the
@@ -241,7 +254,9 @@ then records `sent` + `nudges[person]` (or `failed` + a report) in one write. Ap
 `pending -> sending` the same way (a second approve, a restart or a fresh process never sends
 again; a crash mid-send leaves it `sending`, never re-sent, and it still counts toward the cap).
 The operator's edited `messageText` replaces the text after the same mention check (a
-`<!channel>` or a foreign `@login` marks it `failed` and reports instead of sending). Reject marks
+`<!channel>` or a foreign `@login` marks it `failed` and reports instead of sending). Approving
+after the goal was disabled or its ceiling lowered below tier2 sends nothing: the record is
+`failed` and the operator gets a report naming why. Reject marks
 it `rejected` (timeline
 `message-rejected`), which frees its slot and is a fact the planner sees. A draft from an
 earlier cycle is gone: when a cycle rolls, the engine rejects its pending `goal-message`
@@ -264,7 +279,7 @@ without PR, approval or reply waits keep their fingerprint):
 | Key         | Source                | Rows                                                                                                                                                                                                                                                                |
 | ----------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                                                                                                      |
-| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt`                                                                                   |
+| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, author, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt`; no reviewer logins (not in the inbox snapshot)                           |
 | `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                                                                                                            |
 | `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80; also for the instance's sent messages' `replyRef`; in a DM (`D…`) a later top-level message counts too |
 | `messages`  | `GoalMessageService`  | this instance's messages this cycle: `[{ actionId, to, person, status, replyRef? }]`, sorted (goal-wide nudge counters stay out of the fingerprint)                                                                                                                 |
@@ -288,7 +303,9 @@ without PR, approval or reply waits keep their fingerprint):
 A goal with `directional` (`checklist`, `maxDecisionsPerMonth`, optional `matrixNoteId`) lets the
 planner `propose` ranked candidates. A non-directional goal's `propose` is a report. The
 effective `autoDecideGoals` is resolved at the instance's place with the same place helper as
-`autoCommunicate` (project > team > company > global; a `_` instance resolves at global) and
+`autoCommunicate` (project > team > company > global; a `_` instance resolves at global),
+independently of the other capabilities: it is not part of the Autopilot master switch (see
+`docs/api/autopilot.md`), so it can be `auto` on one project while everything else is manual, and
 is stored on the instance as `autoDecide: { level, reason }` (shown on the detail page and
 given to the planner): Autopilot paused caps `auto` at `semi` (`paused`); a `tier1` ceiling means
 `manual` (`ceiling`). The planner never decides: the handler enforces the level. `propose` runs
@@ -342,9 +359,12 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
   month's
   decision count, the current plan note and the facts. The offered actions are generated from
   `GoalActionSchema` (one JSON schema per action), filtered by the ceiling, by
-  `GoalActionExecutor.handles(type)` (the rest are named "not executable yet") and by the
+  `GoalActionExecutor.handles(type)` (the rest are named "not executable yet"), by the
   budget (no spending action — `start-task`, `run-loop`, `pr-action` — when this run uses the
-  last run or the cost is spent). The rules explain `actionId` (stable per piece of work) and
+  last run or the cost is spent) and by what can work for this goal: `run-loop` only with a
+  `loop`, `propose`/`update-checklist` only on a directional goal, `merge` only under an
+  unexpired grant listing the instance's project. The mandate line says whether this instance has
+  a merge grant and until when. The rules explain `actionId` (stable per piece of work) and
   list the cycle's `appliedActionIds`, and say a `pr-action` runs only where Autopilot starts it.
   For `message`: closed recipients, no other mentions, max 2 per person, working hours, and wait
   on a sent message's `replyRef` instead of chasing it.
@@ -382,7 +402,8 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
 Activity kinds (group `goals`): `goal-started`, `goal-woke`, `goal-acted`, `goal-parked`,
 `goal-done`, `goal-merged`, with refs `goalId`, `itemId` (instance key) and `projectId`. The
 operator channel sends `goal-parked` (Tier 3) and `goal-done` / `goal-merged` / report `goal-acted`
-as `goal-update` (Tier 2), see `docs/api/operator-channel.md`. Parked instances are briefing
+as `goal-update` (Tier 2), see `docs/api/operator-channel.md`. `goal-merged` is always sent,
+regardless of the notify toggles and of whether Autopilot is on. Parked instances are briefing
 needs-you items, acting/waiting ones a watching line (`docs/api/briefing.md`). Every state write
 and timeline append emits the SSE scope `goals` (`docs/api/events.md`).
 
@@ -406,8 +427,9 @@ action is always a `report` "ready to merge".
   "Připraveno k merge (ready to merge): repo#n — <the failed precondition>":
   1. the action's `projectId` is the instance's project (a `_` instance never merges);
   2. the goal **re-read from storage** still has ceiling `tier3` and an unexpired grant listing
-     the project whose `until - grantedAt` is at most 24 h (the file is hand-editable, so the
-     cap is re-checked here; a missing `grantedAt` fails); a revoke during the tick wins;
+     the project, with `grantedAt` not in the future and both `until - grantedAt` and
+     `until - now` at most 24 h (the file is hand-editable, so the cap is re-checked here from
+     both ends; a missing or unparseable date fails); a revoke during the tick wins;
   3. Autopilot is not paused;
   4. read live from GitHub (`ProjectPrService.mergeState`, never from the facts snapshot or the
      plan): the PR belongs to the project's repo, is open, not a draft, not yet merged; no
@@ -442,11 +464,13 @@ action is always a `report` "ready to merge".
   note), timeline (filter per project, grouped by cycle), per-project roll-up with the effective
   `autoDecideGoals` and its reason, the directional checklist editor and decision counter, the
   merge-grant panel, and the actions enable/pause, "Probudit" (wake) and resume on parked
-  instances.
+  instances. A goal that no longer exists (404) says so instead of the retry error; the timeline
+  shows loading and error-with-retry states; the roll-up rows show what each instance waits on
+  and when it wakes.
 - **Dashboard widget "Cíle"** (Bridge widget type `goals`, `GoalsWidget`): the goals picked in the
   widget settings (`scope.goalIds`; empty or absent = every enabled goal), one row each with the
   status pill, counts ("7/9 hotovo, 1 čeká na tebe"), schedule label and the latest timeline
-  line; needs-you goals sort first. A click opens the `goal` `AnchoredSheet` (`GoalSheet`) whose
+  line (left out while the timeline loads or failed); needs-you goals sort first. A click opens the `goal` `AnchoredSheet` (`GoalSheet`) whose
   title links to the goal page. The sheet has "Co se dělo" (every stored event, newest first; the store keeps the latest 500 per goal) and
   "Co bude" (per instance what it waits on and when it wakes, the next cycle or the deadline, the
   plan note), plus enable/pause, wake and resume. Live through the `goals` SSE scope.

@@ -145,6 +145,7 @@ applies on the next boot.
 | `chatPersona`         | `jarvis` | The chat butler's personality (`jarvis`/`concise`/`formal`) — changes tone only, never the dispatch governor. Read per turn, set in `/settings`                                                          |
 | `maxWorkingAgents`    | `3`      | Machine fuse — most task-system agents working at once (single-agent runs, workflow agent stages). Over it → `queued`. Replaces the removed `maxConcurrentRuns` (legacy value migrates; `null` → `3`)    |
 | `roadmapTickMs`       | `60000`  | **Phase 125h** — roadmap gate-poll heartbeat (`0` = disabled). Polls `awaiting-merge` items' PR state for every project (the release-signal poll); then auto-picks-up work for `autoPlay: true` projects |
+| `goalEngineTickMs`    | `60000`  | Goal engine heartbeat (`0` = disabled; primary only) — each tick plans the enabled goals whose next cycle is due, see `docs/api/goals.md`                                                                |
 
 In tests, `vitest.setup.ts` seeds this file (ticks at `0`) via `SYSTEM_CONFIG_FILE`;
 a suite that needs a different knob calls `writeSystemConfig()`

@@ -91,8 +91,9 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
 
 ### From the controller's ledger
 
-- **Task 1:** a goal-only `auto` cell turning `isOn()` true is accepted, same as every other
-  capability. Cost: the `zibby/*` push overlay is active when only goals are `auto`.
+- **Task 1 (superseded by the Final B ruling on `autoDecideGoals` below):** a goal-only `auto`
+  cell turning `isOn()` true is accepted, same as every other capability. Cost: the `zibby/*` push
+  overlay is active when only goals are `auto`.
 - **Task 2 (pre-flight):** Task 2 makes the minimal web type fix (`EMPTY_AUTOMATION` gets
   `projects: {}`) so the branch stays green; Task 3 does the UI. Cost: a few duplicate lines if
   wrong.
@@ -139,6 +140,26 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
   toggle; the add-widget menu lists every `WIDGET_TYPES` key, so the widget is addable (reviewer
   verified `AddWidgetSlot.tsx:34`). The brief's wording was wrong. Cost: none.
 
+### From the final review
+
+- **Final review:** whole-branch diff is 1.9 MB — split into three opus reviewers by area (A goals
+  engine+security, B api rest+upgrade safety, C web) instead of one reviewer that cannot hold it.
+  Cost: cross-area interactions seen only where a reviewer follows a call path; ONE fix wave
+  collects all three.
+- **Final B:** `autoDecideGoals` is excluded from the Autopilot master switch and resolves on its
+  own (project > team > company > global); a goal-only cell no longer turns the rest of Autopilot
+  on (reverses the Task 1 `isOn` ruling) — the operator asked for decisions "only for projects
+  where it is set", and raising it must not wake devrel's dormant PR automation. Cost: goal
+  decisions can run on a project while every other Autopilot cell is manual; if the operator
+  wanted the global switch to gate it, one line in `isGlobalManual` restores that.
+- **Final B:** Autopilot pause stops the goal engine's planning and spending actions
+  (`start-task`, `run-loop`) — "pausing stops everything new". Cost: paused goals miss deadlines
+  silently until resumed (the timeline shows the wait).
+- **Final B:** `goal-merged` is always pushed to the operator channel regardless of the notify
+  toggles; stored event lists without any goal kind get the default goal kinds added once — every
+  autonomous merge must be told. Cost: an operator who deliberately pruned the list gets goal
+  notifications back once.
+
 ## Proposed `CLAUDE.md` wording — NOT applied
 
 `CLAUDE.md` is not edited by this run. Ready to paste:
@@ -151,10 +172,14 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
 > operator does it), `semi` / Poloautomat (ZIBBY prepares, the outcome waits for approval) or
 > `auto` / Automat (the covered `ask` classes move to Tier 2, plus pushes onto ZIBBY's or the
 > operator's own PR branches). For goal decisions, `auto` lets ZIBBY pick and start the work for a
-> directional goal itself, within the goal's monthly decision cap. Never-rules are not affected, and
+> directional goal itself, within the goal's monthly decision cap. Goal decisions resolve per project
+> on their own, independently of the other capabilities: they are not part of the all-manual master
+> switch, so they can be `auto` on one project while everything else is manual. Never-rules are not
+> affected, and
 > neither is merge, except through the merge grant below. Raising a level at any place, a project
 > included, or resuming ZIBBY needs the operator token; anyone in the operator chat can **pause**
-> it, which stops everything new. See `docs/api/autopilot.md` and `docs/api/goals.md`.
+> it, which stops everything new, goals included (no planning, no task or loop started). See
+> `docs/api/autopilot.md` and `docs/api/goals.md`.
 
 ### (b) Law 3 and the "Never" bullet
 
@@ -217,9 +242,6 @@ Deferred minors and notes from the ledger, grouped by area.
   `autopilot.schema.ts`.
 - The raise-check cap of 20 000 nodes is reachable by a large real table; it fails closed (a
   tokenless lowering answers 401). Raise the cap or check per capability, and log when it trips.
-- Channel triage: an unreadable integration skips the personal-account check and now also picks up
-  project cells (pre-existing fail-open, one level wider). Return `{}` when the integration is
-  null.
 - `pr-automation.service.test.ts` uses `mkdtemp` without cleanup.
 - Matrix UI: dead i18n key `autopilot.teamsCount`; the expand button says "places" for a company
   with only teams; "Projekt · " has a trailing separator when there is no company (same for
@@ -230,9 +252,6 @@ Deferred minors and notes from the ledger, grouped by area.
 
 **Loop rename (task 4)**
 
-- `docs/api/loops.md:132` and `loop-run.schema.ts:35` mention the obsolete `GOAL_AUTO_RESUME=1`
-  env flag. The `goalAutoResume` labels (cs + en) still say "goals" and should say loops /
-  smyčky.
 - DS `SegmentedRing` is now unused outside the DS.
 - `docs/audit/batches/api-goals.md` has the stale name (historical).
 - The live `activity-view.json` has stale group keys that fall back to defaults (pre-existing).
@@ -260,15 +279,16 @@ Deferred minors and notes from the ledger, grouped by area.
 **Engine (task 7)**
 
 - The notification title is the English activity summary under a Czech headline (precedent of all
-  events); stored operator-channel `events` lists do not get goal events (opt-in precedent).
+  events).
 - The briefing needs-you item for a parked goal uses `cycle.startedAt`, not the park time.
 - A project returning into scope stays `done` for a one-off goal.
 - `pragueParts` builds a new `Intl.DateTimeFormat` per call.
 - Cost budget within one plan is a snapshot (the runs cap is the in-plan guard);
   `remainingBudget` reads the ledger every tick for idle goals with a cost cap; a stale dirty ref
   matching no instance stays in the set while any goal keeps failing.
-- Note: a resumed budget-parked instance may plan but spending actions stay refused until the
-  budget is raised.
+- Note: a resumed budget-parked instance gets exactly one more run (`resumedRuns`), then the
+  budget parks it again; spending actions stay refused until the budget is raised. An instance
+  resumed before `resumedRuns` existed parks on the budget again at once (fail closed).
 
 **Planner (task 8)**
 
@@ -299,13 +319,13 @@ Deferred minors and notes from the ledger, grouped by area.
 - Mixed permanent + transient lookup errors report only the transient cause
   (`goal-message.service.ts` ~443); the message id's cycle index is read outside the store lock
   (~392).
-- `goals.e2e` "wake, resume and timeline" shows a rare 401 on `POST /api/goals` (no guard on that
-  route; likely a cross-process e2e collision) — treat as a known flake.
+- `goals.e2e` "wake, resume and timeline" showed a rare 401 on `POST /api/goals` (supertest on an
+  unbound app hit another process on the same port); the e2e now binds `127.0.0.1:0` in
+  `beforeAll`.
 
 **Directional goals (task 11)**
 
-- `ApprovalsService.answer` `goal-decision` branch is untested (tests call `decisions.resume`
-  directly); the "inbound reply text cannot produce a decision" test is weak.
+- The "inbound reply text cannot produce a decision" test is weak.
 - The manual report goes to the timeline + activity only, not the plan note.
 - A decision resume starts a task even when the instance is parked / done.
 - An all-done checklist finishes only the instance that ticked the last item.
@@ -314,15 +334,9 @@ Deferred minors and notes from the ledger, grouped by area.
 - The `approval.schema` comment says detail is JSON; it is plain text. The approval sheet has no
   candidate picker (the answer is API-only).
 - `startTop` writes `used + 1` from a pre-start read, not inside `store.update`.
-- Cannot-verify: whether the planner prompt offers `propose` / `update-checklist` to
-  non-directional goals (the handler rejects them anyway).
 
 **Merge grant (task 12)**
 
-- FIX IN FINAL WAVE: the merge-time span check bounds only `until - grantedAt`; a hand-edited grant
-  with both in the future passes. Also require `until - now <= 24 h` in
-  `goal-merge.service.ts` `grantUnmet`, with a test. (Check whether the final wave landed it
-  before release.)
 - An approval dismissed or a change request between the check and the merge is not pinned (small
   window).
 - A PR with 100 or more reviews/checks fails closed forever (documented in `docs/api/goals.md`).
@@ -340,9 +354,42 @@ Deferred minors and notes from the ledger, grouped by area.
   "truncated" notice, so the sheet's log is every stored event, not the full history.
 - Cannot-verify: widget and sheet layout in a real browser (`SIZE_LIMITS` goals `[3,4,8,16]`,
   560 px sheet).
-- ts-rest resolves non-2xx bodies as data everywhere: the goal state query's HTTP error can show
-  "nothing planned", and `GoalDetailScreen` and the other goal queries may share the "error body
-  treated as data" gap. Check in the final review.
+- Settled in the final wave: `@ts-rest/react-query/v5` (3.53.0-rc.1, `v5/internal/create-hooks`)
+  throws every non-2xx response, so a query's `error` is the `{ status, body }` and `isError` is
+  set. The envelope hooks were removed; the sheet and the detail page read `error.status` (404 =
+  the goal is gone).
+
+**Final review (deferred minors)**
+
+- Final A: approval created before the state commit (message/decision) → orphan approval + duplicate
+  on re-plan; approving the orphan only reports "neplatí".
+- Final A: a tick's apply replaces the whole instance and can drop waits/wakeAt a concurrent
+  message resume added (costs one extra plan).
+- Final A: `matrixNoteId` is never read or written (planner has no tools) — dead field.
+- Final A: merge inputs reach the planner only when the watchesPrs keyword check matches the goal
+  text.
+- Final A: duplicated helpers across engine / decision / message services (budgetLeft, flush,
+  persist, find/report/say/note).
+- Final A: head-of-line blocking — goals are planned one by one, a 10-min planner run delays every
+  other goal.
+- Final A: a failed state write after a successful Slack send reports "Not done: message" although
+  it went out.
+- Final B: old loop definitions lived at `data/goals/<id>.goal.md` (same path as new goals) — on an
+  install that still had them they would be skipped as corrupt and orphaned; live install checked
+  clean — release note.
+- Final B: 20 000-place cap on the raise check unreachable today.
+- Final B: source "goal"/goalId settable over HTTP (display + pre-existing slot bypass; cannot steer
+  a goal).
+- Final C: two status tone mappings (goalStatusTone vs sheet SHEET_TONE); GoalCard click does not
+  navigate (toggle inside); deadline/grant time zone entry vs display; create dialog lacks
+  "created paused" hint.
+- Final wave, not done (design decision): the `prs` facts carry the PR `author` but no reviewer
+  logins — the inbox snapshot has none, and `InboxPrThreadsService.reviewers()` is an uncached
+  host call per PR. Options: one host call per PR per tick, a fetch cached on the PR's
+  `updatedAt`, or author-only (current).
+- Final wave: with `autoDecideGoals` outside the master switch, a goal-only setup has `isOn()`
+  false, so `goal-parked` / `goal-update` are not pushed to the operator channel (only
+  `goal-merged` always is); they still show in the briefing and on the goal pages.
 
 **Docs / verification (task 13)**
 
