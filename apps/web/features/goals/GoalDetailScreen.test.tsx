@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { Goal, GoalStateView } from "@zibby/contracts";
-import { renderWithProviders as render, screen, within } from "../../test/render";
+import { act, renderWithProviders as render, screen, within } from "../../test/render";
 import { GoalDetailScreen, GoalDetailScreenTestId } from "./GoalDetailScreen";
 import { GoalFormTestId } from "./components/GoalForm";
 import { GoalInstancesTestId } from "./components/GoalInstancesPanel";
@@ -57,6 +57,7 @@ const { hooks } = vi.hoisted(() => ({
     goal: { data: undefined as unknown, isPending: false, isError: false, refetch: vi.fn() },
     state: { data: undefined as unknown, isPending: false, isError: false, refetch: vi.fn() },
     timeline: [] as unknown[],
+    updateError: undefined as unknown,
   },
 }));
 
@@ -67,7 +68,13 @@ vi.mock("./queries", () => ({
   useGoalTimelineQuery: () => ({ data: hooks.timeline }),
 }));
 vi.mock("./mutations", () => ({
-  useUpdateGoalMutation: () => ({ mutate: update, isPending: false }),
+  useUpdateGoalMutation: () => ({
+    mutate: update,
+    reset: vi.fn(),
+    isPending: false,
+    isError: hooks.updateError !== undefined,
+    error: hooks.updateError,
+  }),
   useDeleteGoalMutation: () => ({ mutate: remove, isPending: false }),
   useWakeGoalMutation: () => ({ mutate: wake, isPending: false }),
   useResumeGoalInstanceMutation: () => ({ mutate: resume, isPending: false }),
@@ -94,6 +101,7 @@ describe("GoalDetailScreen", () => {
     hooks.goal = { data: goal, isPending: false, isError: false, refetch: vi.fn() };
     hooks.state = { data: stateView, isPending: false, isError: false, refetch: vi.fn() };
     hooks.timeline = [];
+    hooks.updateError = undefined;
   });
 
   it("renders the roll-up rows with project names and a resume button only on parked ones", () => {
@@ -119,7 +127,7 @@ describe("GoalDetailScreen", () => {
   it("wakes the goal from the header", async () => {
     render(<GoalDetailScreen goalId="ci-green" />);
     await userEvent.click(screen.getByTestId(GoalDetailScreenTestId.Wake));
-    expect(wake).toHaveBeenCalledWith({ params: { id: "ci-green" }, body: {} });
+    expect(wake).toHaveBeenCalledWith({ params: { id: "ci-green" }, body: {} }, expect.anything());
   });
 
   it("renders the plan note from the vault when an instance has one", () => {
@@ -173,6 +181,27 @@ describe("GoalDetailScreen", () => {
       cycleHours: null,
       budget: null,
     });
+  });
+
+  it("shows the server error inside the form when a save fails", async () => {
+    hooks.updateError = {
+      status: 422,
+      body: { message: "deadline and cadence are mutually exclusive" },
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    await userEvent.click(screen.getByTestId(GoalDetailScreenTestId.Edit));
+    expect(screen.getByTestId(GoalFormTestId.Error)).toHaveTextContent("mutually exclusive");
+  });
+
+  it("shows a page error when wake, resume or the toggle fail", async () => {
+    render(<GoalDetailScreen goalId="ci-green" />);
+    await userEvent.click(screen.getByTestId(GoalDetailScreenTestId.Wake));
+    act(() => wake.mock.calls[0]![1].onError({ body: { message: "wake failed" } }));
+    expect(screen.getByTestId(GoalDetailScreenTestId.Error)).toHaveTextContent("wake failed");
+
+    await userEvent.click(screen.getByTestId(`${GoalInstancesTestId.Resume}-beta`));
+    act(() => resume.mock.calls[0]![1].onError(new Error("network")));
+    expect(screen.getByTestId(GoalDetailScreenTestId.Error)).toHaveTextContent("Akce se nepovedla");
   });
 
   it("deletes only after the confirm dialog", async () => {

@@ -5494,6 +5494,7 @@
       "timelineTitle": "Časová osa",
       "deleteTitle": "Smazat cíl?",
       "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit."
-    }
+    },
+    "actionFailed": "Akce se nepovedla. Zkus to znovu."
   }
 }

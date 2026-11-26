@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Goal } from "@zibby/contracts";
 import {
+  Alert,
   Button,
   Container,
   Panel,
@@ -14,6 +15,7 @@ import {
   Toggle,
   Typography,
 } from "@zibby/design-system";
+import { apiErrorMessage } from "../../state/apiErrorMessage";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog/ConfirmDeleteDialog";
 import { PageBreadcrumb } from "../../components/layout/PageBreadcrumb";
 import { QueryError } from "../../components/LoadError/QueryError";
@@ -41,6 +43,7 @@ export enum GoalDetailScreenTestId {
   Wake = "goal-detail-wake",
   Edit = "goal-detail-edit",
   Delete = "goal-detail-delete",
+  Error = "goal-detail-error",
 }
 
 export interface GoalDetailScreenProps {
@@ -73,6 +76,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resuming, setResuming] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const fail = (e: unknown) => setActionError(apiErrorMessage(e) ?? t("actionFailed"));
 
   const names = {
     projectName: (id: string) => projects.find((p) => p.id === id)?.name ?? id,
@@ -97,7 +102,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
     setResuming(instance);
     resume.mutate(
       { params: { id: goal.id, instance }, body: {} },
-      { onSettled: () => setResuming(null) },
+      { onError: fail, onSettled: () => setResuming(null) },
     );
   };
 
@@ -130,7 +135,9 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 icon="play"
                 intent="ghost"
                 loading={wake.isPending}
-                onClick={() => wake.mutate({ params: { id: goal.id }, body: {} })}
+                onClick={() =>
+                  wake.mutate({ params: { id: goal.id }, body: {} }, { onError: fail })
+                }
                 size="sm"
               >
                 {t("detail.wake")}
@@ -140,7 +147,10 @@ function GoalDetail({ goal }: { goal: Goal }) {
                   data-testid={GoalDetailScreenTestId.Edit}
                   icon="edit"
                   intent="ghost"
-                  onClick={() => setEditing(true)}
+                  onClick={() => {
+                    update.reset();
+                    setEditing(true);
+                  }}
                   size="sm"
                 >
                   {tk("common.edit")}
@@ -158,9 +168,22 @@ function GoalDetail({ goal }: { goal: Goal }) {
             </Stack>
           </Stack>
 
+          {actionError && (
+            <Alert
+              data-testid={GoalDetailScreenTestId.Error}
+              onClose={() => setActionError(null)}
+              severity="error"
+            >
+              {actionError}
+            </Alert>
+          )}
+
           <Panel header={t("detail.settingsTitle")} padding="200">
             {editing ? (
               <GoalForm
+                error={
+                  update.isError ? (apiErrorMessage(update.error) ?? t("actionFailed")) : undefined
+                }
                 initial={goalToFormValues(goal)}
                 onCancel={() => setEditing(false)}
                 onSubmit={(values) =>
@@ -214,7 +237,13 @@ function GoalDetail({ goal }: { goal: Goal }) {
           onConfirm={() =>
             remove.mutate(
               { params: { id: goal.id } },
-              { onSuccess: () => router.push("/work/goals") },
+              {
+                onSuccess: () => router.push("/work/goals"),
+                onError: (e) => {
+                  setConfirmDelete(false);
+                  fail(e);
+                },
+              },
             )
           }
           pending={remove.isPending}

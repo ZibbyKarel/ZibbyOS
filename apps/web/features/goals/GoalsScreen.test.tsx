@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { GOAL_PRESETS, type GoalWithRollup } from "@zibby/contracts";
-import { renderWithProviders as render, screen } from "../../test/render";
+import { act, renderWithProviders as render, screen } from "../../test/render";
 import { GoalsScreen, GoalsScreenTestId } from "./GoalsScreen";
 import { GoalCardTestId } from "./components/GoalCard";
 import { GoalPresetsTestId } from "./components/GoalPresets";
@@ -82,7 +82,10 @@ describe("GoalsScreen", () => {
   it("toggles enabled through the update mutation", async () => {
     render(<GoalsScreen />);
     await userEvent.click(screen.getByTestId(GoalCardTestId.Toggle));
-    expect(update).toHaveBeenCalledWith({ params: { id: "my-prs" }, body: { enabled: false } });
+    expect(update).toHaveBeenCalledWith(
+      { params: { id: "my-prs" }, body: { enabled: false } },
+      expect.anything(),
+    );
   });
 
   it("opens the detail page from the card", async () => {
@@ -113,6 +116,31 @@ describe("GoalsScreen", () => {
     expect(args.body).not.toHaveProperty("group");
     options.onSuccess();
     expect(push).toHaveBeenCalledWith(`/work/goals/${preset.id}`);
+  });
+
+  it("shows the server error when a preset add fails with anything but 409", () => {
+    query.goals = [];
+    render(<GoalsScreen />);
+    const preset = GOAL_PRESETS[0]!;
+    screen.getByTestId(`${GoalPresetsTestId.Add}-${preset.id}`).click();
+    act(() => create.mock.calls[0]![1].onError({ status: 500, body: { message: "boom" } }));
+    expect(screen.getByTestId(GoalsScreenTestId.Error)).toHaveTextContent("boom");
+  });
+
+  it("stays silent on a 409 preset add (the refetch flips it to Přidáno)", () => {
+    query.goals = [];
+    render(<GoalsScreen />);
+    const preset = GOAL_PRESETS[0]!;
+    screen.getByTestId(`${GoalPresetsTestId.Add}-${preset.id}`).click();
+    act(() => create.mock.calls[0]![1].onError({ status: 409, body: { message: "exists" } }));
+    expect(screen.queryByTestId(GoalsScreenTestId.Error)).not.toBeInTheDocument();
+  });
+
+  it("shows an error when the list toggle fails", async () => {
+    render(<GoalsScreen />);
+    await userEvent.click(screen.getByTestId(GoalCardTestId.Toggle));
+    act(() => update.mock.calls[0]![1].onError(new Error("network")));
+    expect(screen.getByTestId(GoalsScreenTestId.Error)).toHaveTextContent("Akce se nepovedla");
   });
 
   it("shows 'Přidáno' instead of the button for a preset whose id already exists", () => {

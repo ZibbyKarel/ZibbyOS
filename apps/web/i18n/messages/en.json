@@ -5494,6 +5494,7 @@
       "timelineTitle": "Timeline",
       "deleteTitle": "Delete goal?",
       "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone."
-    }
+    },
+    "actionFailed": "The action failed. Try again."
   }
 }

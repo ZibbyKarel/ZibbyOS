@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { CreateGoalInput, GoalPreset } from "@zibby/contracts";
 import {
+  Alert,
   Button,
   CardSkeleton,
   Container,
@@ -16,6 +17,7 @@ import {
   ListToolbar,
   Stack,
 } from "@zibby/design-system";
+import { apiErrorMessage } from "../../state/apiErrorMessage";
 import { QueryError } from "../../components/LoadError/QueryError";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useCompaniesQuery } from "../companies/queries";
@@ -32,15 +34,7 @@ export enum GoalsScreenTestId {
   Empty = "goals-empty",
   NoMatch = "goals-no-match",
   List = "goals-list",
-}
-
-/** Message of a failed create, when the server explains it (duplicate id, invalid body). */
-function createErrorMessage(err: unknown): string | undefined {
-  if (typeof err === "object" && err !== null && "body" in err) {
-    const body = (err as { body?: { message?: unknown } }).body;
-    if (typeof body?.message === "string") return body.message;
-  }
-  return undefined;
+  Error = "goals-error",
 }
 
 /**
@@ -61,6 +55,8 @@ export function GoalsScreen() {
   const [filter, setFilter] = useState<GoalFilter>("all");
   const [creating, setCreating] = useState(false);
   const [presetPending, setPresetPending] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const fail = (e: unknown) => setActionError(apiErrorMessage(e) ?? t("actionFailed"));
 
   const names = {
     projectName: (id: string) => projects.find((p) => p.id === id)?.name ?? id,
@@ -81,8 +77,12 @@ export function GoalsScreen() {
       { body: presetToCreateBody(preset) },
       {
         onSuccess: () => open(preset.id),
-        // A 409 means the preset's id is already taken: refetch so the row reads "Přidáno".
-        onError: () => void queryClient.invalidateQueries({ queryKey: getGoalsQueryKey() }),
+        onError: (e) => {
+          // A 409 means the preset's id is already taken: refetch so the row reads "Přidáno".
+          if (typeof e === "object" && e !== null && "status" in e && e.status === 409) {
+            void queryClient.invalidateQueries({ queryKey: getGoalsQueryKey() });
+          } else fail(e);
+        },
         onSettled: () => setPresetPending(null),
       },
     );
@@ -100,6 +100,7 @@ export function GoalsScreen() {
       intent="ink"
       onClick={() => {
         create.reset();
+        setActionError(null);
         setCreating(true);
       }}
     >
@@ -139,7 +140,10 @@ export function GoalsScreen() {
           names={names}
           onOpen={() => open(goal.id)}
           onToggle={() =>
-            update.mutate({ params: { id: goal.id }, body: { enabled: !goal.enabled } })
+            update.mutate(
+              { params: { id: goal.id }, body: { enabled: !goal.enabled } },
+              { onError: fail },
+            )
           }
         />
       ))}
@@ -168,6 +172,15 @@ export function GoalsScreen() {
               onChipChange={(id) => setFilter(id as GoalFilter)}
             />
           )}
+          {actionError && (
+            <Alert
+              data-testid={GoalsScreenTestId.Error}
+              onClose={() => setActionError(null)}
+              severity="error"
+            >
+              {actionError}
+            </Alert>
+          )}
           {body}
           {!goalsQuery.isPending && !goalsQuery.isError && (
             <GoalPresets existingIds={existingIds} onAdd={addPreset} pendingId={presetPending} />
@@ -177,7 +190,7 @@ export function GoalsScreen() {
 
       {creating && (
         <GoalFormDialog
-          error={create.isError ? createErrorMessage(create.error) : undefined}
+          error={create.isError ? (apiErrorMessage(create.error) ?? t("actionFailed")) : undefined}
           onClose={() => setCreating(false)}
           onCreate={onCreate}
           pending={create.isPending}

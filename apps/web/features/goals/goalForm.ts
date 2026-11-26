@@ -47,6 +47,11 @@ export const EMPTY_GOAL_FORM: GoalFormValues = {
   ceiling: "tier2",
 };
 
+/** A blank input is "not set" (undefined); anything else is its number, so junk stays NaN and fails validation. */
+function optionalNumber(raw: string): number | undefined {
+  return raw.trim() === "" ? undefined : Number(raw);
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** ISO instant -> `datetime-local` value in the browser's zone. */
@@ -95,8 +100,10 @@ function scopeOf(v: GoalFormValues): GoalScope {
 
 function budgetOf(v: GoalFormValues): GoalBudget | undefined {
   const budget: GoalBudget = {};
-  if (v.maxRuns.trim()) budget.maxRunsPerCycle = Number(v.maxRuns);
-  if (v.maxCost.trim()) budget.maxCostUsdPerCycle = Number(v.maxCost);
+  const maxRuns = optionalNumber(v.maxRuns);
+  const maxCost = optionalNumber(v.maxCost);
+  if (maxRuns !== undefined) budget.maxRunsPerCycle = maxRuns;
+  if (maxCost !== undefined) budget.maxCostUsdPerCycle = maxCost;
   return Object.keys(budget).length > 0 ? budget : undefined;
 }
 
@@ -110,9 +117,11 @@ function timingOf(v: GoalFormValues): {
     const deadline = localInputToIso(v.deadline);
     return deadline ? { deadline } : {};
   }
+  const cycleHours = optionalNumber(v.cycleHours);
   return {
-    cadence: { every: v.cadenceEvery, hour: Number(v.cadenceHour) },
-    ...(v.cycleHours.trim() ? { cycleHours: Number(v.cycleHours) } : {}),
+    // A blank hour is required-but-missing: NaN fails the schema instead of becoming midnight.
+    cadence: { every: v.cadenceEvery, hour: optionalNumber(v.cadenceHour) ?? Number.NaN },
+    ...(cycleHours !== undefined ? { cycleHours } : {}),
   };
 }
 

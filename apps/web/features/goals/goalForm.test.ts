@@ -90,3 +90,25 @@ describe("isGoalFormValid", () => {
     expect(isGoalFormValid({ ...base, scopeKind: "projects", projectIds: ["a"] })).toBe(true);
   });
 });
+
+describe("blank numeric inputs", () => {
+  const standing = { ...base, timing: "standing" as const };
+
+  it("treats a blank cadence hour as invalid, not midnight", () => {
+    expect(isGoalFormValid({ ...standing, cadenceHour: "" })).toBe(false);
+    expect(isGoalFormValid({ ...standing, cadenceHour: "  " })).toBe(false);
+    expect(isGoalFormValid({ ...standing, cadenceHour: "0" })).toBe(true);
+  });
+
+  it("treats blank optional numbers as not set", () => {
+    const input = buildCreateGoalInput({ ...standing, cycleHours: "", maxRuns: " ", maxCost: "" });
+    expect(input).not.toHaveProperty("cycleHours");
+    expect(input).not.toHaveProperty("budget");
+    expect(isGoalFormValid({ ...standing, cycleHours: "", maxRuns: "", maxCost: "" })).toBe(true);
+  });
+
+  it("keeps junk optional numbers invalid instead of dropping them", () => {
+    expect(isGoalFormValid({ ...standing, cycleHours: "abc" })).toBe(false);
+    expect(isGoalFormValid({ ...base, maxRuns: "abc" })).toBe(false);
+  });
+});
