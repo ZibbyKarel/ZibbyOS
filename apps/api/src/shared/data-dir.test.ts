@@ -7,10 +7,10 @@ import {
   defaultCloneRoot,
   installRoot,
   recipesDir,
-  resolveGeneratedDir,
-  resolveUnderGeneratedRoot,
   resolveDataRoot,
+  resolveGeneratedDir,
   resolveRecipesRoot,
+  resolveUnderGeneratedRoot,
   resolveVaultDir,
   zibbyHome,
 } from "./data-dir";
