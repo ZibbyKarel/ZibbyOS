@@ -108,8 +108,29 @@ export const CreateGoalSchema = GoalInputObject.extend({ id: AgentIdSchema })
   .superRefine(timing);
 export type CreateGoalInput = z.input<typeof CreateGoalSchema>;
 
-/** Update body: every operator field optional. Strict, so `mergeGrant` is rejected (422). */
-export const UpdateGoalSchema = GoalInputObject.partial().strict().superRefine(timing);
+/** Optional goal fields a patch may clear by sending `null`. */
+export const CLEARABLE_GOAL_FIELDS = [
+  "deadline",
+  "cadence",
+  "cycleHours",
+  "predicate",
+  "budget",
+  "directional",
+  "loop",
+] as const;
+
+const GoalPatchObject = GoalInputObject.partial().extend(
+  Object.fromEntries(
+    CLEARABLE_GOAL_FIELDS.map((k) => [k, GoalInputObject.shape[k].unwrap().nullable().optional()]),
+  ) as {
+    [K in (typeof CLEARABLE_GOAL_FIELDS)[number]]: z.ZodOptional<
+      z.ZodNullable<ReturnType<(typeof GoalInputObject.shape)[K]["unwrap"]>>
+    >;
+  },
+);
+
+/** Update body: every operator field optional, clearable ones also nullable. Strict, so `mergeGrant` is rejected (422). */
+export const UpdateGoalSchema = GoalPatchObject.strict();
 export type UpdateGoalInput = z.infer<typeof UpdateGoalSchema>;
 
 /**
@@ -118,4 +139,4 @@ export type UpdateGoalInput = z.infer<typeof UpdateGoalSchema>;
  * which parses with the strict schemas above and answers 422 (not ts-rest's 400).
  */
 export const CreateGoalBodySchema = GoalInputObject.extend({ id: AgentIdSchema }).passthrough();
-export const UpdateGoalBodySchema = GoalInputObject.partial().passthrough();
+export const UpdateGoalBodySchema = GoalPatchObject.passthrough();

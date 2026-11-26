@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   AGENT_ID_REGEX,
+  CLEARABLE_GOAL_FIELDS,
   type CreateGoalInput,
   type Goal,
   GoalSchema,
@@ -45,9 +46,11 @@ export class GoalsStorageService extends MarkdownEntityStore<Goal> {
 
   async update(id: string, patch: UpdateGoalInput): Promise<Goal> {
     return this.updateEntity(id, (existing) => {
+      // `null` clears an optional field (JSON has no undefined); the merge is then validated whole.
+      const merged: Record<string, unknown> = { ...existing, ...patch };
+      for (const key of CLEARABLE_GOAL_FIELDS) if (merged[key] === null) delete merged[key];
       const parsed = GoalSchema.safeParse({
-        ...existing,
-        ...patch,
+        ...merged,
         id: existing.id,
         updatedAt: new Date().toISOString(),
       });

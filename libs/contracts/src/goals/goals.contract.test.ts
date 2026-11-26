@@ -58,6 +58,14 @@ describe("CreateGoalSchema", () => {
     expect(UpdateGoalSchema.safeParse({ mergeGrant }).success).toBe(false);
   });
 
+  it("update accepts a lone cycleHours (timing is checked on the merged goal) and null clears", () => {
+    expect(UpdateGoalSchema.safeParse({ cycleHours: 12 }).success).toBe(true);
+    expect(
+      UpdateGoalSchema.safeParse({ deadline: null, cadence: { every: "day", hour: 9 } }).success,
+    ).toBe(true);
+    expect(UpdateGoalSchema.safeParse({ outcome: null }).success).toBe(false);
+  });
+
   it("GoalSchema accepts mergeGrant", () => {
     const r = GoalSchema.safeParse({
       ...base,

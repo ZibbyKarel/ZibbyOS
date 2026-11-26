@@ -68,4 +68,30 @@ describe("GoalsStorageService", () => {
       GoalNotFoundError,
     );
   });
+
+  it("patch of cycleHours alone works on a standing goal", async () => {
+    await service.create(input);
+    expect((await service.update("my-goal", { cycleHours: 12 })).cycleHours).toBe(12);
+  });
+
+  it("null clears optional fields: one-off becomes standing; predicate leaves the file", async () => {
+    await service.create({
+      ...input,
+      id: "one-off",
+      cadence: undefined,
+      cycleHours: undefined,
+      deadline: "2026-12-01T00:00:00.000Z",
+    });
+    const g = await service.update("one-off", {
+      deadline: null,
+      cadence: { every: "day", hour: 7 },
+      predicate: null,
+    });
+    expect(g.deadline).toBeUndefined();
+    expect(g.cadence).toEqual({ every: "day", hour: 7 });
+    const fm = matter(await fs.readFile(path.join(dir, "one-off.goal.md"), "utf8")).data;
+    expect(fm).not.toHaveProperty("predicate");
+    expect(fm).not.toHaveProperty("deadline");
+    expect((await service.get("one-off")).predicate).toBeUndefined();
+  });
 });

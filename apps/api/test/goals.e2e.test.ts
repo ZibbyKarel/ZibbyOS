@@ -47,6 +47,7 @@ describe("Goals API (e2e)", () => {
     const list = await http().get(BASE).expect(200);
     const row = list.body.find((g: { id: string }) => g.id === "my-goal");
     expect(row.rollup.status).toBe("planning");
+    expect(row.rollup.counts).toEqual({ total: 0, done: 0, parked: 0, active: 0 });
 
     const patched = await http().patch(`${BASE}/my-goal`).send({ enabled: false }).expect(200);
     expect(patched.body.enabled).toBe(false);
@@ -86,6 +87,27 @@ describe("Goals API (e2e)", () => {
       .send({ deadline: "2026-12-01T00:00:00.000Z", cadence: { every: "day", hour: 9 } })
       .expect(422);
     await http().get(`${BASE}/mg`).expect(404);
+  });
+
+  it("PATCH validates the merged goal and null clears fields", async () => {
+    await http()
+      .post(BASE)
+      .send({ ...body, id: "std", cadence: { every: "day", hour: 9 }, cycleHours: 6 })
+      .expect(201);
+    expect(
+      (await http().patch(`${BASE}/std`).send({ cycleHours: 12 }).expect(200)).body.cycleHours,
+    ).toBe(12);
+    await http()
+      .post(BASE)
+      .send({ ...body, id: "oneoff", deadline: "2026-12-01T00:00:00.000Z", predicate: "p" })
+      .expect(201);
+    const res = await http()
+      .patch(`${BASE}/oneoff`)
+      .send({ deadline: null, predicate: null, cadence: { every: "week", hour: 8 } })
+      .expect(200);
+    expect(res.body.cadence).toEqual({ every: "week", hour: 8 });
+    expect(res.body).not.toHaveProperty("deadline");
+    expect(res.body).not.toHaveProperty("predicate");
   });
 
   it("wake, resume and timeline", async () => {
