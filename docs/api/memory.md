@@ -194,7 +194,9 @@ Called at the start of every run (fail-open — a vault outage never blocks a ru
    set, plus the Personal shelf for a `domain: "personal"` run (F8)
 5. Loads up to `MOC_LIMIT` term-matched indexes, narrowed first by M7 project
    isolation and F8 domain isolation, then up to `EXPANSION_LIMIT` notes reached
-   by 1-hop wikilink expansion from what is already grounded (F4b)
+   by 1-hop wikilink expansion from what is already grounded (F4b). Goal plan notes
+   (`goal-<goalId>-<instance>-plan`, model output shaped by untrusted facts) are never
+   candidates (`withoutGoalPlans`, Law 4; see `docs/api/goals.md`)
 6. When the run carries a `projectId`, loads that project's own note
 7. Team knowledge base (work runs only): when the project's team has a
    `knowledgeBase`, its `team-context.md` and `wiki/INDEX.md` (each capped at 1500

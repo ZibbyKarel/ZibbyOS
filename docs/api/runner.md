@@ -285,6 +285,12 @@ Key assembled pieces:
 - **Task** = the user prompt + `EXECUTION_DIRECTIVE` appended (not prepended)
   so it's the highest-recency instruction, overriding an agent body that says
   "ask the user first" — "act, don't ask, the gate does the asking".
+- **`readOnly`** (the goal planner, via `AgentRunnerService.startSynthetic`): a run that
+  can only answer. claude: `--tools ""`, `dontAsk`, `--disallowedTools`
+  `READ_ONLY_DENIED_TOOLS`, `--strict-mcp-config` without `--mcp-config`; no `--agents`,
+  plugin dirs, `--add-dir`, custom hooks, operating contract or `EXECUTION_DIRECTIVE`.
+  opencode: a single `* deny` permission, no MCP, no gate plugin, no grants. See
+  `docs/api/goals.md`.
 - **`--agents` catalog** — curated via `selectCatalogAgents`: a small library
   (≤ `MAX_CATALOG_AGENTS = 16`) with no explicit `delegates` passes through
   unchanged; otherwise the caller's `delegates` come first, then
