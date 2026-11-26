@@ -4903,6 +4903,7 @@
     "autoImplement": "Implementation",
     "autoCommunicate": "Communication",
     "autoFixCi": "CI fix",
+    "autoDecideGoals": "Goal decisions",
     "globalLabel": "Default",
     "globalSub": "For everything without an exception",
     "companyKind": "Company",

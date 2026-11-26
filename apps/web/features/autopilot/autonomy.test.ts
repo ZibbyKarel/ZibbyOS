@@ -87,6 +87,7 @@ describe("autonomy tree helpers", () => {
       "autoAddressComments",
       "autoImplement",
       "autoCommunicate",
+      "autoDecideGoals",
     ]);
   });
 });

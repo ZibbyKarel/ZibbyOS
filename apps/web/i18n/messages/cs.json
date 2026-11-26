@@ -4903,6 +4903,7 @@
     "autoImplement": "Implementace",
     "autoCommunicate": "Komunikace",
     "autoFixCi": "Oprava CI",
+    "autoDecideGoals": "Rozhodování cílů",
     "globalLabel": "Výchozí",
     "globalSub": "Pro vše bez výjimky",
     "companyKind": "Firma",

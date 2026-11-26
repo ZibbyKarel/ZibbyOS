@@ -21,6 +21,7 @@ const AUTO_TREE = {
     autoImplement: "manual",
     autoCommunicate: "auto",
     autoFixCi: "auto",
+    autoDecideGoals: "auto",
   },
   companies: {},
   teams: {},

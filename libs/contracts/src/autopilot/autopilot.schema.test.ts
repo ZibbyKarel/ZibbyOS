@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTOMATION_KEYS,
   AutomationLevelsSchema,
   type AutopilotAutomation,
   AutopilotStateSchema,
@@ -17,6 +18,7 @@ const tree: AutopilotAutomation = {
     autoAddressComments: "manual",
     autoCommunicate: "manual",
     autoFixCi: "manual",
+    autoDecideGoals: "manual",
   },
   companies: { shoptet: { autoReview: "auto" } },
   teams: { devrel: { autoReview: "manual", autoAddressComments: "semi" } },
@@ -30,6 +32,7 @@ describe("resolveAutopilotAutomation", () => {
       autoAddressComments: "semi",
       autoCommunicate: "auto",
       autoFixCi: "manual",
+      autoDecideGoals: "manual",
     } as const;
     expect(
       resolveAutopilotAutomation({ paused: false, automation: { ...tree, global: all } }, {}),
@@ -39,6 +42,7 @@ describe("resolveAutopilotAutomation", () => {
       autoAddressComments: true,
       autoCommunicate: true,
       autoFixCi: false,
+      autoDecideGoals: false,
     });
   });
 
@@ -49,12 +53,13 @@ describe("resolveAutopilotAutomation", () => {
       autoAddressComments: "auto",
       autoCommunicate: "auto",
       autoFixCi: "auto",
+      autoDecideGoals: "auto",
     } as const;
     const out = resolveAutopilotAutomation(
       { paused: true, automation: { ...tree, global: all } },
       {},
     );
-    expect(Object.values(out)).toEqual([false, false, false, false, false]);
+    expect(Object.values(out)).toEqual([false, false, false, false, false, false]);
     // The tri-state itself is untouched by the pause.
     expect(resolveAutopilotLevels({ automation: { ...tree, global: all } }, {}).autoReview).toBe(
       "auto",
@@ -63,6 +68,7 @@ describe("resolveAutopilotAutomation", () => {
 
   it("is all false without a tree", () => {
     expect(Object.values(resolveAutopilotAutomation({ paused: false }, {}))).toEqual([
+      false,
       false,
       false,
       false,
@@ -79,6 +85,7 @@ describe("resolveAutopilotAutomation", () => {
       autoAddressComments: "semi",
       autoCommunicate: "manual",
       autoFixCi: "manual",
+      autoDecideGoals: "manual",
     });
     expect(resolveAutopilotLevels(s, { companyId: "shoptet", teamId: "frontend" })).toEqual({
       autoImplement: "auto",
@@ -86,8 +93,19 @@ describe("resolveAutopilotAutomation", () => {
       autoAddressComments: "manual",
       autoCommunicate: "manual",
       autoFixCi: "manual",
+      autoDecideGoals: "manual",
     });
     expect(resolveAutopilotLevels(s, { teamId: "gone" })).toEqual(tree.global);
+  });
+});
+
+describe("autoDecideGoals", () => {
+  it("defaults to manual for trees written without it, and is a key of the table", () => {
+    const legacy: Record<string, string> = { ...NO_AUTOMATION };
+    delete legacy.autoDecideGoals;
+    expect(AutomationLevelsSchema.parse(legacy).autoDecideGoals).toBe("manual");
+    expect(AUTOMATION_KEYS).toContain("autoDecideGoals");
+    expect(Object.keys(NO_AUTOMATION)).toEqual([...AUTOMATION_KEYS]);
   });
 });
 
@@ -152,6 +170,7 @@ describe("legacy migration", () => {
       autoImplement: "auto",
       autoCommunicate: "manual",
       autoFixCi: "auto",
+      autoDecideGoals: "manual",
     });
     expect(s.automation?.companies).toEqual({ shoptet: { autoReview: "manual" } });
   });

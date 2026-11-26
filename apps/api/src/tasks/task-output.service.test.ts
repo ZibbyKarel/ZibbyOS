@@ -1210,6 +1210,7 @@ describe("TaskOutputService", () => {
               autoImplement: "manual",
               autoCommunicate: "auto",
               autoFixCi: "auto",
+              autoDecideGoals: "manual",
             },
             companies: {},
             teams: {},

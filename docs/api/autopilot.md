@@ -34,7 +34,8 @@ pops a system notification for every new approval (`approval-requested` activity
       "autoAddressComments": "auto",
       "autoImplement": "semi",
       "autoCommunicate": "semi",
-      "autoFixCi": "manual"
+      "autoFixCi": "manual",
+      "autoDecideGoals": "manual"
     },
     "companies": { "acme": { "autoCommunicate": "auto" } },
     "teams": { "frontend": { "autoReview": "manual" } }
@@ -49,15 +50,16 @@ pops a system notification for every new approval (`approval-requested` activity
 `scope.communication`. A legacy state without a tree starts nothing. The file is rewritten in
 the new shape on the next change.
 
-## The five capabilities
+## The six capabilities
 
-| Key                   | `semi` or `auto` starts                                              | `auto` lifts (gate class)                                                                |
-| --------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `autoReview`          | PR-inbox code reviews (`PrAutomationService`)                        | `reviews`: `pr-review` and the pr-review `workflow-gate` sign-off                        |
-| `autoAddressComments` | addressing review comments (`PrAutomationService`)                   | `comments`: `pr-address-comments` (fix push, thread replies), and a hook `gh.pr_comment` |
-| `autoImplement`       | roadmap pickup (roadmap tick)                                        | none (opening a PR is Tier 2 anyway)                                                     |
-| `autoCommunicate`     | none (channel items arrive on their own)                             | `communication`: `channel` replies (GitHub, GitLab, Jira, Slack, …)                      |
-| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`) | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
+| Key                   | `semi` or `auto` starts                                                                                  | `auto` lifts (gate class)                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `autoReview`          | PR-inbox code reviews (`PrAutomationService`)                                                            | `reviews`: `pr-review` and the pr-review `workflow-gate` sign-off                        |
+| `autoAddressComments` | addressing review comments (`PrAutomationService`)                                                       | `comments`: `pr-address-comments` (fix push, thread replies), and a hook `gh.pr_comment` |
+| `autoImplement`       | roadmap pickup (roadmap tick)                                                                            | none (opening a PR is Tier 2 anyway)                                                     |
+| `autoCommunicate`     | none (channel items arrive on their own)                                                                 | `communication`: `channel` replies (GitHub, GitLab, Jira, Slack, …)                      |
+| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`)                                     | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
+| `autoDecideGoals`     | none by itself; the goal engine reads it: `semi` = a proposal behind an approval, `auto` = ZIBBY decides | none (no gate class)                                                                     |
 
 `companies` / `teams` are keyed by id and hold only the cells the node overrides. Precedence is
 team > company > global (`resolveAutopilotLevels`; `resolveAutopilotAutomation` /

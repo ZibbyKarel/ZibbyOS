@@ -45,7 +45,7 @@ export type AutopilotScopeKey = keyof AutopilotScope;
  * The autonomy table, one Global -> Company -> Team override tree. Precedence
  * team > company > global. `semi` and `auto` start the work (`autoReview` /
  * `autoAddressComments` / `autoImplement` / `autoFixCi`); only `auto` also lets the gate overlay
- * act on its outcome. `autoCommunicate` starts nothing (channel items arrive on their own).
+ * act on its outcome. `autoCommunicate` and `autoDecideGoals` start nothing (channel items arrive on their own; the goal engine reads the latter).
  */
 export const AutomationLevelsSchema = z
   .object({
@@ -54,6 +54,7 @@ export const AutomationLevelsSchema = z
     autoImplement: AutomationLevelSchema,
     autoCommunicate: AutomationLevelSchema.default("manual"),
     autoFixCi: AutomationLevelSchema.default("manual"),
+    autoDecideGoals: AutomationLevelSchema.default("manual"),
   })
   .strict();
 export type AutomationLevels = z.infer<typeof AutomationLevelsSchema>;
@@ -62,21 +63,11 @@ export type AutomationKey = keyof AutomationLevels;
 /** Effective "does it start" flags per capability (a resolved cell is not `manual`, not paused). */
 export type AutomationToggles = Record<AutomationKey, boolean>;
 
-export const AUTOMATION_KEYS: readonly AutomationKey[] = [
-  "autoReview",
-  "autoAddressComments",
-  "autoImplement",
-  "autoCommunicate",
-  "autoFixCi",
-];
+export const AUTOMATION_KEYS = Object.keys(AutomationLevelsSchema.shape) as AutomationKey[];
 
-export const NO_AUTOMATION: AutomationLevels = {
-  autoReview: "manual",
-  autoAddressComments: "manual",
-  autoImplement: "manual",
-  autoCommunicate: "manual",
-  autoFixCi: "manual",
-};
+export const NO_AUTOMATION = Object.fromEntries(
+  AUTOMATION_KEYS.map((k) => [k, "manual"]),
+) as AutomationLevels;
 
 /** The capability whose `auto` level each gate-overlay class follows. */
 export const AUTOPILOT_SCOPE_TOGGLE: Readonly<Record<AutopilotScopeKey, AutomationKey>> = {
@@ -94,6 +85,7 @@ export const AutomationOverrideSchema = z
     autoImplement: AutomationLevelSchema,
     autoCommunicate: AutomationLevelSchema,
     autoFixCi: AutomationLevelSchema,
+    autoDecideGoals: AutomationLevelSchema,
   })
   .partial()
   .strict();

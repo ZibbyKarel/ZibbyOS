@@ -67,10 +67,12 @@ describe("AutonomyScreen", () => {
     expect(chip("company:acme", "autoReview", "auto")).toHaveAccessibleName(
       "Code review, výjimka proti Výchozí",
     );
+    // the sixth capability renders its chip
+    expect(chip("global", "autoDecideGoals", "semi")).toHaveAttribute("aria-pressed", "false");
     // the team inherits the company
     expect(chip("team:web", "autoReview", "auto")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId(`${AutonomyMatrixTestId.Manual}-team:web`)).toHaveTextContent(
-      "Ručně: Připomínky z review, Implementace, Komunikace, Oprava CI",
+      "Ručně: Připomínky z review, Implementace, Komunikace, Oprava CI, Rozhodování cílů",
     );
     expect(screen.getByTestId(`${AutonomyMatrixTestId.InheritAll}-company:acme`)).toBeVisible();
     expect(screen.queryByTestId(`${AutonomyMatrixTestId.InheritAll}-team:web`)).toBeNull();

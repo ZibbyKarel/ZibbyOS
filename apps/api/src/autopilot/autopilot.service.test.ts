@@ -58,6 +58,7 @@ const cells = (over: Cells = {}): AutopilotAutomation["global"] => ({
   autoImplement: "manual",
   autoCommunicate: "manual",
   autoFixCi: "manual",
+  autoDecideGoals: "manual",
   ...over,
 });
 
@@ -272,6 +273,7 @@ describe("AutopilotService", () => {
       autoImplement: "auto",
       autoCommunicate: "auto",
       autoFixCi: "auto",
+      autoDecideGoals: "auto",
     });
     await svc.set({ automation: all }, "operator");
     expect(svc.scope()).toEqual({ reviews: true, comments: true, communication: true, ci: true });
@@ -336,6 +338,7 @@ describe("AutopilotService", () => {
             autoAddressComments: false,
             autoCommunicate: false,
             autoFixCi: false,
+            autoDecideGoals: false,
           },
         },
       }),

@@ -15,6 +15,7 @@ const cells = (over: Record<string, string> = {}) => ({
   autoImplement: "manual",
   autoCommunicate: "manual",
   autoFixCi: "manual",
+  autoDecideGoals: "manual",
   ...over,
 });
 const AUTO_TREE = { global: cells({ autoAddressComments: "auto" }), companies: {}, teams: {} };
