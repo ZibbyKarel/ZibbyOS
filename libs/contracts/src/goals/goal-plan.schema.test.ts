@@ -33,10 +33,37 @@ describe("GoalActionSchema", () => {
       plan: "# Plan",
       actions: [
         { type: "note", text: "x" },
-        { type: "start-task", text: "fix it" },
+        { type: "start-task", actionId: "fix-1", text: "fix it" },
+        {
+          type: "pr-action",
+          actionId: "rev:web-4",
+          op: "review",
+          projectId: "web",
+          repo: "o/web",
+          number: 4,
+        },
       ],
     });
-    expect(plan.actions).toHaveLength(2);
+    expect(plan.actions).toHaveLength(3);
+  });
+
+  it("requires a bounded actionId on the work-starting actions", () => {
+    expect(GoalActionSchema.safeParse({ type: "start-task", text: "x" }).success).toBe(false);
+    expect(GoalActionSchema.safeParse({ type: "run-loop", text: "x" }).success).toBe(false);
+    for (const actionId of ["", "a b", "x".repeat(65), "<goal-plan>"]) {
+      expect(GoalActionSchema.safeParse({ type: "start-task", actionId, text: "x" }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      GoalActionSchema.safeParse({
+        type: "pr-action",
+        actionId: "a",
+        op: "review",
+        repo: "o/r",
+        number: 1,
+      }).success,
+    ).toBe(false); // projectId required
   });
 });
 

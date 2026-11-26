@@ -121,6 +121,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
   async tick(now: Date = new Date()): Promise<void> {
     const dirty = new Set(this.dirtyRefs);
     this.dirtyRefs.clear();
+    // Sources that fetch once per tick (the PR inbox) drop their per-tick memo here.
+    this.facts.beginTick();
     const goals = (await this.goals.list()).filter((g) => g.enabled);
     let projects: Promise<{ id: string; companyId?: string }[]> | null = null;
     const listProjects = () => (projects ??= this.projects.list());
@@ -206,10 +208,16 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     // Parked stays parked until the operator resumes it or a new cycle starts.
     if (!before || before.status === "parked" || before.status === "done") return;
     const work = structuredClone(before);
-    const facts = await this.facts.collect({ goal, instanceKey: key, instance: before });
+    const facts = await this.facts.collect({ goal, instanceKey: key, instance: before, now });
     const remainingBudget = await this.remainingBudget(goal, state, before, now);
-    const ctx = new GoalActionContext(goal, key, work, facts, now, remainingBudget, (taskId) =>
-      this.persistTask(goal, state.cycle.index, key, taskId),
+    const ctx = new GoalActionContext(
+      goal,
+      key,
+      work,
+      facts,
+      now,
+      remainingBudget,
+      (taskId, actionId) => this.persistTask(goal, state.cycle.index, key, taskId, actionId),
     );
     // An operator resume in this cycle overrides the deadline and budget parks.
     const resumed = before.resumedCycle === state.cycle.index;
@@ -297,7 +305,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const after =
       ctx.instance.status === "parked"
         ? null
-        : await this.facts.collect({ goal, instanceKey: key, instance: work });
+        : await this.facts.collect({ goal, instanceKey: key, instance: work, now });
     if (ctx.instance.status !== "done" && ctx.instance.status !== "parked") {
       if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
       // Fresh facts: an id recorded this tick (the planner's run) is known, not "in flight".
@@ -336,12 +344,24 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     return out;
   }
 
-  /** `GoalActionContext.recordTask`: the task id lands in the stored instance at once. */
-  private async persistTask(goal: Goal, cycle: number, key: string, taskId: string): Promise<void> {
+  /**
+   * `GoalActionContext.recordTask`: the task id and the action id that started it land in the
+   * stored instance at once, in one update (a crash cannot separate them).
+   */
+  private async persistTask(
+    goal: Goal,
+    cycle: number,
+    key: string,
+    taskId: string,
+    actionId?: string,
+  ): Promise<void> {
     await this.store.update(goal.id, goal.createdAt, (fresh) => {
       const current = fresh.instances[key];
       if (!current || fresh.cycle.index !== cycle) return;
       if (!current.taskIds.includes(taskId)) current.taskIds.push(taskId);
+      if (actionId && !current.appliedActionIds?.includes(actionId)) {
+        (current.appliedActionIds ??= []).push(actionId);
+      }
     });
   }
 
@@ -366,6 +386,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       const next = { ...ctx.instance };
       // Tasks recorded via recordTask are already stored; never lose one.
       next.taskIds = [...new Set([...current.taskIds, ...next.taskIds])];
+      const applied = [...(current.appliedActionIds ?? []), ...(next.appliedActionIds ?? [])];
+      if (applied.length) next.appliedActionIds = [...new Set(applied)];
       // ponytail: a wake landed while the planner ran — keep its cleared fingerprint so it
       // re-plans; finer-grained merges wait for a real need.
       if (current.fingerprint !== before.fingerprint) delete next.fingerprint;

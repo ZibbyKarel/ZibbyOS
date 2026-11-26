@@ -183,6 +183,8 @@ export const TaskRunSchema = z.object({
    * Bridge "Automation runs" widget. Read-model only.
    */
   automationId: z.string().optional(),
+  /** Enriched from the task record: the goal whose engine started this run. Read-model only. */
+  goalId: z.string().optional(),
   /** Held tasks: why the budget guard parked it. */
   heldReason: z.string().optional(),
   /**

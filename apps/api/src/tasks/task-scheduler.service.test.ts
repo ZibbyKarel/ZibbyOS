@@ -3120,6 +3120,15 @@ describe("run slots (global + per-project cap)", () => {
     expect(stored.automationId).toBe("nightly");
   });
 
+  it("a goal-started task is immediate like an automation and keeps its goalId stamp", async () => {
+    makeService(1);
+    await dispatched("do A"); // the global cap of 1 is now full
+    const r = await service.createTask({ text: "fix", title: "fix", source: "goal", goalId: "g" });
+    expect(r.outcome).toBe("dispatched");
+    const stored = await storage.get(r.task.id);
+    expect(stored).toMatchObject({ source: "goal", goalId: "g", immediate: true });
+  });
+
   it("an immediate task also bypasses a full per-project cap", async () => {
     makeService(1000, { proj_A: 1 });
     await dispatched("do A", "proj_A");

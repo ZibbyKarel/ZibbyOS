@@ -491,6 +491,7 @@ export type ScheduledTaskStatus = z.infer<typeof ScheduledTaskStatusSchema>;
  *  - `channel`    — `ChannelTriageFlowService`'s Tier-1 dispatch.
  *  - `automation` — the automations `SchedulerService`'s `task` job kind.
  *  - `handoff`    — LEGACY (read-only): the retired handoff engine's dispatch.
+ *  - `goal`       — the goal engine's `start-task` / `run-loop` (stamps `goalId`).
  */
 export const TaskSourceSchema = z.enum([
   "operator",
@@ -499,6 +500,7 @@ export const TaskSourceSchema = z.enum([
   "channel",
   "automation",
   "handoff",
+  "goal",
 ]);
 export type TaskSource = z.infer<typeof TaskSourceSchema>;
 
@@ -741,6 +743,8 @@ export const ScheduledTaskSchema = z.object({
   immediate: z.literal(true).optional(),
   /** The automation that fired this task (stamped by the automation scheduler). */
   automationId: z.string().min(1).optional(),
+  /** The goal whose engine started this task (`source: "goal"`). */
+  goalId: z.string().min(1).optional(),
   /** The firing automation's engine override (wins over the agent's) for an agent target. */
   engine: AiEngineSchema.optional(),
   engineModel: z.string().min(1).optional(),
@@ -1114,12 +1118,14 @@ export const CreateTaskInputSchema = z.object({
   source: TaskSourceSchema.exclude(["chain", "handoff"]).optional(),
   /**
    * Run past the concurrency cap (no run slot). Budget, limits and gates still apply.
-   * Operator-set; also forced on server-side for every `source: "automation"` task
-   * (automation runs never count toward the run-slot cap). Triage never sets it.
+   * Operator-set; also forced on server-side for every `source: "automation"` / `"goal"` task
+   * (those runs never count toward the run-slot cap). Triage never sets it.
    */
   immediate: z.boolean().optional(),
   /** The automation firing this task — set only by the automation scheduler. */
   automationId: z.string().min(1).optional(),
+  /** The goal starting this task — set only by the goal engine. */
+  goalId: z.string().min(1).optional(),
   /** The automation's engine override, forwarded to an agent target's run (see `Automation.engine`). */
   engine: AiEngineSchema.optional(),
   engineModel: z.string().min(1).optional(),

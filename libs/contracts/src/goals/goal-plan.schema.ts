@@ -6,6 +6,13 @@ import { GoalInstanceSchema, GoalParkedReasonSchema } from "./goal-state.schema"
 const WaitingOnSchema = GoalInstanceSchema.shape.waitingOn.unwrap();
 
 /**
+ * The planner's stable id for one piece of work (`start-task`, `run-loop`, `pr-action`). The
+ * engine skips an id it already applied this cycle, so a re-plan or a retried tick never
+ * starts the same work twice.
+ */
+export const GoalActionIdSchema = z.string().regex(/^[A-Za-z0-9._:-]{1,64}$/);
+
+/**
  * The closed action set a goal planner may return (spec "Closed action set"). The
  * engine applies each one filtered by the goal's ceiling; an action the ceiling
  * forbids, or one the engine has no handler for yet, becomes a `report` naming what
@@ -37,17 +44,25 @@ export const GoalActionSchema = z.discriminatedUnion("type", [
   /** Start a task in the instance's project (explicit target id or routed text). */
   z.object({
     type: z.literal("start-task"),
-    text: z.string().min(1),
-    title: z.string().optional(),
+    actionId: GoalActionIdSchema,
+    text: z.string().min(1).max(8000),
+    title: z.string().max(200).optional(),
     /** An agent or workflow id; absent = the classifier routes `text`. */
     targetId: z.string().optional(),
   }),
   /** Start the goal's stored loop through the task path. */
-  z.object({ type: z.literal("run-loop"), text: z.string().min(1) }),
-  /** A PR-inbox action with `auto: true`. */
+  z.object({
+    type: z.literal("run-loop"),
+    actionId: GoalActionIdSchema,
+    text: z.string().min(1).max(8000),
+  }),
+  /** A PR-inbox action with `auto: true`, only where the place's Autopilot level runs it. */
   z.object({
     type: z.literal("pr-action"),
-    action: z.enum(["review", "address-comments", "fix-ci"]),
+    actionId: GoalActionIdSchema,
+    op: z.enum(["review", "address-comments", "fix-ci"]),
+    /** The PR's project; must be the instance's own (a `_` instance: one of my PRs). */
+    projectId: z.string().min(1),
     /** `owner/repo` (GitHub) or the GitLab project path. */
     repo: z.string().min(1),
     number: z.number().int().positive(),

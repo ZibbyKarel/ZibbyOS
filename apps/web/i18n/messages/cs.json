@@ -484,7 +484,8 @@
       "chain": "Řetězec",
       "channel": "Kanál",
       "automation": "Automatizace",
-      "handoff": "Předání"
+      "handoff": "Předání",
+      "goal": "Cíl"
     },
     "filter": {
       "all": "Vše",

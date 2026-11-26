@@ -15,8 +15,12 @@ type ParkedReason = NonNullable<GoalInstance["parkedReason"]>;
 /** A `wakeAt` earlier than now + this is raised to it, so a plan cannot re-wake every tick. */
 export const WAKE_FLOOR_MS = 5 * 60 * 1000;
 
-/** Actions that spend the cycle's budget; refused centrally once it is used up. */
-export const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
+/** Actions that spend the cycle's budget (each starts a paid run); refused once it is used up. */
+export const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set([
+  "start-task",
+  "run-loop",
+  "pr-action",
+]);
 
 export interface GoalBudgetLeft {
   runs?: number;
@@ -50,21 +54,31 @@ export class GoalActionContext {
     readonly now: Date,
     /** What is left of the cycle's budget (a field absent = unset). */
     readonly remainingBudget: GoalBudgetLeft = {},
-    private readonly persistTask: (taskId: string) => Promise<void> = async () => undefined,
+    private readonly persistTask: (taskId: string, actionId?: string) => Promise<void> = async () =>
+      undefined,
   ) {}
 
   /**
-   * Record a task this instance started: added to the working copy AND written to the
-   * stored instance at once, so a crash or a dropped result never forgets spent work.
-   * **A spending handler (`start-task`, `run-loop`) must await this before returning.**
+   * Record a task this instance started, with the `actionId` that started it: both are added
+   * to the working copy AND written to the stored instance in one update, so a crash or a
+   * dropped result never forgets spent work nor lets the same action start it again.
+   * **A spending handler (`start-task`, `run-loop`, `pr-action`) must await this before returning.**
    */
-  async recordTask(taskId: string): Promise<void> {
+  async recordTask(taskId: string, actionId?: string): Promise<void> {
     if (!this.instance.taskIds.includes(taskId)) {
       this.instance.taskIds.push(taskId);
       // Live budget: the next spending action in the same plan sees this run spent.
       if (this.remainingBudget.runs !== undefined) this.remainingBudget.runs -= 1;
     }
-    await this.persistTask(taskId);
+    if (actionId && !this.applied(actionId)) {
+      (this.instance.appliedActionIds ??= []).push(actionId);
+    }
+    await this.persistTask(taskId, actionId);
+  }
+
+  /** Whether this cycle already applied the action with this id. */
+  applied(actionId: string): boolean {
+    return this.instance.appliedActionIds?.includes(actionId) ?? false;
   }
 
   get budgetExhausted(): boolean {
@@ -184,7 +198,11 @@ export class GoalActionExecutor {
   async execute(actions: GoalAction[], ctx: GoalActionContext): Promise<void> {
     for (const action of actions) {
       const handler = this.handlers.get(action.type);
-      if (!ceilingAllows(ctx.goal.ceiling, action.type)) {
+      const actionId = "actionId" in action ? action.actionId : undefined;
+      if (actionId && ctx.applied(actionId)) {
+        // Idempotency: a re-plan or a retried tick restating started work starts nothing.
+        ctx.timeline("note", `Skipped ${action.type} ${actionId}: already applied this cycle.`);
+      } else if (!ceilingAllows(ctx.goal.ceiling, action.type)) {
         reportFromGoal(
           ctx,
           `Not done: ${action.type} — the goal's ceiling ${ctx.goal.ceiling} does not allow it.`,
@@ -194,7 +212,14 @@ export class GoalActionExecutor {
       } else if (!handler) {
         reportFromGoal(ctx, `Not done: ${action.type} — not available yet.`);
       } else {
-        await handler(action, ctx);
+        try {
+          await handler(action, ctx);
+        } catch (error) {
+          // A failing service (refused, out of scope, host down) is reported, never re-planned
+          // off a thrown tick.
+          const message = error instanceof Error ? error.message : String(error);
+          reportFromGoal(ctx, `Not done: ${action.type} — ${message.slice(0, 300)}`);
+        }
       }
       // A finished or parked instance takes no further actions this run.
       if (ctx.instance.status === "done" || ctx.instance.status === "parked") return;

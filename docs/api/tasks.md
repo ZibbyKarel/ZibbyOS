@@ -78,7 +78,7 @@ Body: {
                                # defaults to "operator", or "department" when the target
                                # is an explicit @department mention.
   immediate?: boolean          # Operator-set (quick action "Run immediately"), and forced on
-                               # for every `source: "automation"` task: the run
+                               # for every `source: "automation"` / `"goal"` task: the run
                                # takes no run slot, so it bypasses the global and per-project
                                # concurrency caps. Budget hold, usage limits and gates still apply.
   engine?: "claude" | "opencode"  # The firing automation's engine override (+ engineModel); wins over
@@ -87,6 +87,9 @@ Body: {
   automationId?: string        # Stamped by the automation scheduler: the automation firing
                                # the task. Persisted on the task and enriched onto its
                                # `TaskRun.automationId` (drives the Bridge "Automation runs" widget).
+  goalId?: string              # Stamped by the goal engine (`source: "goal"`, docs/api/goals.md):
+                               # the goal whose start-task / run-loop started it. Persisted and
+                               # enriched onto `TaskRun.goalId`.
 }
 ```
 
@@ -671,7 +674,7 @@ A `ScheduledTask` carries four additive, server-derived fields, plus the operato
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `parentTaskId` | Legacy (chains removed): the chain step's parent task id. Parses read-only; no longer written.                                                                                                                                  |
 | `chain`        | Legacy (chains removed): `{ id, step }`. Parses read-only; no longer written.                                                                                                                                                   |
-| `source`       | O-18: who created the task — `operator` \| `department` \| `channel` \| `automation` (legacy values `chain` / `handoff` still parse). Stamped once, at creation (never re-derived).                                             |
+| `source`       | O-18: who created the task — `operator` \| `department` \| `channel` \| `automation` \| `goal` (legacy values `chain` / `handoff` still parse). Stamped once, at creation (never re-derived).                                   |
 | `department`   | O-06: the department that owns the DISPATCHED unit. Stamped at dispatch time (not creation — a scheduled/held/queued task has no resolved unit yet), from the classifier's stage-1 verdict or an explicit `@department` target. |
 | `immediate`    | Quick-action "Run immediately": persisted only when `true` (absent otherwise). Operator-set via `CreateTaskInput.immediate`; no server-side creator sets it. The run takes no run slot (see "Run slots").                       |
 

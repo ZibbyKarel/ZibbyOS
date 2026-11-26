@@ -328,17 +328,29 @@ export class PrAutomationService
     });
   }
 
-  /** Where a PR of a project (and `teamId`) sits in the autopilot tree: the project's company + the team. */
-  private async locationOf(projectId: string, teamId?: string): Promise<AutopilotLocation> {
-    const project = await this.projects.get(projectId).catch(() => null);
-    const company = project ? await this.resolvedProjects.resolveCompany(project) : undefined;
-    // The project node is the most specific: a project `manual` beats the PR's team `auto`.
-    return {
-      ...(company?.id ? { companyId: company.id } : {}),
-      ...(teamId ? { teamId } : {}),
-      projectId,
-    };
+  private locationOf(projectId: string, teamId?: string): Promise<AutopilotLocation> {
+    return prLocationOf(this.projects, this.resolvedProjects, projectId, teamId);
   }
+}
+
+/**
+ * Where a PR of a project (and `teamId`) sits in the autopilot tree: the project's company +
+ * the team + the project. Shared with the goal engine's `pr-action`.
+ */
+export async function prLocationOf(
+  projects: Pick<ProjectsStorageService, "get">,
+  resolvedProjects: Pick<ResolvedProjectService, "resolveCompany">,
+  projectId: string,
+  teamId?: string,
+): Promise<AutopilotLocation> {
+  const project = await projects.get(projectId).catch(() => null);
+  const company = project ? await resolvedProjects.resolveCompany(project) : undefined;
+  // The project node is the most specific: a project `manual` beats the PR's team `auto`.
+  return {
+    ...(company?.id ? { companyId: company.id } : {}),
+    ...(teamId ? { teamId } : {}),
+    projectId,
+  };
 }
 
 /**

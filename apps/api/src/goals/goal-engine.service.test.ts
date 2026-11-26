@@ -11,6 +11,7 @@ import { GoalActionExecutor } from "./goal-action-executor";
 import { GoalEngineService, PLAN_TIMEOUT_MS } from "./goal-engine.service";
 import { GoalFactsService, TaskFactsSource } from "./goal-facts";
 import type { GoalPlanner, GoalPlannerContext } from "./goal-planner";
+import { GoalWorkHandlers } from "./goal-work-handlers";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 
@@ -219,7 +220,11 @@ describe("GoalEngineService", () => {
     await create({ budget: { maxRunsPerCycle: 2 } });
     planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
       await ctx.recordRun("goal-planner_1");
-      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "t1" }] };
+      return {
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "start-task", actionId: "a1", text: "t1" }],
+      };
     });
     tasks.set("t1", { id: "t1", status: "dispatched" });
     await engine.tick(NOW);
@@ -241,7 +246,11 @@ describe("GoalEngineService", () => {
     // One run left before this plan; the planner's own run takes it.
     planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
       await ctx.recordRun("goal-planner_1");
-      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "one more" }] };
+      return {
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "start-task", actionId: "a1", text: "one more" }],
+      };
     });
     await engine.tick(later(1));
     expect(handler).not.toHaveBeenCalled();
@@ -338,7 +347,11 @@ describe("GoalEngineService", () => {
     await create({ budget: { maxRunsPerCycle: 1 } });
     planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
       await ctx.recordRun("goal-planner_1");
-      return { plan: "", feasibility: "ok", actions: [{ type: "start-task", text: "x" }] };
+      return {
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "start-task", actionId: "a1", text: "x" }],
+      };
     });
     await engine.tick(NOW);
     expect((await state()).instances._?.taskIds).toEqual(["goal-planner_1"]);
@@ -364,7 +377,7 @@ describe("GoalEngineService", () => {
     planner.plan.mockResolvedValueOnce({
       plan: "",
       feasibility: "ok",
-      actions: [{ type: "start-task", text: "x" }],
+      actions: [{ type: "start-task", actionId: "a1", text: "x" }],
     });
     await engine.tick(NOW);
     expect((await state()).instances._?.taskIds).toEqual(["t9"]);
@@ -437,8 +450,8 @@ describe("GoalEngineService", () => {
       plan: "",
       feasibility: "ok",
       actions: [
-        { type: "start-task", text: "one" },
-        { type: "start-task", text: "two" },
+        { type: "start-task", actionId: "one", text: "one" },
+        { type: "start-task", actionId: "two", text: "two" },
       ],
     });
     await engine.tick(NOW);
@@ -498,7 +511,7 @@ describe("GoalEngineService", () => {
       plan: "",
       feasibility: "ok",
       actions: [
-        { type: "start-task", text: "fix it" },
+        { type: "start-task", actionId: "a1", text: "fix it" },
         { type: "note", text: "noted" },
       ],
     });
@@ -518,7 +531,7 @@ describe("GoalEngineService", () => {
     planner.plan.mockResolvedValueOnce({
       plan: "",
       feasibility: "ok",
-      actions: [{ type: "start-task", text: "fix it" }],
+      actions: [{ type: "start-task", actionId: "a1", text: "fix it" }],
     });
     await engine.tick(later(1));
     expect(recorded("goal-acted")[1]?.summary).toContain("not available yet");
@@ -577,5 +590,212 @@ describe("GoalEngineService", () => {
     engine.onModuleInit();
     await vi.advanceTimersByTimeAsync(1500);
     expect(tick).toHaveBeenCalled();
+  });
+
+  describe("work handlers (start-task, run-loop, pr-action)", () => {
+    type Prs = {
+      projectId: string;
+      repo: string;
+      number: number;
+      bucket: string;
+      headSha?: string;
+      title: string;
+    }[];
+    let createTask: ReturnType<typeof vi.fn>;
+    let review: ReturnType<typeof vi.fn>;
+    let addressComments: ReturnType<typeof vi.fn>;
+    let fixCi: ReturnType<typeof vi.fn>;
+    let toggles: Record<string, boolean>;
+    let prs: Prs;
+    let atSeen: unknown[];
+
+    beforeEach(() => {
+      let n = 0;
+      createTask = vi.fn(async () => ({
+        outcome: "dispatched",
+        task: { id: `t-${++n}`, title: "T" },
+      }));
+      review = vi.fn(async () => ({ taskId: "rev-1" }));
+      addressComments = vi.fn(async () => ({ taskId: "ac-1" }));
+      fixCi = vi.fn(async () => ({ taskId: "ci-1" }));
+      toggles = { autoReview: true, autoAddressComments: false, autoFixCi: false };
+      prs = [];
+      atSeen = [];
+      new GoalWorkHandlers(
+        executor,
+        { createTask } as never,
+        {
+          get: async (id: string) =>
+            id === "coder" ? { id, name: "Coder" } : Promise.reject(new Error("no")),
+        } as never,
+        { get: async () => Promise.reject(new Error("no")) } as never,
+        { current: async () => prs } as never,
+        { start: review } as never,
+        { start: addressComments } as never,
+        { start: fixCi } as never,
+        {
+          automationFor: (at: unknown) => {
+            atSeen.push(at);
+            return toggles;
+          },
+        } as never,
+        { get: async (id: string) => ({ id }) } as never,
+        { resolveCompany: async () => ({ id: "acme" }) } as never,
+        { list: async () => [] } as never,
+      ).onModuleInit();
+    });
+
+    const plan = (...actions: unknown[]) =>
+      planner.plan.mockResolvedValue({ plan: "", feasibility: "ok", actions });
+    const acted = () => recorded("goal-acted").map((e) => e.summary);
+
+    it("start-task is idempotent across two ticks and stamps source + goalId", async () => {
+      await create();
+      plan({ type: "start-task", actionId: "fix-1", text: "Fix the build", targetId: "coder" });
+      await engine.tick(NOW);
+      expect(createTask).toHaveBeenCalledTimes(1);
+      expect(createTask.mock.calls[0]?.slice(0, 5)).toEqual([
+        { text: "Fix the build", source: "goal", goalId: "g" },
+        expect.any(Number),
+        undefined,
+        { kind: "agent", id: "coder", name: "Coder" },
+        false,
+      ]);
+      let inst = (await state()).instances._;
+      expect(inst?.taskIds).toEqual(["t-1"]);
+      expect(inst?.appliedActionIds).toEqual(["fix-1"]);
+      // The task ends; the planner re-plans and restates the same work.
+      tasks.set("t-1", {
+        id: "t-1",
+        status: "dispatched",
+        outcome: { status: "error", summary: "x", finishedAt: later(1).toISOString() },
+      });
+      await engine.tick(later(2));
+      expect(planner.plan).toHaveBeenCalledTimes(2);
+      expect(createTask).toHaveBeenCalledTimes(1);
+      inst = (await state()).instances._;
+      expect(inst?.taskIds).toEqual(["t-1"]);
+      const lines = await store.timeline("g");
+      expect(lines.map((l) => l.text)).toContain(
+        "Skipped start-task fix-1: already applied this cycle.",
+      );
+    });
+
+    it("an unknown target is routed by the classifier, the task still starts in the instance's project", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      plan({ type: "start-task", actionId: "a", text: "x", targetId: "nope" });
+      await engine.tick(NOW);
+      expect(createTask.mock.calls[0]?.[2]).toBe("web");
+      expect(createTask.mock.calls[0]?.[3]).toBeUndefined();
+    });
+
+    it("run-loop starts the goal's loop; without a loop it is a report", async () => {
+      await create({ loop: { loopId: "polish" } });
+      plan({ type: "run-loop", actionId: "l1", text: "polish it" });
+      await engine.tick(NOW);
+      expect(createTask.mock.calls[0]?.[3]).toEqual({ kind: "loop", id: "polish", name: "polish" });
+      await goals.update("g", { loop: null });
+      await setInstance({ fingerprint: "stale" });
+      plan({ type: "run-loop", actionId: "l2", text: "again" });
+      await engine.tick(later(1));
+      expect(createTask).toHaveBeenCalledTimes(1);
+      expect(acted()).toContainEqual(expect.stringContaining("the goal has no loop"));
+    });
+
+    it("pr-action calls the right service with auto: true at the PR's place", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      prs = [
+        {
+          projectId: "web",
+          repo: "o/web",
+          number: 7,
+          bucket: "to-review",
+          headSha: "a".repeat(40),
+          title: "T",
+        },
+      ];
+      plan({
+        type: "pr-action",
+        actionId: "r7",
+        op: "review",
+        projectId: "web",
+        repo: "o/web",
+        number: 7,
+      });
+      await engine.tick(NOW);
+      expect(review).toHaveBeenCalledWith(
+        { projectId: "web", repo: "o/web", number: 7, title: "T" },
+        {
+          auto: true,
+          headSha: "a".repeat(40),
+          autopilotAt: [{ companyId: "acme", projectId: "web" }],
+        },
+      );
+      expect((await state()).instances.web?.taskIds).toEqual(["rev-1"]);
+      expect(addressComments).not.toHaveBeenCalled();
+    });
+
+    it("pr-action where Autopilot does not start that op is reported as prepared, never forced", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      plan({
+        type: "pr-action",
+        actionId: "c7",
+        op: "address-comments",
+        projectId: "web",
+        repo: "o/web",
+        number: 7,
+      });
+      await engine.tick(NOW);
+      expect(addressComments).not.toHaveBeenCalled();
+      expect(acted()).toContainEqual(expect.stringContaining("připraveno, čeká na tebe"));
+      expect((await state()).instances.web?.taskIds).toEqual([]);
+    });
+
+    it("pr-action outside the instance's scope is refused (the planner cannot widen it)", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      plan({
+        type: "pr-action",
+        actionId: "x",
+        op: "review",
+        projectId: "api",
+        repo: "o/api",
+        number: 1,
+      });
+      await engine.tick(NOW);
+      // A `_` instance acts only on my own PRs.
+      await goals.update("g", { scope: { kind: "none" } });
+      prs = [{ projectId: "api", repo: "o/api", number: 2, bucket: "to-review", title: "T" }];
+      plan({
+        type: "pr-action",
+        actionId: "y",
+        op: "review",
+        projectId: "api",
+        repo: "o/api",
+        number: 2,
+      });
+      await engine.tick(later(1));
+      expect(review).not.toHaveBeenCalled();
+      expect(acted().filter((t) => t.includes("outside the goal's scope"))).toHaveLength(2);
+    });
+
+    it("a throwing service becomes a report, not a plan failure", async () => {
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      review.mockRejectedValueOnce(new Error("review of o/web#7 is out of my teams' scope"));
+      plan({
+        type: "pr-action",
+        actionId: "r7",
+        op: "review",
+        projectId: "web",
+        repo: "o/web",
+        number: 7,
+      });
+      await engine.tick(NOW);
+      const inst = (await state()).instances.web;
+      expect(inst?.planFailures).toBeUndefined();
+      expect(inst?.fingerprint).toBeDefined();
+      expect(acted()).toContainEqual(
+        expect.stringContaining("Not done: pr-action — review of o/web#7"),
+      );
+    });
   });
 });

@@ -3,12 +3,16 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { Goal, GoalInstance, ScheduledTaskStatus } from "@zibby/contracts";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
 
-/** What a facts source sees. Never the clock: a fact that changes every tick defeats the wake check. */
+/**
+ * What a facts source sees. `now` is only for coarse buckets (a PR's age in days): a fact
+ * that changes every tick defeats the wake check.
+ */
 export interface GoalFactsContext {
   goal: Goal;
   /** projectId, or "_" for a goal without a project. */
   instanceKey: string;
   instance: GoalInstance;
+  now: Date;
 }
 
 /**
@@ -18,7 +22,10 @@ export interface GoalFactsContext {
  */
 export interface GoalFactsSource {
   readonly name: string;
+  /** `undefined` = nothing to say for this instance (left out of the facts and the fingerprint). */
   collect(ctx: GoalFactsContext): Promise<unknown>;
+  /** Called at the start of every tick: drop a per-tick memo (fetch once per tick, not per instance). */
+  beginTick?(): void;
 }
 
 /** DI token: the `GoalFactsSource[]` the engine fingerprints. */
@@ -86,9 +93,16 @@ export class TaskFactsSource implements GoalFactsSource {
 export class GoalFactsService {
   constructor(@Inject(GOAL_FACTS_SOURCES) private readonly sources: GoalFactsSource[]) {}
 
+  beginTick(): void {
+    for (const source of this.sources) source.beginTick?.();
+  }
+
   async collect(ctx: GoalFactsContext): Promise<GoalFacts> {
     const facts: GoalFacts = {};
-    for (const source of this.sources) facts[source.name] = await source.collect(ctx);
+    for (const source of this.sources) {
+      const value = await source.collect(ctx);
+      if (value !== undefined) facts[source.name] = value;
+    }
     return facts;
   }
 }

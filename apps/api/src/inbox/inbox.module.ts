@@ -58,5 +58,7 @@ export function resolveInboxStateFile(): string {
     // WatcherHealthRegistry and ActivityLogService are all @Global — no new import, no cycle.
     PrAutomationService,
   ],
+  // The goal engine's `pr-action` and PR facts (GoalEngineModule imports this; nothing here imports it).
+  exports: [InboxService, InboxReviewService, InboxAddressCommentsService, InboxFixCiService],
 })
 export class InboxModule {}

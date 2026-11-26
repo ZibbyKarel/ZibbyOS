@@ -250,7 +250,7 @@ export function approvalOrigin(
         ? "roadmap"
         : s === "department" || s === "channel" || s === "automation"
           ? s
-          : s === "chain" || s === "handoff"
+          : s === "chain" || s === "handoff" || s === "goal"
             ? "system"
             : "operator";
       return { origin, href: `/work/tasks/${encodeURIComponent(a.runId)}`, ...url };

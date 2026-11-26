@@ -484,7 +484,8 @@
       "chain": "Chain",
       "channel": "Channel",
       "automation": "Automation",
-      "handoff": "Handoff"
+      "handoff": "Handoff",
+      "goal": "Goal"
     },
     "filter": {
       "all": "All",

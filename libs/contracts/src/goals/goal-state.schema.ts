@@ -37,6 +37,8 @@ export const GoalInstanceSchema = z.object({
   resumedCycle: z.number().int().min(0).optional(),
   /** This cycle's feasibility line (from its first plan); absent = the next plan is the first. */
   feasibility: z.string().optional(),
+  /** `actionId`s of the work this cycle already started (start-task, run-loop, pr-action). */
+  appliedActionIds: z.array(z.string()).optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 
