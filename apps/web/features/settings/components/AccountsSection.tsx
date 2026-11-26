@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Button, SettingsPanel, Stack, Typography } from "@zibby/design-system";
+import type { ConnectedService } from "@zibby/contracts";
+import { ConnectedServiceDialog } from "../../connected-services/components/ConnectedServiceDialog";
 import { ConnectedServicesList } from "../../connected-services/components/ConnectedServicesList";
 import { accountHref } from "../../integrations/accountHref";
 import { AccountCards } from "../../integrations/components/AccountCards";
@@ -12,6 +14,7 @@ import { usePersonalIntegrationsQuery } from "../../integrations";
 
 export enum AccountsSectionTestId {
   Connect = "settings-accounts-connect",
+  AddService = "settings-accounts-add-service",
 }
 
 /**
@@ -24,6 +27,8 @@ export function AccountsSection() {
   const router = useRouter();
   const { data: accounts = [] } = usePersonalIntegrationsQuery();
   const [connecting, setConnecting] = useState(false);
+  // `null` = adding a new service; a service = editing it; undefined = closed.
+  const [serviceForm, setServiceForm] = useState<ConnectedService | null>();
 
   return (
     <SettingsPanel
@@ -45,14 +50,31 @@ export function AccountsSection() {
       <Stack gap="250">
         <AccountCards emptyLabel={t("empty")} integrations={accounts} />
         <Stack gap="50">
-          <Typography type="h3">{t("servicesTitle")}</Typography>
+          <Stack align="center" direction="row" justify="between">
+            <Typography type="h3">{t("servicesTitle")}</Typography>
+            <Button
+              data-testid={AccountsSectionTestId.AddService}
+              icon="plus"
+              intent="ghost"
+              onClick={() => setServiceForm(null)}
+              size="sm"
+            >
+              {t("addService")}
+            </Button>
+          </Stack>
           <Typography size="xs" type="note" variant="tertiary">
             {t("servicesHint")}
           </Typography>
-          <ConnectedServicesList rowKeyPrefix="settings-accounts" />
+          <ConnectedServicesList onEdit={setServiceForm} rowKeyPrefix="settings-accounts" />
         </Stack>
       </Stack>
 
+      {serviceForm !== undefined && (
+        <ConnectedServiceDialog
+          onClose={() => setServiceForm(undefined)}
+          service={serviceForm ?? undefined}
+        />
+      )}
       {connecting && (
         <ConnectWizardSheet
           onClose={() => setConnecting(false)}

@@ -63,4 +63,41 @@ describe("Connected services API (e2e)", () => {
   it("404s connect for an unknown id (never launches Chrome)", async () => {
     await request(app.getHttpServer()).post("/api/connected-services/nope/connect").expect(404);
   });
+
+  it("creates a service (201), 409s on a clash, 400s on a bad URL", async () => {
+    const server = app.getHttpServer();
+    const res = await request(server)
+      .post("/api/connected-services")
+      .send({ name: "New Shop", loginUrl: "https://shop.example/login" })
+      .expect(201);
+    expect(res.body).toMatchObject({
+      id: "new-shop",
+      landingUrl: "https://shop.example",
+      profile: "new-shop",
+      status: "disconnected",
+    });
+    await request(server)
+      .post("/api/connected-services")
+      .send({ name: "new shop", loginUrl: "https://shop.example/login" })
+      .expect(409);
+    await request(server)
+      .post("/api/connected-services")
+      .send({ name: "X", loginUrl: "nope" })
+      .expect(400);
+  });
+
+  it("updates a service (200) and 404s an unknown id", async () => {
+    const server = app.getHttpServer();
+    const res = await request(server)
+      .patch("/api/connected-services/s")
+      .send({ name: "S2", iconUrl: "https://s.example/icon.png" })
+      .expect(200);
+    expect(res.body).toMatchObject({ id: "s", name: "S2", iconUrl: "https://s.example/icon.png" });
+    const cleared = await request(server)
+      .patch("/api/connected-services/s")
+      .send({ iconUrl: null })
+      .expect(200);
+    expect(cleared.body.iconUrl).toBeUndefined();
+    await request(server).patch("/api/connected-services/nope").send({ name: "x" }).expect(404);
+  });
 });

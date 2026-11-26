@@ -1913,7 +1913,20 @@
       "empty": "No personal accounts yet.",
       "connect": "Connect account",
       "servicesTitle": "Connected services",
-      "servicesHint": "Browser sign-ins the agents use (KDP, MakerWorld)."
+      "servicesHint": "Browser sign-ins the agents use (KDP, MakerWorld).",
+      "addService": "Add service",
+      "serviceDialog": {
+        "addTitle": "Add service",
+        "editTitle": "Edit service",
+        "name": "Name",
+        "loginUrl": "Login URL",
+        "iconUrl": "Icon URL (optional)",
+        "iconPlaceholder": "Empty = the service favicon",
+        "add": "Add",
+        "save": "Save",
+        "exists": "A service with this name already exists.",
+        "failed": "Saving failed."
+      }
     }
   },
   "runs": {
@@ -4482,7 +4495,8 @@
         "connect": "Connect",
         "connecting": "Opening sign-in…",
         "signInHint": "Sign in in the Chrome window, then close it",
-        "connectLabel": "Connect {name}"
+        "connectLabel": "Connect {name}",
+        "editLabel": "Edit {name}"
       }
     },
     "you": "{n} for you",

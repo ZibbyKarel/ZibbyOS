@@ -1,4 +1,4 @@
-import { ReadingItemTestId } from "@zibby/design-system";
+import { IconTestId, ReadingItemTestId } from "@zibby/design-system";
 import { fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
@@ -18,6 +18,7 @@ vi.mock("../../connected-services/queries", () => ({
         name: "Claude",
         landingUrl: "https://claude.ai",
         loginUrl: "https://claude.ai/login",
+        iconUrl: "https://claude.ai/icon.png",
         profile: "claude",
         status: "connected",
       },
@@ -75,5 +76,20 @@ describe("ConnectedServicesWidget", () => {
     renderWithProviders(<ConnectedServicesWidget {...props} />);
     fireEvent.click(screen.getByTestId(ReadingItemTestId.Open));
     expect(open).toHaveBeenCalledWith("https://claude.ai", "_blank", "noopener,noreferrer");
+  });
+
+  it("shows the icon URL or the favicon, and the plug when the image fails", () => {
+    renderWithProviders(<ConnectedServicesWidget {...props} />);
+    const icons = screen.getAllByTestId(ConnectedServicesWidgetTestId.Icon);
+    expect(icons.map((i) => i.getAttribute("src"))).toEqual([
+      "https://claude.ai/icon.png",
+      "https://figma.com/favicon.ico",
+    ]);
+    expect(screen.queryByTestId(ConnectedServicesWidgetTestId.Edit)).toBeNull();
+    fireEvent.error(icons[1]!);
+    expect(screen.getAllByTestId(ConnectedServicesWidgetTestId.Icon)).toHaveLength(1);
+    expect(screen.getAllByTestId(IconTestId.Root).some((i) => i.dataset.icon === "plug")).toBe(
+      true,
+    );
   });
 });

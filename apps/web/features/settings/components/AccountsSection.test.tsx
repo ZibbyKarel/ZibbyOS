@@ -6,6 +6,8 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import { AccountsSection, AccountsSectionTestId } from "./AccountsSection";
 import { AccountCardsTestId } from "../../integrations/components/AccountCards";
 import { ConnectWizardTestId } from "../../integrations/components/ConnectWizardSheet";
+import { ConnectedServiceDialogTestId } from "../../connected-services/components/ConnectedServiceDialog";
+import { ConnectedServicesListTestId } from "../../connected-services/components/ConnectedServicesList";
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 const personal = vi.hoisted(() => ({ data: [] as Integration[] }));
@@ -36,6 +38,8 @@ vi.mock("../../connected-services/queries", () => ({
 }));
 vi.mock("../../connected-services/mutations", () => ({
   useConnectServiceMutation: () => idle,
+  useCreateConnectedServiceMutation: () => idle,
+  useUpdateConnectedServiceMutation: () => idle,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -66,5 +70,27 @@ describe("AccountsSection", () => {
     expect(screen.getByTestId(ConnectWizardTestId.Root)).toHaveTextContent(
       "Připojuji jeden z tvých osobních účtů.",
     );
+  });
+
+  it("edits a service in a prefilled dialog", async () => {
+    render(<AccountsSection />);
+    await userEvent.click(screen.getByTestId(ConnectedServicesListTestId.Edit));
+    expect(screen.getByTestId(ConnectedServiceDialogTestId.Name)).toHaveValue("KDP");
+    await userEvent.clear(screen.getByTestId(ConnectedServiceDialogTestId.Name));
+    await userEvent.type(screen.getByTestId(ConnectedServiceDialogTestId.Name), "Kindle");
+    await userEvent.click(screen.getByTestId(ConnectedServiceDialogTestId.Submit));
+    expect(idle.mutate).toHaveBeenCalledWith(
+      {
+        params: { id: "kdp" },
+        body: { name: "Kindle", loginUrl: "https://kdp.amazon.com/login", iconUrl: null },
+      },
+      expect.anything(),
+    );
+  });
+
+  it("adds a service from an empty dialog", async () => {
+    render(<AccountsSection />);
+    await userEvent.click(screen.getByTestId(AccountsSectionTestId.AddService));
+    expect(screen.getByTestId(ConnectedServiceDialogTestId.Name)).toHaveValue("");
   });
 });

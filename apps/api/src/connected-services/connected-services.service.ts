@@ -1,9 +1,13 @@
 import { execFile } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import type { ConnectedService } from "@zibby/contracts";
+import type {
+  ConnectedService,
+  CreateConnectedService,
+  UpdateConnectedService,
+} from "@zibby/contracts";
 import { z } from "zod";
 
 const execFileP = promisify(execFile);
@@ -24,6 +28,7 @@ const DefinitionSchema = z.object({
   name: z.string().min(1),
   landingUrl: z.string().url(),
   loginUrl: z.string().url(),
+  iconUrl: z.string().url().optional(),
   profile: z
     .string()
     .regex(/^[A-Za-z0-9._-]+$/)
@@ -38,11 +43,18 @@ export class ConnectedServiceNotFoundError extends Error {
   }
 }
 
+export class ConnectedServiceExistsError extends Error {
+  constructor(id: string) {
+    super(`Connected service "${id}" already exists`);
+  }
+}
+
 /** Chrome `expires_utc`: microseconds since 1601-01-01. */
 const chromeToUnixMs = (v: number) => v / 1000 - 11644473600000;
 
 /**
- * True when the profile's cookie DB holds a persistent, unexpired auth cookie.
+ * True when the profile's cookie DB holds a persistent, unexpired auth cookie. With no
+ * `authCookies` listed, any persistent unexpired cookie on one of `hosts` (or a subdomain) counts.
  * Reads via the system sqlite3 (read-only, immutable: Chrome may hold the lock);
  * any failure (no DB, no sqlite3) reads as disconnected; `onError` hears all but a missing DB.
  */
@@ -51,6 +63,7 @@ export async function isConnected(
   authCookies: ServiceDefinition["authCookies"],
   now = Date.now(),
   onError?: (error: unknown) => void,
+  hosts: string[] = [],
 ): Promise<boolean> {
   const db = path.join(profilePath, "Default", "Cookies");
   try {
@@ -74,10 +87,18 @@ export async function isConnected(
       (r) =>
         r.has_expires === 1 &&
         chromeToUnixMs(r.expires_utc) > now &&
-        authCookies.some(
-          (a) =>
-            r.host_key.replace(/^\./, "") === a.host.replace(/^\./, "") && a.names.includes(r.name),
-        ),
+        (authCookies.length
+          ? authCookies.some(
+              (a) =>
+                r.host_key.replace(/^\./, "") === a.host.replace(/^\./, "") &&
+                a.names.includes(r.name),
+            )
+          : // ponytail: any long-lived cookie counts (a consent cookie reads as signed in);
+            // fill in the definition's `authCookies` for an exact check.
+            hosts.some((h) => {
+              const host = r.host_key.replace(/^\./, "");
+              return host === h || host.endsWith(`.${h}`);
+            })),
     );
   } catch (error) {
     // No cookie DB yet = never signed in. Anything else (sqlite3, schema change) is logged.
@@ -85,6 +106,9 @@ export async function isConnected(
     return false;
   }
 }
+
+/** The file each loaded definition came from, so an edit rewrites it in place. */
+const sourceFile = new WeakMap<ServiceDefinition, string>();
 
 @Injectable()
 export class ConnectedServicesService {
@@ -108,7 +132,9 @@ export class ConnectedServicesService {
     for (const file of files) {
       try {
         const raw = JSON.parse(await fs.readFile(path.join(this.dir, file), "utf8"));
-        defs.push(DefinitionSchema.parse(raw));
+        const def = DefinitionSchema.parse(raw);
+        sourceFile.set(def, file);
+        defs.push(def);
       } catch (error) {
         this.logger.warn(`Skipping invalid connected-service definition ${file}: ${String(error)}`);
       }
@@ -123,12 +149,64 @@ export class ConnectedServicesService {
       authCookies,
       Date.now(),
       (error) => this.logger.warn(`Cookie check failed for ${def.id}: ${String(error)}`),
+      [new URL(def.loginUrl).hostname, new URL(def.landingUrl).hostname],
     );
     return { ...rest, status: connected ? "connected" : "disconnected" };
   }
 
   async list(): Promise<ConnectedService[]> {
     return Promise.all((await this.loadDefinitions()).map((d) => this.toService(d)));
+  }
+
+  /** Validates, then writes atomically (tmp + rename) to `dir/<file>`. */
+  private async write(def: ServiceDefinition, name: string): Promise<ConnectedService> {
+    const valid = DefinitionSchema.parse(def);
+    await fs.mkdir(this.dir, { recursive: true });
+    const file = path.join(this.dir, name);
+    await fs.writeFile(`${file}.tmp`, `${JSON.stringify(valid, null, 2)}\n`);
+    await fs.rename(`${file}.tmp`, file);
+    return this.toService(valid);
+  }
+
+  /** Adds a service: id/profile = slug of the name, landingUrl defaults to the login URL's origin. */
+  async create(input: CreateConnectedService): Promise<ConnectedService> {
+    const id = input.name
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const name = `${id}.json`;
+    const taken = existsSync(path.join(this.dir, name));
+    if (taken || (await this.loadDefinitions()).some((d) => d.id === id)) {
+      throw new ConnectedServiceExistsError(id);
+    }
+    return this.write(
+      {
+        id,
+        name: input.name,
+        landingUrl: input.landingUrl ?? new URL(input.loginUrl).origin,
+        loginUrl: input.loginUrl,
+        ...(input.iconUrl ? { iconUrl: input.iconUrl } : {}),
+        profile: id,
+        authCookies: [],
+      },
+      name,
+    );
+  }
+
+  /** Edits name/URLs/icon; id, profile and authCookies never change. `iconUrl: null` clears it. */
+  async update(id: string, patch: UpdateConnectedService): Promise<ConnectedService> {
+    const def = (await this.loadDefinitions()).find((d) => d.id === id);
+    if (!def) throw new ConnectedServiceNotFoundError(id);
+    const { iconUrl, ...rest } = patch;
+    const next: ServiceDefinition = { ...def, ...rest };
+    if (iconUrl === null) delete next.iconUrl;
+    else if (iconUrl) next.iconUrl = iconUrl;
+    return this.write(
+      { ...next, id: def.id, profile: def.profile, authCookies: def.authCookies },
+      sourceFile.get(def) ?? `${def.id}.json`,
+    );
   }
 
   async connect(id: string): Promise<ConnectedService> {

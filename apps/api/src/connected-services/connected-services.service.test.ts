@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ConnectedServiceExistsError,
   ConnectedServiceNotFoundError,
   ConnectedServicesService,
   isConnected,
@@ -53,6 +54,19 @@ describe("isConnected", () => {
       [".amazon.com", "other", future, 1],
     ]);
     expect(await isConnected(p, AUTH, NOW)).toBe(false);
+  });
+  it("with no authCookies, any persistent cookie on the hosts (or a subdomain) counts", async () => {
+    const hosts = ["shop.example"];
+    const sub = makeProfile("a", [[".www.shop.example", "x", future, 1]]);
+    expect(await isConnected(sub, [], NOW, undefined, hosts)).toBe(true);
+    const session = makeProfile("b", [["shop.example", "x", 0, 0]]);
+    expect(await isConnected(session, [], NOW, undefined, hosts)).toBe(false);
+    const other = makeProfile("c", [[".notshop.example", "x", future, 1]]);
+    expect(await isConnected(other, [], NOW, undefined, hosts)).toBe(false);
+  });
+  it("hosts never widen a service that lists authCookies", async () => {
+    const p = makeProfile("a", [[".amazon.com", "other", future, 1]]);
+    expect(await isConnected(p, AUTH, NOW, undefined, ["amazon.com"])).toBe(false);
   });
   it("is disconnected when the DB is missing", async () => {
     expect(await isConnected(path.join(tmp, "nope"), AUTH, NOW)).toBe(false);
@@ -122,5 +136,51 @@ describe("ConnectedServicesService", () => {
     const { s, launch } = svc();
     await expect(s.connect("nope")).rejects.toBeInstanceOf(ConnectedServiceNotFoundError);
     expect(launch).not.toHaveBeenCalled();
+  });
+
+  it("create writes a valid definition with a slug id and the login origin as landing", async () => {
+    const { s } = svc();
+    const res = await s.create({ name: "Šumava Shop!", loginUrl: "https://shop.example/a/login" });
+    expect(res).toEqual({
+      id: "sumava-shop",
+      name: "Šumava Shop!",
+      landingUrl: "https://shop.example",
+      loginUrl: "https://shop.example/a/login",
+      profile: "sumava-shop",
+      status: "disconnected",
+    });
+    const file = JSON.parse(readFileSync(path.join(tmp, "defs", "sumava-shop.json"), "utf8"));
+    expect(file.authCookies).toEqual([]);
+    expect((await s.list()).map((d) => d.id)).toEqual(["kdp", "sumava-shop"]);
+  });
+
+  it("create rejects an id clash", async () => {
+    const { s } = svc();
+    await expect(
+      s.create({ name: "KDP", loginUrl: "https://x.example/login" }),
+    ).rejects.toBeInstanceOf(ConnectedServiceExistsError);
+  });
+
+  it("update keeps id, profile and authCookies; null clears the icon", async () => {
+    const { s } = svc();
+    const set = await s.update("kdp", {
+      name: "KDP 2",
+      iconUrl: "https://kdp.amazon.com/i.png",
+      // @ts-expect-error — not part of the patch; must be ignored
+      profile: "hijack",
+    });
+    expect(set).toMatchObject({ id: "kdp", name: "KDP 2", profile: "kdp" });
+    expect(set.iconUrl).toBe("https://kdp.amazon.com/i.png");
+    const cleared = await s.update("kdp", { iconUrl: null });
+    expect(cleared.iconUrl).toBeUndefined();
+    const file = JSON.parse(readFileSync(path.join(tmp, "defs", "kdp.json"), "utf8"));
+    expect(file).toEqual({ ...def, name: "KDP 2" });
+  });
+
+  it("update rejects an unknown id", async () => {
+    const { s } = svc();
+    await expect(s.update("nope", { name: "x" })).rejects.toBeInstanceOf(
+      ConnectedServiceNotFoundError,
+    );
   });
 });

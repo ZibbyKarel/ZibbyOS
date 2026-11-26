@@ -1913,7 +1913,20 @@
       "empty": "Zatím žádné osobní účty.",
       "connect": "Připojit účet",
       "servicesTitle": "Připojené služby",
-      "servicesHint": "Přihlášení v prohlížeči, která používají agenti (KDP, MakerWorld)."
+      "servicesHint": "Přihlášení v prohlížeči, která používají agenti (KDP, MakerWorld).",
+      "addService": "Přidat službu",
+      "serviceDialog": {
+        "addTitle": "Přidat službu",
+        "editTitle": "Upravit službu",
+        "name": "Název",
+        "loginUrl": "Přihlašovací URL",
+        "iconUrl": "URL ikony (nepovinné)",
+        "iconPlaceholder": "Prázdné = favicon služby",
+        "add": "Přidat",
+        "save": "Uložit",
+        "exists": "Služba se stejným názvem už existuje.",
+        "failed": "Uložení se nezdařilo."
+      }
     }
   },
   "runs": {
@@ -4482,7 +4495,8 @@
         "connect": "Připojit",
         "connecting": "Otevírám přihlášení…",
         "signInHint": "Přihlaste se v okně Chrome a pak ho zavřete",
-        "connectLabel": "Připojit službu {name}"
+        "connectLabel": "Připojit službu {name}",
+        "editLabel": "Upravit službu {name}"
       }
     },
     "you": "{n} na tebe",

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ConnectedService } from "@zibby/contracts";
-import { Button, ReadingItem, Stack, StatusDot } from "@zibby/design-system";
+import { Button, Icon, ReadingItem, Stack, StatusDot } from "@zibby/design-system";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { QueryError } from "../../../components/LoadError/QueryError";
@@ -11,6 +11,8 @@ import { useConnectedServicesQuery } from "../queries";
 export enum ConnectedServicesListTestId {
   Connect = "connected-services-connect",
   Status = "connected-services-status",
+  Edit = "connected-services-edit",
+  Icon = "connected-services-icon",
 }
 
 /** How long after a Connect click the list keeps polling for the sign-in to land. */
@@ -19,6 +21,29 @@ export const CONNECT_POLL_WINDOW_MS = 3 * 60_000;
 export interface ConnectedServicesListProps {
   /** Prefix for each row's `rowKey` (the bridge widget id, or the settings panel). */
   rowKeyPrefix: string;
+  /** Shows a per-row edit button (Settings → Accounts); the bridge widget leaves it out. */
+  onEdit?: (service: ConnectedService) => void;
+}
+
+/**
+ * The service's icon: its `iconUrl`, else the landing page's favicon, else the generic plug.
+ * Local `<img>` on purpose: the DS `Avatar` has no failing-src fallback and is a person's
+ * round picture, not a site icon.
+ */
+function ServiceIcon({ service }: { service: ConnectedService }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Icon name="plug" size="md" />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote favicon, no optimisation wanted
+    <img
+      alt=""
+      data-testid={ConnectedServicesListTestId.Icon}
+      height={16}
+      onError={() => setFailed(true)}
+      src={service.iconUrl ?? new URL("/favicon.ico", service.landingUrl).href}
+      width={16}
+    />
+  );
 }
 
 /**
@@ -26,7 +51,7 @@ export interface ConnectedServicesListProps {
  * in a new tab; a disconnected row's Connect launches its login in Chrome and the list is polled
  * (5s, up to 3 min) until it turns connected. Shared by the bridge widget and Settings → Accounts.
  */
-export function ConnectedServicesList({ rowKeyPrefix }: ConnectedServicesListProps) {
+export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedServicesListProps) {
   const t = useTranslations("bridge.widgets.connectedServices");
   const clicked = useRef<Record<string, number>>({});
   const [signingIn, setSigningIn] = useState<ReadonlySet<string>>(new Set());
@@ -50,22 +75,34 @@ export function ConnectedServicesList({ rowKeyPrefix }: ConnectedServicesListPro
         return (
           <ReadingItem
             action={
-              isConnected ? undefined : (
-                <Button
-                  aria-label={t("connectLabel", { name: s.name })}
-                  data-testid={ConnectedServicesListTestId.Connect}
-                  intent="ghost"
-                  loading={pending}
-                  onClick={() => {
-                    clicked.current[s.id] = Date.now();
-                    setSigningIn((prev) => new Set(prev).add(s.id));
-                    connect.mutate({ params: { id: s.id } });
-                  }}
-                  size="sm"
-                >
-                  {pending ? t("connecting") : t("connect")}
-                </Button>
-              )
+              <Stack align="center" direction="row" gap="50">
+                {isConnected ? null : (
+                  <Button
+                    aria-label={t("connectLabel", { name: s.name })}
+                    data-testid={ConnectedServicesListTestId.Connect}
+                    intent="ghost"
+                    loading={pending}
+                    onClick={() => {
+                      clicked.current[s.id] = Date.now();
+                      setSigningIn((prev) => new Set(prev).add(s.id));
+                      connect.mutate({ params: { id: s.id } });
+                    }}
+                    size="sm"
+                  >
+                    {pending ? t("connecting") : t("connect")}
+                  </Button>
+                )}
+                {onEdit ? (
+                  <Button
+                    aria-label={t("editLabel", { name: s.name })}
+                    data-testid={ConnectedServicesListTestId.Edit}
+                    icon="edit"
+                    intent="ghost"
+                    onClick={() => onEdit(s)}
+                    size="sm"
+                  />
+                ) : null}
+              </Stack>
             }
             key={s.id}
             onClick={
@@ -92,7 +129,12 @@ export function ConnectedServicesList({ rowKeyPrefix }: ConnectedServicesListPro
                 )}
               </Stack>
             }
-            text={s.name}
+            text={
+              <Stack align="center" direction="row" gap="75">
+                <ServiceIcon service={s} />
+                {s.name}
+              </Stack>
+            }
           />
         );
       })}
