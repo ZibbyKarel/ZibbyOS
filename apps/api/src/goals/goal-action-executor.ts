@@ -120,6 +120,21 @@ export type GoalActionHandler<T extends GoalActionType> = (
   ctx: GoalActionContext,
 ) => void | Promise<void>;
 
+type GoalWait = NonNullable<GoalInstance["waitingOn"]>[number];
+
+/** Add waits to the instance (deduplicated by kind + ref). */
+export function addWaits(instance: GoalInstance, waits: readonly GoalWait[]): void {
+  const all = [...(instance.waitingOn ?? []), ...waits];
+  instance.waitingOn = all.filter(
+    (w, i) => all.findIndex((x) => x.kind === w.kind && x.ref === w.ref) === i,
+  );
+}
+
+/** Set `wakeAt` unless an earlier one is already set (the earliest wake wins). */
+export function keepEarlierWake(instance: GoalInstance, iso: string): void {
+  if (!instance.wakeAt || Date.parse(iso) < Date.parse(instance.wakeAt)) instance.wakeAt = iso;
+}
+
 /** Park the instance: status, reason, timeline, activity (the operator is notified off it). */
 export function parkInstance(ctx: GoalActionContext, reason: ParkedReason, text: string): void {
   ctx.instance.status = "parked";
@@ -150,16 +165,16 @@ export class GoalActionExecutor {
     this.register("note", (a, ctx) => ctx.timeline("note", a.text));
     this.register("report", (a, ctx) => reportFromGoal(ctx, a.text));
     this.register("wait", (a, ctx) => {
-      if (a.waitingOn) ctx.instance.waitingOn = a.waitingOn;
+      // The engine cleared both before this plan's actions: what is there now was set by an
+      // earlier action of the same plan (a message's reply wait) and is kept.
+      if (a.waitingOn) addWaits(ctx.instance, a.waitingOn);
       if (a.wakeAt) {
         const floor = ctx.now.getTime() + WAKE_FLOOR_MS;
         if (Date.parse(a.wakeAt) < floor) {
-          ctx.instance.wakeAt = new Date(floor).toISOString();
-          ctx.timeline(
-            "note",
-            `wakeAt ${a.wakeAt} raised to ${ctx.instance.wakeAt} (5 min floor).`,
-          );
-        } else ctx.instance.wakeAt = a.wakeAt;
+          const raised = new Date(floor).toISOString();
+          keepEarlierWake(ctx.instance, raised);
+          ctx.timeline("note", `wakeAt ${a.wakeAt} raised to ${raised} (5 min floor).`);
+        } else keepEarlierWake(ctx.instance, a.wakeAt);
       }
       ctx.timeline(
         "wait",

@@ -204,6 +204,8 @@ export class ApprovalsService {
       reviewDocument?: string;
       /** todo-36 — the operator discarded ZIBBY's review; `reviewDocument` (may be blank) replaces it. */
       ownReview?: boolean;
+      /** The operator's edited goal-message text (goal-message only). */
+      messageText?: string;
       decidedBy?: "autopilot";
     } = {},
   ): Promise<Approval> {
@@ -217,6 +219,7 @@ export class ApprovalsService {
       opts.decidedBy,
       opts.reviewDocument,
       opts.ownReview,
+      opts.messageText,
     );
     if (opts.decidedBy === "autopilot") {
       void this.activity?.record({
@@ -358,6 +361,7 @@ export class ApprovalsService {
     decidedBy?: "autopilot",
     reviewDocument?: string,
     ownReview?: boolean,
+    messageText?: string,
   ): Promise<Approval> {
     return withPathLock(`approval:${id}`, async () => {
       const approval = await this.storage.get(id);
@@ -377,6 +381,8 @@ export class ApprovalsService {
         ...(ownReview && approval.suggestedReviewEvent
           ? { ownReview: true as const, reviewDocument: reviewDocument ?? "" }
           : {}),
+        // The operator's edited message text — only a goal-message approval takes it.
+        ...(messageText?.trim() && approval.kind === "goal-message" ? { messageText } : {}),
         ...(decidedBy ? { decidedBy } : {}),
       };
       void this.activity?.record({

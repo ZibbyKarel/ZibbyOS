@@ -111,6 +111,11 @@ export const ApprovalRunKindSchema = z.enum([
   // `github.actions.rerun`; `detail` = verdict + report). Approved by Autopilot instead of
   // queued when it is on; rejecting discards.
   "pr-ci-rerun",
+  // A goal's message to a colleague, sent as the operator (runId = `<goalId>/<instance>/<actionId>`;
+  // `detail` = the JSON preview: recipient, channel/PR and the full text). Approving sends it once,
+  // with the operator's edited `messageText` when given; rejecting drops it. Lifted only where the
+  // place's `autoCommunicate` is `auto` (then no approval is created at all).
+  "goal-message",
 ]);
 export type ApprovalRunKind = z.infer<typeof ApprovalRunKindSchema>;
 
@@ -190,6 +195,8 @@ export const ApprovalSchema = z.object({
   reviewDocument: z.string().max(60_000).optional(),
   /** todo-36 — the operator discarded ZIBBY's review: `reviewDocument` (possibly blank) is posted as-is. */
   ownReview: z.literal(true).optional(),
+  /** The operator's edited text of a goal message, sent instead of the draft (goal-message only). */
+  messageText: z.string().max(4000).optional(),
   /** The thread replies the operator approved (pr-address-comments push approval). */
   replies: z.array(OperatorThreadReplySchema).max(100).optional(),
   /** Phase 4 — set when the autopilot overlay approved it (no operator click). */

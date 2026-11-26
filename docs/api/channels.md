@@ -133,6 +133,13 @@ worth reading if every row is a real answer awaiting a yes. Binds every channel.
 - `url`: search matches carry their own permalink; DMs get a best-effort
   `chat.getPermalink` call per newly ingested message — a failed lookup just
   omits `url`, never fails the poll.
+- Outbound for the goal engine's `message` (`AdapterRegistry.slackOutbound()`, refused in the
+  fake-channel mode): `userInfo(creds, userId)` (`users.info`; `null` for an unknown, hidden,
+  deleted or bot user) and `postMessage(creds, userId, text)` (`chat.postMessage` with the user
+  id as `channel`, so Slack opens the DM; returns the DM's `channel` and `ts`; throws on any
+  Slack error). Unverified live: opening a DM with a user token may need `im:write`.
+- Replies to such a DM: the DM leg ingests top-level DM messages, so the goal sees them. A
+  reply inside the message's thread (or an unmentioned channel-thread reply) is NOT ingested.
 
 ### Jira adapter
 

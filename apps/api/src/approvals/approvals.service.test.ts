@@ -247,6 +247,27 @@ describe("ApprovalsService", () => {
     ).toBeUndefined();
   });
 
+  it("approve stores the operator's edited message text only on a goal-message", async () => {
+    const resume = vi.fn();
+    service.register("goal-message", { resume, cancel: vi.fn() });
+    const draft = await service.requestApproval({
+      runId: "g/_/ask-bob",
+      kind: "goal-message",
+      skill: "goal",
+      action: "message.send",
+      detail: "{}",
+      risk: "medium",
+    });
+    const decided = await service.approve(draft.id, { messageText: "edited" });
+    expect(resume).toHaveBeenCalledWith(
+      "g/_/ask-bob",
+      expect.objectContaining({ messageText: "edited" }),
+    );
+    expect(decided.messageText).toBe("edited");
+    const other = await request();
+    expect((await service.approve(other.id, { messageText: "x" })).messageText).toBeUndefined();
+  });
+
   it("todo-36: an own review is recorded (blank text kept) only on a PR-review sign-off", async () => {
     const resume = vi.fn();
     service.register("workflow-gate", { resume, cancel: vi.fn() });

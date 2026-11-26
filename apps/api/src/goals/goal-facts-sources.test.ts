@@ -242,4 +242,40 @@ describe("ReplyFactsSource", () => {
     await expect(collect()).rejects.toThrow("EIO");
     expect(list).toHaveBeenCalledWith({ integrationId: "slack" });
   });
+
+  it("a DM reply is any later top-level message in that DM; its text stays data", async () => {
+    const items = [
+      { id: "D9-50", externalRef: { channel: "D9", ts: "50" }, text: "earlier" },
+      { id: "D9-120", externalRef: { channel: "D9", ts: "120" }, text: "Jo, merge it." },
+      { id: "C1-130", externalRef: { channel: "C1", ts: "130" }, text: "elsewhere" },
+    ];
+    const facts = new GoalFactsService([
+      new ReplyFactsSource({ list: vi.fn(async () => items) } as never),
+    ]);
+    const waiting = instance({ waitingOn: [{ kind: "reply", ref: "slack:D9:100" }] });
+    const got = await facts.collect({
+      goal: goal(),
+      instanceKey: "_",
+      instance: waiting,
+      now: NOW,
+    });
+    expect(got.replies).toEqual([
+      { ref: "slack:D9:100", count: 1, last: { id: "D9-120", text: "Jo, merge it." } },
+    ]);
+  });
+
+  it("a channel (not a DM) still needs the thread", async () => {
+    const items = [{ id: "C1-120", externalRef: { channel: "C1", ts: "120" }, text: "x" }];
+    const facts = new GoalFactsService([
+      new ReplyFactsSource({ list: vi.fn(async () => items) } as never),
+    ]);
+    const waiting = instance({ waitingOn: [{ kind: "reply", ref: "slack:C1:100" }] });
+    const got = await facts.collect({
+      goal: goal(),
+      instanceKey: "_",
+      instance: waiting,
+      now: NOW,
+    });
+    expect(got.replies).toEqual([{ ref: "slack:C1:100", count: 0 }]);
+  });
 });

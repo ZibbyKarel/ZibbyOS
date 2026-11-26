@@ -46,6 +46,8 @@ export const approvalsContract = c.router(
           // the whole review. GitHub needs a body for anything but APPROVE.
           ownReview: z.boolean().optional(),
           replies: z.array(OperatorThreadReplySchema).max(100).optional(),
+          // A goal message's text as the operator edited it (goal-message only; blank = the draft).
+          messageText: z.string().max(4000).optional(),
         })
         .refine((b) => !b.ownReview || !!b.reviewDocument?.trim() || b.reviewEvent === "APPROVE", {
           message: "an own review without text can only approve",

@@ -15,6 +15,11 @@ export interface GoalPlannerContext {
   /** What is left of the cycle's budget; a field is absent when that budget is unset. */
   remainingBudget: { runs?: number; costUsd?: number };
   nudges: GoalState["nudges"];
+  /**
+   * The effective `autoCommunicate` at the instance's place: `auto` sends messages at once,
+   * `semi`/`manual` drafts them for approval, `paused` = Autopilot paused (approval).
+   */
+  autoCommunicate?: "manual" | "semi" | "auto" | "paused";
   decisionsThisMonth: GoalState["decisionsThisMonth"];
   now: string;
   /** No feasibility recorded this cycle yet: the plan must carry `feasibility`. */

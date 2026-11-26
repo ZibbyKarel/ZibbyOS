@@ -142,6 +142,52 @@ describe("ApprovalSheet (ZB-08 / D-014)", () => {
     expect(screen.getByTestId("checkpoint-output")).toHaveTextContent("Which months?");
   });
 
+  it("a goal's message shows the recipient and approves the operator's edited text", async () => {
+    hooks.approval = {
+      data: {
+        ...APPROVAL,
+        kind: "goal-message",
+        runId: "g/_/ask-bob",
+        preview: { kind: "message", to: "Bob · Slack DM", body: "Ahoj, mrkneš na PR?" },
+      },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+    render(<ApprovalSheet approvalId="appr-1" onClose={onClose} />);
+    expect(screen.getByTestId("goal-message-to")).toHaveTextContent("Bob · Slack DM");
+    const field = screen.getByLabelText("Zpráva");
+    expect(field).toHaveValue("Ahoj, mrkneš na PR?");
+    await userEvent.clear(field);
+    await userEvent.type(field, "Ahoj Bobe, stihneš dnes review?");
+    await userEvent.click(screen.getByRole("button", { name: "Schválit" }));
+    expect(hooks.approve).toHaveBeenCalledWith(
+      { params: { id: "appr-1" }, body: { messageText: "Ahoj Bobe, stihneš dnes review?" } },
+      { onSuccess: expect.any(Function) },
+    );
+  });
+
+  it("an unedited goal message approves with an empty body; an emptied one cannot", async () => {
+    hooks.approval = {
+      data: {
+        ...APPROVAL,
+        kind: "goal-message",
+        preview: { kind: "message", to: "Bob", body: "Ahoj" },
+      },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+    render(<ApprovalSheet approvalId="appr-1" onClose={onClose} />);
+    await userEvent.click(screen.getByRole("button", { name: "Schválit" }));
+    expect(hooks.approve).toHaveBeenCalledWith(
+      { params: { id: "appr-1" }, body: {} },
+      { onSuccess: expect.any(Function) },
+    );
+    await userEvent.clear(screen.getByLabelText("Zpráva"));
+    expect(screen.getByRole("button", { name: "Schválit" })).toBeDisabled();
+  });
+
   const PR_REVIEW: DashboardApproval = {
     ...APPROVAL,
     id: "appr-pr",

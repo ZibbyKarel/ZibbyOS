@@ -54,6 +54,7 @@ export class ApprovalsController {
               replies: body?.replies,
               reviewDocument: body?.reviewDocument,
               ownReview: body?.ownReview,
+              messageText: body?.messageText,
             }),
           decided,
         ),

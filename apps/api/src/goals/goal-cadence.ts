@@ -90,3 +90,18 @@ export function latestCycleStart(cadence: GoalCadence, from: Date, now: Date): D
   }
   return latest;
 }
+
+/** Colleagues are messaged only Mon–Fri 9:00–17:00 Prague (spec "Anti-nagging"); 17:00 is out. */
+export const WORK_START_HOUR = 9;
+export const WORK_END_HOUR = 17;
+
+/** Whether `at` is inside Prague working hours. */
+export function isWorkingHours(at: Date): boolean {
+  const p = pragueParts(at);
+  return qualifies("weekday", p.y, p.m, p.d) && p.h >= WORK_START_HOUR && p.h < WORK_END_HOUR;
+}
+
+/** The next working-day 9:00 Prague strictly after `at` (Friday 18:00 → Monday 9:00). */
+export function nextWorkingStart(at: Date): Date {
+  return nextCycleStart({ every: "weekday", hour: WORK_START_HOUR }, at);
+}

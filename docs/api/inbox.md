@@ -331,6 +331,11 @@ on `approvals` or a group's members degrade. `POST …/reviewers/request` resolv
 Someone already on the list is a 422 "already a reviewer, not re-requested" with no PUT and no activity: GitLab's REST API
 cannot re-request a review. A reviewer state `reviewed` (commented, no verdict) reads as `commented`.
 
+**PR comment (no endpoint).** `InboxPrThreadsService.comment(projectId, repo, number, body)`
+posts a top-level PR comment (GitHub issue comment, GitLab MR note) for the goal engine's
+`message` to a PR's author or reviewer. It refuses a repo that is not the project's and drops the
+PR cache. See `docs/api/goals.md`.
+
 ## Review threads (`GET /api/inbox/prs/:projectId/:number/threads`)
 
 Read-only (Tier 1). One GitHub GraphQL query (`InboxPrThreadsService.list`):

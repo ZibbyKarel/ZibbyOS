@@ -332,6 +332,11 @@ export class AutopilotService implements OnModuleInit {
     return out;
   }
 
+  /** The stored level of every capability at a place (pause not applied: check {@link isPaused}). */
+  levelsAt(at: AutopilotLocation): ReturnType<typeof resolveAutopilotLevels> {
+    return resolveAutopilotLevels(this.state, at);
+  }
+
   /** Which capabilities start work at a place (`semi` or `auto`); all false while paused. */
   automationFor(at: AutopilotLocation): AutomationToggles {
     return resolveAutopilotAutomation(this.state, at);

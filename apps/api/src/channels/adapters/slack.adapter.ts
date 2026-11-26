@@ -266,6 +266,53 @@ export class SlackChannelAdapter implements ChannelAdapter {
     return { items: [...found.values()], cursor: newestTs };
   }
 
+  /**
+   * A real, active human user of the token's workspace (`users.info`), or `null` (unknown,
+   * deleted, a bot). Throws only on a transport/rate-limit error.
+   */
+  async userInfo(creds: CredentialsInput, userId: string): Promise<{ name: string } | null> {
+    const token = tokenOf(creds);
+    if (!token) return null;
+    const info = await this.call<
+      SlackResponse & {
+        user?: { deleted?: boolean; is_bot?: boolean; real_name?: string; name?: string };
+      }
+    >(token, "users.info", { user: userId }).catch((error: Error) => {
+      if (/: (user_not_found|user_not_visible)$/.test(error.message)) return null;
+      throw error;
+    });
+    const user = info?.user;
+    if (!user || user.deleted || user.is_bot) return null;
+    return { name: user.real_name || user.name || userId };
+  }
+
+  /**
+   * A new top-level message, as the operator (user token). `channel` may be a user id: Slack
+   * posts it into the operator's DM with that user and returns the DM's `D…` id.
+   */
+  async postMessage(
+    creds: CredentialsInput,
+    channel: string,
+    text: string,
+  ): Promise<{ channel: string; ts: string }> {
+    const token = tokenOf(creds);
+    if (!token) throw new Error("no slack token configured");
+    const res = await this.fetchImpl(`${SLACK_API}/chat.postMessage`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ channel, text }),
+    });
+    const body = (await res.json()) as {
+      ok: boolean;
+      error?: string;
+      channel?: string;
+      ts?: string;
+    };
+    if (!body.ok) throw new Error(`chat.postMessage: ${body.error ?? "unknown error"}`);
+    if (!body.channel || !body.ts) throw new Error("chat.postMessage: no channel/ts in the reply");
+    return { channel: body.channel, ts: body.ts };
+  }
+
   /** Reply in-thread; with a user token this posts as the operator. */
   async send(
     integration: Integration,

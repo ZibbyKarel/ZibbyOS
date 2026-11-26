@@ -59,6 +59,12 @@ export function resolveInboxStateFile(): string {
     PrAutomationService,
   ],
   // The goal engine's `pr-action` and PR facts (GoalEngineModule imports this; nothing here imports it).
-  exports: [InboxService, InboxReviewService, InboxAddressCommentsService, InboxFixCiService],
+  exports: [
+    InboxService,
+    InboxReviewService,
+    InboxAddressCommentsService,
+    InboxFixCiService,
+    InboxPrThreadsService,
+  ],
 })
 export class InboxModule {}

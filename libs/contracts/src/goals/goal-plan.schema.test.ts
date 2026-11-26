@@ -65,6 +65,25 @@ describe("GoalActionSchema", () => {
       }).success,
     ).toBe(false); // projectId required
   });
+
+  it("message: an actionId, a closed recipient kind, and a PR recipient names the PR", () => {
+    const ok = {
+      type: "message",
+      actionId: "ask",
+      to: { kind: "slack-user", ref: "U1" },
+      text: "x",
+    };
+    expect(GoalActionSchema.safeParse(ok).success).toBe(true);
+    expect(GoalActionSchema.safeParse({ ...ok, actionId: undefined }).success).toBe(false);
+    expect(GoalActionSchema.safeParse({ ...ok, to: { kind: "email", ref: "a@b" } }).success).toBe(
+      false,
+    );
+    const pr = { ...ok, to: { kind: "pr", ref: "bob" } };
+    expect(GoalActionSchema.safeParse(pr).success).toBe(false);
+    expect(GoalActionSchema.safeParse({ ...pr, about: { repo: "o/r", number: 4 } }).success).toBe(
+      true,
+    );
+  });
 });
 
 describe("ceilingAllows", () => {

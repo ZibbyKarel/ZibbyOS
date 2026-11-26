@@ -257,3 +257,43 @@ describe("SlackChannelAdapter", () => {
     await expect(failing.send(slack(), creds, item, "hi")).rejects.toThrow(/channel_not_found/);
   });
 });
+
+describe("SlackChannelAdapter outbound (the goal engine's message)", () => {
+  const adapterReturning = (body: Record<string, unknown>) => {
+    const fetchImpl = vi.fn<(input: string | URL, init?: RequestInit) => Promise<Response>>(
+      async () => json(body),
+    );
+    return { adapter: new SlackChannelAdapter(fetchImpl as unknown as typeof fetch), fetchImpl };
+  };
+
+  it("userInfo: a real human user, null for a bot, a deleted or an unknown user", async () => {
+    expect(
+      await adapterReturning({ ok: true, user: { id: "U1", real_name: "Bob B" } }).adapter.userInfo(
+        creds,
+        "U1",
+      ),
+    ).toMatchObject({ name: expect.any(String) });
+    for (const user of [
+      { id: "U1", is_bot: true },
+      { id: "U1", deleted: true },
+    ]) {
+      expect(await adapterReturning({ ok: true, user }).adapter.userInfo(creds, "U1")).toBeNull();
+    }
+    expect(
+      await adapterReturning({ ok: false, error: "user_not_found" }).adapter.userInfo(creds, "U1"),
+    ).toBeNull();
+  });
+
+  it("postMessage: a top-level message to the user, returns the DM channel and ts", async () => {
+    const { adapter, fetchImpl } = adapterReturning({ ok: true, channel: "D9", ts: "1.2" });
+    expect(await adapter.postMessage(creds, "U1", "Ahoj")).toEqual({ channel: "D9", ts: "1.2" });
+    const init = fetchImpl.mock.calls[0]?.[1];
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toMatch(/chat\.postMessage$/);
+    expect(JSON.parse(String(init?.body))).toEqual({ channel: "U1", text: "Ahoj" });
+  });
+
+  it("postMessage throws on a Slack error (never a silent success)", async () => {
+    const { adapter } = adapterReturning({ ok: false, error: "missing_scope" });
+    await expect(adapter.postMessage(creds, "U1", "Ahoj")).rejects.toThrow(/missing_scope/);
+  });
+});

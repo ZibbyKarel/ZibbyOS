@@ -3496,6 +3496,11 @@
           "jira": "Jira issue",
           "slack": "Zpráva ve Slacku",
           "link": "Otevřít zdroj"
+        },
+        "goalMessage": {
+          "to": "Komu: {to}",
+          "label": "Zpráva",
+          "hint": "Odejde tvým jménem. Před schválením ji můžeš upravit."
         }
       }
     },

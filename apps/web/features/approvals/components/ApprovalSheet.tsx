@@ -180,6 +180,8 @@ export function ApprovalSheet({
   } | null>(null);
   // todo-36: the operator's own review replacing ZIBBY's, keyed by approval id.
   const [ownDraft, setOwnDraft] = useState<{ id: string; text: string } | null>(null);
+  // A goal's message to a colleague: the operator's edit of its text, keyed by approval id.
+  const [messageDraft, setMessageDraft] = useState<{ id: string; text: string } | null>(null);
   const [now] = useState(() => Date.now());
   const railAnchor = useRailAnchor(anchorProp ? null : approvalId);
   const anchor = anchorProp ?? railAnchor;
@@ -195,6 +197,18 @@ export function ApprovalSheet({
   const own = reviewEvent && ownDraft?.id === approval?.id ? ownDraft : null;
   // GitHub needs a body for anything but APPROVE.
   const ownBlocked = own !== null && !own.text.trim() && reviewEvent !== "APPROVE";
+  const goalMessage =
+    approval?.kind === "goal-message" && approval.preview?.kind === "message"
+      ? approval.preview
+      : null;
+  const messageEdit =
+    goalMessage && messageDraft && messageDraft.id === approval?.id ? messageDraft.text : null;
+  // Sent only when changed; an emptied text cannot be approved.
+  const messageText =
+    goalMessage && messageEdit !== null && messageEdit.trim() !== goalMessage.body.trim()
+      ? messageEdit.trim()
+      : undefined;
+  const messageBlocked = messageEdit !== null && !messageEdit.trim();
 
   // Best-effort parent chain: most gated runs ARE (or belong to) a task, whose
   // `subtasks` — when present — are this approval's chain route. A non-task
@@ -427,10 +441,30 @@ export function ApprovalSheet({
         />
       )}
 
-      {approval.kind !== "pr-address-comments" && approval.preview?.kind === "message" && (
-        <Container maxHeight="50vh" overflow="auto">
-          <Markdown escapeHtml source={approval.preview.body} />
-        </Container>
+      {goalMessage ? (
+        <Stack gap="100">
+          <Typography data-testid="goal-message-to" type="labelSm" variant="tertiary">
+            {t("goalMessage.to", { to: goalMessage.to })}
+          </Typography>
+          {approval.status === "pending" ? (
+            <TextAreaField
+              data-testid="goal-message-text"
+              hint={t("goalMessage.hint")}
+              label={t("goalMessage.label")}
+              onChange={(e) => setMessageDraft({ id: approval.id, text: e.target.value })}
+              value={messageEdit ?? goalMessage.body}
+            />
+          ) : (
+            <Markdown escapeHtml source={approval.messageText ?? goalMessage.body} />
+          )}
+        </Stack>
+      ) : (
+        approval.kind !== "pr-address-comments" &&
+        approval.preview?.kind === "message" && (
+          <Container maxHeight="50vh" overflow="auto">
+            <Markdown escapeHtml source={approval.preview.body} />
+          </Container>
+        )
       )}
 
       {approval.preview?.kind === "diff" && (
@@ -497,19 +531,22 @@ export function ApprovalSheet({
         <Row wrap gap="100">
           <Button
             block={!compact}
-            disabled={ownBlocked || emptiedBlocked}
+            disabled={ownBlocked || emptiedBlocked || messageBlocked}
             intent="primary"
             loading={approve.isPending}
             onClick={() =>
               approve.mutate(
                 {
                   params: { id: approval.id },
-                  body: approveRequestBody(
-                    address ? addressReplies : undefined,
-                    reviewEvent,
-                    own ? own.text.trim() : editedReviewDocument,
-                    own !== null || reviewEmptied,
-                  ),
+                  body: {
+                    ...approveRequestBody(
+                      address ? addressReplies : undefined,
+                      reviewEvent,
+                      own ? own.text.trim() : editedReviewDocument,
+                      own !== null || reviewEmptied,
+                    ),
+                    ...(messageText ? { messageText } : {}),
+                  },
                 },
                 { onSuccess: close },
               )

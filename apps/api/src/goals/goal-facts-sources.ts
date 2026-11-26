@@ -188,12 +188,7 @@ export class ReplyFactsSource implements GoalFactsSource {
         // `list` already reads a missing integration as empty; any other error propagates.
         const items = await this.channels.list({ integrationId: thread.integrationId });
         // `list` is sorted by receivedAt, so the last one is the latest.
-        const replies = items.filter(
-          (i) =>
-            i.externalRef.channel === thread.channel &&
-            i.externalRef.threadTs === thread.threadTs &&
-            i.externalRef.ts !== thread.threadTs,
-        );
+        const replies = items.filter((i) => isReplyTo(i.externalRef, thread));
         const last = replies.at(-1);
         return {
           ref,
@@ -211,6 +206,19 @@ export class ReplyFactsSource implements GoalFactsSource {
       }),
     );
   }
+}
+
+/**
+ * A reply in the thread, or — in a direct message (`D…`) — any later top-level message: a
+ * colleague answers a DM in the conversation, not in its thread (the DM leg ingests those).
+ */
+function isReplyTo(
+  r: { channel?: string; ts?: string; threadTs?: string },
+  thread: { channel: string; threadTs: string },
+): boolean {
+  if (r.channel !== thread.channel || !r.ts || r.ts === thread.threadTs) return false;
+  if (r.threadTs === thread.threadTs) return true;
+  return thread.channel.startsWith("D") && !r.threadTs && Number(r.ts) > Number(thread.threadTs);
 }
 
 /** `<integrationId>:<channel>:<threadTs>` (Slack ts contains no colon). */

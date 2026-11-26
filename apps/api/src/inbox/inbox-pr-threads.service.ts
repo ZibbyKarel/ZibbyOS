@@ -24,6 +24,7 @@ import {
   resolveGitlabDiscussion,
   submitGitlabReview,
 } from "./inbox-pr-threads.gitlab";
+import { postGitlabNote } from "./inbox-review.gitlab";
 import { InboxService } from "./inbox.service";
 import { type BuildReviewersInput, buildReviewers } from "./pr-reviewers";
 
@@ -272,6 +273,45 @@ export class InboxPrThreadsService {
       this.log?.warn(`reviewers re-read failed on ${repo}#${number}`, { error: String(error) });
       return { teams: [], users: [{ login, state: "pending", commented: false }] };
     }
+  }
+
+  /**
+   * A top-level PR comment as the operator (the goal engine's `message` to a PR person). `repo`
+   * must be the project's own repo, so a comment never lands on another repository.
+   */
+  async comment(projectId: string, repo: string, number: number, body: string): Promise<void> {
+    const host = await this.hostLink(projectId);
+    if (host.repo.toLowerCase() !== repo.toLowerCase()) {
+      throw new Error(`${repo} is not the repository of project ${projectId}`);
+    }
+    if (host.kind === "gitlab") {
+      await postGitlabNote(this.gitlab, host, number, body);
+    } else {
+      const { token } = await this.open(projectId);
+      const res = await this.fetchImpl(
+        `https://api.github.com/repos/${host.repo}/issues/${number}/comments`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${token}`,
+            accept: "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ body }),
+          signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+        },
+      );
+      if (!res.ok) {
+        throw new GithubThreadsError(
+          res.status,
+          `HTTP ${res.status}${await githubReason(res)}`,
+          "comment",
+        );
+      }
+    }
+    this.inbox.dropPrsCache();
+    this.log?.info(`commented on ${host.repo}#${number}`);
   }
 
   private async replyGitlab(

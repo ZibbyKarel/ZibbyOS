@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latestCycleStart, nextCycleStart } from "./goal-cadence";
+import { isWorkingHours, latestCycleStart, nextCycleStart, nextWorkingStart } from "./goal-cadence";
 
 const at = (iso: string) => new Date(iso);
 const next = (every: "day" | "weekday" | "week" | "month", hour: number, from: string) =>
@@ -51,5 +51,23 @@ describe("latestCycleStart", () => {
     expect(
       latestCycleStart(cadence, at("2026-11-26T08:00:00.000Z"), at("2026-11-26T10:00:00.000Z")),
     ).toBeNull();
+  });
+});
+
+describe("working hours (Mon-Fri 9-17 Europe/Prague)", () => {
+  it("isWorkingHours", () => {
+    expect(isWorkingHours(at("2026-11-26T08:00:00.000Z"))).toBe(true); // Thu 09:00
+    expect(isWorkingHours(at("2026-11-26T07:59:00.000Z"))).toBe(false); // Thu 08:59
+    expect(isWorkingHours(at("2026-11-26T16:00:00.000Z"))).toBe(false); // Thu 17:00
+    expect(isWorkingHours(at("2026-11-28T10:00:00.000Z"))).toBe(false); // Sat
+  });
+
+  it("nextWorkingStart: Friday 18:00 → Monday 9:00; Thursday 7:00 → Thursday 9:00", () => {
+    expect(nextWorkingStart(at("2026-11-27T17:00:00.000Z")).toISOString()).toBe(
+      "2026-11-30T08:00:00.000Z",
+    );
+    expect(nextWorkingStart(at("2026-11-26T06:00:00.000Z")).toISOString()).toBe(
+      "2026-11-26T08:00:00.000Z",
+    );
   });
 });

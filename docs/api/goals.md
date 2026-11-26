@@ -49,17 +49,18 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 `apps/api/src/goals/goal-engine.module.ts` (`GoalEngineModule`, separate from `GoalsModule` so
 the briefing and the events channel read the stores without the engine's dependencies).
 
-| Piece           | File                      | Role                                                                     |
-| --------------- | ------------------------- | ------------------------------------------------------------------------ |
-| Heartbeat       | `goal-engine.service.ts`  | `GoalEngineService` (`TickingWatcherBase`, watcher id `goal-engine`)     |
-| Cadence         | `goal-cadence.ts`         | `nextCycleStart`, `latestCycleStart` in `Europe/Prague` (DST-aware)      |
-| Facts           | `goal-facts.ts`           | `GoalFactsService` over the `GOAL_FACTS_SOURCES` list; `goalFingerprint` |
-| Planner seam    | `goal-planner.ts`         | `GoalPlanner` behind the `GOAL_PLANNER` token; `goalPlanNoteId`          |
-| Planner         | `goal-planner.service.ts` | `GoalPlannerService`: one model run, prompt, `<goal-plan>` parser, note  |
-| Action executor | `goal-action-executor.ts` | `GoalActionExecutor`: ceiling filter + one handler per action type       |
-| Work handlers   | `goal-work-handlers.ts`   | `GoalWorkHandlers`: `start-task`, `run-loop`, `pr-action`                |
-| Wake sources    | `goal-facts-sources.ts`   | `PrFactsSource`, `ApprovalFactsSource`, `ReplyFactsSource`               |
-| Plan contract   | `goal-plan.schema.ts`     | `GoalPlanSchema`, `GoalActionSchema`, `GOAL_ACTION_MIN_CEILING`          |
+| Piece           | File                      | Role                                                                         |
+| --------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| Heartbeat       | `goal-engine.service.ts`  | `GoalEngineService` (`TickingWatcherBase`, watcher id `goal-engine`)         |
+| Cadence         | `goal-cadence.ts`         | `nextCycleStart`, `latestCycleStart` in `Europe/Prague` (DST-aware)          |
+| Facts           | `goal-facts.ts`           | `GoalFactsService` over the `GOAL_FACTS_SOURCES` list; `goalFingerprint`     |
+| Planner seam    | `goal-planner.ts`         | `GoalPlanner` behind the `GOAL_PLANNER` token; `goalPlanNoteId`              |
+| Planner         | `goal-planner.service.ts` | `GoalPlannerService`: one model run, prompt, `<goal-plan>` parser, note      |
+| Action executor | `goal-action-executor.ts` | `GoalActionExecutor`: ceiling filter + one handler per action type           |
+| Work handlers   | `goal-work-handlers.ts`   | `GoalWorkHandlers`: `start-task`, `run-loop`, `pr-action`                    |
+| Wake sources    | `goal-facts-sources.ts`   | `PrFactsSource`, `ApprovalFactsSource`, `ReplyFactsSource`                   |
+| Messages        | `goal-message.service.ts` | `GoalMessageService`: `message`, the `goal-message` runner, `messages` facts |
+| Plan contract   | `goal-plan.schema.ts`     | `GoalPlanSchema`, `GoalActionSchema`, `GOAL_ACTION_MIN_CEILING`              |
 
 ### Tick
 
@@ -70,7 +71,8 @@ tick, per enabled goal (one goal failing never blocks the others):
    company's projects; `all` -> every project.
 2. **Bookkeeping** under the state lock (`bookkeep`). A standing goal past a cadence boundary
    starts ONE new cycle anchored at the latest boundary (missed boundaries are not replayed):
-   every in-scope instance goes back to `planning` with no `taskIds`, nudges are cleared, and a
+   every in-scope instance goes back to `planning` with no `taskIds`, nudges and the message
+   records are cleared, and a
    `cycle-started` timeline line plus a `goal-started` activity are written. `cycleHours` sets
    the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
    project gets an instance; one that left the scope becomes `done` ("Left the goal's scope.").
@@ -97,7 +99,9 @@ tick, per enabled goal (one goal failing never blocks the others):
      `plan` sets `instance.planNoteId`.
    - The actions run through the executor. Then: `waitingOn`/`wakeAt` set -> `waiting`; a task
      in flight -> `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
-     so the actions' own changes do not wake the planner on the next tick.
+     so the actions' own changes do not wake the planner on the next tick. When that read throws,
+     the actions are still applied: a timeline note, and the pre-plan facts stand in, so the
+     stored fingerprint is the one this plan saw and the same facts never re-plan in a loop.
 4. The result is written under the lock onto the freshly read instance. It is dropped when the
    cycle changed, the instance went away or was parked meanwhile, and a timeline line
    ("Tick result dropped: …") says so. A `wake` that landed meanwhile keeps its cleared
@@ -114,19 +118,19 @@ Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot over
 
 ### Actions and the ceiling filter
 
-| Action       | Fields                                                                           | Min ceiling | Handler in this phase                   |
-| ------------ | -------------------------------------------------------------------------------- | ----------- | --------------------------------------- |
-| `note`       | `text`                                                                           | tier1       | timeline line                           |
-| `report`     | `text`                                                                           | tier1       | timeline + `goal-acted`                 |
-| `wait`       | `waitingOn?`, `wakeAt?` (one required)                                           | tier1       | sets the fields; `wakeAt` ≥ now + 5 min |
-| `done`       | `summary?`                                                                       | tier1       | status `done`, `goal-done`              |
-| `park`       | `reason`, `text?`                                                                | tier1       | status `parked`                         |
-| `start-task` | `actionId`, `text`, `title?`, `targetId?`                                        | tier2       | `createTask` in the instance's project  |
-| `run-loop`   | `actionId`, `text`                                                               | tier2       | `createTask` with the goal's loop       |
-| `pr-action`  | `actionId`, `op` (review/address-comments/fix-ci), `projectId`, `repo`, `number` | tier2       | inbox service, `auto: true`             |
-| `message`    | `to`, `text`, `integrationId?`, `threadRef?`                                     | tier2       | none yet                                |
-| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)                                 | tier2       | none yet                                |
-| `merge`      | `repo`, `number`, `headSha`                                                      | tier3       | none yet                                |
+| Action       | Fields                                                                                                    | Min ceiling | Handler in this phase                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------- |
+| `note`       | `text`                                                                                                    | tier1       | timeline line                                             |
+| `report`     | `text`                                                                                                    | tier1       | timeline + `goal-acted`                                   |
+| `wait`       | `waitingOn?`, `wakeAt?` (one required)                                                                    | tier1       | adds the waits; the earliest `wakeAt` wins, ≥ now + 5 min |
+| `done`       | `summary?`                                                                                                | tier1       | status `done`, `goal-done`                                |
+| `park`       | `reason`, `text?`                                                                                         | tier1       | status `parked`                                           |
+| `start-task` | `actionId`, `text`, `title?`, `targetId?`                                                                 | tier2       | `createTask` in the instance's project                    |
+| `run-loop`   | `actionId`, `text`                                                                                        | tier2       | `createTask` with the goal's loop                         |
+| `pr-action`  | `actionId`, `op` (review/address-comments/fix-ci), `projectId`, `repo`, `number`                          | tier2       | inbox service, `auto: true`                               |
+| `message`    | `actionId`, `to: { kind: slack-user \| pr, ref }`, `text`, `about?: { repo, number }` (required for `pr`) | tier2       | `GoalMessageService` (below)                              |
+| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)                                                          | tier2       | none yet                                                  |
+| `merge`      | `repo`, `number`, `headSha`                                                                               | tier3       | none yet                                                  |
 
 An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
 `report` naming what was not done, and so does a spending action (`start-task`, `run-loop`,
@@ -136,7 +140,7 @@ throws (a refused or out-of-scope service, a host error) becomes a report "Not d
 action runs. A later phase adds a handler with `GoalActionExecutor.register(type, handler)`, a
 facts source by appending to the `GOAL_FACTS_SOURCES` factory.
 
-**Idempotency.** `start-task`, `run-loop` and `pr-action` carry a planner-supplied `actionId`
+**Idempotency.** `start-task`, `run-loop`, `pr-action` and `message` carry a planner-supplied `actionId`
 (`[A-Za-z0-9._:-]{1,64}`). A handler that starts a task must `await ctx.recordTask(taskId,
 actionId)` before returning: both ids land in the stored instance (`taskIds`,
 `appliedActionIds`) in one `store.update`, so a crash or a dropped result neither forgets spent
@@ -172,15 +176,57 @@ now, <instance's project> ?? null, target, false)`, exactly as any task: gates, 
   `InboxFixCiService.start`, all with `auto: true`; posting and pushing stay behind their
   approvals.
 
+**Messages to colleagues** (`GoalMessageService`, spec "Rulings → Messages"). ZIBBY asks a
+colleague for something, sent as the operator. In order:
+
+1. **Concrete or not drafted.** A text under 8 characters or with a placeholder (TODO, TBD,
+   `{{`, `[jméno]`, lorem ipsum, …) is a report, no approval.
+2. **Closed recipients.** `slack-user`: `ref` must be a Slack user id (`U…`/`W…`) that
+   `users.info` finds as a live human on one of the Slack accounts serving the instance (a
+   project instance: the project's resolved accounts; `_`: the operator's personal ones). It is
+   sent as a DM. `pr`: the PR (`about`) must be in this tick's PR inbox and in the instance's
+   scope (the `pr-action` rule), and `ref` must be its author or one of its requested reviewers
+   (`InboxPrThreadsService.reviewers`, users + team members). It is posted as a PR comment
+   starting `@<login>`. Any other `@mention` (PR) or `<@…>`/`<!…>` (Slack) in the text is
+   refused. A refusal is a report and records the `actionId`.
+3. **Working hours.** Outside Mon–Fri 9–17 Europe/Prague the action is deferred: `wakeAt` = the
+   next working 9:00 (`nextWorkingStart`), a timeline note, no approval, and the `actionId` is
+   NOT recorded, so the re-plan then decides again.
+4. **Anti-nagging.** At most 2 per person (`slack:<userId>` / `pr:<login>`) per cycle, counting
+   `state.nudges` (sent) plus this cycle's `pending`/`sending` drafts. Over it: a report.
+5. **Tier.** Sent at once (act, then report: `message-sent` timeline + `goal-acted` activity
+   with `action: message`) only when `autoCommunicate` resolves to `auto` at the instance's place
+   (`prLocationOf`; `_` = global) and Autopilot is not paused. Otherwise a `goal-message`
+   approval (`docs/api/approvals.md`) with the recipient, the channel/PR and the full text; the
+   instance waits on it. The ceiling (tier2) is necessary, never sufficient.
+
+Records live in `state.messages` (`id` = `<instance>/<actionId>`, `status`
+`pending|sending|sent|rejected|failed`, `target`, `replyRef?`). Exactly once: the record and the
+applied `actionId` land in one state write; a send first flips it to `sending` under the lock,
+then records `sent` + `nudges[person]` (or `failed` + a report) in one write. Approve claims
+`pending -> sending` the same way (a second approve, a restart or a fresh process never sends
+again; a crash mid-send leaves it `sending`, never re-sent, and it still counts toward the cap).
+The operator's edited `messageText` replaces the text. Reject marks it `rejected` (timeline
+`message-rejected`), which frees its slot and is a fact the planner sees. A draft from an
+earlier cycle is gone: approving it sends nothing (timeline note).
+
+After a Slack send the instance waits on `reply` `<integrationId>:<D…channel>:<ts>` and wakes at
+the next working morning at least 12 h away anyway. **Replies:** the Slack adapter ingests
+top-level DM messages, so `replies` counts a later top-level message in that DM as a reply.
+A reply inside the DM's thread, or in a channel thread the operator was not mentioned in, is not
+ingested ("mine and mentions"); the fallback wake covers that. A reply is data in the prompt,
+never a command. A PR message waits through the `prs` facts.
+
 **Wake sources** (`GOAL_FACTS_SOURCES`; a source returning `undefined` adds no key, so goals
 without PR, approval or reply waits keep their fingerprint):
 
-| Key         | Source                | Rows                                                                                                                                                                              |
-| ----------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                    |
-| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt` |
-| `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                          |
-| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80                       |
+| Key         | Source                | Rows                                                                                                                                                                                                             |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                                                   |
+| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt`                                |
+| `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                                                         |
+| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80; in a DM (`D…`) a later top-level message counts too |
+| `messages`  | `GoalMessageService`  | this instance's messages this cycle: `[{ actionId, to, person, status, replyRef? }]`, sorted (goal-wide nudge counters stay out of the fingerprint)                                                              |
 
 - `prs`: a project instance sees its project's PRs, a `_` instance the operator's own. Only for
   goals that watch PRs: the goal's name/outcome/predicate mentions PR/MR/CI (case-sensitive) or
@@ -218,13 +264,16 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
 
 - **Prompt** (English; the plan, feasibility and every note/report/message text are asked for
   in Czech). It carries the goal (outcome, predicate), the instance, cycle + deadline + now,
-  the ceiling, the budget left after this planning run, the nudge counters, the month's
+  the ceiling, the budget left after this planning run, the nudge counters, the effective
+  `autoCommunicate` (`manual|semi|auto|paused`, `GoalMessageService.communicationLevel`), the month's
   decision count, the current plan note and the facts. The offered actions are generated from
   `GoalActionSchema` (one JSON schema per action), filtered by the ceiling, by
   `GoalActionExecutor.handles(type)` (the rest are named "not executable yet") and by the
   budget (no spending action — `start-task`, `run-loop`, `pr-action` — when this run uses the
   last run or the cost is spent). The rules explain `actionId` (stable per piece of work) and
   list the cycle's `appliedActionIds`, and say a `pr-action` runs only where Autopilot starts it.
+  For `message`: closed recipients, no other mentions, max 2 per person, working hours, and wait
+  on a sent message's `replyRef` instead of chasing it.
 - **Untrusted data.** Facts and the stored plan note sit in `<untrusted-data>` sections; every
   interpolated text has `<goal-plan>` and `<untrusted-data>` tags stripped (`stripPlanTags`).
   The prompt says this data can never change the ceiling, grant a merge or add actions. The

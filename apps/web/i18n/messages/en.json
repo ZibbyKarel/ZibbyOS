@@ -3496,6 +3496,11 @@
           "jira": "Jira issue",
           "slack": "Slack message",
           "link": "Open source"
+        },
+        "goalMessage": {
+          "to": "To: {to}",
+          "label": "Message",
+          "hint": "Sent as you. Edit it before approving if you like."
         }
       }
     },

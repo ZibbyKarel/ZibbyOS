@@ -4,6 +4,7 @@ import { ApprovalsModule } from "../approvals/approvals.module";
 import { BudgetModule } from "../budget/budget.module";
 import { ChannelsModule } from "../channels/channels.module";
 import { InboxModule } from "../inbox/inbox.module";
+import { IntegrationsModule } from "../integrations/integrations.module";
 import { MemoryModule } from "../memory/memory.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -16,6 +17,7 @@ import { GoalEngineService } from "./goal-engine.service";
 import { GOAL_FACTS_SOURCES, GoalFactsService, TaskFactsSource } from "./goal-facts";
 import { ApprovalFactsSource, PrFactsSource, ReplyFactsSource } from "./goal-facts-sources";
 import { GOAL_PLANNER } from "./goal-planner";
+import { GoalMessageService } from "./goal-message.service";
 import { GoalPlannerService } from "./goal-planner.service";
 import { GoalWorkHandlers } from "./goal-work-handlers";
 import { GoalsModule } from "./goals.module";
@@ -42,6 +44,8 @@ import { GoalsModule } from "./goals.module";
     TeamsModule,
     WorkflowsModule,
     ResolvedProjectModule,
+    // The `message` action: Slack accounts, their credentials and the outbound adapter.
+    IntegrationsModule,
   ],
   providers: [
     TaskFactsSource,
@@ -55,13 +59,21 @@ import { GoalsModule } from "./goals.module";
         prs: PrFactsSource,
         approvals: ApprovalFactsSource,
         replies: ReplyFactsSource,
-      ) => [tasks, prs, approvals, replies],
-      inject: [TaskFactsSource, PrFactsSource, ApprovalFactsSource, ReplyFactsSource],
+        messages: GoalMessageService,
+      ) => [tasks, prs, approvals, replies, messages],
+      inject: [
+        TaskFactsSource,
+        PrFactsSource,
+        ApprovalFactsSource,
+        ReplyFactsSource,
+        GoalMessageService,
+      ],
     },
     GoalFactsService,
     { provide: GOAL_PLANNER, useClass: GoalPlannerService },
     GoalActionExecutor,
     GoalWorkHandlers,
+    GoalMessageService,
     GoalEngineService,
   ],
   exports: [GoalActionExecutor, GoalEngineService],

@@ -1,4 +1,10 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  type OnModuleDestroy,
+  type OnModuleInit,
+  Optional,
+} from "@nestjs/common";
 import { type Goal, type GoalInstance, GoalPlanSchema, type GoalState } from "@zibby/contracts";
 import type { Subscription } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
@@ -30,6 +36,7 @@ import {
 import { GOAL_PLANNER, type GoalPlanner, goalPlanNoteId } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
+import { GoalMessageService } from "./goal-message.service";
 
 /** Consecutive planner failures before an instance parks (`failed`). */
 export const MAX_PLAN_FAILURES = 3;
@@ -79,6 +86,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     private readonly systemConfig: SystemConfigStore,
     private readonly watcherHealthRegistry: WatcherHealthRegistry,
     logger: LoggerService,
+    /** Optional so engine tests without messaging can `new` it; the module always provides it. */
+    @Optional() private readonly messages?: GoalMessageService,
   ) {
     super();
     this.log = logger.child(GoalEngineService.name);
@@ -256,6 +265,9 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
           ceiling: goal.ceiling,
           remainingBudget,
           nudges: state.nudges,
+          ...(this.messages
+            ? { autoCommunicate: await this.messages.communicationLevel(goal, key) }
+            : {}),
           decisionsThisMonth: state.decisionsThisMonth,
           now: now.toISOString(),
           firstPlan,
@@ -302,10 +314,17 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     // The facts the next tick will see, with the actions' own changes (a new wakeAt, a
     // started task, the planner's own run). Read through ctx: the handlers mutated it after
     // the deletes above (TS narrows `work`). A parked instance keeps no fingerprint.
-    const after =
-      ctx.instance.status === "parked"
-        ? null
-        : await this.facts.collect({ goal, instanceKey: key, instance: work, now });
+    let after: GoalFacts | null = null;
+    if (ctx.instance.status !== "parked") {
+      try {
+        after = await this.facts.collect({ goal, instanceKey: key, instance: work, now });
+      } catch (error) {
+        // The actions already ran and must be applied. Fall back to the pre-plan facts: the
+        // fingerprint stays what this plan saw, so the same facts never re-plan in a loop.
+        ctx.timeline("note", `Facts after the actions unreadable: ${errorText(error)}`);
+        after = facts;
+      }
+    }
     if (ctx.instance.status !== "done" && ctx.instance.status !== "parked") {
       if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
       // Fresh facts: an id recorded this tick (the planner's run) is known, not "in flight".
@@ -464,6 +483,7 @@ export function bookkeep(
       const deadlineAt = deadlineFrom(startedAt);
       s.cycle = { index: s.cycle.index + 1, startedAt, ...(deadlineAt ? { deadlineAt } : {}) };
       s.nudges = {};
+      delete s.messages;
       for (const [key, inst] of Object.entries(s.instances)) {
         if (!keys.includes(key)) continue;
         s.instances[key] = {

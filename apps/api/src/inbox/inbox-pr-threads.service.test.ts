@@ -216,6 +216,28 @@ describe("InboxPrThreadsService", () => {
     });
   });
 
+  describe("comment (the goal engine's PR message)", () => {
+    it("posts an issue comment on the project's own repo", async () => {
+      fetchImpl.mockResolvedValueOnce(new Response(JSON.stringify({ id: 5 }), { status: 201 }));
+      await service.comment("acme", "acme/app", 7, "@bob ping");
+      const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://api.github.com/repos/acme/app/issues/7/comments");
+      expect(JSON.parse(init.body as string)).toEqual({ body: "@bob ping" });
+      expect(dropPrsCache).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses another repo and surfaces GitHub's refusal", async () => {
+      await expect(service.comment("acme", "evil/app", 7, "x")).rejects.toThrow(
+        /not the repository/,
+      );
+      expect(fetchImpl).not.toHaveBeenCalled();
+      fetchImpl.mockResolvedValueOnce(new Response("{}", { status: 403 }));
+      await expect(service.comment("acme", "acme/app", 7, "x")).rejects.toBeInstanceOf(
+        GithubThreadsError,
+      );
+    });
+  });
+
   describe("reviewers", () => {
     const prNode = {
       author: { login: "me" },

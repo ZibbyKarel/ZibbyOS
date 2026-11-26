@@ -66,6 +66,15 @@ export class AdapterRegistry implements ConnectionTester {
     }
   }
 
+  /**
+   * The Slack adapter for a proactive send (the goal engine's `message`). Refused in the
+   * fake-channel mode: an offline harness must never reach real Slack.
+   */
+  slackOutbound(): Pick<SlackChannelAdapter, "userInfo" | "postMessage"> {
+    if (this.fakeMode()) throw new Error("fake channel mode: no outbound Slack");
+    return this.slack;
+  }
+
   /** ConnectionTester: probe the integration through its resolved adapter. */
   test(integration: Integration, creds: CredentialsInput): Promise<TestResult> {
     return this.resolve(integration.kind).test(integration, creds);

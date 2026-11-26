@@ -42,6 +42,43 @@ export const GoalInstanceSchema = z.object({
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 
+/**
+ * One message to a colleague this cycle (the `message` action). `pending` = a draft behind its
+ * `goal-message` approval; `sending` = the send started (never retried: a crash leaves it here,
+ * counted toward the cap, so a colleague is never messaged twice); `sent` carries where it went.
+ */
+export const GoalMessageSchema = z.object({
+  /** `<instance>/<actionId>`; the approval's runId is `<goalId>/<id>`. */
+  id: z.string().min(1),
+  instance: z.string(),
+  actionId: z.string(),
+  /** The resolved person key (`slack:<userId>` / `pr:<login>`): the anti-nagging counter key. */
+  person: z.string(),
+  /** Who and where, for the preview and the facts (`Jan Novák · Slack DM`, `@jan · acme/web#4`). */
+  to: z.string(),
+  status: z.enum(["pending", "sending", "sent", "rejected", "failed"]),
+  text: z.string(),
+  /** Resolved target: a Slack DM (integration + user id) or a PR (project + repo + number + login). */
+  target: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("slack"), integrationId: z.string(), userId: z.string() }),
+    z.object({
+      kind: z.literal("pr"),
+      projectId: z.string(),
+      repo: z.string(),
+      number: z.number().int().positive(),
+      login: z.string(),
+    }),
+  ]),
+  approvalId: z.string().optional(),
+  createdAt: IsoDateTimeSchema,
+  sentAt: IsoDateTimeSchema.optional(),
+  /** A sent Slack message's reply ref `<integrationId>:<channel>:<ts>` (the `replies` wait). */
+  replyRef: z.string().optional(),
+  /** The failed send's error (capped). */
+  error: z.string().optional(),
+});
+export type GoalMessage = z.infer<typeof GoalMessageSchema>;
+
 export const GoalStateSchema = z.object({
   goalId: z.string(),
   cycle: z.object({
@@ -56,6 +93,8 @@ export const GoalStateSchema = z.object({
     z.string(),
     z.object({ count: z.number().int().min(0), lastAt: IsoDateTimeSchema }),
   ),
+  /** This cycle's messages to colleagues (drafts, sent, rejected); cleared with `nudges`. */
+  messages: z.array(GoalMessageSchema).optional(),
 });
 export type GoalState = z.infer<typeof GoalStateSchema>;
 

@@ -72,7 +72,9 @@ resolves to `manual` too (`isGlobalManual`), project ones included, so nothing i
 `isOn()` is false; the exceptions stay stored and apply again once the global row is raised.
 Configured automations don't go through this tree and keep running. The pill is greyed (muted
 tone, sleeping orb) in `Ručně` as while paused. The gate
-class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`): a
+class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`;
+`levelsAt(at)` returns the stored levels at a place without the pause, e.g. the goal engine's
+`message` reads `autoCommunicate` there and checks `isPaused()` itself): a
 `channel` reply resolves at the item's project (with its company), or the integration's company.
 A personal account's item that is only text-matched to a project it does not serve stays at
 global: inbound text borrows neither the company's nor the project's cells.

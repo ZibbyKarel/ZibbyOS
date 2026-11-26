@@ -12,6 +12,9 @@ const WaitingOnSchema = GoalInstanceSchema.shape.waitingOn.unwrap();
  */
 export const GoalActionIdSchema = z.string().regex(/^[A-Za-z0-9._:-]{1,64}$/);
 
+/** A goal message's text cap (also the operator's edited text on approve). */
+export const GOAL_MESSAGE_TEXT_MAX = 4000;
+
 /**
  * The closed action set a goal planner may return (spec "Closed action set"). The
  * engine applies each one filtered by the goal's ceiling; an action the ceiling
@@ -67,17 +70,29 @@ export const GoalActionSchema = z.discriminatedUnion("type", [
     repo: z.string().min(1),
     number: z.number().int().positive(),
   }),
-  /** Draft a message to a colleague (approval `goal-message`). */
-  z.object({
-    type: z.literal("message"),
-    /** Person key (the anti-nagging counter key). */
-    to: z.string().min(1),
-    text: z.string().min(1),
-    /** The integration to send through. */
-    integrationId: z.string().optional(),
-    /** Reply in this thread, when set. */
-    threadRef: z.string().optional(),
-  }),
+  /**
+   * A message to a colleague, sent as the operator: behind approval `goal-message` unless the
+   * place's `autoCommunicate` is `auto`. The engine resolves the recipient itself (closed set):
+   * `slack-user` = a Slack user id (`U…`) of a workspace the operator's account is in, sent as
+   * a DM; `pr` = a GitHub login / GitLab username that is the PR's author or reviewer, posted
+   * as a PR comment mentioning them (`about` names the PR, required). The planner never picks
+   * a channel.
+   */
+  z
+    .object({
+      type: z.literal("message"),
+      actionId: GoalActionIdSchema,
+      to: z.object({
+        kind: z.enum(["slack-user", "pr"]),
+        /** The person: Slack user id, or the login to mention on the PR. */
+        ref: z.string().min(1).max(100),
+      }),
+      text: z.string().min(1).max(GOAL_MESSAGE_TEXT_MAX),
+      about: z.object({ repo: z.string().min(1), number: z.number().int().positive() }).optional(),
+    })
+    .refine((a) => a.to.kind !== "pr" || a.about !== undefined, {
+      message: "a pr message needs about (the PR)",
+    }),
   /** Directional goal: ranked candidates, handled per `autoDecideGoals`. */
   z.object({
     type: z.literal("propose"),
