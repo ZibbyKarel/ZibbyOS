@@ -74,8 +74,9 @@ the briefing and the events channel read the stores without the engine's depende
 Autopilot is paused the tick does nothing at all (no bookkeeping, no plan, no park, no failure
 count); the queued dirty refs stay and the next tick after resume picks them up. A plan that
 finishes after the pause starts no spending action (`start-task`, `run-loop`, `pr-action`: a
-report "Not done: <type> — Autopilot is paused."). Paused goals can miss a deadline silently; the
-timeline shows the wait. Each tick, per enabled goal (one goal failing never blocks the others):
+report "Not done: <type> — Autopilot is paused."). Paused goals can miss a deadline silently: nothing
+is written while paused, a one-off goal parks on the first tick after resume, and a standing goal
+whose cycle ended is rolled to the current cycle without a deadline park. Each tick, per enabled goal (one goal failing never blocks the others):
 
 1. **Instances** from the scope: none -> `_`; `projects` -> those ids; `company` -> that
    company's projects; `all` -> every project.

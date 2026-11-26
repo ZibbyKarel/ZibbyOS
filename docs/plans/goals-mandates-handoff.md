@@ -396,6 +396,26 @@ Deferred minors and notes from the ledger, grouped by area.
 - The api full run had 2 load-dependent failures in `src/runner/runner-core.test.ts` (not in the
   baseline, they pass alone 48/48, untouched code) — recheck in final verification.
 
+### Residuals accepted at the final re-review
+
+- **Parked goals do not reach Slack while Autopilot is "off".** `operator-notifier.service.ts:143-147`
+  skips every kind except `goal-merged` when `isOn()` is false, and goal decisions no longer count
+  toward `isOn()`. On an install whose global row is all-manual, `goal-parked` / `goal-update` are
+  shown only in the UI (dashboard widget, goals page, briefing). Smallest change if wanted: bypass the
+  `isOn()` clause for `goal-parked`.
+- **The Autopilot mode pill does not follow the master-switch split** (`apps/web/features/autopilot/autonomy.ts:39`,
+  `ZibbyModeControl.tsx:53`): a goals-only global cell shows "mixed", the pill still writes
+  `autoDecideGoals` with the rest, and "Ručně" does not stop project goals cells.
+- **"Žádné zapomenuté PR" cannot remind reviewers.** The planner facts carry the PR author only;
+  reviewer logins need a design decision (host call per PR per tick vs a fetch cached on `updatedAt`).
+- **Pause can skip a standing goal's missed cycle silently**; a corrupt goal state file stalls that
+  goal with a warn log per tick while the UI shows an empty state.
+- **Operator-channel migration marker** is written only when a settings file exists at read time; on a
+  fresh install a list saved without goal kinds gets them added back once after a restart
+  (`operator-channel.store.ts:55,84`).
+- Full api run under load showed failures in `departments.e2e` (timeout) and `projects.e2e` (404);
+  both pass alone and the re-review found nothing in the fix wave that could cause them.
+
 ## Test status vs baseline
 
 Baseline (`.superpowers/baseline-test.log`, `pnpm test` on main, 2026-11-26): 2 failed /
