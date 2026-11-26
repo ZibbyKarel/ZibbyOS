@@ -80,6 +80,9 @@ system-config section — link there rather than duplicating the table here.
      whose own `healthCheck.intervalSec` has elapsed since its last check. Its
      `/api/health` watcher id is `project-health`. See
      [project-health.md](./project-health.md).
+   - `goalEngineTickMs` (goals-mandates) is `GoalEngineService`'s heartbeat — `60_000` by
+     default, `0` disables, re-arms live, primary instance only. Its `/api/health` watcher
+     id is `goal-engine`. See [goals.md](./goals.md).
 4. `GET /system/config` / `PUT /system/config` are the only two endpoints;
    `putConfig` replaces the entire document (not a partial patch).
 5. **`operatorName`/`companyName`** (ZB-01, O-21) are additive `.optional()`

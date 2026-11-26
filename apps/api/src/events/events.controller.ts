@@ -6,6 +6,7 @@ import { AgentRunnerService } from "../agents/agent-runner.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { AutomationFiresStore } from "../automations/automation-fires.store";
 import { ChannelEventsService } from "../channels/channel-events.service";
+import { GoalStateStore } from "../goals/goal-state.store";
 import { LoopRunnerService } from "../loops/loop-runner.service";
 import { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { fromRunStatus, heartbeats } from "../shared/sse/sse";
@@ -29,6 +30,7 @@ export class EventsController {
     private readonly activity: ActivityEventsService,
     private readonly approvals: ApprovalsService,
     private readonly fires: AutomationFiresStore,
+    private readonly goalStates: GoalStateStore,
   ) {}
 
   @Sse("api/events")
@@ -80,6 +82,13 @@ export class EventsController {
       new Observable<MessageEvent>((subscriber) =>
         this.fires.onChange((e) =>
           subscriber.next({ data: JSON.stringify({ scope: "automation-fires", ...e }) }),
+        ),
+      ),
+      // goals-mandates — a goal's state or timeline changed (engine tick, wake, resume).
+      // The web refetches the `["goals"]` query prefix off this scope.
+      new Observable<MessageEvent>((subscriber) =>
+        this.goalStates.onChange((goalId) =>
+          subscriber.next({ data: JSON.stringify({ scope: "goals", goalId }) }),
         ),
       ),
       heartbeats(),

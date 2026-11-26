@@ -47,6 +47,6 @@ export function resolveBudgetConfigFile(): string {
     BudgetConfigStore,
     BudgetService,
   ],
-  exports: [BudgetService],
+  exports: [BudgetService, BudgetLedgerStore],
 })
 export class BudgetModule {}

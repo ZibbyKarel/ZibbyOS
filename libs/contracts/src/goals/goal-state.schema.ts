@@ -31,6 +31,8 @@ export const GoalInstanceSchema = z.object({
   fingerprint: z.string().optional(),
   /** One line for the roll-up. */
   summary: z.string().optional(),
+  /** Consecutive planner failures; the engine parks (`failed`) at 3. */
+  planFailures: z.number().int().min(0).optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 

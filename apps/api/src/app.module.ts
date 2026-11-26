@@ -18,6 +18,7 @@ import { CommandsModule } from "./commands/commands.module";
 import { CompaniesModule } from "./companies/companies.module";
 import { EventsModule } from "./events/events.module";
 import { GateRulesModule } from "./gate-rules/gate-rules.module";
+import { GoalEngineModule } from "./goals/goal-engine.module";
 import { GoalsModule } from "./goals/goals.module";
 import { LoopsModule } from "./loops/loops.module";
 import { HealthModule } from "./health/health.module";
@@ -99,6 +100,7 @@ import { InstanceLockReleaser } from "./shared/instance-role";
     DepartmentsStoreModule,
     WorkflowsModule,
     GoalsModule,
+    GoalEngineModule,
     LoopsModule,
     ApprovalsModule,
     ArtifactsModule,

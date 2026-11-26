@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Inject, Injectable } from "@nestjs/common";
@@ -31,6 +32,7 @@ export interface TimelineQuery {
 @Injectable()
 export class GoalStateStore {
   private readonly root: string;
+  private readonly events = new EventEmitter().setMaxListeners(0);
 
   constructor(@Inject(GOALS_DIR) goalsDir: string) {
     this.root = path.join(path.resolve(goalsDir), "state");
@@ -50,14 +52,40 @@ export class GoalStateStore {
     return parsed?.success ? parsed.data : emptyGoalState(goalId, startedAt);
   }
 
+  /** Fires with the goal id after every state or timeline write (the SSE `goals` scope). */
+  onChange(listener: (goalId: string) => void): () => void {
+    this.events.on("change", listener);
+    return () => this.events.off("change", listener);
+  }
+
   write(state: GoalState): Promise<void> {
     const dir = this.dirOf(state.goalId);
     return withPathLock(dir, () => this.writeUnlocked(dir, state));
   }
 
+  /**
+   * Read, mutate and write under the path lock, so a concurrent wake/resume is never lost.
+   * An unchanged state is not rewritten (no change event), so an idle tick stays silent.
+   */
+  update(
+    goalId: string,
+    startedAt: string,
+    fn: (state: GoalState) => void | Promise<void>,
+  ): Promise<GoalState> {
+    const dir = this.dirOf(goalId);
+    return withPathLock(dir, async () => {
+      const state = await this.read(goalId, startedAt);
+      const before = JSON.stringify(state);
+      await fn(state);
+      if (JSON.stringify(state) !== before) await this.writeUnlocked(dir, state);
+      return state;
+    });
+  }
+
   private async writeUnlocked(dir: string, state: GoalState): Promise<void> {
     await ensureDir(dir);
     await writeFileAtomic(path.join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
+    this.events.emit("change", state.goalId);
   }
 
   appendTimeline(goalId: string, event: GoalTimelineEvent): Promise<void> {
@@ -68,6 +96,7 @@ export class GoalStateStore {
   private async appendUnlocked(dir: string, event: GoalTimelineEvent): Promise<void> {
     await ensureDir(dir);
     await fs.appendFile(path.join(dir, "timeline.jsonl"), `${JSON.stringify(event)}\n`);
+    this.events.emit("change", path.basename(dir));
   }
 
   /** Newest last, capped at the last {@link TIMELINE_CAP} matches. */

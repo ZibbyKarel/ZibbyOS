@@ -563,3 +563,48 @@ describe("personal agenda + reminders (NS2 F8c — strictly additive)", () => {
     );
   });
 });
+
+describe("assembleBriefing — goals", () => {
+  it("parked goal instances are needs-you; acting/waiting goals are watched", () => {
+    const goal = {
+      id: "g",
+      name: "PRs ready",
+      outcome: "x",
+      scope: { kind: "all" as const },
+      ceiling: "tier2" as const,
+      enabled: true,
+      createdAt: SINCE,
+      updatedAt: SINCE,
+    };
+    const state = {
+      goalId: "g",
+      cycle: { index: 1, startedAt: SINCE },
+      instances: {
+        alpha: { status: "parked" as const, parkedReason: "deadline" as const, taskIds: [] },
+        beta: { status: "acting" as const, taskIds: ["t1"] },
+        gamma: { status: "waiting" as const, taskIds: [] },
+      },
+      decisionsThisMonth: { month: "2026-06", count: 0 },
+      nudges: {},
+    };
+    const b = assembleBriefing({
+      now: NOW,
+      since: SINCE,
+      approvals: [],
+      parkedRuns: [],
+      channelItems: [],
+      activity: [],
+      goals: [{ goal, state }],
+    });
+    expect(b.needsYou).toEqual([
+      expect.objectContaining({
+        kind: "goal",
+        id: "g:alpha",
+        projectId: "alpha",
+        refs: { goalId: "g", itemId: "alpha", projectId: "alpha" },
+      }),
+    ]);
+    expect(b.watching).toEqual([{ goalId: "g", summary: 'goal "PRs ready": 1 acting, 1 waiting' }]);
+    expect(b.headline).toBe("1 thing needs you — 1 parked goal.");
+  });
+});

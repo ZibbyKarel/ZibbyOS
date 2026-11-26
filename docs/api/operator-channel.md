@@ -124,9 +124,14 @@ never sent.
 | `ci-red`           | 2    | `monitor-alert`                                                                                                             |
 | `briefing`         | 2    | `briefing-generated` (off by default)                                                                                       |
 | `autopilot-action` | 2    | `autopilot-action` (a gate or approval autopilot let through; the on/off switch is not pushed). See `docs/api/autopilot.md` |
+| `goal-parked`      | 3    | `goal-parked` (deadline, budget, failed planner, or a plan's `park`)                                                        |
+| `goal-update`      | 2    | `goal-done`, and `goal-acted` with `action: report`. See `docs/api/goals.md`                                                |
 
 `autopilot-action` is on by default for new settings. Settings saved before Phase 4 keep
-their explicit `notify.events` list, so add `autopilot-action` there to receive it.
+their explicit `notify.events` list, so add `autopilot-action` there to receive it. The same
+holds for `goal-parked` and `goal-update`. Both link to `/work/goals/<goalId>`; the dedupe
+target is `<goalId>:<instanceKey>` and the state is the activity entry id, so each goal event
+is sent once.
 
 Not mapped on purpose: failed or dead-lettered runs (not in the Phase 1 list) and
 `task-held` (its approval already raises `budget-cap`).

@@ -37,6 +37,27 @@ describe("GoalStateStore", () => {
     expect((await store.read("g", T0)).instances).toEqual({});
   });
 
+  it("update mutates under the lock without losing a concurrent wake, and fires onChange", async () => {
+    await seed();
+    const changed: string[] = [];
+    store.onChange((id) => changed.push(id));
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const slow = store.update("g", T0, async (s) => {
+      await gate;
+      const a = s.instances.a;
+      if (a) a.summary = "busy";
+    });
+    const wake = store.wake("g", T0);
+    release();
+    await Promise.all([slow, wake]);
+    const after = await store.read("g", T0);
+    expect(after.instances.a?.summary).toBe("busy");
+    expect(after.instances.a?.fingerprint).toBeUndefined();
+    expect(changed.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(changed)).toEqual(new Set(["g"]));
+  });
+
   it("wake clears fingerprints and logs", async () => {
     await seed();
     const s = await store.wake("g", T0);

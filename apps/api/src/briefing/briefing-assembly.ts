@@ -9,10 +9,18 @@ import type {
   BriefingWatchItem,
   ChannelItem,
   CiStatus,
+  Goal,
+  GoalState,
   LoopRun,
   ScheduledTask,
   WorkflowRun,
 } from "@zibby/contracts";
+
+/** An enabled goal with its state (goals-mandates). */
+export interface GoalWithState {
+  goal: Goal;
+  state: GoalState;
+}
 
 /** The raw inputs the briefing is assembled from — all gathered before this runs. */
 export interface BriefingInput {
@@ -65,6 +73,8 @@ export interface BriefingInput {
    * note (gathered by the service — `buildPersonalAgenda` derives the agenda
    * lines here from `channelItems`, so only reminders need to be gathered). */
   reminders?: string[];
+  /** goals-mandates — enabled goals: parked instances are needs-you, active ones watched. */
+  goals?: GoalWithState[];
 }
 
 /** Activity kinds that count as "ZIBBY did this for you". */
@@ -116,9 +126,15 @@ export function assembleBriefing(input: BriefingInput): Briefing {
     loopRuns,
     input.deadLetteredTasks ?? [],
     input.ciStatuses ?? [],
+    input.goals ?? [],
   );
   const didForYou = buildDidForYou(input.activity);
-  const watching = buildWatching(input.channelItems, input.pausedLimitRuns ?? [], loopRuns);
+  const watching = buildWatching(
+    input.channelItems,
+    input.pausedLimitRuns ?? [],
+    loopRuns,
+    input.goals ?? [],
+  );
   const engagements = buildEngagements(
     input.tasks ?? [],
     didForYou,
@@ -219,6 +235,7 @@ function buildNeedsYou(
   loopRuns: LoopRun[],
   deadLetteredTasks: ScheduledTask[],
   ciStatuses: CiStatus[],
+  goals: GoalWithState[],
 ): BriefingNeedsYouItem[] {
   const fromApprovals: BriefingNeedsYouItem[] = approvals.map((a) => ({
     kind: "approval",
@@ -276,12 +293,29 @@ function buildNeedsYou(
       ...(s.projectId ? { projectId: s.projectId } : {}),
     }));
   // Newest first so the most recent decision tops the list.
+  // goals-mandates: every parked goal instance waits for the operator (resume or edit).
+  const fromGoals: BriefingNeedsYouItem[] = goals.flatMap(({ goal, state }) =>
+    Object.entries(state.instances)
+      .filter(([, inst]) => inst.status === "parked")
+      .map(([key, inst]) => {
+        const projectId = key === "_" ? undefined : key;
+        return {
+          kind: "goal" as const,
+          id: `${goal.id}:${key}`,
+          summary: `goal "${goal.name}"${projectId ? ` (${projectId})` : ""} parked${inst.parkedReason ? ` (${inst.parkedReason})` : ""}`,
+          at: state.cycle.startedAt,
+          refs: { goalId: goal.id, itemId: key, ...(projectId ? { projectId } : {}) },
+          ...(projectId ? { projectId } : {}),
+        };
+      }),
+  );
   return [
     ...fromApprovals,
     ...fromParked,
     ...fromParkedLoops,
     ...fromDeadLetter,
     ...fromRedCi,
+    ...fromGoals,
   ].sort((a, b) => b.at.localeCompare(a.at));
 }
 
@@ -302,6 +336,7 @@ function buildWatching(
   channelItems: ChannelItem[],
   pausedLimitRuns: WorkflowRun[],
   loopRuns: LoopRun[],
+  goals: GoalWithState[],
 ): BriefingWatchItem[] {
   const byIntegration = new Map<string, { newItems: number; lastReceivedAt?: string }>();
   for (const item of channelItems) {
@@ -340,7 +375,17 @@ function buildWatching(
       resumeAt: g.resumeAt ?? null,
     }))
     .sort((a, b) => (a.resumeAt ?? Infinity) - (b.resumeAt ?? Infinity));
-  return [...channels, ...paused, ...loops];
+  // goals-mandates: a goal with acting/waiting instances is being worked on, not a decision.
+  const activeGoals: BriefingWatchItem[] = goals.flatMap(({ goal, state }) => {
+    const instances = Object.values(state.instances);
+    const acting = instances.filter((i) => i.status === "acting").length;
+    const waiting = instances.filter((i) => i.status === "waiting").length;
+    if (acting + waiting === 0) return [];
+    return [
+      { goalId: goal.id, summary: `goal "${goal.name}": ${acting} acting, ${waiting} waiting` },
+    ];
+  });
+  return [...channels, ...paused, ...loops, ...activeGoals];
 }
 
 function isFinished(e: ActivityEntry): boolean {
@@ -363,10 +408,12 @@ export function deterministicHeadline(needsYou: BriefingNeedsYouItem[]): string 
   const approvals = needsYou.filter((n) => n.kind === "approval").length;
   const parked = needsYou.filter((n) => n.kind === "parked").length;
   const redCi = needsYou.filter((n) => n.kind === "ci-red").length;
+  const goals = needsYou.filter((n) => n.kind === "goal").length;
   const parts: string[] = [];
   if (approvals > 0) parts.push(`${approvals} ${plural(approvals, "approval", "approvals")}`);
   if (parked > 0) parts.push(`${parked} parked ${plural(parked, "run", "runs")}`);
   if (redCi > 0) parts.push(`${redCi} red CI`);
+  if (goals > 0) parts.push(`${goals} parked ${plural(goals, "goal", "goals")}`);
   const n = needsYou.length;
   const verb = n === 1 ? "needs" : "need";
   return `${n} ${plural(n, "thing", "things")} ${verb} you — ${parts.join(", ")}.`;

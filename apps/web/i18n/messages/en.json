@@ -1564,7 +1564,9 @@
         "budget-cap": "Budget cap reached",
         "ci-red": "CI red (being fixed)",
         "briefing": "Daily briefing",
-        "autopilot-action": "Autopilot actions"
+        "autopilot-action": "Autopilot actions",
+        "goal-parked": "Goal parked",
+        "goal-update": "Goal updates (done, reports)"
       }
     },
     "selfKnowledge": {
@@ -1635,7 +1637,8 @@
         "integrations": "Integrations",
         "briefing": "Briefing",
         "errors": "Errors",
-        "loops": "Loops"
+        "loops": "Loops",
+        "goals": "Goals"
       },
       "was": "was Activity",
       "summary": "What shows up in the live log. {visible} visible · {grouped} grouped · {hidden} hidden",

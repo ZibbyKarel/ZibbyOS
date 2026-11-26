@@ -193,6 +193,26 @@ describe("BudgetLedgerStore — cost lines (Phase 12)", () => {
     expect(await store.sumCostDaily("alpha", now)).toEqual({ sum: 1.75, count: 2 });
   });
 
+  it("sumCostForTasks sums only the given tasks' cost lines across the days since", async () => {
+    const day1 = new Date("2026-06-11T08:00:00.000Z");
+    const day2 = new Date("2026-06-12T08:00:00.000Z");
+    const line = (taskId: string, costUsd: number) => ({
+      at: day1.toISOString(),
+      projectId: "alpha",
+      taskId,
+      runRef: `r-${taskId}`,
+      kind: "agent",
+      costUsd,
+    });
+    await store.recordCost(line("t1", 0.5), day1);
+    await store.recordCost(line("t2", 1), day2);
+    await store.recordCost(line("other", 9), day2);
+    await store.record({ at: day2.toISOString(), taskId: "t1", runRef: "r", kind: "agent" }, day2);
+    expect(await store.sumCostForTasks(["t1", "t2"], day1, day2)).toBe(1.5);
+    expect(await store.sumCostForTasks(["t1", "t2"], day2, day2)).toBe(1);
+    expect(await store.sumCostForTasks([], day1, day2)).toBe(0);
+  });
+
   it("sums to zero with a zero denominator when no cost line exists yet", async () => {
     const now = new Date("2026-06-12T08:00:00.000Z");
     await store.record(

@@ -7,6 +7,7 @@ import { type ActivityEntry, INBOX_REFRESH_ACTIVITY_KINDS } from "@zibby/contrac
 import { getProposalsQueryKey } from "../proposals/queries/useProposalsQuery";
 import { getApprovalsQueryKey } from "../approvals/queries/keys";
 import { getAutomationsQueryKey } from "../automations/queries";
+import { getGoalsQueryKey } from "../goals/queries";
 import { getBudgetQueryKey, getCiStatusQueryKey } from "../projects/queries/keys";
 import { getProjectHealthQueryKey } from "../project-health/queries/useProjectHealthQuery";
 import { getActivityQueryKey } from "../activity/queries/useActivityQuery";
@@ -37,11 +38,14 @@ export interface RunStatusEvent {
     | "channel-items"
     | "activity"
     | "approvals"
-    | "automation-fires";
+    | "automation-fires"
+    | "goals";
   runId?: string;
   /** Automation-fires scope only (todo-4): the fired automation and the fire record. */
   automationId?: string;
   fireId?: string;
+  /** Goals scope only: the goal whose state or timeline changed. */
+  goalId?: string;
   status?: string;
   /** Activity-scope only: the recorded kind (drives the briefing refetch). */
   kind?: string;
@@ -202,6 +206,9 @@ export function RunEventsProvider({ children }: { children: ReactNode }) {
         // todo-4/5: a fire started or finished — the `["automations"]` prefix refetches the
         // list's `lastFire` (widget, sheet) and every automation's fire history (detail page).
         void qc.invalidateQueries({ queryKey: getAutomationsQueryKey() });
+      } else if (parsed.scope === "goals") {
+        // goals-mandates: the `["goals"]` prefix covers the list, the detail, state and timeline.
+        void qc.invalidateQueries({ queryKey: getGoalsQueryKey() });
       } else if (parsed.scope === "channel-items") {
         // Triage filed/transitioned an inbound item — refresh the inbox and the
         // approvals queue (a Tier-3 reply lands as a pending channel approval).

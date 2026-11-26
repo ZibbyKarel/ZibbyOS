@@ -36,7 +36,13 @@ export function activityIcon(kind: ActivityKind): ActivityIcon {
   if (kind === "run-started" || kind.startsWith("task-")) return "run";
   if (kind.endsWith("-parked") || kind === "approval-requested" || kind === "gate-decision")
     return "wait";
-  if (kind.endsWith("-finished") || kind === "approval-approved" || kind === "channel-reply")
+  if (
+    kind.endsWith("-finished") ||
+    kind === "approval-approved" ||
+    kind === "channel-reply" ||
+    kind === "goal-done" ||
+    kind === "goal-merged"
+  )
     return "ok";
   return "edit";
 }

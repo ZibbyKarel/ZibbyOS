@@ -13,6 +13,12 @@ import { getTaskDetailRootKey } from "../tasks/queries/useTaskQuery";
 import { getActivityQueryKey } from "../activity/queries/useActivityQuery";
 import { getBriefingQueryKey } from "../briefing/queries/useBriefingQuery";
 import { getAutomationFiresQueryKey, getAutomationsQueryKey } from "../automations/queries";
+import {
+  getGoalQueryKey,
+  getGoalStateQueryKey,
+  getGoalTimelineQueryKey,
+  getGoalsQueryKey,
+} from "../goals/queries";
 import { taskRunsRootKey } from "./queries/keys";
 
 // `API_URL` gates the provider (no URL → no stream); pin it so the EventSource opens.
@@ -50,6 +56,16 @@ describe("RunEventsProvider — SSE-driven invalidation (N1)", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: getAutomationsQueryKey() });
     // The fires key sits under the `["automations"]` prefix, so the one call covers it.
     expect(getAutomationFiresQueryKey("a").slice(0, 1)).toEqual(getAutomationsQueryKey());
+  });
+
+  it("a goals event refreshes every goals query (list, detail, state, timeline)", () => {
+    act(() => {
+      mock.last().emit({ scope: "goals", goalId: "g" });
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: getGoalsQueryKey() });
+    expect(getGoalStateQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
+    expect(getGoalQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
+    expect(getGoalTimelineQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
   });
 
   it("an approval-* activity event refreshes the pending approvals queue", () => {

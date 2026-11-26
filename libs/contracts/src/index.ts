@@ -35,6 +35,7 @@ export * from "./workflows/stage-verdict.schema";
 export * from "./workflows/workflows.contract";
 export * from "./goals/goal.schema";
 export * from "./goals/goal-state.schema";
+export * from "./goals/goal-plan.schema";
 export * from "./goals/goal-presets";
 export * from "./goals/goals.contract";
 export * from "./loops/loop.schema";

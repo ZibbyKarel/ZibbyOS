@@ -27,6 +27,10 @@ export const OperatorEventKindSchema = z.enum([
   "briefing",
   /** Tier-2 — autopilot let a covered action through, or was turned on/off (Phase 4). */
   "autopilot-action",
+  /** Tier-3 — a goal instance parked (deadline, budget, failed, …). */
+  "goal-parked",
+  /** Tier-2 — a goal instance finished, or the goal engine reported something. */
+  "goal-update",
 ]);
 export type OperatorEventKind = z.infer<typeof OperatorEventKindSchema>;
 

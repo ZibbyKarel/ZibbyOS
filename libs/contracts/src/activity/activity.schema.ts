@@ -40,6 +40,16 @@ export const ActivityKindSchema = z.enum([
   "loop-dispatched",
   "loop-verdict",
   "loop-parked",
+  // goals-mandates (goal engine). A cycle/instance started, the planner was woken by
+  // changed facts, an action was applied (`refs.action` = the action type; `report`
+  // notifies), an instance parked (`refs.status` = the reason) or finished, a PR was
+  // merged under a merge grant. All ride `goalId` (+ `projectId` for a project instance).
+  "goal-started",
+  "goal-woke",
+  "goal-acted",
+  "goal-parked",
+  "goal-done",
+  "goal-merged",
   "approval-requested",
   "approval-approved",
   "approval-rejected",
@@ -169,6 +179,8 @@ export const ActivityRefsSchema = z
     /** Phase 10: the loop run and loop definition a loop entry is attributed to. */
     loopRunId: z.string().optional(),
     loopId: z.string().optional(),
+    /** goals-mandates: the goal a `goal-*` entry belongs to. */
+    goalId: z.string().optional(),
     /** The engagement an entry is attributed to (Phase 8) — grouping, not authz. */
     projectId: z.string().optional(),
     approvalId: z.string().optional(),

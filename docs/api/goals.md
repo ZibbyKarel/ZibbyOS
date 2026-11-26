@@ -1,8 +1,8 @@
 # Goals
 
 A goal is a mandate the operator gives ZIBBY: an outcome plus constraints (scope, deadline or
-cadence, budget, autonomy ceiling). This document covers the contract, storage and CRUD API; the
-engine that plans and acts is built on top of it. Spec: `docs/plans/goals-mandates-spec.md`.
+cadence, budget, autonomy ceiling). This document covers the contract, storage, CRUD API and the
+engine that plans and acts. Spec: `docs/plans/goals-mandates-spec.md`.
 Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 
 ## Model
@@ -43,3 +43,79 @@ Not to be confused with the loop (`docs/api/loops.md`, maker + verifier).
 | `GET /goals/:id/timeline?instance=&cycle=`   | newest last, at most 500                                                 |
 | `POST /goals/:id/wake`                       | clears every instance's `fingerprint`, logs a `wake` event               |
 | `POST /goals/:id/instances/:instance/resume` | parked -> `planning`, clears `parkedReason`; 404 unknown, 409 not parked |
+
+## Engine
+
+`apps/api/src/goals/goal-engine.module.ts` (`GoalEngineModule`, separate from `GoalsModule` so
+the briefing and the events channel read the stores without the engine's dependencies).
+
+| Piece           | File                      | Role                                                                      |
+| --------------- | ------------------------- | ------------------------------------------------------------------------- |
+| Heartbeat       | `goal-engine.service.ts`  | `GoalEngineService` (`TickingWatcherBase`, watcher id `goal-engine`)      |
+| Cadence         | `goal-cadence.ts`         | `nextCycleStart`, `latestCycleStart` in `Europe/Prague` (DST-aware)       |
+| Facts           | `goal-facts.ts`           | `GoalFactsService` over the `GOAL_FACTS_SOURCES` list; `goalFingerprint`  |
+| Planner seam    | `goal-planner.ts`         | `GoalPlanner` behind the `GOAL_PLANNER` token; `EmptyGoalPlanner` default |
+| Action executor | `goal-action-executor.ts` | `GoalActionExecutor`: ceiling filter + one handler per action type        |
+| Plan contract   | `goal-plan.schema.ts`     | `GoalPlanSchema`, `GoalActionSchema`, `GOAL_ACTION_MIN_CEILING`           |
+
+### Tick
+
+`systemConfig.goalEngineTickMs` (default `60_000`, `0` disables, primary instance only). Each
+tick, per enabled goal (one goal failing never blocks the others):
+
+1. **Instances** from the scope: none -> `_`; `projects` -> those ids; `company` -> that
+   company's projects; `all` -> every project.
+2. **Bookkeeping** under the state lock (`bookkeep`). A standing goal past a cadence boundary
+   starts ONE new cycle anchored at the latest boundary (missed boundaries are not replayed):
+   every in-scope instance goes back to `planning` with no `taskIds`, nudges are cleared, and a
+   `cycle-started` timeline line plus a `goal-started` activity are written. `cycleHours` sets
+   the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
+   project gets an instance; one that left the scope becomes `done` ("Left the goal's scope.").
+3. **Per instance** (sorted, each in its own try/catch), skipping `parked` and `done`:
+   - Past `cycle.deadlineAt` -> park `deadline`. It is not re-planned in that cycle.
+   - **Wake check.** The facts are fingerprinted (sha256 of the key-sorted JSON, no clock in
+     it). The planner runs only when the fingerprint differs from the stored one, `wakeAt` is
+     due, or a dirty ref matches: one of the instance's `taskIds` or a `waitingOn` ref that
+     settled (`ApprovalsService.settled()`, a `task-outcome` activity). Otherwise no model call.
+   - A `goal-woke` activity, then `planner.plan(ctx)`, validated with `GoalPlanSchema`. A throw
+     or an invalid plan counts in `planFailures`; 3 in a row park `failed`.
+   - The actions run through the executor. Then: the cycle budget used up and nothing in
+     flight -> park `budget`; `waitingOn`/`wakeAt` set -> `waiting`; a task in flight ->
+     `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
+     so the actions' own changes do not wake the planner on the next tick.
+4. The result is written under the lock onto the freshly read instance. It is dropped when the
+   cycle changed or the instance went away meanwhile; a `wake` that landed meanwhile keeps its
+   cleared fingerprint.
+
+Remaining budget: `maxRunsPerCycle - taskIds.length`, and `maxCostUsdPerCycle` minus
+`BudgetLedgerStore.sumCostForTasks(taskIds, cycle.startedAt, now)` (`docs/api/budget.md`).
+
+### Actions and the ceiling filter
+
+| Action       | Fields                                                      | Min ceiling | Handler in this phase      |
+| ------------ | ----------------------------------------------------------- | ----------- | -------------------------- |
+| `note`       | `text`                                                      | tier1       | timeline line              |
+| `report`     | `text`                                                      | tier1       | timeline + `goal-acted`    |
+| `wait`       | `waitingOn?`, `wakeAt?` (one required)                      | tier1       | sets the instance fields   |
+| `done`       | `summary?`                                                  | tier1       | status `done`, `goal-done` |
+| `park`       | `reason`, `text?`                                           | tier1       | status `parked`            |
+| `start-task` | `text`, `title?`, `targetId?`                               | tier2       | none yet                   |
+| `run-loop`   | `text`                                                      | tier2       | none yet                   |
+| `pr-action`  | `action` (review/address-comments/fix-ci), `repo`, `number` | tier2       | none yet                   |
+| `message`    | `to`, `text`, `integrationId?`, `threadRef?`                | tier2       | none yet                   |
+| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)            | tier2       | none yet                   |
+| `merge`      | `repo`, `number`, `headSha`                                 | tier3       | none yet                   |
+
+An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
+`report` naming what was not done. After `done` or `park` no further action runs. A later phase
+adds a handler with `GoalActionExecutor.register(type, handler)`, a facts source by appending to
+the `GOAL_FACTS_SOURCES` factory, and the real planner by replacing the `GOAL_PLANNER` provider.
+
+### Activity, notifications, live updates
+
+Activity kinds (group `goals`): `goal-started`, `goal-woke`, `goal-acted`, `goal-parked`,
+`goal-done`, `goal-merged`, with refs `goalId`, `itemId` (instance key) and `projectId`. The
+operator channel sends `goal-parked` (Tier 3) and `goal-done` / report `goal-acted` as
+`goal-update` (Tier 2), see `docs/api/operator-channel.md`. Parked instances are briefing
+needs-you items, acting/waiting ones a watching line (`docs/api/briefing.md`). Every state write
+and timeline append emits the SSE scope `goals` (`docs/api/events.md`).

@@ -12,6 +12,7 @@ import { ChannelEventsService } from "../channels/channel-events.service";
 import type { LoopRunnerService } from "../loops/loop-runner.service";
 import type { WorkflowRunnerService } from "../workflows/workflow-runner.service";
 import { AutomationFiresStore } from "../automations/automation-fires.store";
+import { GoalStateStore } from "../goals/goal-state.store";
 import { EventsController } from "./events.controller";
 
 /** A bare `onRunStatus` stub — the only surface the controller reads off any runner. */
@@ -46,6 +47,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
       new ActivityEventsService(),
       approvalsStub(),
       new AutomationFiresStore("/nonexistent"),
+      new GoalStateStore("/nonexistent"),
     );
 
     const events: MessageEvent[] = [];
@@ -75,6 +77,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
       new ActivityEventsService(),
       approvalsStub(settled),
       new AutomationFiresStore("/nonexistent"),
+      new GoalStateStore("/nonexistent"),
     );
     const events: MessageEvent[] = [];
     const sub = controller.events().subscribe((e) => events.push(e));
@@ -99,6 +102,7 @@ describe("EventsController — merged `/api/events` SSE", () => {
       new ActivityEventsService(),
       approvalsStub(),
       fires,
+      new GoalStateStore("/nonexistent"),
     );
     const events: MessageEvent[] = [];
     const sub = controller.events().subscribe((e) => events.push(e));
@@ -118,6 +122,30 @@ describe("EventsController — merged `/api/events` SSE", () => {
       automationId: "nightly",
       fireId: fire.id,
       status: "error",
+    });
+  });
+
+  it("carries goal state changes as the `goals` scope", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "events-goals-"));
+    const goals = new GoalStateStore(dir);
+    const controller = new EventsController(
+      fakeRunner<AgentRun>() as unknown as AgentRunnerService,
+      fakeRunner<WorkflowRun>() as unknown as WorkflowRunnerService,
+      fakeRunner<LoopRun>() as unknown as LoopRunnerService,
+      new ChannelEventsService(),
+      new ActivityEventsService(),
+      approvalsStub(),
+      new AutomationFiresStore("/nonexistent"),
+      goals,
+    );
+    const events: MessageEvent[] = [];
+    const sub = controller.events().subscribe((e) => events.push(e));
+    await goals.write(await goals.read("g", "2026-11-26T00:00:00.000Z"));
+    sub.unsubscribe();
+    await fs.rm(dir, { recursive: true, force: true });
+    expect(events.map((e) => JSON.parse(String(e.data)))).toContainEqual({
+      scope: "goals",
+      goalId: "g",
     });
   });
 });

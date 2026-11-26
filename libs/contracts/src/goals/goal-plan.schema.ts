@@ -1,0 +1,121 @@
+import { z } from "zod";
+import { IsoDateTimeSchema } from "../common.schema";
+import type { GoalCeiling } from "./goal.schema";
+import { GoalInstanceSchema, GoalParkedReasonSchema } from "./goal-state.schema";
+
+const WaitingOnSchema = GoalInstanceSchema.shape.waitingOn.unwrap();
+
+/**
+ * The closed action set a goal planner may return (spec "Closed action set"). The
+ * engine applies each one filtered by the goal's ceiling; an action the ceiling
+ * forbids, or one the engine has no handler for yet, becomes a `report` naming what
+ * was not done.
+ */
+export const GoalActionSchema = z.discriminatedUnion("type", [
+  /** Timeline entry only. */
+  z.object({ type: z.literal("note"), text: z.string().min(1) }),
+  /** Timeline + operator notification ("ready to merge", feasibility, gap report). */
+  z.object({ type: z.literal("report"), text: z.string().min(1) }),
+  /** Set `waitingOn` / `wakeAt`. */
+  z
+    .object({
+      type: z.literal("wait"),
+      waitingOn: WaitingOnSchema.optional(),
+      wakeAt: IsoDateTimeSchema.optional(),
+    })
+    .refine((a) => a.waitingOn !== undefined || a.wakeAt !== undefined, {
+      message: "wait needs waitingOn or wakeAt",
+    }),
+  /** The predicate is met: finish the instance. */
+  z.object({ type: z.literal("done"), summary: z.string().optional() }),
+  /** Park the instance with a reason. */
+  z.object({
+    type: z.literal("park"),
+    reason: GoalParkedReasonSchema,
+    text: z.string().optional(),
+  }),
+  /** Start a task in the instance's project (explicit target id or routed text). */
+  z.object({
+    type: z.literal("start-task"),
+    text: z.string().min(1),
+    title: z.string().optional(),
+    /** An agent or workflow id; absent = the classifier routes `text`. */
+    targetId: z.string().optional(),
+  }),
+  /** Start the goal's stored loop through the task path. */
+  z.object({ type: z.literal("run-loop"), text: z.string().min(1) }),
+  /** A PR-inbox action with `auto: true`. */
+  z.object({
+    type: z.literal("pr-action"),
+    action: z.enum(["review", "address-comments", "fix-ci"]),
+    /** `owner/repo` (GitHub) or the GitLab project path. */
+    repo: z.string().min(1),
+    number: z.number().int().positive(),
+  }),
+  /** Draft a message to a colleague (approval `goal-message`). */
+  z.object({
+    type: z.literal("message"),
+    /** Person key (the anti-nagging counter key). */
+    to: z.string().min(1),
+    text: z.string().min(1),
+    /** The integration to send through. */
+    integrationId: z.string().optional(),
+    /** Reply in this thread, when set. */
+    threadRef: z.string().optional(),
+  }),
+  /** Directional goal: ranked candidates, handled per `autoDecideGoals`. */
+  z.object({
+    type: z.literal("propose"),
+    candidates: z
+      .array(
+        z.object({
+          title: z.string().min(1),
+          why: z.string().optional(),
+          checklistId: z.string().optional(),
+        }),
+      )
+      .min(1),
+  }),
+  /** Merge a PR — only with a valid merge grant, otherwise a "ready to merge" report. */
+  z.object({
+    type: z.literal("merge"),
+    repo: z.string().min(1),
+    number: z.number().int().positive(),
+    /** The head SHA the planner saw approved; re-checked at merge time. */
+    headSha: z.string().min(1),
+  }),
+]);
+export type GoalAction = z.infer<typeof GoalActionSchema>;
+export type GoalActionType = GoalAction["type"];
+
+/** The `<goal-plan>` block a planner run returns. */
+export const GoalPlanSchema = z.object({
+  /** The revised plan (markdown). */
+  plan: z.string(),
+  /** Early feasibility line. */
+  feasibility: z.string().optional(),
+  actions: z.array(GoalActionSchema),
+});
+export type GoalPlan = z.infer<typeof GoalPlanSchema>;
+
+/** The lowest ceiling each action needs. Total, so a new action cannot be left out. */
+export const GOAL_ACTION_MIN_CEILING: Record<GoalActionType, GoalCeiling> = {
+  note: "tier1",
+  report: "tier1",
+  wait: "tier1",
+  done: "tier1",
+  park: "tier1",
+  "start-task": "tier2",
+  "run-loop": "tier2",
+  "pr-action": "tier2",
+  message: "tier2",
+  propose: "tier2",
+  merge: "tier3",
+};
+
+const RANK: Record<GoalCeiling, number> = { tier1: 1, tier2: 2, tier3: 3 };
+
+/** Whether a goal with `ceiling` may run `type` itself. The ceiling only filters. */
+export function ceilingAllows(ceiling: GoalCeiling, type: GoalActionType): boolean {
+  return RANK[ceiling] >= RANK[GOAL_ACTION_MIN_CEILING[type]];
+}

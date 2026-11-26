@@ -3,6 +3,7 @@ import { AgentsModule } from "../agents/agents.module";
 import { ApprovalsModule } from "../approvals/approvals.module";
 import { AutomationsModule } from "../automations/automations.module";
 import { ChannelsModule } from "../channels/channels.module";
+import { GoalsModule } from "../goals/goals.module";
 import { LoopsModule } from "../loops/loops.module";
 import { WorkflowsModule } from "../workflows/workflows.module";
 import { EventsController } from "./events.controller";
@@ -22,6 +23,7 @@ import { EventsController } from "./events.controller";
     WorkflowsModule,
     LoopsModule,
     ChannelsModule,
+    GoalsModule,
   ],
   controllers: [EventsController],
 })

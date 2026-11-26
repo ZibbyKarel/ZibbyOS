@@ -1564,7 +1564,9 @@
         "budget-cap": "Dosažený rozpočtový limit",
         "ci-red": "Červené CI (opravuje se)",
         "briefing": "Denní briefing",
-        "autopilot-action": "Akce autopilota"
+        "autopilot-action": "Akce autopilota",
+        "goal-parked": "Zaparkovaný cíl",
+        "goal-update": "Novinky cílů (splněno, hlášení)"
       }
     },
     "selfKnowledge": {
@@ -1635,7 +1637,8 @@
         "integrations": "Integrace",
         "briefing": "Briefing",
         "errors": "Chyby",
-        "loops": "Smyčky"
+        "loops": "Smyčky",
+        "goals": "Cíle"
       },
       "was": "dříve Aktivita",
       "summary": "Co se ukazuje v živém logu. {visible} viditelné · {grouped} seskupené · {hidden} skryté",

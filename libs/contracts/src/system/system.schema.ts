@@ -255,6 +255,12 @@ export const SystemConfigSchema = z
      */
     roadmapTickMs: z.number().int().min(0).default(900_000),
     /**
+     * Goal engine heartbeat (ms): each tick walks every enabled goal's instances (cycle,
+     * deadline, budget, wake check, planner). A waiting instance costs no model call.
+     * `0` disables. Read live via `SystemConfigStore.current()`.
+     */
+    goalEngineTickMs: z.number().int().min(0).default(60_000),
+    /**
      * Activity Dock: how many finished (done/failed) tasks the dock's "Hotové" list
      * shows. Editable from `/settings` (runtime section); default 20.
      */

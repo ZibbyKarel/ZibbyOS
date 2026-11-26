@@ -19,6 +19,7 @@ const TIER_3 = new Set<OperatorEventKind>([
   "approval-waiting",
   "run-parked",
   "budget-cap",
+  "goal-parked",
 ]);
 
 /** An activity entry mapped to something worth telling the operator. */
@@ -76,6 +77,8 @@ const isPrInboxTask = (t: ScheduledTask): boolean =>
  * - `monitor-alert` → `ci-red` (being fixed)
  * - `briefing-generated` → `briefing`
  * - `autopilot-action` → `autopilot-action` (Phase 4); `autopilot-changed` (on/off) is not pushed
+ * - `goal-parked` → `goal-parked`; `goal-done` and `goal-acted` with `action: report` →
+ *   `goal-update` (links to `/work/goals/<id>`; `state` = the entry id, so each one is sent)
  */
 export async function toOperatorEvent(
   entry: ActivityEntry,
@@ -231,6 +234,19 @@ export async function toOperatorEvent(
         title: entry.summary,
         path: refs.approvalId ? "/activity/approvals" : "/activity",
       });
+    case "goal-parked":
+    case "goal-done":
+    case "goal-acted": {
+      if (!refs.goalId) return null;
+      if (entry.kind === "goal-acted" && refs.action !== "report") return null;
+      return event({
+        kind: entry.kind === "goal-parked" ? "goal-parked" : "goal-update",
+        target: `${refs.goalId}:${refs.itemId ?? "_"}`,
+        state: entry.id,
+        title: entry.summary,
+        path: `/work/goals/${refs.goalId}`,
+      });
+    }
     default:
       return null;
   }

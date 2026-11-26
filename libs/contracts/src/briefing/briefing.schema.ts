@@ -10,7 +10,8 @@ import { DepartmentIdSchema, DepartmentStateSchema } from "../departments/depart
  * carries the trace links so the card can deep-link to /runs or the approval.
  */
 export const BriefingNeedsYouItemSchema = z.object({
-  kind: z.enum(["approval", "parked", "ci-red"]),
+  /** `goal`: a parked goal instance (refs.goalId). */
+  kind: z.enum(["approval", "parked", "ci-red", "goal"]),
   id: z.string(),
   summary: z.string(),
   at: IsoDateTimeSchema,
@@ -63,6 +64,8 @@ export const BriefingWatchItemSchema = z.object({
   runRef: z.string().optional(),
   summary: z.string().optional(),
   resumeAt: z.number().int().nullable().optional(),
+  /** A goal with acting/waiting instances. */
+  goalId: z.string().optional(),
 });
 export type BriefingWatchItem = z.infer<typeof BriefingWatchItemSchema>;
 

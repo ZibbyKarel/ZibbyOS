@@ -12,6 +12,7 @@ import { ProjectsModule } from "../projects/projects.module";
 import { SelfKnowledgeModule } from "../self-knowledge/self-knowledge.module";
 import { SecurityModule } from "../security/security.module";
 import { DepartmentsModule } from "../departments/departments.module";
+import { GoalsModule } from "../goals/goals.module";
 import { ScheduledTasksStorageModule } from "../tasks/scheduled-tasks-storage.module";
 import { BriefingController } from "./briefing.controller";
 import { BriefingService } from "./briefing.service";
@@ -52,6 +53,8 @@ import { ClaudeCliBriefer } from "./claude-cli-briefer";
     // NS2 F5c — Arch's quality findings (ArchService.readFindings). Same leaf
     // position — one-directional, no cycle.
     ArchModule,
+    // goals-mandates — the goal stores (a leaf module: imports nothing back).
+    GoalsModule,
   ],
   controllers: [BriefingController],
   providers: [ClaudeCliBriefer, BriefingService, DayOverviewService],

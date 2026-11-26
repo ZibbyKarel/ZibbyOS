@@ -86,12 +86,17 @@ of `generate`:
      tasks, and red-CI state lines, newest first. A currently-red CI is a _state_
      line (present while red, gone once green) rather than a one-time alert — the
      one-time notification is a separate monitor alert (`docs/api/monitors.md`).
+     Every parked goal instance (any `parkedReason`) is a `kind: "goal"` item with id
+     `<goalId>:<instanceKey>` and refs `{ goalId, itemId, projectId? }`; the headline counts
+     them as "N parked goal(s)". Goals are read only when `GoalsStorageService` and
+     `GoalStateStore` are present (both `@Optional()`), and only enabled goals count.
    - **`didForYou`** — the last 10 activity entries of kinds that count as "ZIBBY
      did this for you" (`task-outcome`, `channel-reply`, `run-finished`,
      `workflow-finished`, `approval-approved`, `self-api-write`, `skill-updated`).
    - **`watching`** — channel integrations with new items, workflow runs paused on
      the usage limit, and in-flight/paused loop runs — things ZIBBY is doing or
-     tracking, not decisions waiting on the operator.
+     tracking, not decisions waiting on the operator. An enabled goal with acting or
+     waiting instances adds one line, `goal "<name>": N acting, M waiting`, carrying `goalId`.
    - **`engagements`** — one row per project with waiting tasks or attributable
      activity, rolling up `needsYou`/`didForYou`/`queued`/`held` counts (Phase 8.2);
      empty for a single-engagement operator, no rollup noise.

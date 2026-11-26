@@ -114,6 +114,11 @@ is the sum of its stage costs (`sumStageCosts`, shared with `task-runs.service.t
 so no cost line is written directly on their outcomes — a loop's own maker runs are
 themselves agent/workflow runs whose outcomes record cost individually.
 
+`BudgetLedgerStore.sumCostForTasks(taskIds, since, now)` sums the cost lines whose `taskId`
+is in the set, across the day files from `since` to `now` (`datesBetween`). The goal engine
+uses it for a cycle's `budget.maxCostUsd` (`docs/api/goals.md`). `BudgetModule` exports
+`BudgetLedgerStore` for it.
+
 ### Live concurrency
 
 `countRunning(projectId)` counts top-level runs currently active for a project — agent runs in `running`/`awaiting-approval`/`paused-limit` labelled

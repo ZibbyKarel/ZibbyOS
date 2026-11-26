@@ -55,3 +55,30 @@ describe("toOperatorEvent pr-ci-autofix-parked prUrl", () => {
     expect(event).not.toHaveProperty("prUrl");
   });
 });
+
+describe("toOperatorEvent goal-*", () => {
+  const goal = (kind: string, refs: Record<string, string>, id = "a1") =>
+    ({ id, kind, summary: "Goal: parked", refs }) as unknown as ActivityEntry;
+
+  it("a parked goal is a Tier-3 notification linking to the goal", async () => {
+    expect(
+      await toOperatorEvent(goal("goal-parked", { goalId: "g", itemId: "_" }), lookupsFor()),
+    ).toMatchObject({ kind: "goal-parked", tier: 3, path: "/work/goals/g", target: "g:_" });
+  });
+
+  it("done and report actions are goal-update; other actions are silent", async () => {
+    expect(await toOperatorEvent(goal("goal-done", { goalId: "g" }), lookupsFor())).toMatchObject({
+      kind: "goal-update",
+      tier: 2,
+    });
+    const report = goal("goal-acted", { goalId: "g", action: "report" }, "a2");
+    expect(await toOperatorEvent(report, lookupsFor())).toMatchObject({
+      kind: "goal-update",
+      state: "a2",
+    });
+    expect(
+      await toOperatorEvent(goal("goal-acted", { goalId: "g", action: "note" }), lookupsFor()),
+    ).toBeNull();
+    expect(await toOperatorEvent(goal("goal-woke", { goalId: "g" }), lookupsFor())).toBeNull();
+  });
+});

@@ -118,6 +118,24 @@ export class BudgetLedgerStore {
     return this.costStatsAcross(monthDates(pragueDate(now)), projectId);
   }
 
+  /**
+   * Total `costUsd` of the cost lines of `taskIds`, from the Prague day of `since` through
+   * the day of `now` (the goal engine's per-cycle cost budget).
+   */
+  async sumCostForTasks(taskIds: string[], since: Date, now: Date = new Date()): Promise<number> {
+    if (taskIds.length === 0) return 0;
+    const ids = new Set(taskIds);
+    let sum = 0;
+    for (const date of datesBetween(pragueDate(since), pragueDate(now))) {
+      for (const entry of await this.readDay(date)) {
+        if (entry.type === "cost" && entry.taskId && ids.has(entry.taskId)) {
+          sum += entry.costUsd ?? 0;
+        }
+      }
+    }
+    return sum;
+  }
+
   /** Count matching *dispatch* lines across the given day-file names (cost lines excluded). */
   private async countAcross(dates: string[], projectId: string): Promise<number> {
     let total = 0;
@@ -213,6 +231,16 @@ export function isoWeekDates(date: string): string[] {
   for (let i = sinceMonday; i >= 0; i--) {
     const day = new Date(d.getTime() - i * 24 * 60 * 60 * 1000);
     dates.push(day.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+/** Every YYYY-MM-DD from `from` through `to` inclusive (both already Prague-local). */
+export function datesBetween(from: string, to: string): string[] {
+  const dates: string[] = [];
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  for (let t = Date.parse(`${from}T00:00:00.000Z`); t <= end; t += 24 * 60 * 60 * 1000) {
+    dates.push(new Date(t).toISOString().slice(0, 10));
   }
   return dates;
 }

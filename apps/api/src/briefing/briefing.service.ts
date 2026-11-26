@@ -24,9 +24,11 @@ import { SecurityService } from "../security/security.service";
 import { WatcherHealthRegistry } from "../health/watcher-health.registry";
 import { DepartmentsService } from "../departments/departments.service";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
+import { GoalStateStore } from "../goals/goal-state.store";
+import { GoalsStorageService } from "../goals/goals.storage.service";
 import { ensureDir, safeJson, writeFileAtomic } from "../shared/file-storage";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
-import { assembleBriefing, renderBriefingMarkdown } from "./briefing-assembly";
+import { type GoalWithState, assembleBriefing, renderBriefingMarkdown } from "./briefing-assembly";
 import { BRIEFING_TRANSCRIPT_SINK, type BriefingTranscriptSink } from "./briefing-transcript-sink";
 import { ClaudeCliBriefer } from "./claude-cli-briefer";
 
@@ -133,6 +135,10 @@ export class BriefingService {
     @Optional()
     @Inject(BRIEFING_TRANSCRIPT_SINK)
     private readonly transcriptSinks: BriefingTranscriptSink[] = [],
+    // goals-mandates — parked goal instances (needs-you) and active goals (watching).
+    // Optional like the sinks so direct-construction tests are unaffected.
+    @Optional() private readonly goalDefs?: GoalsStorageService,
+    @Optional() private readonly goalStates?: GoalStateStore,
   ) {
     this.log = logger.child(BriefingService.name);
   }
@@ -202,6 +208,7 @@ export class BriefingService {
       qualityFindings,
       staleWatchers,
       reminders,
+      goals,
     ] = await Promise.all([
       this.readTrend7d(now),
       this.readLearnedPatterns(),
@@ -229,6 +236,7 @@ export class BriefingService {
       // NS2 F8c — open personal reminders. Same fail-open guard: a failed read
       // drops the section, never the briefing (surface-only, Personal's mandate).
       this.readReminders().catch((): string[] => []),
+      this.readGoals().catch((): GoalWithState[] => []),
     ]);
     const departments = departmentRows
       ? buildDepartmentLines(departmentRows, ciStatuses, weeklyPct)
@@ -255,9 +263,20 @@ export class BriefingService {
       qualityFindings,
       staleWatchers,
       reminders,
+      goals,
       ...(departments ? { departments } : {}),
       ...(selfKnowledgeDrift ? { selfKnowledgeDrift } : {}),
     });
+  }
+
+  /** Enabled goals with their state (empty when the goal stores are not wired). */
+  private async readGoals(): Promise<GoalWithState[]> {
+    const { goalDefs, goalStates } = this;
+    if (!goalDefs || !goalStates) return [];
+    const goals = (await goalDefs.list()).filter((g) => g.enabled);
+    return Promise.all(
+      goals.map(async (goal) => ({ goal, state: await goalStates.read(goal.id, goal.createdAt) })),
+    );
   }
 
   /**

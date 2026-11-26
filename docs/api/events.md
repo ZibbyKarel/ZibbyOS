@@ -14,11 +14,11 @@ ts-rest models.
 
 ## Pieces
 
-| Piece        | File                                       | Role                                                                                                                                   |
-| ------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Controller   | `apps/api/src/events/events.controller.ts` | the `@Sse("api/events")` handler; merges every scope's `Observable<MessageEvent>`                                                      |
-| Module       | `apps/api/src/events/events.module.ts`     | imports `AgentsModule`, `WorkflowsModule`, `LoopsModule`, `ChannelsModule`, `ApprovalsModule` for their exported runner/event services |
-| SSE plumbing | `apps/api/src/shared/sse/sse.ts`           | `fromRunStatus()` (run-status → SSE event), `heartbeats()` (keep-alive ping)                                                           |
+| Piece        | File                                       | Role                                                                                                                                                  |
+| ------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controller   | `apps/api/src/events/events.controller.ts` | the `@Sse("api/events")` handler; merges every scope's `Observable<MessageEvent>`                                                                     |
+| Module       | `apps/api/src/events/events.module.ts`     | imports `AgentsModule`, `WorkflowsModule`, `LoopsModule`, `ChannelsModule`, `ApprovalsModule`, `GoalsModule` for their exported runner/event services |
+| SSE plumbing | `apps/api/src/shared/sse/sse.ts`           | `fromRunStatus()` (run-status → SSE event), `heartbeats()` (keep-alive ping)                                                                          |
 
 ## Flow
 
@@ -45,6 +45,9 @@ ts-rest models.
   from `AutomationFiresStore.onChange`, once when a fire starts (`running`) and once
   when it finishes (`done` / `error`). The web refetches the automations list
   (`lastFire`) and that automation's fire history off it.
+- **`goals`** (goals-mandates) — `{ scope, goalId }` from `GoalStateStore.onChange`, on
+  every state write and timeline append. The web invalidates the `["goals"]` query prefix
+  (list, detail, state and timeline).
 - A merged **heartbeat** (`heartbeats()`) so the connection survives idle periods
   through intermediary proxies.
 
