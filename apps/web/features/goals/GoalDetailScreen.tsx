@@ -126,7 +126,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 data-testid={GoalDetailScreenTestId.Toggle}
                 label={t("toggleLabel", { name: goal.name })}
                 onChange={(enabled) =>
-                  update.mutate({ params: { id: goal.id }, body: { enabled } })
+                  update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError: fail })
                 }
                 size="md"
               />

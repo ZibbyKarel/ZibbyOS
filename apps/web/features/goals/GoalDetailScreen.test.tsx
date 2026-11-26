@@ -202,6 +202,14 @@ describe("GoalDetailScreen", () => {
     await userEvent.click(screen.getByTestId(`${GoalInstancesTestId.Resume}-beta`));
     act(() => resume.mock.calls[0]![1].onError(new Error("network")));
     expect(screen.getByTestId(GoalDetailScreenTestId.Error)).toHaveTextContent("Akce se nepovedla");
+
+    await userEvent.click(screen.getByTestId(GoalDetailScreenTestId.Toggle));
+    expect(update).toHaveBeenCalledWith(
+      { params: { id: "ci-green" }, body: { enabled: false } },
+      expect.anything(),
+    );
+    act(() => update.mock.calls[0]![1].onError({ body: { message: "toggle failed" } }));
+    expect(screen.getByTestId(GoalDetailScreenTestId.Error)).toHaveTextContent("toggle failed");
   });
 
   it("deletes only after the confirm dialog", async () => {
