@@ -7,14 +7,23 @@ import type { BridgeWidget } from "../grid/layout";
 import type { BridgeWidgetProps } from "./registry";
 import { GoalsWidget, GoalsWidgetSettings, GoalsWidgetTestId } from "./GoalsWidget";
 
-const d = vi.hoisted(() => ({ goals: [] as unknown[] }));
+const d = vi.hoisted(() => ({
+  goals: [] as unknown[],
+  timeline: "ok" as "ok" | "empty" | "pending" | "error",
+}));
 
 vi.mock("../../goals/queries", () => ({
   useGoalsQuery: () => ({ data: d.goals, isPending: false, isError: false }),
   useGoalTimelineQuery: (id: string) => ({
-    data: [
-      { at: "2026-11-26T10:00:00Z", cycle: 0, instance: "_", kind: "x", text: `latest ${id}` },
-    ],
+    data:
+      d.timeline === "ok"
+        ? [{ at: "2026-11-26T10:00:00Z", cycle: 0, instance: "_", kind: "x", text: `latest ${id}` }]
+        : d.timeline === "empty"
+          ? []
+          : undefined,
+    isSuccess: d.timeline === "ok" || d.timeline === "empty",
+    isPending: d.timeline === "pending",
+    isError: d.timeline === "error",
   }),
 }));
 
@@ -88,6 +97,19 @@ describe("GoalsWidget", () => {
     expect(screen.getAllByTestId(GoalsWidgetTestId.Latest)[0]).toHaveTextContent(
       "latest beta-need",
     );
+  });
+
+  it("a pending or failed timeline shows no latest line, an empty one says nothing happened yet", () => {
+    for (const state of ["pending", "error"] as const) {
+      d.timeline = state;
+      const { unmount } = renderWithProviders(<GoalsWidget {...setup()} />);
+      expect(screen.queryByTestId(GoalsWidgetTestId.Latest)).toBeNull();
+      unmount();
+    }
+    d.timeline = "empty";
+    renderWithProviders(<GoalsWidget {...setup()} />);
+    expect(screen.getAllByTestId(GoalsWidgetTestId.Latest)[0]).not.toHaveTextContent("latest");
+    d.timeline = "ok";
   });
 
   it("shows only the picked goals (paused included), ignores gone ids, and opens the goal selection", async () => {

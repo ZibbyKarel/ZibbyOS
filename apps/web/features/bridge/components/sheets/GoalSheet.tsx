@@ -23,13 +23,13 @@ import { apiErrorMessage } from "../../../../state/apiErrorMessage";
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
 import { GoalTimelinePanel } from "../../../goals/components/GoalTimelinePanel";
 import { nextCycleStart } from "../../../goals/goalCadence";
-import { formatGoalDateTime, instanceStatusTone } from "../../../goals/goalView";
+import { formatGoalDateTime, instanceStatusTone, isGoalNotFound } from "../../../goals/goalView";
 import {
   useResumeGoalInstanceMutation,
   useUpdateGoalMutation,
   useWakeGoalMutation,
 } from "../../../goals/mutations";
-import { useGoalEnvelopeQuery, useGoalStateEnvelopeQuery } from "../../../goals/queries";
+import { useGoalQuery, useGoalStateQuery } from "../../../goals/queries";
 import { useProjectsQuery } from "../../../projects/queries";
 import { type SheetProps, geometry } from "./sheetTypes";
 
@@ -70,8 +70,8 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const ts = useTranslations("goals");
   const locale = useLocale();
   const router = useRouter();
-  const goalQuery = useGoalEnvelopeQuery(id);
-  const stateQuery = useGoalStateEnvelopeQuery(id);
+  const goalQuery = useGoalQuery(id);
+  const stateQuery = useGoalStateQuery(id);
   const projects = useProjectsQuery().data ?? [];
   const update = useUpdateGoalMutation();
   const wake = useWakeGoalMutation();
@@ -86,11 +86,10 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
     start({ onError: fail });
   };
 
-  // Non-2xx statuses resolve as data (`isError` is only a network/throw failure): 200 is the goal,
-  // 404 means it is gone, every other status is an error.
-  const goal = goalQuery.data?.status === 200 ? goalQuery.data.body : undefined;
-  // ts-rest types the envelope with the 2xx statuses only, hence the widening.
-  const goalGone = (goalQuery.data?.status as number | undefined) === 404;
+  // ts-rest throws every non-2xx response, so `error` is the `{ status, body }`: 404 = gone.
+  // A 404 wins over cached data: a goal deleted while the sheet is open reads as gone.
+  const goalGone = goalQuery.isError && isGoalNotFound(goalQuery.error);
+  const goal = goalGone ? undefined : goalQuery.data;
   if (!goal) {
     return (
       <AnchoredSheet
@@ -116,8 +115,8 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
       </AnchoredSheet>
     );
   }
-  const stateView = stateQuery.data?.status === 200 ? stateQuery.data.body : undefined;
-  const stateFailed = stateQuery.isError || (stateQuery.data !== undefined && !stateView);
+  const stateView = stateQuery.data;
+  const stateFailed = stateQuery.isError;
   const state = stateView?.state;
   const rollup = stateView?.rollup;
   const instances = Object.entries(state?.instances ?? {});

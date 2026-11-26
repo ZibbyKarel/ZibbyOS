@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { GoalInstance } from "@zibby/contracts";
 import {
   Button,
@@ -11,11 +11,12 @@ import {
   StatusBadge,
   Typography,
 } from "@zibby/design-system";
-import { type GoalNames, instanceStatusTone } from "../goalView";
+import { type GoalNames, formatGoalDateTime, instanceStatusTone } from "../goalView";
 
 export enum GoalInstancesTestId {
   Table = "goal-instances",
   Resume = "goal-instance-resume",
+  Next = "goal-instance-next",
 }
 
 export interface GoalInstancesPanelProps {
@@ -40,6 +41,9 @@ export function GoalInstancesPanel({
   onResume,
 }: GoalInstancesPanelProps) {
   const t = useTranslations("goals.instances");
+  // What comes next — the same lines and keys as the goal sheet.
+  const g = useTranslations("bridge.widgets.goals");
+  const locale = useLocale();
   const rows: Row[] = Object.entries(instances).map(([key, instance]) => ({ key, instance }));
 
   const columns: DataTableColumn<Row>[] = [
@@ -74,10 +78,33 @@ export function GoalInstancesPanel({
       key: "summary",
       label: t("summary"),
       width: "flex",
-      render: ({ instance }) => (
-        <Typography leading="snug" size="caption" type="note" variant="secondary">
-          {instance.summary ?? "—"}
-        </Typography>
+      render: ({ key, instance }) => (
+        <Stack gap="25">
+          <Typography leading="snug" size="caption" type="note" variant="secondary">
+            {instance.summary ?? "—"}
+          </Typography>
+          {instance.waitingOn?.map((w) => (
+            <Typography
+              data-testid={`${GoalInstancesTestId.Next}-${key}`}
+              key={`${w.kind}:${w.ref}`}
+              size="caption"
+              type="note"
+              variant="tertiary"
+            >
+              {g("waitingOn", { kind: g(`waiting.${w.kind}`), ref: w.ref })}
+            </Typography>
+          ))}
+          {instance.wakeAt && (
+            <Typography
+              data-testid={`${GoalInstancesTestId.Next}-${key}`}
+              size="caption"
+              type="note"
+              variant="tertiary"
+            >
+              {g("wakesAt", { when: formatGoalDateTime(instance.wakeAt, locale) })}
+            </Typography>
+          )}
+        </Stack>
       ),
     },
     {

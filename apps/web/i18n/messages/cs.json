@@ -1490,12 +1490,12 @@
       "maxConcurrentRunsHint": "Kolik běhů úkolů smí pracovat současně napříč všemi projekty. Jeden slot na jeden běh úkolu — workflow se počítá jednou, bez ohledu na to, kolik agentů spustí. Běh drží slot i během čekání na schválení. Ostatní čekají ve frontě.",
       "dockDoneTasksLimit": "Počet hotových úkolů v doku",
       "dockDoneTasksLimitHint": "Kolik posledních dokončených či selhaných úkolů ukazuje panel Úkoly.",
-      "goalAutoResume": "Auto-resume cílů při startu",
+      "goalAutoResume": "Auto-resume smyček při startu",
       "autoCompact": "Auto-kompakce",
       "autoCompactHint": "Při jakém zaplnění kontextového okna modelu engine zkompaktuje konverzaci běhu. Nižší hodnota = kompaktuje dřív.",
       "autoCompactOpencode": "OpenCode",
       "autoCompactClaude": "Claude (nativní CLI)",
-      "goalAutoResumeHint": "Zapni pro bezobslužný (launchd) režim — běžící/limitem pozastavené cíle se po restartu samy znovu rozjedou. Vypnuto = parkují a čekají na schválení (Law 3).",
+      "goalAutoResumeHint": "Zapni pro bezobslužný (launchd) režim — běžící/limitem pozastavené smyčky se po restartu samy znovu rozjedou. Vypnuto = parkují a čekají na schválení (Law 3).",
       "save": "Uložit",
       "unit": {
         "hours": "Hodiny",
@@ -1760,8 +1760,8 @@
       "maxCyclesHint": "Po tolika pokusech zaparkovaný běh čeká na tebe.",
       "dock": "Hotové úkoly v doku",
       "dockHint": "Kolik hotových úkolů zůstane vidět, než se archivují.",
-      "autoResume": "Po startu automaticky obnovit cíle",
-      "autoResumeHint": "Cíle, které běžely při zastavení daemona, pokračují.",
+      "autoResume": "Po startu automaticky obnovit smyčky",
+      "autoResumeHint": "Smyčky, které běžely při zastavení daemona, pokračují.",
       "restartRequired": "Vyžaduje restart",
       "compact": {
         "opencode": "Auto-kompakce OpenCode",
@@ -1780,7 +1780,9 @@
         "limitResume": "Obnova po limitu",
         "limitResumeHint": "Znovu zkouší běhy zaparkované na limitu, jakmile je zase kapacita.",
         "roadmap": "Sync roadmapy",
-        "roadmapHint": "Znovu importuje roadmapy auto-sync projektů a kontroluje mergnutá PR."
+        "roadmapHint": "Znovu importuje roadmapy auto-sync projektů a kontroluje mergnutá PR.",
+        "goalEngine": "Cíle",
+        "goalEngineHint": "Jak často ZIBBY projde cíle a naplánuje ty, na které přišla řada."
       }
     },
     "statusPanels": {
@@ -5484,7 +5486,7 @@
       "checklist": "Checklist",
       "checklistHint": "Jedna položka na řádek.",
       "maxDecisions": "Samostatných rozhodnutí za měsíc",
-      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (autoDecideGoals auto).",
+      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (Rozhodování cílů → Automat).",
       "matrixNote": "Poznámka s maticí funkcí",
       "matrixNoteHint": "Nepovinné id poznámky v mozku."
     },

@@ -61,3 +61,28 @@ describe("translation catalogs", () => {
     });
   });
 });
+
+describe("goal and loop wording", () => {
+  const at = (catalog: Catalog | undefined, path: string): string =>
+    String(path.split(".").reduce<unknown>((o, k) => (o as Catalog | undefined)?.[k], catalog));
+
+  it.each([
+    ["cs", /smyč/i, /Rozhodování cílů → Automat/],
+    ["en", /loops/i, /Goal decisions → Auto/],
+  ])(
+    "%s: auto-resume texts talk about loops, the decision hint names the UI label",
+    (l, loop, label) => {
+      const c = catalogs[l];
+      for (const key of [
+        "settings.runtime.goalAutoResume",
+        "settings.runtime.goalAutoResumeHint",
+        "settings.runtimeGroups.autoResume",
+        "settings.runtimeGroups.autoResumeHint",
+      ]) {
+        expect(at(c, key)).toMatch(loop);
+      }
+      expect(at(c, "goals.form.maxDecisionsHint")).toMatch(label);
+      expect(at(c, "goals.form.maxDecisionsHint")).not.toContain("autoDecideGoals");
+    },
+  );
+});

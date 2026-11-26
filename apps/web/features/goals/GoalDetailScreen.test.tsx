@@ -8,6 +8,7 @@ import { GoalInstancesTestId } from "./components/GoalInstancesPanel";
 import { GoalPlanTestId } from "./components/GoalPlanPanel";
 import { GoalSettingsTestId } from "./components/GoalSettingsPanel";
 import { GoalTimelineTestId } from "./components/GoalTimelinePanel";
+import { formatGoalDateTime } from "./goalView";
 
 const push = vi.fn();
 const update = vi.fn();
@@ -54,9 +55,16 @@ const stateView: GoalStateView = {
 
 const { hooks } = vi.hoisted(() => ({
   hooks: {
-    goal: { data: undefined as unknown, isPending: false, isError: false, refetch: vi.fn() },
+    goal: {
+      data: undefined as unknown,
+      isPending: false,
+      isError: false,
+      error: undefined as unknown,
+      refetch: vi.fn(),
+    },
     state: { data: undefined as unknown, isPending: false, isError: false, refetch: vi.fn() },
     timeline: [] as unknown[],
+    timelineState: "ok" as "ok" | "pending" | "error",
     updateError: undefined as unknown,
   },
 }));
@@ -65,7 +73,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("./queries", () => ({
   useGoalQuery: () => hooks.goal,
   useGoalStateQuery: () => hooks.state,
-  useGoalTimelineQuery: () => ({ data: hooks.timeline }),
+  useGoalTimelineQuery: () => ({
+    data: hooks.timelineState === "ok" ? hooks.timeline : undefined,
+    isPending: hooks.timelineState === "pending",
+    isError: hooks.timelineState === "error",
+    refetch: vi.fn(),
+  }),
 }));
 vi.mock("./mutations", () => ({
   useUpdateGoalMutation: () => ({
@@ -100,9 +113,16 @@ vi.mock("../knowledge/queries", () => ({
 describe("GoalDetailScreen", () => {
   beforeEach(() => {
     for (const fn of [push, update, resume, wake, remove]) fn.mockClear();
-    hooks.goal = { data: goal, isPending: false, isError: false, refetch: vi.fn() };
+    hooks.goal = {
+      data: goal,
+      isPending: false,
+      isError: false,
+      error: undefined,
+      refetch: vi.fn(),
+    };
     hooks.state = { data: stateView, isPending: false, isError: false, refetch: vi.fn() };
     hooks.timeline = [];
+    hooks.timelineState = "ok";
     hooks.updateError = undefined;
   });
 
@@ -151,6 +171,46 @@ describe("GoalDetailScreen", () => {
       "Vznikne při prvním probuzení",
     );
     expect(screen.getByTestId(GoalTimelineTestId.Empty)).toBeInTheDocument();
+  });
+
+  it("the instances table shows what an instance waits on and when it wakes", () => {
+    const wakeAt = "2026-11-27T08:00:00.000Z";
+    hooks.state = {
+      data: {
+        ...stateView,
+        state: {
+          ...stateView.state,
+          instances: {
+            alpha: {
+              status: "waiting",
+              taskIds: [],
+              waitingOn: [{ kind: "pr", ref: "acme/web#4" }],
+              wakeAt,
+            },
+          },
+        },
+      },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    const next = screen.getAllByTestId(`${GoalInstancesTestId.Next}-alpha`);
+    expect(next).toHaveLength(2);
+    expect(next[0]).toHaveTextContent("acme/web#4");
+    expect(next[1]).toHaveTextContent(formatGoalDateTime(wakeAt, "cs"));
+  });
+
+  it("a pending or failed timeline is not shown as 'nothing happened yet'", () => {
+    hooks.timelineState = "pending";
+    const { unmount } = render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByTestId(GoalTimelineTestId.Loading)).toBeInTheDocument();
+    expect(screen.queryByTestId(GoalTimelineTestId.Empty)).toBeNull();
+    unmount();
+    hooks.timelineState = "error";
+    render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByText("Nepodařilo se načíst")).toBeInTheDocument();
+    expect(screen.queryByTestId(GoalTimelineTestId.Empty)).toBeNull();
   });
 
   it("groups timeline events by cycle", () => {
@@ -222,8 +282,27 @@ describe("GoalDetailScreen", () => {
     expect(remove).toHaveBeenCalledWith({ params: { id: "ci-green" } }, expect.anything());
   });
 
+  it("a 404 says the goal no longer exists instead of the retry error", () => {
+    hooks.goal = {
+      data: undefined,
+      isPending: false,
+      isError: true,
+      error: { status: 404, body: { message: "not found" } },
+      refetch: vi.fn(),
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByText("Tento cíl už neexistuje.")).toBeInTheDocument();
+    expect(screen.queryByText("Nepodařilo se načíst")).toBeNull();
+  });
+
   it("shows the error state with retry instead of a blank page", () => {
-    hooks.goal = { data: undefined, isPending: false, isError: true, refetch: vi.fn() };
+    hooks.goal = {
+      data: undefined,
+      isPending: false,
+      isError: true,
+      error: new TypeError("Failed to fetch"),
+      refetch: vi.fn(),
+    };
     render(<GoalDetailScreen goalId="ci-green" />);
     expect(screen.getByText("Nepodařilo se načíst")).toBeInTheDocument();
   });

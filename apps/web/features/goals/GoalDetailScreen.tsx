@@ -32,6 +32,7 @@ import { GoalSettingsPanel } from "./components/GoalSettingsPanel";
 import { GoalStatusBadge } from "./components/GoalStatusBadge";
 import { GoalTimelinePanel } from "./components/GoalTimelinePanel";
 import { buildUpdateGoalInput, goalToFormValues } from "./goalForm";
+import { isGoalNotFound } from "./goalView";
 import {
   useDeleteGoalMutation,
   useResumeGoalInstanceMutation,
@@ -58,6 +59,10 @@ export interface GoalDetailScreenProps {
  */
 export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
   const query = useGoalQuery(goalId);
+  const t = useTranslations();
+  if (query.isError && isGoalNotFound(query.error)) {
+    return <Typography type="body">{t("bridge.widgets.goals.gone")}</Typography>;
+  }
   if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
   if (query.isPending) return <QueryLoading />;
   if (!query.data) return null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { Goal } from "@zibby/contracts";
 import {
   Alert,
@@ -14,7 +14,7 @@ import {
 import { apiErrorMessage } from "../../../state/apiErrorMessage";
 import { isOperatorTokenError } from "../../../state/operatorToken";
 import { isoToLocalInput, localInputToIso } from "../goalForm";
-import type { GoalNames } from "../goalView";
+import { type GoalNames, formatGoalDateTime } from "../goalView";
 import { useClearGoalMergeGrantMutation, useSetGoalMergeGrantMutation } from "../mutations";
 
 export enum GoalMergeGrantTestId {
@@ -33,12 +33,6 @@ export interface GoalMergeGrantPanelProps {
   names: GoalNames;
 }
 
-const PRAGUE_TIME = new Intl.DateTimeFormat("cs-CZ", {
-  timeZone: "Europe/Prague",
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
 /**
  * The goal's merge grant: shown and set only for a tier3 goal. Setting and revoking need the
  * operator token; a 401 is the "locked" state, as on the autonomy page (`useSaveAutomation`).
@@ -46,6 +40,7 @@ const PRAGUE_TIME = new Intl.DateTimeFormat("cs-CZ", {
 export function GoalMergeGrantPanel({ goal, projectIds, names }: GoalMergeGrantPanelProps) {
   const t = useTranslations("goals.mergeGrant");
   const tk = useTranslations();
+  const locale = useLocale();
   const set = useSetGoalMergeGrantMutation();
   const clear = useClearGoalMergeGrantMutation();
   const [picked, setPicked] = useState<string[]>([]);
@@ -93,7 +88,7 @@ export function GoalMergeGrantPanel({ goal, projectIds, names }: GoalMergeGrantP
         <Stack wrap align="center" direction="row" gap="150" justify="between">
           <Typography data-testid={GoalMergeGrantTestId.Active} size="base" type="note">
             {t("active", {
-              until: PRAGUE_TIME.format(new Date(grant.until)),
+              until: formatGoalDateTime(grant.until, locale),
               projects: grant.projectIds.map(names.projectName).join(", "),
             })}
           </Typography>
@@ -115,7 +110,7 @@ export function GoalMergeGrantPanel({ goal, projectIds, names }: GoalMergeGrantP
         <Stack gap="150">
           {grant && (
             <Typography size="base" type="note" variant="tertiary">
-              {t("expired", { until: PRAGUE_TIME.format(new Date(grant.until)) })}
+              {t("expired", { until: formatGoalDateTime(grant.until, locale) })}
             </Typography>
           )}
           <SelectField

@@ -65,7 +65,8 @@ function GoalRow({
   const locale = useLocale();
   const key = `${widgetId}:${goal.id}`;
   const { counts, needsYou, status } = goal.rollup;
-  const latest = useGoalTimelineQuery(goal.id).data?.at(-1);
+  const timeline = useGoalTimelineQuery(goal.id);
+  const latest = timeline.data?.at(-1);
   const schedule = goalScheduleLabel(goal, locale);
   return (
     <BoardRow
@@ -91,11 +92,14 @@ function GoalRow({
         </BoardText>
         <BoardText kind="rowMeta">· {t(schedule.key, schedule.values)}</BoardText>
       </BoardLine>
-      <BoardLine gap="6">
-        <BoardText data-testid={GoalsWidgetTestId.Latest} kind="reading">
-          {latest ? latest.text : tw("noEvents")}
-        </BoardText>
-      </BoardLine>
+      {/* A failed or loading timeline is not "nothing happened yet": no line at all. */}
+      {timeline.isSuccess && (
+        <BoardLine gap="6">
+          <BoardText data-testid={GoalsWidgetTestId.Latest} kind="reading">
+            {latest ? latest.text : tw("noEvents")}
+          </BoardText>
+        </BoardLine>
+      )}
     </BoardRow>
   );
 }

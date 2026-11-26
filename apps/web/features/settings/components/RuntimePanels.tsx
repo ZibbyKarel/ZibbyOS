@@ -32,6 +32,7 @@ const TICKS = [
   ["automationTickMs", "automation"],
   ["limitResumeTickMs", "limitResume"],
   ["roadmapTickMs", "roadmap"],
+  ["goalEngineTickMs", "goalEngine"],
 ] as const;
 type TickKey = (typeof TICKS)[number][0];
 type Group = "sch" | "lim";

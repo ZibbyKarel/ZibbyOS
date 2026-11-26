@@ -1490,12 +1490,12 @@
       "maxConcurrentRunsHint": "How many task runs may work at once across every project. One slot per task run — a workflow counts once, however many agents it spawns. A run keeps its slot while it waits on an approval. The rest queue.",
       "dockDoneTasksLimit": "Finished tasks in the dock",
       "dockDoneTasksLimitHint": "How many of the latest finished or failed tasks the Tasks panel shows.",
-      "goalAutoResume": "Auto-resume goals on boot",
+      "goalAutoResume": "Auto-resume loops on boot",
       "autoCompact": "Auto-compaction",
       "autoCompactHint": "Context window fill at which the engine compacts the run's conversation. Lower = compacts sooner.",
       "autoCompactOpencode": "OpenCode",
       "autoCompactClaude": "Claude (native CLI)",
-      "goalAutoResumeHint": "Enable for unattended (launchd) mode — running/limit-paused goals re-dispatch on restart. Off = they park and wait for approval (Law 3).",
+      "goalAutoResumeHint": "Enable for unattended (launchd) mode — running/limit-paused loops re-dispatch on restart. Off = they park and wait for approval (Law 3).",
       "save": "Save",
       "unit": {
         "hours": "Hours",
@@ -1760,8 +1760,8 @@
       "maxCyclesHint": "After this many retries a parked run waits for you.",
       "dock": "Finished tasks in dock",
       "dockHint": "How many done tasks stay visible before they archive.",
-      "autoResume": "Auto-resume goals on start",
-      "autoResumeHint": "Goals that were running when the daemon stopped pick up again.",
+      "autoResume": "Auto-resume loops on start",
+      "autoResumeHint": "Loops that were running when the daemon stopped pick up again.",
       "restartRequired": "Restart required",
       "compact": {
         "opencode": "OpenCode auto-compaction",
@@ -1780,7 +1780,9 @@
         "limitResume": "Limit resume",
         "limitResumeHint": "Retries runs parked on a usage limit once headroom is back.",
         "roadmap": "Roadmap sync",
-        "roadmapHint": "Re-imports roadmaps of auto-sync projects and checks merged PRs."
+        "roadmapHint": "Re-imports roadmaps of auto-sync projects and checks merged PRs.",
+        "goalEngine": "Goals",
+        "goalEngineHint": "How often ZIBBY walks the goals and plans the ones that are due."
       }
     },
     "statusPanels": {
@@ -5484,7 +5486,7 @@
       "checklist": "Checklist",
       "checklistHint": "One item per line.",
       "maxDecisions": "Self-made decisions per month",
-      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (autoDecideGoals auto).",
+      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (Goal decisions → Auto).",
       "matrixNote": "Feature matrix note",
       "matrixNoteHint": "Optional mozek note id."
     },

@@ -11,10 +11,9 @@ const d = vi.hoisted(() => ({
   wake: vi.fn(),
   update: vi.fn(),
   resume: vi.fn(),
-  goalErr: false,
-  goalRes: undefined as unknown,
-  stateErr: false,
-  stateRes: undefined as unknown,
+  goalError: undefined as unknown,
+  stateError: undefined as unknown,
+  stateBody: undefined as unknown,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: d.push }),
@@ -61,15 +60,18 @@ const timeline = [
 ];
 
 vi.mock("../../../goals/queries", () => ({
-  useGoalEnvelopeQuery: () => ({
-    data: d.goalErr ? undefined : (d.goalRes ?? { status: 200, body: goal }),
-    isError: d.goalErr,
+  // ts-rest throws every non-2xx response: `error` is the `{ status, body }`, `data` stays empty.
+  useGoalQuery: () => ({
+    data: d.goalError ? undefined : goal,
+    isError: d.goalError !== undefined,
+    error: d.goalError ?? null,
     isPending: false,
     refetch: vi.fn(),
   }),
-  useGoalStateEnvelopeQuery: () => ({
-    data: d.stateErr ? undefined : (d.stateRes ?? { status: 200, body: state }),
-    isError: d.stateErr,
+  useGoalStateQuery: () => ({
+    data: d.stateError ? undefined : (d.stateBody ?? state),
+    isError: d.stateError !== undefined,
+    error: d.stateError ?? null,
     isPending: false,
     refetch: vi.fn(),
   }),
@@ -111,13 +113,12 @@ const open = () =>
 describe("GoalSheet", () => {
   beforeEach(() => {
     for (const fn of [d.push, d.wake, d.update, d.resume]) fn.mockClear();
-    d.goalErr = d.stateErr = false;
-    d.goalRes = d.stateRes = undefined;
+    d.goalError = d.stateError = d.stateBody = undefined;
     vi.useRealTimers();
   });
 
   it("a failed goal query shows the error and the sheet still closes", async () => {
-    d.goalErr = true;
+    d.goalError = new TypeError("Failed to fetch");
     const onClose = vi.fn();
     renderWithProviders(<GoalSheet anchor={anchor} id="ci-green" onClose={onClose} />);
     expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("Nepodařilo se načíst");
@@ -126,18 +127,18 @@ describe("GoalSheet", () => {
   });
 
   it("a 404 says the goal no longer exists; any other non-200 status is the error with retry", () => {
-    d.goalRes = { status: 404, body: { message: "not found" } };
+    d.goalError = { status: 404, body: { message: "not found" } };
     const { unmount } = open();
     expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("už neexistuje");
     unmount();
-    d.goalRes = { status: 500, body: { message: "boom" } };
+    d.goalError = { status: 500, body: { message: "boom" } };
     open();
     expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("Nepodařilo se načíst");
     expect(screen.getByTestId(GoalSheetTestId.Status)).not.toHaveTextContent("už neexistuje");
   });
 
   it("a state HTTP 500 shows the error, not 'nothing planned' or a next cycle", () => {
-    d.stateRes = { status: 500, body: { message: "boom" } };
+    d.stateError = { status: 500, body: { message: "boom" } };
     open();
     expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
     expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();
@@ -147,15 +148,12 @@ describe("GoalSheet", () => {
   it("a standing goal whose state has no instances yet still shows a next cycle from now", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-12-02T10:00:00Z"));
-    d.stateRes = {
-      status: 200,
-      body: {
-        ...state,
-        state: {
-          ...state.state,
-          instances: {},
-          cycle: { index: 0, startedAt: "2026-11-01T08:00:00Z" },
-        },
+    d.stateBody = {
+      ...state,
+      state: {
+        ...state.state,
+        instances: {},
+        cycle: { index: 0, startedAt: "2026-11-01T08:00:00Z" },
       },
     };
     open();
@@ -163,7 +161,7 @@ describe("GoalSheet", () => {
   });
 
   it("a failed state query shows the error, not 'nothing planned' or a next cycle", () => {
-    d.stateErr = true;
+    d.stateError = new TypeError("Failed to fetch");
     open();
     expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
     expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();

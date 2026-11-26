@@ -4,6 +4,7 @@ import { fireEvent } from "@testing-library/react";
 import type { Goal } from "@zibby/contracts";
 import { DropdownTestId } from "@zibby/design-system";
 import { act, renderWithProviders as render, screen } from "../../../test/render";
+import { formatGoalDateTime } from "../goalView";
 import { GoalMergeGrantPanel, GoalMergeGrantTestId } from "./GoalMergeGrantPanel";
 
 const set = vi.fn();
@@ -67,6 +68,14 @@ describe("GoalMergeGrantPanel", () => {
     expect(screen.getByTestId(GoalMergeGrantTestId.Active)).toHaveTextContent("ALPHA");
     await userEvent.click(screen.getByTestId(GoalMergeGrantTestId.Revoke));
     expect(clear).toHaveBeenCalledWith({ params: { id: "g" }, body: {} }, expect.anything());
+  });
+
+  it("the grant's end is formatted in the UI locale, like every other goal time", () => {
+    const until = inHours(3);
+    panel({ ...goal, mergeGrant: { projectIds: ["alpha"], until, grantedAt: inHours(0) } });
+    expect(screen.getByTestId(GoalMergeGrantTestId.Active)).toHaveTextContent(
+      formatGoalDateTime(until, "cs"),
+    );
   });
 
   it("an expired grant counts as none: the form is back", () => {

@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { EmptyState, ListToolbar, Stack, Typography } from "@zibby/design-system";
+import { QueryError } from "../../../components/LoadError/QueryError";
 import { useGoalTimelineQuery } from "../queries";
 import { type GoalNames, formatGoalDateTime, groupTimelineByCycle } from "../goalView";
 
 export enum GoalTimelineTestId {
   Empty = "goal-timeline-empty",
+  Loading = "goal-timeline-loading",
   Cycle = "goal-timeline-cycle",
   Event = "goal-timeline-event",
 }
@@ -24,6 +26,7 @@ export interface GoalTimelinePanelProps {
 /** What happened, grouped by cycle (newest first), filterable per instance. */
 export function GoalTimelinePanel({ goalId, instances, names, standing }: GoalTimelinePanelProps) {
   const t = useTranslations("goals.timeline");
+  const tc = useTranslations("common");
   const locale = useLocale();
   const [instance, setInstance] = useState<string>("all");
   const timeline = useGoalTimelineQuery(goalId, instance === "all" ? undefined : instance);
@@ -43,7 +46,18 @@ export function GoalTimelinePanel({ goalId, instances, names, standing }: GoalTi
           onChipChange={setInstance}
         />
       )}
-      {groups.length === 0 ? (
+      {timeline.isError ? (
+        <QueryError onRetry={() => void timeline.refetch()} />
+      ) : timeline.isPending ? (
+        <Typography
+          data-testid={GoalTimelineTestId.Loading}
+          size="caption"
+          type="note"
+          variant="tertiary"
+        >
+          {tc("loading")}
+        </Typography>
+      ) : groups.length === 0 ? (
         <EmptyState
           body={t("emptyBody")}
           data-testid={GoalTimelineTestId.Empty}

@@ -53,6 +53,13 @@ export function instanceStatusTone(status: GoalInstanceStatus): GoalStatusTone {
   }
 }
 
+/**
+ * A ts-rest query error is the thrown non-2xx response (`{ status, body }`); a 404 means the goal
+ * is gone — a state to render, not a failure to retry.
+ */
+export const isGoalNotFound = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "status" in error && error.status === 404;
+
 /** Date and time in Prague, the zone every goal schedule is expressed in. */
 export function formatGoalDateTime(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
