@@ -31,6 +31,7 @@ export const API_MODULE_DOC_MAP = {
   gaps: "docs/api/gaps.md",
   "gate-rules": "docs/api/gates.md",
   gates: "docs/api/gates.md",
+  goals: "docs/api/goals.md",
   loops: "docs/api/loops.md",
   health: "docs/api/health.md",
   comms: "docs/api/departments.md",

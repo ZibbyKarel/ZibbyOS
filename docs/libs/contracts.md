@@ -33,6 +33,7 @@ excluding the composite `app.contract.ts` and the shared `common.schema.ts`):
 | `companies/`          | `CompanySchema`                                                                                                                   | Company registry CRUD — the super-entity above `Project`                                                                  |
 | `teams/`              | `TeamSchema`, `KnowledgeBaseSourceSchema`                                                                                         | Team CRUD — the layer between `Company` and `Project` that owns a read-only knowledge base; see `docs/api/teams.md`       |
 | `workflows/`          | `WorkflowSchema`, `WorkflowRunSchema`, `StageVerdictSchema`                                                                       | Workflow CRUD + runs                                                                                                      |
+| `goals/`              | `GoalSchema`, `GoalStateSchema`, `GOAL_PRESETS`                                                                                   | Goals (mandates): definitions, state, roll-up, presets                                                                    |
 | `loops/`              | `LoopSchema`, `LoopRunSchema`                                                                                                     | Loop-engine loop definitions + runs                                                                                       |
 | `approvals/`          | `ApprovalSchema`                                                                                                                  | Approval queue                                                                                                            |
 | `artifacts/`          | `ArtifactSchema`                                                                                                                  | Durable artifact provenance registry                                                                                      |
@@ -225,6 +226,7 @@ export const appContract = c.router({
   teams: teamsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract, // now just GET /workflows/runs (catalog liveness)
+  goals: goalsContract,
   loops: loopsContract,
   approvals: approvalsContract,
   artifacts: artifactsContract,
