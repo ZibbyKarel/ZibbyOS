@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import type { Goal, GoalInstance, InboxPr } from "@zibby/contracts";
 import { ApprovalNotFoundError, InvalidApprovalIdError } from "../approvals/approvals.errors";
 import { ApprovalsService } from "../approvals/approvals.service";
@@ -6,6 +6,7 @@ import { ChannelItemStore } from "../channels/channel-item.store";
 import { InboxService } from "../inbox/inbox.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import type { GoalFactsContext, GoalFactsSource } from "./goal-facts";
+import { GoalStateStore } from "./goal-state.store";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A channel reply's text in the facts: a capped data field (the prompt fences all facts). */
@@ -169,17 +170,28 @@ export class ApprovalFactsSource implements GoalFactsSource {
 
 /**
  * Replies on the channel threads the instance waits on (`waitingOn` kind `reply`, ref
- * `<integrationId>:<channel>:<threadTs>`): a count and the latest reply (id, sender, text capped
+ * `<integrationId>:<channel>:<threadTs>`) and on its sent messages' `replyRef`: a count and the latest reply (id, sender, text capped
  * at {@link REPLY_TEXT_MAX}; the text is data, the prompt fences it).
  */
 @Injectable()
 export class ReplyFactsSource implements GoalFactsSource {
   readonly name = "replies";
 
-  constructor(private readonly channels: ChannelItemStore) {}
+  /** The state store is optional so unit tests can pass only the channel store. */
+  constructor(
+    private readonly channels: ChannelItemStore,
+    @Optional() private readonly store?: GoalStateStore,
+  ) {}
 
-  async collect({ instance }: GoalFactsContext): Promise<unknown> {
-    const refs = refsOf(instance, "reply");
+  async collect({ goal, instance, instanceKey }: GoalFactsContext): Promise<unknown> {
+    // The goal's own sent messages count too: a re-plan that does not restate the reply wait
+    // must not lose the colleague's answer.
+    const sent = this.store
+      ? ((await this.store.read(goal.id, goal.createdAt)).messages ?? [])
+          .filter((m) => m.instance === instanceKey && m.replyRef)
+          .map((m) => m.replyRef ?? "")
+      : [];
+    const refs = [...new Set([...refsOf(instance, "reply"), ...sent])];
     if (!refs.length) return undefined;
     return Promise.all(
       refs.map(async (ref) => {

@@ -296,7 +296,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
 
   /**
    * Send a message already claimed as `sending`, then record it `sent` (+ the nudge) or
-   * `failed` in one write. Never throws: the decision is already made.
+   * `failed` in one write. A failed send never throws (the decision is already made); a
+   * failing state write still does.
    */
   private async deliver(
     goal: Goal,
@@ -366,21 +367,40 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     const message = claimed as GoalMessage | null;
     const instance = messageId.split("/")[0] ?? "_";
     if (!message) {
-      return this.note(goal, cycle, instance, `Schválená zpráva ${messageId} už není k odeslání.`);
+      // The operator approved, nothing went out: tell them (a new cycle dropped the draft, or
+      // it was already sent).
+      const text = `Schválená zpráva ${messageId} se neodeslala: koncept už neplatí.`;
+      await this.note(goal, cycle, instance, text, "report");
+      return this.report(goal, instance, text, "report");
     }
     const sent = await this.deliver(goal, message);
+    if (sent.ok) {
+      // As on the auto path: wait on the reply, and look again on a later working morning.
+      await this.store.update(goal.id, goal.createdAt, (s) => {
+        const inst = s.instances[instance];
+        if (!inst || s.cycle.index !== cycle || inst.status === "parked") return;
+        if (inst.status === "done") return;
+        if (sent.replyRef) addWaits(inst, [{ kind: "reply", ref: sent.replyRef }]);
+        keepEarlierWake(inst, fallbackWake(new Date()));
+        inst.status = "waiting";
+      });
+    }
     const text = sent.ok
       ? `Zpráva pro ${message.to} odeslána (schváleno).`
       : `Zpráva pro ${message.to} se neodeslala: ${sent.error}`;
     await this.note(goal, cycle, instance, text, sent.ok ? "message-sent" : "report");
-    await this.activity.record({
+    await this.report(goal, instance, text, sent.ok ? "message" : "report");
+  }
+
+  private report(goal: Goal, instance: string, text: string, action: string): Promise<void> {
+    return this.activity.record({
       kind: "goal-acted",
       summary: `${goal.name}: ${text}`.slice(0, 300),
       refs: {
         goalId: goal.id,
         itemId: instance,
         ...(instance !== "_" ? { projectId: instance } : {}),
-        action: sent.ok ? "message" : "report",
+        action,
       },
     });
   }

@@ -278,4 +278,28 @@ describe("ReplyFactsSource", () => {
     });
     expect(got.replies).toEqual([{ ref: "slack:C1:100", count: 0 }]);
   });
+
+  it("a sent message's replyRef counts without a reply wait (a re-plan may drop it)", async () => {
+    const items = [{ id: "D9-120", externalRef: { channel: "D9", ts: "120" }, text: "ok" }];
+    const store = {
+      read: vi.fn(async () => ({
+        messages: [
+          { instance: "_", replyRef: "slack:D9:100" },
+          { instance: "other", replyRef: "slack:D7:100" },
+        ],
+      })),
+    };
+    const facts = new GoalFactsService([
+      new ReplyFactsSource({ list: vi.fn(async () => items) } as never, store as never),
+    ]);
+    const got = await facts.collect({
+      goal: goal(),
+      instanceKey: "_",
+      instance: instance(),
+      now: NOW,
+    });
+    expect(got.replies).toEqual([
+      { ref: "slack:D9:100", count: 1, last: { id: "D9-120", text: "ok" } },
+    ]);
+  });
 });

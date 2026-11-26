@@ -22,6 +22,33 @@ describe("parseApprovalDetail", () => {
       body: "## Review\n\nLooks **good**.",
     });
   });
+  it("a goal-message's JSON detail (as GoalMessageService writes it) parses to a message preview", () => {
+    const parsed = parseApprovalDetail({
+      id: "a9",
+      runId: "g/_/ask-bob",
+      kind: "goal-message",
+      skill: "goal",
+      action: "message.send",
+      // Byte-for-byte the shape of `approvalDetail()` in apps/api/src/goals/goal-message.service.ts.
+      detail: JSON.stringify({
+        summary: "Zpráva pro Bob · Slack DM",
+        riskType: "odeslani",
+        consequence: "Cíl Goal pošle tuto zprávu tvým jménem (Bob · Slack DM).",
+        preview: { kind: "message", to: "Bob · Slack DM", body: "Ahoj, mrkneš na PR?" },
+      }),
+      risk: "medium",
+      status: "pending",
+      requestedAt: "2026-11-26T10:00:00.000Z",
+    });
+    expect(parsed.preview).toEqual({
+      kind: "message",
+      to: "Bob · Slack DM",
+      body: "Ahoj, mrkneš na PR?",
+    });
+    expect(parsed.text).toBeUndefined();
+    expect(parsed.consequence).toContain("tvým jménem");
+    expect(approvalOrigin(parsed, undefined)).toMatchObject({ href: "/work/goals/g" });
+  });
   it("a pr-fix-ci splits like a pr-rebase", () => {
     const parsed = parseApprovalDetail({
       id: "a4",

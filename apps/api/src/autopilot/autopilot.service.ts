@@ -86,6 +86,7 @@ export function autopilotScopeFor(kind: Approval["kind"]): AutopilotScopeKey | n
     case "pr-address-comments":
       return "comments";
     case "channel":
+    case "goal-message":
       return "communication";
     case "pr-fix-ci":
     case "pr-ci-rerun":

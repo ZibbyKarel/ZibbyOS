@@ -272,10 +272,24 @@ describe("GoalMessageService (the `message` action)", () => {
     const s = await state();
     expect(s.messages).toMatchObject([{ status: "sent", text: edited }]);
     expect(s.nudges["slack:U123"]?.count).toBe(1);
+    // The approve path waits on the reply like the auto path does.
+    expect(s.instances._?.waitingOn).toContainEqual({
+      kind: "reply",
+      ref: "slack-me:D999:1764151200.000100",
+    });
+    expect(s.instances._?.wakeAt).toBeDefined();
     // Restating the same action in a later plan never sends again.
     planOnce(slackMsg("ask-bob"));
     await engine.tick(later(1));
     expect(slack.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("approving a draft that is gone sends nothing and reports it", async () => {
+    await create();
+    await engine.tick(NOW);
+    await messages.resume("g/_/gone");
+    expect(slack.postMessage).not.toHaveBeenCalled();
+    expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");
   });
 
   it("a failed send is recorded as failed and reported; resume never throws", async () => {

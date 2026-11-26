@@ -74,7 +74,8 @@ Configured automations don't go through this tree and keep running. The pill is 
 tone, sleeping orb) in `Ručně` as while paused. The gate
 class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`;
 `levelsAt(at)` returns the stored levels at a place without the pause, e.g. the goal engine's
-`message` reads `autoCommunicate` there and checks `isPaused()` itself): a
+`message` reads `autoCommunicate` there and checks `isPaused()` itself; its `goal-message`
+approvals sit under the `communication` scope and are never auto-approved): a
 `channel` reply resolves at the item's project (with its company), or the integration's company.
 A personal account's item that is only text-matched to a project it does not serve stays at
 global: inbound text borrows neither the company's nor the project's cells.

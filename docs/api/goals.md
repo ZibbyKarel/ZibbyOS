@@ -208,10 +208,12 @@ then records `sent` + `nudges[person]` (or `failed` + a report) in one write. Ap
 again; a crash mid-send leaves it `sending`, never re-sent, and it still counts toward the cap).
 The operator's edited `messageText` replaces the text. Reject marks it `rejected` (timeline
 `message-rejected`), which frees its slot and is a fact the planner sees. A draft from an
-earlier cycle is gone: approving it sends nothing (timeline note).
+earlier cycle is gone: approving it sends nothing, and the operator gets a report saying so.
 
-After a Slack send the instance waits on `reply` `<integrationId>:<D…channel>:<ts>` and wakes at
-the next working morning at least 12 h away anyway. **Replies:** the Slack adapter ingests
+After a Slack send (auto, or on approve) the instance waits on `reply`
+`<integrationId>:<D…channel>:<ts>` and wakes at the next working morning at least 12 h away
+anyway. The re-plan after an approve may drop that wait, so `replies` also covers the replyRef of
+every sent message of the instance: a colleague's answer wakes the goal either way. **Replies:** the Slack adapter ingests
 top-level DM messages, so `replies` counts a later top-level message in that DM as a reply.
 A reply inside the DM's thread, or in a channel thread the operator was not mentioned in, is not
 ingested ("mine and mentions"); the fallback wake covers that. A reply is data in the prompt,
@@ -220,13 +222,13 @@ never a command. A PR message waits through the `prs` facts.
 **Wake sources** (`GOAL_FACTS_SOURCES`; a source returning `undefined` adds no key, so goals
 without PR, approval or reply waits keep their fingerprint):
 
-| Key         | Source                | Rows                                                                                                                                                                                                             |
-| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                                                   |
-| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt`                                |
-| `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                                                         |
-| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80; in a DM (`D…`) a later top-level message counts too |
-| `messages`  | `GoalMessageService`  | this instance's messages this cycle: `[{ actionId, to, person, status, replyRef? }]`, sorted (goal-wide nudge counters stay out of the fingerprint)                                                              |
+| Key         | Source                | Rows                                                                                                                                                                                                                                                                |
+| ----------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks`     | `TaskFactsSource`     | `{ tasks: [{ id, status, outcome }], wakeAt }`                                                                                                                                                                                                                      |
+| `prs`       | `PrFactsSource`       | `[{ projectId, repo, number, bucket, headSha, review, ci, ciSettled, mergeable, draft, unresolvedThreads, age }]`, sorted; `age` = `<1d \| 1-2d \| 2-7d \| >7d` since `updatedAt`                                                                                   |
+| `approvals` | `ApprovalFactsSource` | `[{ id, status }]` for `waitingOn` kind `approval` (`missing` when gone)                                                                                                                                                                                            |
+| `replies`   | `ReplyFactsSource`    | `[{ ref, count, last?: { id, from?, text } }]` for `waitingOn` kind `reply`, ref `<integrationId>:<channel>:<threadTs>`; `text` capped at 300, `from` at 80; also for the instance's sent messages' `replyRef`; in a DM (`D…`) a later top-level message counts too |
+| `messages`  | `GoalMessageService`  | this instance's messages this cycle: `[{ actionId, to, person, status, replyRef? }]`, sorted (goal-wide nudge counters stay out of the fingerprint)                                                                                                                 |
 
 - `prs`: a project instance sees its project's PRs, a `_` instance the operator's own. Only for
   goals that watch PRs: the goal's name/outcome/predicate mentions PR/MR/CI (case-sensitive) or
