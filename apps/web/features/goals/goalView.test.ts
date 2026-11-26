@@ -96,10 +96,10 @@ describe("groupTimelineByCycle", () => {
     text,
   });
 
-  it("puts the newest cycle first and keeps event order inside a cycle", () => {
+  it("puts the newest cycle first and the newest event first inside a cycle", () => {
     const groups = groupTimelineByCycle([ev(0, "a"), ev(1, "b"), ev(0, "c")]);
     expect(groups.map((g) => g.cycle)).toEqual([1, 0]);
-    expect(groups[1]?.events.map((e) => e.text)).toEqual(["a", "c"]);
+    expect(groups[1]?.events.map((e) => e.text)).toEqual(["c", "a"]);
   });
 
   it("is empty for no events", () => {

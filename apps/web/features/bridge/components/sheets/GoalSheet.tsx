@@ -18,6 +18,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import { QueryError } from "../../../../components/LoadError/QueryError";
 import { apiErrorMessage } from "../../../../state/apiErrorMessage";
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
 import { GoalTimelinePanel } from "../../../goals/components/GoalTimelinePanel";
@@ -36,6 +37,8 @@ export enum GoalSheetTestId {
   Wake = "goal-sheet-wake",
   Toggle = "goal-sheet-toggle",
   Log = "goal-sheet-log",
+  Status = "goal-sheet-status",
+  StateError = "goal-sheet-state-error",
   Next = "goal-sheet-next",
   NextCycle = "goal-sheet-next-cycle",
   Deadline = "goal-sheet-deadline",
@@ -74,11 +77,42 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const wake = useWakeGoalMutation();
   const resume = useResumeGoalInstanceMutation();
   const [resuming, setResuming] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const fail = (e: unknown) => setError(apiErrorMessage(e) ?? ts("actionFailed"));
+  // A new action clears the last failure; a failure of the new one sets it again.
+  const run = (start: (opts: { onError: (e: unknown) => void }) => void) => {
+    setError(null);
+    start({ onError: fail });
+  };
 
-  const goal = goalQuery.data;
-  if (!goal) return null;
+  // A 404 arrives as the (non-goal) error body, a network failure as `isError`.
+  const goal = goalQuery.data && "id" in goalQuery.data ? goalQuery.data : undefined;
+  if (!goal) {
+    return (
+      <AnchoredSheet
+        {...geometry(anchor, frame)}
+        closeLabel={t("bridge.sheet.close")}
+        copyId={id}
+        glyph="compass"
+        kind={t("bridge.sheet.kind.goal")}
+        onClose={onClose}
+        title={id}
+      >
+        <SheetSection>
+          <div data-testid={GoalSheetTestId.Status}>
+            {goalQuery.isError ? (
+              <QueryError onRetry={() => void goalQuery.refetch()} />
+            ) : goalQuery.isPending ? (
+              <SheetText lines={[t("common.loading")]} />
+            ) : (
+              <SheetText lines={[g("gone")]} />
+            )}
+          </div>
+        </SheetSection>
+      </AnchoredSheet>
+    );
+  }
   const state = stateQuery.data?.state;
   const rollup = stateQuery.data?.rollup;
   const instances = Object.entries(state?.instances ?? {});
@@ -90,9 +124,14 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const plans = instances.flatMap(([key, i]) =>
     i.planNoteId ? [{ noteId: i.planNoteId, label: label(key) }] : [],
   );
+  // From now (or the cycle start if that is later), so a boundary the engine has not ticked yet
+  // never shows as a "next cycle" in the past.
   const nextCycle =
-    goal.cadence && goal.enabled && state
-      ? nextCycleStart(goal.cadence, new Date(state.cycle.startedAt))
+    goal.cadence && goal.enabled && !stateQuery.isError && !stateQuery.isPending
+      ? nextCycleStart(
+          goal.cadence,
+          new Date(Math.max(now, state ? Date.parse(state.cycle.startedAt) : 0)),
+        )
       : null;
   const deadline = state?.cycle.deadlineAt ?? goal.deadline;
   const when = (iso: string) => formatGoalDateTime(iso, locale);
@@ -132,9 +171,11 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
             loading={resuming === key}
             onClick={() => {
               setResuming(key);
-              resume.mutate(
-                { params: { id, instance: key }, body: {} },
-                { onError: fail, onSettled: () => setResuming(null) },
+              run((o) =>
+                resume.mutate(
+                  { params: { id, instance: key }, body: {} },
+                  { ...o, onSettled: () => setResuming(null) },
+                ),
               );
             }}
             size="sm"
@@ -164,7 +205,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
             data-testid={GoalSheetTestId.Wake}
             disabled={wake.isPending}
             intent="primary"
-            onClick={() => wake.mutate({ params: { id }, body: {} }, { onError: fail })}
+            onClick={() => run((o) => wake.mutate({ params: { id }, body: {} }, o))}
           >
             {ts("detail.wake")}
           </SheetAction>
@@ -200,24 +241,32 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
           </div>
         </SheetBlock>
         <SheetBlock label={g("whatNext")}>
-          <Stack data-testid={GoalSheetTestId.Next} gap="150">
-            {nextCycle && (
-              <div data-testid={GoalSheetTestId.NextCycle}>
-                <SheetText lines={[g("nextCycle", { when: when(nextCycle.toISOString()) })]} />
-              </div>
-            )}
-            {deadline && (
-              <div data-testid={GoalSheetTestId.Deadline}>
-                <SheetText lines={[g("deadline", { when: when(deadline) })]} />
-              </div>
-            )}
-            {instances.length === 0 ? (
-              <SheetText lines={[g("nothingYet")]} />
-            ) : (
-              instances.map(([key, i]) => renderInstance(key, i))
-            )}
-            <GoalPlanPanel plans={plans} />
-          </Stack>
+          {stateQuery.isError ? (
+            <div data-testid={GoalSheetTestId.StateError}>
+              <QueryError onRetry={() => void stateQuery.refetch()} />
+            </div>
+          ) : (
+            <Stack data-testid={GoalSheetTestId.Next} gap="150">
+              {nextCycle && (
+                <div data-testid={GoalSheetTestId.NextCycle}>
+                  <SheetText lines={[g("nextCycle", { when: when(nextCycle.toISOString()) })]} />
+                </div>
+              )}
+              {deadline && (
+                <div data-testid={GoalSheetTestId.Deadline}>
+                  <SheetText lines={[g("deadline", { when: when(deadline) })]} />
+                </div>
+              )}
+              {stateQuery.isPending ? (
+                <SheetText lines={[t("common.loading")]} />
+              ) : instances.length === 0 ? (
+                <SheetText lines={[g("nothingYet")]} />
+              ) : (
+                instances.map(([key, i]) => renderInstance(key, i))
+              )}
+              <GoalPlanPanel plans={plans} />
+            </Stack>
+          )}
         </SheetBlock>
       </SheetSection>
     </AnchoredSheet>

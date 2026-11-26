@@ -4454,7 +4454,8 @@
           "pr": "pull request",
           "reply": "odpověď",
           "time": "čas"
-        }
+        },
+        "gone": "Tento cíl už neexistuje."
       }
     },
     "you": "{n} na tebe",

@@ -104,7 +104,7 @@ describe("GoalsWidget", () => {
     expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 2 }));
   });
 
-  it("picks that match nothing show the no-match state; no goals shows the link to the page", () => {
+  it("picks that match nothing show the no-match state", () => {
     renderWithProviders(<GoalsWidget {...setup({ widget: widget({ goalIds: ["gone"] }) })} />);
     expect(screen.getByTestId(GoalsWidgetTestId.NoMatch)).toBeInTheDocument();
   });

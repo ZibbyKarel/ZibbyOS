@@ -143,7 +143,7 @@ export function presetToCreateBody(preset: GoalPreset): Omit<GoalPreset, "group"
   return body;
 }
 
-/** Timeline events grouped by cycle, newest cycle first; events stay oldest-first inside a cycle. */
+/** Timeline events (fed oldest-first) grouped by cycle, newest cycle first and newest event first inside a cycle. */
 export function groupTimelineByCycle(
   events: readonly GoalTimelineEvent[],
 ): Array<{ cycle: number; events: GoalTimelineEvent[] }> {
@@ -151,5 +151,5 @@ export function groupTimelineByCycle(
   for (const e of events) byCycle.set(e.cycle, [...(byCycle.get(e.cycle) ?? []), e]);
   return [...byCycle.entries()]
     .sort(([a], [b]) => b - a)
-    .map(([cycle, list]) => ({ cycle, events: list }));
+    .map(([cycle, list]) => ({ cycle, events: list.reverse() }));
 }

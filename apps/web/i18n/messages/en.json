@@ -4454,7 +4454,8 @@
           "pr": "pull request",
           "reply": "reply",
           "time": "time"
-        }
+        },
+        "gone": "This goal no longer exists."
       }
     },
     "you": "{n} for you",

@@ -6,7 +6,16 @@ import { GoalPlanTestId } from "../../../goals/components/GoalPlanPanel";
 import { GoalTimelineTestId } from "../../../goals/components/GoalTimelinePanel";
 import { GoalSheet, GoalSheetTestId } from "./GoalSheet";
 
-const d = vi.hoisted(() => ({ push: vi.fn(), wake: vi.fn(), update: vi.fn(), resume: vi.fn() }));
+const d = vi.hoisted(() => ({
+  push: vi.fn(),
+  wake: vi.fn(),
+  update: vi.fn(),
+  resume: vi.fn(),
+  goalErr: false,
+  goalGone: false,
+  stateErr: false,
+  stateData: undefined as unknown,
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: d.push }),
   usePathname: () => "/",
@@ -52,8 +61,18 @@ const timeline = [
 ];
 
 vi.mock("../../../goals/queries", () => ({
-  useGoalQuery: () => ({ data: goal }),
-  useGoalStateQuery: () => ({ data: state }),
+  useGoalQuery: () => ({
+    data: d.goalErr ? undefined : d.goalGone ? { message: "not found" } : goal,
+    isError: d.goalErr,
+    isPending: false,
+    refetch: vi.fn(),
+  }),
+  useGoalStateQuery: () => ({
+    data: d.stateErr ? undefined : (d.stateData ?? state),
+    isError: d.stateErr,
+    isPending: false,
+    refetch: vi.fn(),
+  }),
   useGoalTimelineQuery: () => ({ data: timeline }),
 }));
 vi.mock("../../../goals/mutations", () => ({
@@ -91,7 +110,50 @@ const open = () =>
 
 describe("GoalSheet", () => {
   beforeEach(() => {
-    for (const fn of Object.values(d)) fn.mockClear();
+    for (const fn of [d.push, d.wake, d.update, d.resume]) fn.mockClear();
+    d.goalErr = d.goalGone = d.stateErr = false;
+    d.stateData = undefined;
+    vi.useRealTimers();
+  });
+
+  it("a failed goal query shows the error and the sheet still closes", async () => {
+    d.goalErr = true;
+    const onClose = vi.fn();
+    renderWithProviders(<GoalSheet anchor={anchor} id="ci-green" onClose={onClose} />);
+    expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("Nepodařilo se načíst");
+    await userEvent.click(screen.getByTestId(AnchoredSheetTestId.Close));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("a deleted goal says it no longer exists", () => {
+    d.goalGone = true;
+    open();
+    expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("už neexistuje");
+  });
+
+  it("a failed state query shows the error, not 'nothing planned' or a next cycle", () => {
+    d.stateErr = true;
+    open();
+    expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
+    expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();
+    expect(screen.queryByTestId(GoalSheetTestId.NextCycle)).toBeNull();
+  });
+
+  it("the next cycle is computed from now, never in the past", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-02T10:00:00Z")); // Wed; cycle started Thu 26 Nov
+    open();
+    // next weekday 9:00 Prague after Wed 2 Dec 11:00 Prague = Thu 3 Dec
+    expect(screen.getByTestId(GoalSheetTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
+  });
+
+  it("a failed action shows the error, and the next action clears it", async () => {
+    d.wake.mockImplementationOnce((_v, o) => o.onError(new Error("x")));
+    open();
+    await userEvent.click(screen.getByTestId(GoalSheetTestId.Wake));
+    expect(screen.getByTestId(GoalSheetTestId.Error)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(GoalSheetTestId.Wake));
+    expect(screen.queryByTestId(GoalSheetTestId.Error)).toBeNull();
   });
 
   it("renders the log (every entry, grouped by cycle) and what comes next", () => {
