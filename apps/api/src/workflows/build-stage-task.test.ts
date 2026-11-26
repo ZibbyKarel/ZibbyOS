@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStageTask } from "./build-stage-task";
+import { buildStageTask, reviewPacksRider } from "./build-stage-task";
 
 describe("buildStageTask", () => {
   it("includes consume/produce lines and no verdict instruction on a non-qualify phase", () => {
@@ -75,5 +75,28 @@ describe("buildStageTask prompt + skill", () => {
     const s = task.indexOf("## Skill /security-audit\nAudit body");
     expect(p).toBeGreaterThan(task.indexOf('Proveď fázi workflow "x".'));
     expect(s).toBeGreaterThan(p);
+  });
+});
+
+describe("buildStageTask review packs", () => {
+  it("adds the review-packs section after the base block and before the step prompt", () => {
+    const task = buildStageTask({
+      phaseId: "review",
+      consumesAbs: null,
+      producesAbs: "/run/review/review.md",
+      prompt: "Review it.",
+      reviewPacksDirAbs: "/run/review/review-rules",
+    });
+    const r = task.indexOf("## Review rule packs");
+    expect(r).toBeGreaterThan(task.indexOf('Výstup zapiš do "/run/review/review.md".'));
+    expect(task.indexOf("## Zadání kroku")).toBeGreaterThan(r);
+    expect(task).toContain(reviewPacksRider("/run/review/review-rules"));
+    expect(task).toContain('1. Read "/run/review/review-rules/INDEX.md".');
+    expect(task).toContain("`Rule packs read: <lanes>`");
+  });
+
+  it("has no review-packs section without reviewPacksDirAbs", () => {
+    const task = buildStageTask({ phaseId: "x", consumesAbs: null, producesAbs: null });
+    expect(task).not.toContain("Review rule packs");
   });
 });

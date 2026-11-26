@@ -86,6 +86,7 @@ import { TraceContextService } from "../shared/logging/trace-context.service";
 import { prepareWorktreeDir } from "../shared/worktree-root";
 import { WorkspaceService, WorkspaceSetupError } from "../workspace/workspace.service";
 import { QUALIFY_VERDICT_RIDER, buildStageTask } from "./build-stage-task";
+import { stageReviewPacks } from "./review-packs";
 import { WorkflowsStorageService } from "./workflows.storage.service";
 import { type WorkflowStageRecord, workflowStageStrategy } from "./workflow-stage.record";
 import { renderProgress } from "./progress";
@@ -3629,7 +3630,20 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
           producesAbs,
         );
       }
-      const task = buildStageTask({
+      // Review packs: the vault's rule packs matching this run's project/company,
+      // copied into the stage sandbox (always readable — it is the spawn cwd or granted
+      // below). After the openaiModel return: vault content never goes to a third party.
+      const vaultDir = this.vault.root;
+      const packs =
+        phase.reviewPacks && project && vaultDir
+          ? await stageReviewPacks({
+              vaultDir,
+              stageDir: cwd,
+              projectId: project.id,
+              ...(project.companyId ? { companyId: project.companyId } : {}),
+            })
+          : null;
+      const taskOpts = {
         phaseId: phase.id,
         consumesAbs,
         producesAbs,
@@ -3638,11 +3652,16 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
         ...(webUrl ? { webUrl } : {}),
         ...(phase.prompt ? { prompt: phase.prompt } : {}),
         ...(skill ? { skill } : {}),
+      };
+      const task = buildStageTask({
+        ...taskOpts,
+        ...(packs ? { reviewPacksDirAbs: packs.dirAbs } : {}),
       });
       // Memory grounding (Phase 4): per-stage so each phase's agent gets the North
-      // Star + relevant MOCs + the project note. Fail-open ("" on any error).
+      // Star + relevant MOCs + the project note. Fail-open ("" on any error). Fed the
+      // task WITHOUT the packs rider, whose words ("INDEX", "rules") would term-match MOCs.
       const grounding = await this.grounding.compose({
-        task,
+        task: packs ? buildStageTask(taskOpts) : task,
         projectId: project?.id,
         matchedTerms,
         department,

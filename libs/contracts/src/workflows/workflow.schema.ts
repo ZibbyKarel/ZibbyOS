@@ -142,6 +142,13 @@ export const WorkflowPhaseSchema = z.object({
   /** Agent phase only: one skill (own or external) whose body rides the stage task. */
   skill: SkillIdSchema.optional(),
   /**
+   * Agent phase only: stage the vault's review rule packs that match the run's
+   * project/company (`knowledge/review-packs/*.md`) into the stage sandbox and tell
+   * the agent to check the change against them. No project = nothing staged.
+   * Skipped on an `openaiModel` step (vault content never leaves the machine).
+   */
+  reviewPacks: z.boolean().optional(),
+  /**
    * Agent phase only: run the step on this OpenAI model over the Responses API
    * instead of the local `claude` CLI. Text in, text out — no tools, no shell: the
    * agent's instructions + the task + the `consumes`/`include` files go in, the reply
@@ -403,6 +410,7 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
         "thinking",
         "prompt",
         "skill",
+        "reviewPacks",
         "engine",
         "engineModel",
       ] as const) {
@@ -428,6 +436,7 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
         "commands",
         "prompt",
         "skill",
+        "reviewPacks",
         "engine",
         "engineModel",
         "openaiModel",
@@ -459,6 +468,7 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
         "commands",
         "prompt",
         "skill",
+        "reviewPacks",
         "engine",
         "engineModel",
       ] as const) {

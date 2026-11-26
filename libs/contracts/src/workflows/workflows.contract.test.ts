@@ -278,6 +278,16 @@ describe("agent phase custom prompt + skill", () => {
     const ph = { id: "s", type: "workflow", workflow: "c", consumes: "i", produces: "o" };
     expect(parse({ ...ph, skill: "security-audit" }).success).toBe(false);
   });
+
+  it("accepts reviewPacks on an agent phase and keeps it after the parse", () => {
+    const result = parse({ ...agentPh, reviewPacks: true });
+    expect(result.success && result.data.phases[0]?.reviewPacks).toBe(true);
+  });
+
+  it("rejects reviewPacks on a tool phase", () => {
+    const tool = { id: "t", type: "tool", commands: ["x"], produces: "r.md", reviewPacks: true };
+    expect(parse(tool).success).toBe(false);
+  });
 });
 
 describe("workflow phase type `workflow` (sub-run)", () => {

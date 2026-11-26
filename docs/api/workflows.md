@@ -89,8 +89,8 @@ An explicit project on the start request still wins.
 **Phase types.** `type` is `agent` (default), `tool`, `workflow` or `system`. Schema rules: an
 `agent` phase requires `agent`/`model`/`thinking`/`consumes`/`produces`; a `tool` phase requires `commands` and `produces` and must
 not set `agent`/`model`/`thinking`; a `system` phase requires `action` and must not set
-`agent`/`model`/`thinking`/`commands`/`prompt`/`skill`/`engine`/`engineModel`/`openaiModel`/`include`/`qualify`/`workflow`
-(`action` is forbidden on every other type).
+`agent`/`model`/`thinking`/`commands`/`prompt`/`skill`/`reviewPacks`/`engine`/`engineModel`/`openaiModel`/`include`/`qualify`/`workflow`
+(`action` is forbidden on every other type; `reviewPacks` is rejected on `tool`/`workflow` phases too).
 
 ### Ownership (`department`) and the ladder rung (`complexity`)
 
@@ -427,6 +427,44 @@ instead of the local `claude` CLI. The operator picks it per step in the workflo
 - The stage child gets `OPENAI_API_KEY`. It is ZIBBY's own script, not a model-driven
   shell, so Law 4 still holds. The cost (from `usage` × the model's list price) goes to
   `costs.jsonl` and counts toward the run's budget.
+
+### Review packs (`reviewPacks`)
+
+An agent phase with `reviewPacks: true` gets the hand-curated review rule packs that
+apply to its run's project. The reviewer agent stays generic: company-specific rules
+live only in the vault.
+
+- **Pack notes:** `<vault>/knowledge/review-packs/*.md` (non-recursive). Frontmatter:
+  `type: review-pack`, `lane` (e.g. `TEST`), and optional `company`, `project`, `title`,
+  `order`, `paths` (globs), `runs`, `source`, `snapshot`. The body has one bullet per rule,
+  starting `- **TEST-01** · …`.
+- **Scoping:** a pack applies only when it declares `company` and/or `project` and every
+  declared key equals the run's value. That is, the project's `companyId` and the project
+  `id`. A company-only pack covers all of that company's projects. A company+project pack
+  covers that one project. A run with no project gets nothing.
+- **Staging** (`apps/api/src/workflows/review-packs.ts`): the matching packs are copied
+  into `<stageDir>/review-rules/`. Any previous copy is removed first, so a retry starts
+  clean. The folder holds:
+  - `<lane>.md`: the pack body only. Two packs on one lane are appended into one file.
+  - `INDEX.md`: lane, title, file, rule count, `paths` and `runs` for each pack.
+  - `offered.json`: the audit manifest. It records `stagedAt`, `projectId`, `companyId`,
+    and for each pack its `lane`, `title`, `file`, `source`, `snapshot`, `paths` and
+    `ruleIds`.
+
+  Staging is fail-open: no folder, no match or any error means nothing is staged and
+  there is no rider.
+
+- **Rider:** `buildStageTask` adds a `## Review rule packs` section before
+  `## Zadání kroku`. It tells the agent to read `INDEX.md` and list the changed files.
+  The agent then reads only the lanes that match those files, tags rule findings
+  `Important [TEST-01]`, and ends with `Rule packs read: <lanes>`.
+- **Audit trail:** `offered.json` says which rules were offered. The
+  `● read …/review-rules/<lane>.md` lines in the stage log show which lanes were read.
+  The `[RULE-ID]` tags in `review.md` show which rules produced findings.
+- **Privacy:** packs are never staged on an `openaiModel` step, because vault content
+  never leaves the machine. `VaultService.index()`/`search()` leave every
+  `type: review-pack` note out, so a company-only pack can't reach another company's
+  run through grounding or `recall_memory`. `note()` still opens them.
 
 ### Phase: tool
 

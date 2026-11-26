@@ -187,6 +187,9 @@ Called at the start of every run (fail-open — a vault outage never blocks a ru
    (`GLOBAL_REVIEW_RULES_ID`, skipped for a `domain: "personal"` run) and, when
    the run carries a `projectId`, that project's note
    (`reviewRulesIdFor(projectId)`); see `docs/api/review-learning.md`
+   (Review packs under `knowledge/review-packs/` are separate, hand-curated notes. They
+   are left out of `index()`/`search()` and reach a run only through a `reviewPacks`
+   workflow phase; see `docs/api/workflows.md`.)
 4. Loads the owning department's knowledge shelf (F4a) when `department` is
    set, plus the Personal shelf for a `domain: "personal"` run (F8)
 5. Loads up to `MOC_LIMIT` term-matched indexes, narrowed first by M7 project

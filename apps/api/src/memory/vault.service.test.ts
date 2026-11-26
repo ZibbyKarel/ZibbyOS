@@ -171,6 +171,19 @@ describe("VaultService write paths", () => {
     expect(hits.find((h) => h.id === "global-note")?.project).toBeUndefined();
   });
 
+  it("leaves review-pack notes out of index() and search() but still opens them by id", async () => {
+    await fs.mkdir(path.join(dir, "knowledge", "review-packs"), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, "knowledge", "review-packs", "acme-test.md"),
+      "---\ntitle: Review pack acme\ntype: review-pack\ncompany: acme\nlane: TEST\n---\n- **TEST-01** · pack payload\n",
+    );
+    await vault.createNote({ id: "plain", tier: "knowledge", body: "pack payload too" });
+
+    expect((await vault.index()).map((e) => e.id)).not.toContain("acme-test");
+    expect((await vault.search("pack payload")).map((h) => h.id)).toEqual(["plain"]);
+    expect((await vault.note("acme-test")).title).toBe("Review pack acme");
+  });
+
   it("F4b: ownerDepartmentOf reads a valid department, ignores an invalid one, is undefined when absent", async () => {
     expect(ownerDepartmentOf({ department: "dev" })).toBe("dev");
     expect(ownerDepartmentOf({ department: "Not A Department" })).toBeUndefined();

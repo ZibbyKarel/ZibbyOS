@@ -940,6 +940,63 @@ describe("WorkflowRunnerService — stage gates & resume", () => {
       });
     });
 
+    describe("reviewPacks", () => {
+      let root: string;
+      const buildClaude = vi.fn(async (opts: { task: string }) => ({
+        command: "claude",
+        args: ["-p", opts.task],
+      }));
+      beforeEach(async () => {
+        root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "packs-build-")));
+        await fs.mkdir(path.join(root, "vault", "knowledge", "review-packs"), { recursive: true });
+        await fs.mkdir(path.join(root, "run", "stage"), { recursive: true });
+        await fs.writeFile(
+          path.join(root, "vault", "knowledge", "review-packs", "acme-test.md"),
+          "---\ntype: review-pack\ncompany: acme\nlane: TEST\n---\n- **TEST-01** · x\n",
+        );
+        process.env.AGENT_RUNNER_MODE = "claude";
+        buildClaude.mockClear();
+        const svc = h.service as unknown as { claude: unknown; agents: unknown; vault: unknown };
+        svc.claude = withRunEngine({
+          buildClaudeCommand: buildClaude,
+          resolveEngine: () => ({ engine: "claude" }),
+        });
+        svc.agents = { get: vi.fn(async () => ({ id: "writer", instructions: "AGENT-INSTR" })) };
+        svc.vault = { root: path.join(root, "vault") };
+      });
+      afterEach(() => fs.rm(root, { recursive: true, force: true }));
+
+      const stage = () => path.join(root, "run", "stage");
+      const buildIn = (phase: WorkflowPhase) =>
+        (
+          h.service as unknown as {
+            buildStageCommand(
+              p: WorkflowPhase,
+              cwd: string,
+              project: Project | null,
+            ): Promise<unknown>;
+          }
+        ).buildStageCommand(phase, stage(), { ...PROJECT, companyId: "acme" });
+
+      it("stages the matching packs into the sandbox and adds the rider to the task", async () => {
+        const compose = vi.fn<(input: { task: string }) => Promise<string>>(async () => "");
+        (h.service as unknown as { grounding: unknown }).grounding = { compose };
+        await buildIn(agentPhase({ reviewPacks: true }));
+        // Grounding term-matches the task without the rider (its "INDEX" would hit MOCs).
+        expect(compose.mock.calls[0]?.[0].task).not.toContain("Review rule packs");
+        const task = (buildClaude.mock.calls[0]?.[0] as { task: string }).task;
+        expect(task).toContain(`staged in "${path.join(stage(), "review-rules")}"`);
+        expect(await fs.readFile(path.join(stage(), "review-rules", "test.md"), "utf8")).toContain(
+          "TEST-01",
+        );
+      });
+
+      it("never stages vault packs for an openaiModel step", async () => {
+        await buildIn(agentPhase({ reviewPacks: true, openaiModel: "gpt-6-luna" })).catch(() => {});
+        expect(await fs.readdir(stage())).not.toContain("review-rules");
+      });
+    });
+
     it("claude: without a project a consumes handoff still grants the run root (P1-T2)", async () => {
       process.env.AGENT_RUNNER_MODE = "claude";
       const buildClaude = vi.fn(async (opts: { task: string; grantDirs?: readonly string[] }) => ({

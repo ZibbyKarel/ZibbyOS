@@ -157,6 +157,16 @@ export function ownerProjectOf(frontmatter: Record<string, unknown>): string | u
 }
 
 /**
+ * A hand-curated review rule pack (`type: review-pack`). Packs are scoped by
+ * `company:`/`project:` and reach a run only through the workflow stage that stages
+ * the matching ones; a company-only pack carries no `project`, so the index and search
+ * leave every pack out — otherwise it would ground or recall into other companies' runs.
+ */
+export function isReviewPack(frontmatter: Record<string, unknown>): boolean {
+  return frontmatter.type === "review-pack";
+}
+
+/**
  * The department a note belongs to (F4a shelves), or undefined if it carries no
  * (valid) `department:` frontmatter. Mirrors {@link ownerProjectOf}'s derivation
  * shape — pure, exported for unit testing.
@@ -255,12 +265,17 @@ export class VaultService implements OnModuleInit {
     this.dir = path.resolve(dir);
   }
 
+  /** The vault's absolute root — for a caller that reads a fixed folder (review packs). */
+  get root(): string {
+    return this.dir;
+  }
+
   async onModuleInit(): Promise<void> {
     await fs.mkdir(this.dir, { recursive: true });
   }
 
   async index(): Promise<IndexEntry[]> {
-    const notes = await this.scan();
+    const notes = (await this.scan()).filter((n) => !isReviewPack(n.frontmatter));
     // Prefer explicit index/MOC notes as entry points; fall back to everything.
     const entryPoints = notes.filter((n) => /(^|[-_ ])(index|moc)$/i.test(n.id));
     const chosen = entryPoints.length > 0 ? entryPoints : notes;
@@ -359,6 +374,7 @@ export class VaultService implements OnModuleInit {
     const notes = await this.scan();
     const hits: Array<SearchHit & { score: number }> = [];
     for (const n of notes) {
+      if (isReviewPack(n.frontmatter)) continue;
       const inTitle = n.title.toLowerCase().includes(query);
       const idx = n.body.toLowerCase().indexOf(query);
       if (!inTitle && idx < 0) continue;

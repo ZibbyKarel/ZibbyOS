@@ -65,6 +65,13 @@ describe("WorkflowsStorageService", () => {
     expect(got.outputs).toEqual([]); // default when none declared
   });
 
+  it("round-trips a phase's reviewPacks flag through the .workflow.md frontmatter", async () => {
+    await service.create({ ...sample, id: "review", phases: [phase("a", { reviewPacks: true })] });
+    const parsed = matter(await fs.readFile(fileFor(dir, "review"), "utf8"));
+    expect((parsed.data.phases as Array<{ reviewPacks?: boolean }>)[0]?.reviewPacks).toBe(true);
+    expect((await service.get("review")).phases[0]?.reviewPacks).toBe(true);
+  });
+
   it("round-trips output sinks through the .workflow.md frontmatter", async () => {
     await service.create({
       ...sample,

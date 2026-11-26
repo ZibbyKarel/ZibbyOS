@@ -9,6 +9,10 @@ approval → ground the approved rules into every future run.
 Full design: `docs/superpowers/plans/2026-07-29-pr-review-learning.md` and
 `docs/superpowers/specs/2026-07-29-pr-review-learning-design.md`.
 
+Review packs (`knowledge/review-packs/*.md`, staged by a `reviewPacks` workflow phase)
+are hand-curated notes, separate from the generated `<project>-review-rules` note. See
+`docs/api/workflows.md`.
+
 ## Rule schema (`@zibby/contracts`)
 
 Defined in `libs/contracts/src/review-learning/review-rule.schema.ts`:
