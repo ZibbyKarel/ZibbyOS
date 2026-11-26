@@ -271,12 +271,14 @@ export class ApprovalsService {
    * `reason`, then resume the run the same way `approve` does — the held tool call
    * proceeds and `RunMcpController` hands the stored answer back to the agent. Only
    * an `operator.question` approval is answerable; the check runs before `decide`,
-   * so a refused answer leaves the approval pending.
+   * so a refused answer leaves the approval pending. A `goal-decision` is answerable too: the
+   * answer (a candidate id) is stored as `reason` and read back by its runner.
    */
   async answer(id: string, answer: string): Promise<Approval> {
     this.assertDecidableHere(id);
     const pending = await this.storage.get(id);
-    if (pending.action !== OPERATOR_QUESTION_ACTION) throw new ApprovalNotAnswerableError(id);
+    if (pending.action !== OPERATOR_QUESTION_ACTION && pending.kind !== "goal-decision")
+      throw new ApprovalNotAnswerableError(id);
     const approval = await this.decide(id, "approved", answer);
     this.log?.info("question answered; resuming run", {
       id,

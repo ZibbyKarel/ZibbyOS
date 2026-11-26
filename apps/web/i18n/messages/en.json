@@ -5449,7 +5449,14 @@
         "tier1": "Quiet preparation only",
         "tier2": "Act, then report",
         "tier3": "Everything needs approval"
-      }
+      },
+      "directional": "Directional goal (ZIBBY proposes what to build)",
+      "checklist": "Checklist",
+      "checklistHint": "One item per line.",
+      "maxDecisions": "Self-made decisions per month",
+      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (autoDecideGoals auto).",
+      "matrixNote": "Feature matrix note",
+      "matrixNoteHint": "Optional mozek note id."
     },
     "settings": {
       "maxRuns": "{count, plural, one {# run} other {# runs}} per cycle",
@@ -5504,6 +5511,25 @@
       "deleteTitle": "Delete goal?",
       "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone."
     },
-    "actionFailed": "The action failed. Try again."
+    "actionFailed": "The action failed. Try again.",
+    "directional": {
+      "title": "Directional goal",
+      "checklist": "Checklist",
+      "noChecklist": "No checklist items.",
+      "decisions": "Decisions this month",
+      "decisionsValue": "{count} / {max}",
+      "autonomy": "Autonomy",
+      "line": {
+        "auto": "Decides on its own",
+        "proposes": "Only proposes — {why}"
+      },
+      "why": {
+        "manual": "the level is Manual",
+        "semi": "the level is Semi-automatic",
+        "paused": "Autopilot is paused",
+        "ceiling": "the goal's ceiling is tier1",
+        "unknown": "not planned yet"
+      }
+    }
   }
 }

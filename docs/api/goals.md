@@ -118,19 +118,20 @@ Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot over
 
 ### Actions and the ceiling filter
 
-| Action       | Fields                                                                                                    | Min ceiling | Handler in this phase                                     |
-| ------------ | --------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------- |
-| `note`       | `text`                                                                                                    | tier1       | timeline line                                             |
-| `report`     | `text`                                                                                                    | tier1       | timeline + `goal-acted`                                   |
-| `wait`       | `waitingOn?`, `wakeAt?` (one required)                                                                    | tier1       | adds the waits; the earliest `wakeAt` wins, ≥ now + 5 min |
-| `done`       | `summary?`                                                                                                | tier1       | status `done`, `goal-done`                                |
-| `park`       | `reason`, `text?`                                                                                         | tier1       | status `parked`                                           |
-| `start-task` | `actionId`, `text`, `title?`, `targetId?`                                                                 | tier2       | `createTask` in the instance's project                    |
-| `run-loop`   | `actionId`, `text`                                                                                        | tier2       | `createTask` with the goal's loop                         |
-| `pr-action`  | `actionId`, `op` (review/address-comments/fix-ci), `projectId`, `repo`, `number`                          | tier2       | inbox service, `auto: true`                               |
-| `message`    | `actionId`, `to: { kind: slack-user \| pr, ref }`, `text`, `about?: { repo, number }` (required for `pr`) | tier2       | `GoalMessageService` (below)                              |
-| `propose`    | `candidates[]` (`title`, `why?`, `checklistId?`)                                                          | tier2       | none yet                                                  |
-| `merge`      | `repo`, `number`, `headSha`                                                                               | tier3       | none yet                                                  |
+| Action             | Fields                                                                                                    | Min ceiling | Handler in this phase                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------- |
+| `note`             | `text`                                                                                                    | tier1       | timeline line                                             |
+| `report`           | `text`                                                                                                    | tier1       | timeline + `goal-acted`                                   |
+| `wait`             | `waitingOn?`, `wakeAt?` (one required)                                                                    | tier1       | adds the waits; the earliest `wakeAt` wins, ≥ now + 5 min |
+| `done`             | `summary?`                                                                                                | tier1       | status `done`, `goal-done`                                |
+| `park`             | `reason`, `text?`                                                                                         | tier1       | status `parked`                                           |
+| `start-task`       | `actionId`, `text`, `title?`, `targetId?`                                                                 | tier2       | `createTask` in the instance's project                    |
+| `run-loop`         | `actionId`, `text`                                                                                        | tier2       | `createTask` with the goal's loop                         |
+| `pr-action`        | `actionId`, `op` (review/address-comments/fix-ci), `projectId`, `repo`, `number`                          | tier2       | inbox service, `auto: true`                               |
+| `message`          | `actionId`, `to: { kind: slack-user \| pr, ref }`, `text`, `about?: { repo, number }` (required for `pr`) | tier2       | `GoalMessageService` (below)                              |
+| `propose`          | `candidates[]` (`id`, `title`, `why?`, `size` small\|large, `task`), ranked best first                    | tier1       | `GoalDecisionService` (below)                             |
+| `update-checklist` | `id`, `done`                                                                                              | tier1       | `GoalDecisionService`: ticks a checklist item             |
+| `merge`            | `repo`, `number`, `headSha`                                                                               | tier3       | none yet                                                  |
 
 An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
 `report` naming what was not done, and so does a spending action (`start-task`, `run-loop`,
@@ -265,6 +266,35 @@ without PR, approval or reply waits keep their fingerprint):
   any other read error (here and in `replies`) fails that instance's tick, leaving its
   fingerprint as it was.
 - `replies` reads the channel items of that integration only for instances waiting on a reply.
+
+### Directional goals (`GoalDecisionService`)
+
+A goal with `directional` (`checklist`, `maxDecisionsPerMonth`, optional `matrixNoteId`) lets the
+planner `propose` ranked candidates. A non-directional goal's `propose` is a report. The
+effective `autoDecideGoals` is resolved at the instance's place with the same place helper as
+`autoCommunicate` (project > team > company > global; a `_` instance resolves at global) and
+is stored on the instance as `autoDecide: { level, reason }` (shown on the detail page and
+given to the planner): Autopilot paused caps `auto` at `semi` (`paused`); a `tier1` ceiling means
+`manual` (`ceiling`). The planner never decides: the handler enforces the level. `propose` runs
+at `tier1` so that a tier1 goal still gets the ranked report.
+
+- `manual`: ranked report on the timeline (+ activity), nothing else.
+- `semi`: one `goal-decision` approval (runId `<goalId>/<instance>/<cycle>`) listing the
+  candidates; the instance waits on it; one open proposal per instance (a second `propose`
+  meanwhile is a report). Approve starts the top candidate; `POST /approvals/:id/answer` with a
+  candidate id starts that one (an id not in the stored proposal starts nothing and marks it
+  `failed`); reject records it (`rejected`). Candidates come only from the stored proposal,
+  matched by id: inbound channel or PR text is a fact and never selects or starts one. A new
+  cycle drops the proposals and rejects their pending approvals.
+- `auto`: the top candidate starts at once through the ordinary `start-task` path (budget,
+  ceiling, `actionId` `dec-<cycle>-<candidateId>`) when `decisionsThisMonth.count <
+maxDecisionsPerMonth` and its `size` is `small`; then `decisionsThisMonth` (`{ month:
+"YYYY-MM", count }`, Europe/Prague, per goal) is incremented. Otherwise it falls back to `semi`
+  and the approval text says why (cap reached / large candidate). Approved starts are the
+  operator's call and not counted.
+
+`update-checklist { id, done }` rewrites that item in the goal definition; when every item is
+done the instance is `done`. An unknown id is a report.
 
 ### Planner (`GoalPlannerService`)
 

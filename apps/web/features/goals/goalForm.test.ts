@@ -112,3 +112,38 @@ describe("blank numeric inputs", () => {
     expect(isGoalFormValid({ ...base, maxRuns: "abc" })).toBe(false);
   });
 });
+
+describe("directional goals", () => {
+  const dir = { ...base, directional: true, maxDecisions: "3", checklist: "A\nB\n\n" };
+
+  it("builds the directional block from the checklist lines", () => {
+    expect(buildCreateGoalInput(dir).directional).toEqual({
+      maxDecisionsPerMonth: 3,
+      checklist: [
+        { id: "c1", title: "A", done: false },
+        { id: "c2", title: "B", done: false },
+      ],
+    });
+    expect(buildCreateGoalInput(base)).not.toHaveProperty("directional");
+  });
+
+  it("keeps id and done of an existing item on edit and clears the block when switched off", () => {
+    const previous = {
+      maxDecisionsPerMonth: 1,
+      checklist: [{ id: "x", title: "A", done: true }],
+    };
+    expect(buildUpdateGoalInput({ ...dir, matrixNoteId: "m" }, previous).directional).toEqual({
+      maxDecisionsPerMonth: 3,
+      checklist: [
+        { id: "x", title: "A", done: true },
+        { id: "c1", title: "B", done: false },
+      ],
+      matrixNoteId: "m",
+    });
+    expect(buildUpdateGoalInput(base, previous).directional).toBeNull();
+  });
+
+  it("rejects a blank cap", () => {
+    expect(isGoalFormValid({ ...dir, maxDecisions: "" })).toBe(false);
+  });
+});

@@ -12,6 +12,7 @@ describe("GoalActionSchema", () => {
         "park",
         "pr-action",
         "propose",
+        "update-checklist",
         "report",
         "run-loop",
         "start-task",
@@ -93,5 +94,24 @@ describe("ceilingAllows", () => {
     expect(ceilingAllows("tier2", "start-task")).toBe(true);
     expect(ceilingAllows("tier2", "merge")).toBe(false);
     expect(ceilingAllows("tier3", "merge")).toBe(true);
+  });
+});
+
+describe("directional actions", () => {
+  const c = { id: "x", title: "T", size: "small", task: "do it" };
+  it("propose needs ranked candidates with id, size and task; update-checklist parses", () => {
+    expect(GoalActionSchema.safeParse({ type: "propose", candidates: [c] }).success).toBe(true);
+    expect(GoalActionSchema.safeParse({ type: "propose", candidates: [] }).success).toBe(false);
+    expect(
+      GoalActionSchema.safeParse({ type: "propose", candidates: [{ ...c, size: "huge" }] }).success,
+    ).toBe(false);
+    expect(
+      GoalActionSchema.safeParse({ type: "update-checklist", id: "a", done: true }).success,
+    ).toBe(true);
+  });
+
+  it("a tier1 goal may run propose (manual report) but not start work", () => {
+    expect(ceilingAllows("tier1", "propose")).toBe(true);
+    expect(ceilingAllows("tier1", "start-task")).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Alert, Button, Grid, SelectField, Stack } from "@zibby/design-system";
+import { Alert, Button, Grid, SelectField, Stack, Toggle } from "@zibby/design-system";
 import {
   Controller,
   FormSegmentPicker,
@@ -25,6 +25,10 @@ export enum GoalFormTestId {
   MaxRuns = "goal-form-max-runs",
   MaxCost = "goal-form-max-cost",
   Submit = "goal-form-submit",
+  Directional = "goal-form-directional",
+  MaxDecisions = "goal-form-max-decisions",
+  MatrixNote = "goal-form-matrix-note",
+  Checklist = "goal-form-checklist",
   Cancel = "goal-form-cancel",
   Error = "goal-form-error",
 }
@@ -207,6 +211,47 @@ export function GoalForm({
           { value: "tier3", label: t("ceilingOption.tier3") },
         ]}
       />
+
+      <Controller
+        control={form.control}
+        name="directional"
+        render={({ field }) => (
+          <Toggle
+            checked={field.value}
+            data-testid={GoalFormTestId.Directional}
+            label={t("directional")}
+            onChange={field.onChange}
+            size="md"
+          />
+        )}
+      />
+      {values.directional && (
+        <Stack gap="150">
+          <FormTextArea<GoalFormValues>
+            data-testid={GoalFormTestId.Checklist}
+            hint={t("checklistHint")}
+            label={t("checklist")}
+            name="checklist"
+            rows={4}
+          />
+          <Grid align="start" cols={1} gap="150" md={2}>
+            <FormTextInput<GoalFormValues>
+              data-testid={GoalFormTestId.MaxDecisions}
+              hint={t("maxDecisionsHint")}
+              label={t("maxDecisions")}
+              min={0}
+              name="maxDecisions"
+              type="number"
+            />
+            <FormTextInput<GoalFormValues>
+              data-testid={GoalFormTestId.MatrixNote}
+              hint={t("matrixNoteHint")}
+              label={t("matrixNote")}
+              name="matrixNoteId"
+            />
+          </Grid>
+        </Stack>
+      )}
 
       {error && (
         <Alert data-testid={GoalFormTestId.Error} severity="error">

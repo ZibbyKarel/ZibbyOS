@@ -148,6 +148,17 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     `Messages per person this cycle (anti-nagging, max 2): ${stripPlanTags(JSON.stringify(ctx.nudges))}`,
     `Messages to colleagues (autoCommunicate): ${ctx.autoCommunicate ?? "unknown"} — auto sends at once, otherwise the operator approves each message first.`,
     `Decisions this month: ${ctx.decisionsThisMonth.month}: ${ctx.decisionsThisMonth.count}`,
+    ...(goal.directional
+      ? [
+          `Decisions (autoDecideGoals): ${ctx.autoDecide?.level ?? "unknown"}${ctx.autoDecide && ctx.autoDecide.reason !== "level" ? ` (limited: ${ctx.autoDecide.reason === "paused" ? "Autopilot is paused" : "the goal's ceiling is tier1"})` : ""}; cap ${goal.directional.maxDecisionsPerMonth} per month. You only propose: manual = the ranked report, semi = the operator approves, auto = the engine starts the top candidate when it is small and the cap allows, otherwise asks. Rank candidates best first; size is small only for work one delivery loop finishes.`,
+          `Checklist (tick an item with update-checklist only when you verified it): ${stripPlanTags(JSON.stringify(goal.directional.checklist))}`,
+          ...(goal.directional.matrixNoteId
+            ? [
+                `Keep the feature matrix in your plan note; matrix note id: ${goal.directional.matrixNoteId}.`,
+              ]
+            : []),
+        ]
+      : []),
     "",
     "## Actions you may return (JSON shape per action)",
     ...offered,

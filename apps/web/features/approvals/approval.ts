@@ -302,6 +302,7 @@ export function approvalOrigin(
       return { origin: "chat", ...url };
     // runId = `<goalId>/<instance>/<cycle>/<actionId>`: the goal raised it on the operator's behalf.
     case "goal-message":
+    case "goal-decision":
       return {
         origin: "system",
         href: `/work/goals/${encodeURIComponent(a.runId.split("/")[0] ?? "")}`,

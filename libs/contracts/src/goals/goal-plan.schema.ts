@@ -93,19 +93,27 @@ export const GoalActionSchema = z.discriminatedUnion("type", [
     .refine((a) => a.to.kind !== "pr" || a.about !== undefined, {
       message: "a pr message needs about (the PR)",
     }),
-  /** Directional goal: ranked candidates, handled per `autoDecideGoals`. */
+  /**
+   * Directional goal: ranked candidates (best first), handled per the effective `autoDecideGoals`
+   * at the instance's place. `task` is the full text of the task started if the candidate wins.
+   */
   z.object({
     type: z.literal("propose"),
     candidates: z
       .array(
         z.object({
-          title: z.string().min(1),
-          why: z.string().optional(),
-          checklistId: z.string().optional(),
+          id: z.string().regex(/^[A-Za-z0-9._-]{1,32}$/),
+          title: z.string().min(1).max(200),
+          why: z.string().max(1000).optional(),
+          size: z.enum(["small", "large"]),
+          task: z.string().min(1).max(8000),
         }),
       )
-      .min(1),
+      .min(1)
+      .max(10),
   }),
+  /** Directional goal: tick a checklist item the planner verified; all done = the instance is done. */
+  z.object({ type: z.literal("update-checklist"), id: z.string().min(1), done: z.boolean() }),
   /** Merge a PR — only with a valid merge grant, otherwise a "ready to merge" report. */
   z.object({
     type: z.literal("merge"),
@@ -141,7 +149,9 @@ export const GOAL_ACTION_MIN_CEILING: Record<GoalActionType, GoalCeiling> = {
   "run-loop": "tier2",
   "pr-action": "tier2",
   message: "tier2",
-  propose: "tier2",
+  // Runs at tier1 too: the handler writes the ranked report only (manual semantics).
+  propose: "tier1",
+  "update-checklist": "tier1",
   merge: "tier3",
 };
 

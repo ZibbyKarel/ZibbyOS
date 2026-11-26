@@ -115,7 +115,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     return this.autopilot.levelsAt(await this.placeOf(instanceKey)).autoCommunicate;
   }
 
-  private async placeOf(instanceKey: string): Promise<AutopilotLocation> {
+  /** The Autopilot place of an instance (`_` → global): shared by every per-place level. */
+  async placeOf(instanceKey: string): Promise<AutopilotLocation> {
     if (instanceKey === "_") return {};
     return prLocationOf(this.projects, this.resolvedProjects, instanceKey);
   }

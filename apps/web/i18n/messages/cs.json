@@ -5449,7 +5449,14 @@
         "tier1": "Jen tiše připravovat",
         "tier2": "Jednat a hlásit",
         "tier3": "Vše ke schválení"
-      }
+      },
+      "directional": "Směrový cíl (ZIBBY navrhuje, co postavit)",
+      "checklist": "Checklist",
+      "checklistHint": "Jedna položka na řádek.",
+      "maxDecisions": "Samostatných rozhodnutí za měsíc",
+      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (autoDecideGoals auto).",
+      "matrixNote": "Poznámka s maticí funkcí",
+      "matrixNoteHint": "Nepovinné id poznámky v mozku."
     },
     "settings": {
       "maxRuns": "{count, plural, one {# běh} few {# běhy} other {# běhů}} na cyklus",
@@ -5504,6 +5511,25 @@
       "deleteTitle": "Smazat cíl?",
       "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit."
     },
-    "actionFailed": "Akce se nepovedla. Zkus to znovu."
+    "actionFailed": "Akce se nepovedla. Zkus to znovu.",
+    "directional": {
+      "title": "Směrový cíl",
+      "checklist": "Checklist",
+      "noChecklist": "Žádné položky checklistu.",
+      "decisions": "Rozhodnutí tento měsíc",
+      "decisionsValue": "{count} / {max}",
+      "autonomy": "Autonomie",
+      "line": {
+        "auto": "Rozhoduje sám",
+        "proposes": "Jen navrhuje — {why}"
+      },
+      "why": {
+        "manual": "úroveň je Ručně",
+        "semi": "úroveň je Poloautomat",
+        "paused": "Autopilot je pozastavený",
+        "ceiling": "strop cíle je tier1",
+        "unknown": "ještě neplánováno"
+      }
+    }
   }
 }

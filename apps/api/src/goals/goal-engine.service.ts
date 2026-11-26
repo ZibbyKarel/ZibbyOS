@@ -36,6 +36,7 @@ import {
 import { GOAL_PLANNER, type GoalPlanner, goalPlanNoteId } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
+import { GoalDecisionService } from "./goal-decision.service";
 import { GoalMessageService } from "./goal-message.service";
 
 /** Consecutive planner failures before an instance parks (`failed`). */
@@ -88,6 +89,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     logger: LoggerService,
     /** Optional so engine tests without messaging can `new` it; the module always provides it. */
     @Optional() private readonly messages?: GoalMessageService,
+    @Optional() private readonly decisions?: GoalDecisionService,
   ) {
     super();
     this.log = logger.child(GoalEngineService.name);
@@ -183,18 +185,24 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const keys = await this.instanceKeys(goal, listProjects);
     const effects: GoalEffect[] = [];
     let stale: { approvalId: string; instance: string }[] = [];
+    let staleDecisions: string[] = [];
     const state = await this.store.update(goal.id, goal.createdAt, (s) => {
       const pending = (s.messages ?? []).flatMap((m) =>
         m.status === "pending" && m.approvalId
           ? [{ approvalId: m.approvalId, instance: m.instance }]
           : [],
       );
+      const openDecisions = (s.decisions ?? []).flatMap((d) =>
+        d.status === "pending" && d.approvalId ? [d.approvalId] : [],
+      );
       bookkeep(goal, s, keys, now, effects);
-      // A new cycle dropped the drafts: their approvals go too.
+      // A new cycle dropped the drafts and proposals: their approvals go too.
       if (!s.messages) stale = pending;
+      if (!s.decisions) staleDecisions = openDecisions;
     });
     await this.flush(goal, state.cycle.index, effects);
     if (stale.length) await this.messages?.rejectStale(goal, state.cycle.index, stale);
+    if (staleDecisions.length) await this.decisions?.rejectStale(staleDecisions);
     for (const key of Object.keys(state.instances).sort()) {
       try {
         await this.tickInstance(goal, state, key, now, dirty);
@@ -262,6 +270,11 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const firstPlan = before.feasibility === undefined;
     const abort = new AbortController();
     let plan;
+    const autoDecide =
+      goal.directional && this.decisions
+        ? await this.decisions.decisionLevel(goal, key)
+        : undefined;
+    if (autoDecide) work.autoDecide = autoDecide;
     try {
       const raw = await withTimeout(
         this.planner.plan({
@@ -277,6 +290,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
           ...(this.messages
             ? { autoCommunicate: await this.messages.communicationLevel(goal, key) }
             : {}),
+          ...(autoDecide ? { autoDecide } : {}),
           decisionsThisMonth: state.decisionsThisMonth,
           now: now.toISOString(),
           firstPlan,
@@ -493,6 +507,7 @@ export function bookkeep(
       s.cycle = { index: s.cycle.index + 1, startedAt, ...(deadlineAt ? { deadlineAt } : {}) };
       s.nudges = {};
       delete s.messages;
+      delete s.decisions;
       for (const [key, inst] of Object.entries(s.instances)) {
         if (!keys.includes(key)) continue;
         s.instances[key] = {

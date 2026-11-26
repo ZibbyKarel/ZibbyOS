@@ -23,6 +23,7 @@ import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useCompaniesQuery } from "../companies/queries";
 import { useProjectsQuery } from "../projects/queries";
+import { GoalDirectionalPanel } from "./components/GoalDirectionalPanel";
 import { GoalForm } from "./components/GoalForm";
 import { GoalInstancesPanel } from "./components/GoalInstancesPanel";
 import { GoalPlanPanel } from "./components/GoalPlanPanel";
@@ -188,7 +189,10 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 onCancel={() => setEditing(false)}
                 onSubmit={(values) =>
                   update.mutate(
-                    { params: { id: goal.id }, body: buildUpdateGoalInput(values) },
+                    {
+                      params: { id: goal.id },
+                      body: buildUpdateGoalInput(values, goal.directional),
+                    },
                     { onSuccess: () => setEditing(false) },
                   )
                 }
@@ -199,6 +203,17 @@ function GoalDetail({ goal }: { goal: Goal }) {
               <GoalSettingsPanel goal={goal} names={names} />
             )}
           </Panel>
+
+          {goal.directional && (
+            <Panel header={t("directional.title")} padding="200">
+              <GoalDirectionalPanel
+                decisions={state?.decisionsThisMonth}
+                directional={goal.directional}
+                instances={instances}
+                names={names}
+              />
+            </Panel>
+          )}
 
           <Panel header={t("detail.instancesTitle")} padding="200">
             {stateQuery.isError ? (

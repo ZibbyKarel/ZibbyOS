@@ -116,6 +116,10 @@ export const ApprovalRunKindSchema = z.enum([
   // with the operator's edited `messageText` when given; rejecting drops it. Lifted only where the
   // place's `autoCommunicate` is `auto` (then no approval is created at all).
   "goal-message",
+  // A directional goal's ranked proposal (runId = `<goalId>/<instance>/<cycle>`; `detail` = JSON
+  // listing the candidates). Approving starts the top candidate; an `answer` naming a candidate id
+  // starts that one (the operator's input only); rejecting records it. Never auto-approved.
+  "goal-decision",
 ]);
 export type ApprovalRunKind = z.infer<typeof ApprovalRunKindSchema>;
 

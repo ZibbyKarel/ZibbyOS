@@ -15,6 +15,7 @@ import { WorkflowsModule } from "../workflows/workflows.module";
 import { GoalActionExecutor } from "./goal-action-executor";
 import { GoalEngineService } from "./goal-engine.service";
 import { GOAL_FACTS_SOURCES, GoalFactsService, TaskFactsSource } from "./goal-facts";
+import { GoalDecisionService } from "./goal-decision.service";
 import { ApprovalFactsSource, PrFactsSource, ReplyFactsSource } from "./goal-facts-sources";
 import { GOAL_PLANNER } from "./goal-planner";
 import { GoalMessageService } from "./goal-message.service";
@@ -74,6 +75,7 @@ import { GoalsModule } from "./goals.module";
     GoalActionExecutor,
     GoalWorkHandlers,
     GoalMessageService,
+    GoalDecisionService,
     GoalEngineService,
   ],
   exports: [GoalActionExecutor, GoalEngineService],

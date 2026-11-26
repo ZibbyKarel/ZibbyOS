@@ -41,6 +41,13 @@ export const GoalInstanceSchema = z.object({
   appliedActionIds: z.array(z.string()).optional(),
   /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */
   lookupRetries: z.record(z.string(), z.number().int().min(0)).optional(),
+  /** Directional goal: the effective `autoDecideGoals` the last plan ran with (and why). */
+  autoDecide: z
+    .object({
+      level: z.enum(["manual", "semi", "auto"]),
+      reason: z.enum(["level", "paused", "ceiling"]),
+    })
+    .optional(),
 });
 export type GoalInstance = z.infer<typeof GoalInstanceSchema>;
 
@@ -81,6 +88,31 @@ export const GoalMessageSchema = z.object({
 });
 export type GoalMessage = z.infer<typeof GoalMessageSchema>;
 
+/**
+ * One ranked proposal of a directional goal (the `propose` action) waiting behind its
+ * `goal-decision` approval. `id` = `<instance>/<cycle>`: one open per instance. Candidates are
+ * matched by id only, never from free text.
+ */
+export const GoalDecisionSchema = z.object({
+  id: z.string().min(1),
+  instance: z.string(),
+  status: z.enum(["pending", "started", "rejected", "failed"]),
+  candidates: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      why: z.string().optional(),
+      size: z.enum(["small", "large"]),
+      task: z.string(),
+    }),
+  ),
+  approvalId: z.string().optional(),
+  /** The candidate id that was started. */
+  chosen: z.string().optional(),
+  createdAt: IsoDateTimeSchema,
+});
+export type GoalDecision = z.infer<typeof GoalDecisionSchema>;
+
 export const GoalStateSchema = z.object({
   goalId: z.string(),
   cycle: z.object({
@@ -97,6 +129,8 @@ export const GoalStateSchema = z.object({
   ),
   /** This cycle's messages to colleagues (drafts, sent, rejected); cleared with `nudges`. */
   messages: z.array(GoalMessageSchema).optional(),
+  /** This cycle's directional proposals; cleared with `messages`. */
+  decisions: z.array(GoalDecisionSchema).optional(),
 });
 export type GoalState = z.infer<typeof GoalStateSchema>;
 

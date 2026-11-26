@@ -20,6 +20,12 @@ export interface GoalPlannerContext {
    * `semi`/`manual` drafts them for approval, `paused` = Autopilot paused (approval).
    */
   autoCommunicate?: "manual" | "semi" | "auto" | "paused";
+  /**
+   * The effective `autoDecideGoals` (directional goals): `auto` starts a small top candidate
+   * itself, `semi` raises an approval, `manual` only reports; `reason` says why it is not the
+   * stored level (Autopilot paused, a tier1 ceiling). Enforced by the engine, not the prompt.
+   */
+  autoDecide?: { level: "manual" | "semi" | "auto"; reason: "level" | "paused" | "ceiling" };
   decisionsThisMonth: GoalState["decisionsThisMonth"];
   now: string;
   /** No feasibility recorded this cycle yet: the plan must carry `feasibility`. */
