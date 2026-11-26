@@ -279,11 +279,11 @@ given to the planner): Autopilot paused caps `auto` at `semi` (`paused`); a `tie
 at `tier1` so that a tier1 goal still gets the ranked report.
 
 - `manual`: ranked report on the timeline (+ activity), nothing else.
-- `semi`: one `goal-decision` approval (runId `<goalId>/<instance>/<cycle>`) listing the
+- `semi`: one `goal-decision` approval (runId `<goalId>/<instance>/<cycle>/<n>`, `n` unique per proposal) listing the
   candidates; the instance waits on it; one open proposal per instance (a second `propose`
   meanwhile is a report). Approve starts the top candidate; `POST /approvals/:id/answer` with a
   candidate id starts that one (an id not in the stored proposal starts nothing and marks it
-  `failed`); reject records it (`rejected`). Candidates come only from the stored proposal,
+  `failed`); an approve whose start the executor refuses (budget, ceiling, a failing service) is reported and also settles it as `failed`, so a later `propose` raises a fresh approval; reject records it (`rejected`). Candidates come only from the stored proposal,
   matched by id: inbound channel or PR text is a fact and never selects or starts one. A new
   cycle drops the proposals and rejects their pending approvals.
 - `auto`: the top candidate starts at once through the ordinary `start-task` path (budget,

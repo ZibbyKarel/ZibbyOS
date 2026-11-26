@@ -100,7 +100,8 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
 
     const state = await this.store.read(ctx.goal.id, ctx.goal.createdAt);
     const cycle = state.cycle.index;
-    const id = `${ctx.instanceKey}/${cycle}`;
+    // Unique per proposal (not per cycle): resume/cancel must resolve exactly this record.
+    const id = `${ctx.instanceKey}/${cycle}/${(state.decisions ?? []).length}`;
     if (state.decisions?.some((d) => d.instance === ctx.instanceKey && d.status === "pending")) {
       return reportFromGoal(ctx, `Návrh už čeká na schválení; nový je jen zpráva:\n${ranked}`);
     }
@@ -246,11 +247,12 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
       ctx,
     );
     if (!ctx.applied(actionId)) {
-      // The executor reported why (ceiling, budget, a failing service): the proposal stays open.
+      // The executor reported why (ceiling, budget, a failing service). The approval is decided
+      // and cannot be approved again, so the proposal is settled: a later propose raises a new one.
       await this.store.update(goal.id, goal.createdAt, (s) => {
         const d = s.decisions?.find((x) => x.id === decisionId);
         if (d) {
-          d.status = "pending";
+          d.status = "failed";
           delete d.chosen;
         }
       });
