@@ -123,19 +123,23 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const goals = (await this.goals.list()).filter((g) => g.enabled);
     let projects: Promise<{ id: string; companyId?: string }[]> | null = null;
     const listProjects = () => (projects ??= this.projects.list());
+    /** Refs a successfully processed instance saw; never put back. */
+    const consumed = new Set<string>();
+    let goalFailed = false;
     for (const goal of goals) {
       try {
-        await this.tickGoal(goal, now, dirty, listProjects);
+        await this.tickGoal(goal, now, dirty, consumed, listProjects);
       } catch (error) {
-        // ponytail: which refs were this goal's is unknown here, so all go back (an extra
-        // re-plan at worst); per-goal attribution if that ever costs too much.
-        for (const ref of dirty) this.dirtyRefs.add(ref);
+        goalFailed = true;
         this.log.warn("goal tick failed for one goal — others unaffected", {
           goalId: goal.id,
           error: errorText(error),
         });
       }
     }
+    // A failed goal's instances were never reached, so its refs are unknown: put back what
+    // no processed instance consumed. Other goals do not re-plan off them.
+    if (goalFailed) for (const ref of dirty) if (!consumed.has(ref)) this.dirtyRefs.add(ref);
   }
 
   private async instanceKeys(
@@ -161,6 +165,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     goal: Goal,
     now: Date,
     dirty: Set<string>,
+    consumed: Set<string>,
     listProjects: () => Promise<{ id: string; companyId?: string }[]>,
   ): Promise<void> {
     const keys = await this.instanceKeys(goal, listProjects);
@@ -172,6 +177,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     for (const key of Object.keys(state.instances).sort()) {
       try {
         await this.tickInstance(goal, state, key, now, dirty);
+        const instance = state.instances[key];
+        for (const ref of instance ? instanceRefs(instance) : []) consumed.add(ref);
       } catch (error) {
         // The refs this instance consumed go back, so the next tick still sees them.
         const instance = state.instances[key];

@@ -75,14 +75,17 @@ tick, per enabled goal (one goal failing never blocks the others):
    - Past `cycle.deadlineAt` -> park `deadline`. The cycle budget used up and no task in
      flight -> park `budget`. Both happen before the wake check, with no planner call, and
      neither applies to an instance the operator resumed in this cycle (`resumedCycle` = the
-     cycle index; a new cycle clears it).
+     cycle index; a new cycle clears it). A resumed one-off goal past its deadline is not
+     parked again for that deadline (the operator's choice); its planner calls stay bounded by
+     the fingerprint and the wake floor.
    - **Wake check.** The facts are fingerprinted (sha256 of the key-sorted JSON, no clock in
      it). The planner runs only when the fingerprint differs from the stored one, `wakeAt` is
      due, or a dirty ref matches: one of the instance's `taskIds` or a `waitingOn` ref that
      settled (`ApprovalsService.settled()`, a `task-outcome` activity). Otherwise no model call.
    - A `goal-woke` activity, then `planner.plan(ctx)`, validated with `GoalPlanSchema`. A throw,
      an invalid plan or a run over `PLAN_TIMEOUT_MS` (10 min) counts in `planFailures`; 3 in a
-     row park `failed`.
+     row park `failed`. The timeout abandons the run, it does not abort it; the real planner
+     is to take an abort signal.
    - The actions run through the executor. Then: `waitingOn`/`wakeAt` set -> `waiting`; a task
      in flight -> `acting`; otherwise `planning`. The fingerprint is taken again over the post-action facts,
      so the actions' own changes do not wake the planner on the next tick.
@@ -91,11 +94,13 @@ tick, per enabled goal (one goal failing never blocks the others):
    ("Tick result dropped: …") says so. A `wake` that landed meanwhile keeps its cleared
    fingerprint. Task ids recorded by a handler are kept either way (see below).
 
-A goal or instance whose processing throws puts the dirty refs it consumed back, so the next
-tick still sees them. An idle tick writes nothing (`GoalStateStore.update` skips an unchanged
+An instance whose processing throws puts back the dirty refs it consumed, so the next tick
+still sees them. A goal that throws before reaching its instances puts back only the refs that
+no successfully processed instance consumed, so other goals do not re-plan off them every tick. An idle tick writes nothing (`GoalStateStore.update` skips an unchanged
 state), so it emits no `goals` SSE event.
 
-Remaining budget: `maxRunsPerCycle - taskIds.length`, and `maxCostUsdPerCycle` minus
+Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot overspend):
+`maxRunsPerCycle - taskIds.length`, and `maxCostUsdPerCycle` minus
 `BudgetLedgerStore.sumCostForTasks(taskIds, cycle.startedAt, now)` (`docs/api/budget.md`).
 
 ### Actions and the ceiling filter

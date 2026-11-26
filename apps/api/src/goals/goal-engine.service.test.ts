@@ -303,6 +303,54 @@ describe("GoalEngineService", () => {
     expect((await state()).instances._?.status).toBe("planning");
   });
 
+  it("a goal failing every tick does not make another goal re-plan every tick", async () => {
+    await create();
+    await goals.create({
+      id: "a",
+      name: "Broken",
+      outcome: "x",
+      scope: { kind: "projects", projectIds: ["p"] },
+      enabled: true,
+    });
+    await engine.tick(NOW);
+    tasks.set("t1", { id: "t1", status: "dispatched" });
+    await setInstance({ taskIds: ["t1"] });
+    await engine.tick(later(1));
+    const calls = planner.plan.mock.calls.filter(
+      ([c]) => (c as GoalPlannerContext).goal.id === "g",
+    );
+    const before = calls.length;
+    const update = store.update.bind(store);
+    vi.spyOn(store, "update").mockImplementation((id, startedAt, fn) =>
+      id === "a" ? Promise.reject(new Error("broken")) : update(id, startedAt, fn),
+    );
+    engine.markDirty("t1");
+    for (let m = 2; m < 8; m++) await engine.tick(later(m));
+    const after = planner.plan.mock.calls.filter(
+      ([c]) => (c as GoalPlannerContext).goal.id === "g",
+    ).length;
+    expect(after - before).toBe(1);
+  });
+
+  it("one plan cannot overspend: the second start-task sees the run already spent", async () => {
+    executor.register("start-task", async (a, ctx) => {
+      await ctx.recordTask(`t-${a.text}`);
+    });
+    await create({ budget: { maxRunsPerCycle: 1 } });
+    planner.plan.mockResolvedValueOnce({
+      plan: "",
+      actions: [
+        { type: "start-task", text: "one" },
+        { type: "start-task", text: "two" },
+      ],
+    });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.taskIds).toEqual(["t-one"]);
+    expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
+      expect.stringContaining("Not done: start-task — the cycle's budget is used up."),
+    ]);
+  });
+
   it("puts a failed instance's dirty refs back for the next tick", async () => {
     await create();
     await engine.tick(NOW);

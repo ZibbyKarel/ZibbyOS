@@ -59,7 +59,11 @@ export class GoalActionContext {
    * **A spending handler (`start-task`, `run-loop`) must await this before returning.**
    */
   async recordTask(taskId: string): Promise<void> {
-    if (!this.instance.taskIds.includes(taskId)) this.instance.taskIds.push(taskId);
+    if (!this.instance.taskIds.includes(taskId)) {
+      this.instance.taskIds.push(taskId);
+      // Live budget: the next spending action in the same plan sees this run spent.
+      if (this.remainingBudget.runs !== undefined) this.remainingBudget.runs -= 1;
+    }
     await this.persistTask(taskId);
   }
 
