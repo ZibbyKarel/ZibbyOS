@@ -14,6 +14,7 @@ import { AgentRunnerService } from "../agents/agent-runner.service";
 import { BudgetLedgerStore } from "../budget/ledger.store";
 import { NoteNotFoundError, VaultService } from "../memory/vault.service";
 import { ProjectLocalUnresolvedError } from "../projects/projects.errors";
+import { tokenize } from "../tasks/keyword-scorer";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { GoalActionExecutor, SPENDING_ACTIONS } from "./goal-action-executor";
 import { type GoalPlanner, type GoalPlannerContext, goalPlanNoteId } from "./goal-planner";
@@ -25,9 +26,13 @@ export const GOALS_MOC_ID = "goals";
 const POLL_MS = 1000;
 
 /**
- * The synthetic, unstored agent the planner runs as. Read-only tools; the engine (global
- * config) picks the model, as for any agent without its own. Not stored, so the mid-run
- * gate cannot re-load it and every gated intent it announces fails safe to deny.
+ * The synthetic, unstored agent the planner runs as; the engine (global config) picks the
+ * model, as for any agent without its own. Its own tools are `read` only, but like every
+ * agent run (the loop verifier's too) it still gets the runner's delegation catalog and
+ * MCP servers, so it is NOT a hard read-only sandbox. What bounds it: not stored, so the
+ * mid-run gate cannot re-load it and every gated intent it announces fails safe to deny;
+ * it runs in its own run worktree; its output only counts through `GoalPlanSchema` and
+ * the engine's ceiling filter.
  */
 export const GOAL_PLANNER_AGENT: Agent = {
   id: "goal-planner",
@@ -161,6 +166,7 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     "  the operator reads them.",
     "- On the first plan of a cycle, feasibility is required: one line on whether the outcome",
     "  can be met by the deadline (or within this cycle). Set atRisk to true when it is unlikely.",
+    "- A wait action needs waitingOn or wakeAt; every timestamp is ISO 8601 UTC ending in Z.",
     "- Do not start work that is already in flight; wait on it instead. Use done only when the",
     "  predicate is met. Do not repeat a report the plan says was already sent.",
     "",
@@ -233,17 +239,21 @@ export class GoalPlannerService implements GoalPlanner {
 
   private async start(ctx: GoalPlannerContext, prompt: string): Promise<AgentRun> {
     const title = `goal-plan:${ctx.goal.id}`;
+    // Ground on the operator's goal text, not on the prompt: facts must not steer which
+    // vault notes land (unfenced) in the system prompt.
+    const terms = tokenize(`${ctx.goal.name} ${ctx.goal.outcome}`);
     try {
       return await this.runner.startSynthetic(
         GOAL_PLANNER_AGENT,
         prompt,
         ctx.projectId ?? "",
         title,
+        terms,
       );
     } catch (error) {
       // No local clone of the project: plan from the facts alone.
       if (!(error instanceof ProjectLocalUnresolvedError)) throw error;
-      return this.runner.startSynthetic(GOAL_PLANNER_AGENT, prompt, "", title);
+      return this.runner.startSynthetic(GOAL_PLANNER_AGENT, prompt, "", title, terms);
     }
   }
 

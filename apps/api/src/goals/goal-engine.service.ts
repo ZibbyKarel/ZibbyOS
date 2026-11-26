@@ -288,19 +288,21 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     }
     await this.executor.execute(plan.actions, ctx);
 
-    if (work.status !== "done" && work.status !== "parked") {
-      // Read through ctx: the handlers mutated it after the deletes above (TS narrows `work`).
+    // The facts the next tick will see, with the actions' own changes (a new wakeAt, a
+    // started task, the planner's own run). Read through ctx: the handlers mutated it after
+    // the deletes above (TS narrows `work`). A parked instance keeps no fingerprint.
+    const after =
+      ctx.instance.status === "parked"
+        ? null
+        : await this.facts.collect({ goal, instanceKey: key, instance: work });
+    if (ctx.instance.status !== "done" && ctx.instance.status !== "parked") {
       if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
-      else if (this.inFlight(facts, work)) work.status = "acting";
+      // Fresh facts: an id recorded this tick (the planner's run) is known, not "in flight".
+      else if (this.inFlight(after ?? facts, work)) work.status = "acting";
       else work.status = "planning";
     }
-    // Fingerprint what the next tick will see: the actions' own changes (a new wakeAt, a
-    // started task) must not wake the planner again. A parked instance keeps none.
-    if (work.status !== "parked") {
-      work.fingerprint = goalFingerprint(
-        await this.facts.collect({ goal, instanceKey: key, instance: work }),
-      );
-    }
+    // The actions' own changes must not wake the planner again.
+    if (after) work.fingerprint = goalFingerprint(after);
     return this.apply(goal, state, key, before, ctx);
   }
 

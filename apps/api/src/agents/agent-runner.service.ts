@@ -266,9 +266,16 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
    * Start a run of a synthetic agent that is not stored (the goal planner): same launch
    * path as {@link start}, engine from the agent ?? the global config. Re-run and the
    * mid-run gate cannot re-load it, so its gated intents fail safe to deny.
+   * `matchedTerms` pick the memory grounding instead of the prompt's own words.
    */
-  startSynthetic(agent: Agent, prompt: string, project: string, title: string): Promise<AgentRun> {
-    return this.launch(agent, prompt, project, [], title);
+  startSynthetic(
+    agent: Agent,
+    prompt: string,
+    project: string,
+    title: string,
+    matchedTerms?: string[],
+  ): Promise<AgentRun> {
+    return this.launch(agent, prompt, project, [], title, undefined, matchedTerms);
   }
 
   /**

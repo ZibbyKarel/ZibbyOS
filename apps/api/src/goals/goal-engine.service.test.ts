@@ -303,6 +303,19 @@ describe("GoalEngineService", () => {
     expect(reports[0]?.summary).toContain("Cíl je ohrožený: Do termínu to nestihnu.");
   });
 
+  it("a recorded planner run is not work in flight: the instance stays planning", async () => {
+    await create();
+    planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {
+      await ctx.recordRun("goal-planner_1");
+      return { plan: "", feasibility: "ok", actions: [] };
+    });
+    await engine.tick(NOW);
+    expect((await state()).instances._?.status).toBe("planning");
+    await engine.tick(later(1));
+    expect((await state()).instances._?.status).toBe("planning");
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+  });
+
   it("the planner's own run counts against maxRunsPerCycle", async () => {
     await create({ budget: { maxRunsPerCycle: 1 } });
     planner.plan.mockImplementationOnce(async (ctx: GoalPlannerContext) => {

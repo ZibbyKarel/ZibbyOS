@@ -136,10 +136,18 @@ the `GOAL_FACTS_SOURCES` factory.
 ### Planner (`GoalPlannerService`)
 
 One fresh model run per plan, the loop verifier's precedent: the synthetic, unstored agent
-`goal-planner` (tools `read`; model and engine from the global config, as for any agent
+`goal-planner` (own tools `read`; model and engine from the global config, as for any agent
 without its own) through `AgentRunnerService.startSynthetic`, in the instance's project
-(its usual run worktree) or sandbox-only when there is no project or no local clone.
-Because the agent is not stored, any gated intent it announces mid-run fails safe to deny.
+(its usual run worktree) or sandbox-only when there is no project or no local clone. Memory
+grounding is picked by the words of the goal's name and outcome, not by the prompt (so facts
+cannot steer which notes land in the system prompt).
+
+**Not a hard read-only sandbox.** Like every agent run (the loop verifier's too), the planner
+run still gets the runner's delegation catalog (with its tools on the allow-list) and the
+enabled MCP servers. What bounds it: the agent is not stored, so any gated intent it
+announces mid-run fails safe to deny; it runs in its own run worktree, not the operator's
+checkout; and its output only counts through `GoalPlanSchema` and the engine's ceiling
+filter. A runner option for an empty catalog without MCP is the follow-up.
 
 - **Prompt** (English; the plan, feasibility and every note/report/message text are asked for
   in Czech). It carries the goal (outcome, predicate), the instance, cycle + deadline + now,
@@ -154,8 +162,9 @@ Because the agent is not stored, any gated intent it announces mid-run fails saf
   prompt is not the control: the output is only parsed through `GoalPlanSchema`, and the
   engine's ceiling filter decides.
 - **Output** (`parseGoalPlan`). The **last** `<goal-plan>…</goal-plan>` block whose opening tag
-  starts a line, as JSON through `GoalPlanSchema`. Tool results are indented in the run log, so
-  a block inside a file the planner read never counts. No block, invalid JSON, an unknown
+  starts a line, as JSON through `GoalPlanSchema`. On the claude engine tool results are
+  indented in the flattened run log, so a block inside a file the planner read never counts
+  (the opencode log format is not checked for this). No block, invalid JSON, an unknown
   action, a run that did not end `done` (a run waiting on approval or paused on the usage
   limit is stopped) or a first plan without feasibility all throw (a plan failure).
 - **Budget.** The planner's run id is recorded on the instance through `ctx.recordRun` (the
