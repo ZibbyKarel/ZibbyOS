@@ -12,9 +12,9 @@ const d = vi.hoisted(() => ({
   update: vi.fn(),
   resume: vi.fn(),
   goalErr: false,
-  goalGone: false,
+  goalRes: undefined as unknown,
   stateErr: false,
-  stateData: undefined as unknown,
+  stateRes: undefined as unknown,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: d.push }),
@@ -61,14 +61,14 @@ const timeline = [
 ];
 
 vi.mock("../../../goals/queries", () => ({
-  useGoalQuery: () => ({
-    data: d.goalErr ? undefined : d.goalGone ? { message: "not found" } : goal,
+  useGoalEnvelopeQuery: () => ({
+    data: d.goalErr ? undefined : (d.goalRes ?? { status: 200, body: goal }),
     isError: d.goalErr,
     isPending: false,
     refetch: vi.fn(),
   }),
-  useGoalStateQuery: () => ({
-    data: d.stateErr ? undefined : (d.stateData ?? state),
+  useGoalStateEnvelopeQuery: () => ({
+    data: d.stateErr ? undefined : (d.stateRes ?? { status: 200, body: state }),
     isError: d.stateErr,
     isPending: false,
     refetch: vi.fn(),
@@ -111,8 +111,8 @@ const open = () =>
 describe("GoalSheet", () => {
   beforeEach(() => {
     for (const fn of [d.push, d.wake, d.update, d.resume]) fn.mockClear();
-    d.goalErr = d.goalGone = d.stateErr = false;
-    d.stateData = undefined;
+    d.goalErr = d.stateErr = false;
+    d.goalRes = d.stateRes = undefined;
     vi.useRealTimers();
   });
 
@@ -125,10 +125,41 @@ describe("GoalSheet", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("a deleted goal says it no longer exists", () => {
-    d.goalGone = true;
-    open();
+  it("a 404 says the goal no longer exists; any other non-200 status is the error with retry", () => {
+    d.goalRes = { status: 404, body: { message: "not found" } };
+    const { unmount } = open();
     expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("už neexistuje");
+    unmount();
+    d.goalRes = { status: 500, body: { message: "boom" } };
+    open();
+    expect(screen.getByTestId(GoalSheetTestId.Status)).toHaveTextContent("Nepodařilo se načíst");
+    expect(screen.getByTestId(GoalSheetTestId.Status)).not.toHaveTextContent("už neexistuje");
+  });
+
+  it("a state HTTP 500 shows the error, not 'nothing planned' or a next cycle", () => {
+    d.stateRes = { status: 500, body: { message: "boom" } };
+    open();
+    expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
+    expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();
+    expect(screen.queryByTestId(GoalSheetTestId.NextCycle)).toBeNull();
+  });
+
+  it("a standing goal whose state has no instances yet still shows a next cycle from now", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-02T10:00:00Z"));
+    d.stateRes = {
+      status: 200,
+      body: {
+        ...state,
+        state: {
+          ...state.state,
+          instances: {},
+          cycle: { index: 0, startedAt: "2026-11-01T08:00:00Z" },
+        },
+      },
+    };
+    open();
+    expect(screen.getByTestId(GoalSheetTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
   });
 
   it("a failed state query shows the error, not 'nothing planned' or a next cycle", () => {
@@ -153,6 +184,15 @@ describe("GoalSheet", () => {
     await userEvent.click(screen.getByTestId(GoalSheetTestId.Wake));
     expect(screen.getByTestId(GoalSheetTestId.Error)).toBeInTheDocument();
     await userEvent.click(screen.getByTestId(GoalSheetTestId.Wake));
+    expect(screen.queryByTestId(GoalSheetTestId.Error)).toBeNull();
+  });
+
+  it("a successful pause/enable toggle clears a stale error too", async () => {
+    d.wake.mockImplementationOnce((_v, o) => o.onError(new Error("x")));
+    open();
+    await userEvent.click(screen.getByTestId(GoalSheetTestId.Wake));
+    expect(screen.getByTestId(GoalSheetTestId.Error)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(GoalSheetTestId.Toggle));
     expect(screen.queryByTestId(GoalSheetTestId.Error)).toBeNull();
   });
 

@@ -29,7 +29,7 @@ import {
   useUpdateGoalMutation,
   useWakeGoalMutation,
 } from "../../../goals/mutations";
-import { useGoalQuery, useGoalStateQuery } from "../../../goals/queries";
+import { useGoalEnvelopeQuery, useGoalStateEnvelopeQuery } from "../../../goals/queries";
 import { useProjectsQuery } from "../../../projects/queries";
 import { type SheetProps, geometry } from "./sheetTypes";
 
@@ -70,8 +70,8 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const ts = useTranslations("goals");
   const locale = useLocale();
   const router = useRouter();
-  const goalQuery = useGoalQuery(id);
-  const stateQuery = useGoalStateQuery(id);
+  const goalQuery = useGoalEnvelopeQuery(id);
+  const stateQuery = useGoalStateEnvelopeQuery(id);
   const projects = useProjectsQuery().data ?? [];
   const update = useUpdateGoalMutation();
   const wake = useWakeGoalMutation();
@@ -86,8 +86,11 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
     start({ onError: fail });
   };
 
-  // A 404 arrives as the (non-goal) error body, a network failure as `isError`.
-  const goal = goalQuery.data && "id" in goalQuery.data ? goalQuery.data : undefined;
+  // Non-2xx statuses resolve as data (`isError` is only a network/throw failure): 200 is the goal,
+  // 404 means it is gone, every other status is an error.
+  const goal = goalQuery.data?.status === 200 ? goalQuery.data.body : undefined;
+  // ts-rest types the envelope with the 2xx statuses only, hence the widening.
+  const goalGone = (goalQuery.data?.status as number | undefined) === 404;
   if (!goal) {
     return (
       <AnchoredSheet
@@ -101,20 +104,22 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
       >
         <SheetSection>
           <div data-testid={GoalSheetTestId.Status}>
-            {goalQuery.isError ? (
-              <QueryError onRetry={() => void goalQuery.refetch()} />
-            ) : goalQuery.isPending ? (
+            {goalQuery.isPending ? (
               <SheetText lines={[t("common.loading")]} />
-            ) : (
+            ) : goalGone ? (
               <SheetText lines={[g("gone")]} />
+            ) : (
+              <QueryError onRetry={() => void goalQuery.refetch()} />
             )}
           </div>
         </SheetSection>
       </AnchoredSheet>
     );
   }
-  const state = stateQuery.data?.state;
-  const rollup = stateQuery.data?.rollup;
+  const stateView = stateQuery.data?.status === 200 ? stateQuery.data.body : undefined;
+  const stateFailed = stateQuery.isError || (stateQuery.data !== undefined && !stateView);
+  const state = stateView?.state;
+  const rollup = stateView?.rollup;
   const instances = Object.entries(state?.instances ?? {});
   const names = {
     projectName: (pid: string) => projects.find((p) => p.id === pid)?.name ?? pid,
@@ -127,7 +132,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   // From now (or the cycle start if that is later), so a boundary the engine has not ticked yet
   // never shows as a "next cycle" in the past.
   const nextCycle =
-    goal.cadence && goal.enabled && !stateQuery.isError && !stateQuery.isPending
+    goal.cadence && goal.enabled && !stateFailed && !stateQuery.isPending
       ? nextCycleStart(
           goal.cadence,
           new Date(Math.max(now, state ? Date.parse(state.cycle.startedAt) : 0)),
@@ -196,7 +201,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
             data-testid={GoalSheetTestId.Toggle}
             disabled={update.isPending}
             onClick={() =>
-              update.mutate({ params: { id }, body: { enabled: !goal.enabled } }, { onError: fail })
+              run((o) => update.mutate({ params: { id }, body: { enabled: !goal.enabled } }, o))
             }
           >
             {goal.enabled ? g("pause") : g("enable")}
@@ -241,7 +246,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
           </div>
         </SheetBlock>
         <SheetBlock label={g("whatNext")}>
-          {stateQuery.isError ? (
+          {stateFailed ? (
             <div data-testid={GoalSheetTestId.StateError}>
               <QueryError onRetry={() => void stateQuery.refetch()} />
             </div>
