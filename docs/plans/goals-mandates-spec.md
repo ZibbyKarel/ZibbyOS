@@ -235,3 +235,20 @@ fills in project and competitor).
 
 Parent/child goals · per-project ceiling overrides · concurrency caps · tag-based scope rules ·
 competitor changelog watching as a model feature (it is the planner's plan + a mozek note).
+
+## Dashboard widget "Cíle" (added 2026-11-26, operator request)
+
+A Bridge widget of type `goals` that shows the current state of the goals the operator picked.
+
+- Picking: widget settings (a multi-select of goals, as `ProjectStatusWidget` picks projects)
+  stored in the widget's `scope.goalIds`. Empty or absent → every enabled goal.
+- Row: goal name, roll-up status tone + label, counts ("7/9 hotovo, 1 čeká na tebe"), schedule
+  label (deadline or cadence), and the latest timeline line. Needs-you goals sort first.
+- Click → an `AnchoredSheet` of kind `goal`; its title navigates to `/work/goals/<id>`.
+- The sheet is a detailed log in two parts:
+  - **Co se dělo** — the full timeline, newest first, grouped by cycle, each entry with time,
+    instance (project) and text; filter per instance.
+  - **Co bude** — what the goal is waiting on (`waitingOn`), when it wakes (`wakeAt`), when the
+    next cycle starts, the deadline, and the current plan (the plan note rendered as markdown).
+  - Sheet actions: enable/pause, "Probudit", resume on parked instances.
+- Live through the existing SSE scope `goals`; no polling.

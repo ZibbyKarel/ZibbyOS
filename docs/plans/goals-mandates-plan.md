@@ -326,3 +326,27 @@ Spec: "Merge grant". Security-sensitive; isolated.
   for the autonomy section and Law 3 (not applied), follow-ups.
 - Run once here: `pnpm check:types`, and the api / contracts / web / web-components /
   design-system test projects; compare failures with `.superpowers/baseline-test.log`.
+
+### Task 14: Dashboard widget "Cíle"
+
+Runs before Task 13. Spec: "Dashboard widget". Precedents: `ProjectStatusWidget` (settings
+picker in `scope`), `AutomationRunsWidget` + `components/sheets/AutomationSheet.tsx` (status rows
+→ `AnchoredSheet` with `onTitleClick`).
+
+- Contract: `BridgeWidgetSchema` type enum gains `goals`; `scope` gains `goalIds: string[]`;
+  per-type acceptance test in `system.schema.test.ts`.
+- `apps/web/features/bridge/widgets/GoalsWidget.tsx` (+ `GoalsWidgetSettings`): registered in
+  `WIDGETS` (`addable`), `SIZE_LIMITS`, i18n `bridge.widget.goals.{label,desc}` and
+  `bridge.widgets.goals.*`. Rows per the spec; empty states for "no goals yet" (link to
+  `/work/goals`) and "nothing picked matches".
+- Sheet: `BridgeSelection.kind` `goal`, `components/sheets/GoalSheet.tsx`, dispatch in
+  `DetailSheet.tsx`, `SHEET_WIDTH`, `bridge.sheet.kind.goal`. Sections "Co se dělo" (timeline by
+  cycle, newest first, instance filter) and "Co bude" (waitingOn, wakeAt, next cycle start,
+  deadline, plan note markdown). Actions: enable/pause, wake, resume parked. Title →
+  `/work/goals/<id>`.
+- Reuse `features/goals` queries, mutations and `goalView.ts`; extract shared pieces (timeline
+  list, plan panel) from `GoalDetailScreen` into `features/goals/components` instead of copying.
+- Add `goals` to the SSE reconnect refetch list in `runEvents.tsx`.
+- Tests (`--project web-components`): `GoalsWidget.test.tsx` (picked goals only; needs-you
+  first; row click opens the `goal` selection), `GoalSheet.test.tsx` (both sections render, title
+  click navigates, wake calls the mutation), settings writes `scope.goalIds`.
