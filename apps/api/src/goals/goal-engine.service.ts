@@ -182,10 +182,17 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
   ): Promise<void> {
     const keys = await this.instanceKeys(goal, listProjects);
     const effects: GoalEffect[] = [];
-    const state = await this.store.update(goal.id, goal.createdAt, (s) =>
-      bookkeep(goal, s, keys, now, effects),
-    );
+    let stale: string[] = [];
+    const state = await this.store.update(goal.id, goal.createdAt, (s) => {
+      const pending = (s.messages ?? []).flatMap((m) =>
+        m.status === "pending" && m.approvalId ? [m.approvalId] : [],
+      );
+      bookkeep(goal, s, keys, now, effects);
+      // A new cycle dropped the drafts: their approvals go too.
+      if (!s.messages) stale = pending;
+    });
     await this.flush(goal, state.cycle.index, effects);
+    if (stale.length) await this.messages?.rejectStale(stale);
     for (const key of Object.keys(state.instances).sort()) {
       try {
         await this.tickInstance(goal, state, key, now, dirty);

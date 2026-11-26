@@ -114,7 +114,10 @@ describe("Goals API (e2e)", () => {
     await http()
       .post(BASE)
       .send({ ...body, id: "wr" })
-      .expect(201);
+      // An intermittent 401 was seen here: print the body so the cause shows next time.
+      .expect((res) => {
+        if (res.status !== 201) throw new Error(`${res.status} ${JSON.stringify(res.body)}`);
+      });
     const goal = (await http().get(`${BASE}/wr`).expect(200)).body;
     const state = await states.read("wr", goal.createdAt);
     state.instances = {

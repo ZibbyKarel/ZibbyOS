@@ -46,7 +46,11 @@ describe("GoalMessageService (the `message` action)", () => {
   let store: GoalStateStore;
   let planner: GoalPlanner & { plan: ReturnType<typeof vi.fn> };
   let activity: { record: ReturnType<typeof vi.fn> };
-  let approvals: { register: ReturnType<typeof vi.fn>; requestApproval: ReturnType<typeof vi.fn> };
+  let approvals: {
+    register: ReturnType<typeof vi.fn>;
+    requestApproval: ReturnType<typeof vi.fn>;
+    reject: ReturnType<typeof vi.fn>;
+  };
   let slack: { userInfo: ReturnType<typeof vi.fn>; postMessage: ReturnType<typeof vi.fn> };
   let prThreads: { reviewers: ReturnType<typeof vi.fn>; comment: ReturnType<typeof vi.fn> };
   let autopilot: { paused: boolean; level: "manual" | "semi" | "auto" };
@@ -126,6 +130,7 @@ describe("GoalMessageService (the `message` action)", () => {
         id: `ap-${++n}`,
         status: "pending",
       })),
+      reject: vi.fn(async () => ({})),
     };
     slack = {
       userInfo: vi.fn(async () => ({ name: "Bob" })),
@@ -149,7 +154,8 @@ describe("GoalMessageService (the `message` action)", () => {
     goals.create({
       id: "g",
       name: "Goal",
-      outcome: "PR #7 is reviewed.",
+      // Bob's Slack id is named in the goal: a known recipient for auto sends.
+      outcome: "PR #7 is reviewed by Bob (U123).",
       scope: { kind: "none" },
       enabled: true,
       ...over,
@@ -197,6 +203,84 @@ describe("GoalMessageService (the `message` action)", () => {
     // The fallback wake: the next working morning at least 12 h away (Fri 9:00 Prague).
     expect(s.instances._?.wakeAt).toBe("2026-11-27T08:00:00.000Z");
     expect(recorded("goal-acted").map((e) => e.refs.action)).toContain("message");
+  });
+
+  it("auto + a workspace member the goal does not know: an approval, nothing sent", async () => {
+    autopilot.level = "auto";
+    await create();
+    planOnce({ ...slackMsg("ask-eve"), to: { kind: "slack-user", ref: "U999" } } as GoalAction);
+    await engine.tick(NOW);
+    expect(slack.postMessage).not.toHaveBeenCalled();
+    expect(approvals.requestApproval).toHaveBeenCalledTimes(1);
+    expect((await state()).messages).toMatchObject([{ person: "slack:U999", status: "pending" }]);
+  });
+
+  it("auto + a Slack id from this instance's own facts (not the messages source): sent", async () => {
+    autopilot.level = "auto";
+    extraSources = [{ name: "channel", collect: async () => [{ author: "U777", text: "hi" }] }];
+    build();
+    await create();
+    planOnce({ ...slackMsg("ask-u7"), to: { kind: "slack-user", ref: "U777" } } as GoalAction);
+    await engine.tick(NOW);
+    expect(slack.postMessage).toHaveBeenCalledWith(expect.anything(), "U777", TEXT);
+    // Written straight away, not only as a ctx effect.
+    expect(activity.record).toHaveBeenCalledWith(
+      expect.objectContaining({ refs: expect.objectContaining({ action: "message" }) }),
+    );
+  });
+
+  it("a transient users.info failure is not a verdict: not applied, retried soon", async () => {
+    slack.userInfo.mockRejectedValueOnce(new Error("slack users.info: ratelimited"));
+    await create();
+    planOnce(slackMsg("ask-bob"));
+    await engine.tick(NOW);
+    const inst = (await state()).instances._;
+    expect(inst?.appliedActionIds ?? []).not.toContain("ask-bob");
+    expect(inst?.wakeAt).toBe(later(15).toISOString());
+    const t = await timeline();
+    expect(t.some((x) => x.includes("není uživatel Slacku"))).toBe(false);
+    expect(t.some((x) => x.includes("odložena"))).toBe(true);
+    expect(approvals.requestApproval).not.toHaveBeenCalled();
+  });
+
+  it("an operator edit with a mass mention is refused at approve, nothing sent", async () => {
+    await create();
+    planOnce(slackMsg("ask-bob"));
+    await engine.tick(NOW);
+    await messages.resume("g/_/ask-bob", {
+      messageText: "<!channel> mrkněte na PR #7",
+    } as Approval);
+    expect(slack.postMessage).not.toHaveBeenCalled();
+    expect((await state()).messages).toMatchObject([{ status: "failed" }]);
+    expect(recorded("goal-acted").at(-1)?.refs.action).toBe("report");
+  });
+
+  it("a new cycle rejects the old cycle's pending goal-message approvals", async () => {
+    await create({ cadence: { every: "day", hour: 9 } });
+    await store.write({
+      goalId: "g",
+      cycle: { index: 0, startedAt: NOW.toISOString() },
+      instances: { _: { status: "waiting", taskIds: [] } },
+      decisionsThisMonth: { month: "2026-11", count: 0 },
+      nudges: {},
+      messages: [
+        {
+          id: "_/ask-bob",
+          instance: "_",
+          actionId: "ask-bob",
+          person: "slack:U123",
+          to: "Bob · Slack DM",
+          status: "pending",
+          text: TEXT,
+          target: { kind: "slack", integrationId: "slack-me", userId: "U123" },
+          createdAt: NOW.toISOString(),
+          approvalId: "ap-old",
+        },
+      ],
+    });
+    await engine.tick(new Date("2026-11-27T08:05:00.000Z"));
+    expect(approvals.reject).toHaveBeenCalledWith("ap-old", expect.any(String));
+    expect((await state()).messages).toBeUndefined();
   });
 
   it("paused Autopilot: an auto level still drafts an approval", async () => {

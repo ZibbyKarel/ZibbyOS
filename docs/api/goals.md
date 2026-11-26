@@ -188,15 +188,28 @@ colleague for something, sent as the operator. In order:
    scope (the `pr-action` rule), and `ref` must be its author or one of its requested reviewers
    (`InboxPrThreadsService.reviewers`, users + team members). It is posted as a PR comment
    starting `@<login>`. Any other `@mention` (PR) or `<@…>`/`<!…>` (Slack) in the text is
-   refused. A refusal is a report and records the `actionId`.
+   refused. A refusal is a report and records the `actionId`. A `users.info` that errors
+   (rate limit, network) is not a refusal: the action is deferred (`wakeAt` +15 min, a timeline
+   note, `actionId` not recorded). The display name is capped at 80 characters.
 3. **Working hours.** Outside Mon–Fri 9–17 Europe/Prague the action is deferred: `wakeAt` = the
-   next working 9:00 (`nextWorkingStart`), a timeline note, no approval, and the `actionId` is
-   NOT recorded, so the re-plan then decides again.
+   next working 9:00 (`nextWorkingStart`), a timeline note (time in Europe/Prague), no approval,
+   and the `actionId` is NOT recorded, so the re-plan then decides again. Working hours bind
+   ZIBBY, not the operator: an approval given outside them sends immediately (the operator's own
+   act).
 4. **Anti-nagging.** At most 2 per person (`slack:<userId>` / `pr:<login>`) per cycle, counting
-   `state.nudges` (sent) plus this cycle's `pending`/`sending` drafts. Over it: a report.
+   `state.nudges` (sent) plus this cycle's `pending`/`sending` drafts. Over it: a report. The cap
+   is checked again inside the locked write that stores the draft. Counters are per ref and per
+   goal: a person reachable as both `slack:<id>` and `pr:<login>` has two counters, and another
+   goal counts separately.
 5. **Tier.** Sent at once (act, then report: `message-sent` timeline + `goal-acted` activity
    with `action: message`) only when `autoCommunicate` resolves to `auto` at the instance's place
-   (`prLocationOf`; `_` = global) and Autopilot is not paused. Otherwise a `goal-message`
+   (`prLocationOf`; `_` = global), Autopilot is not paused, **and the recipient is known to the
+   goal**: a `pr` recipient always is (author/reviewer); a Slack id only when it appears in the
+   goal definition (outcome, predicate, any stored field) or in this instance's own facts (its
+   ingested channel items, PR participants; the `messages` source does not count, so a rejected
+   draft never makes its recipient known). Workspace membership alone is not enough: an unknown
+   member gets a `goal-message` approval instead. The auto send's activity is written at once,
+   not as a deferred effect. Otherwise a `goal-message`
    approval (`docs/api/approvals.md`) with the recipient, the channel/PR and the full text; the
    instance waits on it. The ceiling (tier2) is necessary, never sufficient.
 
@@ -206,9 +219,11 @@ applied `actionId` land in one state write; a send first flips it to `sending` u
 then records `sent` + `nudges[person]` (or `failed` + a report) in one write. Approve claims
 `pending -> sending` the same way (a second approve, a restart or a fresh process never sends
 again; a crash mid-send leaves it `sending`, never re-sent, and it still counts toward the cap).
-The operator's edited `messageText` replaces the text. Reject marks it `rejected` (timeline
+The operator's edited `messageText` replaces the text after the same mention check (a
+`<!channel>` or a foreign `@login` marks it `failed` and reports instead of sending). Reject marks it `rejected` (timeline
 `message-rejected`), which frees its slot and is a fact the planner sees. A draft from an
-earlier cycle is gone: approving it sends nothing, and the operator gets a report saying so.
+earlier cycle is gone: when a cycle rolls, the engine rejects its pending `goal-message`
+approvals (`rejectStale`); approving one anyway sends nothing, and the operator gets a report.
 
 After a Slack send (auto, or on approve) the instance waits on `reply`
 `<integrationId>:<D…channel>:<ts>` and wakes at the next working morning at least 12 h away

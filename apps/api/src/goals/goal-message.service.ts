@@ -48,6 +48,10 @@ const MIN_TEXT = 8;
 /** `@login` mentions (an email's `@` is preceded by a word character and does not count). */
 const MENTION = /(?<![\w.])@([A-Za-z0-9][\w.-]*)/g;
 const ERROR_MAX = 300;
+/** A remote display name embedded in facts and approvals is capped (remote-controlled text). */
+const NAME_MAX = 80;
+/** A transient Slack lookup failure is retried this soon (not recorded as applied). */
+const RETRY_MS = 15 * 60 * 1000;
 
 /**
  * The goal engine's `message` action (spec "Closed action set", "Anti-nagging", "Rulings →
@@ -63,8 +67,10 @@ const ERROR_MAX = 300;
  *   with `wakeAt` and NOT recorded as applied (re-planned then); at most
  *   {@link MESSAGES_PER_PERSON} per person per cycle, pending drafts included, else a report.
  * - **Tier:** sent at once (act, then report) only when `autoCommunicate` is `auto` at the
- *   instance's place and Autopilot is not paused; otherwise a `goal-message` approval. The
- *   goal's ceiling (tier2, checked by the executor) is necessary, never sufficient.
+ *   instance's place, Autopilot is not paused, and the recipient is known to the goal (a PR
+ *   author/reviewer, or a Slack id named in the goal definition or in this instance's own
+ *   facts); otherwise a `goal-message` approval. The goal's ceiling (tier2, checked by the
+ *   executor) is necessary, never sufficient.
  * - **Exactly once:** the draft record and the applied `actionId` land in one state write; a
  *   send first flips the record to `sending` under the lock, so an approve, a restart or a
  *   re-tick never sends twice (a crash mid-send leaves it `sending`: never re-sent).
@@ -123,23 +129,35 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     }
     const resolved = await this.resolve(a, ctx);
     if (typeof resolved === "string") return notDone(resolved);
+    if ("retry" in resolved) {
+      // Transient: not applied, so the next plan may restate it.
+      keepEarlierWake(ctx.instance, new Date(ctx.now.getTime() + RETRY_MS).toISOString());
+      ctx.timeline("note", `Zpráva (${a.actionId}) odložena: ${resolved.retry}`);
+      return;
+    }
     const { target, person, to } = resolved;
     const mentionError = foreignMention(target, text);
     if (mentionError) return notDone(mentionError);
 
     if (!isWorkingHours(ctx.now)) {
-      const at = nextWorkingStart(ctx.now).toISOString();
-      keepEarlierWake(ctx.instance, at);
-      ctx.timeline("note", `Zpráva pro ${to} odložena na ${at} (mimo pracovní dobu).`);
+      const at = nextWorkingStart(ctx.now);
+      keepEarlierWake(ctx.instance, at.toISOString());
+      ctx.timeline(
+        "note",
+        `Zpráva pro ${to} odložena na ${PRAGUE.format(at)} (mimo pracovní dobu).`,
+      );
       return;
     }
 
+    const capped = `${to} už v tomto cyklu dostal(a) ${MESSAGES_PER_PERSON} zprávy — další je na tobě.`;
     const state = await this.store.read(ctx.goal.id, ctx.goal.createdAt);
-    if (used(state, person) >= MESSAGES_PER_PERSON) {
-      return notDone(
-        `${to} už v tomto cyklu dostal(a) ${MESSAGES_PER_PERSON} zprávy — další je na tobě.`,
-      );
-    }
+    if (used(state, person) >= MESSAGES_PER_PERSON) return notDone(capped);
+    // Re-checked under the lock: a parallel approve/plan may have used the slot meanwhile.
+    let overCap = false;
+    const push = (m: GoalMessage) => (s: GoalState) => {
+      if (used(s, person) >= MESSAGES_PER_PERSON) overCap = true;
+      else (s.messages ??= []).push(m);
+    };
 
     const message: GoalMessage = {
       id: `${ctx.instanceKey}/${a.actionId}`,
@@ -153,7 +171,7 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       createdAt: ctx.now.toISOString(),
     };
     const level = await this.communicationLevel(ctx.goal, ctx.instanceKey);
-    if (level !== "auto") {
+    if (level !== "auto" || !knownRecipient(ctx, target)) {
       const approval = await this.approvals.requestApproval({
         runId: `${ctx.goal.id}/${message.id}`,
         kind: "goal-message",
@@ -163,10 +181,17 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
         risk: "medium",
         ...(target.kind === "pr" ? { sourceUrl: await this.prUrl(target) } : {}),
       });
-      const stored = await this.commit(ctx, state.cycle.index, a.actionId, (s) => {
-        (s.messages ??= []).push({ ...message, approvalId: approval.id });
-      });
-      if (!stored) return;
+      const stored = await this.commit(
+        ctx,
+        state.cycle.index,
+        a.actionId,
+        push({ ...message, approvalId: approval.id }),
+      );
+      if (!stored || overCap) {
+        await this.approvals.reject(approval.id, "koncept neuložen").catch(() => undefined);
+        if (overCap) reportFromGoal(ctx, `Zpráva nenapsána (${a.actionId}): ${capped}`);
+        return;
+      }
       addWaits(ctx.instance, [{ kind: "approval", ref: approval.id }]);
       ctx.timeline("message-drafted", `Zpráva pro ${to} čeká na schválení.`, {
         approvalId: approval.id,
@@ -175,10 +200,14 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     }
 
     // Auto: claim it as `sending` with the applied id in one write, then send.
-    const claimed = await this.commit(ctx, state.cycle.index, a.actionId, (s) => {
-      (s.messages ??= []).push({ ...message, status: "sending" });
-    });
+    const claimed = await this.commit(
+      ctx,
+      state.cycle.index,
+      a.actionId,
+      push({ ...message, status: "sending" }),
+    );
     if (!claimed) return;
+    if (overCap) return reportFromGoal(ctx, `Zpráva nenapsána (${a.actionId}): ${capped}`);
     const sent = await this.deliver(ctx.goal, { ...message, status: "sending" });
     if (sent.ok) {
       if (sent.replyRef) addWaits(ctx.instance, [{ kind: "reply", ref: sent.replyRef }]);
@@ -186,9 +215,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       // fallback wake keeps the goal from waiting forever.
       keepEarlierWake(ctx.instance, fallbackWake(ctx.now));
       ctx.timeline("message-sent", `Zpráva pro ${to} odeslána.`, refsOf(sent.replyRef));
-      ctx.activity("goal-acted", `${ctx.label}: zpráva pro ${to} odeslána`, {
-        action: "message",
-      });
+      // Written now, not as a ctx effect: a dropped `apply` must not hide a message that went out.
+      await this.report(ctx.goal, ctx.instanceKey, `zpráva pro ${to} odeslána`, "message");
     } else {
       reportFromGoal(ctx, `Zpráva pro ${to} se neodeslala: ${sent.error}`);
     }
@@ -198,10 +226,11 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
   private async resolve(
     a: MessageAction,
     ctx: GoalActionContext,
-  ): Promise<{ target: Target; person: string; to: string } | string> {
+  ): Promise<{ target: Target; person: string; to: string } | { retry: string } | string> {
     const ref = a.to.ref.trim();
     if (a.to.kind === "slack-user") {
       if (!SLACK_USER_ID.test(ref)) return `${ref} není Slack user id (U…).`;
+      let lookupFailed = false;
       for (const account of await this.slackAccounts(ctx.projectId)) {
         const creds = await this.credentials.read(account.id).catch(() => null);
         if (!creds) continue;
@@ -213,16 +242,20 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
               integrationId: account.id,
               error: String(error),
             });
+            lookupFailed = true;
             return null;
           });
         if (user) {
+          const name = user.name.replace(/\s+/g, " ").trim().slice(0, NAME_MAX) || ref;
           return {
             target: { kind: "slack", integrationId: account.id, userId: ref },
             person: `slack:${ref}`,
-            to: `${user.name} · Slack DM`,
+            to: `${name} · Slack DM`,
           };
         }
       }
+      // Not found anywhere, but a lookup errored (rate limit, network): not a verdict yet.
+      if (lookupFailed) return { retry: `ověření ${ref} ve Slacku selhalo, zkusím znovu.` };
       return `${ref} není uživatel Slacku, ke kterému má tvůj účet přístup.`;
     }
     const about = a.about;
@@ -354,18 +387,32 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
     if (!found) return;
     const { goal, messageId } = found;
     let claimed: GoalMessage | null = null;
+    let blocked: string | null = null;
     let cycle = 0;
     await this.store.update(goal.id, goal.createdAt, (s) => {
       cycle = s.cycle.index;
       const m = s.messages?.find((x) => x.id === messageId);
       if (!m || m.status !== "pending") return;
-      m.status = "sending";
       const edited = approval?.messageText?.trim();
+      // The operator's edit goes through the same mention check as the planner's text.
+      const mention = edited ? foreignMention(m.target, edited) : null;
+      if (mention) {
+        m.status = "failed";
+        m.error = mention;
+        blocked = `Upravená zpráva pro ${m.to} se neodeslala: ${mention}`;
+        return;
+      }
+      m.status = "sending";
       if (edited) m.text = edited;
       claimed = { ...m };
     });
     const message = claimed as GoalMessage | null;
     const instance = messageId.split("/")[0] ?? "_";
+    const refused = blocked as string | null;
+    if (refused) {
+      await this.note(goal, cycle, instance, refused, "report");
+      return this.report(goal, instance, refused, "report");
+    }
     if (!message) {
       // The operator approved, nothing went out: tell them (a new cycle dropped the draft, or
       // it was already sent).
@@ -390,6 +437,18 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       : `Zpráva pro ${message.to} se neodeslala: ${sent.error}`;
     await this.note(goal, cycle, instance, text, sent.ok ? "message-sent" : "report");
     await this.report(goal, instance, text, sent.ok ? "message" : "report");
+  }
+
+  /** A new cycle dropped these drafts: their pending approvals are rejected, not left dangling. */
+  async rejectStale(approvalIds: string[]): Promise<void> {
+    for (const id of approvalIds) {
+      await this.approvals.reject(id, "nový cyklus cíle").catch((error: unknown) =>
+        this.log?.warn("goal message: stale approval reject failed", {
+          id,
+          error: String(error),
+        }),
+      );
+    }
   }
 
   private report(goal: Goal, instance: string, text: string, action: string): Promise<void> {
@@ -473,6 +532,28 @@ function used(state: GoalState, person: string): number {
   ).length;
   return (state.nudges[person]?.count ?? 0) + open;
 }
+
+/**
+ * Auto may send without approval only to someone the goal already knows: a PR author/reviewer
+ * (resolve() enforces it), or a Slack id named in the goal definition or in this instance's own
+ * facts (its ingested channel items, PR participants). Membership of the workspace is not enough.
+ * The `messages` facts are excluded: a rejected draft must not make its recipient "known".
+ */
+function knownRecipient(ctx: GoalActionContext, target: Target): boolean {
+  if (target.kind === "pr") return true;
+  const id = new RegExp(`(?<![A-Z0-9])${target.userId}(?![A-Z0-9])`);
+  const facts = Object.entries(ctx.facts).filter(([source]) => source !== "messages");
+  return id.test(JSON.stringify(ctx.goal)) || id.test(JSON.stringify(facts));
+}
+
+const PRAGUE = new Intl.DateTimeFormat("cs-CZ", {
+  timeZone: "Europe/Prague",
+  weekday: "short",
+  day: "numeric",
+  month: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 /** A mention of anyone but the resolved person (or a Slack mass mention) is refused. */
 function foreignMention(target: Target, text: string): string | null {

@@ -68,9 +68,10 @@ describe("Health API (e2e) — claude available", () => {
     // to /api/health, so this list is meant to be updated deliberately when one is
     // added — `roadmap` (phase 125h) is the gate-poll + auto-pickup tick,
     // `project-health` (TODO 11) the per-project health-check tick, `pr-automation`
-    // (todo-16) the auto review / address-comments tick.
+    // (todo-16) the auto review / address-comments tick, `goal-engine` the goal tick.
     expect(watchers.map((w) => w.id).sort()).toEqual([
       "channel",
+      "goal-engine",
       "limit-resume",
       "monitor",
       "pr-automation",
