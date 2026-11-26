@@ -49,6 +49,12 @@ type ActivityKind =
   | "loop-dispatched" // a loop's maker/verifier loop dispatched an iteration
   | "loop-verdict"
   | "loop-parked" // bounded effort exhausted
+  | "goal-started" // goals-mandates: a goal cycle started (group `goals`, refs.goalId, itemId = instance key, projectId)
+  | "goal-woke" // the engine woke a goal instance for a planner run
+  | "goal-acted" // an action ran (report, message, ...); the summary names it
+  | "goal-parked" // an instance parked (deadline, budget, failed, needs-operator, infeasible)
+  | "goal-done" // an instance reached its predicate
+  | "goal-merged" // a PR was merged under a merge grant
   | "approval-requested"
   | "approval-approved"
   | "approval-rejected"

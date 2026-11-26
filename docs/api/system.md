@@ -40,7 +40,7 @@ system-config section — link there rather than duplicating the table here.
    The schedulers use this to re-arm their interval timers immediately —
    most knobs (tick intervals, `limitResumeMax`,
    `maxConcurrentRuns`, `chatPersona`) take effect live, with one exception:
-   `goalAutoResume` is only read at boot, so it applies on the _next_ start,
+   `goalAutoResume` (the key keeps its name; it now governs the loop's resume, see [loops.md](./loops.md)) is only read at boot, so it applies on the _next_ start,
    not immediately.
    - `maxConcurrentRuns` is the global run-slot cap: the most task runs (a single-agent
      run, an orchestrator run, a whole workflow run, a loop run) in flight at once. It
@@ -97,7 +97,7 @@ system-config section — link there rather than duplicating the table here.
    `arranged` — which layouts sit in the header vs. its dropdown, `removed` —
    deleted built-in layouts (REVIEW), collapsed widgets, closed epics, `designRev` — revision of the built-in layouts the saved
    DEFAULT was reconciled with, default `1` — and `sheetWidths` — detail-sheet width per kind in %,
-   default `{}`); widget `type` is one of `briefing` (label "Today"/"Dnešek"), `indicators` (the counters, "Ukazatele"), `issues`, `prs`, `runs`, `pins`, `todo`, `quickActions`, `teamKb`, `proposals`, `budgets`, `mentions`, `automationRuns`, `projectStatus`, `notes`. Every writer must pass `ui` through —
+   default `{}`); widget `type` is one of `briefing` (label "Today"/"Dnešek"), `indicators` (the counters, "Ukazatele"), `issues`, `prs`, `runs`, `pins`, `todo`, `quickActions`, `teamKb`, `proposals`, `budgets`, `mentions`, `automationRuns`, `projectStatus`, `notes`, `goals` ("Cíle", the picked goals as status rows; picks in `scope.goalIds`, see [goals.md](./goals.md)). Every writer must pass `ui` through —
    the PUT replaces the whole document. See
    [bridge-dashboard-design.md](../plans/bridge-dashboard-design.md).
 

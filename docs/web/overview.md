@@ -316,7 +316,12 @@ features/
 ├── departments/    `/org/departments/[id]/[tab]` — department detail; "Chat with"
 │                   opens the COO dock with an explicit department target
 ├── gates/          Gate rule catalog
-├── loops/          Loop engine — loop definitions + runs (maker ⇄ verifier)
+├── goals/          Goals (mandates) — `/work/goals` list + presets + create dialog,
+│                   `/work/goals/[id]` detail (plan, timeline, merge grant); the
+│                   Bridge "Cíle" widget and its `GoalSheet` live in `features/bridge`
+├── loops/          Loop engine — loop definitions + runs (maker ⇄ verifier); the former
+│                   "goals" feature, renamed — its screens and nav entry are gone, the
+│                   `/api/loops` CRUD stays (the task "Loop" form uses it)
 ├── health/         System health status
 ├── hooks/          Hook catalog
 ├── integrations/   Channel adapters (email, Slack), scoped under a project
@@ -440,3 +445,23 @@ Note: `apps/web` is **not** part of the root vitest workspace — run it via
 `features/connected-services` holds the query/mutation hooks behind the Bridge widget `ConnectedServicesWidget`
 (`features/bridge/widgets/`): one row per service with its connected/disconnected status; Connect opens the
 service sign-in in system Chrome and the list re-polls. See `docs/api/connected-services.md`.
+
+## Goals (mandates)
+
+- **Page** `/work/goals` (nav entry "Cíle", under Work): goal list with roll-up status, the
+  "Připravené cíle" presets (created **paused** on one click) and a create dialog (create-only,
+  then navigates to the detail). `/work/goals/[id]` shows the outcome, settings (edit top-right),
+  the rendered plan note, the timeline (filter per project, cycles), the per-project roll-up, the
+  directional checklist and decision counter, the merge-grant panel (operator token, tier3 goals
+  only) and the actions enable/pause, wake and resume.
+- **Loop rename.** The old maker + verifier "goals" screens, routes and nav entry were removed;
+  the entity is now a `loop` (`/api/loops`) and only exists as an internal way to execute a goal's
+  work.
+- **Project autonomy layer.** `/governance/autonomy` gets a project row under each company (after
+  its teams) and a sixth capability column `autoDecideGoals` ("automatické rozhodování cílů");
+  the header menu's exception list includes projects. Raising any cell still needs the operator
+  token. See `docs/api/autopilot.md`.
+- **Dashboard widget "Cíle"** (`features/bridge/widgets/GoalsWidget.tsx`): picked goals
+  (`scope.goalIds`, none = every enabled goal) as status rows; a click opens `GoalSheet` with the
+  full log ("Co se dělo") and what comes next ("Co bude"). Live via the `goals` SSE scope. See
+  `docs/api/goals.md`.

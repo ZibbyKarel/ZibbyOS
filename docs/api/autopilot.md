@@ -63,6 +63,9 @@ the new shape on the next change.
 | `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`)                                     | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
 | `autoDecideGoals`     | none by itself; the goal engine reads it: `semi` = a proposal behind an approval, `auto` = ZIBBY decides | none (no gate class)                                                                     |
 
+The goal engine's use of `autoDecideGoals` and `autoCommunicate`, and the one sanctioned autonomous
+merge (the operator-token merge grant on a goal), are in [goals.md](./goals.md).
+
 `companies` / `teams` / `projects` are keyed by id and hold only the cells the node overrides.
 Precedence is project > team > company > global (`resolveAutopilotLevels` merges company, team,
 project in that order; `resolveAutopilotAutomation` /
