@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PROPOSAL_TEXT_MAX } from "@zibby/contracts";
+import { GOAL_PRESETS, PROPOSAL_TEXT_MAX, type ProposalGoalDraft } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { VaultService } from "../memory/vault.service";
 import { ProposalsService } from "../proposals/proposals.service";
@@ -16,6 +16,39 @@ const WINDOW_DAYS = 30;
 
 /** The vault note recurring-gap suggestions are written to (read by the briefing). */
 const NOTE_ID = "automation-gaps";
+
+/**
+ * Recurring manual work that is really an ongoing, measurable outcome ("keep CI green") is
+ * proposed as a goal, not an automation (docs/api/proposals.md). Keyword → `GOAL_PRESETS` id;
+ * first match wins. Everything else stays a fixed trigger→action automation.
+ * ponytail: keyword table, upgrade to a model classification if it misfires.
+ */
+const GOAL_SIGNALS: ReadonlyArray<readonly [RegExp, string]> = [
+  [
+    /\b(fix|repair)\b.*\bci\b|\bci\b.*\b(red|fail)|\bpipeline\b.*\b(red|fail|broken)/i,
+    "ci-stays-green",
+  ],
+  [/security|\bcve\b|vulnerab|zranitelnost|bezpečnost/i, "security-patches-in-7-days"],
+  [
+    /(update|upgrade|bump)\b.*\b(dependenc|packages|deps)|aktualizace.*(závislost|balíč)/i,
+    "app-is-up-to-date",
+  ],
+  [/address review comments|\brebase\b|merge[- ]ready/i, "my-prs-merge-ready"],
+  [/remind.*review|review.*remind|forgotten pr/i, "no-forgotten-prs"],
+];
+
+/** The goal a recurring-task sample maps to, or undefined → an automation proposal. Pure. */
+export function goalDraftFor(sample: string): ProposalGoalDraft | undefined {
+  const id = GOAL_SIGNALS.find(([re]) => re.test(sample))?.[1];
+  const preset = GOAL_PRESETS.find((p) => p.id === id);
+  if (!preset) return undefined;
+  return {
+    presetId: preset.id,
+    name: preset.name,
+    outcome: preset.outcome,
+    ...(preset.predicate ? { predicate: preset.predicate } : {}),
+  };
+}
 
 export interface AutomationGap {
   /** The normalised summary the recurring tasks share. */
@@ -101,9 +134,18 @@ export class GapDetectorService {
         .replace(/^task created:\s*/i, "")
         .trim()
         .slice(0, PROPOSAL_TEXT_MAX);
+      const goal = goalDraftFor(g.sample);
       const [line] = await this.proposals.syncNoteLines(
         "gap-detect",
-        [{ key: g.pattern, text: toSuggestion(g), occurrences: g.count }],
+        [
+          {
+            key: g.pattern,
+            text: toSuggestion(g, goal),
+            occurrences: g.count,
+            kind: goal ? "goal" : "automation",
+            goal,
+          },
+        ],
         {
           minOccurrences: MIN_OCCURRENCES,
           provenance: {
@@ -191,7 +233,10 @@ function normalize(summary: string): string {
     .slice(0, 80);
 }
 
-function toSuggestion(gap: AutomationGap): string {
+function toSuggestion(gap: AutomationGap, goal?: ProposalGoalDraft): string {
+  if (goal) {
+    return `You created ${gap.count} similar tasks ("${gap.sample}") in the past ${WINDOW_DAYS} days — make it a goal: "${goal.name}"?`;
+  }
   return `You created ${gap.count} similar tasks ("${gap.sample}") in the past ${WINDOW_DAYS} days — automate it?`;
 }
 

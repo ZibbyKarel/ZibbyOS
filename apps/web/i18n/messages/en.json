@@ -4392,7 +4392,13 @@
         "editor": "Proposal text",
         "save": "Save",
         "cancel": "Cancel",
-        "error": "Could not save the change. Try again."
+        "error": "Could not save the change. Try again.",
+        "kind": {
+          "automation": "Automation",
+          "goal": "Goal"
+        },
+        "approveGoal": "Create goal",
+        "approveGoalLabel": "Approve and create a paused goal: {text}"
       },
       "pins": {
         "kind": {
@@ -4540,8 +4546,8 @@
         "desc": "Open questions and agreements from the team knowledge base."
       },
       "proposals": {
-        "label": "Proposals",
-        "desc": "Suggestions from automations to review — approve an automation, dismiss or edit the insight."
+        "label": "Automation and goal proposals",
+        "desc": "Suggestions from automations to review — approve an automation or a (paused) goal, dismiss or edit the insight."
       },
       "budgets": {
         "label": "Budgets & limits",

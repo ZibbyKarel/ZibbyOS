@@ -42,6 +42,10 @@ const a = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock("../../automations/mutations", () => ({
   useCreateAutomationMutation: () => ({ mutate: a.create, isError: false }),
 }));
+const g = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("../../goals/mutations", () => ({
+  useCreateGoalMutation: () => ({ mutate: g.create, isError: false, isPending: false }),
+}));
 const sampleTask = {
   text: "/zibby:standup-post",
   target: { kind: "workflow", id: "wf", name: "Wf" },
@@ -83,6 +87,7 @@ const setup = (over: Partial<BridgeWidgetProps> = {}): BridgeWidgetProps => ({
 const proposal = (id: string, over: Partial<Proposal> = {}): Proposal => ({
   id,
   source: "pattern-extract",
+  kind: "automation",
   text: `Text ${id}`,
   confidence: "medium",
   occurrences: 3,
@@ -102,6 +107,8 @@ beforeEach(() => {
   d.isError = false;
   d.variables = undefined;
   d.mutate.mockReset();
+  a.create.mockReset();
+  g.create.mockReset();
   d.reset.mockReset();
   tq.data = sampleTask;
   tq.isPending = false;
@@ -325,5 +332,27 @@ describe("ProposalsWidget approve", () => {
     const opts = a.create.mock.calls[0]?.[1] as { onSuccess: () => void };
     opts.onSuccess();
     expect(d.mutate).toHaveBeenCalledWith({ params: { id: "g" }, body: { action: "approve" } });
+  });
+
+  it("a goal proposal shows the Goal badge and accepting creates a PAUSED goal, then approves", () => {
+    d.proposals = [
+      proposal("gl", {
+        source: "gap-detect",
+        kind: "goal",
+        goal: { presetId: "ci-stays-green", name: "CI zůstává zelené", outcome: "CI je zelené." },
+      }),
+    ];
+    renderWithProviders(<ProposalsWidget {...setup()} />);
+    expect(screen.getByTestId(ProposalsWidgetTestId.Kind).textContent).toContain("Cíl");
+    fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Approve));
+    const [call, opts] = g.create.mock.calls[0] as [
+      { body: { id: string; enabled: boolean; cadence: unknown } },
+      { onSuccess: () => void },
+    ];
+    expect(call.body).toMatchObject({ id: "ci-stays-green", enabled: false });
+    expect(call.body.cadence).toBeTruthy();
+    expect(a.create).not.toHaveBeenCalled();
+    opts.onSuccess();
+    expect(d.mutate).toHaveBeenCalledWith({ params: { id: "gl" }, body: { action: "approve" } });
   });
 });

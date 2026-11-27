@@ -6,6 +6,8 @@ import {
   PROPOSAL_TTL_DAYS,
   type Proposal,
   type ProposalConfidence,
+  type ProposalGoalDraft,
+  type ProposalKind,
   type ProposalProvenance,
   type ProposalSource,
 } from "@zibby/contracts";
@@ -52,6 +54,9 @@ export interface UpsertProposalInput {
   /** The producer's minimum occurrence count `m` — the confidence scale. */
   minOccurrences: number;
   provenance: ProposalProvenance;
+  /** Defaults to `automation`; `goal` needs a {@link goal} draft. */
+  kind?: ProposalKind;
+  goal?: ProposalGoalDraft;
   now?: Date;
 }
 
@@ -111,6 +116,9 @@ export class ProposalsService {
       lastSeenAt,
       expiresAt,
       provenance: input.provenance,
+      kind: input.kind ?? "automation",
+      // Dropped when the detector no longer sees a goal fit, so a rerun can turn it back.
+      goal: input.kind === "goal" ? input.goal : undefined,
     };
     return this.store.mutate((all) => {
       const existing = all.find((p) => p.id === id);
@@ -130,7 +138,9 @@ export class ProposalsService {
    */
   async syncNoteLines(
     source: ProposalSource,
-    items: ReadonlyArray<{ key: string; text: string; occurrences: number }>,
+    items: ReadonlyArray<
+      Pick<UpsertProposalInput, "text" | "occurrences" | "kind" | "goal"> & { key: string }
+    >,
     base: { minOccurrences: number; provenance: ProposalProvenance; now?: Date },
   ): Promise<string[]> {
     const lines: string[] = [];

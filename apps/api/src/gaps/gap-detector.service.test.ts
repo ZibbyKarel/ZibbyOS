@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "@zibby/contracts";
 import { ProposalsService, proposalId } from "../proposals/proposals.service";
 import { ProposalsStore } from "../proposals/proposals.store";
-import { GapDetectorService } from "./gap-detector.service";
+import { GapDetectorService, goalDraftFor } from "./gap-detector.service";
 
 const tmpDirs: string[] = [];
 afterEach(() => {
@@ -110,6 +110,26 @@ describe("GapDetectorService", () => {
     expect(result.gaps[0]?.count).toBe(3);
     expect(result.suggestions[0]).toContain("automate it?");
     expect(vault.updateNote).toHaveBeenCalled();
+  });
+
+  it("proposes a goal (with its preset draft) for recurring CI-fixing, an automation otherwise", async () => {
+    const { svc, proposals } = makeService([
+      ...[1, 2, 3].map((i) => taskCreated("Fix CI on main", i, i)),
+      ...[1, 2, 3].map((i) => taskCreated("Deploy to staging", i, i + 10)),
+    ]);
+    await svc.detect(new Date());
+    const open = await proposals.list();
+    const ci = open.find((p) => p.text.includes("Fix CI"));
+    const deploy = open.find((p) => p.text.includes("Deploy"));
+    expect(ci?.kind).toBe("goal");
+    expect(ci?.goal?.presetId).toBe("ci-stays-green");
+    expect(deploy?.kind).toBe("automation");
+    expect(deploy?.goal).toBeUndefined();
+  });
+
+  it("goalDraftFor maps keywords to presets and ignores the rest", () => {
+    expect(goalDraftFor("Aktualizace závislostí")?.presetId).toBe("app-is-up-to-date");
+    expect(goalDraftFor("Standup")).toBeUndefined();
   });
 
   it("ignores non-task-created kinds", async () => {

@@ -40,6 +40,25 @@ export const ProposalProvenanceSchema = z
   .strict();
 export type ProposalProvenance = z.infer<typeof ProposalProvenanceSchema>;
 
+/** What accepting a proposal creates: a fixed trigger→action automation, or a measurable goal. */
+export const ProposalKindSchema = z.enum(["automation", "goal"]);
+export type ProposalKind = z.infer<typeof ProposalKindSchema>;
+
+/**
+ * A `goal` proposal's draft — enough to create a goal through `POST /api/goals`. `presetId`
+ * (a `GOAL_PRESETS` id) supplies scope/cadence/ceiling; without one the client uses defaults.
+ * Accepting always creates the goal paused (`enabled: false`).
+ */
+export const ProposalGoalDraftSchema = z
+  .object({
+    presetId: z.string().min(1).optional(),
+    name: z.string().min(1).max(PROPOSAL_TEXT_MAX),
+    outcome: z.string().min(1),
+    predicate: z.string().min(1).optional(),
+  })
+  .strict();
+export type ProposalGoalDraft = z.infer<typeof ProposalGoalDraftSchema>;
+
 /**
  * One structured system proposal (TODO 14). `id` is a stable short hash of
  * `source` + the producer's dedupe key, so a rerun updates the record instead
@@ -49,6 +68,10 @@ export type ProposalProvenance = z.infer<typeof ProposalProvenanceSchema>;
 export const ProposalSchema = z.object({
   id: z.string().min(1),
   source: ProposalSourceSchema,
+  /** Existing records have no kind: they are automation proposals. */
+  kind: ProposalKindSchema.default("automation"),
+  /** Present on `kind: "goal"` — what to create the goal from. */
+  goal: ProposalGoalDraftSchema.optional(),
   text: z.string().max(PROPOSAL_TEXT_MAX),
   editedText: z.string().max(PROPOSAL_TEXT_MAX).optional(),
   confidence: ProposalConfidenceSchema,

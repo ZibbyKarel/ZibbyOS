@@ -15,6 +15,7 @@ import {
 const PROPOSAL = {
   id: "prop_0123456789ab",
   source: "pattern-extract",
+  kind: "automation",
   text: 'Always allow "deploy" (approved 3× in the past 30 days)',
   confidence: "low",
   occurrences: 3,
@@ -35,6 +36,13 @@ describe("ProposalSchema", () => {
     };
     expect(ProposalSchema.parse(full)).toEqual(full);
     expect(ProposalSchema.parse(PROPOSAL)).toEqual(PROPOSAL);
+  });
+
+  it("defaults a legacy record without kind to automation and accepts a goal draft", () => {
+    const { kind: _kind, ...legacy } = PROPOSAL;
+    expect(ProposalSchema.parse(legacy).kind).toBe("automation");
+    const goal = { presetId: "ci-stays-green", name: "CI", outcome: "Green." };
+    expect(ProposalSchema.parse({ ...PROPOSAL, kind: "goal", goal }).goal).toEqual(goal);
   });
 
   it("closes the source/confidence/status vocabularies", () => {

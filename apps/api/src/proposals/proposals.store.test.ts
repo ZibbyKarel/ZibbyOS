@@ -8,6 +8,7 @@ import { ProposalsStore } from "./proposals.store";
 const P: Proposal = {
   id: "prop_000000000001",
   source: "gap-detect",
+  kind: "automation",
   text: "Automate it?",
   confidence: "low",
   occurrences: 3,

@@ -1,4 +1,4 @@
-# System proposals — review, dismiss, approve, edit (TODO 14)
+# System proposals — automation and goal proposals (TODO 14, #27)
 
 Automations that "propose without acting" write one structured **proposal record**
 per suggestion, with provenance, confidence and expiry. The operator lists them,
@@ -32,6 +32,8 @@ Contract: `libs/contracts/src/proposals/` (`proposalsContract`, mounted as
 {
   id: string;                 // "prop_" + 12 hex of sha256(source, dedupe key) — stable across reruns
   source: "pattern-extract" | "gap-detect" | "agent-factory";
+  kind: "automation" | "goal";  // default "automation" for records without it
+  goal?: { presetId?; name; outcome; predicate? }; // only on kind "goal"
   text: string;               // ≤ 500, the producer's current wording
   editedText?: string;        // ≤ 500, the operator's wording — wins everywhere
   confidence: "low" | "medium" | "high";
@@ -98,3 +100,31 @@ Dismiss, approve and edit record `proposal-decided` (group `approvals`), summary
 `{ itemId: <proposal id>, action: "dismiss" | "approve" | "edit", noteId?, agentId?, approvalId?, automationId? }`.
 The producers record no run-completion activity of their own. A new agent-factory
 candidate shows up as `approval-requested` (refs.status `agent-proposal`).
+
+## Automation vs goal (#27)
+
+The Bridge widget is "Návrhy automatizací a cílů" ("Automation and goal proposals"); every card
+carries a kind badge. The decision is made by `gap-detect` (`goalDraftFor`) from its existing
+signal — a task the operator keeps creating by hand (≥ 3× in 30 days):
+
+- **goal** when the recurring task is an ongoing, measurable outcome that has a goal preset
+  ("keep CI green", "dependencies up to date", "security patches in 7 days", "my PRs merge-ready",
+  "no forgotten PRs"). Detected by a small keyword table onto `GOAL_PRESETS`; the proposal carries
+  `goal = { presetId, name, outcome, predicate }`.
+- **automation** for everything else (a fixed trigger → action, e.g. "post standup").
+
+`pattern-extract` and `agent-factory` stay automation/agent proposals. A rerun re-decides the kind
+(the record id is unchanged); a dismissed/approved proposal is never reopened.
+
+**Accepting** a goal proposal (Approve button, label "Vytvořit cíl") makes the web client call
+`POST /api/goals` with the preset's scope/cadence/ceiling (or a weekday 09:00 standing goal when
+there is no preset) and **`enabled: false`** — the goal is created PAUSED, the operator reviews and
+starts it on the goals page, and it obeys the autonomy levels like any goal. Only then is the
+proposal marked `approved`. An automation proposal still opens the prefilled create-automation dialog.
+
+## Why the widget was empty (#27)
+
+The producers were switched off: `gap-detect` was seeded `enabled: false` and `nightly-patterns`
+had been disabled, so nothing wrote proposals (the stored ones had expired 2026-11-12). The seed now
+enables `gap-detect`, and a one-time marker (`.proposal-producers-enabled.done` in the automations
+dir) re-enables both on the next boot; afterwards the operator's toggle is respected.

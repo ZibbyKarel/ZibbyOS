@@ -1,6 +1,11 @@
 "use client";
 
-import { PROPOSAL_TEXT_MAX, type Proposal } from "@zibby/contracts";
+import {
+  type CreateGoalInput,
+  GOAL_PRESETS,
+  PROPOSAL_TEXT_MAX,
+  type Proposal,
+} from "@zibby/contracts";
 import {
   BoardLine,
   BoardRow,
@@ -25,6 +30,7 @@ import {
   type AutomationFormDialogProps,
 } from "../../automations/components/AutomationFormDialog";
 import { useCreateAutomationMutation } from "../../automations/mutations";
+import { useCreateGoalMutation } from "../../goals/mutations";
 import { useDecideProposalMutation } from "../../proposals/mutations";
 import { useProposalsQuery } from "../../proposals/queries";
 import { toClientTarget } from "../../tasks/task";
@@ -36,6 +42,7 @@ import { useWidgetReport } from "./useWidgetReport";
 export enum ProposalsWidgetTestId {
   Row = "proposals-widget-row",
   Source = "proposals-widget-source",
+  Kind = "proposals-widget-kind",
   Confidence = "proposals-widget-confidence",
   Expiry = "proposals-widget-expiry",
   Provenance = "proposals-widget-provenance",
@@ -63,6 +70,38 @@ export const proposalPrompt = (p: Pick<Proposal, "text" | "provenance">): string
 /** Whole days until `expiresAt` (rounded up, never negative). */
 export const proposalExpiryDays = (expiresAt: string, now: number): number =>
   Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / DAY_MS));
+
+/**
+ * The PAUSED goal an accepted `goal` proposal creates: the preset's scope/cadence/ceiling when it
+ * names one, otherwise a weekday-morning standing goal. Never enabled — the operator reviews first.
+ */
+export function proposalGoalBody(goal: NonNullable<Proposal["goal"]>): CreateGoalInput {
+  const preset = GOAL_PRESETS.find((p) => p.id === goal.presetId);
+  // `group` is UI-only and the create body is strict, so it is dropped here.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { group: _group, ...base } = preset ?? {
+    id: goal.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60),
+    scope: { kind: "none" as const },
+    cadence: { every: "weekday" as const, hour: 9 },
+    ceiling: "tier2" as const,
+    group: "pr-ci" as const,
+    name: goal.name,
+    outcome: goal.outcome,
+    enabled: false,
+  };
+  return {
+    ...base,
+    name: goal.name,
+    outcome: goal.outcome,
+    predicate: goal.predicate,
+    enabled: false,
+  };
+}
 
 type Provenance = { kind: "note" | "agent" | "approval"; href: Route };
 
@@ -146,6 +185,8 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
   // Lives on the row, not the dialog: the dialog closes on submit, and a mutate-level
   // `onSuccess` never fires once its component has unmounted.
   const createAutomation = useCreateAutomationMutation();
+  const createGoal = useCreateGoalMutation();
+  const isGoal = proposal.kind === "goal" && proposal.goal !== undefined;
   const shown = proposal.editedText ?? proposal.text;
   const [editing, setEditing] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -175,14 +216,24 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
     <>
       {approvable ? (
         <Button
-          aria-label={t("approveLabel", { text: shown })}
+          aria-label={t(isGoal ? "approveGoalLabel" : "approveLabel", { text: shown })}
           data-testid={ProposalsWidgetTestId.Approve}
-          disabled={decide.isPending}
+          disabled={decide.isPending || createGoal.isPending}
           intent="primary"
-          onClick={() => setApproving(true)}
+          onClick={() => {
+            if (!isGoal || !proposal.goal) return setApproving(true);
+            // Paused goal first, then mark the proposal approved.
+            createGoal.mutate(
+              { body: proposalGoalBody(proposal.goal) },
+              {
+                onSuccess: () =>
+                  decide.mutate({ params: { id: proposal.id }, body: { action: "approve" } }),
+              },
+            );
+          }}
           size="sm"
         >
-          {t("approve")}
+          {isGoal ? t("approveGoal") : t("approve")}
         </Button>
       ) : null}
       {dismissable ? (
@@ -230,6 +281,9 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
           <>
             <BoardText data-testid={ProposalsWidgetTestId.Source} kind="rowMeta" tone="ink2">
               {t(`source.${proposal.source}`)}
+            </BoardText>
+            <BoardText data-testid={ProposalsWidgetTestId.Kind} kind="rowMeta" tone="ink2">
+              · {t(`kind.${proposal.kind}`)}
             </BoardText>
             <BoardText kind="rowId">· {compactAgo(proposal.lastSeenAt, now)}</BoardText>
           </>
@@ -296,10 +350,12 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
             </TextLink>
           ) : null}
         </BoardLine>
-        {decide.isError || createAutomation.isError ? (
+        {decide.isError || createAutomation.isError || createGoal.isError ? (
           <span data-testid={ProposalsWidgetTestId.RowError} role="alert">
             <BoardText kind="rowMeta" tone="ink">
-              {!createAutomation.isError && decide.variables?.body.action === "edit"
+              {!createAutomation.isError &&
+              !createGoal.isError &&
+              decide.variables?.body.action === "edit"
                 ? t("error")
                 : t("actionError")}
             </BoardText>

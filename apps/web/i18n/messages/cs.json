@@ -4392,7 +4392,13 @@
         "editor": "Text návrhu",
         "save": "Uložit",
         "cancel": "Zrušit",
-        "error": "Změnu se nepodařilo uložit. Zkus to znovu."
+        "error": "Změnu se nepodařilo uložit. Zkus to znovu.",
+        "kind": {
+          "automation": "Automatizace",
+          "goal": "Cíl"
+        },
+        "approveGoal": "Vytvořit cíl",
+        "approveGoalLabel": "Schválit a vytvořit pozastavený cíl: {text}"
       },
       "pins": {
         "kind": {
@@ -4540,8 +4546,8 @@
         "desc": "Otevřené otázky a dohody z týmové znalostní báze."
       },
       "proposals": {
-        "label": "Návrhy",
-        "desc": "Návrhy z automatizací ke kontrole — schval automatizaci, zamítni nebo uprav poznatek."
+        "label": "Návrhy automatizací a cílů",
+        "desc": "Návrhy z automatizací ke kontrole — schval automatizaci nebo (pozastavený) cíl, zamítni nebo uprav poznatek."
       },
       "budgets": {
         "label": "Budgety a limity",
