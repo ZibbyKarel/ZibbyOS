@@ -4479,7 +4479,6 @@
         "empty": "Zatím žádné cíle.",
         "noMatch": "Žádný z vybraných cílů už neexistuje.",
         "openGoals": "Otevřít cíle",
-        "noEvents": "Zatím se nic nestalo.",
         "whatHappened": "Co se dělo",
         "whatNext": "Co bude",
         "pause": "Pozastavit",
@@ -4909,7 +4908,7 @@
     "autoImplement": "Implementace",
     "autoCommunicate": "Komunikace",
     "autoFixCi": "Oprava CI",
-    "autoDecideGoals": "Rozhodování cílů",
+    "autoDecideGoals": "Spouštění a rozhodování cílů",
     "globalLabel": "Výchozí",
     "globalSub": "Pro vše bez výjimky",
     "companyKind": "Firma",
@@ -5421,14 +5420,13 @@
   },
   "goals": {
     "title": "Cíle",
-    "toggleLabel": "Zapnout cíl {name}",
-    "open": "Detail",
     "emptyTitle": "Zatím žádné cíle",
     "emptyBody": "Cíl je zadání pro ZIBBY: co má platit, kde, dokdy a s jakým rozpočtem. Vytvoř vlastní, nebo začni z připravených cílů níže.",
     "list": {
       "section": "Práce",
       "total": "{count, plural, one {# cíl} few {# cíle} other {# cílů}}",
       "needsYou": "{count, plural, one {# čeká na tebe} few {# čekají na tebe} other {# čeká na tebe}}",
+      "held": "{count} drží manuál",
       "newGoal": "Nový cíl",
       "noMatchTitle": "Žádný cíl neodpovídá",
       "noMatchBody": "Zkus jiný stav filtru.",
@@ -5438,7 +5436,9 @@
         "active": "Aktivní",
         "paused": "Pozastavené",
         "done": "Hotové"
-      }
+      },
+      "working": "{count, plural, one {# pracuje} few {# pracují} other {# pracuje}}",
+      "done": "{count, plural, one {# hotový} few {# hotové} other {# hotových}}"
     },
     "counts": {
       "none": "Zatím bez plánu",
@@ -5451,7 +5451,8 @@
       "acting": "Pracuje",
       "waiting": "Čeká",
       "needs-you": "Čeká na tebe",
-      "done": "Hotovo"
+      "done": "Hotovo",
+      "held": "Drží manuál"
     },
     "scope": {
       "none": "Bez projektu",
@@ -5526,7 +5527,7 @@
       "checklist": "Checklist",
       "checklistHint": "Jedna položka na řádek.",
       "maxDecisions": "Samostatných rozhodnutí za měsíc",
-      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (Rozhodování cílů → Automat).",
+      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (Spouštění a rozhodování cílů → Automat).",
       "matrixNote": "Poznámka s maticí funkcí",
       "matrixNoteHint": "Nepovinné id poznámky v mozku."
     },
@@ -5539,10 +5540,7 @@
       "noBudget": "Bez limitu"
     },
     "instances": {
-      "project": "Projekt",
       "noProject": "Bez projektu",
-      "status": "Stav",
-      "summary": "Shrnutí",
       "resume": "Pokračovat",
       "emptyTitle": "Zatím žádný průběh",
       "emptyBody": "Průběh po projektech se objeví, jakmile ZIBBY cíl poprvé zpracuje.",
@@ -5576,12 +5574,55 @@
     },
     "detail": {
       "wake": "Probudit",
-      "settingsTitle": "Výsledek a nastavení",
-      "instancesTitle": "Průběh po projektech",
+      "settingsTitle": "Nastavení",
+      "instancesTitle": "Projekty",
       "planTitle": "Plán",
-      "timelineTitle": "Časová osa",
       "deleteTitle": "Smazat cíl?",
-      "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit."
+      "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit.",
+      "goal": "Cíl",
+      "cycleChip": "cyklus {n}",
+      "more": "Další akce",
+      "mergeGrantUntil": "Merge grant do {until}",
+      "gaugeLabel": "Projekty",
+      "gaugeOf": "z {count}",
+      "gaugeAllDone": "vše hotovo",
+      "gaugeLeft": "{count, plural, one {# zbývá} few {# zbývají} other {# zbývá}}",
+      "meters": "Rozpočet cíle",
+      "meterDeadline": "Do termínu cyklu",
+      "meterDeadlineValue": "do {when}",
+      "meterRuns": "Běhy v cyklu",
+      "meterRunsValue": "{used} / {max}",
+      "meterRunsNote": "Projekt, který čerpá nejvíc",
+      "criteriaTitle": "Splněno, když",
+      "order": "Pořadí",
+      "newestFirst": "Nejnovější první",
+      "oldestFirst": "Nejstarší první",
+      "progress": "Průběh",
+      "progressN": "Průběh {n}",
+      "cycleMeta": "{count, plural, one {# událost} few {# události} other {# událostí}} · {range}",
+      "showAll": "Zobrazit všechny události: {title}",
+      "showLess": "Zobrazit jen posledních 5: {title}",
+      "loop": {
+        "aria": "Smyčka cíle",
+        "plan": "Plán",
+        "planTitle": "ZIBBY",
+        "planSub": "plánuje další krok",
+        "planning": "Sestavuje plán…",
+        "planIdle": "Přeplánuje, až se něco změní",
+        "held": "Čeká, až zvedneš úroveň nebo cíl probudíš",
+        "heldSub": "drží manuál",
+        "needsYou": "Čeká na tvé rozhodnutí",
+        "exec": "Vykonání",
+        "tasks": "Úkoly",
+        "runs": "{count, plural, one {# běh} few {# běhy} other {# běhů}} v cyklu",
+        "acting": "Pracuje na úkolech…",
+        "idle": "Nic neběží",
+        "forward": "plán → akce",
+        "back": "výsledek → nový plán",
+        "pausedBack": "pozastaveno · čeká na tebe",
+        "countCycle": "cyklus",
+        "countProjects": "projektů hotovo"
+      }
     },
     "actionFailed": "Akce se nepovedla. Zkus to znovu.",
     "directional": {
@@ -5618,6 +5659,36 @@
       "revoke": "Odebrat",
       "locked": "Nepodařilo se: merge grant potřebuje platný operátorský token.",
       "failed": "Akce se nezdařila."
+    },
+    "card": {
+      "ringOf": "z {count, plural, one {# projektu} few {# projektů} other {# projektů}}",
+      "ringOfCount": "z {count}",
+      "ringAria": "{done} z {total, plural, one {# projektu} other {# projektů}} hotovo",
+      "ringAriaCount": "{done} z {total} hotovo",
+      "notRun": "zatím neběžel",
+      "role": {
+        "scope": "Rozsah",
+        "ceiling": "Strop",
+        "loop": "Smyčka"
+      },
+      "lastStep": "Poslední krok · {date}",
+      "needsYou": "čeká na tebe",
+      "noEvents": "Zatím bez záznamu",
+      "noEventsText": "Cíl ještě neběžel.",
+      "heldReason": "Spouštění a rozhodování cílů je tady na Manuálu — ZIBBY sám nic nespustí.",
+      "decide": "Rozhodnout",
+      "pause": "Pozastavit",
+      "enable": "Zapnout",
+      "decideAria": "Rozhodnout o cíli {name}",
+      "wakeAria": "Probudit cíl {name}",
+      "pauseAria": "Pozastavit cíl {name}",
+      "enableAria": "Zapnout cíl {name}",
+      "openAria": "Otevřít: {name}"
+    },
+    "ceiling": {
+      "tier1": "Tier 1 · jen tiše připravovat",
+      "tier2": "Tier 2 · jednat a hlásit",
+      "tier3": "Tier 3 · vše ke schválení"
     }
   },
   "logo": {

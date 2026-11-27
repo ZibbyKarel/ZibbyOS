@@ -5,7 +5,14 @@ import {
   type OnModuleInit,
   Optional,
 } from "@nestjs/common";
-import { type Goal, type GoalInstance, GoalPlanSchema, type GoalState } from "@zibby/contracts";
+import {
+  AUTOMATION_LEVEL_RANK,
+  type AutomationLevel,
+  type Goal,
+  type GoalInstance,
+  GoalPlanSchema,
+  type GoalState,
+} from "@zibby/contracts";
 import type { Subscription } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
 import { ActivityLogService } from "../activity/activity-log.service";
@@ -49,6 +56,10 @@ export const PLAN_TIMEOUT_MS = 10 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const NO_PROJECT = "_";
 
+/** The one timeline line (kind `held`) written when an instance becomes held. */
+export const HELD_TEXT =
+  "Held: Starting and deciding goals is Manual here, so ZIBBY starts nothing for this goal on its own. Raise the level or wake the goal for one pass that waits for your approval.";
+
 /**
  * The goal heartbeat (spec "Engine"): `systemConfig.goalEngineTickMs` (default 60 s,
  * `0` disables, primary instance only — tests drive {@link tick} directly). Per enabled
@@ -57,6 +68,12 @@ const NO_PROJECT = "_";
  * changed, `wakeAt` passed or one of its refs went dirty — one planner call whose
  * actions the {@link GoalActionExecutor} applies under the goal's ceiling. **A waiting
  * instance costs no model call.**
+ *
+ * Autonomy ("starting and deciding goals", `autoDecideGoals` at the instance's place, fail
+ * closed): `manual` holds the instance (`held: "autonomy-manual"`, one `held` timeline line) —
+ * no facts, plan, park or spend, like a pause; `semi` plans, but starting actions become reports
+ * and messages wait for approval ({@link GoalActionContext.autonomy}); `auto` acts. An operator
+ * wake on a held instance (`operatorWake`) buys one pass as `semi`. Pause wins over all of it.
  *
  * State is written only through {@link GoalStateStore.update} (the path lock). The
  * planner runs outside the lock and its result is applied to the freshly read instance,
@@ -188,6 +205,10 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     listProjects: () => Promise<{ id: string; companyId?: string }[]>,
   ): Promise<void> {
     const keys = await this.instanceKeys(goal, listProjects);
+    // Resolved before bookkeeping: a held key's seeding writes no "started" lines.
+    const levels = new Map<string, AutomationLevel>();
+    for (const key of keys) levels.set(key, await this.startLevel(key));
+    const heldKeys = new Set(keys.filter((k) => levels.get(k) === "manual"));
     const effects: GoalEffect[] = [];
     let stale: { approvalId: string; instance: string }[] = [];
     let staleDecisions: string[] = [];
@@ -200,7 +221,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       const openDecisions = (s.decisions ?? []).flatMap((d) =>
         d.status === "pending" && d.approvalId ? [d.approvalId] : [],
       );
-      bookkeep(goal, s, keys, now, effects);
+      bookkeep(goal, s, keys, now, effects, heldKeys);
       // A new cycle dropped the drafts and proposals: their approvals go too.
       if (!s.messages) stale = pending;
       if (!s.decisions) staleDecisions = openDecisions;
@@ -238,7 +259,16 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const before = state.instances[key];
     // Parked stays parked until the operator resumes it or a new cycle starts.
     if (!before || before.status === "parked" || before.status === "done") return;
+    // Re-read here, not reused from bookkeeping: a sibling's plan can take minutes.
+    const stored = await this.startLevel(key);
+    // Manual: nothing starts on its own — no facts, plan, park, failure count or spend.
+    if (stored === "manual" && !before.operatorWake) return this.hold(goal, state, key, before);
+    // A wake on a held instance runs this one pass as semi (it stays held).
+    const level: AutomationLevel = stored === "manual" ? "semi" : stored;
+    const released = stored !== "manual" && before.held !== undefined;
     const work = structuredClone(before);
+    delete work.operatorWake;
+    if (released) delete work.held;
     const facts = await this.facts.collect({ goal, instanceKey: key, instance: before, now });
     const remainingBudget = await this.remainingBudget(goal, state, before, now);
     const ctx = new GoalActionContext(
@@ -250,6 +280,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       remainingBudget,
       (taskId, actionId) => this.persistTask(goal, state.cycle.index, key, taskId, actionId),
     );
+    ctx.autonomy = level;
     // An operator resume in this cycle overrides the deadline park for the cycle, and the
     // budget park only until one more run is recorded past the resume (else a one-off goal
     // would pay for a planner run on every wake for good).
@@ -273,16 +304,15 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const fingerprint = goalFingerprint(facts);
     const wakeDue = before.wakeAt !== undefined && now.getTime() >= Date.parse(before.wakeAt);
     const isDirty = instanceRefs(before).some((ref) => dirty.has(ref));
-    if (fingerprint === before.fingerprint && !wakeDue && !isDirty) return;
+    // A released hold re-plans: refs that settled meanwhile were consumed unseen.
+    if (fingerprint === before.fingerprint && !wakeDue && !isDirty && !released) return;
 
     ctx.activity("goal-woke", `${ctx.label}: planning`);
     const firstPlan = before.feasibility === undefined;
     const abort = new AbortController();
     let plan;
     const autoDecide =
-      goal.directional && this.decisions
-        ? await this.decisions.decisionLevel(goal, key)
-        : undefined;
+      goal.directional && this.decisions ? this.decisions.decisionLevel(goal, level) : undefined;
     if (autoDecide) work.autoDecide = autoDecide;
     try {
       const raw = await withTimeout(
@@ -300,6 +330,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
             ? { autoCommunicate: await this.messages.communicationLevel(goal, key) }
             : {}),
           ...(autoDecide ? { autoDecide } : {}),
+          autonomy: level,
           decisionsThisMonth: state.decisionsThisMonth,
           now: now.toISOString(),
           firstPlan,
@@ -332,6 +363,16 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     }
 
     delete work.planFailures;
+    // The plan can take minutes: re-read the level and run the actions at the stricter of the two.
+    // A level lowered to manual meanwhile starts nothing (semi turns starting actions into reports;
+    // the next tick holds).
+    const freshStored = await this.startLevel(key);
+    const fresh: AutomationLevel = freshStored === "manual" ? "semi" : freshStored;
+    if (AUTOMATION_LEVEL_RANK[fresh] < AUTOMATION_LEVEL_RANK[ctx.autonomy]) {
+      ctx.autonomy = fresh;
+      if (work.autoDecide && this.decisions)
+        work.autoDecide = this.decisions.decisionLevel(goal, fresh);
+    }
     // The planner re-states what it waits on; a consumed wakeAt never re-fires.
     delete work.waitingOn;
     delete work.wakeAt;
@@ -366,6 +407,33 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     // The actions' own changes must not wake the planner again.
     if (after) work.fingerprint = goalFingerprint(after);
     return this.apply(goal, state, key, before, ctx);
+  }
+
+  /** The effective `autoDecideGoals` at the instance's place; anything unresolvable is manual. */
+  private async startLevel(key: string): Promise<AutomationLevel> {
+    if (!this.messages) return "manual";
+    return this.messages.goalStartLevel(key).catch(() => "manual" as const);
+  }
+
+  /** Mark the instance held, with one timeline line on the transition only (idle stays silent). */
+  private async hold(goal: Goal, state: GoalState, key: string, before: GoalInstance) {
+    if (before.held === "autonomy-manual") return;
+    let held = false;
+    await this.store.update(goal.id, goal.createdAt, (s) => {
+      const current = s.instances[key];
+      if (!current || s.cycle.index !== state.cycle.index || current.held) return;
+      if (current.status === "parked" || current.status === "done") return;
+      current.held = "autonomy-manual";
+      held = true;
+    });
+    if (!held) return;
+    await this.store.appendTimeline(goal.id, {
+      at: new Date().toISOString(),
+      cycle: state.cycle.index,
+      instance: key,
+      kind: "held",
+      text: HELD_TEXT,
+    });
   }
 
   /** A task of the instance is still running (or was started and has no facts yet). */
@@ -442,6 +510,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       // ponytail: a wake landed while the planner ran — keep its cleared fingerprint so it
       // re-plans; finer-grained merges wait for a real need.
       if (current.fingerprint !== before.fingerprint) delete next.fingerprint;
+      // A wake on a held instance that landed meanwhile still buys its pass.
+      if (current.operatorWake && !before.operatorWake) next.operatorWake = true;
       s.instances[key] = next;
     });
     if (!dropped) return this.flush(goal, state.cycle.index, ctx.effects);
@@ -477,7 +547,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
  * a cadence boundary starts ONE new cycle anchored at the latest boundary (missed
  * boundaries are not replayed); a one-off goal keeps cycle 0 with the goal's deadline.
  * New in-scope projects get an instance; an instance whose project left the scope is
- * marked `done` with a note (nothing is dropped).
+ * marked `done` with a note (nothing is dropped). `held` keys (manual start level) are seeded
+ * silently: no `goal-started` activity and no "started" timeline line (their `held` line says it).
  */
 export function bookkeep(
   goal: Goal,
@@ -485,6 +556,7 @@ export function bookkeep(
   keys: string[],
   now: Date,
   effects: GoalEffect[],
+  held: ReadonlySet<string> = new Set(),
 ): void {
   const timeline = (instance: string, kind: string, text: string) =>
     effects.push({ type: "timeline", instance, kind, text });
@@ -523,10 +595,14 @@ export function bookkeep(
           status: "planning",
           taskIds: [],
           ...(inst.planNoteId ? { planNoteId: inst.planNoteId } : {}),
+          // Still held: the hold carries over, so the new cycle writes no second `held` line.
+          ...(held.has(key) && inst.held ? { held: inst.held } : {}),
         };
       }
-      timeline("*", "cycle-started", `Cycle ${s.cycle.index} started.`);
-      activity(`${goal.name}: cycle ${s.cycle.index} started`);
+      if (keys.length === 0 || keys.some((k) => !held.has(k))) {
+        timeline("*", "cycle-started", `Cycle ${s.cycle.index} started.`);
+        activity(`${goal.name}: cycle ${s.cycle.index} started`);
+      }
     }
   } else if (goal.deadline) {
     s.cycle.deadlineAt = goal.deadline;
@@ -537,6 +613,7 @@ export function bookkeep(
   for (const key of keys) {
     if (Object.hasOwn(s.instances, key)) continue;
     s.instances[key] = { status: "planning", taskIds: [] };
+    if (held.has(key)) continue;
     timeline(key, "instance-started", "Instance started.");
     activity(key === NO_PROJECT ? `${goal.name}: started` : `${goal.name} — ${key}: started`, key);
   }

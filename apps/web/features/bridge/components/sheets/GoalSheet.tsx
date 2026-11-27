@@ -1,29 +1,27 @@
 "use client";
 
-import type { GoalInstance, GoalRollupStatus } from "@zibby/contracts";
+import type { GoalInstance } from "@zibby/contracts";
 import {
   AnchoredSheet,
   Button,
   SheetAction,
   SheetBanner,
-  SheetBlock,
   SheetSection,
   SheetText,
   Stack,
-  type StateTone,
-  StatusBadge,
   Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { QueryError } from "../../../../components/LoadError/QueryError";
 import { apiErrorMessage } from "../../../../state/apiErrorMessage";
+import { GoalInstanceStatus } from "../../../goals/components/GoalInstanceStatus";
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
-import { GoalTimelinePanel } from "../../../goals/components/GoalTimelinePanel";
-import { nextCycleStart } from "../../../goals/goalCadence";
-import { formatGoalDateTime, instanceStatusTone, isGoalNotFound } from "../../../goals/goalView";
+import { GoalCycleTimeline } from "../../../goals/components/GoalCycleTimeline";
+import { GoalUpcoming } from "../../../goals/components/GoalUpcoming";
+import { GOAL_CARD_STATE, isGoalNotFound } from "../../../goals/goalView";
 import {
   useResumeGoalInstanceMutation,
   useUpdateGoalMutation,
@@ -40,35 +38,21 @@ export enum GoalSheetTestId {
   Status = "goal-sheet-status",
   StateError = "goal-sheet-state-error",
   Next = "goal-sheet-next",
-  NextCycle = "goal-sheet-next-cycle",
-  Deadline = "goal-sheet-deadline",
   Instance = "goal-sheet-instance",
-  WaitingOn = "goal-sheet-waiting-on",
-  WakeAt = "goal-sheet-wake-at",
   Resume = "goal-sheet-resume",
   Error = "goal-sheet-error",
 }
 
-const SHEET_TONE: Record<GoalRollupStatus, StateTone> = {
-  "needs-you": "blocked",
-  acting: "working",
-  planning: "thinking",
-  waiting: "idle",
-  done: "done",
-  paused: "idle",
-};
-
 /**
- * Goal detail (Bridge "Goals" widget): the full log of what was done ("Co se dělo", the goal page's
- * timeline panel) and what comes next ("Co bude": per instance what it waits on and when it wakes,
- * the next cycle / the deadline, and the plan note). Wake and enable/pause top-right; the title
+ * Goal detail (Bridge "Goals" widget): the goal page's own parts — the cycle timeline ("Co se
+ * dělo") and "Co bude" (what each instance waits on and when it wakes, the next cycle / the
+ * deadline) — plus the instances' status with Resume and the plan note. Wake and enable/pause top-right; the title
  * opens the goal page.
  */
 export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const t = useTranslations();
   const g = useTranslations("bridge.widgets.goals");
   const ts = useTranslations("goals");
-  const locale = useLocale();
   const router = useRouter();
   const goalQuery = useGoalQuery(id);
   const stateQuery = useGoalStateQuery(id);
@@ -124,48 +108,20 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
     projectName: (pid: string) => projects.find((p) => p.id === pid)?.name ?? pid,
     companyName: (cid: string) => cid,
   };
+  const display = rollup?.status;
   const label = (key: string) => (key === "_" ? ts("instances.noProject") : names.projectName(key));
   const plans = instances.flatMap(([key, i]) =>
     i.planNoteId ? [{ noteId: i.planNoteId, label: label(key) }] : [],
   );
-  // From now (or the cycle start if that is later), so a boundary the engine has not ticked yet
-  // never shows as a "next cycle" in the past.
-  const nextCycle =
-    goal.cadence && goal.enabled && !stateFailed && !stateQuery.isPending
-      ? nextCycleStart(
-          goal.cadence,
-          new Date(Math.max(now, state ? Date.parse(state.cycle.startedAt) : 0)),
-        )
-      : null;
-  const deadline = state?.cycle.deadlineAt ?? goal.deadline;
-  const when = (iso: string) => formatGoalDateTime(iso, locale);
-
   const renderInstance = (key: string, i: GoalInstance) => (
     <Stack data-testid={`${GoalSheetTestId.Instance}-${key}`} gap="50" key={key}>
-      <Stack align="center" direction="row" gap="100">
+      <Stack align="start" direction="row" gap="100">
         <Typography size="caption" type="label" weight="semibold">
           {label(key)}
         </Typography>
-        <StatusBadge tone={instanceStatusTone(i.status)}>
-          {ts(`instances.state.${i.status}`)}
-        </StatusBadge>
+        <GoalInstanceStatus instance={i} instanceKey={key} />
       </Stack>
-      {i.parkedReason && (
-        <Typography size="caption" type="note" variant="secondary">
-          {ts(`instances.parked.${i.parkedReason}`)}
-        </Typography>
-      )}
       {i.summary && <SheetText lines={[i.summary]} />}
-      {i.waitingOn?.map((w) => (
-        <div data-testid={`${GoalSheetTestId.WaitingOn}-${key}`} key={`${w.kind}:${w.ref}`}>
-          <SheetText lines={[g("waitingOn", { kind: g(`waiting.${w.kind}`), ref: w.ref })]} />
-        </div>
-      ))}
-      {i.wakeAt && (
-        <div data-testid={`${GoalSheetTestId.WakeAt}-${key}`}>
-          <SheetText lines={[g("wakesAt", { when: when(i.wakeAt) })]} />
-        </div>
-      )}
       {i.status === "parked" && (
         <div>
           <Button
@@ -229,49 +185,32 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
       onClose={onClose}
       onTitleClick={() => router.push(`/work/goals/${encodeURIComponent(id)}` as Route)}
       title={goal.name}
-      tones={
-        rollup ? [{ tone: SHEET_TONE[rollup.status], label: ts(`status.${rollup.status}`) }] : []
-      }
+      tones={display ? [{ tone: GOAL_CARD_STATE[display], label: ts(`status.${display}`) }] : []}
     >
       <SheetSection>
-        <SheetBlock label={g("whatHappened")}>
-          <div data-testid={GoalSheetTestId.Log}>
-            <GoalTimelinePanel
-              goalId={id}
-              instances={instances.map(([key]) => key)}
-              names={names}
-              standing={goal.cadence !== undefined}
-            />
+        <div data-testid={GoalSheetTestId.Log}>
+          <GoalCycleTimeline
+            goalId={id}
+            instances={instances.map(([key]) => key)}
+            liveIndex={state?.cycle.index}
+            names={names}
+            standing={goal.cadence !== undefined}
+            status={rollup?.status}
+          />
+        </div>
+        {stateFailed ? (
+          <div data-testid={GoalSheetTestId.StateError}>
+            <QueryError onRetry={() => void stateQuery.refetch()} />
           </div>
-        </SheetBlock>
-        <SheetBlock label={g("whatNext")}>
-          {stateFailed ? (
-            <div data-testid={GoalSheetTestId.StateError}>
-              <QueryError onRetry={() => void stateQuery.refetch()} />
-            </div>
-          ) : (
-            <Stack data-testid={GoalSheetTestId.Next} gap="150">
-              {nextCycle && (
-                <div data-testid={GoalSheetTestId.NextCycle}>
-                  <SheetText lines={[g("nextCycle", { when: when(nextCycle.toISOString()) })]} />
-                </div>
-              )}
-              {deadline && (
-                <div data-testid={GoalSheetTestId.Deadline}>
-                  <SheetText lines={[g("deadline", { when: when(deadline) })]} />
-                </div>
-              )}
-              {stateQuery.isPending ? (
-                <SheetText lines={[t("common.loading")]} />
-              ) : instances.length === 0 ? (
-                <SheetText lines={[g("nothingYet")]} />
-              ) : (
-                instances.map(([key, i]) => renderInstance(key, i))
-              )}
-              <GoalPlanPanel plans={plans} />
-            </Stack>
-          )}
-        </SheetBlock>
+        ) : state ? (
+          <Stack data-testid={GoalSheetTestId.Next} gap="150">
+            <GoalUpcoming goal={goal} names={names} now={now} state={state} />
+            {instances.map(([key, i]) => renderInstance(key, i))}
+            <GoalPlanPanel plans={plans} />
+          </Stack>
+        ) : (
+          <SheetText lines={[t("common.loading")]} />
+        )}
       </SheetSection>
     </AnchoredSheet>
   );

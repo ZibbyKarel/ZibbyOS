@@ -1,135 +1,57 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import type { GoalInstance } from "@zibby/contracts";
-import {
-  Button,
-  DataTable,
-  type DataTableColumn,
-  EmptyState,
-  Stack,
-  StatusBadge,
-  Typography,
-} from "@zibby/design-system";
-import { type GoalNames, formatGoalDateTime, instanceStatusTone } from "../goalView";
+import { DetailTable, EmptyState, Stack, Typography } from "@zibby/design-system";
+import type { GoalNames } from "../goalView";
+import { GoalInstanceStatus } from "./GoalInstanceStatus";
 
 export enum GoalInstancesTestId {
-  Table = "goal-instances",
-  Resume = "goal-instance-resume",
-  Next = "goal-instance-next",
+  List = "goal-instances",
+  Summary = "goal-instance-summary",
 }
 
 export interface GoalInstancesPanelProps {
   /** Keyed by projectId, or "_" for a goal without a project. */
   instances: Record<string, GoalInstance>;
   names: GoalNames;
-  /** The instance key currently being resumed. */
-  resuming?: string | null;
-  onResume: (instance: string) => void;
 }
 
-interface Row {
-  key: string;
-  instance: GoalInstance;
-}
-
-/** Per-project roll-up: each instance's status and summary, with resume on parked rows. */
-export function GoalInstancesPanel({
-  instances,
-  names,
-  resuming,
-  onResume,
-}: GoalInstancesPanelProps) {
+/**
+ * Per-project roll-up for the side card: project, status pill (with the parked reason) and the
+ * one-line summary. Resume lives on the waiting cards; what comes next in "Co bude".
+ */
+export function GoalInstancesPanel({ instances, names }: GoalInstancesPanelProps) {
   const t = useTranslations("goals.instances");
-  // What comes next — the same lines and keys as the goal sheet.
-  const g = useTranslations("bridge.widgets.goals");
-  const locale = useLocale();
-  const rows: Row[] = Object.entries(instances).map(([key, instance]) => ({ key, instance }));
-
-  const columns: DataTableColumn<Row>[] = [
-    {
-      key: "project",
-      label: t("project"),
-      width: "lg",
-      render: (r) => (
-        <Typography truncate size="base" type="note" weight="semibold">
-          {r.key === "_" ? t("noProject") : names.projectName(r.key)}
-        </Typography>
-      ),
-    },
-    {
-      key: "status",
-      label: t("status"),
-      width: "xl",
-      render: ({ instance }) => (
-        <Stack gap="25">
-          <StatusBadge tone={instanceStatusTone(instance.status)}>
-            {t(`state.${instance.status}`)}
-          </StatusBadge>
-          {instance.parkedReason && (
-            <Typography size="caption" type="note" variant="secondary">
-              {t(`parked.${instance.parkedReason}`)}
-            </Typography>
-          )}
-        </Stack>
-      ),
-    },
-    {
-      key: "summary",
-      label: t("summary"),
-      width: "flex",
-      render: ({ key, instance }) => (
-        <Stack gap="25">
-          <Typography leading="snug" size="caption" type="note" variant="secondary">
-            {instance.summary ?? "—"}
-          </Typography>
-          {instance.waitingOn?.map((w) => (
-            <Typography
-              data-testid={`${GoalInstancesTestId.Next}-${key}`}
-              key={`${w.kind}:${w.ref}`}
-              size="caption"
-              type="note"
-              variant="tertiary"
-            >
-              {g("waitingOn", { kind: g(`waiting.${w.kind}`), ref: w.ref })}
-            </Typography>
-          ))}
-          {instance.wakeAt && (
-            <Typography
-              data-testid={`${GoalInstancesTestId.Next}-${key}`}
-              size="caption"
-              type="note"
-              variant="tertiary"
-            >
-              {g("wakesAt", { when: formatGoalDateTime(instance.wakeAt, locale) })}
-            </Typography>
-          )}
-        </Stack>
-      ),
-    },
-    {
-      key: "actions",
-      label: "",
-      width: "lg",
-      align: "right",
-      render: ({ key, instance }) =>
-        instance.status === "parked" ? (
-          <Button
-            data-testid={`${GoalInstancesTestId.Resume}-${key}`}
-            icon="play"
-            intent="secondary"
-            loading={resuming === key}
-            onClick={() => onResume(key)}
-            size="sm"
-          >
-            {t("resume")}
-          </Button>
-        ) : null,
-    },
-  ];
-
+  const rows = Object.entries(instances);
   if (rows.length === 0) {
     return <EmptyState body={t("emptyBody")} icon="flow" title={t("emptyTitle")} />;
   }
-  return <DataTable columns={columns} getRowKey={(r) => r.key} rows={rows} />;
+  return (
+    <div data-testid={GoalInstancesTestId.List}>
+      <DetailTable
+        rows={rows.map(([key, instance]) => ({
+          cells: [
+            <Typography truncate key="p" size="base" type="note" weight="semibold">
+              {key === "_" ? t("noProject") : names.projectName(key)}
+            </Typography>,
+            <Stack gap="50" key="s">
+              <GoalInstanceStatus instance={instance} instanceKey={key} />
+              {instance.summary && (
+                <Typography
+                  data-testid={`${GoalInstancesTestId.Summary}-${key}`}
+                  leading="snug"
+                  size="caption"
+                  type="note"
+                  variant="secondary"
+                >
+                  {instance.summary}
+                </Typography>
+              )}
+            </Stack>,
+          ],
+        }))}
+      />
+    </div>
+  );
 }

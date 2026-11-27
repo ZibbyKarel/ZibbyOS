@@ -53,7 +53,13 @@ describe("GoalMessageService (the `message` action)", () => {
   };
   let slack: { userInfo: ReturnType<typeof vi.fn>; postMessage: ReturnType<typeof vi.fn> };
   let prThreads: { reviewers: ReturnType<typeof vi.fn>; comment: ReturnType<typeof vi.fn> };
-  let autopilot: { paused: boolean; level: "manual" | "semi" | "auto" };
+  let autopilot: {
+    paused: boolean;
+    level: "manual" | "semi" | "auto";
+    /** `autoDecideGoals` ("starting and deciding goals"); `auto` unless a test says otherwise. */
+    goals?: "manual" | "semi" | "auto";
+  };
+  let projectGet: (id: string) => Promise<unknown>;
   let extraSources: GoalFactsSource[];
   let prBucket: string;
   let engine: GoalEngineService;
@@ -67,9 +73,12 @@ describe("GoalMessageService (the `message` action)", () => {
       new GoalsStorageService(dir),
       {
         isPaused: () => autopilot.paused,
-        levelsAt: () => ({ autoCommunicate: autopilot.level }),
+        levelsAt: () => ({
+          autoCommunicate: autopilot.level,
+          autoDecideGoals: autopilot.goals ?? "auto",
+        }),
       } as never,
-      { get: async (id: string) => ({ id }) } as never,
+      { get: (id: string) => projectGet(id) } as never,
       {
         resolveCompany: async () => undefined,
         resolveIntegrations: async () => [{ id: "slack-p1", kind: "slack", enabled: true }],
@@ -141,6 +150,7 @@ describe("GoalMessageService (the `message` action)", () => {
       comment: vi.fn(async () => undefined),
     };
     autopilot = { paused: false, level: "semi" };
+    projectGet = async (id) => ({ id });
     extraSources = [];
     prBucket = "mine";
     build();
@@ -205,6 +215,29 @@ describe("GoalMessageService (the `message` action)", () => {
     // The fallback wake: the next working morning at least 12 h away (Fri 9:00 Prague).
     expect(s.instances._?.wakeAt).toBe("2026-11-27T08:00:00.000Z");
     expect(recorded("goal-acted").map((e) => e.refs.action)).toContain("message");
+  });
+
+  it("autoCommunicate auto + known recipient, but goals on semi: still an approval, nothing sent", async () => {
+    autopilot.level = "auto";
+    autopilot.goals = "semi";
+    await create();
+    planOnce(slackMsg("ask-bob"));
+    await engine.tick(NOW);
+    expect(slack.postMessage).not.toHaveBeenCalled();
+    expect(approvals.requestApproval).toHaveBeenCalledTimes(1);
+    expect((await state()).messages).toMatchObject([{ status: "pending" }]);
+  });
+
+  it("goalStartLevel resolves at the place and fails closed", async () => {
+    autopilot.goals = "semi";
+    expect(await messages.goalStartLevel("_")).toBe("semi");
+    expect(await messages.goalStartLevel("p1")).toBe("semi");
+    projectGet = async () => {
+      throw new Error("unreadable");
+    };
+    expect(await messages.goalStartLevel("p1")).toBe("manual");
+    autopilot.goals = "bogus" as never;
+    expect(await messages.goalStartLevel("_")).toBe("manual");
   });
 
   it("auto + a workspace member the goal does not know: an approval, nothing sent", async () => {

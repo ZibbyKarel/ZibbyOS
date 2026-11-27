@@ -52,19 +52,26 @@ export interface GridProps extends Omit<HTMLAttributes<HTMLElement>, "className"
   lg?: GridCols;
   /**
    * Responsive dashboard split (overrides cols): "right" = content + 360px rail,
+   * "right-wide" = content + 400px rail (a detail page's side cards),
    * "left" = 320px list + content, "left-wide" = the same split proportionally
    * (~33% list + content) for a rail whose rows carry real prose — a fixed 320px
    * truncates them regardless of how much room the viewport actually has.
    * "left-narrow" = 25% list + 75% detail (master–detail screens).
    * Single column below the lg breakpoint.
    */
-  sidebar?: "left" | "left-wide" | "left-narrow" | "right";
+  sidebar?: "left" | "left-wide" | "left-narrow" | "right" | "right-wide";
   /**
    * Fixes the grid's height from the lg breakpoint up (any CSS length, e.g.
    * `calc(100vh - 14rem)`), with one `minmax(0,1fr)` row so the columns fill it and
    * can host their own scroll areas. Below lg the grid stays content-sized.
    */
   lgHeight?: string;
+  /**
+   * Auto-fill columns at least this wide (any CSS length, e.g. `260px`; capped at the grid's
+   * width so one column never overflows): as many as fit, more as the grid widens. Overrides
+   * `cols` / `sm` / `md` / `lg` / `sidebar`.
+   */
+  minColWidth?: string;
   gap?: Spacing;
   align?: GridAlign;
   maxWidth?: string;
@@ -82,6 +89,7 @@ export function Grid({
   lg,
   sidebar,
   lgHeight,
+  minColWidth,
   gap,
   align,
   maxWidth,
@@ -96,6 +104,10 @@ export function Grid({
     gap: gap !== undefined ? spacingToVar(gap) : undefined,
     maxWidth,
     marginInline: center ? "auto" : undefined,
+    // A runtime length: an interpolated Tailwind class would never be generated.
+    ...(minColWidth
+      ? { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${minColWidth}), 1fr))` }
+      : {}),
     ...(lgHeight ? { "--grid-lg-height": lgHeight } : {}),
     ...style,
   } as CSSProperties;
@@ -123,11 +135,14 @@ export function Grid({
       data-testid={GridTestId.Root}
       {...rest}
       className={cn(
-        sidebar === "right" && "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]",
-        sidebar === "left" && "grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]",
-        sidebar === "left-wide" && "grid-cols-1 lg:grid-cols-[minmax(0,33%)_minmax(0,1fr)]",
-        sidebar === "left-narrow" && "grid-cols-1 lg:grid-cols-[minmax(0,25%)_minmax(0,1fr)]",
-        !sidebar && [baseCols[cols], sm && smCols[sm], md && mdCols[md], lg && lgCols[lg]],
+        !minColWidth && [
+          sidebar === "right" && "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]",
+          sidebar === "right-wide" && "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]",
+          sidebar === "left" && "grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]",
+          sidebar === "left-wide" && "grid-cols-1 lg:grid-cols-[minmax(0,33%)_minmax(0,1fr)]",
+          sidebar === "left-narrow" && "grid-cols-1 lg:grid-cols-[minmax(0,25%)_minmax(0,1fr)]",
+          !sidebar && [baseCols[cols], sm && smCols[sm], md && mdCols[md], lg && lgCols[lg]],
+        ],
         lgHeight && "lg:h-(--grid-lg-height) lg:grid-rows-[minmax(0,1fr)]",
         align && alignClass[align],
       )}

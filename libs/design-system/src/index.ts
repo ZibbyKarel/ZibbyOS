@@ -888,6 +888,32 @@ export { Splitter, SplitterTestId } from "./components/Splitter/Splitter";
 export type { SplitterProps } from "./components/Splitter/Splitter";
 export { TreeView, TreeViewTestId } from "./components/TreeView/TreeView";
 export type { TreeNode, TreeViewProps } from "./components/TreeView/TreeView";
+export { IterationGauge, IterationGaugeTestId } from "./components/IterationGauge/IterationGauge";
+export type { IterationGaugeProps } from "./components/IterationGauge/IterationGauge";
+export {
+  LoopDiagram,
+  LoopDiagramNode,
+  LoopDiagramNodeTestId,
+  LoopDiagramTestId,
+} from "./components/LoopDiagram/LoopDiagram";
+export type {
+  LoopDiagramActive,
+  LoopDiagramNodeProps,
+  LoopDiagramNodeState,
+  LoopDiagramProps,
+} from "./components/LoopDiagram/LoopDiagram";
+export {
+  IterationTimeline,
+  IterationTimelineItem,
+  IterationTimelineTestId,
+} from "./components/IterationTimeline/IterationTimeline";
+export type {
+  IterationRowTone,
+  IterationTimelineItemProps,
+  IterationTimelineProps,
+  IterationTimelineRow,
+  IterationTimelineTone,
+} from "./components/IterationTimeline/IterationTimeline";
 
 // Autonomy page (redesign v2)
 export {
@@ -968,6 +994,12 @@ export {
   SegmentedRingTestId,
   type SegmentedRingProps,
 } from "./components/SegmentedRing/SegmentedRing";
+export {
+  GoalLoopCard,
+  GoalLoopCardTestId,
+  type GoalLoopCardProps,
+  type GoalLoopCardParty,
+} from "./components/GoalLoopCard/GoalLoopCard";
 export {
   PluginShelf,
   PluginShelfTestId,

@@ -486,38 +486,52 @@ describe("AutopilotService", () => {
     expect(svc.automation()).toBeUndefined();
   });
 
-  // autoDecideGoals resolves on its own (outside the master switch).
+  // autoDecideGoals is under the master switch like every other capability.
   const devrel = { companyId: "co", teamId: "devrel" };
 
-  it("a global goal-decision cell alone wakes no dormant exception of another capability", async () => {
-    const svc = await boot();
-    await svc.set(
-      {
-        automation: treeOf({ autoDecideGoals: "semi" }, {}, { devrel: { autoFixCi: "auto" } }),
-      },
-      "operator",
-    );
-    expect(svc.levelsAt(devrel)).toEqual({ ...cells(), autoDecideGoals: "semi" });
-    expect(svc.automationFor(devrel).autoFixCi).toBe(false);
-    expect(svc.scope(devrel).ci).toBe(false);
-  });
-
-  it("a project goal-decision cell under an all-manual global row is auto there only", async () => {
+  it("a project goals cell under an all-manual global row resolves to manual (master switch)", async () => {
     const svc = await boot();
     await svc.set(
       { automation: treeOf({}, {}, {}, { p: { autoDecideGoals: "auto" } }) },
       "operator",
     );
-    expect(svc.levelsAt({ projectId: "p" }).autoDecideGoals).toBe("auto");
-    expect(svc.levelsAt({ projectId: "other" }).autoDecideGoals).toBe("manual");
+    expect(svc.levelsAt({ projectId: "p" }).autoDecideGoals).toBe("manual");
     expect(svc.levelsAt({}).autoDecideGoals).toBe("manual");
-    // The rest of Autopilot stays off: a goal-only cell does not turn isOn() true.
     expect(svc.isOn()).toBe(false);
   });
 
-  it("raising a project goal-decision cell under an all-manual global row is a raise (token)", () => {
-    expect(automationRaises(treeOf(), treeOf({}, {}, {}, { p: { autoDecideGoals: "semi" } }))).toBe(
-      true,
+  it("a global goals cell lifts the master switch like any capability, but never turns the overlay on", async () => {
+    const svc = await boot();
+    await svc.set(
+      {
+        automation: treeOf(
+          { autoDecideGoals: "auto" },
+          {},
+          { devrel: { autoFixCi: "semi" } },
+          { p: { autoDecideGoals: "manual" } },
+        ),
+      },
+      "operator",
     );
+    expect(svc.levelsAt(devrel)).toEqual({
+      ...cells(),
+      autoDecideGoals: "auto",
+      autoFixCi: "semi",
+    });
+    expect(svc.levelsAt({ projectId: "p" }).autoDecideGoals).toBe("manual");
+    // Goals have no gate class: a goals-only `auto` cell does not switch the push overlay on.
+    expect(svc.isOn()).toBe(false);
+    expect(svc.scope(devrel).ci).toBe(false);
+  });
+
+  it("a dormant project goals cell under an all-manual global row is no raise; lifting the row is", () => {
+    const dormant = treeOf({}, {}, {}, { p: { autoDecideGoals: "semi" } });
+    expect(automationRaises(treeOf(), dormant)).toBe(false);
+    expect(
+      automationRaises(
+        dormant,
+        treeOf({ autoReview: "semi" }, {}, {}, { p: { autoDecideGoals: "semi" } }),
+      ),
+    ).toBe(true);
   });
 });

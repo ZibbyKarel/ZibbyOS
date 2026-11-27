@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,10 +9,11 @@ import {
   Alert,
   Button,
   Container,
+  Divider,
+  Grid,
   Panel,
   Stack,
   type SubNavLinkComponent,
-  Toggle,
   Typography,
 } from "@zibby/design-system";
 import { apiErrorMessage } from "../../state/apiErrorMessage";
@@ -23,14 +24,19 @@ import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useCompaniesQuery } from "../companies/queries";
 import { useProjectsQuery } from "../projects/queries";
+import { GoalCriteriaCard } from "./components/GoalCriteriaCard";
+import { GoalCycleTimeline } from "./components/GoalCycleTimeline";
+import { GoalDetailActions } from "./components/GoalDetailActions";
 import { GoalDirectionalPanel } from "./components/GoalDirectionalPanel";
 import { GoalForm } from "./components/GoalForm";
+import { GoalHero } from "./components/GoalHero";
 import { GoalInstancesPanel } from "./components/GoalInstancesPanel";
+import { GoalLoop } from "./components/GoalLoop";
 import { GoalMergeGrantPanel } from "./components/GoalMergeGrantPanel";
 import { GoalPlanPanel } from "./components/GoalPlanPanel";
 import { GoalSettingsPanel } from "./components/GoalSettingsPanel";
-import { GoalStatusBadge } from "./components/GoalStatusBadge";
-import { GoalTimelinePanel } from "./components/GoalTimelinePanel";
+import { GoalUpcoming } from "./components/GoalUpcoming";
+import { GoalWaitingCard } from "./components/GoalWaitingCard";
 import { buildUpdateGoalInput, goalToFormValues } from "./goalForm";
 import { isGoalNotFound } from "./goalView";
 import {
@@ -42,30 +48,58 @@ import {
 import { useGoalQuery, useGoalStateQuery } from "./queries";
 
 export enum GoalDetailScreenTestId {
-  Toggle = "goal-detail-toggle",
-  Wake = "goal-detail-wake",
-  Edit = "goal-detail-edit",
-  Delete = "goal-detail-delete",
+  Gone = "goal-detail-gone",
   Error = "goal-detail-error",
+  StateError = "goal-detail-state-error",
+  SettingsEdit = "goal-detail-settings-edit",
 }
 
 export interface GoalDetailScreenProps {
   goalId: string;
 }
 
+/** The page frame (breadcrumb in the context bar + padding) every state renders inside. */
+function Frame({ title, children }: { title: string; children: ReactNode }) {
+  const t = useTranslations("goals");
+  return (
+    <Container padding={["300", "350"]}>
+      <PageContainer>
+        <Stack gap="250">
+          <PageBreadcrumb
+            items={[{ label: t("title"), href: "/work/goals" }, { label: title }]}
+            linkComponent={Link as SubNavLinkComponent}
+          />
+          {children}
+        </Stack>
+      </PageContainer>
+    </Container>
+  );
+}
+
 /**
- * `/work/goals/:id`. Edit is top-right and swaps the settings panel for the same
- * {@link GoalForm} the create dialog uses; dialogs only create and confirm.
+ * `/work/goals/:id`, the mandate made visible: context-bar actions, a hero (outcome, tags,
+ * projects gauge, real budget meters), then the loop + "Co se dělo" / "Co bude" on the left
+ * and the side cards on the right. Edit swaps the left column for the {@link GoalForm}.
  */
 export function GoalDetailScreen({ goalId }: GoalDetailScreenProps) {
   const query = useGoalQuery(goalId);
   const t = useTranslations();
   if (query.isError && isGoalNotFound(query.error)) {
-    return <Typography type="body">{t("bridge.widgets.goals.gone")}</Typography>;
+    return (
+      <Frame title={goalId}>
+        <Typography data-testid={GoalDetailScreenTestId.Gone} type="body">
+          {t("bridge.widgets.goals.gone")}
+        </Typography>
+      </Frame>
+    );
   }
-  if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
-  if (query.isPending) return <QueryLoading />;
-  if (!query.data) return null;
+  if (query.isError || query.isPending || !query.data) {
+    return (
+      <Frame title={goalId}>
+        {query.isError ? <QueryError onRetry={() => void query.refetch()} /> : <QueryLoading />}
+      </Frame>
+    );
+  }
   return <GoalDetail goal={query.data} key={query.data.id} />;
 }
 
@@ -80,6 +114,12 @@ function GoalDetail({ goal }: { goal: Goal }) {
   const remove = useDeleteGoalMutation();
   const wake = useWakeGoalMutation();
   const resume = useResumeGoalInstanceMutation();
+  // A coarse clock: the deadline meter, merge-grant tag and next cycle advance on an open page.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resuming, setResuming] = useState<string | null>(null);
@@ -99,21 +139,27 @@ function GoalDetail({ goal }: { goal: Goal }) {
         : projects
             .filter((p) => scope.kind === "all" || p.companyId === scope.companyId)
             .map((p) => p.id);
+  // A failed refetch keeps the last good state; only a state that never loaded is an error.
   const state = stateQuery.data?.state;
   const rollup = stateQuery.data?.rollup;
   const instances = state?.instances ?? {};
   const instanceKeys = Object.keys(instances);
+  const instanceLabel = (key: string) =>
+    key === "_" ? t("instances.noProject") : names.projectName(key);
   const plans = Object.entries(instances).flatMap(([key, instance]) =>
-    instance.planNoteId
-      ? [
-          {
-            noteId: instance.planNoteId,
-            label: key === "_" ? t("instances.noProject") : names.projectName(key),
-          },
-        ]
-      : [],
+    instance.planNoteId ? [{ noteId: instance.planNoteId, label: instanceLabel(key) }] : [],
+  );
+  const parked = Object.entries(instances).filter(([, i]) => i.status === "parked");
+  const stateError = stateQuery.isError && !state && (
+    <div data-testid={GoalDetailScreenTestId.StateError}>
+      <QueryError onRetry={() => void stateQuery.refetch()} />
+    </div>
   );
 
+  const startEdit = () => {
+    update.reset();
+    setEditing(true);
+  };
   const resumeInstance = (instance: string) => {
     setResuming(instance);
     resume.mutate(
@@ -123,79 +169,42 @@ function GoalDetail({ goal }: { goal: Goal }) {
   };
 
   return (
-    <Container padding={["300", "350"]}>
-      <PageContainer>
-        <Stack gap="250">
-          <PageBreadcrumb
-            items={[{ label: t("title"), href: "/work/goals" }, { label: goal.name }]}
-            linkComponent={Link as SubNavLinkComponent}
-          />
+    <Frame title={goal.name}>
+      <GoalDetailActions
+        cycleIndex={goal.cadence && state ? state.cycle.index : undefined}
+        editing={editing}
+        enabled={goal.enabled}
+        name={goal.name}
+        onDelete={() => setConfirmDelete(true)}
+        onEdit={startEdit}
+        onToggle={() =>
+          update.mutate(
+            { params: { id: goal.id }, body: { enabled: !goal.enabled } },
+            { onError: fail },
+          )
+        }
+        onWake={() => wake.mutate({ params: { id: goal.id }, body: {} }, { onError: fail })}
+        toggling={update.isPending && !editing}
+        waking={wake.isPending}
+      />
 
-          <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Stack wrap align="center" direction="row" gap="150">
-              <Typography type="h1">{goal.name}</Typography>
-              {rollup && <GoalStatusBadge status={rollup.status} />}
-            </Stack>
-            <Stack wrap align="center" direction="row" gap="100">
-              <Toggle
-                checked={goal.enabled}
-                data-testid={GoalDetailScreenTestId.Toggle}
-                label={t("toggleLabel", { name: goal.name })}
-                onChange={(enabled) =>
-                  update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError: fail })
-                }
-                size="md"
-              />
-              <Button
-                data-testid={GoalDetailScreenTestId.Wake}
-                icon="play"
-                intent="ghost"
-                loading={wake.isPending}
-                onClick={() =>
-                  wake.mutate({ params: { id: goal.id }, body: {} }, { onError: fail })
-                }
-                size="sm"
-              >
-                {t("detail.wake")}
-              </Button>
-              {!editing && (
-                <Button
-                  data-testid={GoalDetailScreenTestId.Edit}
-                  icon="edit"
-                  intent="ghost"
-                  onClick={() => {
-                    update.reset();
-                    setEditing(true);
-                  }}
-                  size="sm"
-                >
-                  {tk("common.edit")}
-                </Button>
-              )}
-              <Button
-                data-testid={GoalDetailScreenTestId.Delete}
-                icon="trash"
-                intent="danger"
-                onClick={() => setConfirmDelete(true)}
-                size="sm"
-              >
-                {tk("common.delete")}
-              </Button>
-            </Stack>
-          </Stack>
+      {actionError && (
+        <Alert
+          data-testid={GoalDetailScreenTestId.Error}
+          onClose={() => setActionError(null)}
+          severity="error"
+        >
+          {actionError}
+        </Alert>
+      )}
 
-          {actionError && (
-            <Alert
-              data-testid={GoalDetailScreenTestId.Error}
-              onClose={() => setActionError(null)}
-              severity="error"
-            >
-              {actionError}
-            </Alert>
-          )}
+      <GoalHero goal={goal} names={names} now={now} rollup={rollup} state={state} />
+      <Divider />
 
-          <Panel header={t("detail.settingsTitle")} padding="200">
-            {editing ? (
+      <Grid align="start" gap="250" sidebar="right-wide">
+        <Stack gap="300">
+          {editing ? (
+            <Panel header={t("detail.settingsTitle")} padding="200">
               <GoalForm
                 error={
                   update.isError ? (apiErrorMessage(update.error) ?? t("actionFailed")) : undefined
@@ -214,53 +223,80 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 pending={update.isPending}
                 submitLabel={tk("common.save")}
               />
-            ) : (
-              <GoalSettingsPanel goal={goal} names={names} />
-            )}
-          </Panel>
-
-          {goal.directional && (
-            <Panel header={t("directional.title")} padding="200">
-              <GoalDirectionalPanel
-                decisions={state?.decisionsThisMonth}
-                directional={goal.directional}
-                instances={instances}
+            </Panel>
+          ) : (
+            <>
+              {state && rollup ? (
+                <GoalLoop goal={goal} rollup={rollup} state={state} />
+              ) : (
+                stateError || (stateQuery.isPending && <QueryLoading />)
+              )}
+              {state && <GoalUpcoming goal={goal} names={names} now={now} state={state} />}
+              <GoalCycleTimeline
+                goalId={goal.id}
+                instances={instanceKeys}
+                liveIndex={state?.cycle.index}
                 names={names}
+                standing={goal.cadence !== undefined}
+                status={rollup?.status}
               />
+            </>
+          )}
+        </Stack>
+
+        <Stack gap="150">
+          {parked.map(([key, instance]) => (
+            <GoalWaitingCard
+              instance={instance}
+              instanceKey={key}
+              key={key}
+              onResume={() => resumeInstance(key)}
+              project={key === "_" ? undefined : names.projectName(key)}
+              resuming={resuming === key}
+            />
+          ))}
+          <Panel header={t("detail.criteriaTitle")} headerRule={false} padding="200">
+            <GoalCriteriaCard goal={goal} />
+          </Panel>
+          <Panel
+            header={t("detail.settingsTitle")}
+            headerEnd={
+              editing ? undefined : (
+                <Button
+                  data-testid={GoalDetailScreenTestId.SettingsEdit}
+                  icon="edit"
+                  intent="ghost"
+                  onClick={startEdit}
+                  size="sm"
+                >
+                  {tk("common.edit")}
+                </Button>
+              )
+            }
+            headerRule={false}
+            padding="200"
+          >
+            <GoalSettingsPanel goal={goal} names={names} />
+          </Panel>
+          {/* Without a loaded state there is nothing to list; the retry sits once, in the left column. */}
+          {state && (
+            <Panel header={t("detail.instancesTitle")} headerRule={false} padding="200">
+              <GoalInstancesPanel instances={instances} names={names} />
             </Panel>
           )}
-
-          <Panel header={t("mergeGrant.title")} padding="200">
-            <GoalMergeGrantPanel goal={goal} names={names} projectIds={scopeProjectIds} />
-          </Panel>
-
-          <Panel header={t("detail.instancesTitle")} padding="200">
-            {stateQuery.isError ? (
-              <QueryError onRetry={() => void stateQuery.refetch()} />
-            ) : (
-              <GoalInstancesPanel
-                instances={instances}
-                names={names}
-                onResume={resumeInstance}
-                resuming={resuming}
-              />
-            )}
-          </Panel>
-
-          <Panel header={t("detail.planTitle")} padding="200">
+          <Panel header={t("detail.planTitle")} headerRule={false} padding="200">
             <GoalPlanPanel plans={plans} />
           </Panel>
-
-          <Panel header={t("detail.timelineTitle")} padding="200">
-            <GoalTimelinePanel
-              goalId={goal.id}
-              instances={instanceKeys}
-              names={names}
-              standing={goal.cadence !== undefined}
-            />
+          <Panel header={t("mergeGrant.title")} headerRule={false} padding="200">
+            <GoalMergeGrantPanel goal={goal} names={names} projectIds={scopeProjectIds} />
           </Panel>
+          {goal.directional && (
+            <Panel header={t("directional.title")} headerRule={false} padding="200">
+              <GoalDirectionalPanel instances={instances} names={names} />
+            </Panel>
+          )}
         </Stack>
-      </PageContainer>
+      </Grid>
 
       {confirmDelete && (
         <ConfirmDeleteDialog
@@ -284,6 +320,6 @@ function GoalDetail({ goal }: { goal: Goal }) {
           title={t("detail.deleteTitle")}
         />
       )}
-    </Container>
+    </Frame>
   );
 }

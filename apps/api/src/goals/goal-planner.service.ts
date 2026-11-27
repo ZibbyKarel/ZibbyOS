@@ -162,6 +162,7 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     `Cost left this cycle (USD): ${remainingBudget.costUsd?.toFixed(2) ?? "no limit"}`,
     `Messages per person this cycle (anti-nagging, max 2): ${stripPlanTags(JSON.stringify(ctx.nudges))}`,
     `Messages to colleagues (autoCommunicate): ${ctx.autoCommunicate ?? "unknown"} — auto sends at once, otherwise the operator approves each message first.`,
+    `Starting and deciding goals (autoDecideGoals): ${ctx.autonomy ?? "unknown"} — auto = the engine executes start-task, run-loop, pr-action and merge; semi = it does not, each becomes a report for the operator (say concretely what to start) and every message waits for approval.`,
     `Decisions this month: ${ctx.decisionsThisMonth.month}: ${ctx.decisionsThisMonth.count}`,
     ...(goal.directional
       ? [

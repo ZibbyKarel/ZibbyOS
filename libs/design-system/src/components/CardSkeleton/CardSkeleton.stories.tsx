@@ -11,3 +11,4 @@ export const Card: Story = {};
 export const Portrait: Story = { args: { shape: "portrait" } };
 export const Wide: Story = { args: { shape: "wide" } };
 export const Row: Story = { args: { shape: "row" } };
+export const Ring: Story = { args: { shape: "ring" } };

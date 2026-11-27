@@ -46,6 +46,14 @@ export const GoalInstanceSchema = z.object({
   appliedActionIds: z.array(z.string()).optional(),
   /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */
   lookupRetries: z.record(z.string(), z.number().int().min(0)).optional(),
+  /**
+   * Why the engine starts nothing for this instance on its own (absent = not held).
+   * `autonomy-manual`: "starting and deciding goals" (`autoDecideGoals`) resolves to `manual` at
+   * the instance's place. Cleared once the level is raised.
+   */
+  held: z.enum(["autonomy-manual"]).optional(),
+  /** An operator wake landed while the instance was held: its next pass runs as `semi`, once. */
+  operatorWake: z.literal(true).optional(),
   /** Directional goal: the effective `autoDecideGoals` the last plan ran with (and why). */
   autoDecide: z
     .object({
@@ -156,6 +164,7 @@ export const GoalRollupStatusSchema = z.enum([
   "waiting",
   "needs-you",
   "done",
+  "held",
 ]);
 export type GoalRollupStatus = z.infer<typeof GoalRollupStatusSchema>;
 
@@ -185,7 +194,8 @@ export function emptyGoalState(goalId: string, startedAt: string): GoalState {
 /**
  * Derive a goal's roll-up. `paused` when disabled; `planning` with no instances;
  * `needs-you` when any instance is parked (every parkedReason); `done` when all are
- * done; otherwise the busiest: acting > planning > waiting.
+ * done; `held` when every active (non-done, non-parked) instance is held by its autonomy level;
+ * otherwise the busiest: acting > planning > waiting.
  */
 export function rollupGoal(goal: Pick<Goal, "enabled">, state: GoalState): GoalRollup {
   const instances = Object.values(state.instances);
@@ -203,6 +213,7 @@ export function rollupGoal(goal: Pick<Goal, "enabled">, state: GoalState): GoalR
   else if (instances.length === 0) status = "planning";
   else if (parked > 0) status = "needs-you";
   else if (done === instances.length) status = "done";
+  else if (instances.every((i) => i.status === "done" || i.held)) status = "held";
   else if (count("acting") > 0) status = "acting";
   else if (count("planning") > 0) status = "planning";
   else status = "waiting";

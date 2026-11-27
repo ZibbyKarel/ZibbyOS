@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   type Approval,
+  type AutomationLevel,
   type Goal,
   type GoalAction,
   type GoalDecision,
@@ -17,7 +18,6 @@ import {
   addWaits,
   reportFromGoal,
 } from "./goal-action-executor";
-import { GoalMessageService } from "./goal-message.service";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 
@@ -45,9 +45,10 @@ export function pragueMonth(at: Date): string {
 /**
  * The directional goal's actions (spec "Directional goals", "Rulings → autoDecideGoals").
  *
- * `propose` handling by the effective level at the instance's place (project > team > company >
- * global, `_` = global; Autopilot paused forces at most `semi`; a `tier1` ceiling forces
- * `manual`): `manual` writes the ranked report; `semi` raises a `goal-decision` approval
+ * `propose` handling by the pass's level (the engine's `autoDecideGoals` at the instance's place,
+ * project > company > global, `_` = global, under the master switch; a held `manual`
+ * instance never plans, so `manual` here means a `tier1` ceiling; Autopilot paused forces at
+ * most `semi`): `manual` writes the ranked report; `semi` raises a `goal-decision` approval
  * (approve = the top candidate, an `answer` naming a candidate id = that one); `auto` starts the
  * top candidate through the ordinary `start-task` path (budget, ceiling, `actionId` skip) while
  * the monthly cap allows and the candidate is `small`, otherwise falls back to `semi` and says
@@ -62,7 +63,6 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
     private readonly store: GoalStateStore,
     private readonly goals: GoalsStorageService,
     private readonly autopilot: AutopilotService,
-    private readonly messages: GoalMessageService,
     private readonly ledger: BudgetLedgerStore,
     private readonly activity: ActivityLogService,
   ) {}
@@ -73,14 +73,14 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
     this.approvals.register("goal-decision", this);
   }
 
-  /** The effective `autoDecideGoals` at the instance's place (the same place as `autoCommunicate`). */
-  async decisionLevel(goal: Goal, instanceKey: string): Promise<DecisionLevel> {
-    const stored = this.autopilot.levelsAt(
-      await this.messages.placeOf(instanceKey),
-    ).autoDecideGoals;
+  /**
+   * The pass's `autoDecideGoals` (the engine resolves it at the instance's place, fail closed;
+   * an operator wake on a held instance: `semi`), limited by the ceiling and the pause.
+   */
+  decisionLevel(goal: Goal, level: AutomationLevel): DecisionLevel {
     if (!ceilingAllows(goal.ceiling, "start-task")) return { level: "manual", reason: "ceiling" };
-    if (this.autopilot.isPaused() && stored === "auto") return { level: "semi", reason: "paused" };
-    return { level: stored, reason: "level" };
+    if (this.autopilot.isPaused() && level === "auto") return { level: "semi", reason: "paused" };
+    return { level, reason: "level" };
   }
 
   // ---- propose ----
@@ -94,7 +94,7 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
     if (ids.size !== a.candidates.length) {
       return reportFromGoal(ctx, "Not done: propose — candidate ids are not unique.");
     }
-    const { level } = await this.decisionLevel(ctx.goal, ctx.instanceKey);
+    const { level } = this.decisionLevel(ctx.goal, ctx.autonomy);
     const ranked = rankedText(a.candidates);
     if (level === "manual") return reportFromGoal(ctx, `Žebříček kandidátů:\n${ranked}`);
 
@@ -242,6 +242,8 @@ export class GoalDecisionService implements OnModuleInit, ResumableRunner {
         });
       },
     );
+    // The operator approved exactly this start: it is their act, not the engine's.
+    ctx.autonomy = "auto";
     await this.executor.execute(
       [{ type: "start-task", actionId, text: picked.task, title: picked.title.slice(0, 200) }],
       ctx,

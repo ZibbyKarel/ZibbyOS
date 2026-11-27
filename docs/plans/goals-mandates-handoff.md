@@ -43,9 +43,10 @@ By area, with commit ranges (exclusive start, inclusive end).
   dashboard sheet). The engine ticks every `goalEngineTickMs` (default 60 s, `0` disables) on the
   primary instance. A paused goal rolls up as `paused` even with parked instances.
 - **Directional goals and `autoDecideGoals`.** The sixth autonomy capability
-  ("automatické rozhodování cílů", key `autoDecideGoals`) lives in the autonomy matrix
-  (`/governance/autonomy`), per place: project > team > company > global (a goal with scope `none`
-  resolves at global). `manual` = a ranked report only, `semi` = a `goal-decision` approval,
+  ("Spouštění a rozhodování cílů" since 2026-11-27, key `autoDecideGoals`) lives in the autonomy matrix
+  (`/governance/autonomy`), per place: project > company > global (goals carry no team; a goal with scope `none`
+  resolves at global). Since 2026-11-27 `manual` holds the goal (see the dated section below); a
+  wake or the `tier1` ceiling gives a ranked report only, `semi` = a `goal-decision` approval,
   `auto` = ZIBBY starts the top small candidate itself within the goal's `maxDecisionsPerMonth`
   (over the cap or a large candidate falls back to `semi`). `auto` never applies on a `tier1`
   goal or while Autopilot is paused. Raising a cell, a project cell included, needs the operator
@@ -146,8 +147,8 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
   engine+security, B api rest+upgrade safety, C web) instead of one reviewer that cannot hold it.
   Cost: cross-area interactions seen only where a reviewer follows a call path; ONE fix wave
   collects all three.
-- **Final B:** `autoDecideGoals` is excluded from the Autopilot master switch and resolves on its
-  own (project > team > company > global); a goal-only cell no longer turns the rest of Autopilot
+- **Final B (reversed 2026-11-27, see below):** `autoDecideGoals` is excluded from the Autopilot master switch and resolves on its
+  own (project > company > global); a goal-only cell no longer turns the rest of Autopilot
   on (reverses the Task 1 `isOn` ruling) — the operator asked for decisions "only for projects
   where it is set", and raising it must not wake devrel's dormant PR automation. Cost: goal
   decisions can run on a project while every other Autopilot cell is manual; if the operator
@@ -160,6 +161,27 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
   autonomous merge must be told. Cost: an operator who deliberately pruned the list gets goal
   notifications back once.
 
+## 2026-11-27 — goals obey the autonomy levels
+
+Operator report: with ZIBBY in manual mode several goals started running; the capability should be
+named "Spouštění a rozhodování cílů". Rulings, all applied on `feat/goals-autonomy-gate`:
+
+- **The Final B ruling is reversed.** `autoDecideGoals` is back under the master switch: an
+  all-manual global row resolves it to `manual` everywhere (`isGlobalManual` /
+  `resolveAutopilotLevels` cover every key; `MASTER_SWITCH_KEYS` is gone). The open question in
+  Final B ("if the operator wanted the global switch to gate it…") is closed: yes. It still never
+  turns `isOn()` true (no gate class; the stricter choice, so a goals-only `auto` cell does not wake
+  the `zibby/*` push overlay). The key stays `autoDecideGoals` (no migration); the label is cs
+  "Spouštění a rozhodování cílů", en "Starting and deciding goals".
+- **The engine gates every instance** on the effective level at its place
+  (`GoalMessageService.goalStartLevel`, fail closed): `manual` = held (`held: "autonomy-manual"`,
+  one `held` timeline event, nothing read, planned, parked or spent); `semi` = plans, but
+  `start-task` / `run-loop` / `pr-action` / `merge` become a "Not started (Semi-auto) … start it yourself or raise … to Auto" report,
+  messages always ask, proposals ask; `auto` = unchanged. A wake on a held instance runs one pass
+  as `semi` (`operatorWake`); resume does not bypass the hold; pause wins.
+- **Merge** additionally needs the level `auto` for the pass and freshly at merge time.
+- Details: `docs/api/goals.md` → Tick → Autonomy; `docs/api/autopilot.md`.
+
 ## Proposed `CLAUDE.md` wording — NOT applied
 
 `CLAUDE.md` is not edited by this run. Ready to paste:
@@ -167,15 +189,16 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
 ### (a) Autonomy-levels paragraph
 
 > **Autonomy levels** refine the tiers per capability (code review, review comments,
-> implementation, communication, CI fix, goal decisions) and per place — global, company, team and
+> implementation, communication, CI fix, starting and deciding goals) and per place — global, company, team and
 > project, the most specific one winning (project > team > company > global): `manual` (the
 > operator does it), `semi` / Poloautomat (ZIBBY prepares, the outcome waits for approval) or
 > `auto` / Automat (the covered `ask` classes move to Tier 2, plus pushes onto ZIBBY's or the
-> operator's own PR branches). For goal decisions, `auto` lets ZIBBY pick and start the work for a
-> directional goal itself, within the goal's monthly decision cap. Goal decisions resolve per project
-> on their own, independently of the other capabilities: they are not part of the all-manual master
-> switch, so they can be `auto` on one project while everything else is manual. Never-rules are not
-> affected, and
+> operator's own PR branches). For starting and deciding goals, `manual` holds every enabled goal
+> (nothing starts on its own; a wake runs one pass that waits for approval), `semi` lets ZIBBY plan
+> while every work-starting or outward step waits for the operator, and `auto` lets it act within
+> the goal's ceiling and budget, including picking and starting the work for a directional goal
+> within its monthly decision cap. Like every capability it is under the all-manual master switch.
+> Never-rules are not affected, and
 > neither is merge, except through the merge grant below. Raising a level at any place, a project
 > included, or resuming ZIBBY needs the operator token; anyone in the operator chat can **pause**
 > it, which stops everything new, goals included (no planning, no task or loop started). See
@@ -387,7 +410,7 @@ Deferred minors and notes from the ledger, grouped by area.
   logins — the inbox snapshot has none, and `InboxPrThreadsService.reviewers()` is an uncached
   host call per PR. Options: one host call per PR per tick, a fetch cached on the PR's
   `updatedAt`, or author-only (current).
-- Final wave: with `autoDecideGoals` outside the master switch, a goal-only setup has `isOn()`
+- Final wave (the master-switch part is reversed 2026-11-27; the `isOn()` behaviour stays): with `autoDecideGoals` outside the master switch, a goal-only setup has `isOn()`
   false, so `goal-parked` / `goal-update` are not pushed to the operator channel (only
   `goal-merged` always is); they still show in the briefing and on the goal pages.
 
@@ -403,7 +426,7 @@ Deferred minors and notes from the ledger, grouped by area.
   toward `isOn()`. On an install whose global row is all-manual, `goal-parked` / `goal-update` are
   shown only in the UI (dashboard widget, goals page, briefing). Smallest change if wanted: bypass the
   `isOn()` clause for `goal-parked`.
-- **The Autopilot mode pill does not follow the master-switch split** (`apps/web/features/autopilot/autonomy.ts:39`,
+- **(Closed 2026-11-27: the split is gone, goals are under the master switch.)** **The Autopilot mode pill does not follow the master-switch split** (`apps/web/features/autopilot/autonomy.ts:39`,
   `ZibbyModeControl.tsx:53`): a goals-only global cell shows "mixed", the pill still writes
   `autoDecideGoals` with the rest, and "Ručně" does not stop project goals cells.
 - **"Žádné zapomenuté PR" cannot remind reviewers.** The planner facts carry the PR author only;

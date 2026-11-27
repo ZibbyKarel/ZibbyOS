@@ -4479,7 +4479,6 @@
         "empty": "No goals yet.",
         "noMatch": "None of the picked goals exist any more.",
         "openGoals": "Open goals",
-        "noEvents": "Nothing has happened yet.",
         "whatHappened": "What happened",
         "whatNext": "What comes next",
         "pause": "Pause",
@@ -4909,7 +4908,7 @@
     "autoImplement": "Implementation",
     "autoCommunicate": "Communication",
     "autoFixCi": "CI fix",
-    "autoDecideGoals": "Goal decisions",
+    "autoDecideGoals": "Starting and deciding goals",
     "globalLabel": "Default",
     "globalSub": "For everything without an exception",
     "companyKind": "Company",
@@ -5421,14 +5420,13 @@
   },
   "goals": {
     "title": "Goals",
-    "toggleLabel": "Enable goal {name}",
-    "open": "Open",
     "emptyTitle": "No goals yet",
     "emptyBody": "A goal is a mandate for ZIBBY: what must be true, where, by when and on what budget. Create your own or start from the ready-made goals below.",
     "list": {
       "section": "Work",
       "total": "{count, plural, one {# goal} other {# goals}}",
       "needsYou": "{count} waiting for you",
+      "held": "{count} held by Manual",
       "newGoal": "New goal",
       "noMatchTitle": "No goal matches",
       "noMatchBody": "Try another status filter.",
@@ -5438,7 +5436,9 @@
         "active": "Active",
         "paused": "Paused",
         "done": "Done"
-      }
+      },
+      "working": "{count} working",
+      "done": "{count} done"
     },
     "counts": {
       "none": "No plan yet",
@@ -5451,7 +5451,8 @@
       "acting": "Working",
       "waiting": "Waiting",
       "needs-you": "Needs you",
-      "done": "Done"
+      "done": "Done",
+      "held": "Held by Manual"
     },
     "scope": {
       "none": "No project",
@@ -5526,7 +5527,7 @@
       "checklist": "Checklist",
       "checklistHint": "One item per line.",
       "maxDecisions": "Self-made decisions per month",
-      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (Goal decisions → Auto).",
+      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (Starting and deciding goals → Auto).",
       "matrixNote": "Feature matrix note",
       "matrixNoteHint": "Optional mozek note id."
     },
@@ -5539,10 +5540,7 @@
       "noBudget": "No limit"
     },
     "instances": {
-      "project": "Project",
       "noProject": "No project",
-      "status": "Status",
-      "summary": "Summary",
       "resume": "Resume",
       "emptyTitle": "No progress yet",
       "emptyBody": "Per-project progress shows up once ZIBBY has worked on the goal for the first time.",
@@ -5576,12 +5574,55 @@
     },
     "detail": {
       "wake": "Wake now",
-      "settingsTitle": "Outcome and settings",
-      "instancesTitle": "Progress per project",
+      "settingsTitle": "Settings",
+      "instancesTitle": "Projects",
       "planTitle": "Plan",
-      "timelineTitle": "Timeline",
       "deleteTitle": "Delete goal?",
-      "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone."
+      "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone.",
+      "goal": "Goal",
+      "cycleChip": "cycle {n}",
+      "more": "More actions",
+      "mergeGrantUntil": "Merge grant until {until}",
+      "gaugeLabel": "Projects",
+      "gaugeOf": "of {count}",
+      "gaugeAllDone": "all done",
+      "gaugeLeft": "{count} left",
+      "meters": "Goal budget",
+      "meterDeadline": "Until the cycle deadline",
+      "meterDeadlineValue": "until {when}",
+      "meterRuns": "Runs this cycle",
+      "meterRunsValue": "{used} / {max}",
+      "meterRunsNote": "The project that used the most",
+      "criteriaTitle": "Done when",
+      "order": "Order",
+      "newestFirst": "Newest first",
+      "oldestFirst": "Oldest first",
+      "progress": "Progress",
+      "progressN": "Progress {n}",
+      "cycleMeta": "{count, plural, one {# event} other {# events}} · {range}",
+      "showAll": "Show all events: {title}",
+      "showLess": "Show only the last 5: {title}",
+      "loop": {
+        "aria": "Goal loop",
+        "plan": "Plan",
+        "planTitle": "ZIBBY",
+        "planSub": "plans the next step",
+        "planning": "Building a plan…",
+        "planIdle": "Re-plans when something changes",
+        "held": "Waits until you raise the level or wake the goal",
+        "heldSub": "held by Manual",
+        "needsYou": "Waiting for your decision",
+        "exec": "Execution",
+        "tasks": "Tasks",
+        "runs": "{count, plural, one {# run} other {# runs}} this cycle",
+        "acting": "Working on tasks…",
+        "idle": "Nothing running",
+        "forward": "plan → action",
+        "back": "result → new plan",
+        "pausedBack": "paused · needs you",
+        "countCycle": "cycle",
+        "countProjects": "projects done"
+      }
     },
     "actionFailed": "The action failed. Try again.",
     "directional": {
@@ -5618,6 +5659,36 @@
       "revoke": "Revoke",
       "locked": "Failed: a merge grant needs a valid operator token.",
       "failed": "The action failed."
+    },
+    "card": {
+      "ringOf": "of {count, plural, one {# project} other {# projects}}",
+      "ringOfCount": "of {count}",
+      "ringAria": "{done} of {total, plural, one {# project} other {# projects}} done",
+      "ringAriaCount": "{done} of {total} done",
+      "notRun": "not run yet",
+      "role": {
+        "scope": "Scope",
+        "ceiling": "Ceiling",
+        "loop": "Loop"
+      },
+      "lastStep": "Last step · {date}",
+      "needsYou": "needs you",
+      "noEvents": "Nothing recorded yet",
+      "noEventsText": "The goal has not run yet.",
+      "heldReason": "Starting and deciding goals is Manual here — ZIBBY starts nothing on its own.",
+      "decide": "Decide",
+      "pause": "Pause",
+      "enable": "Turn on",
+      "decideAria": "Decide on goal {name}",
+      "wakeAria": "Wake goal {name}",
+      "pauseAria": "Pause goal {name}",
+      "enableAria": "Turn on goal {name}",
+      "openAria": "Open: {name}"
+    },
+    "ceiling": {
+      "tier1": "Tier 1 · prepare quietly",
+      "tier2": "Tier 2 · act and report",
+      "tier3": "Tier 3 · everything for approval"
     }
   },
   "logo": {

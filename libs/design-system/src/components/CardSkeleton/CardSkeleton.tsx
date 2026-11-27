@@ -3,11 +3,12 @@ import type { Ref } from "react";
 export enum CardSkeletonTestId {
   Root = "card-skeleton-root",
   Line = "card-skeleton-line",
+  Ring = "card-skeleton-ring",
 }
 
 export interface CardSkeletonProps {
-  /** Silhouette: `card` (title + 2 lines + footer), `portrait` (centred avatar), `wide` (horizontal pipeline), `row` (single dense row). */
-  shape?: "card" | "portrait" | "wide" | "row";
+  /** Silhouette: `card` (title + 2 lines + footer), `portrait` (centred avatar), `wide` (horizontal pipeline), `row` (single dense row), `ring` (goal card: ring + lines). */
+  shape?: "card" | "portrait" | "wide" | "row" | "ring";
   ref?: Ref<HTMLDivElement>;
 }
 
@@ -50,6 +51,19 @@ export function CardSkeleton({ shape = "card", ref }: CardSkeletonProps) {
             <Bar h={54} w="110px" />
             <Bar h={54} w="110px" />
             <Bar h={54} w="110px" />
+          </div>
+        </div>
+      ) : shape === "ring" ? (
+        <div className="grid grid-cols-[86px_minmax(0,1fr)] gap-[18px] sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-[20px]">
+          <span
+            className="block size-[86px] animate-pulse rounded-full border-[9px] border-ink/[0.07] motion-reduce:animate-none sm:size-[132px]"
+            data-testid={CardSkeletonTestId.Ring}
+          />
+          <div className="flex flex-col gap-[10px]">
+            <Bar h={22} w="30%" />
+            <Bar h={14} w="70%" />
+            <Bar h={26} w="55%" />
+            <Bar h={48} w="100%" />
           </div>
         </div>
       ) : shape === "row" ? (

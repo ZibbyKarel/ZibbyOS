@@ -448,20 +448,27 @@ service sign-in in system Chrome and the list re-polls. See `docs/api/connected-
 
 ## Goals (mandates)
 
-- **Page** `/work/goals` (nav entry "Cíle", under Work): goal list with roll-up status, the
-  "Připravené cíle" presets (created **paused** on one click) and a create dialog (create-only,
-  then navigates to the detail). `/work/goals/[id]` shows the outcome, settings (edit top-right),
-  the rendered plan note, the timeline (filter per project, cycles), the per-project roll-up, the
-  directional checklist and decision counter, the merge-grant panel (operator token, tier3 goals
-  only) and the actions enable/pause, wake and resume.
+- **Page** `/work/goals` (nav entry "Cíle", under Work): goal cards (`GoalCard` over the DS
+  `GoalLoopCard`: done-of-projects ring, roll-up pill, schedule, scope / ceiling / loop, the newest
+  timeline event, actions per status), header counts and filter chips, the "Připravené cíle"
+  presets (created **paused** on one click) and a create dialog (create-only, then navigates to
+  the detail). `/work/goals/[id]` shows a hero (pill, outcome, tags, gauge, the meters the mandate
+  carries), the loop diagram, "Co bude", the cycle timeline, waiting cards, criteria, settings
+  (edit top-right), per-project status, the plan note, the merge-grant panel (operator token,
+  tier3 goals only), the directional panel and the actions enable/pause, wake and resume.
+- **Held.** The roll-up status `held` (every active instance held by a Manual
+  `autoDecideGoals`) reads "Drží manuál" in the idle tone everywhere (cards, widget, sheet,
+  hero, instance pills), with the reason while it is held; it is never counted as working or
+  active. See `docs/api/goals.md`.
 - **Loop rename.** The old maker + verifier "goals" screens, routes and nav entry were removed;
   the entity is now a `loop` (`/api/loops`) and only exists as an internal way to execute a goal's
   work.
 - **Project autonomy layer.** `/governance/autonomy` gets a project row under each company (after
-  its teams) and a sixth capability column `autoDecideGoals` ("automatické rozhodování cílů");
+  its teams) and a sixth capability column `autoDecideGoals` ("Spouštění a rozhodování cílů");
   the header menu's exception list includes projects. Raising any cell still needs the operator
   token. See `docs/api/autopilot.md`.
 - **Dashboard widget "Cíle"** (`features/bridge/widgets/GoalsWidget.tsx`): picked goals
-  (`scope.goalIds`, none = every enabled goal) as status rows; a click opens `GoalSheet` with the
+  (`scope.goalIds`, none = every enabled goal) as compact goal cards in an auto-fill grid
+  (DS `Grid` `minColWidth`); a click opens `GoalSheet` with the
   full log ("Co se dělo") and what comes next ("Co bude"). Live via the `goals` SSE scope. See
   `docs/api/goals.md`.

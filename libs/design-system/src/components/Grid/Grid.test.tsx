@@ -19,6 +19,13 @@ describe("Grid", () => {
     );
   });
 
+  it("switches to the wide right-sidebar template", () => {
+    render(<Grid sidebar="right-wide" />);
+    expect(screen.getByTestId(GridTestId.Root).className).toContain(
+      "lg:grid-cols-[minmax(0,1fr)_400px]",
+    );
+  });
+
   it("switches to the left-sidebar template", () => {
     render(<Grid sidebar="left" />);
     expect(screen.getByTestId(GridTestId.Root).className).toContain(
@@ -54,6 +61,13 @@ describe("Grid", () => {
     expect(el.className).toContain("lg:h-(--grid-lg-height)");
     expect(el.className).toContain("lg:grid-rows-[minmax(0,1fr)]");
     expect(el.style.height).toBe("");
+  });
+
+  it("auto-fills columns of at least minColWidth, capped at the grid width", () => {
+    render(<Grid lg={3} minColWidth="260px" />);
+    const el = screen.getByTestId(GridTestId.Root);
+    expect(el.style.gridTemplateColumns).toBe("repeat(auto-fill, minmax(min(100%, 260px), 1fr))");
+    expect(el.className).not.toContain("grid-cols-");
   });
 
   it("adds no height classes without lgHeight", () => {

@@ -38,57 +38,56 @@ export function GoalPresets({ existingIds, pendingId, onAdd }: GoalPresetsProps)
   const label = (l: GoalLabel) => tg(l.key, l.values);
   return (
     <Container data-testid={GoalPresetsTestId.Root}>
-      <Stack gap="250">
-        <Stack gap="50">
-          <Typography type="h2">{t("title")}</Typography>
+      <ListSection count={GOAL_PRESETS.length} icon="sparkles" title={t("title")}>
+        <Stack gap="250">
           <Typography size="caption" type="note" variant="secondary">
             {t("hint")}
           </Typography>
+          {groupPresets(GOAL_PRESETS).map(({ group, presets }) => (
+            <ListSection count={presets.length} key={group} title={t(`group.${group}`)}>
+              <DenseRowList>
+                {presets.map((preset) => {
+                  const added = existingIds.has(preset.id);
+                  return (
+                    <DenseRow
+                      cells={[
+                        label(goalScopeLabel(preset.scope, NO_NAMES)),
+                        label(goalScheduleLabel(preset, locale)),
+                      ]}
+                      hint={preset.predicate}
+                      key={preset.id}
+                      title={preset.name}
+                      trailing={
+                        added ? (
+                          <Typography
+                            data-testid={`${GoalPresetsTestId.Added}-${preset.id}`}
+                            size="caption"
+                            tone="accent"
+                            type="note"
+                          >
+                            {t("added")}
+                          </Typography>
+                        ) : (
+                          <Button
+                            data-testid={`${GoalPresetsTestId.Add}-${preset.id}`}
+                            icon="plus"
+                            intent="secondary"
+                            loading={pendingId === preset.id}
+                            onClick={() => onAdd(preset)}
+                            size="sm"
+                          >
+                            {t("add")}
+                          </Button>
+                        )
+                      }
+                    />
+                  );
+                })}
+              </DenseRowList>
+            </ListSection>
+          ))}
         </Stack>
-        {groupPresets(GOAL_PRESETS).map(({ group, presets }) => (
-          <ListSection count={presets.length} key={group} title={t(`group.${group}`)}>
-            <DenseRowList>
-              {presets.map((preset) => {
-                const added = existingIds.has(preset.id);
-                return (
-                  <DenseRow
-                    cells={[
-                      label(goalScopeLabel(preset.scope, NO_NAMES)),
-                      label(goalScheduleLabel(preset, locale)),
-                    ]}
-                    hint={preset.predicate}
-                    key={preset.id}
-                    title={preset.name}
-                    trailing={
-                      added ? (
-                        <Typography
-                          data-testid={`${GoalPresetsTestId.Added}-${preset.id}`}
-                          size="caption"
-                          tone="accent"
-                          type="note"
-                        >
-                          {t("added")}
-                        </Typography>
-                      ) : (
-                        <Button
-                          data-testid={`${GoalPresetsTestId.Add}-${preset.id}`}
-                          icon="plus"
-                          intent="secondary"
-                          loading={pendingId === preset.id}
-                          onClick={() => onAdd(preset)}
-                          size="sm"
-                        >
-                          {t("add")}
-                        </Button>
-                      )
-                    }
-                  />
-                );
-              })}
-            </DenseRowList>
-          </ListSection>
-        ))}
-      </Stack>
+      </ListSection>
     </Container>
   );
 }

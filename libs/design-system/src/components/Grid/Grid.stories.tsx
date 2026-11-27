@@ -9,13 +9,14 @@ const meta: Meta<typeof Grid> = {
   parameters: { backgrounds: { default: "velin" } },
   argTypes: {
     lgHeight: { control: "text" },
+    minColWidth: { control: "text" },
     cols: { control: "select", options: [1, 2, 3, 4, 5] },
     sm: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
     md: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
     lg: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
     sidebar: {
       control: "select",
-      options: [undefined, "left", "left-wide", "left-narrow", "right"],
+      options: [undefined, "left", "left-wide", "left-narrow", "right", "right-wide"],
     },
     align: { control: "select", options: [undefined, "start", "center", "end", "stretch"] },
     gap: { control: "select", options: ["0", "50", "100", "150", "200", "300"] },
@@ -47,6 +48,14 @@ export const Overview: Story = {
           </Card>
           <Card>
             <Container padding="200">Aside</Container>
+          </Card>
+        </Grid>
+        <Grid align="start" gap="150" sidebar="right-wide">
+          <Card>
+            <Container padding="200">Main</Container>
+          </Card>
+          <Card>
+            <Container padding="200">Aside · 400px</Container>
           </Card>
         </Grid>
       </div>
@@ -106,4 +115,9 @@ export const Playground: Story = {
       ))}
     </Grid>
   ),
+};
+
+export const AutoFill: Story = {
+  args: { minColWidth: "260px", gap: "100" },
+  render: Playground.render,
 };
