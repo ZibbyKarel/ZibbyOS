@@ -17,6 +17,7 @@ import {
   type GoalNames,
   decisionsThisMonth,
   formatGoalDateTime,
+  goalDisplayStatus,
   goalMeterTone,
   goalScheduleLabel,
   goalScopeLabel,
@@ -55,6 +56,7 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
   const label = (l: GoalLabel) => t(l.key, l.values);
   const when = (iso: string) => formatGoalDateTime(iso, locale);
   const counts = rollup?.counts;
+  const display = rollup && goalDisplayStatus(goal, rollup.status, state);
   const grantActive = goal.mergeGrant && Date.parse(goal.mergeGrant.until) > now;
 
   const showGauge = counts !== undefined && !(goal.scope.kind === "none" && counts.total <= 1);
@@ -127,11 +129,8 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
       <Container grow minW0 maxWidth="760px">
         <Stack gap="150">
           <Stack wrap align="center" direction="row" gap="100">
-            {rollup && (
-              <StatePill
-                label={t(`status.${rollup.status}`)}
-                state={GOAL_CARD_STATE[rollup.status]}
-              />
+            {display && (
+              <StatePill label={t(`status.${display}`)} state={GOAL_CARD_STATE[display]} />
             )}
             <Typography size="xs" type="note" variant="tertiary">
               {t("detail.goal")}

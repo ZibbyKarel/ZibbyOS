@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../../test/render";
 import { GoalPlanTestId } from "../../../goals/components/GoalPlanPanel";
-import { GoalTimelineTestId } from "../../../goals/components/GoalTimelinePanel";
+import { GoalInstanceStatusTestId } from "../../../goals/components/GoalInstanceStatus";
+import { GoalUpcomingTestId } from "../../../goals/components/GoalUpcoming";
 import { GoalSheet, GoalSheetTestId } from "./GoalSheet";
 
 const d = vi.hoisted(() => ({
@@ -142,7 +143,7 @@ describe("GoalSheet", () => {
     open();
     expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
     expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();
-    expect(screen.queryByTestId(GoalSheetTestId.NextCycle)).toBeNull();
+    expect(screen.queryByTestId(GoalUpcomingTestId.NextCycle)).toBeNull();
   });
 
   it("a standing goal whose state has no instances yet still shows a next cycle from now", () => {
@@ -157,7 +158,7 @@ describe("GoalSheet", () => {
       },
     };
     open();
-    expect(screen.getByTestId(GoalSheetTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
+    expect(screen.getByTestId(GoalUpcomingTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
   });
 
   it("a failed state query shows the error, not 'nothing planned' or a next cycle", () => {
@@ -165,7 +166,7 @@ describe("GoalSheet", () => {
     open();
     expect(screen.getByTestId(GoalSheetTestId.StateError)).toBeInTheDocument();
     expect(screen.queryByText(/Zatím nic naplánováno/)).toBeNull();
-    expect(screen.queryByTestId(GoalSheetTestId.NextCycle)).toBeNull();
+    expect(screen.queryByTestId(GoalUpcomingTestId.NextCycle)).toBeNull();
   });
 
   it("the next cycle is computed from now, never in the past", () => {
@@ -173,7 +174,7 @@ describe("GoalSheet", () => {
     vi.setSystemTime(new Date("2026-12-02T10:00:00Z")); // Wed; cycle started Thu 26 Nov
     open();
     // next weekday 9:00 Prague after Wed 2 Dec 11:00 Prague = Thu 3 Dec
-    expect(screen.getByTestId(GoalSheetTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
+    expect(screen.getByTestId(GoalUpcomingTestId.NextCycle)).toHaveTextContent("3. 12. 2026");
   });
 
   it("a failed action shows the error, and the next action clears it", async () => {
@@ -198,14 +199,36 @@ describe("GoalSheet", () => {
     open();
     expect(screen.getByTestId(AnchoredSheetTestId.Title)).toHaveTextContent("CI zůstává zelené");
     const log = screen.getByTestId(GoalSheetTestId.Log);
-    expect(within(log).getAllByTestId(GoalTimelineTestId.Event)).toHaveLength(2);
-    expect(within(log).getByTestId(`${GoalTimelineTestId.Cycle}-2`)).toBeInTheDocument();
-    expect(screen.getByTestId(`${GoalSheetTestId.WaitingOn}-alpha`)).toHaveTextContent(
+    // The goal page's cycle timeline: one item per cycle, newest first, every event a row.
+    expect(within(log).getByText("Beta: opened a PR")).toBeInTheDocument();
+    expect(within(log).getByText(/old cycle step/)).toBeInTheDocument();
+    expect(within(log).getByText("Cyklus 3")).toBeInTheDocument();
+    expect(screen.getByTestId(`${GoalUpcomingTestId.WaitingOn}-alpha`)).toHaveTextContent(
       "acme/web#4",
     );
-    expect(screen.getByTestId(`${GoalSheetTestId.WakeAt}-alpha`)).toBeInTheDocument();
-    expect(screen.getByTestId(GoalSheetTestId.NextCycle)).toBeInTheDocument();
+    expect(screen.getByTestId(`${GoalUpcomingTestId.WakeAt}-alpha`)).toBeInTheDocument();
+    expect(screen.getByTestId(GoalUpcomingTestId.NextCycle)).toBeInTheDocument();
     expect(screen.getByTestId(`${GoalPlanTestId.Note}-plan-alpha`)).toHaveTextContent("Krok 1");
+  });
+
+  it("a held goal reads 'held by Manual' with the reason, in the pill and per instance", () => {
+    d.stateBody = {
+      state: {
+        ...state.state,
+        instances: { alpha: { status: "planning", taskIds: [], held: "autonomy-manual" } },
+      },
+      rollup: {
+        status: "planning",
+        counts: { total: 1, done: 0, parked: 0, active: 1 },
+        needsYou: 0,
+      },
+    };
+    open();
+    expect(screen.getByTestId(AnchoredSheetTestId.State)).toHaveTextContent("Drží manuál");
+    expect(screen.getByTestId(`${GoalInstanceStatusTestId.Held}-alpha`)).toHaveTextContent(
+      "Spouštění a rozhodování cílů je tady na Manuálu",
+    );
+    expect(screen.getByTestId(GoalSheetTestId.Wake)).toBeEnabled();
   });
 
   it("the title opens the goal page", async () => {

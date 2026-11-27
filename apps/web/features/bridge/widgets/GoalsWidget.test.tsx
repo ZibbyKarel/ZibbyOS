@@ -1,4 +1,4 @@
-import { DropdownTestId } from "@zibby/design-system";
+import { DropdownTestId, GoalLoopCardTestId } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import type { GoalRollupStatus, GoalWithRollup } from "@zibby/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,10 +10,22 @@ import { GoalsWidget, GoalsWidgetSettings, GoalsWidgetTestId } from "./GoalsWidg
 const d = vi.hoisted(() => ({
   goals: [] as unknown[],
   timeline: "ok" as "ok" | "empty" | "pending" | "error",
+  held: [] as string[],
+}));
+vi.mock("../../goals/mutations", () => ({
+  useUpdateGoalMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useWakeGoalMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("../../goals/queries", () => ({
   useGoalsQuery: () => ({ data: d.goals, isPending: false, isError: false }),
+  useGoalStateQuery: (id: string) => ({
+    data: d.held.includes(id)
+      ? {
+          state: { instances: { _: { status: "planning", taskIds: [], held: "autonomy-manual" } } },
+        }
+      : undefined,
+  }),
   useGoalTimelineQuery: (id: string) => ({
     data:
       d.timeline === "ok"
@@ -81,7 +93,7 @@ beforeEach(() => {
   ];
 });
 
-const names = () => screen.getAllByTestId(GoalsWidgetTestId.Row).map((r) => r.textContent);
+const names = () => screen.getAllByTestId(GoalLoopCardTestId.Title).map((r) => r.textContent);
 
 describe("GoalsWidget", () => {
   it("without picks shows every enabled goal, needs-you first, then busy, waiting, done", () => {
@@ -89,34 +101,49 @@ describe("GoalsWidget", () => {
     expect(names()).toEqual(["beta-need", "acting", "alpha-wait", "zeta-done"]);
   });
 
-  it("shows counts with the needs-you part and the latest timeline line", () => {
+  it("renders the list page's goal card, compact, in one grid", () => {
     renderWithProviders(<GoalsWidget {...setup()} />);
-    expect(screen.getAllByTestId(GoalsWidgetTestId.Counts)[0]).toHaveTextContent(
-      "7 z 9 hotovo · 1 čeká na tebe",
-    );
-    expect(screen.getAllByTestId(GoalsWidgetTestId.Latest)[0]).toHaveTextContent(
+    expect(screen.getByTestId(GoalsWidgetTestId.List)).toBeInTheDocument();
+    const roots = screen.getAllByTestId(GoalLoopCardTestId.Root);
+    expect(roots).toHaveLength(4);
+    expect(roots[0]).toHaveAttribute("data-size", "compact");
+    expect(roots[0]).toHaveAttribute("data-rk", "w-goals:beta-need");
+    expect(screen.getAllByTestId(GoalLoopCardTestId.Verdict)[0]).toHaveTextContent(
       "latest beta-need",
     );
   });
 
-  it("a pending or failed timeline shows no latest line, an empty one says nothing happened yet", () => {
+  it("a pending or failed timeline shows no verdict, an empty one says nothing happened yet", () => {
     for (const state of ["pending", "error"] as const) {
       d.timeline = state;
       const { unmount } = renderWithProviders(<GoalsWidget {...setup()} />);
-      expect(screen.queryByTestId(GoalsWidgetTestId.Latest)).toBeNull();
+      expect(screen.queryByTestId(GoalLoopCardTestId.Verdict)).toBeNull();
       unmount();
     }
     d.timeline = "empty";
     renderWithProviders(<GoalsWidget {...setup()} />);
-    expect(screen.getAllByTestId(GoalsWidgetTestId.Latest)[0]).not.toHaveTextContent("latest");
+    expect(screen.getAllByTestId(GoalLoopCardTestId.Verdict)[0]).not.toHaveTextContent("latest");
     d.timeline = "ok";
+  });
+
+  it("a held goal reads 'held by Manual' with the reason, not working", () => {
+    d.held = ["acting"];
+    renderWithProviders(<GoalsWidget {...setup()} />);
+    const card = screen
+      .getAllByTestId(GoalLoopCardTestId.Root)
+      .find((r) => r.textContent?.includes("acting"))!;
+    expect(within(card).getByTestId(GoalLoopCardTestId.State)).toHaveTextContent("Drží manuál");
+    expect(within(card).getByTestId(GoalLoopCardTestId.Verdict)).toHaveTextContent(
+      "Spouštění a rozhodování cílů je tady na Manuálu",
+    );
+    d.held = [];
   });
 
   it("shows only the picked goals (paused included), ignores gone ids, and opens the goal selection", async () => {
     const props = setup({ widget: widget({ goalIds: ["off", "zeta-done", "deleted"] }) });
     renderWithProviders(<GoalsWidget {...props} />);
     expect(names()).toEqual(["zeta-done", "off"]);
-    await userEvent.click(screen.getAllByTestId(GoalsWidgetTestId.Row)[0]!);
+    await userEvent.click(screen.getAllByTestId(GoalLoopCardTestId.Open)[0]!);
     expect(props.onOpen).toHaveBeenCalledWith({
       kind: "goal",
       id: "zeta-done",
@@ -124,6 +151,21 @@ describe("GoalsWidget", () => {
       key: "w-goals:zeta-done",
     });
     expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 2 }));
+  });
+
+  it("marks the open goal's card as selected", () => {
+    renderWithProviders(
+      <GoalsWidget
+        {...setup({
+          selection: { kind: "goal", id: "acting", widgetId: "w-goals", key: "w-goals:acting" },
+        })}
+      />,
+    );
+    const selected = screen
+      .getAllByTestId(GoalLoopCardTestId.Root)
+      .filter((r) => r.getAttribute("data-selected") === "true");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toHaveAttribute("data-rk", "w-goals:acting");
   });
 
   it("picks that match nothing show the no-match state", () => {

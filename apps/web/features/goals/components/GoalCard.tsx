@@ -5,7 +5,7 @@ import type { GoalWithRollup } from "@zibby/contracts";
 import { Button, GoalLoopCard } from "@zibby/design-system";
 import { type GoalLabel, type GoalNames, goalCardModel } from "../goalView";
 import { useUpdateGoalMutation, useWakeGoalMutation } from "../mutations";
-import { useGoalTimelineQuery } from "../queries";
+import { useGoalStateQuery, useGoalTimelineQuery } from "../queries";
 
 export enum GoalCardTestId {
   Decide = "goal-card-decide",
@@ -22,6 +22,8 @@ export interface GoalCardProps {
   /** A failed wake / pause / enable. */
   onError?: (error: unknown) => void;
   selected?: boolean;
+  /** The widget's row key (`data-rk`): the goal sheet anchors next to it. */
+  rowKey?: string;
   /** `compact` for a narrow widget: no parties, no actions. */
   size?: "full" | "compact";
 }
@@ -30,16 +32,26 @@ export interface GoalCardProps {
  * One goal as the design's Cíle card: ring of done projects, roll-up pill, schedule, scope /
  * ceiling / loop, the newest timeline event and the actions for its status.
  */
-export function GoalCard({ goal, names, onOpen, onError, selected, size = "full" }: GoalCardProps) {
+export function GoalCard({
+  goal,
+  names,
+  onOpen,
+  onError,
+  selected,
+  rowKey,
+  size = "full",
+}: GoalCardProps) {
   const t = useTranslations("goals");
   const locale = useLocale();
   const label = (l: GoalLabel | string) => (typeof l === "string" ? l : t(l.key, l.values));
   // ponytail: one timeline query per card; add rollup.latest to the list API if a long list gets slow
   const timeline = useGoalTimelineQuery(goal.id);
+  // The held state (Manual autonomy) lives in the goal state, not the roll-up.
+  const state = useGoalStateQuery(goal.id);
   const wake = useWakeGoalMutation();
   const update = useUpdateGoalMutation();
   // Any data counts (a failed background refetch keeps the last good events); none = no box.
-  const m = goalCardModel(goal, timeline.data, names, locale);
+  const m = goalCardModel(goal, timeline.data, names, locale, state.data?.state);
   const name = { name: goal.name };
   const setEnabled = (enabled: boolean) =>
     update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError });
@@ -94,6 +106,7 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
   return (
     <GoalLoopCard
       actions={actions}
+      data-rk={rowKey}
       max={m.max}
       onOpen={onOpen}
       openLabel={t("card.openAria", name)}
@@ -104,7 +117,7 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
       selected={selected}
       size={size}
       state={m.state}
-      stateLabel={t(`status.${goal.rollup.status}`)}
+      stateLabel={t(`status.${m.held ? "held" : goal.rollup.status}`)}
       title={goal.name}
       topMeta={label(m.topMeta)}
       used={m.used}

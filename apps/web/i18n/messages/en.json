@@ -5411,7 +5411,8 @@
       "acting": "Working",
       "waiting": "Waiting",
       "needs-you": "Needs you",
-      "done": "Done"
+      "done": "Done",
+      "held": "Held by Manual"
     },
     "scope": {
       "none": "No project",
@@ -5516,6 +5517,9 @@
         "failed": "Failed",
         "needs-operator": "Needs you",
         "infeasible": "Not feasible"
+      },
+      "held": {
+        "autonomy-manual": "Starting and deciding goals is Manual here — ZIBBY starts nothing on its own."
       }
     },
     "plan": {
@@ -5631,6 +5635,7 @@
       "needsYou": "needs you",
       "noEvents": "Nothing recorded yet",
       "noEventsText": "The goal has not run yet.",
+      "heldReason": "Starting and deciding goals is Manual here — ZIBBY starts nothing on its own.",
       "decide": "Decide",
       "pause": "Pause",
       "enable": "Turn on",

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type { GoalRollupStatus } from "@zibby/contracts";
+import type { GoalRollupStatus, GoalTimelineEvent } from "@zibby/contracts";
 import {
   EmptyState,
   IterationTimeline,
@@ -64,6 +64,13 @@ export function GoalCycleTimeline({
   const ordered = newestFirst ? cycles : [...cycles].reverse();
   const instanceLabel = (key: string) =>
     key === "_" ? t("timeline.noProject") : names.projectName(key);
+  // The held event reads in the catalog's words, in every language.
+  const eventText = (e: GoalTimelineEvent) => {
+    const text = e.kind === "held" ? t("card.heldReason") : e.text;
+    return instances.length > 1 && e.instance !== "*"
+      ? `${instanceLabel(e.instance)}: ${text}`
+      : text;
+  };
   const toggle = (index: number) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -147,10 +154,7 @@ export function GoalCycleTimeline({
                 rows={(newestFirst ? shown : [...shown].reverse()).map((e) => ({
                   label: formatGoalTime(e.at, locale),
                   ...goalEventMark(e.kind),
-                  text:
-                    instances.length > 1 && e.instance !== "*"
-                      ? `${instanceLabel(e.instance)}: ${e.text}`
-                      : e.text,
+                  text: eventText(e),
                 }))}
                 title={title}
                 toggleLabel={t(expanded ? "detail.showLess" : "detail.showAll", { title })}

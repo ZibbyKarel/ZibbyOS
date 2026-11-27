@@ -33,6 +33,7 @@ vi.mock("./queries", () => ({
     isError: query.isError,
     refetch,
   }),
+  useGoalStateQuery: () => ({ data: undefined }),
   useGoalTimelineQuery: () => ({ data: timeline.data, isError: timeline.isError }),
 }));
 vi.mock("./mutations", () => ({

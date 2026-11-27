@@ -33,6 +33,7 @@ export interface GoalLabel {
     | "card.role.loop"
     | "card.lastStep"
     | "card.needsYou"
+    | "card.heldReason"
     | "card.noEvents"
     | "card.noEventsText";
   values?: Record<string, string | number>;
@@ -195,12 +196,46 @@ export interface GoalCardModel {
   /** Absent while the timeline is not loaded (or failed): no box rather than a faked one. */
   verdict?: { head: GoalLabel; status?: GoalLabel; text: GoalLabel | string };
   verdictTone: "idle" | "blocked" | "done";
+  /** Every active instance is held by a Manual autonomy level: the pill reads "held", not "working". */
+  held: boolean;
   /** `decide` opens the detail page, `wake-pause` wakes or pauses, `enable` switches it on. */
   actions: "decide" | "wake-pause" | "enable";
 }
 
+/** What the pill shows: the roll-up, or `held` (ZIBBY starts nothing: Manual autonomy). */
+export type GoalDisplayStatus = GoalRollupStatus | "held";
+
+/**
+ * Whether the goal is held by a Manual autonomy level: it is enabled, has active (not done,
+ * not parked) instances and every one of them is held. `state` absent = unknown = not held.
+ */
+export function isGoalHeld(
+  goal: Pick<Goal, "enabled">,
+  state: Pick<GoalState, "instances"> | undefined,
+): boolean {
+  if (!goal.enabled || !state) return false;
+  const active = Object.values(state.instances).filter(
+    (i) => i.status !== "done" && i.status !== "parked",
+  );
+  return active.length > 0 && active.every((i) => i.held !== undefined);
+}
+
+/**
+ * The status the UI shows: the roll-up, except a held goal reads `held` instead of planning /
+ * acting / waiting. Paused (disabled) and needs-you (parked) win over held.
+ */
+export function goalDisplayStatus(
+  goal: Pick<Goal, "enabled">,
+  status: GoalRollupStatus,
+  state: Pick<GoalState, "instances"> | undefined,
+): GoalDisplayStatus {
+  return status !== "paused" && status !== "needs-you" && isGoalHeld(goal, state) ? "held" : status;
+}
+
 /** Roll-up → DS state tone; the goal card, the detail hero and its loop diagram all read this. */
-export const GOAL_CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
+export const GOAL_CARD_STATE: Record<GoalDisplayStatus, GoalCardState> = {
+  // Calm: nothing runs, so no pulse.
+  held: "idle",
   "needs-you": "blocked",
   acting: "working",
   planning: "working",
@@ -220,8 +255,11 @@ export function goalCardModel(
   timeline: readonly GoalTimelineEvent[] | undefined,
   names: GoalNames,
   locale: string,
+  state?: Pick<GoalState, "instances">,
 ): GoalCardModel {
-  const { status, counts } = goal.rollup;
+  const { counts } = goal.rollup;
+  const display = goalDisplayStatus(goal, goal.rollup.status, state);
+  const status = goal.rollup.status;
   const ran = counts.total > 0;
   const parties: GoalCardModel["parties"] = [
     { role: { key: "card.role.scope" }, name: goalScopeLabel(goal.scope, names) },
@@ -236,12 +274,15 @@ export function goalCardModel(
       ? {
           head: { key: "card.lastStep", values: { date: formatGoalDateTime(latest.at, locale) } },
           ...(status === "needs-you" ? { status: { key: "card.needsYou" as const } } : {}),
-          text: latest.text,
+          // The held event reads in the catalog's words, in every language.
+          text:
+            display === "held" || latest.kind === "held" ? { key: "card.heldReason" } : latest.text,
         }
       : { head: { key: "card.noEvents" }, text: { key: "card.noEventsText" } };
 
   return {
-    state: GOAL_CARD_STATE[status],
+    state: GOAL_CARD_STATE[display],
+    held: display === "held",
     used: counts.done,
     max: Math.max(counts.total, 1),
     ringValue: ran ? undefined : "–",
@@ -357,6 +398,8 @@ export function goalEventMark(kind: string): {
       return { icon: "run", tone: "neutral" };
     case "merged":
       return { icon: "branch", tone: "ok" };
+    case "held":
+      return { icon: "doc", tone: "neutral" };
     default:
       return { icon: "doc", tone: "neutral" };
   }

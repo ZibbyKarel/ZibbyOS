@@ -4,6 +4,7 @@ import {
   decisionsThisMonth,
   goalCardModel,
   goalCycles,
+  goalDisplayStatus,
   goalEventMark,
   goalMatchesFilter,
   goalScheduleLabel,
@@ -318,5 +319,93 @@ describe("goalEventMark / percentOf", () => {
     expect(percentOf(3, 4)).toBe(75);
     expect(percentOf(9, 4)).toBe(100);
     expect(percentOf(3, 0)).toBe(0);
+  });
+});
+
+describe("held by a Manual autonomy level", () => {
+  const goal: GoalWithRollup = {
+    id: "g",
+    name: "G",
+    outcome: "o",
+    scope: { kind: "none" },
+    ceiling: "tier2",
+    enabled: true,
+    createdAt: "2026-11-26T10:00:00.000Z",
+    updatedAt: "2026-11-26T10:00:00.000Z",
+    rollup: {
+      status: "planning",
+      counts: { total: 2, done: 0, parked: 0, active: 2 },
+      needsYou: 0,
+    },
+  };
+  const inst = (status: "planning" | "acting" | "parked" | "done", held?: "autonomy-manual") => ({
+    status,
+    taskIds: [],
+    ...(held ? { held } : {}),
+  });
+  const model = (g: GoalWithRollup, instances: Record<string, ReturnType<typeof inst>>) =>
+    goalCardModel(g, undefined, names, "cs", { instances });
+  const heldEvent: GoalTimelineEvent = {
+    at: "2026-11-26T11:30:00.000Z",
+    cycle: 0,
+    instance: "a",
+    kind: "held",
+    text: "Held: Starting and deciding goals is Manual here",
+  };
+
+  it("all active instances held: a calm 'held' card, not working", () => {
+    const m = model(goal, {
+      a: inst("planning", "autonomy-manual"),
+      b: inst("planning", "autonomy-manual"),
+    });
+    expect(m).toMatchObject({ held: true, state: "idle" });
+  });
+
+  it("ignores done and parked instances when checking, but needs at least one active", () => {
+    expect(model(goal, { a: inst("planning", "autonomy-manual"), b: inst("done") }).held).toBe(
+      true,
+    );
+    expect(model(goal, { b: inst("done") }).held).toBe(false);
+    expect(goalCardModel(goal, undefined, names, "cs").held).toBe(false);
+  });
+
+  it("one held and one acting: still acting", () => {
+    const acting = { ...goal, rollup: { ...goal.rollup, status: "acting" as const } };
+    const m = model(acting, { a: inst("planning", "autonomy-manual"), b: inst("acting") });
+    expect(m).toMatchObject({ held: false, state: "working" });
+  });
+
+  it("held plus parked: needs-you wins", () => {
+    const needs = {
+      ...goal,
+      rollup: { ...goal.rollup, status: "needs-you" as const, needsYou: 1 },
+    };
+    const m = model(needs, { a: inst("planning", "autonomy-manual"), b: inst("parked") });
+    expect(m).toMatchObject({ held: false, state: "blocked", actions: "decide" });
+  });
+
+  it("disabled plus held: paused wins", () => {
+    const off = { ...goal, enabled: false, rollup: { ...goal.rollup, status: "paused" as const } };
+    const m = model(off, { a: inst("planning", "autonomy-manual") });
+    expect(m).toMatchObject({ held: false, state: "idle", actions: "enable" });
+    expect(
+      goalDisplayStatus(off, "paused", { instances: { a: inst("planning", "autonomy-manual") } }),
+    ).toBe("paused");
+  });
+
+  it("shows the reason where the last step goes, and keeps Wake available", () => {
+    const m = goalCardModel(goal, [heldEvent], names, "cs", {
+      instances: { a: inst("planning", "autonomy-manual") },
+    });
+    expect(m.verdict?.text).toEqual({ key: "card.heldReason" });
+    expect(m.verdict?.head.key).toBe("card.lastStep");
+    expect(m.actions).toBe("wake-pause");
+  });
+
+  it("a last event of kind held reads the same even once the goal is no longer held", () => {
+    expect(goalCardModel(goal, [heldEvent], names, "cs").verdict?.text).toEqual({
+      key: "card.heldReason",
+    });
+    expect(goalEventMark("held")).toEqual({ icon: "doc", tone: "neutral" });
   });
 });

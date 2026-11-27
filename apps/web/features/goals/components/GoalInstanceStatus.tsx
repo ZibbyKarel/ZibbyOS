@@ -8,10 +8,11 @@ import { instanceStatusTone } from "../goalView";
 export enum GoalInstanceStatusTestId {
   Badge = "goal-instance-status",
   Reason = "goal-instance-reason",
+  Held = "goal-instance-held",
 }
 
 export interface GoalInstanceStatusProps {
-  instance: Pick<GoalInstance, "status" | "parkedReason">;
+  instance: Pick<GoalInstance, "status" | "parkedReason" | "held">;
   /** Suffix of the test ids (the instance key). */
   instanceKey: string;
 }
@@ -38,6 +39,16 @@ export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatus
           variant="secondary"
         >
           {t(`parked.${instance.parkedReason}`)}
+        </Typography>
+      )}
+      {instance.held && (
+        <Typography
+          data-testid={`${GoalInstanceStatusTestId.Held}-${instanceKey}`}
+          size="caption"
+          type="note"
+          variant="secondary"
+        >
+          {t(`held.${instance.held}`)}
         </Typography>
       )}
     </Stack>

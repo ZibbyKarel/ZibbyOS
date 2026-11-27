@@ -3,10 +3,10 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { Goal, GoalRollup, GoalState } from "@zibby/contracts";
 import { Icon, LoopDiagram, type LoopDiagramActive, LoopDiagramNode } from "@zibby/design-system";
-import { formatGoalDateTime } from "../goalView";
+import { formatGoalDateTime, goalDisplayStatus } from "../goalView";
 
 export interface GoalLoopProps {
-  goal: Pick<Goal, "cadence" | "loop">;
+  goal: Pick<Goal, "cadence" | "loop" | "enabled">;
   state: GoalState;
   rollup: GoalRollup;
 }
@@ -20,7 +20,10 @@ export function GoalLoop({ goal, state, rollup }: GoalLoopProps) {
   const t = useTranslations("goals.detail.loop");
   const g = useTranslations("bridge.widgets.goals");
   const locale = useLocale();
-  const { status, counts } = rollup;
+  const { counts } = rollup;
+  // A held goal (Manual autonomy) is idle: nothing plans or runs, so no arrow.
+  const status =
+    goalDisplayStatus(goal, rollup.status, state) === "held" ? "waiting" : rollup.status;
   const instances = Object.values(state.instances);
   const single = instances.length === 1 ? instances[0] : undefined;
   const needsYou = status === "needs-you";

@@ -2,29 +2,24 @@
 
 import type { GoalRollupStatus, GoalWithRollup } from "@zibby/contracts";
 import {
-  BoardLine,
-  BoardRow,
-  BoardText,
   Container,
   Dropdown,
+  Grid,
   Stack,
   type SubNavLinkComponent,
   TextLink,
   Typography,
 } from "@zibby/design-system";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { QueryError } from "../../../components/LoadError/QueryError";
-import { GoalStatusBadge } from "../../goals/components/GoalStatusBadge";
-import { goalScheduleLabel } from "../../goals/goalView";
-import { useGoalTimelineQuery, useGoalsQuery } from "../../goals/queries";
+import { GoalCard } from "../../goals/components/GoalCard";
+import { useGoalsQuery } from "../../goals/queries";
 import type { BridgeWidgetProps, WidgetSettingsProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
 
 export enum GoalsWidgetTestId {
-  Row = "goals-widget-row",
-  Counts = "goals-widget-counts",
-  Latest = "goals-widget-latest",
+  List = "goals-widget-list",
   Empty = "goals-widget-empty",
   NoMatch = "goals-widget-no-match",
   Select = "goals-widget-select",
@@ -54,59 +49,12 @@ export function widgetGoals(goals: readonly GoalWithRollup[], ids?: readonly str
     );
 }
 
-function GoalRow({
-  goal,
-  widgetId,
-  selection,
-  onOpen,
-}: { goal: GoalWithRollup; widgetId: string } & Pick<BridgeWidgetProps, "selection" | "onOpen">) {
-  const t = useTranslations("goals");
-  const tw = useTranslations("bridge.widgets.goals");
-  const locale = useLocale();
-  const key = `${widgetId}:${goal.id}`;
-  const { counts, needsYou, status } = goal.rollup;
-  const timeline = useGoalTimelineQuery(goal.id);
-  const latest = timeline.data?.at(-1);
-  const schedule = goalScheduleLabel(goal, locale);
-  return (
-    <BoardRow
-      needsYou={needsYou > 0}
-      onClick={() => onOpen({ kind: "goal", id: goal.id, widgetId, key })}
-      rowKey={key}
-      selected={selection?.key === key}
-      shape="list"
-      tone="neutral"
-    >
-      <BoardLine between end={<GoalStatusBadge status={status} />} gap="6">
-        <span data-testid={GoalsWidgetTestId.Row}>
-          <BoardText kind="rowTitle">{goal.name}</BoardText>
-        </span>
-      </BoardLine>
-      <BoardLine wrap gap="6">
-        <BoardText data-testid={GoalsWidgetTestId.Counts} kind="rowMeta">
-          {counts.total === 0
-            ? t("counts.none")
-            : needsYou > 0
-              ? t("counts.withNeedsYou", { done: counts.done, total: counts.total, needsYou })
-              : t("counts.progress", { done: counts.done, total: counts.total })}
-        </BoardText>
-        <BoardText kind="rowMeta">· {t(schedule.key, schedule.values)}</BoardText>
-      </BoardLine>
-      {/* A failed or loading timeline is not "nothing happened yet": no line at all. */}
-      {timeline.isSuccess && (
-        <BoardLine gap="6">
-          <BoardText data-testid={GoalsWidgetTestId.Latest} kind="reading">
-            {latest ? latest.text : tw("noEvents")}
-          </BoardText>
-        </BoardLine>
-      )}
-    </BoardRow>
-  );
-}
+// Compact cards show no scope or project names, so a goal's own ids are all they need.
+const NAMES = { projectName: (id: string) => id, companyName: (id: string) => id };
 
 /**
- * Goals — status rows of the picked goals (`scope.goalIds`, absent = every enabled goal): name,
- * roll-up pill, counts, schedule and the latest timeline line. Needs-you goals sort first. A click
+ * Goals — the same goal cards as the goals page, compact, in a grid that fills the widget's width
+ * (`scope.goalIds` picks which, absent = every enabled goal). Needs-you goals sort first. A click
  * opens the goal sheet (full log + what is next). Live through the `goals` SSE scope.
  */
 export function GoalsWidget({
@@ -155,11 +103,29 @@ export function GoalsWidget({
     );
   }
   return (
-    <>
-      {rows.map((g) => (
-        <GoalRow goal={g} key={g.id} onOpen={onOpen} selection={selection} widgetId={widget.id} />
-      ))}
-    </>
+    <Container padding="100">
+      {/* 1 column while the widget is narrow, more as it widens (no DS prop for auto-fill). */}
+      <Grid
+        data-testid={GoalsWidgetTestId.List}
+        gap="100"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))" }}
+      >
+        {rows.map((g) => {
+          const key = `${widget.id}:${g.id}`;
+          return (
+            <GoalCard
+              goal={g}
+              key={g.id}
+              names={NAMES}
+              onOpen={() => onOpen({ kind: "goal", id: g.id, widgetId: widget.id, key })}
+              rowKey={key}
+              selected={selection?.key === key}
+              size="compact"
+            />
+          );
+        })}
+      </Grid>
+    </Container>
   );
 }
 

@@ -5411,7 +5411,8 @@
       "acting": "Pracuje",
       "waiting": "Čeká",
       "needs-you": "Čeká na tebe",
-      "done": "Hotovo"
+      "done": "Hotovo",
+      "held": "Drží manuál"
     },
     "scope": {
       "none": "Bez projektu",
@@ -5516,6 +5517,9 @@
         "failed": "Selhalo",
         "needs-operator": "Potřebuje tebe",
         "infeasible": "Nesplnitelné"
+      },
+      "held": {
+        "autonomy-manual": "Spouštění a rozhodování cílů je tady na Manuálu — ZIBBY sám nic nespustí."
       }
     },
     "plan": {
@@ -5631,6 +5635,7 @@
       "needsYou": "čeká na tebe",
       "noEvents": "Zatím bez záznamu",
       "noEventsText": "Cíl ještě neběžel.",
+      "heldReason": "Spouštění a rozhodování cílů je tady na Manuálu — ZIBBY sám nic nespustí.",
       "decide": "Rozhodnout",
       "pause": "Pozastavit",
       "enable": "Zapnout",
