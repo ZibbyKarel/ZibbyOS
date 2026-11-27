@@ -94,7 +94,7 @@ describe("GoalsScreen", () => {
       "StropTier 2 · jednat a hlásit",
     );
     expect(screen.queryByTestId(`${GoalLoopCardTestId.Party}-2`)).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "0 z 1 projektů hotovo" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "0 z 1 hotovo" })).toBeInTheDocument();
     expect(screen.getByText("z 1")).toBeInTheDocument();
   });
 
@@ -118,6 +118,12 @@ describe("GoalsScreen", () => {
     expect(screen.getByTestId(ListHeaderTestId.Count)).toHaveTextContent(
       "3 cíle · 1 pracuje · 1 čeká na tebe · 1 hotový",
     );
+  });
+
+  it("inflects the working count", () => {
+    query.goals = [withStatus("acting", { id: "a" }), withStatus("planning", { id: "b" })];
+    render(<GoalsScreen />);
+    expect(screen.getByTestId(ListHeaderTestId.Count)).toHaveTextContent("2 cíle · 2 pracují");
   });
 
   it("shows the newest timeline event as the verdict, flagged for a needs-you goal", () => {

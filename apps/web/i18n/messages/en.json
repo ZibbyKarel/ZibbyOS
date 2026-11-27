@@ -5583,7 +5583,8 @@
     "card": {
       "ringOf": "of {count, plural, one {# project} other {# projects}}",
       "ringOfOne": "of 1",
-      "ringAria": "{done} of {total} projects done",
+      "ringAria": "{done} of {total, plural, one {# project} other {# projects}} done",
+      "ringAriaOne": "{done} of 1 done",
       "notRun": "not run yet",
       "role": {
         "scope": "Scope",

@@ -24,6 +24,7 @@ export interface GoalLabel {
     | "card.ringOf"
     | "card.ringOfOne"
     | "card.ringAria"
+    | "card.ringAriaOne"
     | "card.notRun"
     | "card.role.scope"
     | "card.role.ceiling"
@@ -246,9 +247,11 @@ export function goalCardModel(
       : goal.scope.kind === "none"
         ? { key: "card.ringOfOne" }
         : { key: "card.ringOf", values: { count: counts.total } },
-    ringAria: ran
-      ? { key: "card.ringAria", values: { done: counts.done, total: counts.total } }
-      : { key: "card.notRun" },
+    ringAria: !ran
+      ? { key: "card.notRun" }
+      : goal.scope.kind === "none"
+        ? { key: "card.ringAriaOne", values: { done: counts.done } }
+        : { key: "card.ringAria", values: { done: counts.done, total: counts.total } },
     topMeta: goalScheduleLabel(goal, locale),
     parties,
     verdict,

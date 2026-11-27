@@ -145,6 +145,10 @@ describe("goalCardModel", () => {
     expect(goalCardModel(none, undefined, names, "cs").ringCaption).toEqual({
       key: "card.ringOfOne",
     });
+    expect(goalCardModel(none, undefined, names, "cs").ringAria).toEqual({
+      key: "card.ringAriaOne",
+      values: { done: 1 },
+    });
     const fresh = {
       ...goal,
       rollup: { ...goal.rollup, counts: { total: 0, done: 0, parked: 0, active: 0 } },
