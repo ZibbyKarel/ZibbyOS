@@ -192,7 +192,8 @@ export const ChatGateCheckBodySchema = z.object({
   input: z.unknown(),
   /** sha256 hex of `tool + "\0" + JSON.stringify(input)`; the server recomputes and refuses a mismatch. */
   hash: z.string().regex(/^[0-9a-f]{64}$/),
-  intent: IntendedActionSchema,
+  /** Every classified action of the call (a chained command yields several); the server judges them all. */
+  intents: z.array(IntendedActionSchema).min(1),
 });
 export type ChatGateCheckBody = z.infer<typeof ChatGateCheckBodySchema>;
 

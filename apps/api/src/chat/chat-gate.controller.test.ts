@@ -44,7 +44,7 @@ describe("/api/chat/gate — ChatGateController", () => {
     tool: "shell",
     input,
     hash: chatGateHash("shell", input),
-    intent: { action: "overwrite" },
+    intents: [{ action: "overwrite" }],
   };
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 

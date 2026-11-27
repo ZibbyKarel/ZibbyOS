@@ -125,7 +125,7 @@ describe("opencodeChatArgs / opencodeChatEnv", () => {
     ]);
   });
 
-  it("passes the inline-approval gate env only when given, and no ALLOW_ACTIONS", () => {
+  it("passes the inline-approval gate env only when given, and no legacy allow list", () => {
     const gate = { url: "http://h/api/chat/gate?conversationId=c", token: "t", deadlineS: 330 };
     const env = opencodeChatEnv("/tmp/c.json", "/repo", ["zibby"], [], gate);
     expect(env).toMatchObject({
@@ -279,13 +279,26 @@ describe("opencode chat gate plugin", () => {
       expect(verdict("grep", { pattern: "foo", path: "/repo" })).toBeNull();
     });
 
+    it("returns EVERY classified intent of a chained command, deduplicated", () => {
+      const r = verdict("shell", {
+        command: "echo ok && git push --force origin main && rm -rf build",
+      });
+      expect(r.intents.map((i: { action: string }) => i.action)).toEqual(
+        expect.arrayContaining(["git.force_push", "delete"]),
+      );
+      const dup = verdict("shell", { command: "git push origin a; git push origin a" });
+      expect(dup.intents.filter((i: { action: string }) => i.action === "git.push")).toHaveLength(
+        1,
+      );
+    });
+
     it("returns the classified intent of a gated shell command (no refusal)", () => {
       for (const [command, action] of [
         ["git push origin main", "git.push"],
         ["rm -rf build", "delete"],
         ["npm publish", "deploy"],
       ] as const) {
-        expect(verdict("shell", { command })).toMatchObject({ intent: { action } });
+        expect(verdict("shell", { command })).toMatchObject({ intents: [{ action }] });
       }
       expect(verdict("shell", { command: "claude -p hi" })).toMatchObject({
         reason: expect.stringMatching(/nested/),
@@ -301,10 +314,10 @@ describe("opencode chat gate plugin", () => {
       });
     });
 
-    it("operator MCP: reads run, writes return an intent; own servers always run", () => {
+    it("operator MCP: reads run, writes return intents; own servers always run", () => {
       expect(verdict("plugin_context7_context7_query-docs", { q: "x" })).toBeNull();
       expect(verdict("atlassian_getJiraIssue", { issueIdOrKey: "A-1" })).toBeNull();
-      expect(verdict("atlassian_createJiraIssue", {})).toHaveProperty("intent");
+      expect(verdict("atlassian_createJiraIssue", {})).toHaveProperty("intents");
       expect(verdict("zibby_create_task", {})).toBeNull();
       expect(verdict("zibby-kb_kb_write", {})).toBeNull();
     });
@@ -335,11 +348,11 @@ describe("opencode chat gate plugin", () => {
       ZIBBY_CHAT_GATE_DEADLINE_S: "330",
     };
     const input = { command: "git push origin main" };
-    const intent = { action: "git.push" } as never;
+    const intents = [{ action: "git.push" }] as never;
     const json = (body: unknown, ok = true) =>
       ({ ok, status: ok ? 200 : 500, json: async () => body }) as Response;
     const run = (fetchImpl: typeof fetch, env: Record<string, string> = gateEnv) =>
-      chatGateCall("shell", input, intent, env, fetchImpl);
+      chatGateCall("shell", input, intents, env, fetchImpl);
 
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
@@ -353,7 +366,7 @@ describe("opencode chat gate plugin", () => {
       expect(JSON.parse(init.body as string)).toMatchObject({
         tool: "shell",
         hash: chatGateHash("shell", input),
-        intent,
+        intents,
       });
     });
 
@@ -408,7 +421,7 @@ describe("opencode chat gate plugin", () => {
           mutable.command = "git push --force";
           return json({ status: "approved" });
         });
-      const p = chatGateCall("shell", mutable, intent, gateEnv, f as never);
+      const p = chatGateCall("shell", mutable, intents, gateEnv, f as never);
       const caught = p.catch((e: Error) => e);
       await vi.advanceTimersByTimeAsync(1500);
       expect(((await caught) as Error).message).toMatch(/changed after it was approved/);

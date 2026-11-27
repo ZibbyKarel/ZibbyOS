@@ -380,12 +380,15 @@ describe("chat gate schemas", () => {
     tool: "shell",
     input: { command: "ls" },
     hash: "a".repeat(64),
-    intent: { action: "overwrite" },
+    intents: [{ action: "overwrite" }],
   };
   it("accepts a check body and rejects a bad hash", () => {
     expect(ChatGateCheckBodySchema.safeParse(ok).success).toBe(true);
     expect(ChatGateCheckBodySchema.safeParse({ ...ok, hash: "xyz" }).success).toBe(false);
     expect(ChatGateCheckBodySchema.safeParse({ ...ok, hash: "A".repeat(64) }).success).toBe(false);
+  });
+  it("requires at least one intent", () => {
+    expect(ChatGateCheckBodySchema.safeParse({ ...ok, intents: [] }).success).toBe(false);
   });
   it("parses the three decisions", () => {
     expect(ChatGateDecisionSchema.safeParse({ decision: "allow" }).success).toBe(true);

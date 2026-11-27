@@ -23,6 +23,7 @@ describe("ChatGateService", () => {
   let dir: string;
   let approvals: ApprovalsService;
   let evaluation: GateEvaluation;
+  let byAction: Record<string, GateEvaluation>;
   let paused: boolean;
   let turnInFlight: boolean;
   let mentions: { kind: string }[];
@@ -30,7 +31,12 @@ describe("ChatGateService", () => {
   let service: ChatGateService;
 
   const body = (
-    over: Partial<{ tool: string; input: unknown; intent: IntendedAction }> = {},
+    over: Partial<{
+      tool: string;
+      input: unknown;
+      intent: IntendedAction;
+      intents: IntendedAction[];
+    }> = {},
   ): ChatGateCheckBody => {
     const tool = over.tool ?? "shell";
     const input = "input" in over ? over.input : { command: "echo hi > /tmp/x" };
@@ -38,7 +44,7 @@ describe("ChatGateService", () => {
       tool,
       input,
       hash: chatGateHash(tool, input),
-      intent: over.intent ?? { action: "overwrite" },
+      intents: over.intents ?? [over.intent ?? { action: "overwrite" }],
     };
   };
 
@@ -46,13 +52,14 @@ describe("ChatGateService", () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "chat-gate-"));
     approvals = new ApprovalsService(new ApprovalsStorageService(dir));
     evaluation = { decision: "ask", ruleId: "r1" };
+    byAction = {};
     paused = false;
     turnInFlight = true;
     mentions = [];
     widgets = [];
     const gates = {
       floor: vi.fn(async () => []),
-      evaluate: vi.fn(() => evaluation),
+      evaluate: vi.fn((_f: unknown, i: IntendedAction) => byAction[i.action] ?? evaluation),
     } as unknown as GateEvaluatorService;
     const registry = {
       pushWidget: vi.fn((_c: string, w: ChatWidget) => {
@@ -111,6 +118,51 @@ describe("ChatGateService", () => {
     expect((await service.check(CONV, body({ intent: { action: "git.push" } }))).decision).toBe(
       "pending",
     );
+  });
+
+  it("denies a chain containing a denied action even when the first intent is allowed", async () => {
+    evaluation = { decision: "allow", ruleId: "r" };
+    byAction = { "git.merge": { decision: "deny", ruleId: "d" } };
+    const r = await service.check(
+      CONV,
+      body({ intents: [{ action: "git.push" }, { action: "git.merge" }] }),
+    );
+    expect(r).toMatchObject({ decision: "deny", reason: expect.stringContaining("git.merge") });
+    expect(await approvals.list()).toHaveLength(0);
+  });
+
+  it("no silent allow unless EVERY intent has an allow rule", async () => {
+    evaluation = { decision: "allow", ruleId: "r" };
+    byAction = { "git.push": { decision: "allow" } }; // default allow: no ruleId
+    const r = await service.check(
+      CONV,
+      body({ intents: [{ action: "gh.api_write" }, { action: "git.push" }] }),
+    );
+    expect(r.decision).toBe("pending");
+    const [a] = await pending();
+    expect(JSON.parse(a?.detail ?? "{}").summary).toMatch(/gh\.api_write, git\.push/);
+    // all allowed with rules -> silent
+    byAction = {};
+    const ok = await service.check(
+      CONV,
+      body({ intents: [{ action: "gh.api_write" }, { action: "git.push" }] }),
+    );
+    expect(ok).toEqual({ decision: "allow" });
+  });
+
+  it("denies when any intent is unclassified; labels the card by delete when present", async () => {
+    const r = await service.check(
+      CONV,
+      body({ intents: [{ action: "git.push" }, { action: "unclassified" }] }),
+    );
+    expect(r.decision).toBe("deny");
+    const r2 = await service.check(
+      CONV,
+      body({ intents: [{ action: "git.push" }, { action: "delete" }] }),
+    );
+    expect(r2.decision).toBe("pending");
+    const [a] = await pending();
+    expect(a).toMatchObject({ action: "delete", risk: "high" });
   });
 
   it("denies unclassified", async () => {

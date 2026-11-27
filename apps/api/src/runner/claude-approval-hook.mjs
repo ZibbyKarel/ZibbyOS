@@ -876,6 +876,25 @@ export function classify(command) {
 }
 
 /**
+ * Every gated action a Bash command performs (one entry per gated segment, deduplicated by
+ * action), not just the most severe one — for callers that judge each action against the
+ * operator's rules (the chat gate). Empty when nothing is gated.
+ */
+export function classifyAll(command) {
+  if (typeof command !== "string" || !command.trim()) return [];
+  const text = stripCatHeredocs(command);
+  const all = [];
+  for (const segment of text.split(/&&|\|\||;|\||\n|&/)) {
+    const c = classifySegment(segment.trim(), command);
+    if (c && !all.some((a) => a.action === c.action && a.branch === c.branch)) all.push(c);
+  }
+  if (classifyRedirectOverwrite(text) && !all.some((a) => a.action === "overwrite")) {
+    all.push(enrich("overwrite", { command }));
+  }
+  return all;
+}
+
+/**
  * Drop the body of a `cat … <<'DELIM'` heredoc — it is data being written to a
  * file, not shell, so a Python `'-->'` or an `rm` word inside it must not be
  * classified as a command. Only a QUOTED delimiter qualifies (an unquoted body
@@ -1695,19 +1714,27 @@ const isMcpCall = (input) =>
 export function classifyEvent(input, registry = new Set()) {
   if (input?.tool_name === "Bash") {
     const cls = classify(input?.tool_input?.command ?? "");
-    if (!cls) return null;
-    return {
-      action: cls.action,
-      ...(cls.branch ? { branch: cls.branch } : {}),
-      ...(cls.branches ? { branches: cls.branches } : {}),
-      context: JSON.stringify({
-        riskType: cls.riskType,
-        summary: cls.summary,
-        consequence: cls.consequence,
-        preview: cls.preview,
-      }),
-    };
+    return cls ? intentOf(cls) : null;
   }
+  return classifyNonBashEvent(input, registry);
+}
+
+/** The intent shape of one classified Bash action. */
+export function intentOf(cls) {
+  return {
+    action: cls.action,
+    ...(cls.branch ? { branch: cls.branch } : {}),
+    ...(cls.branches ? { branches: cls.branches } : {}),
+    context: JSON.stringify({
+      riskType: cls.riskType,
+      summary: cls.summary,
+      consequence: cls.consequence,
+      preview: cls.preview,
+    }),
+  };
+}
+
+function classifyNonBashEvent(input, registry) {
   if (input?.tool_name === "Task") return classifyTask(input?.tool_input);
   // An agent's question to the operator always goes through the gate (a locked
   // ask:human floor) — even an empty one, so the tool can never answer itself.

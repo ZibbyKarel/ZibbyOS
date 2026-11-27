@@ -85,10 +85,10 @@ export class ChatGateService implements OnModuleInit {
   }
 
   async check(conversationId: string, body: ChatGateCheckBody): Promise<ChatGateDecision> {
-    const { tool, input, intent } = body;
+    const { tool, input, intents } = body;
     if (chatGateHash(tool, input) !== body.hash) return deny("The call does not match its hash.");
     const cmd = rawCommand(tool, input);
-    if (intent.action === "unclassified")
+    if (intents.some((i) => i.action === "unclassified"))
       return deny("The ZIBBY gate could not classify this call.");
     if (cmd.length > CHAT_GATE_MAX_COMMAND_CHARS) {
       return deny("Too large to review in the chat; split it into smaller steps.");
@@ -100,26 +100,32 @@ export class ChatGateService implements OnModuleInit {
       );
     }
 
-    const ev = this.gates.evaluate(await this.gates.floor(), intent);
-    if (ev.decision === "deny") return deny(`The ZIBBY gate denies "${intent.action}".`);
+    const floor = await this.gates.floor();
+    const evals = intents.map((intent) => ({ intent, ev: this.gates.evaluate(floor, intent) }));
+    const denied = evals.find((e) => e.ev.decision === "deny");
+    if (denied) return deny(`The ZIBBY gate denies "${denied.intent.action}".`);
     const mentions = this.toolResults.getMentions(conversationId);
     const agentTurn = mentions.length === 1 && mentions[0]?.kind === "agent";
     if (
-      ev.decision === "allow" &&
-      ev.ruleId &&
-      !CHAT_NEVER_ACTIONS.has(intent.action) &&
-      !agentTurn
+      !agentTurn &&
+      evals.every(
+        (e) => e.ev.decision === "allow" && e.ev.ruleId && !CHAT_NEVER_ACTIONS.has(e.intent.action),
+      )
     ) {
       return { decision: "allow" };
     }
 
+    // The card is labelled by the highest-risk action (delete first); the summary lists all of them.
+    const primary = intents.find((i) => i.action === "delete") ?? intents[0];
+    if (!primary) return deny("The ZIBBY gate could not classify this call.");
+    const actions = [...new Set(intents.map((i) => i.action))];
     const approval = await this.approvals.requestApproval({
       runId: `${conversationId}/${body.hash.slice(0, 16)}`,
       kind: "chat",
       skill: "ZIBBY chat",
-      action: intent.action,
-      detail: this.detail(body, cmd),
-      risk: intent.action === "delete" ? "high" : "medium",
+      action: primary.action,
+      detail: this.detail(body, primary, actions, cmd),
+      risk: primary.action === "delete" ? "high" : "medium",
     });
     if (
       !this.toolResults.pushWidget(conversationId, { kind: "approval", approvalId: approval.id })
@@ -173,8 +179,13 @@ export class ChatGateService implements OnModuleInit {
   }
 
   /** The enrichment JSON the card reads, with `preview.cmd` overwritten by the full raw command. */
-  private detail(body: ChatGateCheckBody, cmd: string): string {
-    const { intent, tool, input } = body;
+  private detail(
+    body: ChatGateCheckBody,
+    intent: ChatGateCheckBody["intents"][number],
+    actions: string[],
+    cmd: string,
+  ): string {
+    const { tool, input } = body;
     const mcp = intent.action.startsWith("mcp.");
     const full = mcp
       ? `${[intent.scope, intent.tool ?? tool].filter(Boolean).join(" · ")} ${JSON.stringify(input, null, 2)}`
@@ -189,10 +200,15 @@ export class ChatGateService implements OnModuleInit {
       // context is plain text: build the enrichment below
     }
     const preview = { kind: "command", cmd: full };
+    const summary = actions.length > 1 ? `Actions: ${actions.join(", ")}` : undefined;
     return JSON.stringify(
       base
-        ? { ...base, preview: { ...(base.preview as object | undefined), ...preview } }
-        : { summary: intentApprovalDetail(intent), preview },
+        ? {
+            ...base,
+            ...(summary ? { summary } : {}),
+            preview: { ...(base.preview as object | undefined), ...preview },
+          }
+        : { summary: summary ?? intentApprovalDetail(intent), preview },
     );
   }
 }

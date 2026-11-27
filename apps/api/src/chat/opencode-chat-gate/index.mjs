@@ -24,7 +24,9 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
+  classifyAll,
   classifyEvent,
+  intentOf,
   pathTouchesOperatorOnly,
   touchesOperatorOnly,
 } from "../../runner/claude-approval-hook.mjs";
@@ -89,7 +91,7 @@ function touchesOperator(e) {
 }
 
 /**
- * Judge one call locally → `{ reason }` (refused), `{ intent }` (a gated action the API must
+ * Judge one call locally → `{ reason }` (refused), `{ intents }` (the gated actions the API must
  * decide) or `null` (run it). Never waits.
  */
 export function chatGateReason(tool, input, env = process.env) {
@@ -104,7 +106,7 @@ export function chatGateReason(tool, input, env = process.env) {
   } catch (e) {
     return { reason: e?.message ?? CHAT_DENY_REASON };
   }
-  let intent = null;
+  const intents = [];
   for (const e of events) {
     if (touchesOperator(e)) {
       return {
@@ -117,21 +119,34 @@ export function chatGateReason(tool, input, env = process.env) {
         reason: `a nested opencode / claude session is not allowed — ${CHAT_DELEGATE_REASON}`,
       };
     }
-    let request;
+    let requests;
     try {
-      request = classifyEvent(e);
+      // A shell command yields EVERY gated action in it (the server judges them all); other
+      // events yield their single classification.
+      requests =
+        e.tool_name === "Bash"
+          ? classifyAll(e.tool_input?.command).map(intentOf)
+          : [classifyEvent(e)];
     } catch {
       // Fail closed: a call the classifier chokes on goes to the API as `unclassified`, which denies it.
-      request = { action: "unclassified" };
+      requests = [{ action: "unclassified" }];
     }
-    if (request?.action === "gh.pr_comment") {
-      return {
-        reason: `"gh.pr_comment" — propose the reply with the zibby propose_pr_replies tool instead; the operator sends it from the card.`,
-      };
+    for (const request of requests) {
+      if (request?.action === "gh.pr_comment") {
+        return {
+          reason: `"gh.pr_comment" — propose the reply with the zibby propose_pr_replies tool instead; the operator sends it from the card.`,
+        };
+      }
+      if (
+        request &&
+        request.action !== "mcp.read" &&
+        !intents.some((i) => JSON.stringify(i) === JSON.stringify(request))
+      ) {
+        intents.push(request);
+      }
     }
-    if (request && request.action !== "mcp.read" && !intent) intent = request;
   }
-  return intent ? { intent } : null;
+  return intents.length ? { intents } : null;
 }
 
 /** sha256 hex of `tool + "\0" + JSON.stringify(input)` — must match the API's `chatGateHash`. */
@@ -150,7 +165,7 @@ const blocked = (reason) => new Error(`Blocked by the ZibbyOS gate: ${reason}`);
  * decides. Resolves only for an allowed / approved call; every other outcome throws
  * (fail closed). `input` is re-hashed after an approval to catch a mutation of the held call.
  */
-export async function chatGateCall(tool, input, intent, env = process.env, fetchImpl = fetch) {
+export async function chatGateCall(tool, input, intents, env = process.env, fetchImpl = fetch) {
   const url = env.ZIBBY_CHAT_GATE_URL;
   const token = env.ZIBBY_CHAT_GATE_TOKEN;
   if (!url || !token) throw blocked("the chat approval gate is not configured — refusing.");
@@ -168,7 +183,7 @@ export async function chatGateCall(tool, input, intent, env = process.env, fetch
   try {
     decision = await call(url, {
       method: "POST",
-      body: JSON.stringify({ tool, input, hash, intent }),
+      body: JSON.stringify({ tool, input, hash, intents }),
     });
   } catch (e) {
     throw blocked(`the approval gate could not be reached (${e?.message ?? e}) — refusing.`);
@@ -183,7 +198,7 @@ export async function chatGateCall(tool, input, intent, env = process.env, fetch
 
   const u = new URL(url);
   u.pathname = `${u.pathname.replace(/\/$/, "")}/${encodeURIComponent(approvalId)}`;
-  const action = intent?.action ?? tool;
+  const action = intents.map((i) => i.action).join(", ") || tool;
   for (;;) {
     if (Date.now() >= deadline)
       throw blocked("no decision in time. Do not retry; ask the operator.");
@@ -222,7 +237,7 @@ const plugin = {
       const run = queue.then(async () => {
         const verdict = chatGateReason(event.tool, event.input);
         if (verdict?.reason) throw blocked(verdict.reason);
-        if (verdict?.intent) await chatGateCall(String(event.tool), event.input, verdict.intent);
+        if (verdict?.intents) await chatGateCall(String(event.tool), event.input, verdict.intents);
       });
       queue = run.catch(() => undefined);
       return run;
