@@ -29,8 +29,8 @@ export const RoutingProposalSchema = z.object({
   itemId: RoadmapItemIdSchema,
   /** The task text the classifier was asked to route (verbatim; Law 4 — data). */
   text: z.string(),
-  /** The resolved project worktree path the release would have used. */
-  projectPath: z.string().min(1),
+  /** The resolved project worktree path the release would have used (absent for an abstract, path-less project). */
+  projectPath: z.string().min(1).optional(),
   /** The stage-1 winner — what an approval releases the item to. */
   pick: TaskTargetSchema,
   /** The winner's own confidence, kept for the record (never re-thresholded). */

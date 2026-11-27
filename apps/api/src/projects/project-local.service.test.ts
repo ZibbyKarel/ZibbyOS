@@ -222,6 +222,14 @@ describe("ProjectLocalService (Phase 76 — per-machine clone resolution)", () =
       });
     });
 
+    it("returns a null path for an abstract project (no path, no gitRemote) instead of failing", async () => {
+      const { path: _omit, ...abstract } = project();
+      await expect(service.resolveForRun(abstract)).resolves.toEqual({
+        path: null,
+        isGitRepo: false,
+      });
+    });
+
     it("rejects with ProjectLocalUnresolvedError when absent, no gitRemote, and nothing exists at path", async () => {
       const p = project({ path: path.join(root, "does-not-exist") });
       await expect(service.resolveForRun(p)).rejects.toBeInstanceOf(ProjectLocalUnresolvedError);

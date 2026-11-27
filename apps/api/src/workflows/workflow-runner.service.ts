@@ -644,7 +644,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       // failed-run path.
       try {
         const local = await this.projectLocal.resolveForRun(project);
-        if (local.isGitRepo) {
+        if (local.isGitRepo && local.path) {
           run.workspace = await this.workspace.createWorktree({
             projectPath: local.path,
             runId: workflowRunId,

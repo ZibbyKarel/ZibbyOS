@@ -213,7 +213,7 @@ export class LoopRunnerService implements OnModuleInit {
     if (resolved) {
       try {
         const local = await this.projectLocal.resolveForRun(resolved);
-        if (local.isGitRepo) {
+        if (local.isGitRepo && local.path) {
           run.workspace = await this.workspace.createWorktree({
             projectPath: local.path,
             runId: loopRunId,

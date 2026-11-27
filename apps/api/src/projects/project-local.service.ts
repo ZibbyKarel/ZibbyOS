@@ -106,10 +106,14 @@ export class ProjectLocalService {
    *   the pre-Phase-76 "non-git project" posture (direct checkout, no
    *   worktree), unaffected by the clone machinery.
    *
-   * Throws {@link ProjectLocalUnresolvedError} only when NONE of the above
-   * resolve — nothing on this machine to run against, and nothing to clone.
+   * - `{ path: null, isGitRepo: false }` for an ABSTRACT project — one with
+   *   neither `path` nor `gitRemote`, just a grouping of runs. Not an error:
+   *   there is simply no working dir, so callers run sandbox-only.
+   *
+   * Throws {@link ProjectLocalUnresolvedError} only when the project DOES name a
+   * `path` that resolves to nothing here and has no `gitRemote` to clone from.
    */
-  async resolveForRun(project: Project): Promise<{ path: string; isGitRepo: boolean }> {
+  async resolveForRun(project: Project): Promise<{ path: string | null; isGitRepo: boolean }> {
     const state = await this.resolve(project);
     if (state.present) {
       // `present` only when resolve() found a real path — non-null by construction.
@@ -119,6 +123,7 @@ export class ProjectLocalService {
       const cloned = await this.clone(project);
       return { path: cloned.resolvedPath as string, isGitRepo: true };
     }
+    if (!project.path) return { path: null, isGitRepo: false };
     const stat = project.path ? await fs.stat(project.path).catch(() => null) : null;
     if (stat?.isDirectory() && project.path) {
       return { path: project.path, isGitRepo: false };

@@ -107,16 +107,16 @@ the raw manifest from before this externalization existed.
 
 ## Errors (`projects.errors.ts`)
 
-| Error                         | HTTP | Raised when                                                                                           |
-| ----------------------------- | ---- | ----------------------------------------------------------------------------------------------------- |
-| `ProjectNotFoundError`        | 404  | unknown id                                                                                            |
-| `ProjectConflictError`        | 409  | `create` with an id already taken                                                                     |
-| `ProjectNoRemoteError`        | 422  | `clone` with no `gitRemote`                                                                           |
-| `ProjectAlreadyClonedError`   | 409  | `clone` when already present on this machine                                                          |
-| `ProjectLocalUnresolvedError` | —    | `resolveForRun`: no local clone, no remote — dispatch fails clearly rather than spawning into nothing |
-| `NoGithubLinkError`           | 422  | `merge`: no resolved git host link (github integration + token, or gitlab integration)                |
-| `PrNotMergeableError`         | 409  | GitHub reports 405/409 on the merge attempt                                                           |
-| `PrUpdateRefusedError`        | 409  | `close` / `setDraft`: GitHub refused the change (PR not open, 403/409/422, GraphQL error)             |
+| Error                         | HTTP | Raised when                                                                                                                    |
+| ----------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ProjectNotFoundError`        | 404  | unknown id                                                                                                                     |
+| `ProjectConflictError`        | 409  | `create` with an id already taken                                                                                              |
+| `ProjectNoRemoteError`        | 422  | `clone` with no `gitRemote`                                                                                                    |
+| `ProjectAlreadyClonedError`   | 409  | `clone` when already present on this machine                                                                                   |
+| `ProjectLocalUnresolvedError` | —    | `resolveForRun`: a named `path` that doesn't resolve, no remote — dispatch fails clearly (a path-less project is not an error) |
+| `NoGithubLinkError`           | 422  | `merge`: no resolved git host link (github integration + token, or gitlab integration)                                         |
+| `PrNotMergeableError`         | 409  | GitHub reports 405/409 on the merge attempt                                                                                    |
+| `PrUpdateRefusedError`        | 409  | `close` / `setDraft`: GitHub refused the change (PR not open, 403/409/422, GraphQL error)                                      |
 
 ## Per-machine clone resolution (Phase 76/77 — `ProjectLocalService`)
 
@@ -137,8 +137,11 @@ side effect only.
   workflow) should actually use on this machine: present → use it; absent with
   a `gitRemote` → clone then use it; absent with no remote but `path` is an
   ordinary (non-git) folder → use it directly, no worktree (the pre-Phase-76
-  posture); none of the above → throws `ProjectLocalUnresolvedError` rather
-  than spawning into a directory that may not exist.
+  posture); an **abstract** project (neither `path` nor `gitRemote` — just a
+  grouping of runs) → `{ path: null, isGitRepo: false }`, runs go sandbox-only
+  with no worktree; a project that names a `path` which resolves to nothing
+  here and has no remote → throws `ProjectLocalUnresolvedError` rather than
+  spawning into a directory that may not exist.
 
 ## GitHub PRs (Phase 78 — `ProjectPrService`)
 

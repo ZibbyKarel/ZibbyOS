@@ -140,3 +140,5 @@ cap went over), `limit` (the usage-limit auto-resume flapped past its cap),
 or `awaiting-resume` (rehydrated on boot, pending an explicit operator decision). `resumeParked(loopRunId, note)`
 re-enters `drive()` at the parked iteration index with a resume-context built from the
 parked verdict plus the operator's note.
+
+<!-- Last reviewed 2026-11-27: `resolveForRun` returns `path: null` for an abstract project (no path, no gitRemote); runs go sandbox-only instead of failing. -->

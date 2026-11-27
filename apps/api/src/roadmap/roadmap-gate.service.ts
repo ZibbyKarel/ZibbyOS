@@ -661,7 +661,7 @@ export class RoadmapGateService {
         title: override?.title ?? item.name,
         text,
         routingText,
-        paths: [local.path],
+        paths: local.path ? [local.path] : [],
         ...(item.attachmentSetId ? { attachmentSetId: item.attachmentSetId } : {}),
         output,
       },
@@ -737,7 +737,7 @@ export class RoadmapGateService {
   private async parkForRouting(
     item: RoadmapItem,
     text: string,
-    projectPath: string,
+    projectPath: string | null,
     routing: TaskRouting,
   ): Promise<void> {
     const proposal: RoutingProposal = {
@@ -745,7 +745,7 @@ export class RoadmapGateService {
       projectId: item.projectId,
       itemId: item.id,
       text,
-      projectPath,
+      ...(projectPath ? { projectPath } : {}),
       pick: routing.target,
       confidence: routing.confidence,
       reason: routing.reason,
@@ -867,12 +867,12 @@ export class RoadmapGateService {
    */
   private async classifyDepartment(
     text: string,
-    projectPath: string,
+    projectPath: string | null,
     output: TaskOutput,
   ): Promise<TaskRouting | null> {
     try {
       const routing = await this.classifier.classifyDepartment(
-        { text, paths: [projectPath], output },
+        { text, paths: projectPath ? [projectPath] : [], output },
         DEFAULT_ROADMAP_DEPARTMENT,
       );
       // Belt to `classifyDepartment`'s own braces: its catalog is department-only

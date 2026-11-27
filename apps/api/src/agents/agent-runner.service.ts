@@ -423,7 +423,7 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
       // (no dead run record — same "fail before creating anything" posture as the
       // preflight check above) when absent+no remote and nothing plain exists either.
       const local = await this.projectLocal.resolveForRun(resolved);
-      if (local.isGitRepo) {
+      if (local.isGitRepo && local.path) {
         await fs.mkdir(cwd, { recursive: true });
         try {
           workspace = await this.workspace.createWorktree({
@@ -447,7 +447,8 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
         // Phase 11.3: a resolved but NON-git project (e.g. a freshly granted plain
         // folder) gets no worktree — but it still scopes the run: spawn directly in the
         // folder (the pre-3.1 posture). No createWorktree call, so no WorkspaceSetupError.
-        spawnCwd = local.path;
+        // An abstract project (no path) has no folder to scope to — sandbox-only.
+        if (local.path) spawnCwd = local.path;
       }
     }
 

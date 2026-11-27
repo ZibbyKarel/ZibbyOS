@@ -212,13 +212,14 @@ On release, the gate calls `TaskSchedulerService.createTask` with:
 - `routingText` = `buildRoadmapRoutingText(item)` — the same `name` + `\n\n` +
   `description`, **footer-free**. Routing reads this; the run reads `text`. See
   "The footer must not reach the ranker" below.
-- `paths: [local.path]`, where `local = ProjectLocalService.resolveForRun(project)`
+- `paths: [local.path]` (`[]` for an abstract, path-less project), where `local = ProjectLocalService.resolveForRun(project)`
   — `project.path` is optional (Phase 98: most projects live at
   `<cloneRoot>/<project.id>` instead), and `resolveForRun` already knows how to
   find that clone (or make one from `gitRemote` when it isn't there yet) rather
   than requiring `path` to be hand-set. Throws `ProjectLocalUnresolvedError`
-  only when NEITHER `path` nor a cloneRoot clone nor a `gitRemote` resolves
-  anything (see "Release failures" below).
+  only when the project names a `path` that doesn't resolve and has no clone
+  or `gitRemote`; a project with no `path` and no `gitRemote` resolves to
+  `path: null` (see "Release failures" below).
 - `trustedProjectId: project.id` — the roadmap item's own `projectId` foreign
   key, not client-asserted text, so it's exactly the "server-side caller
   already matched the engagement" carve-out `createTask`'s own docblock names
@@ -428,7 +429,7 @@ Not on `CreateTaskInput`: `roadmapItemId` is provenance, the same class as
   newest archived row.
 
 If `resolveForRun` or `createTask` itself throws (e.g. `ProjectLocalUnresolvedError`
-— no `path`, no cloneRoot clone, no `gitRemote` to clone from), the item has no
+— a `path` that doesn't resolve, no cloneRoot clone, no `gitRemote` to clone from), the item has no
 task/run to speak of — `drain` catches it, flips the item straight to `failed`,
 and stamps `lastFailureReason` from the caught error's own message
 (`markReleaseFailed`) so the operator sees WHY even though `runs[]` never

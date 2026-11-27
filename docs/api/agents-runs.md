@@ -250,3 +250,5 @@ Runs directly as the `claude` CLI with generic instructions.
 <!-- Last reviewed 2026-10-21 (gates unified): only agent-runner.service.test.ts changed (PolicyStorageService now wraps GateRulesStorageService); no runtime behavior described here changed. -->
 
 <!-- Last reviewed 2026-11-16: documented the automation engine override in dispatch. -->
+
+<!-- Last reviewed 2026-11-27: `resolveForRun` returns `path: null` for an abstract project (no path, no gitRemote); runs go sandbox-only instead of failing. -->

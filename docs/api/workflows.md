@@ -885,3 +885,5 @@ candidate dirs, absolute path of the first existing file, else `null`) — the s
 `{ artifact }` body opens that file.
 
 The terminal `pr` output of a GitLab-linked project opens a merge request via `glab mr create` (see `workspace.md`).
+
+<!-- Last reviewed 2026-11-27: `resolveForRun` returns `path: null` for an abstract project (no path, no gitRemote); runs go sandbox-only instead of failing. -->
