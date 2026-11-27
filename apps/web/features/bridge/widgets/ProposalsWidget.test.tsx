@@ -1,7 +1,7 @@
 import type { Proposal } from "@zibby/contracts";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen, within } from "../../../test/render";
+import { act, fireEvent, renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
 import {
   ProposalsWidget,
@@ -376,6 +376,28 @@ describe("ProposalsWidget approve", () => {
     fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Approve));
     const [call] = g.create.mock.calls[0] as [{ body: { id: string; enabled: boolean } }];
     expect(call.body).toMatchObject({ id: "ci-stays-green-2", enabled: false });
+  });
+});
+
+describe("ProposalsWidget goal retry", () => {
+  it("retrying after a failed approve does not create a second goal", () => {
+    g.create.mockClear();
+    d.mutate.mockClear();
+    d.proposals = [
+      proposal("gl", {
+        source: "gap-detect",
+        kind: "goal",
+        goal: { presetId: "ci-stays-green", name: "CI", outcome: "CI je zelené." },
+      }),
+    ];
+    renderWithProviders(<ProposalsWidget {...setup()} />);
+    fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Approve));
+    const [, opts] = g.create.mock.calls[0] as [unknown, { onSuccess: () => void }];
+    act(() => opts.onSuccess());
+    d.mutate.mockClear();
+    fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Approve));
+    expect(g.create).toHaveBeenCalledTimes(1);
+    expect(d.mutate).toHaveBeenCalledWith({ params: { id: "gl" }, body: { action: "approve" } });
   });
 });
 

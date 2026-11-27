@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, CopyableText, Stack, Typography } from "@zibby/design-system";
+import { Alert, Button, Container, CopyableText, Stack, Typography } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import type { RunView } from "../run";
 import { useRunPrUrl } from "../useRunPrUrl";
@@ -80,7 +80,7 @@ export function RunArtifactInfo({
           <Typography as="span" type="labelSm">
             {body.label}
           </Typography>
-          <span data-testid={RunArtifactInfoTestId.Path}>
+          <Container data-testid={RunArtifactInfoTestId.Path}>
             {body.copy ? (
               <CopyableText copyLabel={t("copyPath")} text={body.text} />
             ) : (
@@ -88,7 +88,7 @@ export function RunArtifactInfo({
                 {body.text}
               </Typography>
             )}
-          </span>
+          </Container>
         </Stack>
         {body.action && (
           <Button

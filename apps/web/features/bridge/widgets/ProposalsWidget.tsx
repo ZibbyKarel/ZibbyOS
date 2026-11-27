@@ -11,6 +11,7 @@ import {
   BoardRow,
   BoardText,
   Button,
+  Container,
   DecisionCard,
   HoldButton,
   Stack,
@@ -206,7 +207,7 @@ function DisabledProducers() {
   );
   if (off.length === 0) return null;
   return (
-    <div data-testid={ProposalsWidgetTestId.DisabledHint}>
+    <Container data-testid={ProposalsWidgetTestId.DisabledHint}>
       <BoardText kind="rowMeta">
         {t("disabled", { names: off.map((a) => a.name ?? a.id).join(", ") })}
       </BoardText>
@@ -227,7 +228,7 @@ function DisabledProducers() {
           </Button>
         </BoardLine>
       ))}
-    </div>
+    </Container>
   );
 }
 
@@ -248,6 +249,8 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
   const shown = proposal.editedText ?? proposal.text;
   const [editing, setEditing] = useState(false);
   const [approving, setApproving] = useState(false);
+  // Set once the goal exists, so a retry after a failed approve never creates a second one.
+  const [goalCreated, setGoalCreated] = useState(false);
   const [draft, setDraft] = useState(shown);
   const provenance = proposalProvenance(proposal.provenance, proposal.source);
   const approvable = proposal.source === "gap-detect";
@@ -280,12 +283,17 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
           intent="primary"
           onClick={() => {
             if (!isGoal || !proposal.goal) return setApproving(true);
+            const approve = () =>
+              decide.mutate({ params: { id: proposal.id }, body: { action: "approve" } });
+            if (goalCreated) return approve();
             // Paused goal first, then mark the proposal approved.
             createGoal.mutate(
               { body: proposalGoalBody(proposal.goal, takenGoalIds) },
               {
-                onSuccess: () =>
-                  decide.mutate({ params: { id: proposal.id }, body: { action: "approve" } }),
+                onSuccess: () => {
+                  setGoalCreated(true);
+                  approve();
+                },
               },
             );
           }}

@@ -39,7 +39,8 @@ hand-made `playwright-kdp` / `playwright-makerworld`: stdio, `grantOnly: true`, 
 `--user-data-dir <browser-profiles>/<profile> --allow-unrestricted-file-access`. `command` is `playwright-mcp` next to
 the running node binary when present, else `playwright-mcp` from PATH. An existing file is never overwritten: the
 definition is still created, the file is left untouched (logged) and not marked as owned, so delete will not remove it.
-An agent still has to be granted the server (`playwright-<id>`) to use it.
+A create that fails part-way leaves no orphan MCP file behind. An agent still has to be granted the server
+(`playwright-<id>`) to use it.
 
 ## Known services
 

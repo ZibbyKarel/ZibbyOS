@@ -200,19 +200,25 @@ export class ConnectedServicesService {
     // An existing MCP file (hand-written or another service's) is never overwritten: the
     // definition is still created, just without ownership of that file.
     const ownsMcp = await this.writeMcpServer(mcpFile, mcpServer, input.name, id);
-    return this.write(
-      {
-        id,
-        name: input.name,
-        landingUrl: input.landingUrl ?? new URL(input.loginUrl).origin,
-        loginUrl: input.loginUrl,
-        ...(input.iconUrl ? { iconUrl: input.iconUrl } : {}),
-        profile: id,
-        authCookies: input.authCookies ?? [],
-        ...(ownsMcp ? { mcpServer } : {}),
-      },
-      name,
-    );
+    try {
+      return await this.write(
+        {
+          id,
+          name: input.name,
+          landingUrl: input.landingUrl ?? new URL(input.loginUrl).origin,
+          loginUrl: input.loginUrl,
+          ...(input.iconUrl ? { iconUrl: input.iconUrl } : {}),
+          profile: id,
+          authCookies: input.authCookies ?? [],
+          ...(ownsMcp ? { mcpServer } : {}),
+        },
+        name,
+      );
+    } catch (err) {
+      // No definition owns the MCP file we just generated, so remove() could never clean it up.
+      if (ownsMcp) await fs.rm(mcpFile, { force: true });
+      throw err;
+    }
   }
 
   /** Writes the grantOnly Playwright MCP server for a service's profile; false when the file already exists. */

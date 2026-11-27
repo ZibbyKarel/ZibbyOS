@@ -19,14 +19,16 @@ export enum ConnectedServiceDialogTestId {
 export function parseAuthCookies(text: string): AuthCookie[] | null {
   const out: AuthCookie[] = [];
   for (const line of text.split("\n").filter((l) => l.trim())) {
-    const i = line.indexOf(":");
-    const host = line.slice(0, i).trim();
-    const names = line
+    // A pasted URL ("https://host: name") must not split at the scheme's colon.
+    const entry = line.replace(/^\s*[a-z][a-z0-9+.-]*:\/\//i, "");
+    const i = entry.indexOf(":");
+    const host = entry.slice(0, i).trim();
+    const names = entry
       .slice(i + 1)
       .split(",")
       .map((n) => n.trim())
       .filter(Boolean);
-    if (i < 0 || !host || !names.length) return null;
+    if (i < 0 || !host || host.includes("/") || !names.length) return null;
     out.push({ host, names });
   }
   return out;

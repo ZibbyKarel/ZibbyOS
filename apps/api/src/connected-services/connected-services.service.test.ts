@@ -228,6 +228,18 @@ describe("ConnectedServicesService", () => {
     expect(readFileSync(file, "utf8")).toBe("hand-made");
   });
 
+  it("create removes the MCP file it generated when the definition write fails", async () => {
+    const { s } = svc();
+    await expect(
+      s.create({
+        name: "Etsy",
+        loginUrl: "https://www.etsy.com/signin",
+        authCookies: [{ host: "", names: [] }],
+      }),
+    ).rejects.toThrow();
+    expect(existsSync(path.join(mcpDir(), "playwright-etsy.json"))).toBe(false);
+  });
+
   it("remove deletes the definition and its generated MCP file but keeps the profile", async () => {
     const { s } = svc();
     await s.create({ name: "Etsy", loginUrl: "https://www.etsy.com/signin" });

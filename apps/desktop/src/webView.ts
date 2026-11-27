@@ -92,6 +92,8 @@ export function attachWebView(win: BrowserWindow): void {
     const guard = (event: Electron.Event, url: string) => {
       if (!parseWebUrl(url)) event.preventDefault();
     };
+    // The guest never downloads anything into the default location.
+    ses.on("will-download", (e) => e.preventDefault());
     wc.on("will-navigate", guard);
     wc.on("will-redirect", guard);
     for (const e of [
@@ -148,6 +150,18 @@ export function attachWebView(win: BrowserWindow): void {
     const url = parseWebUrl(view?.webContents.getURL());
     if (fromUi(event) && url) void shell.openExternal(url);
   };
+
+  // A full UI navigation or crash never runs React cleanup, so the native view would be stranded.
+  ui.on("did-start-navigation", (d) => {
+    if (d.isMainFrame && !d.isSameDocument) {
+      hide();
+      requested = "";
+    }
+  });
+  ui.on("render-process-gone", () => {
+    hide();
+    requested = "";
+  });
 
   ipcMain.on("zibby:web-open", onOpen);
   ipcMain.on("zibby:web-bounds", onBounds);
