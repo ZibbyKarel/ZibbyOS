@@ -255,7 +255,8 @@ of every pid file whose API is gone and whose command line still reads `opencode
     with `-c`, a script or a pipe), `eval` / `exec` / `source`, `$(…)`, backticks and `<(…)`,
     wrapper prefixes (`env`, `sudo`, `command`, `xargs`, `nohup`, `nice`, `timeout`, `time`,
     ...), compound blocks (`{ …; }`, `if`/`for`/`while`/`case`), `python*`/`node`/`perl`/`ruby`
-    with `-c`/`-e`, `find -exec`, a path-qualified gated CLI (`/usr/bin/git`), and
+    with `-c`/`-e` or code on stdin (`python3 - <<'PY'`, `| python3`, `< x.py`), a backslash-newline
+    continuation, a quoted or `$`-expanded command word (`g''it`, `$GIT`), `find -exec`, a path-qualified gated CLI (`/usr/bin/git`), and
     `curl`/`wget` with a non-GET method or a body (`-X`, `--request`, `-d`/`--data*`,
     `--json`, `-F`/`--form`, `-T`, `--post-data`, `--method`). A quoted `cat <<'EOF'` body is
     data and is not judged. The system rule `floor-shell.opaque` (`ask`) shows it on the gates

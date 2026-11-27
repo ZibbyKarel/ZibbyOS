@@ -921,6 +921,8 @@ const OPAQUE_PREFIXES = new Set([
 const OPAQUE_SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh", "fish", "csh", "tcsh"]);
 /** Interpreters whose `-c` / `-e` runs inline code. */
 const INLINE_INTERPRETER = /^(python[\d.]*|node|nodejs|deno|bun|perl|ruby|php|osascript)$/;
+/** Flags that only print information (`node --version`), not run code. */
+const INFO_FLAG = /^(-V|-v|--version|-h|--help)$/;
 const INLINE_FLAG = /^(-[a-zA-Z]*[ceE][a-zA-Z]*|--eval(=.*)?|--print|-p|--command(=.*)?)$/;
 /** Shell keywords that open a compound command (its body is not classified). */
 const COMPOUND_KEYWORDS = new Set([
@@ -994,19 +996,32 @@ export function opaqueShell(command) {
   if (typeof command !== "string" || !command.trim()) return null;
   const text = stripCatHeredocs(command);
   if (/\$\(|`|[<>]\(/.test(text)) return "command substitution";
+  if (/\\\r?\n/.test(text)) return "line continuation";
   for (const raw of text.split(/&&|\|\||;|\||\n|&/)) {
-    const tokens = tokenize(raw.trim().replace(/^[\s(]+/, ""));
+    const words = raw.trim().replace(/^[\s(]+/, "");
+    const tokens = tokenize(words);
     let i = 0;
     while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
     const first = tokens[i];
     if (!first) continue;
+    // The command word as written: a quote, `$` or `\` in it (`g''it`, `$GIT`) hides the name.
+    const rawWords = words.split(/\s+/).filter(Boolean);
+    let j = 0;
+    while (j < rawWords.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(rawWords[j])) j++;
+    if (/["'$\\]/.test(rawWords[j] ?? "")) return "quoted or expanded command word";
     const name = path.basename(first);
     const args = tokens.slice(i + 1);
     if (COMPOUND_KEYWORDS.has(first)) return `compound command (${first})`;
     if (OPAQUE_PREFIXES.has(name)) return `wrapper (${name})`;
     if (OPAQUE_SHELLS.has(name)) return `nested shell (${name})`;
-    if (INLINE_INTERPRETER.test(name) && args.some((a) => INLINE_FLAG.test(a))) {
-      return `inline code (${name})`;
+    if (INLINE_INTERPRETER.test(name)) {
+      if (args.some((a) => INLINE_FLAG.test(a))) return `inline code (${name})`;
+      // Code on stdin: `python3 - <<'PY'`, `node <<EOF`, `echo … | python3`, `python3 < x.py`.
+      const operands = args.filter((a) => !a.startsWith("-"));
+      const infoOnly = args.length > 0 && args.every((a) => INFO_FLAG.test(a));
+      if (args.includes("-") || /</.test(raw) || (!operands.length && !infoOnly)) {
+        return `code on stdin (${name})`;
+      }
     }
     if ((name === "curl" || name === "wget") && isMutatingHttp(name, args)) {
       return `mutating HTTP call (${name})`;
