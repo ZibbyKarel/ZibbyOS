@@ -614,7 +614,7 @@ describe("GoalEngineService", () => {
       const acted = recorded("goal-acted").map((e) => e.summary);
       expect(acted).toHaveLength(4);
       expect(acted[0]).toContain(
-        "Ready, waits for you: start-task (Fix) — Starting and deciding goals is Semi-auto here.",
+        "Not started (Semi-auto): start-task (Fix) — start it yourself or raise Starting and deciding goals to Auto.",
       );
       const s = await state();
       expect(s.instances._?.held).toBeUndefined();
@@ -631,6 +631,45 @@ describe("GoalEngineService", () => {
       expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).autonomy).toBe("auto");
     });
 
+    it("lowered to manual while the planner ran: the pass starts nothing, the next tick holds", async () => {
+      const levels: AutomationLevel[] = ["auto", "manual"];
+      startLevel = async () => levels.shift() ?? "manual";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect(handler).not.toHaveBeenCalled();
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
+      expect((await state()).instances._?.appliedActionIds).toBeUndefined();
+      await engine.tick(later(1));
+      expect((await state()).instances._?.held).toBe("autonomy-manual");
+    });
+
+    it("lowered to semi while the planner ran: start-task becomes a report", async () => {
+      const levels: AutomationLevel[] = ["auto", "semi"];
+      startLevel = async () => levels.shift() ?? "semi";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(handler).not.toHaveBeenCalled();
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
+    });
+
+    it("resume clears a stale operatorWake, so it buys no extra semi pass", async () => {
+      await create();
+      await engine.tick(NOW);
+      await store.update("g", NOW.toISOString(), (s) => {
+        const i = s.instances._;
+        if (i) Object.assign(i, { status: "parked", parkedReason: "failed", operatorWake: true });
+      });
+      const resumed = await store.resume("g", "_", NOW.toISOString());
+      expect(resumed.instances._?.operatorWake).toBeUndefined();
+    });
+
     it("wake on a manual-held instance runs exactly one pass as semi, then it is held again", async () => {
       startLevel = async () => "manual";
       const handler = vi.fn();
@@ -644,7 +683,7 @@ describe("GoalEngineService", () => {
       expect(planner.plan).toHaveBeenCalledTimes(1);
       expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).autonomy).toBe("semi");
       expect(handler).not.toHaveBeenCalled();
-      expect(recorded("goal-acted")[0]?.summary).toContain("Ready, waits for you: start-task");
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
       let s = await state();
       expect(s.instances._?.operatorWake).toBeUndefined();
       expect(s.instances._?.held).toBe("autonomy-manual");

@@ -199,14 +199,18 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
     await tick();
     expect(prs.merge).not.toHaveBeenCalled();
     expect(prs.mergeState).not.toHaveBeenCalled();
-    expect((await reports()).at(-1)).toContain("Ready, waits for you: merge (acme/app#7)");
+    expect((await reports()).at(-1)).toContain("Not started (Semi-auto): merge (acme/app#7)");
   });
 
   it("the level lowered from auto before the merge → report (re-read fresh)", () =>
     refused(/není na Automatu/, async () => {
       await create();
-      // The engine resolves `auto` for p1's pass; the merge's own check then sees `semi`.
-      startLevel.mockResolvedValueOnce("auto").mockResolvedValue("semi");
+      // The engine resolves `auto` for p1's pass (before and after the plan); the merge's own
+      // check then sees `semi`.
+      startLevel
+        .mockResolvedValueOnce("auto")
+        .mockResolvedValueOnce("auto")
+        .mockResolvedValue("semi");
     }));
 
   it("expired grant → report (treated as absent)", () =>

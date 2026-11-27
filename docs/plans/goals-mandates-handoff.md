@@ -44,7 +44,7 @@ By area, with commit ranges (exclusive start, inclusive end).
   primary instance. A paused goal rolls up as `paused` even with parked instances.
 - **Directional goals and `autoDecideGoals`.** The sixth autonomy capability
   ("Spouštění a rozhodování cílů" since 2026-11-27, key `autoDecideGoals`) lives in the autonomy matrix
-  (`/governance/autonomy`), per place: project > team > company > global (a goal with scope `none`
+  (`/governance/autonomy`), per place: project > company > global (goals carry no team; a goal with scope `none`
   resolves at global). Since 2026-11-27 `manual` holds the goal (see the dated section below); a
   wake or the `tier1` ceiling gives a ranked report only, `semi` = a `goal-decision` approval,
   `auto` = ZIBBY starts the top small candidate itself within the goal's `maxDecisionsPerMonth`
@@ -148,7 +148,7 @@ Made without the operator, cheap to revisit. Each with what it costs if it turns
   Cost: cross-area interactions seen only where a reviewer follows a call path; ONE fix wave
   collects all three.
 - **Final B (reversed 2026-11-27, see below):** `autoDecideGoals` is excluded from the Autopilot master switch and resolves on its
-  own (project > team > company > global); a goal-only cell no longer turns the rest of Autopilot
+  own (project > company > global); a goal-only cell no longer turns the rest of Autopilot
   on (reverses the Task 1 `isOn` ruling) — the operator asked for decisions "only for projects
   where it is set", and raising it must not wake devrel's dormant PR automation. Cost: goal
   decisions can run on a project while every other Autopilot cell is manual; if the operator
@@ -176,7 +176,7 @@ named "Spouštění a rozhodování cílů". Rulings, all applied on `feat/goals
 - **The engine gates every instance** on the effective level at its place
   (`GoalMessageService.goalStartLevel`, fail closed): `manual` = held (`held: "autonomy-manual"`,
   one `held` timeline event, nothing read, planned, parked or spent); `semi` = plans, but
-  `start-task` / `run-loop` / `pr-action` / `merge` become a "Ready, waits for you" report,
+  `start-task` / `run-loop` / `pr-action` / `merge` become a "Not started (Semi-auto) … start it yourself or raise … to Auto" report,
   messages always ask, proposals ask; `auto` = unchanged. A wake on a held instance runs one pass
   as `semi` (`operatorWake`); resume does not bypass the hold; pause wins.
 - **Merge** additionally needs the level `auto` for the pass and freshly at merge time.

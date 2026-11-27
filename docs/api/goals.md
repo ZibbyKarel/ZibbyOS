@@ -94,11 +94,17 @@ over all of it.
   Raising the level clears `held` and forces a re-plan. Resuming a parked instance does not
   bypass the hold.
 - `semi`: the engine plans and reports, but nothing that starts work or reaches outward runs on
-  its own: `start-task`, `run-loop`, `pr-action` and `merge` become a report "Ready, waits for
-  you: <type> (<title / text / repo#n>) — Starting and deciding goals is Semi-auto here." (never
-  recorded as applied); `message` always becomes a `goal-message` approval, even to a known
-  recipient with `autoCommunicate` `auto`; `propose` raises a `goal-decision` approval.
+  its own: `start-task`, `run-loop`, `pr-action` and `merge` become a report "Not started
+  (Semi-auto): <type> (<title / text / repo#n>) — start it yourself or raise Starting and
+  deciding goals to Auto." (never recorded as applied, nothing to approve); `message` always
+  becomes a `goal-message` approval, even to a known recipient with `autoCommunicate` `auto`;
+  `propose` raises a `goal-decision` approval.
 - `auto`: unchanged (ceiling, budget, merge grant, Never rules).
+- **Re-check after the plan:** the planner can run for minutes, so the level is read again once
+  the plan returns and the actions run at the stricter of the two. A level lowered to `manual`
+  meanwhile runs the pass as `semi` (starting actions become reports, nothing starts); the next
+  tick holds the instance.
+- A resume clears `operatorWake`, so a wake that landed before a park buys no extra pass.
 - **Wake** (`POST /goals/:id/wake`) on a held instance sets `operatorWake: true` on it (only held
   ones): the next tick runs exactly one pass as `semi`, the instance stays held and no second
   `held` event is written.

@@ -6,6 +6,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import {
+  AUTOMATION_LEVEL_RANK,
   type AutomationLevel,
   type Goal,
   type GoalInstance,
@@ -357,6 +358,16 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     }
 
     delete work.planFailures;
+    // The plan can take minutes: re-read the level and run the actions at the stricter of the two.
+    // A level lowered to manual meanwhile starts nothing (semi turns starting actions into reports;
+    // the next tick holds).
+    const freshStored = await this.startLevel(key);
+    const fresh: AutomationLevel = freshStored === "manual" ? "semi" : freshStored;
+    if (AUTOMATION_LEVEL_RANK[fresh] < AUTOMATION_LEVEL_RANK[ctx.autonomy]) {
+      ctx.autonomy = fresh;
+      if (work.autoDecide && this.decisions)
+        work.autoDecide = this.decisions.decisionLevel(goal, fresh);
+    }
     // The planner re-states what it waits on; a consumed wakeAt never re-fires.
     delete work.waitingOn;
     delete work.wakeAt;

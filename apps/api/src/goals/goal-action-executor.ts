@@ -267,7 +267,7 @@ export class GoalActionExecutor {
         // Never executed silently below `auto`: the operator gets what it would have done.
         reportFromGoal(
           ctx,
-          `Ready, waits for you: ${action.type}${startingWhat(action)} — Starting and deciding goals is ${LEVEL_LABEL[ctx.autonomy]} here.`,
+          `Not started (${LEVEL_LABEL[ctx.autonomy]}): ${action.type}${startingWhat(action)} — start it yourself or raise Starting and deciding goals to Auto.`,
         );
       } else if (SPENDING_ACTIONS.has(action.type) && this.autopilot?.isPaused()) {
         // A plan that was running when Autopilot was paused starts no paid work.

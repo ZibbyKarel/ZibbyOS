@@ -185,6 +185,8 @@ export class GoalStateStore {
       // Budget grace ends once one more run is recorded past this point.
       target.resumedRuns = target.taskIds.length;
       delete target.planFailures;
+      // A wake that landed before the park must not buy the resumed instance an extra semi pass.
+      delete target.operatorWake;
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {
         at: new Date().toISOString(),
