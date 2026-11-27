@@ -80,7 +80,7 @@ describe("ChatApprovalWidgetCard", () => {
     render(<ChatApprovalWidgetCard widget={widget} />);
     expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.Approve)).toBeNull();
     expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.Reject)).toBeNull();
-    expect(screen.getByText("Schváleno")).toBeInTheDocument();
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.Settled)).toHaveTextContent("Schváleno");
   });
 
   it("a turn-ended rejection renders as expired", () => {
@@ -91,6 +91,50 @@ describe("ChatApprovalWidgetCard", () => {
     });
     render(<ChatApprovalWidgetCard widget={widget} />);
     expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.Approve)).toBeNull();
-    expect(screen.getByText("Vypršelo")).toBeInTheDocument();
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.Settled)).toHaveTextContent("Vypršelo");
+  });
+
+  it("an Expired: rejection renders as expired too", () => {
+    one.mockReturnValue({
+      data: approval({ status: "rejected", reason: "Expired: no decision in time." }),
+      isPending: false,
+      isError: false,
+    });
+    render(<ChatApprovalWidgetCard widget={widget} />);
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.Settled)).toHaveTextContent("Vypršelo");
+  });
+
+  it("a pending card has no settled state", () => {
+    one.mockReturnValue({ data: approval(), isPending: false, isError: false });
+    render(<ChatApprovalWidgetCard widget={widget} />);
+    expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.Settled)).toBeNull();
+    expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.HoldHint)).toBeNull();
+  });
+
+  it("a 409 on approve shows the error and re-enables the buttons", async () => {
+    one.mockReturnValue({ data: approval(), isPending: false, isError: false });
+    approveMutate.mockImplementation(
+      (_vars: unknown, opts: { onError?: (e: unknown) => void; onSettled?: () => void }) => {
+        opts.onError?.({ status: 409 });
+        opts.onSettled?.();
+      },
+    );
+    render(<ChatApprovalWidgetCard widget={widget} />);
+    expect(screen.queryByTestId(ChatApprovalWidgetCardTestId.Error)).toBeNull();
+    await userEvent.click(screen.getByTestId(ChatApprovalWidgetCardTestId.Approve));
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.Error)).toHaveRole("alert");
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.Approve)).toBeEnabled();
+  });
+
+  it("a high-risk card (risk high, no riskType) holds to approve and says so", () => {
+    one.mockReturnValue({
+      data: approval({ risk: "high", riskType: undefined }),
+      isPending: false,
+      isError: false,
+    });
+    render(<ChatApprovalWidgetCard widget={widget} />);
+    expect(screen.getByTestId(ChatApprovalWidgetCardTestId.HoldHint)).toHaveTextContent(
+      "Podrž pro schválení",
+    );
   });
 });

@@ -2924,7 +2924,9 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "expired": "Expired",
-      "deciding": "Sending…"
+      "deciding": "Sending…",
+      "holdHint": "Hold to approve",
+      "error": "Couldn't send the decision. The card may have expired or been decided already."
     },
     "openAll": "Open all",
     "openAllAria": "Open all: {title}",

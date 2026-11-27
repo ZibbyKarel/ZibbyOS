@@ -2924,7 +2924,9 @@
       "approved": "Schváleno",
       "rejected": "Zamítnuto",
       "expired": "Vypršelo",
-      "deciding": "Odesílám…"
+      "deciding": "Odesílám…",
+      "holdHint": "Podrž pro schválení",
+      "error": "Rozhodnutí se nepodařilo odeslat. Karta možná vypršela nebo už byla rozhodnuta."
     },
     "openAll": "Otevřít vše",
     "openAllAria": "Otevřít vše: {title}",

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { ChatWidget } from "@zibby/contracts";
-import { Button, CodeBlock, Container, HoldButton } from "@zibby/design-system";
+import { Button, CodeBlock, Container, HoldButton, Typography } from "@zibby/design-system";
 import { useApprovalQuery, useApproveMutation, useRejectMutation } from "../../approvals";
 import { HIGH_RISK_TYPES } from "../../approvals/approval";
 import { getApprovalQueryKey } from "../../approvals/queries/useApprovalQuery";
@@ -15,6 +15,8 @@ export enum ChatApprovalWidgetCardTestId {
   Approve = "chat-approval-widget-approve",
   Reject = "chat-approval-widget-reject",
   Settled = "chat-approval-widget-settled",
+  HoldHint = "chat-approval-widget-hold-hint",
+  Error = "chat-approval-widget-error",
 }
 
 export interface ChatApprovalWidgetCardProps {
@@ -37,16 +39,22 @@ export function ChatApprovalWidgetCard({ widget }: ChatApprovalWidgetCardProps) 
   const approve = useApproveMutation();
   const reject = useRejectMutation();
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const a = query.data;
 
   const decide = (outcome: "approved" | "rejected") => {
     const mutation = outcome === "approved" ? approve : reject;
     setBusy(true);
+    setFailed(false);
     mutation.mutate(
       { params: { id }, body: {} },
       {
-        onSuccess: () => void qc.invalidateQueries({ queryKey: getApprovalQueryKey(id) }),
-        onSettled: () => setBusy(false),
+        onError: () => setFailed(true),
+        // Refetch on every outcome: a 409 (already expired or decided) must settle the card too.
+        onSettled: () => {
+          setBusy(false);
+          void qc.invalidateQueries({ queryKey: getApprovalQueryKey(id) });
+        },
       },
     );
   };
@@ -61,7 +69,8 @@ export function ChatApprovalWidgetCard({ widget }: ChatApprovalWidgetCardProps) 
       : a.reason?.startsWith("Chat turn ended") || a.reason?.startsWith("Expired")
         ? "expired"
         : "rejected";
-  const highRisk = a?.riskType !== undefined && HIGH_RISK_TYPES.has(a.riskType);
+  const highRisk =
+    a?.risk === "high" || (a?.riskType !== undefined && HIGH_RISK_TYPES.has(a.riskType));
   const summary = a?.summary ?? a?.action ?? "";
 
   return (
@@ -88,11 +97,23 @@ export function ChatApprovalWidgetCard({ widget }: ChatApprovalWidgetCardProps) 
                   ? t("approval.deciding")
                   : t("approval.pending")
             }
+            statusTestId={decided ? ChatApprovalWidgetCardTestId.Settled : undefined}
             title={summary}
             tone={outcome === "approved" ? "done" : outcome ? "idle" : "wait"}
             trailing={
               outcome ? undefined : (
                 <>
+                  {highRisk ? (
+                    <Typography
+                      as="span"
+                      data-testid={ChatApprovalWidgetCardTestId.HoldHint}
+                      size="xs"
+                      type="note"
+                      variant="tertiary"
+                    >
+                      {t("approval.holdHint")}
+                    </Typography>
+                  ) : null}
                   {highRisk ? (
                     <HoldButton
                       aria-label={t("approval.approveAria", { title: summary })}
@@ -131,6 +152,20 @@ export function ChatApprovalWidgetCard({ widget }: ChatApprovalWidgetCardProps) 
               )
             }
           />
+          {failed && !decided ? (
+            <Container padding={["0", "150", "100", "150"]}>
+              <Typography
+                as="p"
+                data-testid={ChatApprovalWidgetCardTestId.Error}
+                role="alert"
+                size="xs"
+                tone="bad"
+                type="note"
+              >
+                {t("approval.error")}
+              </Typography>
+            </Container>
+          ) : null}
           <Container padding={["0", "150", "100", "150"]}>
             <CodeBlock maxHeight="lg" text={command} />
           </Container>

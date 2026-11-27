@@ -275,6 +275,8 @@ export interface ChatWidgetRowProps {
   dim?: boolean;
   /** Suffix for the row's test ids (a stable item key). */
   itemKey?: string;
+  /** Overrides the status line's test id (a widget's own enum value, e.g. a settled state). */
+  statusTestId?: string;
 }
 
 /**
@@ -295,6 +297,7 @@ export function ChatWidgetRow({
   trailing,
   dim = false,
   itemKey,
+  statusTestId,
 }: ChatWidgetRowProps) {
   const suffix = itemKey ? `-${itemKey}` : "";
   const openDetail = useOpenDetail(detail);
@@ -336,7 +339,7 @@ export function ChatWidgetRow({
             )}
             <Typography
               truncate
-              data-testid={`${ChatWidgetFrameTestId.RowStatus}${suffix}`}
+              data-testid={statusTestId ?? `${ChatWidgetFrameTestId.RowStatus}${suffix}`}
               size="xs"
               type="note"
               variant="tertiary"
