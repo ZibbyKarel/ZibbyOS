@@ -1,7 +1,15 @@
 "use client";
 
 import type { TodoItem } from "@zibby/contracts";
-import { Button, PaperAdd, PaperLine, PaperSheet, Stack, Typography } from "@zibby/design-system";
+import {
+  Button,
+  Container,
+  PaperAdd,
+  PaperLine,
+  PaperSheet,
+  Stack,
+  Typography,
+} from "@zibby/design-system";
 import type { Route } from "next";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -110,38 +118,42 @@ export function TodoWidget({ widget, onEmptyChange, onCountChange }: BridgeWidge
       ))}
       <PaperAdd>
         {/* autoFocus off: a board widget must not grab focus (and scroll the board) on load. */}
-        <CommandLine
-          allowSkillMentions
-          hideLabel
-          multipleTargets
-          autoFocus={false}
-          chrome={false}
-          key={composerKey}
-          label={t("input")}
-          onSubmit={(text) => {
-            const trimmed = text.trim();
-            if (trimmed && !create.isPending)
-              create.mutate(
-                { body: { text: trimmed } },
-                { onSuccess: () => setComposerKey((k) => k + 1) },
-              );
-          }}
-          placeholder={t("placeholder")}
-          renderTrailing={({ canSubmit, submit }) => (
-            <Button
-              data-testid={TodoWidgetTestId.Add}
-              disabled={!canSubmit || create.isPending}
-              intent="secondary"
-              onClick={submit}
-              size="sm"
-            >
-              {t("add")}
-            </Button>
-          )}
-          resetOnSubmit={false}
-          scopeKinds={TODO_SCOPE_KINDS}
-          showAttach={false}
-        />
+        <Container grow minW0>
+          <CommandLine
+            allowSkillMentions
+            bareFrame
+            hideLabel
+            inline
+            multipleTargets
+            autoFocus={false}
+            chrome={false}
+            key={composerKey}
+            label={t("input")}
+            onSubmit={(text) => {
+              const trimmed = text.trim();
+              if (trimmed && !create.isPending)
+                create.mutate(
+                  { body: { text: trimmed } },
+                  { onSuccess: () => setComposerKey((k) => k + 1) },
+                );
+            }}
+            placeholder={t("placeholder")}
+            renderTrailing={({ canSubmit, submit }) => (
+              <Button
+                data-testid={TodoWidgetTestId.Add}
+                disabled={!canSubmit || create.isPending}
+                intent="secondary"
+                onClick={submit}
+                size="sm"
+              >
+                {t("add")}
+              </Button>
+            )}
+            resetOnSubmit={false}
+            scopeKinds={TODO_SCOPE_KINDS}
+            showAttach={false}
+          />
+        </Container>
       </PaperAdd>
     </PaperSheet>
   );
