@@ -125,9 +125,26 @@ export const MachineConfigSchema = z
      * never moves existing artifacts — they stay where they were delivered.
      */
     generatedRoot: z.string().min(1),
+    /**
+     * Multi-company instances (phase 1) — the company ids this machine arms work for.
+     * Missing or empty = every company belongs to this machine (backwards compatible).
+     */
+    companies: z.array(z.string().min(1)).optional(),
   })
   .strict();
 export type MachineConfig = z.infer<typeof MachineConfigSchema>;
+
+/**
+ * The one arming filter: may this machine run work owned by `companyId`? Work with no
+ * company always runs; a missing/empty `companies` list arms every company.
+ */
+export function isCompanyArmed(
+  companyId: string | null | undefined,
+  config: { companies?: readonly string[] | undefined } | null | undefined,
+): boolean {
+  const list = config?.companies;
+  return !companyId || !list || list.length === 0 || list.includes(companyId);
+}
 
 /** Body accepted by `updateMachineConfig` — partial patch merged over the current config. */
 export const UpdateMachineConfigSchema = MachineConfigSchema.partial();

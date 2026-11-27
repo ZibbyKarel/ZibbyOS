@@ -18,9 +18,10 @@ import {
   Stack,
   Typography,
 } from "@zibby/design-system";
-import type { Project } from "@zibby/contracts";
+import { type Project, isCompanyArmed } from "@zibby/contracts";
 import { QueryError } from "../../../components/LoadError/QueryError";
 import { CategoryDialog } from "../../../components/CategoryDialog/CategoryDialog";
+import { useMachineConfigQuery } from "../../machine";
 import { useRunsQuery } from "../../runs";
 import { ProjectCard } from "../components/ProjectCard";
 import { type ProjectChip, matchesChip, matchesSearch } from "../projectFilter";
@@ -38,6 +39,7 @@ export function ProjectsListScreen() {
   const t = useTranslations("projects");
   const router = useRouter();
   const projectsQuery = useProjectsQuery();
+  const { data: machineConfig } = useMachineConfigQuery();
   const projects = projectsQuery.data ?? [];
   const { data: categories = [] } = useProjectCategoriesQuery();
   const { data: budget } = useBudgetQuery();
@@ -75,6 +77,7 @@ export function ProjectsListScreen() {
           key={p.id}
           needsYou={live.get(p.id)?.needsYou}
           onOpen={openProject}
+          otherMachine={!isCompanyArmed(p.companyId, machineConfig)}
           project={p}
         />
       ))}

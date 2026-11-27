@@ -137,3 +137,12 @@ describe("ProjectCard logo", () => {
     expect(screen.queryByTestId(IconTileTestId.Image)).toBeNull();
   });
 });
+
+describe("ProjectCard other-machine badge (multi-company phase 1)", () => {
+  it("shows the badge only when otherMachine is set", () => {
+    const { rerender } = render(<ProjectCard project={project()} />);
+    expect(screen.queryByText("patří jinému stroji")).toBeNull();
+    rerender(<ProjectCard otherMachine project={project()} />);
+    expect(screen.getByText("patří jinému stroji")).toBeTruthy();
+  });
+});

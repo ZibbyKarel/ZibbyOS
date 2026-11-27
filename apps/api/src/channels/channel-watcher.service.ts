@@ -10,10 +10,12 @@ import {
   type ChannelItem,
   type CredentialsInput,
   type Integration,
+  isCompanyArmed,
   repoFromGitRemote,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
+import { MachineConfigStore } from "../machine/machine-config.store";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
@@ -96,6 +98,8 @@ export class ChannelWatcherService
     private readonly watcherHealthRegistry: WatcherHealthRegistry,
     private readonly moduleRef: ModuleRef,
     @Optional() @Inject(CHANNEL_TRIAGE_FLOW) private readonly flow?: ChannelTriageFlow,
+    /** Multi-company arming filter; absent = every company armed. */
+    @Optional() private readonly machineConfig?: MachineConfigStore,
   ) {
     super();
     this.log = logger.child(ChannelWatcherService.name);
@@ -165,8 +169,9 @@ export class ChannelWatcherService
         });
     }
 
+    const machine = await this.machineConfig?.read();
     for (const integration of await this.integrations.list()) {
-      if (!integration.enabled) continue;
+      if (!integration.enabled || !isCompanyArmed(integration.companyId, machine)) continue;
       const creds = needsStoredCredential(integration.kind)
         ? await this.credentials.read(integration.id)
         : NO_CREDENTIALS;

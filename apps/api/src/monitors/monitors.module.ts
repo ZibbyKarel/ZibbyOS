@@ -1,3 +1,4 @@
+import { MachineConfigModule } from "../machine/machine-config.module";
 import { Module } from "@nestjs/common";
 import { GitHostModule } from "../git-host/git-host.module";
 import { GithubRunsReader } from "../git-host/github-runs.reader";
@@ -27,7 +28,13 @@ export function resolveMonitorEventsDir(): string {
  * task scheduler (an alert's investigation dispatches like any other task).
  */
 @Module({
-  imports: [GitHostModule, IntegrationsModule, ResolvedProjectModule, TasksModule],
+  imports: [
+    GitHostModule,
+    IntegrationsModule,
+    MachineConfigModule,
+    ResolvedProjectModule,
+    TasksModule,
+  ],
   controllers: [MonitorsController],
   providers: [
     { provide: MONITOR_EVENTS_DIR, useFactory: resolveMonitorEventsDir },

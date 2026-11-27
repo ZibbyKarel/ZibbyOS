@@ -25,6 +25,8 @@ export interface ProjectCardProps {
   /** Runs blocked on the operator (approval / park / pause / held); shown as the amber chip. */
   needsYou?: number;
   onOpen?: (project: Project) => void;
+  /** The project's company is not armed on this machine — shown, never run here. */
+  otherMachine?: boolean;
 }
 
 const GROUP_TONE: Record<RunStatusGroupKey, SegmentedBarTone> = {
@@ -43,7 +45,13 @@ const GROUP_TONE: Record<RunStatusGroupKey, SegmentedBarTone> = {
  * Phase 78: deliberately no open-PR badge — it needs one GitHub round trip per project
  * (see `ProjectPullRequestsPanel`); the 14-day spend sparkline of the design is deferred.
  */
-export function ProjectCard({ project, budget, needsYou = 0, onOpen }: ProjectCardProps) {
+export function ProjectCard({
+  project,
+  budget,
+  needsYou = 0,
+  onOpen,
+  otherMachine = false,
+}: ProjectCardProps) {
   const t = useTranslations("projects");
   const tr = useTranslations("runs");
   const { total, groups } = useProjectTaskStats(project.id);
@@ -82,6 +90,7 @@ export function ProjectCard({ project, budget, needsYou = 0, onOpen }: ProjectCa
             </Stack>
           )}
         </Stack>
+        {otherMachine && <Tag tone="warn">{t("otherMachine")}</Tag>}
         {project.category && <Tag tone="neutral">{project.category}</Tag>}
       </Stack>
 

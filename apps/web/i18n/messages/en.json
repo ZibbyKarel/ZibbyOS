@@ -2392,6 +2392,7 @@
     "deleteTitle": "Delete project?",
     "deleteBody": "Delete project {name}? The files on disk stay; only the registry record is removed.",
     "budgetHeld": "held",
+    "otherMachine": "belongs to another machine",
     "integrations": {
       "title": "Accounts",
       "empty": "No account serves this project yet — connect one on its company or in Settings → Accounts.",

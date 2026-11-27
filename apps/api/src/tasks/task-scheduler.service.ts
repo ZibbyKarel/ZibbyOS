@@ -24,7 +24,7 @@ import type {
   Workflow,
   WorkflowRun,
 } from "@zibby/contracts";
-import { WORKFLOW_COMPLEXITY_ORDER } from "@zibby/contracts";
+import { WORKFLOW_COMPLEXITY_ORDER, isCompanyArmed } from "@zibby/contracts";
 import { ORCHESTRATOR_TARGET } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import type { AttachmentSetRefProvider } from "./attachment-set-ref-provider";
@@ -44,6 +44,7 @@ import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { matchProject } from "../projects/project-matcher";
 import { outsideLocks, withPathLock } from "../shared/file-storage";
 import { TodoStore } from "../todo/todo.store";
+import { MachineConfigStore } from "../machine/machine-config.store";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { normalizeSummary } from "../shared/text/normalize-summary";
 import { TraceContextService } from "../shared/logging/trace-context.service";
@@ -245,6 +246,8 @@ export class TaskSchedulerService
     private readonly attachmentRefProviders: AttachmentSetRefProvider[] = [],
     /** The TODO notes — a task created with `todoId` removes its note. Optional like the above. */
     @Optional() private readonly todoStore?: TodoStore,
+    /** Multi-company arming filter for boot recovery; absent = every company armed. */
+    @Optional() private readonly machineConfig?: MachineConfigStore,
   ) {
     super();
     this.log = logger.child(TaskSchedulerService.name);
@@ -349,11 +352,14 @@ export class TaskSchedulerService
    */
   private async recoverPending(): Promise<void> {
     const tasks = await this.storage.list().catch((): ScheduledTask[] => []);
+    const machine = await this.machineConfig?.read();
     for (const task of tasks) {
       if (task.status !== "pending") continue;
       const project = task.projectId
         ? await this.projects.get(task.projectId).catch((): Project | null => null)
         : null;
+      // Another machine's company: leave it pending for the machine that owns it.
+      if (!isCompanyArmed(project?.companyId, machine)) continue;
       this.log.info("recovering pending task stranded by restart", { id: task.id });
       void this.dispatchPending(task, project, task.target, false);
     }

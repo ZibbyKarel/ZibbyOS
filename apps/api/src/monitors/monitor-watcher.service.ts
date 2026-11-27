@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, type OnModuleDestroy, type OnModuleInit, Optional } from "@nestjs/common";
-import type {
-  CredentialsInput,
-  Integration,
-  MonitorEvent,
-  MonitorEventKind,
+import {
+  type CredentialsInput,
+  type Integration,
+  type MonitorEvent,
+  type MonitorEventKind,
+  isCompanyArmed,
 } from "@zibby/contracts";
 import { ActivityLogService } from "../activity/activity-log.service";
 import { NO_CREDENTIALS, needsStoredCredential } from "../integrations/credential-kind";
+import { MachineConfigStore } from "../machine/machine-config.store";
 import { CredentialsStore } from "../integrations/credentials.store";
 import { IntegrationsStorageService } from "../integrations/integrations.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
@@ -57,6 +59,8 @@ export class MonitorWatcherService
     // The repos a GitHub/GitLab account serves (its projects' gitRemotes). Optional so
     // wiring/tests without it still poll an account that has `config.repo` set.
     @Optional() private readonly resolvedProjects?: ResolvedProjectService,
+    /** Multi-company arming filter; absent = every company armed. */
+    @Optional() private readonly machineConfig?: MachineConfigStore,
   ) {
     super();
     this.log = logger.child(MonitorWatcherService.name);
@@ -100,8 +104,9 @@ export class MonitorWatcherService
     // Re-drive alerts a previous tick ingested but could not dispatch.
     await this.retryUnhandled().catch(() => {});
 
+    const machine = await this.machineConfig?.read();
     for (const integration of await this.integrations.list()) {
-      if (!integration.enabled) continue;
+      if (!integration.enabled || !isCompanyArmed(integration.companyId, machine)) continue;
       const adapters = this.registry.forIntegration(integration);
       if (adapters.length === 0) continue;
       const creds = needsStoredCredential(integration.kind)

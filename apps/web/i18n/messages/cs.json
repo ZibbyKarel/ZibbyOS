@@ -2392,6 +2392,7 @@
     "deleteTitle": "Smazat projekt?",
     "deleteBody": "Opravdu smazat projekt {name}? Soubory na disku zůstanou, odebere se jen záznam z velínu.",
     "budgetHeld": "pozdrženo",
+    "otherMachine": "patří jinému stroji",
     "integrations": {
       "title": "Účty",
       "empty": "Tomuto projektu zatím neslouží žádný účet — připoj ho u jeho firmy nebo v Nastavení → Účty.",

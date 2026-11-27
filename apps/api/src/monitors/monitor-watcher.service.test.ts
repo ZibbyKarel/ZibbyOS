@@ -189,6 +189,30 @@ describe("MonitorWatcherService", () => {
     expect(await store.readCursor("co-gitlab--grp-sub-web", "gitlab-ci")).toBe("C");
   });
 
+  it("multi-company: an integration whose company is not in machine.companies is not polled", async () => {
+    const adapter = fakeAdapter("github-ci", (i) => i.id === GH.id);
+    registry.register(adapter);
+    const watcher = (companies: string[]) =>
+      new MonitorWatcherService(
+        integrations as never,
+        credentials as never,
+        registry,
+        store,
+        scheduler as never,
+        activity as never,
+        fakeSystemConfigStore(),
+        fakeTrace as never,
+        { register: () => {} } as never,
+        fakeLogger as never,
+        SERVES_ACME as never,
+        { read: async () => ({ cloneRoot: "/c", generatedRoot: "/g", companies }) } as never,
+      );
+
+    expect(await watcher(["other-co"]).tick()).toEqual([]);
+    expect(adapter.poll).not.toHaveBeenCalled();
+    expect(await watcher(["acme-co"]).tick()).toEqual([ALERT.id]);
+  });
+
   it("a re-poll of the same alert is a dedup no-op (no second task, no second record)", async () => {
     registry.register(fakeAdapter("github-ci", () => true));
     const watcher = makeWatcher();
