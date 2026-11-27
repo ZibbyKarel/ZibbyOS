@@ -12,6 +12,7 @@ import { getBudgetQueryKey, getCiStatusQueryKey } from "../projects/queries/keys
 import { getProjectHealthQueryKey } from "../project-health/queries/useProjectHealthQuery";
 import { getActivityQueryKey } from "../activity/queries/useActivityQuery";
 import { prependActivityEntry } from "../activity/queries/useActivityFeedInfiniteQuery";
+import { getDayOverviewQueryKey } from "../briefing/queries/useDayOverviewQuery";
 import { getBriefingQueryKey } from "../briefing/queries/useBriefingQuery";
 import { getInboxItemsQueryKey } from "../inbox/queries/useInboxItemsQuery";
 import { getInboxPrsQueryKey, getInboxRootKey } from "../inbox/queries/useInboxPrsQuery";
@@ -212,6 +213,8 @@ export function RunEventsProvider({ children }: { children: ReactNode }) {
       } else if (parsed.scope === "goals") {
         // goals-mandates: the `["goals"]` prefix covers the list, the detail, state and timeline.
         void qc.invalidateQueries({ queryKey: getGoalsQueryKey() });
+        // Today's text summarizes the goals; the server rewrites it only on a real state change.
+        void qc.invalidateQueries({ queryKey: getDayOverviewQueryKey() });
       } else if (parsed.scope === "channel-items") {
         // Triage filed/transitioned an inbound item — refresh the inbox and the
         // approvals queue (a Tier-3 reply lands as a pending channel approval).

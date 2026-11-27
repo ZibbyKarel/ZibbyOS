@@ -88,3 +88,66 @@ describe("DayOverviewService personality", () => {
     expect(prompts).toHaveLength(1);
   });
 });
+
+describe("DayOverviewService goals", () => {
+  const goal = { id: "pub", name: "Publikační dávka", enabled: true, createdAt: "x" };
+  const make = async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "day-overview-"));
+    const prompts: string[] = [];
+    const instance: Record<string, unknown> = {
+      status: "parked",
+      parkedReason: "failed",
+      summary: "všech 17 úloh spadlo",
+      taskIds: [],
+    };
+    class Svc extends DayOverviewService {
+      protected override run(prompt: string): Promise<string> {
+        prompts.push(prompt);
+        return Promise.resolve(`text ${prompts.length}`);
+      }
+    }
+    const svc = new Svc(
+      { assemble: vi.fn().mockResolvedValue({ needsYou: [], reminders: [] }) } as never,
+      { list: vi.fn().mockResolvedValue([]) } as never,
+      { note: vi.fn().mockResolvedValue(null) } as never,
+      dir,
+      undefined,
+      undefined,
+      {
+        list: vi.fn().mockResolvedValue([goal, { ...goal, id: "off", enabled: false }]),
+      } as never,
+      { read: vi.fn(async () => ({ instances: { web: { ...instance } } })) } as never,
+    );
+    return { svc, prompts, instance };
+  };
+
+  it("puts every enabled goal's current state into the prompt", async () => {
+    const { svc, prompts } = await make();
+    await svc.current();
+    expect(prompts[0]).toContain('"appUrl":"/work/goals/pub"');
+    expect(prompts[0]).toContain('"status":"needs-you"');
+    expect(prompts[0]).toContain("všech 17 úloh spadlo");
+    expect(prompts[0]).not.toContain("/work/goals/off");
+  });
+
+  it("rewrites today's text when a goal's state changes, not otherwise", async () => {
+    const { svc, prompts, instance } = await make();
+    await svc.current();
+    await svc.current();
+    expect(prompts).toHaveLength(1);
+    instance.status = "acting";
+    expect((await svc.current()).markdown).toBe("text 2");
+    // acting ↔ waiting is the same "being worked on": no rewrite.
+    instance.status = "waiting";
+    await svc.current();
+    expect(prompts).toHaveLength(2);
+    // The old park summary no longer describes a running instance.
+    expect(prompts[1]).not.toContain("všech 17 úloh spadlo");
+  });
+
+  it("writes once for concurrent reads", async () => {
+    const { svc, prompts } = await make();
+    await Promise.all([svc.current(), svc.current()]);
+    expect(prompts).toHaveLength(1);
+  });
+});

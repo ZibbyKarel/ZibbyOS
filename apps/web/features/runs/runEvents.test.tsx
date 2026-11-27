@@ -19,6 +19,7 @@ import {
   getGoalTimelineQueryKey,
   getGoalsQueryKey,
 } from "../goals/queries";
+import { getDayOverviewQueryKey } from "../briefing/queries/useDayOverviewQuery";
 import { taskRunsRootKey } from "./queries/keys";
 
 // `API_URL` gates the provider (no URL → no stream); pin it so the EventSource opens.
@@ -66,6 +67,13 @@ describe("RunEventsProvider — SSE-driven invalidation (N1)", () => {
     expect(getGoalStateQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
     expect(getGoalQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
     expect(getGoalTimelineQueryKey("g").slice(0, 1)).toEqual(getGoalsQueryKey());
+  });
+
+  it("a goals event refreshes today's overview, which summarizes the goals", () => {
+    act(() => {
+      mock.last().emit({ scope: "goals", goalId: "g" });
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: getDayOverviewQueryKey() });
   });
 
   it("an approval-* activity event refreshes the pending approvals queue", () => {
