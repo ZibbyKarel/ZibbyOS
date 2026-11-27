@@ -878,14 +878,10 @@ export type { SectionTrackItem, SectionTrackProps } from "./components/SectionTr
 export {
   HeaderChromeTestId,
   HeaderIconButton,
-  HeaderModeButton,
-  HeaderModeGroup,
   HeaderNewButton,
 } from "./components/HeaderChrome/HeaderChrome";
 export type {
   HeaderIconButtonProps,
-  HeaderModeButtonProps,
-  HeaderModeGroupProps,
   HeaderNewButtonProps,
 } from "./components/HeaderChrome/HeaderChrome";
 export { Splitter, SplitterTestId } from "./components/Splitter/Splitter";

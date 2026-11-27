@@ -5,14 +5,11 @@ import { Icon, type IconName } from "../Icon/Icon";
 
 /**
  * The small controls of the top-chrome header (`AppHeader` zones B and C): the
- * filled "New" button, the mode group, the icon button with a
+ * filled "New" button and the icon button with a
  * badge. They are plain buttons - the app owns the popovers.
  */
 export enum HeaderChromeTestId {
   NewButton = "header-new-button",
-  ModeGroup = "header-mode-group",
-  ModeButton = "header-mode-button",
-  ModeLiveDot = "header-mode-live-dot",
   IconButton = "header-icon-button",
   IconButtonBadge = "header-icon-button-badge",
 }
@@ -60,90 +57,6 @@ export function HeaderNewButton({
           <Icon name="chevron" size="xs" stroke="medium" />
         </span>
       )}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Mode group
-// ---------------------------------------------------------------------------
-
-export interface HeaderModeGroupProps {
-  /** Accessible name of the group (e.g. "Operating mode"). */
-  ariaLabel: string;
-  /** One or more `HeaderModeButton`s. */
-  children: ReactNode;
-  ref?: Ref<HTMLDivElement>;
-}
-
-/** `.tc-mode` - a segmented 30px group of mode buttons. */
-export function HeaderModeGroup({ ariaLabel, children, ref }: HeaderModeGroupProps) {
-  return (
-    <div
-      aria-label={ariaLabel}
-      className="inline-flex h-[30px] items-stretch rounded-lg border border-line-2"
-      data-testid={HeaderChromeTestId.ModeGroup}
-      ref={ref}
-      role="group"
-    >
-      {children}
-    </div>
-  );
-}
-
-export interface HeaderModeButtonProps extends ButtonProps {
-  /** Leading glyph (ignored when `live`). */
-  icon?: IconName;
-  /** Replace the icon with the pulsing amber dot (Autopilot on). */
-  live?: boolean;
-  /** Visible label; omit for icon-only (then pass `aria-label`). */
-  label?: string;
-  /** Extra leading content before the icon (e.g. an engine tile). */
-  leading?: ReactNode;
-  /** Trailing content (e.g. a small chevron). */
-  trailing?: ReactNode;
-  /** Pressed state. */
-  pressed?: boolean;
-  ref?: Ref<HTMLButtonElement>;
-}
-
-export function HeaderModeButton({
-  icon,
-  live = false,
-  label,
-  leading,
-  trailing,
-  pressed,
-  ref,
-  ...rest
-}: HeaderModeButtonProps) {
-  return (
-    <button
-      aria-pressed={pressed}
-      className={cn(
-        "inline-flex cursor-pointer items-center gap-1.5 px-[9px] font-sans text-[12px] font-medium whitespace-nowrap text-ink-2",
-        "transition-colors hover:bg-panel-2 hover:text-ink motion-reduce:transition-none",
-        "rounded-none first:rounded-l-[7px] last:rounded-r-[7px]",
-        "border-l border-line-2 first:border-l-0",
-        focusRing,
-      )}
-      data-testid={HeaderChromeTestId.ModeButton}
-      ref={ref}
-      type="button"
-      {...rest}
-    >
-      {leading}
-      {live ? (
-        <span
-          aria-hidden="true"
-          className="zb-header-pulse size-[7px] shrink-0 rounded-full bg-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_25%,transparent)]"
-          data-testid={HeaderChromeTestId.ModeLiveDot}
-        />
-      ) : (
-        icon && <Icon name={icon} size="sm" />
-      )}
-      {label}
-      {trailing}
     </button>
   );
 }

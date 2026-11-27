@@ -2,13 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "../../utils/testRender";
 import { Icon } from "../Icon/Icon";
-import {
-  HeaderChromeTestId,
-  HeaderIconButton,
-  HeaderModeButton,
-  HeaderModeGroup,
-  HeaderNewButton,
-} from "./HeaderChrome";
+import { HeaderChromeTestId, HeaderIconButton, HeaderNewButton } from "./HeaderChrome";
 
 describe("HeaderNewButton", () => {
   it("renders the label and fires onClick", () => {
@@ -26,32 +20,6 @@ describe("HeaderNewButton", () => {
     const btn = screen.getByTestId(HeaderChromeTestId.NewButton);
     expect(btn).toHaveAccessibleName("Create");
     expect(btn).toHaveTextContent("");
-  });
-});
-
-describe("HeaderModeGroup", () => {
-  it("is a labelled group", () => {
-    render(
-      <HeaderModeGroup ariaLabel="Operating mode">
-        <HeaderModeButton live pressed aria-label="Autopilot on" label="Autopilot" />
-        <HeaderModeButton icon="compass" label="Approve" />
-      </HeaderModeGroup>,
-    );
-    const group = screen.getByTestId(HeaderChromeTestId.ModeGroup);
-    expect(group).toHaveRole("group");
-    expect(group).toHaveAccessibleName("Operating mode");
-    const [first] = screen.getAllByTestId(HeaderChromeTestId.ModeButton);
-    expect(first).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId(HeaderChromeTestId.ModeLiveDot)).toBeInTheDocument();
-  });
-
-  it("is not active by default", () => {
-    render(
-      <HeaderModeGroup ariaLabel="Operating mode">
-        <HeaderModeButton label="Approve" />
-      </HeaderModeGroup>,
-    );
-    expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).not.toHaveAttribute("data-active");
   });
 });
 

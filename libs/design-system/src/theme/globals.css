@@ -1382,23 +1382,6 @@
   background: var(--color-panel-2);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  /* Header chrome: the pulsing Autopilot dot. */
-  .zb-header-pulse {
-    animation: zb-header-pulse 1.6s ease-in-out infinite;
-  }
-
-  @keyframes zb-header-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-}
-
 /* ---------------------------------------------------------------------------
  * Brand mark (`BrandMark`) + splash entrance (`Splash`) — the bow tie
  * "Motýlek" from design/brand/ZibbyCorp – Brand.html, timings verbatim.

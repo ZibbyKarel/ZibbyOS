@@ -668,7 +668,7 @@ export class ChannelTriageFlowService implements ChannelTriageFlow, ResumableRun
       skill: integration?.name ?? item.integrationId,
       action: CHANNEL_REPLY_ACTION,
       // Display-only detail (shown to the operator, never fed to a prompt).
-      detail: `Draft reply:\n${draft}\n\nIn reply to:\n${item.text}`,
+      detail: `Reply to ${item.from ?? "unknown sender"} on ${integration?.name ?? item.integrationId} (${item.kind})\n\nDraft reply:\n${draft}\n\nIn reply to:\n${item.text}`,
       risk: verdict.tier === 3 ? "medium" : "low",
       ...(item.url ? { sourceUrl: item.url } : {}),
     });

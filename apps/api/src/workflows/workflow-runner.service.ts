@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { intentApprovalDetail } from "../gates/intent-approval-detail";
 import { EventEmitter } from "node:events";
 import { existsSync, promises as fs } from "node:fs";
 import * as path from "node:path";
@@ -3222,7 +3223,10 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
           kind: "workflow-stage",
           skill: agent.name ?? agent.id,
           action: action.action,
-          detail: action.context ?? `Workflow "${run.workflowId}", fáze "${rec.phaseId}"`,
+          detail: intentApprovalDetail(
+            action,
+            `Workflow "${run.workflowId}", fáze "${rec.phaseId}"`,
+          ),
           risk: agent.risk ?? "medium",
           // NS2 F3c — attribute the approval to the EXECUTING unit's owner (the
           // workflow, not the phase agent, which may be shared across departments).

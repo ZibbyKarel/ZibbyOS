@@ -775,6 +775,14 @@ describe("ChannelTriageFlowService", () => {
     expect(out.triage?.suggestedReply).toBe("the real answer");
   });
 
+  it("Tier 3 reply approval names the recipient and the channel (todo #16)", async () => {
+    const flow = makeFlow({ verdict: scope });
+    await researched(flow, item({ from: "alice@corp.com" }), "an answer");
+    const detail = requestApproval.mock.calls[0]![0].detail as string;
+    expect(detail.split("\n")[0]).toContain("alice@corp.com");
+    expect(detail.split("\n")[0]).toContain("Reply to");
+  });
+
   it("Tier 3 forwards the item's url as the approval's sourceUrl when present (Phase 127)", async () => {
     const flow = makeFlow({ verdict: scope });
     await researched(flow, item({ url: "https://acme.slack.com/archives/C1/p100" }), "an answer");

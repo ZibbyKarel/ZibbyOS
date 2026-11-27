@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { intentApprovalDetail } from "../gates/intent-approval-detail";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
@@ -634,9 +635,9 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
           skill: agent.name ?? agent.id,
           action: action.action,
           // The action's own `context` (e.g. the Cleaner's deletion list, packed as
-          // approval-enrichment JSON) is what the card should show; fall back to the
-          // run's prompt when the action carried no detail of its own.
-          detail: action.context ?? rec.prompt,
+          // approval-enrichment JSON) is what the card should show; otherwise the key fact
+          // (branch / scope / tool) is composed from the intent, with the run prompt as context.
+          detail: intentApprovalDetail(action, rec.prompt),
           // A destructive delete is irreversible — always the highest severity,
           // regardless of the agent's configured default. Losing files is never
           // "medium". (The hook tags these with `action: "delete"`.)

@@ -152,13 +152,12 @@ describe("AppShell", () => {
     expect(screen.getByTestId(`${MenuButtonTestId.Item}-about`)).toHaveTextContent("O systému");
   });
 
-  it("shows the bell in zone C, with no mode group or divider", () => {
+  it("shows the bell in zone C", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.queryByTestId(HeaderChromeTestId.ModeGroup)).toBeNull();
     expect(screen.getByTestId(AppHeaderTestId.Notifications)).toBeInTheDocument();
   });
 
