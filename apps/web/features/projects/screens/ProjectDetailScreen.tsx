@@ -270,11 +270,12 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
     if (isNew) {
       const newId = slug(body.name) || `project-${Date.now()}`;
       // A brand-new project has nothing to clear — `null` is update-only.
-      const { healthCheck, ...rest } = body;
+      const { healthCheck, logo, ...rest } = body;
       createProject.mutate(
         {
           body: {
             ...rest,
+            ...(logo ? { logo } : {}),
             ...(healthCheck ? { healthCheck } : {}),
             id: newId,
             ...(linkCompanyId ? { companyId: linkCompanyId } : {}),
@@ -532,7 +533,7 @@ export function ProjectDetailScreen({ projectId, tab = "overview" }: ProjectDeta
                   {showMissingCloneBanner && <Tag tone="warn">{te("project.noLocalClone")}</Tag>}
                 </>
               }
-              mark={<IconTile glyph="grid" size="lg" src={undefined} />}
+              mark={<IconTile glyph="grid" size="lg" src={project?.logo} />}
               summary={
                 <Typography size="sm" type="note" variant="secondary">
                   {te("project.summary", { total: connections.tiles.length })}

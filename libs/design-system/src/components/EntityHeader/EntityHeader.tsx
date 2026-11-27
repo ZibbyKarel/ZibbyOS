@@ -110,16 +110,23 @@ export enum EntityLogoTestId {
 export interface EntityLogoProps {
   /** Up to two letters, shown big. */
   initials: string;
+  /** The entity's uploaded logo; replaces the initials when present. */
+  src?: string;
 }
 
 /** The 108px company logo block (design `.co-logo`) — initials until a real logo exists. */
-export function EntityLogo({ initials }: EntityLogoProps) {
+export function EntityLogo({ initials, src }: EntityLogoProps) {
   return (
     <span
       className="grid h-[108px] w-[108px] place-items-center rounded-[28px] border border-line-2 bg-panel-2 text-[40px] font-semibold tracking-[-0.07em] text-ink shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-ink)_6%,transparent)]"
       data-testid={EntityLogoTestId.Root}
     >
-      {initials.slice(0, 2).toUpperCase()}
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- data-URI logo, no optimisation
+        <img alt="" className="h-full w-full rounded-[28px] object-cover" src={src} />
+      ) : (
+        initials.slice(0, 2).toUpperCase()
+      )}
     </span>
   );
 }

@@ -86,6 +86,7 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
         {
           body: {
             ...body,
+            logo: body.logo ?? undefined,
             companyId: body.companyId ?? undefined,
             slug: body.slug ?? undefined,
             board: body.board ?? undefined,
@@ -197,7 +198,7 @@ export function TeamDetailScreen({ teamId }: TeamDetailScreenProps) {
               </>
             }
             lede={team.desc}
-            mark={<IconTile glyph="users" shape="circle" size="lg" />}
+            mark={<IconTile glyph="users" shape="circle" size="lg" src={team?.logo} />}
             summary={
               <Typography size="sm" type="note" variant="secondary">
                 {te("connections.summary", { connected: model.connected })}

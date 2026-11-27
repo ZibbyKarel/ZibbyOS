@@ -5590,5 +5590,10 @@
       "locked": "Nepodařilo se: merge grant potřebuje platný operátorský token.",
       "failed": "Akce se nezdařila."
     }
+  },
+  "logo": {
+    "change": "Změnit logo",
+    "remove": "Odebrat logo",
+    "invalid": "Logo se nepodařilo použít — musí to být PNG, JPEG, WebP nebo SVG do 512 KB."
   }
 }

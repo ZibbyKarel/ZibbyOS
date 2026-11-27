@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Panel, Stack, Typography } from "@zibby/design-system";
 import type { Team } from "@zibby/contracts";
 import { FormSelect, FormTextInput, useFormControls } from "@zibby/forms";
+import { EntityLogoField } from "../../../components/EntityLogoField/EntityLogoField";
 import { useCompaniesQuery } from "../../companies";
 import { useCompanyIntegrationsQuery } from "../../integrations/queries";
 
@@ -20,6 +22,8 @@ const NO_COMPANY = "";
 export interface TeamBasicsBody {
   name: string;
   desc?: string;
+  /** Changed logo only: a data URI to set, `null` to clear; absent = leave as is. */
+  logo?: string | null;
   companyId?: string | null;
   /** Team code owner id (GitHub or GitLab); `null` clears it on edit. */
   slug?: string | null;
@@ -58,6 +62,7 @@ type TeamEditValues = {
  */
 export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamBasicsPanelProps) {
   const t = useTranslations("teams");
+  const [logo, setLogo] = useState<string | undefined>(team?.logo);
   const { data: companies = [] } = useCompaniesQuery();
 
   const { renderForm, submit, form } = useFormControls<TeamEditValues>({
@@ -72,6 +77,7 @@ export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamB
       onSave({
         name: values.name.trim(),
         desc: values.desc.trim() || undefined,
+        ...(logo !== team?.logo ? { logo: logo ?? null } : {}),
         slug: values.slug.trim() || (isNew ? undefined : null),
         // Hidden field (no Jira account) -> key omitted so the stored value survives.
         ...(hasJira ? { board: values.board.trim() || (isNew ? undefined : null) } : {}),
@@ -120,6 +126,13 @@ export function TeamBasicsPanel({ team, isNew, saving, onSave, onDelete }: TeamB
           label={t("fields.name")}
           name="name"
           placeholder={t("fields.namePlaceholder")}
+        />
+
+        <EntityLogoField
+          fallback={(watchedName ?? "").slice(0, 2)}
+          name={watchedName}
+          onChange={setLogo}
+          value={logo}
         />
 
         <FormTextInput<TeamEditValues>

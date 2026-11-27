@@ -1,22 +1,15 @@
 "use client";
 
-import { type ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button, IconTile, Panel, SelectField, Stack, Typography } from "@zibby/design-system";
+import { Button, Panel, SelectField, Stack, Typography } from "@zibby/design-system";
 import type { Category, PrOpenMode, Project } from "@zibby/contracts";
 import { Controller, FormTextArea, FormTextInput, useFormControls } from "@zibby/forms";
-import { toastBus } from "../../../components/Toaster/toastBus";
+import { EntityLogoField } from "../../../components/EntityLogoField/EntityLogoField";
 import { KeyValueEditor, type KeyValueRow } from "./KeyValueEditor";
 
 /** The `SelectField` security value for "no category" — a category name can never be empty. */
 const NO_CATEGORY = "";
-
-/**
- * Mirrors `ProjectSchema.logo`'s cap (280 000 base64 chars, ~200 KB) so an
- * oversized file is rejected client-side with a toast instead of a 422 on save.
- */
-const LOGO_MAX_DATA_URI_LENGTH = 280_000;
 
 /** The core project record fields this panel edits (name/category/desc/logo/budget/env). */
 export interface ProjectBasicsBody {
@@ -25,8 +18,8 @@ export interface ProjectBasicsBody {
   category?: string;
   /** Git remote URL — where ZIBBY clones this project from on another machine (Phase 76/77). */
   gitRemote?: string;
-  /** Custom logo as a data URI; absent/undefined falls back to the default glyph. */
-  logo?: string;
+  /** Changed logo only: a data URI to set, `null` to clear; absent = leave as is. */
+  logo?: string | null;
   budget?: {
     dailyRuns?: number;
     weeklyRuns?: number;
@@ -139,29 +132,6 @@ export function ProjectBasicsPanel({
   const tHealth = useTranslations("projects.health");
   const [envRows, setEnvRows] = useState<KeyValueRow[]>(toRows(project?.env));
   const [logo, setLogo] = useState<string | undefined>(project?.logo);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-
-  function handleLogoFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Reset the input so picking the same file again still fires onChange.
-    e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toastBus.emit({ message: t("fields.logoTooLarge") });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUri = typeof reader.result === "string" ? reader.result : null;
-      if (dataUri != null && dataUri.length <= LOGO_MAX_DATA_URI_LENGTH) {
-        setLogo(dataUri);
-      } else {
-        toastBus.emit({ message: t("fields.logoTooLarge") });
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
   const { renderForm, submit, form } = useFormControls<ProjectEditValues>({
     defaultValues: {
       name: project?.name ?? "",
@@ -232,7 +202,7 @@ export function ProjectBasicsPanel({
         desc: values.desc.trim() || undefined,
         category: values.category || undefined,
         gitRemote: values.gitRemote.trim() || undefined,
-        logo,
+        ...(logo !== project?.logo ? { logo: logo ?? null } : {}),
         budget,
         env: fromRows(envRows),
         prOpenMode: values.prOpenMode === "draft" ? "draft" : undefined,
@@ -357,33 +327,12 @@ export function ProjectBasicsPanel({
           <Typography mono size="sm" type="note" variant="secondary">
             {t("fields.logo")}
           </Typography>
-          <Stack align="center" direction="row" gap="150">
-            <IconTile alt={watchedName || t("fields.logo")} glyph="code" size="xl" src={logo} />
-            <Stack direction="row" gap="75">
-              <Button
-                icon="file"
-                intent="ghost"
-                onClick={() => logoInputRef.current?.click()}
-                size="sm"
-              >
-                {t("fields.logoUpload")}
-              </Button>
-              {logo != null && (
-                <Button icon="trash" intent="danger" onClick={() => setLogo(undefined)} size="sm">
-                  {t("fields.logoRemove")}
-                </Button>
-              )}
-            </Stack>
-            {/* Native hidden attribute (not a style/className) — triggered from the Button above. */}
-            <input
-              hidden
-              accept="image/*"
-              data-testid="project-logo-input"
-              onChange={handleLogoFile}
-              ref={logoInputRef}
-              type="file"
-            />
-          </Stack>
+          <EntityLogoField
+            fallback={(watchedName ?? "").slice(0, 2)}
+            name={watchedName}
+            onChange={setLogo}
+            value={logo}
+          />
         </Stack>
 
         <Stack gap="75">

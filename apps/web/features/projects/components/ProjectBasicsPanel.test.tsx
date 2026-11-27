@@ -1,6 +1,6 @@
 import { fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DropdownTestId, IconTileTestId } from "@zibby/design-system";
+import { DropdownTestId, IconTileTestId, LogoUploadTestId } from "@zibby/design-system";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders as render, screen } from "../../../test/render";
 import { toastBus } from "../../../components/Toaster/toastBus";
@@ -14,7 +14,7 @@ describe("ProjectBasicsPanel logo upload", () => {
 
   it("previews a valid image and clears it via Remove", async () => {
     render(<ProjectBasicsPanel isNew categories={[]} onSave={vi.fn()} />);
-    const input = screen.getByTestId("project-logo-input");
+    const input = screen.getByTestId(LogoUploadTestId.Input);
     const file = new File(["fake-bytes"], "logo.png", { type: "image/png" });
     Object.defineProperty(input, "files", { value: [file], configurable: true });
     fireEvent.change(input);
@@ -22,14 +22,30 @@ describe("ProjectBasicsPanel logo upload", () => {
     const img = await screen.findByTestId(IconTileTestId.Image);
     expect(img.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
 
-    await userEvent.click(screen.getByText("Odebrat logo"));
+    await userEvent.click(screen.getByTestId(LogoUploadTestId.Remove));
     expect(screen.queryByTestId(IconTileTestId.Image)).not.toBeInTheDocument();
+  });
+
+  it("exposes the hover-change control on the logo (todo #21)", () => {
+    render(<ProjectBasicsPanel isNew categories={[]} onSave={vi.fn()} />);
+    expect(screen.getByTestId(LogoUploadTestId.Change)).toHaveAccessibleName("Změnit logo");
+  });
+
+  it("sends logo: null only when an existing logo is removed", async () => {
+    const onSave = vi.fn();
+    const project = { id: "a", name: "Alpha", path: "~/a", logo: "/avatars/x.png" };
+    render(<ProjectBasicsPanel categories={[]} isNew={false} onSave={onSave} project={project} />);
+    await userEvent.click(screen.getByTestId("save-basics"));
+    expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty("logo");
+    await userEvent.click(screen.getByTestId(LogoUploadTestId.Remove));
+    await userEvent.click(screen.getByTestId("save-basics"));
+    expect(onSave.mock.calls[1]?.[0]).toHaveProperty("logo", null);
   });
 
   it("includes the uploaded logo in the saved body", async () => {
     const onSave = vi.fn();
     render(<ProjectBasicsPanel isNew categories={[]} onSave={onSave} />);
-    const input = screen.getByTestId("project-logo-input");
+    const input = screen.getByTestId(LogoUploadTestId.Input);
     const file = new File(["fake-bytes"], "logo.png", { type: "image/png" });
     Object.defineProperty(input, "files", { value: [file], configurable: true });
     fireEvent.change(input);
@@ -46,7 +62,7 @@ describe("ProjectBasicsPanel logo upload", () => {
   it("rejects a non-image file with a toast and keeps the glyph", async () => {
     const emitSpy = vi.spyOn(toastBus, "emit");
     render(<ProjectBasicsPanel isNew categories={[]} onSave={vi.fn()} />);
-    const input = screen.getByTestId("project-logo-input");
+    const input = screen.getByTestId(LogoUploadTestId.Input);
     const file = new File(["not an image"], "doc.pdf", { type: "application/pdf" });
     Object.defineProperty(input, "files", { value: [file], configurable: true });
     fireEvent.change(input);
@@ -58,9 +74,9 @@ describe("ProjectBasicsPanel logo upload", () => {
   it("rejects an oversized image with a toast and keeps the glyph", async () => {
     const emitSpy = vi.spyOn(toastBus, "emit");
     render(<ProjectBasicsPanel isNew categories={[]} onSave={vi.fn()} />);
-    const input = screen.getByTestId("project-logo-input");
-    // Comfortably over the ~200 KB / 280 000-base64-char cap once encoded.
-    const bytes = new Uint8Array(215_000);
+    const input = screen.getByTestId(LogoUploadTestId.Input);
+    // Over the 512 KB cap.
+    const bytes = new Uint8Array(530_000);
     const file = new File([bytes], "big.png", { type: "image/png" });
     Object.defineProperty(input, "files", { value: [file], configurable: true });
     fireEvent.change(input);

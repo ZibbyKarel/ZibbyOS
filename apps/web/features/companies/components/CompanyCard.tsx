@@ -3,6 +3,7 @@ import {
   AvatarStack,
   CodeTile,
   Divider,
+  IconTile,
   ListCard,
   MiniTree,
   SemiGauge,
@@ -41,7 +42,11 @@ export function CompanyCard({ company, summary, onOpen }: CompanyCardProps) {
   return (
     <ListCard onOpen={() => onOpen?.(company)} openLabel={t("openAria", { name: company.name })}>
       <Stack align="center" direction="row" gap="200">
-        <CodeTile solid code={monogram(company.name)} />
+        {company.logo ? (
+          <IconTile alt="" size="xl" src={company.logo} tone="neutral" />
+        ) : (
+          <CodeTile solid code={monogram(company.name)} />
+        )}
         <Stack grow gap="25">
           <Typography truncate size="xl" type="note" weight="semibold">
             {company.name}

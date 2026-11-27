@@ -1,5 +1,5 @@
 import type { Team } from "@zibby/contracts";
-import { ListCard, Stack, Tag, Typography } from "@zibby/design-system";
+import { IconTile, ListCard, Stack, Tag, Typography } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 
 export interface TeamCardProps {
@@ -20,6 +20,11 @@ export function TeamCard({ team, companyName, onOpen }: TeamCardProps) {
 
   return (
     <ListCard onOpen={() => onOpen?.(team)} openLabel={t("openAria", { name: team.name })}>
+      {team.logo && (
+        <Stack direction="row">
+          <IconTile alt="" glyph="users" size="lg" src={team.logo} />
+        </Stack>
+      )}
       {companyName && (
         <Stack direction="row">
           <Tag icon="building" tone="neutral">

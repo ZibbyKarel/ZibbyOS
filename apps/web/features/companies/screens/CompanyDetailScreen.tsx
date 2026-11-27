@@ -110,7 +110,7 @@ export function CompanyDetailScreen({ companyId }: CompanyDetailScreenProps) {
     if (isNew) {
       const newId = slug(body.name) || `company-${Date.now()}`;
       createCompany.mutate(
-        { body: { ...body, id: newId } },
+        { body: { ...body, logo: body.logo ?? undefined, id: newId } },
         { onSuccess: () => router.replace(`/companies/${newId}` as Route) },
       );
     } else {
@@ -251,7 +251,7 @@ export function CompanyDetailScreen({ companyId }: CompanyDetailScreenProps) {
               </>
             }
             lede={company.desc}
-            mark={<EntityLogo initials={initials} />}
+            mark={<EntityLogo initials={initials} src={company.logo} />}
             summary={summary}
             title={company.name}
             variant="company"

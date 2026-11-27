@@ -1,14 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Panel, Stack, Typography } from "@zibby/design-system";
 import type { Company } from "@zibby/contracts";
 import { FormTextInput, useFormControls } from "@zibby/forms";
+import { EntityLogoField } from "../../../components/EntityLogoField/EntityLogoField";
 
 /** The core company record fields this panel edits (name/desc/default budget). */
 export interface CompanyBasicsBody {
   name: string;
   desc?: string;
+  /** Changed logo only: a data URI to set, `null` to clear; absent = leave as is. */
+  logo?: string | null;
   budget?: {
     dailyRuns?: number;
     weeklyRuns?: number;
@@ -59,7 +63,7 @@ type CompanyEditValues = {
  * creates a new company (`isNew`) and edits an existing one. Mount with
  * `key={company?.id ?? "new"}` so switching companies resets the captured form
  * defaults. Mirrors `ProjectBasicsPanel`, trimmed to the fields a company owns
- * (no category/logo/env — those are project-only).
+ * (no category/env — those are project-only).
  */
 export function CompanyBasicsPanel({
   company,
@@ -69,6 +73,7 @@ export function CompanyBasicsPanel({
   onDelete,
 }: CompanyBasicsPanelProps) {
   const t = useTranslations("companies");
+  const [logo, setLogo] = useState<string | undefined>(company?.logo);
 
   const { renderForm, submit, form } = useFormControls<CompanyEditValues>({
     defaultValues: {
@@ -112,6 +117,7 @@ export function CompanyBasicsPanel({
       onSave({
         name: values.name.trim(),
         desc: values.desc.trim() || undefined,
+        ...(logo !== company?.logo ? { logo: logo ?? null } : {}),
         budget,
       });
     },
@@ -149,6 +155,13 @@ export function CompanyBasicsPanel({
           label={t("fields.name")}
           name="name"
           placeholder={t("fields.namePlaceholder")}
+        />
+
+        <EntityLogoField
+          fallback={(watchedName ?? "").slice(0, 2)}
+          name={watchedName}
+          onChange={setLogo}
+          value={logo}
         />
 
         <FormTextInput<CompanyEditValues>

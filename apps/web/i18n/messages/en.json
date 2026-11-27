@@ -5590,5 +5590,10 @@
       "locked": "Failed: a merge grant needs a valid operator token.",
       "failed": "The action failed."
     }
+  },
+  "logo": {
+    "change": "Change logo",
+    "remove": "Remove logo",
+    "invalid": "Couldn't use that logo — it must be a PNG, JPEG, WebP or SVG up to 512 KB."
   }
 }

@@ -1006,6 +1006,11 @@ export { CountGrid, CountGridTestId, type CountGridProps } from "./components/Co
 export { StatCells, StatCellsTestId, type StatCellsProps } from "./components/StatCells/StatCells";
 export { OrgChart, OrgChartTestId, type OrgChartProps } from "./components/OrgChart/OrgChart";
 export { CodeTile, CodeTileTestId, type CodeTileProps } from "./components/CodeTile/CodeTile";
+export {
+  LogoUpload,
+  LogoUploadTestId,
+  type LogoUploadProps,
+} from "./components/LogoUpload/LogoUpload";
 export type { AvatarStackItem } from "./components/AvatarStack/AvatarStack";
 export type { MiniTreeRow } from "./components/MiniTree/MiniTree";
 export type { SegmentedBarSegment, SegmentedBarTone } from "./components/SegmentedBar/SegmentedBar";
