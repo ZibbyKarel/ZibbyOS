@@ -1,7 +1,7 @@
 import { IconTestId, ReadingItemTestId } from "@zibby/design-system";
 import { fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, screen } from "../../../test/render";
+import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
 import { ConnectedServicesListTestId as ConnectedServicesWidgetTestId } from "../../connected-services/components/ConnectedServicesList";
 import { ConnectedServicesWidget } from "./ConnectedServicesWidget";
@@ -59,9 +59,15 @@ describe("ConnectedServicesWidget", () => {
       "Claude",
       "Figma",
     ]);
+    // status is a green check / red cross, named for assistive tech — no "connected" word
+    const marks = screen
+      .getAllByTestId(ConnectedServicesWidgetTestId.Status)
+      .map((r) => within(r).getByTestId(IconTestId.Root));
+    expect(marks.map((m) => m.getAttribute("data-icon"))).toEqual(["check", "x"]);
+    expect(marks.map((m) => m.getAttribute("aria-label"))).toEqual(["Připojeno", "Odpojeno"]);
     expect(
       screen.getAllByTestId(ConnectedServicesWidgetTestId.Status).map((r) => r.textContent),
-    ).toEqual(["Připojeno", "Odpojeno"]);
+    ).toEqual(["", ""]);
     expect(onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 2, you: 1 }));
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ConnectedService } from "@zibby/contracts";
-import { Button, Icon, ReadingItem, Stack, StatusDot } from "@zibby/design-system";
+import { Button, Grid, Icon, ReadingItem, Stack, Typography } from "@zibby/design-system";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { QueryError } from "../../../components/LoadError/QueryError";
@@ -47,7 +47,7 @@ function ServiceIcon({ service }: { service: ConnectedService }) {
 }
 
 /**
- * Connected services (KDP, MakerWorld …): one row per service. Connected rows open the service
+ * Connected services (KDP, MakerWorld …): one row per service (two columns), its status a green check or a red cross. Connected rows open the service
  * in a new tab; a disconnected row's Connect launches its login in Chrome and the list is polled
  * (5s, up to 3 min) until it turns connected. Shared by the bridge widget and Settings → Accounts.
  */
@@ -68,7 +68,7 @@ export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedService
   if (query.isError) return <QueryError onRetry={() => void query.refetch()} />;
 
   return (
-    <>
+    <Grid cols={2}>
       {services.map((s) => {
         const isConnected = s.status === "connected";
         const pending = connect.isPending && connect.variables?.params.id === s.id;
@@ -118,15 +118,20 @@ export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedService
                 direction="row"
                 gap="50"
               >
-                <StatusDot size="50" tone={isConnected ? "done" : "blocked"} />
-                {t(
-                  isConnected
-                    ? "connected"
-                    : // The agents can't open the profile while that Chrome window is open.
-                      signingIn.has(s.id)
-                      ? "signInHint"
-                      : "disconnected",
-                )}
+                <Icon
+                  aria-hidden={false}
+                  aria-label={t(isConnected ? "connected" : "disconnected")}
+                  name={isConnected ? "check" : "x"}
+                  role="img"
+                  size="sm"
+                  tone={isConnected ? "ok" : "bad"}
+                />
+                {/* The agents can't open the profile while that Chrome window is open. */}
+                {!isConnected && signingIn.has(s.id) ? (
+                  <Typography as="span" size="xs" type="note">
+                    {t("signInHint")}
+                  </Typography>
+                ) : null}
               </Stack>
             }
             text={
@@ -138,6 +143,6 @@ export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedService
           />
         );
       })}
-    </>
+    </Grid>
   );
 }
