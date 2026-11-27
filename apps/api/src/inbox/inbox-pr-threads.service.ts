@@ -34,7 +34,7 @@ const GITHUB_TIMEOUT_MS = 15_000;
 // ponytail: first 100 threads x first 30 comments per PR; a bigger PR shows a truncated list.
 // upgrade = cursor pagination on reviewThreads / comments.
 const THREADS_QUERY =
-  "query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved isOutdated path line startLine comments(first:30){nodes{id url author{login avatarUrl} createdAt body diffHunk}}}}}}}";
+  "query($owner:String!,$name:String!,$n:Int!){viewer{login} repository(owner:$owner,name:$name){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved isOutdated path line startLine comments(first:30){nodes{id url author{login avatarUrl} createdAt body diffHunk}}}}}}}";
 const REPLY_MUTATION =
   "mutation($id:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$id,body:$body}){comment{id}}}";
 const RESOLVE_MUTATION = "mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{id}}}";
@@ -90,6 +90,11 @@ export class ThreadNotOnPrError extends Error {
     super(`thread ${threadId} is not on ${repo}#${number}`);
     this.name = "ThreadNotOnPrError";
   }
+}
+
+/** Whether a thread's first comment was written by `viewer` (the token's user = the operator; ZIBBY posts as them). */
+export function isMine(viewer: string | undefined, author: string | undefined): boolean {
+  return !!viewer && !!author && viewer.toLowerCase() === author.toLowerCase();
 }
 
 interface ThreadNode {
@@ -449,9 +454,11 @@ export class InboxPrThreadsService {
   private async read(gql: Gql, repo: string, number: number): Promise<InboxPrThread[]> {
     const [owner, name] = repo.split("/");
     const data = await gql<{
+      viewer?: { login: string } | null;
       repository: { pullRequest: { reviewThreads: { nodes: ThreadNode[] } } | null } | null;
     }>(THREADS_QUERY, { owner, name, n: number });
     const nodes = data.repository?.pullRequest?.reviewThreads.nodes ?? [];
+    const viewer = data.viewer?.login;
     return nodes.map((t) => ({
       id: t.id,
       isResolved: t.isResolved,
@@ -461,6 +468,7 @@ export class InboxPrThreadsService {
       startLine: t.startLine,
       diffHunk: t.comments.nodes[0]?.diffHunk ?? "",
       ...(t.comments.nodes[0]?.url ? { url: t.comments.nodes[0].url } : {}),
+      ...(isMine(viewer, t.comments.nodes[0]?.author?.login) ? { mine: true } : {}),
       comments: t.comments.nodes.map(({ id, author, createdAt, body }) => ({
         id,
         author,

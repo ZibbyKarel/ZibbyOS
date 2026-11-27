@@ -26,6 +26,20 @@ const note = (over: Record<string, unknown> = {}) => ({
 });
 
 describe("gitlabThreads", () => {
+  it("marks discussions started by the glab user as mine", async () => {
+    const { client } = fakeGlab([
+      [/^user$/, { username: "Me" }],
+      [
+        /merge_requests\/3\/discussions/,
+        [
+          { id: D1, notes: [note({ author: { username: "me" } })] },
+          { id: D2, notes: [note({ id: 21 })] },
+        ],
+      ],
+    ]);
+    expect((await gitlabThreads(client, link, 3)).map((t) => t.mine)).toEqual([true, undefined]);
+  });
+
   it("maps resolvable discussions: id, resolved flag, position, comments, url", async () => {
     const { client } = fakeGlab([
       [

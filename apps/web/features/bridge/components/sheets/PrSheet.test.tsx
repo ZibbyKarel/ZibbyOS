@@ -287,6 +287,53 @@ describe("PrSheet content", () => {
     ).toBeNull();
   });
 
+  it("Naše komentáře counts threads started by us, with a green check when all are resolved", () => {
+    const thread = (id: string, isResolved: boolean, mine: boolean): InboxPrThread => ({
+      id: `PRRT_${id}`,
+      isResolved,
+      isOutdated: false,
+      path: "a.ts",
+      line: 1,
+      startLine: null,
+      diffHunk: "@@ -1 +1 @@\n+x",
+      comments: [],
+      ...(mine && { mine }),
+    });
+    hooks.threads = [thread("1", true, true), thread("2", false, true), thread("3", false, false)];
+    show(pr(42, { headRef: "feat" }));
+    const cell = screen.getByTestId(`${MetricStripTestId.Item}-ours`);
+    expect(cell).toHaveTextContent("Naše komentáře");
+    expect(cell).toHaveTextContent("vyřešeno 1 z 2");
+    expect(
+      within(cell)
+        .queryAllByTestId(IconTestId.Root)
+        .some((i) => i.getAttribute("data-icon") === "check"),
+    ).toBe(false);
+    cleanup();
+    hooks.threads = [thread("1", true, true), thread("3", false, false)];
+    show(pr(42, { headRef: "feat" }));
+    const done = screen.getByTestId(`${MetricStripTestId.Item}-ours`);
+    expect(done).toHaveTextContent("vyřešeno 1 z 1");
+    expect(within(done).getByTestId(IconTestId.Root)).toHaveAttribute("data-icon", "check");
+  });
+
+  it("has no Naše komentáře cell when none of the threads is ours", () => {
+    hooks.threads = [
+      {
+        id: "PRRT_9",
+        isResolved: false,
+        isOutdated: false,
+        path: "a.ts",
+        line: 1,
+        startLine: null,
+        diffHunk: "",
+        comments: [],
+      },
+    ];
+    show(pr(43, {}));
+    expect(screen.queryByTestId(`${MetricStripTestId.Item}-ours`)).toBeNull();
+  });
+
   it("has no Diskuse cell without threads", () => {
     show(pr(41, {}));
     expect(screen.queryByTestId(`${MetricStripTestId.Item}-discussion`)).toBeNull();

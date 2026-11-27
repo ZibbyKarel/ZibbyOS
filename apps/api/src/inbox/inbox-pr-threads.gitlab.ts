@@ -27,6 +27,7 @@ import {
   readGitlabDiscussions,
   readGitlabMr,
   readGitlabReviewers,
+  readGitlabViewer,
   unavailable,
 } from "./inbox.gitlab";
 
@@ -37,6 +38,7 @@ export async function gitlabThreads(
   iid: number,
 ): Promise<InboxPrThread[]> {
   const threads: InboxPrThread[] = [];
+  const viewer = (await readGitlabViewer(client, link.host).catch(() => undefined))?.toLowerCase();
   for (const d of await readGitlabDiscussions(client, link, iid)) {
     const notes = (d.notes ?? []).filter((n) => !n.system && n.id !== undefined);
     const first = notes[0];
@@ -58,6 +60,7 @@ export async function gitlabThreads(
       ...(first.id
         ? { url: `${prWebUrl({ kind: "gitlab", ...link }, iid)}#note_${first.id}` }
         : {}),
+      ...(viewer && first.author?.username?.toLowerCase() === viewer ? { mine: true } : {}),
       comments: notes.map((n) => ({
         id: String(n.id),
         author: n.author?.username

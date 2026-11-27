@@ -4670,6 +4670,7 @@
           "ciFailing": "{count, plural, =0 {Checks are failing} one {# check failing} other {# checks failing}}"
         },
         "discussion": "Discussion",
+        "ours": "Our comments",
         "discussionValue": "{resolved} of {total} resolved",
         "failedJobs": {
           "title": "Failed jobs",

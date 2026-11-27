@@ -307,6 +307,18 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
   }));
   const added = files.reduce((n, f) => n + f.added, 0);
   const removed = files.reduce((n, f) => n + f.removed, 0);
+  const ours = (threads ?? []).filter((th) => th.mine);
+  const oursResolved = ours.filter((th) => th.isResolved).length;
+  const oursCount = t("bridge.sheet.pr.discussionValue", {
+    resolved: oursResolved,
+    total: ours.length,
+  });
+  const oursText =
+    oursResolved === ours.length ? (
+      <IconValue icon={{ name: "check", tone: "ok" }} text={oursCount} />
+    ) : (
+      oursCount
+    );
   const target = { params: { id: pr.projectId, number: pr.number } };
 
   const toggleDraft = () =>
@@ -368,6 +380,15 @@ export function PrSheet({ id, anchor, onClose, onOpen, frame }: SheetProps) {
               total: threads?.length ?? pr.unresolvedThreads ?? 0,
             }),
             ...(mine && { action: <PrAddressButton pr={pr} /> }),
+          },
+        ]
+      : []),
+    ...(ours.length
+      ? [
+          {
+            id: "ours",
+            label: t("bridge.sheet.pr.ours"),
+            value: oursText,
           },
         ]
       : []),

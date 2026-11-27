@@ -4670,6 +4670,7 @@
           "ciFailing": "{count, plural, =0 {Checky selhávají} one {# check selhává} few {# checky selhávají} other {# checků selhává}}"
         },
         "discussion": "Diskuse",
+        "ours": "Naše komentáře",
         "discussionValue": "vyřešeno {resolved} z {total}",
         "failedJobs": {
           "title": "Selhané joby",

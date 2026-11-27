@@ -368,6 +368,8 @@ export const InboxPrThreadSchema = z.object({
   diffHunk: z.string(),
   /** GitHub link of the thread (its first comment) — absent when GitHub did not return one. */
   url: z.string().optional(),
+  /** The thread was started by us: the operator (ZIBBY posts with the operator's token) — set only when true. */
+  mine: z.boolean().optional(),
   comments: z.array(InboxPrThreadCommentSchema),
 });
 export type InboxPrThread = z.infer<typeof InboxPrThreadSchema>;

@@ -105,6 +105,19 @@ describe("InboxPrThreadsService", () => {
     expect(init.headers.authorization).toBe("Bearer tok");
   });
 
+  it("list marks threads started by the token's viewer (case-insensitive) as mine", async () => {
+    nodes = [node("PRRT_1"), { ...node("PRRT_2"), comments: node("x").comments }];
+    nodes[1]!.comments.nodes[0]!.author = { login: "Me", avatarUrl: "" };
+    fetchImpl.mockImplementation(async () =>
+      gqlResponse({
+        viewer: { login: "me" },
+        repository: { pullRequest: { reviewThreads: { nodes } } },
+      }),
+    );
+    const threads = await service.list("acme", 7);
+    expect(threads.map((t) => t.mine)).toEqual([undefined, true]);
+  });
+
   it("reply resolves first, then posts the reply, when both are requested", async () => {
     await service.reply("acme", 7, "PRRT_1", { body: "done", resolve: true });
     const queries = bodies().map((b) => b.query);
