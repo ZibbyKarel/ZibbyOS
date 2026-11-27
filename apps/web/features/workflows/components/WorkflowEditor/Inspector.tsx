@@ -446,6 +446,21 @@ function PhaseSections({ node, ...p }: InspectorProps & { node: GraphNode }) {
         </InspectorSection>
       )}
 
+      {node.type === "parallel" && (
+        <InspectorSection defaultOpen index={num()} title={t("parallelBranches")}>
+          <Stack gap="75">
+            <Typography size="xs" type="note" variant="tertiary">
+              {t("parallelHint")}
+            </Typography>
+            {(node.branches ?? []).map((b) => (
+              <Typography mono key={b.id} size="xs" type="note" variant="secondary">
+                {`${b.id} → ${b.workflow}${b.produces ? ` (${b.produces})` : ""}`}
+              </Typography>
+            ))}
+          </Stack>
+        </InspectorSection>
+      )}
+
       {node.type === "system" && (
         <InspectorSection defaultOpen index={num()} title={t("who")}>
           <Typography mono size="xs" type="note" variant="tertiary">

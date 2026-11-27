@@ -230,4 +230,36 @@ describe("RunStageRail", () => {
       expect(model("delivery_42")).toHaveTextContent(/^Haiku$/);
     });
   });
+
+  it("nests a parallel stage's branches as sub-rows with status and cost", () => {
+    render(
+      <RunStageRail
+        onSelect={vi.fn()}
+        rows={[
+          row("publish", {
+            state: "done",
+            stateKey: "done",
+            branches: [
+              {
+                id: "kdp",
+                workflow: "kdp-publish",
+                childRunId: "c1",
+                status: "done",
+                costUsd: 0.5,
+              },
+              { id: "mw", workflow: "mw-publish", status: "queued" },
+            ],
+          }),
+        ]}
+        run={run}
+        selectedPhaseId={null}
+      />,
+    );
+    const kdp = screen.getByTestId(`${RunStageRailTestId.Branch}-publish-kdp`);
+    expect(kdp).toHaveTextContent("kdp-publish");
+    expect(kdp).toHaveTextContent("$0.50");
+    expect(kdp).toBeEnabled();
+    // a branch whose child has not spawned yet has nowhere to go
+    expect(screen.getByTestId(`${RunStageRailTestId.Branch}-publish-mw`)).toBeDisabled();
+  });
 });

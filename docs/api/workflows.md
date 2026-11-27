@@ -537,6 +537,33 @@ own workflow.
 - Child runs are hidden from the task feed; the parent's stage links to them via
   `childRunId`.
 
+### Phase: parallel (fan-out)
+
+`type: parallel` starts one child run per `branches` entry (`{ id, workflow, produces? }`,
+min 2, `produces` defaults to `<id>.md`), waits for all of them and joins the results.
+Needs `consumes` and `produces`; `approval` and `when` work as for any phase; no `loop`
+may target it. `drive()` stays serial — concurrency lives only in the child runs, and
+branches may themselves contain parallel phases (same depth/cycle guards as sub-runs).
+
+- **Start:** `pendingBranches` (all branches) is persisted before any child starts; each
+  child gets the handoff as input and an even share (`remaining / N`) of the parent's cap.
+  A branch that cannot start (cycle, depth, missing workflow) is `failed` at once
+  (`<branch id>.error.txt` in the stage dir).
+- **Settle:** branch events are applied per parent on a promise chain, so only the last
+  terminal branch joins and re-enters `drive()` (exactly once). Each done branch's latest
+  artifact is copied to `<stage>/<branch produces>`; the joined `produces` is Markdown
+  (`# <phase>`, then `## <branch> — <workflow> (<status>)` + run id + artifact content).
+  One `StageRun` carries `branches[]` and the summed `costUsd`; it is `done` iff every
+  branch is `done`. A failed branch never cancels its siblings — they finish, then the
+  stage and run fail.
+- **Parking:** the parent is `parked` (`child`) only when no branch is running and at
+  least one is parked; it un-parks when a parked branch resumes. Resuming the parent
+  resumes every parked branch.
+- **Stop / restart:** stopping the parent stops every non-terminal branch, then it lands
+  `interrupted`. On boot a parent with `pendingBranches` is never failed; every branch
+  child is replayed (a vanished or never-started branch counts as `failed`).
+- The task view exposes the live branches as `pendingBranches`.
+
 ### Approval gate (`approval: ask`)
 
 Any phase type may carry `approval: ask` — an operator checkpoint, absent (the default)

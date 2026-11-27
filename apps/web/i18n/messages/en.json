@@ -1148,7 +1148,8 @@
       "budgetLabel": "Spend cap (USD)",
       "budgetHint": "Optional. Empty = no cap.",
       "projectLabel": "Default project",
-      "projectNone": "— none —"
+      "projectNone": "— none —",
+      "typeParallel": "parallel (fan-out)"
     },
     "command": {
       "title": "New command",
@@ -2250,7 +2251,18 @@
         "awaiting-merge": "Awaiting merge",
         "done": "Done"
       }
-    }
+    },
+    "branchState": {
+      "done": "done",
+      "running": "running",
+      "parked": "parked",
+      "failed": "failed",
+      "skipped": "skipped",
+      "queued": "queued",
+      "interrupted": "interrupted",
+      "paused-limit": "paused (limit)"
+    },
+    "branchLink": "Open branch run {id}"
   },
   "gates": {
     "title": "Approval rules",
@@ -5099,7 +5111,9 @@
       "checkpointOnAria": "Checkpoint after {phase}, on",
       "checkpointOffAria": "Add a checkpoint after {phase}",
       "checkpointOnTitle": "Checkpoint: the run waits for your approval",
-      "checkpointOffTitle": "Add a checkpoint here"
+      "checkpointOffTitle": "Add a checkpoint here",
+      "forkBadge": "Parallel ×{n}",
+      "branchAria": "Branch {id}: open workflow {workflow}"
     },
     "card": {
       "aria": "{title}, {subtitle}",
@@ -5115,7 +5129,9 @@
       "system": "System step",
       "tool": "Tool",
       "when": "when",
-      "whenTitle": "Runs only when {phase} asks for it"
+      "whenTitle": "Runs only when {phase} asks for it",
+      "parallel": "Parallel",
+      "branches": "{n} branches"
     },
     "inspector": {
       "advanced": "Advanced",
@@ -5172,7 +5188,10 @@
       "who": "Who",
       "workflowLink": "Workflow",
       "workflowPick": "Choose a workflow",
-      "workflowTitle": "Workflow settings"
+      "workflowTitle": "Workflow settings",
+      "parallelBranches": "Branches",
+      "parallelHint": "Branches run at once as child workflows. They are edited in the recipe file, not here.",
+      "branchOpen": "Open workflow {workflow}"
     },
     "loop": {
       "attempt": "Attempt {n}",
@@ -5273,7 +5292,8 @@
       "autoLayout": "Auto-layout",
       "autoLayoutHint": "Re-run the automatic layout and fit the view",
       "runSheetAria": "Run workflow",
-      "runSheetTitle": "Run {name}"
+      "runSheetTitle": "Run {name}",
+      "kind_parallel": "Parallel fan-out · {n} of {total}"
     }
   },
   "brand": {

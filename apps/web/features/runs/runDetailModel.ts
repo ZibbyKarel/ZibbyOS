@@ -8,7 +8,13 @@ import type { LogStreamLine, StateTone } from "@zibby/design-system";
 import { formatCostUsd } from "../../utils/cost";
 import { formatDuration } from "../../utils/time";
 import type { RunView } from "./run";
-import { LIVE_STAGE_RUN_ID, type StageRunEntry, buildPhaseNodes } from "./stagePhases";
+import {
+  type BranchRow,
+  LIVE_STAGE_RUN_ID,
+  type StageRunEntry,
+  buildPhaseNodes,
+  phaseBranches,
+} from "./stagePhases";
 import { groupTranscript, parseTranscript, rawLogLines } from "./transcript";
 
 /** What the run detail screen is showing — one value drives header, actions, banners and composer. */
@@ -106,6 +112,8 @@ export interface StageRailRow {
   /** Every execution of this phase in order; empty for an unreached phase or an agent run. */
   rounds: StageRound[];
   current: boolean;
+  /** A `parallel` stage's branches (live from `pendingBranches`, else the joined StageRun's). */
+  branches?: BranchRow[];
   /**
    * Set on a row that belongs to a sub-run (a child workflow a parent phase spawned): `phaseId` is
    * then `<childRunId>/<phase>` (unique across the rail), `sub` carries the raw ids for log reads.
@@ -231,6 +239,7 @@ export function buildStageRail(
     const isLiveRow = tone.stateKey === "running";
     const time = stageMeta(main, isLiveRow, run.currentStageStartedAt, now);
     const retries = node.priorAttempts.length;
+    const branches = phaseBranches(run.stageRuns, run.pendingBranches, node.phaseId);
     return {
       phaseId: node.phaseId,
       n: pad2(i + 1),
@@ -247,6 +256,7 @@ export function buildStageRail(
           }))
         : [],
       current,
+      ...(branches.length > 0 ? { branches } : {}),
     };
   });
 }

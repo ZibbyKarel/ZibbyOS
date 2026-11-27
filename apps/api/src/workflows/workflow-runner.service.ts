@@ -328,6 +328,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
    * lands the aggregate `interrupted` instead of taking its normal retry/park path.
    */
   private readonly stopRequested = new Set<string>();
+  /** Per parent run: the tail of its serialized branch-settle chain (see settleBranches). */
+  private readonly branchChains = new Map<string, Promise<void>>();
   /**
    * Set once the API is shutting down: `core.shutdown()` kills every live stage
    * child, and without this the driver would read that kill as a stage failure and
@@ -771,6 +773,22 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     // mirrors it back onto this parent.
     if (run.status === "parked" && run.parkedReason === "child" && run.pendingChild) {
       return this.resumeParked(run.pendingChild.childRunId, note);
+    }
+    // Parked on branches: resume every parked branch child; settleBranches un-parks us.
+    if (run.status === "parked" && run.parkedReason === "child" && run.pendingBranches) {
+      let resumed = 0;
+      let firstError: unknown;
+      for (const b of run.pendingBranches.branches) {
+        if (!b.childRunId || (b.status !== "parked" && b.status !== "paused-limit")) continue;
+        try {
+          await this.resumeParked(b.childRunId, note);
+          resumed++;
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+      if (resumed === 0 && firstError) throw firstError;
+      return run;
     }
     // Phase 9 widens the resumable parkings from `retries`-only to `retries | limit`;
     // a `paused` run re-enters the parked phase in place (no parked surface).
@@ -1231,6 +1249,34 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       } catch (error) {
         this.stopRequested.delete(workflowRunId);
         throw error;
+      }
+      return;
+    }
+    // A parent waiting on branches (running, or parked on them) stops every
+    // non-terminal child; once the last lands, the join re-enters drive(), which sees
+    // the stop mark and lands the parent `interrupted`.
+    if (
+      run?.pendingBranches &&
+      (run.status === "running" || (run.status === "parked" && run.parkedReason === "child"))
+    ) {
+      this.stopRequested.add(workflowRunId);
+      let stopped = 0;
+      for (const b of run.pendingBranches.branches) {
+        if (
+          !b.childRunId ||
+          (b.status && !["running", "parked", "paused-limit"].includes(b.status))
+        )
+          continue;
+        try {
+          await this.stop(b.childRunId);
+          stopped++;
+        } catch {
+          // already terminal / not stoppable — its own status event settles it
+        }
+      }
+      if (stopped === 0) {
+        this.stopRequested.delete(workflowRunId);
+        throw new WorkflowRunNotStoppableError(workflowRunId);
       }
       return;
     }
@@ -1798,6 +1844,23 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
           ));
         if (!refused) return;
         stageRun = refused;
+      } else if (phase.type === "parallel") {
+        // A fan-out: every branch child starts at once; the driver returns and
+        // re-enters this phase once, via settleBranches, when the last one is terminal.
+        const joined =
+          settled ??
+          (await this.startBranches(
+            run,
+            phase,
+            stageDir,
+            attempt,
+            handoffSource,
+            retries,
+            phaseIds,
+            project,
+          ));
+        if (!joined) return;
+        stageRun = joined;
       } else if (phase.type === "system") {
         stageRun = await this.runSystemStage(run, workflow, phase, stageCwd, attempt);
       } else {
@@ -3424,6 +3487,214 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     return null;
   }
 
+  /**
+   * Start a `parallel` phase: persist `pendingBranches` with ALL branches first (so a
+   * child that settles instantly, even inside `start()`, finds its entry), then start
+   * each child with an even share of the parent's remaining spend. A branch that cannot
+   * start is recorded `failed` at once. Always returns null — the parent now waits and
+   * {@link settleBranches} re-enters the phase when the last branch is terminal.
+   */
+  private async startBranches(
+    run: WorkflowRun,
+    phase: WorkflowPhase,
+    stageDir: string,
+    attempt: number,
+    handoffSource: string | null,
+    retries: Map<string, number>,
+    phaseIds: readonly string[],
+    project: Project | null,
+  ): Promise<null> {
+    const branches = phase.branches ?? [];
+    const pending = {
+      phaseId: phase.id,
+      attempt,
+      stageDir,
+      handoffSource,
+      startedAt: new Date().toISOString(),
+      branches: branches.map((b) => ({
+        id: b.id,
+        workflow: b.workflow,
+        produces: b.produces ?? `${b.id}.md`,
+      })) as NonNullable<WorkflowRun["pendingBranches"]>["branches"],
+    };
+    run.pendingBranches = pending;
+    run.retries = Object.fromEntries(retries);
+    await this.writeAggregate(run);
+    await this.writeProgress(run, phaseIds);
+
+    const ancestry = await this.ancestry(run);
+    const input = handoffSource ? await fs.readFile(handoffSource, "utf8").catch(() => "") : "";
+    const share = run.budget
+      ? Math.max(0, run.budget.maxCostUsd - run.budget.spentUsd) / Math.max(1, branches.length)
+      : undefined;
+    for (const b of pending.branches) {
+      const refuse = async (reason: string): Promise<void> => {
+        this.log.warn("branch refused", { phase: phase.id, branch: b.id, reason });
+        await fs
+          .writeFile(path.join(run.cwd, stageDir, `${b.id}.error.txt`), reason, "utf8")
+          .catch(() => {});
+        b.status = "failed";
+      };
+      if (ancestry.includes(b.workflow)) {
+        await refuse(`cycle: ${[...ancestry, b.workflow].join(" → ")}`);
+        continue;
+      }
+      if (ancestry.length > MAX_SUB_RUN_DEPTH) {
+        await refuse(`sub-runs nest at most ${MAX_SUB_RUN_DEPTH} deep`);
+        continue;
+      }
+      let child: WorkflowRun;
+      try {
+        child = await this.start(
+          b.workflow,
+          undefined,
+          project?.id,
+          run.matchedTerms,
+          run.workspace,
+          undefined,
+          input,
+          {
+            parentRunId: run.workflowRunId,
+            ...(share !== undefined ? { maxCostUsd: share } : {}),
+          },
+        );
+      } catch (error) {
+        await refuse(error instanceof Error ? error.message : String(error));
+        continue;
+      }
+      b.childRunId = child.workflowRunId;
+      this.log.info("branch started", { phase: phase.id, branch: b.id, child: b.childRunId });
+      // Re-check after recording the id: a child that settled (or parked) before it was
+      // recorded emitted an event nobody could match.
+      await this.settleBranches(run.workflowRunId, child);
+    }
+    // Every branch may have been refused at start — nothing else would trigger the join.
+    await this.settleBranches(run.workflowRunId);
+    return null;
+  }
+
+  /**
+   * Apply a branch child's state (or just re-evaluate, without a child) on the parent
+   * waiting on its `pendingBranches`. All work for one parent runs on a promise chain,
+   * so two children finishing in the same tick are handled one after the other and
+   * only the last terminal one joins and re-enters `drive()`.
+   */
+  private settleBranches(parentId: string, child?: WorkflowRun): Promise<void> {
+    const prev = this.branchChains.get(parentId) ?? Promise.resolve();
+    const next = prev.then(() => this.applyBranches(parentId, child));
+    this.branchChains.set(parentId, next);
+    void next.finally(() => {
+      if (this.branchChains.get(parentId) === next) this.branchChains.delete(parentId);
+    });
+    return next;
+  }
+
+  private async applyBranches(parentId: string, child?: WorkflowRun): Promise<void> {
+    try {
+      const parent = this.runs.get(parentId);
+      const pending = parent?.pendingBranches;
+      if (!parent || !pending) return;
+      const live = (s: string | undefined) => !s || s === "running";
+      const open = (s: string | undefined) => live(s) || s === "parked" || s === "paused-limit";
+      if (child) {
+        const b = pending.branches.find((x) => x.childRunId === child.workflowRunId);
+        if (!b || !open(b.status)) return; // unknown child, or already settled
+        if (open(child.status)) {
+          b.status = child.status;
+        } else {
+          let artifactPath: string | undefined;
+          if (child.status === "done") {
+            const artifact = await this.readLatestArtifact(child.workflowRunId);
+            const dest = this.resolveInside(path.join(parent.cwd, pending.stageDir), b.produces);
+            if (artifact && dest) {
+              await fs.writeFile(dest, artifact.content, "utf8");
+              artifactPath = dest;
+            }
+          }
+          b.costUsd = runSpend(child);
+          if (artifactPath) b.artifact = artifactPath;
+          b.status = child.status;
+        }
+      }
+      if (pending.branches.some((b) => open(b.status))) {
+        const anyRunning = pending.branches.some((b) => live(b.status));
+        const anyParked = pending.branches.some(
+          (b) => b.status === "parked" || b.status === "paused-limit",
+        );
+        if (!anyRunning && anyParked) {
+          parent.status = "parked";
+          parent.parkedReason = "child";
+        } else if (parent.status === "parked" && parent.parkedReason === "child") {
+          parent.status = "running";
+          delete parent.parkedReason;
+        }
+        await this.writeAggregate(parent);
+        return;
+      }
+
+      // The last branch is terminal: join.
+      const workflow = await this.workflows.get(parent.workflowId);
+      const phase = workflow.phases.find((p) => p.id === pending.phaseId);
+      const stageCwd = path.join(parent.cwd, pending.stageDir);
+      const sections: string[] = [`# ${pending.phaseId}`];
+      for (const b of pending.branches) {
+        const dest = this.resolveInside(stageCwd, b.produces);
+        const content = b.artifact && dest ? await fs.readFile(dest, "utf8").catch(() => "") : "";
+        const startError = b.childRunId
+          ? ""
+          : await fs.readFile(path.join(stageCwd, `${b.id}.error.txt`), "utf8").catch(() => "");
+        sections.push(
+          `## ${b.id} — ${b.workflow} (${b.status})`,
+          ...(b.childRunId ? [`Run: ${b.childRunId}`] : []),
+          content.trim() ||
+            (startError ? `Could not start: ${startError.trim()}` : "_no artifact_"),
+        );
+      }
+      if (phase?.produces) {
+        const dest = this.resolveInside(stageCwd, phase.produces);
+        if (dest) await fs.writeFile(dest, `${sections.join("\n\n")}\n`, "utf8");
+      }
+      const allDone = pending.branches.every((b) => b.status === "done");
+      const stageRun: StageRun = {
+        phaseId: pending.phaseId,
+        runId: `${parent.workflowRunId}.${pending.phaseId}.parallel`,
+        attempt: pending.attempt,
+        status: allDone ? "done" : "error",
+        dir: pending.stageDir,
+        costUsd: pending.branches.reduce((sum, b) => sum + (b.costUsd ?? 0), 0),
+        branches: pending.branches.map((b) => ({
+          id: b.id,
+          workflow: b.workflow,
+          ...(b.childRunId ? { childRunId: b.childRunId } : {}),
+          status: b.status ?? "failed",
+          ...(b.costUsd !== undefined ? { costUsd: b.costUsd } : {}),
+        })),
+        startedAt: pending.startedAt,
+        finishedAt: new Date().toISOString(),
+      };
+      delete parent.pendingBranches; // settle exactly once
+      parent.status = "running";
+      delete parent.parkedReason;
+      await this.writeAggregate(parent);
+      const project = await this.projectForRun(parent);
+      const traceId = this.trace.getTraceId() ?? randomUUID();
+      void this.trace.run({ traceId, runId: parent.workflowRunId }, () =>
+        this.drive(parent, workflow, project, {
+          cursor: pending.phaseId,
+          handoffSource: pending.handoffSource,
+          retries: new Map(Object.entries(parent.retries ?? {})),
+          child: stageRun,
+        }),
+      );
+    } catch (error) {
+      this.log.error("branch settle failed", {
+        parent: parentId,
+        child: child?.workflowRunId,
+        err: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   /** Workflow ids from this run up through its parents (this run first). */
   private async ancestry(run: WorkflowRun): Promise<string[]> {
     const ids = [run.workflowId];
@@ -3448,6 +3719,11 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     try {
       const parent =
         this.runs.get(child.parentRunId) ?? (await this.readAggregate(child.parentRunId));
+      if (parent?.pendingBranches) {
+        this.runs.set(parent.workflowRunId, parent);
+        await this.settleBranches(parent.workflowRunId, child);
+        return;
+      }
       const pending = parent?.pendingChild;
       if (!parent || !pending || pending.childRunId !== child.workflowRunId) return;
       this.runs.set(parent.workflowRunId, parent);
@@ -3937,7 +4213,7 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
       const approvalParked = run.status === "parked" && !durableParks.includes(run.parkedReason);
       // A parent waiting on a sub-run has no child process of its own — it is settled
       // from the child's state right after this sweep.
-      const waitsOnChild = run.pendingChild !== undefined;
+      const waitsOnChild = run.pendingChild !== undefined || run.pendingBranches !== undefined;
       if ((run.status === "running" && !survivingOrphan && !waitsOnChild) || approvalParked) {
         run = {
           ...run,
@@ -3955,6 +4231,28 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     // fails the parent's stage like a failed one.
     if (!isPrimaryInstance()) return;
     for (const run of [...this.runs.values()]) {
+      const branches = run.pendingBranches?.branches;
+      if (branches) {
+        // Replay every branch child; one that never got an id (crash mid-start) or has
+        // vanished failed. A final evaluation joins when all were already terminal.
+        for (const b of branches) {
+          if (!b.childRunId) b.status ??= "failed";
+        }
+        for (const b of branches) {
+          if (!b.childRunId) continue;
+          await this.onChildStatus(
+            this.runs.get(b.childRunId) ?? {
+              ...run,
+              workflowRunId: b.childRunId,
+              parentRunId: run.workflowRunId,
+              status: "failed",
+              stageRuns: [],
+            },
+          );
+        }
+        await this.settleBranches(run.workflowRunId);
+        continue;
+      }
       const pending = run.pendingChild;
       if (!pending) continue;
       const child = this.runs.get(pending.childRunId);

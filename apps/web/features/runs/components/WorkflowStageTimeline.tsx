@@ -23,7 +23,14 @@ import { useAgentsQuery } from "../../agents";
 import { useWorkflowsQuery } from "../../workflows";
 import { useStageRunLogQuery } from "../queries/useStageRunLogQuery";
 import { type FeedStatus, RUN_STATE, type RunView } from "../run";
-import { LIVE_STAGE_RUN_ID, type StageRunEntry, buildPhaseNodes } from "../stagePhases";
+import {
+  BRANCH_TONE,
+  LIVE_STAGE_RUN_ID,
+  type PendingBranches,
+  type StageRunEntry,
+  buildPhaseNodes,
+  phaseBranches,
+} from "../stagePhases";
 import { useStageRunLogStream } from "../useRunLogStream";
 import { RunStateBadge } from "./RunStateBadge";
 import { RunTranscript } from "./RunTranscript";
@@ -43,6 +50,8 @@ export interface WorkflowStageTimelineProps {
   /** Present while the run is retries-parked — feeds the escalated phase's retry block
    * (the design's "vyčerpány pokusy → eskalace → zaparkováno" line). */
   parked?: RunView["parked"];
+  /** The live fan-out of a running `parallel` stage (see `pendingBranchesOf`). */
+  pendingBranches?: PendingBranches;
 }
 
 export enum WorkflowStageTimelineTestId {
@@ -51,6 +60,9 @@ export enum WorkflowStageTimelineTestId {
   Connector = "workflow-stage-connector",
   RowToggle = "workflow-stage-row-toggle",
   Engine = "workflow-stage-engine",
+  /** Suffixed with `<phaseId>-<branchId>`: a parallel stage's branch sub-row. */
+  Branch = "workflow-stage-branch",
+  BranchLink = "workflow-stage-branch-link",
 }
 
 /**
@@ -227,6 +239,7 @@ export function WorkflowStageTimeline({
   currentStage,
   live = false,
   parked,
+  pendingBranches,
 }: WorkflowStageTimelineProps) {
   const t = useTranslations("runs");
   const { data: workflows } = useWorkflowsQuery();
@@ -304,6 +317,7 @@ export function WorkflowStageTimeline({
 
             const produced = displayStatus === "done" ? phaseDef?.produces : undefined;
 
+            const branches = phaseBranches(stageRuns, pendingBranches, node.phaseId);
             const escalated = !isPlaceholder && parked?.phaseId === node.phaseId;
             const showRetry = node.priorAttempts.length > 0 || escalated;
 
@@ -444,6 +458,62 @@ export function WorkflowStageTimeline({
                           {t("childRunLink")}
                         </Typography>
                       </Link>
+                    )}
+
+                    {branches.length > 0 && (
+                      <Container
+                        style={{
+                          borderLeft: "2px solid var(--color-border)",
+                          marginLeft: "0.5rem",
+                          paddingLeft: "0.75rem",
+                        }}
+                      >
+                        <Stack gap="50">
+                          {branches.map((b) => (
+                            <Stack
+                              align="center"
+                              data-testid={`${WorkflowStageTimelineTestId.Branch}-${node.phaseId}-${b.id}`}
+                              direction="row"
+                              gap="100"
+                              justify="between"
+                              key={b.id}
+                            >
+                              <Stack align="center" direction="row" gap="75">
+                                <StatusDot size="100" tone={BRANCH_TONE[b.status]} />
+                                <Typography mono size="2xs" type="note" weight="semibold">
+                                  {b.id}
+                                </Typography>
+                                <Typography mono size="2xs" type="note" variant="tertiary">
+                                  {b.workflow}
+                                </Typography>
+                              </Stack>
+                              <Stack align="center" direction="row" gap="100">
+                                {b.costUsd != null && (
+                                  <Typography mono size="2xs" type="note" variant="tertiary">
+                                    {formatCostUsd(b.costUsd)}
+                                  </Typography>
+                                )}
+                                <Typography mono size="2xs" type="note" variant="secondary">
+                                  {t(`branchState.${b.status}`)}
+                                </Typography>
+                                {b.childRunId && (
+                                  <Link
+                                    aria-label={t("branchLink", { id: b.id })}
+                                    data-testid={WorkflowStageTimelineTestId.BranchLink}
+                                    href={
+                                      `/activity/runs/${encodeURIComponent(b.childRunId)}` as Route
+                                    }
+                                  >
+                                    <Typography mono size="2xs" tone="accent" type="note">
+                                      {t("childRunLink")}
+                                    </Typography>
+                                  </Link>
+                                )}
+                              </Stack>
+                            </Stack>
+                          ))}
+                        </Stack>
+                      </Container>
                     )}
 
                     {isPlaceholder && (

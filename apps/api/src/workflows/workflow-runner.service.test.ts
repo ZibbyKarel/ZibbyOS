@@ -3414,6 +3414,153 @@ describe("system phases (in-process actions)", () => {
   });
 });
 
+describe("parallel phases — branch settle + restart", () => {
+  let dir: string;
+  let h: Harness;
+  type Internals = {
+    reconstruct(): Promise<void>;
+    onChildStatus(child: WorkflowRun): Promise<void>;
+    workflows: { get: (id: string) => Promise<unknown> };
+  };
+  const internals = () => h.service as unknown as Internals;
+  const parallelWorkflow = {
+    id: "par-parent",
+    instructions: "fan",
+    phases: [
+      {
+        id: "fan",
+        type: "parallel",
+        consumes: "fan.in",
+        produces: "fan.out",
+        branches: [
+          { id: "a", workflow: "wf-a" },
+          { id: "b", workflow: "wf-b" },
+        ],
+      },
+    ],
+  };
+  const aggregate = (id: string, extra: Record<string, unknown>) => ({
+    workflowRunId: id,
+    workflowId: "par-parent",
+    currentStage: "fan",
+    stageRuns: [],
+    startedAt: new Date().toISOString(),
+    cwd: path.join(dir, id),
+    ...extra,
+  });
+  const seed = async (id: string, extra: Record<string, unknown>) => {
+    await fs.mkdir(path.join(dir, id, "01_fan"), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, id, "run.json"),
+      JSON.stringify(aggregate(id, extra)),
+      "utf8",
+    );
+  };
+  const pendingBranches = (ids: [string | undefined, string | undefined]) => ({
+    phaseId: "fan",
+    attempt: 1,
+    stageDir: "01_fan",
+    handoffSource: null,
+    startedAt: new Date().toISOString(),
+    branches: [
+      { id: "a", workflow: "wf-a", produces: "a.md", ...(ids[0] ? { childRunId: ids[0] } : {}) },
+      { id: "b", workflow: "wf-b", produces: "b.md", ...(ids[1] ? { childRunId: ids[1] } : {}) },
+    ],
+  });
+  const driveSpy = () =>
+    vi
+      .spyOn(h.service as unknown as { drive: () => Promise<void> }, "drive")
+      .mockResolvedValue(undefined);
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "pipe-runner-parallel-"));
+    h = await makeHarness(dir);
+    internals().workflows.get = vi.fn(async () => parallelWorkflow);
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("restart: a running parent with pendingBranches is not failed; a vanished child fails its branch, a parked one parks the parent", async () => {
+    await seed("par_1", {
+      status: "running",
+      pendingBranches: pendingBranches(["par_1_child_a", "par_1_child_gone"]),
+    });
+    await seed("par_1_child_a", {
+      workflowId: "wf-a",
+      parentRunId: "par_1",
+      status: "parked",
+      parkedReason: "gate",
+    });
+    await internals().reconstruct();
+    const parent = h.service.get("par_1");
+    expect(parent.status).toBe("parked");
+    expect(parent.parkedReason).toBe("child");
+    expect(parent.pendingBranches?.branches.map((b) => `${b.id}:${b.status}`)).toEqual([
+      "a:parked",
+      "b:failed",
+    ]);
+  });
+
+  it("restart: a branch that never got an id (crash mid-start) is failed and the join fires once", async () => {
+    const drive = driveSpy();
+    await seed("par_2", {
+      status: "running",
+      pendingBranches: pendingBranches(["par_2_child_a", undefined]),
+    });
+    await seed("par_2_child_a", { workflowId: "wf-a", parentRunId: "par_2", status: "done" });
+    await internals().reconstruct();
+    await vi.waitFor(() => expect(drive).toHaveBeenCalledTimes(1));
+    const resume = (drive.mock.calls[0] as unknown[])[3] as { child: WorkflowRun["stageRuns"][0] };
+    expect(resume.child.status).toBe("error");
+    expect(resume.child.branches?.map((b) => `${b.id}:${b.status}`)).toEqual([
+      "a:done",
+      "b:failed",
+    ]);
+    expect(h.service.get("par_2").pendingBranches).toBeUndefined();
+  });
+
+  it("two children finishing in the same tick re-enter drive() exactly once, with one joined stage", async () => {
+    const drive = driveSpy();
+    const parent = h.runs.get("release_100");
+    if (!parent) throw new Error("seeded run missing");
+    Object.assign(parent, {
+      workflowId: "par-parent",
+      pendingBranches: pendingBranches(["c_a", "c_b"]),
+    });
+    await fs.mkdir(path.join(parent.cwd, "01_fan"), { recursive: true });
+    const child = (id: string, wf: string, spent: number): WorkflowRun => ({
+      workflowRunId: id,
+      workflowId: wf,
+      parentRunId: parent.workflowRunId,
+      status: "done",
+      currentStage: null,
+      stageRuns: [{ phaseId: "p", runId: `${id}.p`, attempt: 1, status: "done", costUsd: spent }],
+      startedAt: new Date().toISOString(),
+      cwd: path.join(dir, id),
+    });
+    h.runs.set("c_a", child("c_a", "wf-a", 0.5));
+    h.runs.set("c_b", child("c_b", "wf-b", 0.25));
+    await Promise.all([
+      internals().onChildStatus(h.runs.get("c_a") as WorkflowRun),
+      internals().onChildStatus(h.runs.get("c_b") as WorkflowRun),
+      internals().onChildStatus(h.runs.get("c_b") as WorkflowRun), // duplicate event
+    ]);
+    await vi.waitFor(() => expect(drive).toHaveBeenCalledTimes(1));
+    const stage = ((drive.mock.calls[0] as unknown[])[3] as { child: WorkflowRun["stageRuns"][0] })
+      .child;
+    expect(stage.status).toBe("done");
+    expect(stage.costUsd).toBeCloseTo(0.75);
+    expect(stage.childRunId).toBeUndefined();
+    expect(stage.branches?.map((b) => b.id)).toEqual(["a", "b"]);
+    expect(parent.pendingBranches).toBeUndefined();
+    const joined = await fs.readFile(path.join(parent.cwd, "01_fan", "fan.out"), "utf8");
+    expect(joined).toMatch(/^# fan\n/);
+    expect(joined).toContain("## a — wf-a (done)");
+    expect(joined).toContain("## b — wf-b (done)");
+  });
+});
+
 describe("withProducesWrite", () => {
   it("adds Write to a restricted agent only when the phase produces a file", () => {
     expect(withProducesWrite(["Read", "Grep"], "plan.md")).toEqual(["Read", "Grep", "Write"]);

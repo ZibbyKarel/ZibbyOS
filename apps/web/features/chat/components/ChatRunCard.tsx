@@ -68,6 +68,7 @@ function runDetail(run: RunView, runRef: string) {
         live={run.status === "running"}
         owner={run.owner}
         parked={run.parked}
+        pendingBranches={run.pendingBranches}
         stageRuns={run.stageRuns}
         workflowRunId={runRef}
       />

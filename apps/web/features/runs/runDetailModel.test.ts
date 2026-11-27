@@ -4,6 +4,7 @@ import {
   type TaskRunStatus,
 } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
+import type { WorkflowRun } from "@zibby/contracts";
 import type { RunView } from "./run";
 import {
   type RunMode,
@@ -384,5 +385,67 @@ describe("sub-run phases in the rail", () => {
     expect(pickSelectedRow(rail, null)?.phaseId).toBe("child_1/plan");
     expect(pickSelectedRow(rail, "research")?.phaseId).toBe("research");
     expect(pickSelectedRow(rail, "child_1/concept")?.sub?.phaseId).toBe("concept");
+  });
+});
+
+describe("parallel stage branches in the rail", () => {
+  const joined = {
+    phaseId: "publish",
+    runId: "publish_1",
+    attempt: 1,
+    status: "done" as const,
+    branches: [
+      {
+        id: "kdp",
+        workflow: "kdp-publish",
+        childRunId: "c1",
+        status: "done" as const,
+        costUsd: 0.4,
+      },
+      { id: "mw", workflow: "mw-publish", childRunId: "c2", status: "failed" as const },
+    ],
+  };
+
+  it("reads live branches from pendingBranches while the parent waits", () => {
+    const pendingBranches: WorkflowRun["pendingBranches"] = {
+      phaseId: "publish",
+      attempt: 1,
+      stageDir: "/s",
+      handoffSource: null,
+      startedAt: new Date(NOW).toISOString(),
+      branches: [
+        { id: "kdp", workflow: "kdp-publish", childRunId: "c1", produces: "kdp.md" },
+        { id: "mw", workflow: "mw-publish", produces: "mw.md" },
+      ],
+    };
+    // The task-run projection carries `pendingBranches` beside `pendingChild`.
+    const live = {
+      ...run({ status: "running", currentStage: "publish", stageRuns: [] }),
+      pendingBranches,
+    };
+    const r: RunView = live;
+    const row = buildStageRail(r, "running", undefined, NOW).find((x) => x.phaseId === "publish");
+    expect(row?.branches).toEqual([
+      { id: "kdp", workflow: "kdp-publish", childRunId: "c1", status: "running" },
+      { id: "mw", workflow: "mw-publish", status: "queued" },
+    ]);
+  });
+
+  it("reads joined branches from the StageRun once the phase is done", () => {
+    const r = run({ status: "done", currentStage: null, stageRuns: [joined] });
+    const row = buildStageRail(r, "done", undefined, NOW)[0];
+    expect(row?.branches?.map((b) => [b.id, b.status, b.costUsd, b.childRunId])).toEqual([
+      ["kdp", "done", 0.4, "c1"],
+      ["mw", "failed", undefined, "c2"],
+    ]);
+  });
+
+  it("leaves a plain stage without branches", () => {
+    const r = run({
+      status: "done",
+      currentStage: null,
+      stageRuns: [{ phaseId: "a", runId: "a_1", attempt: 1, status: "done" }],
+    });
+    expect(buildStageRail(r, "done", undefined, NOW)[0]?.branches).toBeUndefined();
   });
 });

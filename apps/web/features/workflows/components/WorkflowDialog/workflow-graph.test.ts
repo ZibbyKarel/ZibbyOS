@@ -535,3 +535,27 @@ describe("system phase round-trip", () => {
     });
   });
 });
+
+describe("parallel phase round-trip", () => {
+  it("keeps type and branches losslessly through phasesToGraph → graphToPhases", () => {
+    const branches = [
+      { id: "a", workflow: "pub-a" },
+      { id: "b", workflow: "pub-b", produces: "b-out.md" },
+    ];
+    const wf = {
+      ...existing,
+      phases: [
+        ...existing.phases,
+        { id: "fan", type: "parallel", consumes: "verdict.md", produces: "joined.md", branches },
+      ],
+    } as Workflow;
+    const out = graphToPhases(phasesToGraph(wf, agents), INITIAL_ASSIGNMENT);
+    expect(out[out.length - 1]).toMatchObject({
+      id: "fan",
+      type: "parallel",
+      consumes: "verdict.md",
+      produces: "joined.md",
+      branches,
+    });
+  });
+});

@@ -1897,7 +1897,7 @@ export class TaskSchedulerService
     const workflows = await this.workflowsStore.list().catch((): Workflow[] => []);
     const phases = workflows.find((w) => w.id === target.id)?.phases ?? [];
     // A sub-workflow's engines aren't known here — it may spend the Claude window.
-    if (phases.some((p) => p.type === "workflow")) return false;
+    if (phases.some((p) => p.type === "workflow" || p.type === "parallel")) return false;
     const agentPhases = phases.filter((p) => p.agent);
     return (
       agentPhases.length > 0 &&

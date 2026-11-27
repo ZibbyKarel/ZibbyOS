@@ -186,6 +186,7 @@ export function LoopDetailPanel({ run }: LoopDetailPanelProps) {
                             live={makerWorkflow.status === "running"}
                             owner={makerWorkflow.owner}
                             parked={makerWorkflow.parked}
+                            pendingBranches={makerWorkflow.pendingBranches}
                             stageRuns={makerWorkflow.stageRuns}
                             workflowRunId={it.makerRunRef}
                           />

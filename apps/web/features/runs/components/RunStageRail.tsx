@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@zibby/design-system";
 import { ModelTierSchema } from "@zibby/contracts";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { useAgentSymbol } from "../../agents";
@@ -23,9 +24,11 @@ import { stepEngineChoice } from "../../../utils/engine";
 import { toClientTarget } from "../../tasks";
 import { useWorkflowsQuery } from "../../workflows/queries";
 import { toolOpenAiImageModel } from "../../workflows/openaiImageModel";
+import { formatCostUsd } from "../../../utils/cost";
 import type { RunView } from "../run";
 import type { StageRailRow } from "../runDetailModel";
 import { stageModel } from "../stageModel";
+import { BRANCH_TONE } from "../stagePhases";
 
 export enum RunStageRailTestId {
   Root = "run-stage-rail",
@@ -38,6 +41,8 @@ export enum RunStageRailTestId {
   /** Suffixed with the phase id: the nested loop rounds of that phase. */
   Loop = "run-stage-rail-loop",
   Folder = "run-stage-rail-folder",
+  /** Suffixed with `<phaseId>-<branchId>`: a parallel stage's branch sub-row. */
+  Branch = "run-stage-rail-branch",
 }
 
 export interface RunStageRailProps {
@@ -84,6 +89,8 @@ export function RunStageRail({
   horizontal,
 }: RunStageRailProps) {
   const t = useTranslations("runs.detail");
+  const tr = useTranslations("runs");
+  const router = useRouter();
   const route = useRouteTrace(run);
   const symbolOf = useAgentSymbol();
   // A stage row is named by its phase id; the symbol belongs to the phase's agent.
@@ -125,7 +132,7 @@ export function RunStageRail({
   const checkpoints = run.checkpoints ?? [];
   const selected = selectedPhaseId ?? rows.find((r) => r.current)?.phaseId ?? null;
 
-  const items = rows.map((row, i) => {
+  const items = rows.flatMap((row, i) => {
     const tense = tenseOf(row);
     const phase = phaseOf(row.phaseId);
     const agentName =
@@ -143,7 +150,7 @@ export function RunStageRail({
     const rowCheckpoints = checkpoints.filter((c) => c.phaseId === row.phaseId);
     const loopMax = phase?.loop?.maxRetries;
     const showLoop = row.rounds.length > 1 || (loopMax != null && row.rounds.length > 0);
-    return (
+    const main = (
       <RailItem
         aside={aside}
         data-testid={`${RunStageRailTestId.Stage}-${row.phaseId}`}
@@ -226,6 +233,27 @@ export function RunStageRail({
         ) : null}
       </RailItem>
     );
+    // A parallel stage's branches: indented sub-rows, each opening its child run.
+    const branchItems = (row.branches ?? []).map((b) => {
+      const status = tr(`branchState.${b.status}`);
+      const tone = BRANCH_TONE[b.status];
+      return (
+        <RailItem
+          nested
+          aside={b.costUsd != null ? `${status} · ${formatCostUsd(b.costUsd)}` : status}
+          data-testid={`${RunStageRailTestId.Branch}-${row.phaseId}-${b.id}`}
+          disabled={!b.childRunId}
+          key={`${row.phaseId}/branch/${b.id}`}
+          markerTone={tone}
+          meta={<span>{b.workflow}</span>}
+          onClick={() => router.push(`/activity/runs/${encodeURIComponent(b.childRunId ?? "")}`)}
+          running={tone === "working"}
+          tense={tone === "done" ? "past" : b.status === "queued" ? "future" : "present"}
+          title={b.id}
+        />
+      );
+    });
+    return [main, ...branchItems];
   });
 
   return (

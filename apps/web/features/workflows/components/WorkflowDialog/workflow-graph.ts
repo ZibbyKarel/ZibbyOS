@@ -44,6 +44,7 @@ const EDITED_PHASE_KEYS = [
   "id",
   "type",
   "workflow",
+  "branches",
   "action",
   "agent",
   "consumes",
@@ -73,7 +74,9 @@ function extraOf(ph: WorkflowPhase): PhaseExtra | undefined {
 export interface GraphNode {
   /** Durable phase id — loop targets reference it; an edited workflow keeps it. */
   id: string;
-  type: "agent" | "tool" | "workflow" | "system";
+  type: "agent" | "tool" | "workflow" | "system" | "parallel";
+  /** `parallel` step: the child workflows fanned out at once (read-only here, edited in the recipe). */
+  branches?: NonNullable<WorkflowPhase["branches"]>;
   /** `system` step: the registered action id (preserved on round-trip, not editable here). */
   action?: string;
   /** `workflow` step: the child workflow id this step runs as a sub-run ("" = not chosen yet). */
@@ -211,6 +214,7 @@ export function phasesToGraph(initial: Workflow | undefined, agents: Agent[]): W
     type: ph.type,
     ...(ph.type === "workflow" ? { workflow: ph.workflow ?? "" } : {}),
     ...(ph.type === "system" ? { action: ph.action ?? "" } : {}),
+    ...(ph.type === "parallel" ? { branches: ph.branches ?? [] } : {}),
     agent: ph.type === "agent" ? (ph.agent ?? agents[0]?.id ?? "") : "",
     produces: ph.produces ?? defaultProduces(ph.agent ?? "output", i + 1),
     commands: (ph.commands ?? []).join("\n"),
@@ -345,6 +349,17 @@ export function graphToPhases(graph: WorkflowGraph, assignment: string): Contrac
         ...approval,
       };
     }
+    if (node.type === "parallel") {
+      return {
+        ...extra,
+        id: node.id,
+        type: "parallel" as const,
+        branches: node.branches ?? [],
+        consumes,
+        produces,
+        ...approval,
+      };
+    }
     if (node.type === "system") {
       return {
         ...extra,
@@ -442,6 +457,8 @@ export function collectProblems(graph: WorkflowGraph, name: string): GraphProble
       if (!n.workflow) out.push({ kind: "workflow", nodeId: n.id });
       if (n.produces.trim().length === 0) out.push({ kind: "produces", nodeId: n.id });
     }
+    if (n.type === "parallel" && n.produces.trim().length === 0)
+      out.push({ kind: "produces", nodeId: n.id });
     if (n.type === "system" && !n.action) out.push({ kind: "agent", nodeId: n.id });
     if (n.type === "tool") {
       if (splitCommands(n.commands).length === 0) out.push({ kind: "commands", nodeId: n.id });

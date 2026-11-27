@@ -730,8 +730,11 @@ this surface. `TaskRunSchema` is a superset of the feed row plus an optional
 `processor: { kind, id, name }` (the name falls back to the id when the definition
 was deleted). Loop maker/verifier child runs are folded into the feed (not peer
 rows), but stay reachable from the loop's detail view. Workflow sub-runs (a run with
-`parentRunId`, started by a `workflow` phase) are hidden the same way; the parent's
-stage links to them. `TaskRun.department` (ZB-04a) is
+`parentRunId`, started by a `workflow` or `parallel` phase) are hidden the same way; the
+parent's stage links to them. While a `parallel` phase waits, `TaskRun.pendingBranches`
+mirrors the run's branches (id, workflow, child run id, status) so the run detail can
+show them live, and a parent parked on branches reports its first parked branch as the
+waiting descendant. `TaskRun.department` (ZB-04a) is
 enriched from the underlying task's `department` field in `enrichRunWithTask` — the same
 value the parent/subtask read model above uses.
 `TaskRun.engine` / `engineModel` (optional) name the engine the run executes on: an

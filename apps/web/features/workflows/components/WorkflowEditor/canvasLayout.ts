@@ -13,6 +13,8 @@ export const END_H = 48;
 export const PAD_X = 120;
 /** Centre line of the chain in world space — leaves headroom above for loop arcs. */
 export const ROW_CY = 280;
+/** Vertical gap between the stacked branch cards of a parallel (fork) phase. */
+export const BRANCH_GAP = 24;
 export const FAIL_W = 116;
 export const FAIL_H = 30;
 export const MIN_ZOOM = 0.3;
@@ -35,7 +37,13 @@ export interface View {
 }
 
 export interface Placement {
+  /**
+   * One rect per phase. A `parallel` phase's rect is its whole fork column (all branch cards
+   * stacked, centred on ROW_CY), so ports, loop arcs and bounds treat it like any card.
+   */
   cards: Map<string, Rect>;
+  /** `parallel` phase id → its branch cards, top to bottom. */
+  branches: Map<string, Rect[]>;
   /** The virtual delivery end node (shown when the workflow opens a PR). */
   end?: Rect;
   /** Where the last card's outgoing connector ends when there is no end node. */
@@ -44,23 +52,37 @@ export interface Placement {
 
 export const placeChain = (nodes: readonly GraphNode[], withEnd: boolean): Placement => {
   const cards = new Map<string, Rect>();
-  nodes.forEach((n, i) =>
-    cards.set(n.id, {
-      x: PAD_X + i * (CARD_W + GAP_X),
-      y: ROW_CY - CARD_H / 2,
-      w: CARD_W,
-      h: CARD_H,
-    }),
-  );
+  const branches = new Map<string, Rect[]>();
+  nodes.forEach((n, i) => {
+    const x = PAD_X + i * (CARD_W + GAP_X);
+    const count = n.type === "parallel" ? (n.branches?.length ?? 0) : 0;
+    if (count < 1) {
+      cards.set(n.id, { x, y: ROW_CY - CARD_H / 2, w: CARD_W, h: CARD_H });
+      return;
+    }
+    const h = count * CARD_H + (count - 1) * BRANCH_GAP;
+    const top = ROW_CY - h / 2;
+    cards.set(n.id, { x, y: top, w: CARD_W, h });
+    branches.set(
+      n.id,
+      Array.from({ length: count }, (_, j) => ({
+        x,
+        y: top + j * (CARD_H + BRANCH_GAP),
+        w: CARD_W,
+        h: CARD_H,
+      })),
+    );
+  });
   const last = nodes.length ? cards.get(nodes[nodes.length - 1]!.id) : undefined;
-  if (!last) return { cards };
+  if (!last) return { cards, branches };
   if (withEnd) {
     return {
       cards,
+      branches,
       end: { x: last.x + last.w + GAP_X, y: ROW_CY - END_H / 2, w: END_W, h: END_H },
     };
   }
-  return { cards, stub: { x: last.x + last.w + GAP_X * 0.6, y: ROW_CY } };
+  return { cards, branches, stub: { x: last.x + last.w + GAP_X * 0.6, y: ROW_CY } };
 };
 
 export const rightPort = (r: Rect): Pt => ({ x: r.x + r.w, y: r.y + r.h / 2 });
@@ -81,9 +103,27 @@ export interface Arc {
   mid: Pt;
 }
 
+/**
+ * Extra lift a loop arc needs to clear a tall fork column between (or at) its ends: how far the
+ * highest card in `order[a..b]` sits above the arc's own start card. 0 for a plain chain.
+ */
+export const arcClearance = (
+  placement: Placement,
+  order: readonly GraphNode[],
+  a: number,
+  b: number,
+): number => {
+  const own = placement.cards.get(order[a]?.id ?? "")?.y;
+  if (own === undefined) return 0;
+  const tops = order
+    .slice(Math.min(a, b), Math.max(a, b) + 1)
+    .map((n) => placement.cards.get(n.id)?.y ?? own);
+  return Math.max(0, own - Math.min(...tops));
+};
+
 /** A loop arc between two top ports (`to` is earlier in the chain). */
-export const loopArc = (from: Pt, to: Pt, span: number): Arc => {
-  const k = arcLift(span);
+export const loopArc = (from: Pt, to: Pt, span: number, clearance = 0): Arc => {
+  const k = arcLift(span) + clearance;
   return {
     path: `M${from.x},${from.y} C${from.x},${from.y - k} ${to.x},${to.y - k} ${to.x},${to.y}`,
     mid: { x: (from.x + to.x) / 2, y: from.y - k * 0.75 },
@@ -121,8 +161,10 @@ export const contentBounds = (
   for (const r of rework) {
     const a = placement.cards.get(r.from);
     if (!a) continue;
-    const span = Math.abs((idx.get(r.from) ?? 0) - (idx.get(r.to) ?? 0));
-    rects.push({ x: a.x, y: a.y - arcLift(span) * 0.8, w: a.w, h: 1 });
+    const fi = idx.get(r.from) ?? 0;
+    const ti = idx.get(r.to) ?? 0;
+    const lift = arcLift(Math.abs(fi - ti)) + arcClearance(placement, order, fi, ti);
+    rects.push({ x: a.x, y: a.y - lift * 0.8, w: a.w, h: 1 });
   }
   for (const n of nodes) {
     if (n.looseLoop?.to === "fail") {

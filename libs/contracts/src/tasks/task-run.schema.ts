@@ -12,6 +12,7 @@ import {
   ParkedDetailSchema,
   StageRunSchema,
   WorkflowCheckpointSchema,
+  WorkflowStateSchema,
 } from "../workflows/workflow-run.schema";
 import {
   AgentTaskTargetSchema,
@@ -238,6 +239,21 @@ export const TaskRunSchema = z.object({
   pauseRequested: z.boolean().optional(),
   /** Workflow runs: the sub-run a `workflow` phase is waiting on right now (not in `stageRuns` yet). */
   pendingChild: z.object({ phaseId: z.string().min(1), childRunId: z.string().min(1) }).optional(),
+  /** Workflow runs: the branches a `parallel` phase is waiting on right now (not in `stageRuns` yet). */
+  pendingBranches: z
+    .object({
+      phaseId: z.string().min(1),
+      branches: z.array(
+        z.object({
+          id: z.string().min(1),
+          workflow: z.string().min(1),
+          childRunId: z.string().min(1).optional(),
+          status: z.union([WorkflowStateSchema, z.enum(["skipped", "failed"])]).optional(),
+          costUsd: z.number().optional(),
+        }),
+      ),
+    })
+    .optional(),
   /**
    * Workflow runs, single-run read only: the folder `openTaskRunFolder` opens (the `book/`
    * deliverable when present, else the run root). Absent in feed lists.

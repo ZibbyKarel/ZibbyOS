@@ -1148,7 +1148,8 @@
       "budgetLabel": "Limit útraty (USD)",
       "budgetHint": "Volitelné. Prázdné = bez limitu.",
       "projectLabel": "Výchozí projekt",
-      "projectNone": "— žádný —"
+      "projectNone": "— žádný —",
+      "typeParallel": "paralelně (větvení)"
     },
     "command": {
       "title": "Nový příkaz",
@@ -2250,7 +2251,18 @@
         "awaiting-merge": "Čeká na merge",
         "done": "Hotovo"
       }
-    }
+    },
+    "branchState": {
+      "done": "hotovo",
+      "running": "běží",
+      "parked": "zaparkováno",
+      "failed": "selhalo",
+      "skipped": "přeskočeno",
+      "queued": "čeká",
+      "interrupted": "přerušeno",
+      "paused-limit": "pozastaveno (limit)"
+    },
+    "branchLink": "Otevřít běh větve {id}"
   },
   "gates": {
     "title": "Pravidla schvalování",
@@ -5099,7 +5111,9 @@
       "checkpointOnAria": "Kontrolní bod po {phase}, zapnutý",
       "checkpointOffAria": "Přidat kontrolní bod po {phase}",
       "checkpointOnTitle": "Kontrolní bod: běh čeká na vaše schválení",
-      "checkpointOffTitle": "Přidat sem kontrolní bod"
+      "checkpointOffTitle": "Přidat sem kontrolní bod",
+      "forkBadge": "Paralelně ×{n}",
+      "branchAria": "Větev {id}: otevřít workflow {workflow}"
     },
     "card": {
       "aria": "{title}, {subtitle}",
@@ -5115,7 +5129,9 @@
       "system": "Systémový krok",
       "tool": "Nástroj",
       "when": "když",
-      "whenTitle": "Běží jen když to vyžádá {phase}"
+      "whenTitle": "Běží jen když to vyžádá {phase}",
+      "parallel": "Paralelně",
+      "branches": "{n} větví"
     },
     "inspector": {
       "advanced": "Pokročilé",
@@ -5172,7 +5188,10 @@
       "who": "Kdo",
       "workflowLink": "Workflow",
       "workflowPick": "Vyberte workflow",
-      "workflowTitle": "Nastavení workflow"
+      "workflowTitle": "Nastavení workflow",
+      "parallelBranches": "Větve",
+      "parallelHint": "Větve běží najednou jako podřízené workflow. Upravují se v souboru receptu, ne tady.",
+      "branchOpen": "Otevřít workflow {workflow}"
     },
     "loop": {
       "attempt": "Pokus {n}",
@@ -5273,7 +5292,8 @@
       "autoLayout": "Auto-layout",
       "autoLayoutHint": "Znovu spustit automatické rozložení a přizpůsobit pohled",
       "runSheetAria": "Spustit workflow",
-      "runSheetTitle": "Spustit {name}"
+      "runSheetTitle": "Spustit {name}",
+      "kind_parallel": "Paralelní větvení · {n} z {total}"
     }
   },
   "brand": {

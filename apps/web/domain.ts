@@ -78,7 +78,9 @@ export interface WorkflowPhase {
   /** Phase id from the definition (loop targets reference it); editing needs it. */
   id?: string;
   /** What the phase executes: an agent session, a sub-workflow, or a sandbox tool. */
-  type: "agent" | "tool" | "workflow" | "system";
+  type: "agent" | "tool" | "workflow" | "system" | "parallel";
+  /** `parallel` phase: the child workflows started at once. */
+  branches?: { id: string; workflow: string; produces?: string }[];
   /** `system` phase: the registered in-process action it runs. */
   action?: string;
   /** `workflow` phase: the id of the child workflow run as a sub-run. */

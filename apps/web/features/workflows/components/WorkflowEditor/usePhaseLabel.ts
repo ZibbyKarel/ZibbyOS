@@ -13,5 +13,7 @@ export function usePhaseLabel(agents: readonly Agent[]): (node: GraphNode) => st
         ? t("tool")
         : node.type === "workflow"
           ? t("subWorkflow")
-          : t("system");
+          : node.type === "parallel"
+            ? t("parallel")
+            : t("system");
 }

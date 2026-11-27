@@ -2,6 +2,7 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { IconTileTestId } from "@zibby/design-system";
+import type { WorkflowRun } from "@zibby/contracts";
 import type { RunView } from "../run";
 import { WorkflowStageTimeline, WorkflowStageTimelineTestId } from "./WorkflowStageTimeline";
 
@@ -41,6 +42,7 @@ const timeline = (
     currentStage: string | null;
     live: boolean;
     parked: RunView["parked"];
+    pendingBranches: WorkflowRun["pendingBranches"];
   }>,
 ) => (
   <WorkflowStageTimeline
@@ -48,6 +50,7 @@ const timeline = (
     live={props?.live}
     owner={props?.owner ?? "delivery"}
     parked={props?.parked}
+    pendingBranches={props?.pendingBranches}
     stageRuns={props?.stageRuns ?? stages}
     workflowRunId="delivery_1"
   />
@@ -362,5 +365,63 @@ describe("WorkflowStageTimeline (36)", () => {
       "href",
       "/activity/runs/child_1",
     );
+  });
+
+  it("shows a parallel stage's live branches from pendingBranches while waiting", () => {
+    render(
+      timeline({
+        live: true,
+        currentStage: "publish",
+        stageRuns: [],
+        pendingBranches: {
+          phaseId: "publish",
+          attempt: 1,
+          stageDir: "/s",
+          handoffSource: null,
+          startedAt: "2026-11-27T10:00:00Z",
+          branches: [
+            { id: "kdp", workflow: "kdp-publish", childRunId: "c1", produces: "kdp.md" },
+            { id: "mw", workflow: "mw-publish", produces: "mw.md" },
+          ],
+        },
+      }),
+    );
+    expect(screen.getByTestId("workflow-stage-branch-publish-kdp")).toHaveTextContent("běží");
+    expect(screen.getByTestId("workflow-stage-branch-publish-mw")).toHaveTextContent("čeká");
+    // only the spawned branch has a child run to link to
+    expect(screen.getAllByTestId(WorkflowStageTimelineTestId.BranchLink)).toHaveLength(1);
+    expect(screen.getByTestId(WorkflowStageTimelineTestId.BranchLink)).toHaveAttribute(
+      "href",
+      "/activity/runs/c1",
+    );
+  });
+
+  it("shows joined branches with status and cost from the StageRun", () => {
+    render(
+      timeline({
+        stageRuns: [
+          {
+            phaseId: "publish",
+            runId: "delivery_1.publish_1",
+            attempt: 1,
+            status: "done",
+            branches: [
+              {
+                id: "kdp",
+                workflow: "kdp-publish",
+                childRunId: "c1",
+                status: "done",
+                costUsd: 0.5,
+              },
+              { id: "mw", workflow: "mw-publish", childRunId: "c2", status: "failed" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(screen.getByTestId("workflow-stage-branch-publish-kdp")).toHaveTextContent("hotovo");
+    expect(screen.getByTestId("workflow-stage-branch-publish-kdp")).toHaveTextContent("$0.50");
+    expect(screen.getByTestId("workflow-stage-branch-publish-mw")).toHaveTextContent("selhalo");
+    expect(screen.getAllByTestId(WorkflowStageTimelineTestId.BranchLink)).toHaveLength(2);
   });
 });

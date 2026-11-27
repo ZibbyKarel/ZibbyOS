@@ -79,6 +79,21 @@ export const StageRunSchema = z.object({
   engineModel: z.string().optional(),
   /** A `workflow` phase: the child (sub-run) `workflowRunId` this stage ran. */
   childRunId: z.string().min(1).optional(),
+  /**
+   * A `parallel` phase, once joined: one entry per branch — the child's terminal
+   * `WorkflowState` (or `"skipped"`/`"failed"` if it could not start) and its cost.
+   */
+  branches: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        workflow: z.string().min(1),
+        childRunId: z.string().min(1).optional(),
+        status: z.union([WorkflowStateSchema, z.enum(["skipped", "failed"])]),
+        costUsd: z.number().optional(),
+      }),
+    )
+    .optional(),
   /** When this stage's child started / finished (ISO); absent on synthetic markers and old runs. */
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
@@ -108,8 +123,9 @@ export const ParkedReasonSchema = z.enum([
   "gate",
   // P1-03: the run's spend passed its cap; durable, `pendingGate` resumes it.
   "budget",
-  // A `workflow` phase's sub-run is parked (or paused); durable, the parent continues
-  // on its own once the child settles (`pendingChild`).
+  // A `workflow` phase's sub-run (or every branch of a `parallel` phase, once none is
+  // running) is parked (or paused); durable, the parent continues on its own once the
+  // child settles (`pendingChild` / `pendingBranches`).
   "child",
   // The operator asked to pause; parked at a stage boundary, durable, resumable in place.
   "paused",
@@ -172,6 +188,33 @@ export const WorkflowRunSchema = z.object({
       attempt: z.number().int().min(1),
       stageDir: z.string().min(1),
       handoffSource: z.string().nullable(),
+    })
+    .optional(),
+  /**
+   * The parent side of a running `parallel` phase: every branch child it waits on, plus
+   * what the driver needs to re-enter the phase once the last one settles (durable).
+   * Persisted BEFORE any child starts; `childRunId` is filled as each child spawns.
+   */
+  pendingBranches: z
+    .object({
+      phaseId: z.string().min(1),
+      attempt: z.number().int().min(1),
+      stageDir: z.string().min(1),
+      handoffSource: z.string().nullable(),
+      startedAt: z.string(),
+      branches: z.array(
+        z.object({
+          id: z.string().min(1),
+          workflow: z.string().min(1),
+          childRunId: z.string().min(1).optional(),
+          /** Stage-dir-relative file the child's artifact is copied to. */
+          produces: z.string().min(1),
+          status: z.union([WorkflowStateSchema, z.enum(["skipped", "failed"])]).optional(),
+          costUsd: z.number().optional(),
+          /** Absolute path of the copied artifact, once the branch is terminal. */
+          artifact: z.string().optional(),
+        }),
+      ),
     })
     .optional(),
   status: WorkflowStateSchema,

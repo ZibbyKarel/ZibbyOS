@@ -103,10 +103,27 @@ export type PhaseWhen = z.infer<typeof PhaseWhenSchema>;
  * SANDBOX (consumes → commands → produces) — a transform step between agents;
  * `workflow` runs another workflow as a child run (sub-run): `consumes` is its input,
  * its latest produced file comes back as `produces`; `system` runs a registered in-process
- * `action` (no child process, no tokens) and writes its report to `produces`.
+ * `action` (no child process, no tokens) and writes its report to `produces`;
+ * `parallel` fans out: it starts one child run per `branches` entry at once, waits for
+ * all of them and joins their artifacts into `produces` (a single linear phase — the
+ * concurrency lives only in the child runs).
  */
-export const WorkflowPhaseTypeSchema = z.enum(["agent", "tool", "workflow", "system"]);
+export const WorkflowPhaseTypeSchema = z.enum(["agent", "tool", "workflow", "system", "parallel"]);
 export type WorkflowPhaseType = z.infer<typeof WorkflowPhaseTypeSchema>;
+
+/**
+ * One branch of a `parallel` phase: a child workflow run. `id` is unique within the
+ * phase; `produces` names where the child's artifact lands in the phase's stage dir
+ * (default `<id>.md`).
+ */
+export const ParallelBranchSchema = z
+  .object({
+    id: AgentIdSchema,
+    workflow: WorkflowIdSchema,
+    produces: z.string().min(1).optional(),
+  })
+  .strict();
+export type ParallelBranch = z.infer<typeof ParallelBranchSchema>;
 
 /**
  * One stage of a workflow. Taken 1:1 from the dashboard's `WorkflowPhase`, plus an
@@ -117,7 +134,8 @@ export type WorkflowPhaseType = z.infer<typeof WorkflowPhaseTypeSchema>;
  * Field requirements depend on `type` (enforced by the workflow-level
  * superRefine): an `agent` phase requires `agent`/`model`/`thinking` and
  * `consumes`/`produces`; a `tool` phase requires `commands` + `produces`; a
- * `workflow` phase requires `workflow`/`consumes`/`produces`. How a target repo
+ * `workflow` phase requires `workflow`/`consumes`/`produces`; a `parallel` phase requires
+ * `consumes`/`produces`/`branches` (≥ 2). How a target repo
  * verifies itself lives in that repo (its CLAUDE.md / AGENTS.md / scripts), never
  * in a workflow phase (D-024).
  */
@@ -129,6 +147,8 @@ export const WorkflowPhaseSchema = z.object({
   action: z.string().min(1).optional(),
   /** `workflow` phase only: the id of the workflow run as the sub-run. */
   workflow: z.string().min(1).optional(),
+  /** `parallel` phase only: the child workflows started at once (min 2). */
+  branches: z.array(ParallelBranchSchema).optional(),
   consumes: z.string().min(1).optional(),
   produces: z.string().min(1).optional(),
   model: AgentModelSchema.optional(),
@@ -371,6 +391,7 @@ const WorkflowObject = z.object({
 function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx): void {
   const ids = p.phases.map((ph) => ph.id);
   const idSet = new Set(ids);
+  const parallelIds = new Set(p.phases.filter((ph) => ph.type === "parallel").map((ph) => ph.id));
   if (idSet.size !== ids.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -451,6 +472,68 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
             path: ["phases", i, key],
           });
       }
+    } else if (ph.type === "parallel") {
+      // parallel: a fan-out of child runs — joined into one artifact, nothing agent-shaped applies.
+      for (const key of ["consumes", "produces"] as const) {
+        if (ph[key] === undefined)
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `a parallel phase requires "${key}"`,
+            path: ["phases", i, key],
+          });
+      }
+      for (const key of [
+        "agent",
+        "model",
+        "thinking",
+        "commands",
+        "prompt",
+        "skill",
+        "reviewPacks",
+        "engine",
+        "engineModel",
+        "openaiModel",
+        "include",
+        "qualify",
+        "workflow",
+        "action",
+        "loop",
+        "advisor",
+      ] as const) {
+        if (ph[key] !== undefined)
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `a parallel phase must not set "${key}"`,
+            path: ["phases", i, key],
+          });
+      }
+      if (!ph.branches || ph.branches.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'a parallel phase requires "branches" with at least 2 entries',
+          path: ["phases", i, "branches"],
+        });
+      } else {
+        const branchIds = new Set<string>();
+        const files = new Set<string>();
+        ph.branches.forEach((b, j) => {
+          if (branchIds.has(b.id))
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `branch id "${b.id}" must be unique within the phase`,
+              path: ["phases", i, "branches", j, "id"],
+            });
+          branchIds.add(b.id);
+          const file = b.produces ?? `${b.id}.md`;
+          if (files.has(file) || file === ph.produces)
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `branch produces "${file}" must be unique and differ from the phase produces`,
+              path: ["phases", i, "branches", j, "produces"],
+            });
+          files.add(file);
+        });
+      }
     } else {
       // workflow: a sub-run — it names the child, hands it a file and takes one back.
       for (const key of ["workflow", "consumes", "produces"] as const) {
@@ -486,6 +569,12 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
           path: ["phases", i, "workflow"],
         });
     }
+    if (ph.branches !== undefined && ph.type !== "parallel")
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "branches is for parallel phases only",
+        path: ["phases", i, "branches"],
+      });
     if (ph.action !== undefined && ph.type !== "system")
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -590,6 +679,19 @@ function refineWorkflow(p: z.infer<typeof WorkflowObject>, ctx: z.RefinementCtx)
         path: ["phases", i, "advisor", "from"],
       });
     if (!ph.loop) return;
+    // Re-running a parallel phase would republish its already-succeeded branches.
+    for (const [key, target] of [
+      ["to", ph.loop.to],
+      ["then", ph.loop.then],
+      ["driftTo", ph.loop.driftTo],
+    ] as const) {
+      if (target !== undefined && parallelIds.has(target))
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `loop.${key} "${target}" must not target a parallel phase`,
+          path: ["phases", i, "loop", key],
+        });
+    }
     for (const [key, target] of [
       ["to", ph.loop.to],
       ["then", ph.loop.then],

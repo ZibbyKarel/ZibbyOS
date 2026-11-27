@@ -75,7 +75,7 @@ const symbolOf = (
 ): { glyph: IconName; color?: string } =>
   node.type === "tool" || node.type === "system"
     ? { glyph: "gear" }
-    : node.type === "workflow"
+    : node.type === "workflow" || node.type === "parallel"
       ? { glyph: "flow" }
       : agentSymbol(
           agents.find((a) => a.id === node.agent),
@@ -132,7 +132,9 @@ export function AgentNode({
         ? node.action || t("typeSystem")
         : node.type === "workflow"
           ? node.workflow || t("typeWorkflow")
-          : node.agent;
+          : node.type === "parallel"
+            ? t("typeParallel")
+            : node.agent;
   const clickable = readOnly && Boolean(onNodeClick);
 
   const flowTarget = pending?.kind === "flow" && pending.from !== node.id;
@@ -310,7 +312,9 @@ export function AgentNode({
                 ? node.workflow
                   ? t("typeWorkflow")
                   : t("workflowNone")
-                : node.commands.split("\n").filter((c) => c.trim()).length || t("commandsNone")}
+                : node.type === "parallel"
+                  ? t("typeParallel")
+                  : node.commands.split("\n").filter((c) => c.trim()).length || t("commandsNone")}
           </Typography>
         </Stack>
       )}

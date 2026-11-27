@@ -20,7 +20,10 @@ export function PhaseAvatar({ node, agent, departments = [], size = "sm" }: Phas
   const isAgent = node.type === "agent";
   const sym = isAgent
     ? agentSymbol(agent, departments)
-    : { glyph: (node.type === "workflow" ? "flow" : "gear") as IconName, color: undefined };
+    : {
+        glyph: (node.type === "workflow" || node.type === "parallel" ? "flow" : "gear") as IconName,
+        color: undefined,
+      };
   return (
     <EngineBadge {...(isAgent ? engineBadge(stepEngineTarget(node, agent)) : {})}>
       <IconTile

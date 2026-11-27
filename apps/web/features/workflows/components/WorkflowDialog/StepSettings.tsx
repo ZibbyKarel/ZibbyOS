@@ -112,7 +112,9 @@ export function StepSettings({ graph, setGraph, excludeWorkflowId }: StepSetting
               ? t("typeSystem")
               : n.type === "workflow"
                 ? t("typeWorkflow")
-                : n.agent;
+                : n.type === "parallel"
+                  ? t("typeParallel")
+                  : n.agent;
         return (
           <Container data-testid={`step-settings-${n.id}`} key={n.id} padding={["100", "100"]}>
             <Typography mono truncate size="xs" type="note" weight="bold">

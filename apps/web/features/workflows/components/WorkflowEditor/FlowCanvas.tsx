@@ -34,6 +34,7 @@ import {
   type Pt,
   type Rect,
   type View,
+  arcClearance,
   clampZoom,
   contentBounds,
   failArc,
@@ -52,6 +53,7 @@ import {
   zoomAt,
 } from "./canvasLayout";
 import { PHASE_DND, type PhaseDrop, parsePhaseDrop } from "./dnd";
+import { ForkColumn } from "./ForkColumn";
 import { LoopFields } from "./LoopFields";
 import { PhaseCard } from "./PhaseCard";
 import type { SetGraph } from "./useGraphHistory";
@@ -320,10 +322,16 @@ export function FlowCanvas({
         ? leftPort(placement.end)
         : (placement.stub ?? rightPort(a));
     const aPt = rightPort(a);
+    // A fork column's edges fan out of / into every branch card instead of its centre.
+    const outs = (placement.branches.get(n.id) ?? []).map(rightPort);
+    const ins = nextCard ? (placement.branches.get(order[i + 1]!.id) ?? []).map(leftPort) : [];
     return {
       node: n,
       a: aPt,
       b: bEnd,
+      paths: (outs.length ? outs : [aPt]).flatMap((from) =>
+        (ins.length ? ins : [bEnd]).map((to) => flowPath(from, to)),
+      ),
       mid: { x: (aPt.x + bEnd.x) / 2, y: (aPt.y + bEnd.y) / 2 },
       toStub: !nextCard && !placement.end,
     };
@@ -346,7 +354,12 @@ export function FlowCanvas({
         loop: l,
         fail: false,
         term: undefined,
-        arc: loopArc(topPort(src), topPort(dst), span),
+        arc: loopArc(
+          topPort(src),
+          topPort(dst),
+          span,
+          arcClearance(placement, order, idx.get(n.id) ?? 0, idx.get(l.to) ?? 0),
+        ),
       },
     ];
   });
@@ -450,17 +463,17 @@ export function FlowCanvas({
           </defs>
           {connectors.map((c) => {
             const hot = selectedId === c.node.id;
-            return (
+            return c.paths.map((d, k) => (
               <path
-                d={flowPath(c.a, c.b)}
+                d={d}
                 data-testid={FlowCanvasTestId.Edge}
                 fill="none"
-                key={c.node.id}
+                key={`${c.node.id}-${k}`}
                 markerEnd={c.toStub ? undefined : `url(#${hot ? "wf-ahk" : "wf-ah"})`}
                 stroke={hot ? "var(--color-ink)" : "var(--color-ink-3)"}
                 strokeWidth={hot ? 2 : 1.5}
               />
-            );
+            ));
           })}
           {loops.map((l) => {
             const bad = l.fail;
@@ -491,6 +504,24 @@ export function FlowCanvas({
 
         {order.map((n) => {
           const rect = placement.cards.get(n.id) ?? EMPTY;
+          const fork = placement.branches.get(n.id);
+          if (fork) {
+            return (
+              <ForkColumn
+                branches={fork}
+                column={rect}
+                key={n.id}
+                node={n}
+                onSelect={(id) => {
+                  onSelect(id);
+                  onLoopOpen(null);
+                }}
+                problem={problemIds.has(n.id)}
+                selected={selectedId === n.id}
+                workflowNames={workflowNames}
+              />
+            );
+          }
           return (
             <PhaseCard
               agent={agents.find((a) => a.id === n.agent)}

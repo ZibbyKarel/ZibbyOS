@@ -1011,10 +1011,21 @@ export function waitingDescendant(
 ): WorkflowRun | undefined {
   let leaf: WorkflowRun | undefined;
   const seen = new Set<string>();
-  for (let cur = r; cur.status === "parked" && cur.parkedReason === "child" && cur.pendingChild; ) {
+  for (
+    let cur = r;
+    cur.status === "parked" &&
+    cur.parkedReason === "child" &&
+    (cur.pendingChild || cur.pendingBranches);
+  ) {
     if (seen.has(cur.workflowRunId)) break;
     seen.add(cur.workflowRunId);
-    const next = byId.get(cur.pendingChild.childRunId);
+    // A parallel parent waits on its first parked branch.
+    const childId =
+      cur.pendingChild?.childRunId ??
+      cur.pendingBranches?.branches.find(
+        (b) => b.status === "parked" || b.status === "paused-limit",
+      )?.childRunId;
+    const next = childId ? byId.get(childId) : undefined;
     if (!next) break;
     leaf = cur = next;
   }
@@ -1081,6 +1092,20 @@ function workflowRunToView(
     currentStage: r.currentStage,
     ...(r.pendingChild
       ? { pendingChild: { phaseId: r.pendingChild.phaseId, childRunId: r.pendingChild.childRunId } }
+      : {}),
+    ...(r.pendingBranches
+      ? {
+          pendingBranches: {
+            phaseId: r.pendingBranches.phaseId,
+            branches: r.pendingBranches.branches.map((b) => ({
+              id: b.id,
+              workflow: b.workflow,
+              ...(b.childRunId ? { childRunId: b.childRunId } : {}),
+              ...(b.status ? { status: b.status } : {}),
+              ...(b.costUsd !== undefined ? { costUsd: b.costUsd } : {}),
+            })),
+          },
+        }
       : {}),
     currentStageStartedAt: r.currentStageStartedAt,
     ...(r.pauseRequested ? { pauseRequested: true } : {}),

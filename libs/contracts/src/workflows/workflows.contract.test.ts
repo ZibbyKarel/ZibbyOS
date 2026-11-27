@@ -321,6 +321,119 @@ describe("workflow phase type `workflow` (sub-run)", () => {
   });
 });
 
+describe("workflow phase type `parallel` (fan-out)", () => {
+  const par = (extra: Record<string, unknown> = {}) => ({
+    id: "publish",
+    type: "parallel",
+    consumes: "in.md",
+    produces: "published.md",
+    branches: [
+      { id: "a", workflow: "wa" },
+      { id: "b", workflow: "wb", produces: "b-out.md" },
+    ],
+    ...extra,
+  });
+  const parse = (...phases: Record<string, unknown>[]) =>
+    WorkflowSchema.safeParse({ id: "parent", phases, instructions: "x" });
+
+  it("accepts a valid parallel phase", () => {
+    expect(parse(par()).success).toBe(true);
+  });
+
+  it.each(["consumes", "produces", "branches"])("rejects a parallel phase missing %s", (key) => {
+    const ph: Record<string, unknown> = par();
+    delete ph[key];
+    expect(parse(ph).success).toBe(false);
+  });
+
+  it("rejects a single branch", () => {
+    expect(parse(par({ branches: [{ id: "a", workflow: "wa" }] })).success).toBe(false);
+  });
+
+  it("rejects duplicate branch ids", () => {
+    const branches = [
+      { id: "a", workflow: "wa" },
+      { id: "a", workflow: "wb" },
+    ];
+    expect(parse(par({ branches })).success).toBe(false);
+  });
+
+  it("rejects duplicate or phase-colliding branch produces", () => {
+    const dup = [
+      { id: "a", workflow: "wa", produces: "x.md" },
+      { id: "b", workflow: "wb", produces: "x.md" },
+    ];
+    expect(parse(par({ branches: dup })).success).toBe(false);
+    const defaultCollision = [
+      { id: "a", workflow: "wa", produces: "b.md" },
+      { id: "b", workflow: "wb" },
+    ];
+    expect(parse(par({ branches: defaultCollision })).success).toBe(false);
+    const phaseCollision = [
+      { id: "a", workflow: "wa", produces: "published.md" },
+      { id: "b", workflow: "wb" },
+    ];
+    expect(parse(par({ branches: phaseCollision })).success).toBe(false);
+  });
+
+  it("rejects an unknown key on a branch", () => {
+    const branches = [
+      { id: "a", workflow: "wa", extra: 1 },
+      { id: "b", workflow: "wb" },
+    ];
+    expect(parse(par({ branches })).success).toBe(false);
+  });
+
+  it.each([
+    ["agent", "writer"],
+    ["model", "opus"],
+    ["thinking", "high"],
+    ["commands", ["ls"]],
+    ["prompt", "p"],
+    ["skill", "s"],
+    ["reviewPacks", true],
+    ["engine", "claude"],
+    ["engineModel", "x/y"],
+    ["openaiModel", "gpt-5"],
+    ["include", ["a.md"]],
+    ["qualify", true],
+    ["workflow", "child"],
+    ["action", "act"],
+    ["advisor", false],
+  ])("rejects %s on a parallel phase", (key, value) => {
+    expect(parse(par({ [key]: value })).success).toBe(false);
+  });
+
+  it("rejects a loop on a parallel phase", () => {
+    const loop = { to: "publish", maxRetries: 1, escalate: false, then: "fail" };
+    expect(parse(par({ loop })).success).toBe(false);
+  });
+
+  it("rejects a loop in another phase targeting a parallel phase", () => {
+    const tool = (loop: Record<string, unknown>) => ({
+      id: "t",
+      type: "tool",
+      commands: ["ls"],
+      consumes: "published.md",
+      produces: "t.md",
+      loop,
+    });
+    const base = { maxRetries: 1, escalate: false };
+    expect(parse(par(), tool({ ...base, to: "publish", then: "fail" })).success).toBe(false);
+    expect(parse(par(), tool({ ...base, to: "t", then: "publish" })).success).toBe(false);
+    expect(parse(par(), tool({ ...base, to: "t", then: "fail" })).success).toBe(true);
+  });
+
+  it("rejects branches on a non-parallel phase", () => {
+    const branches = [
+      { id: "a", workflow: "wa" },
+      { id: "b", workflow: "wb" },
+    ];
+    const sub = { id: "s", type: "workflow", workflow: "c", consumes: "i.md", produces: "o.md" };
+    expect(parse({ ...sub, branches }).success).toBe(false);
+  });
+});
+
 describe("workflow run schema", () => {
   it("aggregates stage runs with a workflow state", () => {
     const parsed = WorkflowRunSchema.safeParse({

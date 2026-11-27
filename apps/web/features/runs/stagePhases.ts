@@ -1,3 +1,4 @@
+import type { StateTone } from "@zibby/design-system";
 import type { RunView } from "./run";
 
 /** `runId` of the synthesized live row (the running attempt is not in `stageRuns` yet). */
@@ -86,3 +87,55 @@ export function buildPhaseNodes(
   });
   return nodes;
 }
+
+export type PendingBranches = NonNullable<RunView["pendingBranches"]>;
+export type BranchStatus = NonNullable<PendingBranches["branches"][number]["status"]> | "queued";
+
+/** One branch of a `parallel` phase, as the run detail shows it (indented under its stage). */
+export interface BranchRow {
+  id: string;
+  workflow: string;
+  childRunId?: string;
+  /** A joined branch's terminal state; live ones read `running` (child spawned) or `queued`. */
+  status: BranchStatus;
+  costUsd?: number;
+}
+
+/**
+ * The branches of a `parallel` phase: live from `pendingBranches` while the parent waits on
+ * the fan-out, from the joined StageRun's `branches` afterwards; empty for any other phase.
+ */
+export function phaseBranches(
+  stageRuns: RunView["stageRuns"],
+  pendingBranches: PendingBranches | undefined,
+  phaseId: string,
+): BranchRow[] {
+  if (pendingBranches?.phaseId === phaseId) {
+    return pendingBranches.branches.map((b) => ({
+      id: b.id,
+      workflow: b.workflow,
+      ...(b.childRunId ? { childRunId: b.childRunId } : {}),
+      status: b.status ?? (b.childRunId ? "running" : "queued"),
+      ...(b.costUsd != null ? { costUsd: b.costUsd } : {}),
+    }));
+  }
+  const joined = (stageRuns ?? []).filter((s) => s.phaseId === phaseId && s.branches).at(-1);
+  return (joined?.branches ?? []).map((b) => ({
+    id: b.id,
+    workflow: b.workflow,
+    ...(b.childRunId ? { childRunId: b.childRunId } : {}),
+    status: b.status,
+    ...(b.costUsd != null ? { costUsd: b.costUsd } : {}),
+  }));
+}
+
+export const BRANCH_TONE: Record<BranchRow["status"], StateTone> = {
+  done: "done",
+  running: "working",
+  parked: "blocked",
+  failed: "error",
+  skipped: "idle",
+  interrupted: "idle",
+  "paused-limit": "idle",
+  queued: "idle",
+};

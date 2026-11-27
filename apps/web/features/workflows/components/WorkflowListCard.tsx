@@ -79,6 +79,9 @@ export function WorkflowListCard({
       };
     }
     if (phase.type === "workflow" && phase.workflow) return { ...base, who: phase.workflow };
+    // A fan-out is one node, labelled with its branch count ("publish ×2").
+    if (phase.type === "parallel")
+      return { ...base, name: `${base.name} ×${phase.branches?.length ?? 0}` };
     return base;
   });
 

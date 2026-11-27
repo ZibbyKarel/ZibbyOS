@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { GraphNode } from "../WorkflowDialog/workflow-graph";
 import {
+  BRANCH_GAP,
+  CARD_H,
   CARD_W,
   GAP_X,
   PAD_X,
+  ROW_CY,
+  arcClearance,
   clampZoom,
+  contentBounds,
   fitView,
   insertIndexAt,
+  leftPort,
   lodFor,
   loopArc,
   placeChain,
+  rightPort,
   toScreen,
   toWorld,
   zoomAt,
@@ -74,5 +81,56 @@ describe("canvasLayout", () => {
     const far = loopArc({ x: 600, y: 200 }, { x: 100, y: 200 }, 3);
     expect(far.mid.y).toBeLessThan(near.mid.y);
     expect([lodFor(1), lodFor(0.5), lodFor(0.3)]).toEqual(["full", "mid", "far"]);
+  });
+});
+
+const fork = (id: string, n: number): GraphNode => ({
+  ...node(id),
+  type: "parallel",
+  agent: "",
+  branches: Array.from({ length: n }, (_, i) => ({ id: `b${i}`, workflow: `wf-${i}` })),
+});
+
+describe.each([2, 4])("parallel fork with %i branches", (n) => {
+  const chain = [node("a"), fork("f", n), node("z")];
+  const p = placeChain(chain, false);
+  const col = p.cards.get("f")!;
+  const bs = p.branches.get("f")!;
+
+  it("stacks the branches vertically, centred on the row, in the fork's own column", () => {
+    expect(bs).toHaveLength(n);
+    expect(col.h).toBe(n * CARD_H + (n - 1) * BRANCH_GAP);
+    expect(col.y + col.h / 2).toBe(ROW_CY);
+    bs.forEach((b, i) => {
+      expect(b.x).toBe(col.x);
+      expect(b.y).toBe(col.y + i * (CARD_H + BRANCH_GAP));
+    });
+    expect(bs[0]!.y).toBe(col.y);
+    expect(bs[n - 1]!.y + CARD_H).toBe(col.y + col.h);
+  });
+
+  it("keeps neighbours on the single row and joins edges at their centre ports", () => {
+    expect(p.cards.get("z")!.x).toBe(col.x + CARD_W + GAP_X);
+    expect(p.cards.get("a")!.y + CARD_H / 2).toBe(ROW_CY);
+    expect(p.branches.has("a")).toBe(false);
+    // fan-out / join ports sit at every branch's mid-height
+    expect(bs.map((b) => leftPort(b).y)).toEqual(bs.map((b) => b.y + CARD_H / 2));
+    expect(rightPort(bs[0]!).x).toBe(col.x + CARD_W);
+  });
+
+  it("grows the content bounds to the whole stack", () => {
+    const b = contentBounds(p, [], chain, chain);
+    expect(b.y).toBe(col.y);
+    expect(b.h).toBe(col.h);
+  });
+
+  it("lifts a loop arc over the tall fork column it spans", () => {
+    const chain2 = [node("a"), fork("f", n), node("z")];
+    const p2 = placeChain(chain2, false);
+    const lift = arcClearance(p2, chain2, 2, 0);
+    expect(lift).toBe(p2.cards.get("z")!.y - p2.cards.get("f")!.y);
+    expect(arcClearance(placeChain(order, false), order, 2, 0)).toBe(0);
+    const arc = loopArc({ x: 0, y: 232 }, { x: 0, y: 232 }, 2, lift);
+    expect(arc.mid.y).toBeLessThan(col.y);
   });
 });
