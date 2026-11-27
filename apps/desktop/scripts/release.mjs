@@ -8,10 +8,15 @@
 //   pnpm release:minor    # 0.1.0 → 0.2.0
 //   pnpm release:major    # 0.1.0 → 1.0.0
 //   node apps/desktop/scripts/release.mjs 1.0.0   # explicit version
+//
+// Flags: --skip-preflight (no local build before tagging), --no-watch (don't wait for CI).
+// Before anything is committed it builds the app locally (pnpm desktop:dist), so a broken
+// build never leaves an orphan tag; after the push it watches CI (watch-release.mjs).
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolchainProblems } from "./release-lib.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -41,6 +46,46 @@ function bump(current, kind) {
   fail(`unknown bump "${kind}" — use patch, minor, major or an explicit x.y.z`);
 }
 
+const args = process.argv.slice(2);
+const skipPreflight = args.includes("--skip-preflight");
+const noWatch = args.includes("--no-watch");
+const bumpArg = args.find((a) => !a.startsWith("--"));
+
+function preflight() {
+  const rootPkg = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
+  const problems = toolchainProblems({
+    packageManager: rootPkg.packageManager,
+    pnpmVersion: execFileSync("pnpm", ["--version"], { cwd: repoRoot, encoding: "utf8" }),
+    nvmrc: readFileSync(path.join(repoRoot, ".nvmrc"), "utf8"),
+    nodeVersion: process.versions.node,
+  });
+  if (problems.length) fail(`toolchain mismatch — ${problems.join("; ")}`);
+
+  // Same env as .github/workflows/desktop-release.yml; the bump is not written yet.
+  const env = {
+    ...process.env,
+    ZIBBY_BUILD_SOURCE_ROOT: "~/Workspace/ZibbyOS",
+    CSC_IDENTITY_AUTO_DISCOVERY: "false",
+  };
+  try {
+    execFileSync("pnpm", ["install", "--frozen-lockfile"], {
+      cwd: repoRoot,
+      stdio: "inherit",
+      env,
+    });
+    execFileSync("pnpm", ["desktop:dist"], { cwd: repoRoot, stdio: "inherit", env });
+  } catch {
+    fail("preflight build failed — nothing was tagged");
+  }
+  const app = path.join(repoRoot, "apps/desktop/release/mac-arm64/ZibbyOS.app");
+  if (!existsSync(app)) fail(`preflight build produced no ${app} — nothing was tagged`);
+  const res = path.join(app, "Contents/Resources");
+  const envFiles = readdirSync(res).filter((f) => f.startsWith(".env") && f !== ".env.example");
+  if (envFiles.length)
+    fail(`bundle contains env files (${envFiles.join(", ")}) — nothing was tagged`);
+  console.log("release: preflight build OK");
+}
+
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
 if (branch !== "main") fail(`releases are cut from main (you are on ${branch})`);
 if (git(["status", "--porcelain", "--", pkgRel])) fail(`${pkgRel} has uncommitted changes`);
@@ -52,10 +97,18 @@ if (behind !== "0") fail(`main is ${behind} commit(s) behind origin/main — pul
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 const next = bump(
   pkg.version,
-  process.argv[2] ?? fail("missing bump — use pnpm release:patch | release:minor | release:major"),
+  bumpArg ?? fail("missing bump — use pnpm release:patch | release:minor | release:major"),
 );
 const tag = `${TAG_PREFIX}${next}`;
 if (git(["tag", "-l", tag])) fail(`tag ${tag} already exists`);
+
+if (skipPreflight) {
+  console.warn(
+    "release: WARNING --skip-preflight: not building locally, a broken build will leave a tag behind",
+  );
+} else {
+  preflight();
+}
 
 pkg.version = next;
 writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
@@ -71,6 +124,11 @@ git(["push", "--atomic", "origin", "main", tag], { stdio: "inherit" });
 console.log(
   `\nPushed ${tag}. The build runs at https://github.com/ZibbyKarel/ZibbyOS/actions/workflows/desktop-release.yml`,
 );
+if (noWatch) {
+  console.log(`Not watching CI. Later: node apps/desktop/scripts/watch-release.mjs ${tag}`);
+} else {
+  execFileSync("node", [path.join(__dirname, "watch-release.mjs"), tag], { stdio: "inherit" });
+}
 console.log(
-  "When it finishes, the installed ZibbyOS offers the update within 6 hours (or now: ZibbyOS → Check for Updates…).",
+  "The installed ZibbyOS offers it within 24 hours (or now: ZibbyOS → Check for Updates…).",
 );

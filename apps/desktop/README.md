@@ -28,6 +28,14 @@ pnpm release:major   # 0.1.0 → 1.0.0
 
 The script bumps `apps/desktop/package.json`, commits only that file, tags `desktop-v<version>` and pushes main plus the tag. The tag triggers `.github/workflows/desktop-release.yml`: a macOS runner builds the app and publishes a GitHub Release with `ZibbyOS-<v>-arm64.zip`, its `.sha256` and the DMG. Running the workflow by hand (workflow_dispatch) builds main into a **draft** release, which the updater never sees, so you can test the pipeline.
 
+### Releasing
+
+`pnpm release:*` is guarded so a failed build never leaves an orphan tag:
+
+1. **Preflight** (before anything is committed): checks that the local pnpm and Node majors match `packageManager` and `.nvmrc`, runs `pnpm install --frozen-lockfile` and `pnpm desktop:dist` (same env as CI), and asserts `ZibbyOS.app` exists with no `.env*` in its resources. Any failure aborts with nothing tagged. `--skip-preflight` skips it (with a warning).
+2. **Push**, then **watch CI** via `node apps/desktop/scripts/watch-release.mjs desktop-v<x.y.z>`. If GitHub never acquired a macOS runner (job cancelled, no steps run), it reruns the same tag, up to 3 attempts, instead of burning a version. A real step failure prints the run URL and the failed log tail. On success it checks the release is published with the zip, `.sha256` and DMG. `--no-watch` skips the watch; run `watch-release.mjs` on its own later for an already pushed tag.
+3. The workflow publishes as a **draft**, verifies the three assets, and only then flips it to published, so the updater never sees a half-uploaded release. Rerunning a tag is idempotent (existing release assets are overwritten).
+
 Links to anything outside the app (GitHub PRs, Jira, docs) open in the default browser, not inside the ZibbyOS window.
 
 The installed app checks the releases at launch and then every 24 hours, or on demand via **ZibbyOS → Check for Updates…** or **Settings → General → Updates** (whose **Download and install** skips the question below). When a newer `desktop-v*` release exists it asks **Update / Later / Skip This Version**. On **Update** it:
