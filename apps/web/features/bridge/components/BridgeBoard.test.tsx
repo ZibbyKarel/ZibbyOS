@@ -7,6 +7,7 @@ import {
 import { act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
+import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../test/render";
 import type { BridgeState } from "../state/useBridgeState";
@@ -92,6 +93,24 @@ describe("BridgeBoard", () => {
     expect(screen.getByTestId(WidgetFrameTestId.Loading)).toBeInTheDocument();
     act(() => h.setLoading(false));
     expect(screen.queryByTestId(WidgetFrameTestId.Loading)).toBeNull();
+  });
+
+  it("gives every widget with queries a refresh button that invalidates its own keys", async () => {
+    const spy = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+    const both = {
+      ...state,
+      layout: [
+        { id: "prs", type: "prs", x: 0, y: 0, w: 6, h: 4 },
+        { id: "men", type: "mentions", x: 6, y: 0, w: 6, h: 4 },
+      ],
+    } as unknown as BridgeState;
+    renderWithProviders(<BridgeBoard density="comfort" state={both} />);
+    // The mocked PRs widget reports no refresh of its own and has no default keys.
+    const buttons = screen.getAllByTestId(WidgetFrameTestId.Refresh);
+    expect(buttons).toHaveLength(1);
+    await userEvent.click(buttons[0] as HTMLElement);
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["channels", "items"] });
+    spy.mockRestore();
   });
 
   it("shows the filters toggle only for widgets with Filters and flips filtersOpen locally", async () => {

@@ -11,6 +11,7 @@ import {
   WidgetFrame,
   type WidgetTier,
 } from "@zibby/design-system";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import {
   type CSSProperties,
@@ -31,6 +32,7 @@ import {
 import { BridgePresetContext } from "../widgets/BriefingWidget";
 import type { BridgeState } from "../state/useBridgeState";
 import { useWidgetPriority } from "../state/useWidgetPriority";
+import { WIDGET_REFRESH_KEYS } from "../widgets/refreshKeys";
 import { type BridgeSelection, type BridgeWidgetInfo, WIDGETS } from "../widgets/registry";
 import { boardHeight, colWidth, widgetRect } from "../grid/positions";
 import { AddWidgetSlot } from "./AddWidgetSlot";
@@ -98,6 +100,21 @@ function BridgeWidgetHost({
   // Per-widget, in-memory only: closed on every load.
   const [filtersOpen, setFiltersOpen] = useState(false);
   const collapsed = tier === "collapsed";
+  // Default refresh: re-fetch this widget's own queries (a widget's own sync overrides it).
+  const qc = useQueryClient();
+  const keys = WIDGET_REFRESH_KEYS[widget.type];
+  const [refetching, setRefetching] = useState(false);
+  const onDefaultRefresh = useMemo(
+    () =>
+      keys &&
+      (() => {
+        setRefetching(true);
+        void Promise.allSettled(keys.map((queryKey) => qc.invalidateQueries({ queryKey }))).then(
+          () => setRefetching(false),
+        );
+      }),
+    [keys, qc],
+  );
 
   return (
     <WidgetFrame
@@ -127,14 +144,14 @@ function BridgeWidgetHost({
       loadingLabel={t("bridge.loading")}
       onAdd={def.addable ? () => onToggleAdd(id) : undefined}
       onMovePointerDown={onDragStart && ((e) => onDragStart(id, "move", e))}
-      onRefresh={info?.onRefresh}
+      onRefresh={info?.onRefresh ?? onDefaultRefresh}
       onResizePointerDown={onDragStart && ((e, corner) => onDragStart(id, corner, e))}
       onSettings={() => onSettings(id)}
       // The hero never collapses, so it gets no caret.
       onToggleCollapse={tier === "hero" ? undefined : () => state.toggleCollapsed(id, collapsed)}
       onToggleFilters={def.Filters ? () => setFiltersOpen((o) => !o) : undefined}
       refreshLabel={t("bridge.refresh")}
-      refreshing={info?.refreshing}
+      refreshing={info?.onRefresh ? info.refreshing : refetching}
       resizeCornerLabels={{
         nw: t("bridge.resizeNw"),
         ne: t("bridge.resizeNe"),
