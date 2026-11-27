@@ -67,7 +67,7 @@ export const SECTIONS = [
   },
   {
     id: "workforce",
-    glyph: "users",
+    glyph: "bot",
     href: "/workforce/agents" as Route,
     // Registries keep their `/system/registries/*` routes but belong to this section.
     tabs: [
@@ -96,7 +96,7 @@ export const SECTIONS = [
   },
   {
     id: "knowledge",
-    glyph: "knowledge",
+    glyph: "brain",
     href: "/knowledge/brain" as Route,
     tabs: [
       { id: "brain", href: "/knowledge/brain" as Route, icon: "graph" },

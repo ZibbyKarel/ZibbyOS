@@ -5,6 +5,7 @@ import {
   AppFrameTestId,
   AppHeaderTestId,
   HeaderChromeTestId,
+  IconTestId,
   MenuButtonTestId,
   MobileMenuTestId,
   MobileToolbarTestId,
@@ -112,6 +113,23 @@ describe("AppShell", () => {
       </AppShell>,
     );
     expect(sectionItem("workforce")).toHaveTextContent("AI");
+    expect(within(sectionItem("workforce")).getByTestId(IconTestId.Root)).toHaveAttribute(
+      "data-icon",
+      "bot",
+    );
+  });
+
+  it("labels the knowledge section Mozek with a brain icon", () => {
+    renderWithProviders(
+      <AppShell>
+        <div>obsah stránky</div>
+      </AppShell>,
+    );
+    expect(sectionItem("knowledge")).toHaveTextContent("Mozek");
+    expect(within(sectionItem("knowledge")).getByTestId(IconTestId.Root)).toHaveAttribute(
+      "data-icon",
+      "brain",
+    );
   });
 
   it("offers the light/dark switch and a Settings link in the preferences menu", async () => {
