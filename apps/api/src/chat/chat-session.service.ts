@@ -39,7 +39,6 @@ import { resolveClaudeLocations } from "../inventory/claude-locations";
 import { type OperatorMcpServer, readOperatorMcpServers } from "../inventory/operator-mcp-servers";
 import { KbMcpAuthService } from "../kb/kb-mcp-auth.service";
 import { AutopilotService } from "../autopilot/autopilot.service";
-import { PolicyStorageService } from "../gates/policy.storage.service";
 import { ProjectLocalService } from "../projects/project-local.service";
 import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { SkillsStorageService } from "../skills/skills.storage.service";
@@ -50,6 +49,7 @@ import { AttachmentStorageService } from "../tasks/attachment-storage.service";
 import { buildAboutPromptSection } from "./chat-about-prompt";
 import { buildAttachmentPromptSection } from "./chat-attachment-prompt";
 import { ChatEventsService } from "./chat-events.service";
+import { CHAT_APPROVAL_WAIT_MS, ChatGateService } from "./chat-gate.service";
 import { ChatMcpAuthService } from "./chat-mcp-auth.service";
 import { buildAgentChatPrompt, chatAgentReadTools } from "./chat-agent-prompt";
 import { buildChatPrompt } from "./chat-persona";
@@ -58,7 +58,6 @@ import {
   OPENCODE_CHAT_NOTE,
   OPENCODE_CHAT_REMOTE_SERVERS,
   buildOpencodeChatConfig,
-  chatAllowedActions,
   opencodeChatArgs,
   opencodeChatEnv,
   parseOpencodeChatLine,
@@ -298,17 +297,10 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     private readonly agents: AgentsStorageService,
     // The turn runs inside the project's local checkout (path or `<cloneRoot>/<id>`).
     private readonly projectLocal?: ProjectLocalService,
-    // The operator's gate rules: an action they `allow` runs in an opencode chat turn too.
-    @Optional() private readonly policy?: PolicyStorageService,
     @Optional() private readonly autopilot?: AutopilotService,
+    // Inline approvals: rejects the turn's pending chat approvals when it ends.
+    @Optional() private readonly chatGate?: ChatGateService,
   ) {}
-
-  /** Gated actions the chat may run (none while ZIBBY is paused or in an `@agent` turn). */
-  private async chatAllowActions(agentTurn: boolean): Promise<string[]> {
-    // ponytail: an `@agent` turn's own (tightening) rules aren't merged in, so it gets none.
-    if (agentTurn || !this.policy || this.autopilot?.isPaused()) return [];
-    return chatAllowedActions(await this.policy.floor().catch(() => []));
-  }
 
   /** Remove per-turn secret configs a crash left behind. Only files older than any live
    *  turn could be, so a second API on the same chat dir keeps its in-flight configs.
@@ -589,6 +581,12 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     return `${base}/api/chat/mcp?conversationId=${encodeURIComponent(conversationId)}`;
   }
 
+  /** The inline-approval gate the opencode chat plugin POSTs to (and polls under). */
+  protected gateUrl(conversationId: string): string {
+    const base = process.env.ZIBBY_API_BASE ?? `http://localhost:${process.env.PORT ?? 3333}`;
+    return `${base}/api/chat/gate?conversationId=${encodeURIComponent(conversationId)}`;
+  }
+
   /** The base URL the spawned `claude` reaches the `zibby-kb` MCP server at
    * (Task 8) — mirrors {@link mcpBaseUrl}'s shape. `teamId` (the operator's
    * `@`-mention tag for this turn) rides as the `?teamId=` query param, exactly
@@ -715,13 +713,11 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     const configFile = await this.writeSecretFile("opencode-chat", config);
     return {
       args: opencodeChatArgs(model, sessionId, text),
-      env: opencodeChatEnv(
-        configFile,
-        cwd,
-        serverIds,
-        denyTools,
-        await this.chatAllowActions(Boolean(agent)),
-      ),
+      env: opencodeChatEnv(configFile, cwd, serverIds, denyTools, {
+        url: this.gateUrl(conversationId),
+        token: this.mcpAuth.bearerToken,
+        deadlineS: (CHAT_APPROVAL_WAIT_MS + 30_000) / 1000,
+      }),
       configFile,
       serverIds,
     };
@@ -902,6 +898,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
         : this.createProcess(claudeArgs ?? [], tags?.project?.path);
     } catch (error) {
       await cleanupTurn();
+      await this.chatGate?.settleTurn(conversationId).catch(() => {});
       throw error;
     }
     const parseLine = opencodeTurn
@@ -946,6 +943,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
     const unsubscribe = this.toolResults.onCreateTaskResult(conversationId, emitCreateTaskOk);
     // `show_widget` / `publish_canvas` — the MCP handler pushes the validated widget; it becomes its
     // own tool event (unique callId, so two cards never collapse into one).
+    let rearm: (ms: number) => void = () => {};
     const unsubscribeWidgets = this.toolResults.onWidget(conversationId, (widget) => {
       const tool: ChatToolEvent = {
         name: "show_widget",
@@ -955,6 +953,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
       };
       toolEvents = mergeToolEvent(toolEvents, tool);
       this.events.emit({ conversationId, turnId, type: "tool", tool });
+      if (widget.kind === "approval") rearm(CHAT_APPROVAL_WAIT_MS + TURN_TIMEOUT_MS);
     });
 
     const apply = (event: ChatStreamEvent): void => {
@@ -1013,12 +1012,20 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
         clearTimeout(timer);
         resolve();
       };
-      const timer = setTimeout(() => {
+      const onTimeout = () => {
         errored = errored ?? "Odpověď trvala příliš dlouho.";
         killTurnProcess(proc);
         finish();
-      }, TURN_TIMEOUT_MS);
+      };
+      let timer = setTimeout(onTimeout, TURN_TIMEOUT_MS);
       timer.unref?.();
+      // An approval card is waiting on the operator: give the turn the wait plus a fresh budget.
+      rearm = (ms) => {
+        if (settled) return;
+        clearTimeout(timer);
+        timer = setTimeout(onTimeout, ms);
+        timer.unref?.();
+      };
 
       const consumeLine = (line: string): void => {
         for (const event of parseLine(line)) apply(event);
@@ -1048,6 +1055,8 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
       });
     });
     await cleanupTurn();
+    // Every exit path (reply, error, timeout kill): a still-pending card can no longer release anything.
+    await this.chatGate?.settleTurn(conversationId).catch(() => {});
 
     // The turn is over: stop reacting to live pushes, then sweep anything that was
     // queued because it arrived with no subscriber listening (e.g. it landed in the

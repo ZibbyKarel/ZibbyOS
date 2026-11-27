@@ -1,28 +1,27 @@
-// ZibbyOS chat gate for `opencode run` (A25, widened by A33). A chat turn has no
-// RunnerCore approval protocol (no intent-request watcher, no approval card, a 120 s
-// turn), so it cannot wait for a decision the way the run gate plugin does. It is
-// FAIL-FAST instead, judging every call with the run gate's own classifier
-// (`claude-approval-hook.mjs`, imported — never spawned, since the spawned hook waits):
+// ZibbyOS chat gate for `opencode run` (A25, A33, inline approvals). Every call is judged
+// with the run gate's own classifier (`claude-approval-hook.mjs`, imported — never spawned).
+// Local refusals are synchronous (tool not allowed, operator-only surface, nested agent,
+// `gh.pr_comment`). A classified gated call is NOT refused: it is sent to the API
+// (`POST ZIBBY_CHAT_GATE_URL`), which allows it, denies it or opens an approval card in the
+// chat. On `pending` this plugin HOLDS the call (`execute.before` returns a promise opencode
+// awaits) and polls the card's status until the operator approves or rejects it.
 //
-//  - `shell` / `bash`: a command the classifier does not gate runs; a gated one (push,
-//    rm, mv, overwrite, publish, `gh pr create`, …), a nested `opencode` / `claude`, or
-//    anything touching the operator-only surface is REFUSED at once with a message that
-//    tells the model to delegate it via `create_task` (which goes through the run gate) —
-//    unless the operator's own gate rules `allow` that action (`ZIBBY_CHAT_ALLOW_ACTIONS`,
-//    comma list computed by the API per turn), then it runs as it would in a run.
+//  - Only the one held call whose approval came back `approved` is released, and only if its
+//    input still hashes to what was approved. Nothing is cached: an identical later call asks again.
+//  - FAIL CLOSED: reject, timeout (the server owns the 300 s deadline, this plugin stops at
+//    `ZIBBY_CHAT_GATE_DEADLINE_S`), a missing env, a network or parse error, a non-2xx → refused.
+//  - Gated calls are serialised through a queue, so the operator sees one card at a time.
 //  - `read` / `grep` / `glob` / `list`: run, unless the path is the operator token dir.
-//  - MCP tools of the mounted servers (`ZIBBY_CHAT_MCP_SERVERS`, comma list): ZibbyOS's
-//    own `zibby` / `zibby-kb` run; an operator server's call runs only when A28's
-//    `classifyMcp` reads it as `mcp.read` — any write is refused with the same delegate
-//    message.
+//  - MCP tools of the mounted servers (`ZIBBY_CHAT_MCP_SERVERS`): ZibbyOS's own `zibby` /
+//    `zibby-kb` run; an operator server's call is judged like any other (`mcp.read` runs).
 //  - everything else (write, edit, patch, `execute`, `question`, `skill`, `task`, web,
-//    `opencode_*`, …) is refused. Tools named in `ZIBBY_CHAT_DENY_TOOLS` (e.g.
-//    `zibby_create_task` in an `@agent` turn) are refused too.
+//    `opencode_*`, …) is refused. Tools named in `ZIBBY_CHAT_DENY_TOOLS` are refused too.
 //
 // The turn's config also sets `permissions: deny *` with allow rules for exactly these
 // tools (and the turn runs without `--auto`), so if this plugin fails to load the
 // risky calls are not judged — but write/edit/execute stay denied by the config.
 
+import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   classifyEvent,
@@ -44,7 +43,7 @@ export const CHAT_DENY_REASON =
   "in the ZibbyOS chat only the shell, file reads and the mounted MCP tools are allowed — no file writes, edits or code execution.";
 
 export const CHAT_DELEGATE_REASON =
-  "this needs the operator's approval, which the chat cannot ask for. Do not retry or work around it — hand the work off with the zibby create_task tool (a task asks the operator through the real gate), or tell the operator what you would run.";
+  "this is not allowed in the chat. Do not retry or work around it; for asynchronous or long work use the zibby create_task tool, otherwise tell the operator what you would run.";
 
 const list = (v) =>
   String(v ?? "")
@@ -89,13 +88,13 @@ function touchesOperator(e) {
   );
 }
 
-/** Classified actions the operator's gate rules `allow` outright (see `chatAllowedActions`). */
-const allowedActions = (env) => new Set(list(env.ZIBBY_CHAT_ALLOW_ACTIONS));
-
-/** Decide one call → `null` (run it) or the reason it is refused. Never waits. */
+/**
+ * Judge one call locally → `{ reason }` (refused), `{ intent }` (a gated action the API must
+ * decide) or `null` (run it). Never waits.
+ */
 export function chatGateReason(tool, input, env = process.env) {
   const name = String(tool ?? "");
-  if (!isAllowedChatTool(name, env)) return CHAT_DENY_REASON;
+  if (!isAllowedChatTool(name, env)) return { reason: CHAT_DENY_REASON };
   const server = mountedServerOf(name, env);
   if (server && OWN_MCP_IDS.has(server)) return null;
   const cwd = path.resolve(env.PWD || process.cwd());
@@ -103,31 +102,114 @@ export function chatGateReason(tool, input, env = process.env) {
   try {
     events = toClaudeEvents(name, input, cwd, server ? [server] : []);
   } catch (e) {
-    return e?.message ?? CHAT_DENY_REASON;
+    return { reason: e?.message ?? CHAT_DENY_REASON };
   }
+  let intent = null;
   for (const e of events) {
     if (touchesOperator(e)) {
-      return "approvals are decided by the operator only — the chat cannot call the approvals API or read the operator token.";
+      return {
+        reason:
+          "approvals are decided by the operator only — the chat cannot call the approvals API or read the operator token.",
+      };
     }
     if (e.tool_name === "Bash" && startsNestedAgent(e.tool_input?.command)) {
-      return `a nested opencode / claude session is not allowed — ${CHAT_DELEGATE_REASON}`;
+      return {
+        reason: `a nested opencode / claude session is not allowed — ${CHAT_DELEGATE_REASON}`,
+      };
     }
     let request;
     try {
       request = classifyEvent(e);
     } catch {
-      // Fail closed: a call the classifier chokes on is not run from the chat.
+      // Fail closed: a call the classifier chokes on goes to the API as `unclassified`, which denies it.
       request = { action: "unclassified" };
     }
-    if (request?.action === "gh.pr_comment" && !allowedActions(env).has(request.action)) {
-      return `"gh.pr_comment" — propose the reply with the zibby propose_pr_replies tool instead; the operator sends it from the card.`;
+    if (request?.action === "gh.pr_comment") {
+      return {
+        reason: `"gh.pr_comment" — propose the reply with the zibby propose_pr_replies tool instead; the operator sends it from the card.`,
+      };
     }
-    if (request && request.action !== "mcp.read" && !allowedActions(env).has(request.action)) {
-      return `"${request.action}" — ${CHAT_DELEGATE_REASON}`;
-    }
+    if (request && request.action !== "mcp.read" && !intent) intent = request;
   }
-  return null;
+  return intent ? { intent } : null;
 }
+
+/** sha256 hex of `tool + "\0" + JSON.stringify(input)` — must match the API's `chatGateHash`. */
+export const chatGateHash = (tool, input) =>
+  createHash("sha256")
+    .update(`${tool}\0${JSON.stringify(input)}`)
+    .digest("hex");
+
+const POLL_MS = 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const blocked = (reason) => new Error(`Blocked by the ZibbyOS gate: ${reason}`);
+
+/**
+ * Ask the API about one classified call and, when it is `pending`, hold until the operator
+ * decides. Resolves only for an allowed / approved call; every other outcome throws
+ * (fail closed). `input` is re-hashed after an approval to catch a mutation of the held call.
+ */
+export async function chatGateCall(tool, input, intent, env = process.env, fetchImpl = fetch) {
+  const url = env.ZIBBY_CHAT_GATE_URL;
+  const token = env.ZIBBY_CHAT_GATE_TOKEN;
+  if (!url || !token) throw blocked("the chat approval gate is not configured — refusing.");
+  const deadlineS = Number(env.ZIBBY_CHAT_GATE_DEADLINE_S);
+  const deadline =
+    Date.now() + (Number.isFinite(deadlineS) && deadlineS > 0 ? deadlineS : 330) * 1000;
+  const hash = chatGateHash(tool, input);
+  const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+  const call = async (u, init) => {
+    const res = await fetchImpl(u, { ...init, headers, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  let decision;
+  try {
+    decision = await call(url, {
+      method: "POST",
+      body: JSON.stringify({ tool, input, hash, intent }),
+    });
+  } catch (e) {
+    throw blocked(`the approval gate could not be reached (${e?.message ?? e}) — refusing.`);
+  }
+  if (decision?.decision === "allow") return;
+  if (decision?.decision === "deny") {
+    throw blocked(`${decision.reason ?? "denied"}. Do not retry or work around it.`);
+  }
+  const approvalId = decision?.decision === "pending" ? decision.approvalId : undefined;
+  if (typeof approvalId !== "string" || !approvalId)
+    throw blocked("unreadable gate answer — refusing.");
+
+  const u = new URL(url);
+  u.pathname = `${u.pathname.replace(/\/$/, "")}/${encodeURIComponent(approvalId)}`;
+  const action = intent?.action ?? tool;
+  for (;;) {
+    if (Date.now() >= deadline)
+      throw blocked("no decision in time. Do not retry; ask the operator.");
+    await sleep(POLL_MS);
+    let status;
+    try {
+      status = (await call(u.toString(), { method: "GET" }))?.status;
+    } catch (e) {
+      throw blocked(`the approval status could not be read (${e?.message ?? e}) — refusing.`);
+    }
+    if (status === "pending") continue;
+    if (status === "approved") {
+      if (chatGateHash(tool, input) !== hash) {
+        throw blocked("the call changed after it was approved — refusing.");
+      }
+      return;
+    }
+    // rejected, expired, or anything unknown
+    throw blocked(
+      `the operator rejected "${action}" (or it timed out). Do not retry it or work around it; ask the operator what to do instead.`,
+    );
+  }
+}
+
+// One gated call at a time (the operator decides one card at a time).
+let queue = Promise.resolve();
 
 const plugin = {
   id: "zibby-chat-gate",
@@ -137,8 +219,13 @@ const plugin = {
       event.effect = isAllowedChatTool(event.action) ? "allow" : "deny";
     });
     await ctx.tool.hook("execute.before", (event) => {
-      const reason = chatGateReason(event.tool, event.input);
-      if (reason) throw new Error(`Blocked by the ZibbyOS gate: ${reason}`);
+      const run = queue.then(async () => {
+        const verdict = chatGateReason(event.tool, event.input);
+        if (verdict?.reason) throw blocked(verdict.reason);
+        if (verdict?.intent) await chatGateCall(String(event.tool), event.input, verdict.intent);
+      });
+      queue = run.catch(() => undefined);
+      return run;
     });
   },
 };

@@ -1,12 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import type { GateRule } from "@zibby/contracts";
 import { bluecodeConfigPart } from "../ai-providers/bluecode-provider";
-import { actionInClass } from "../gates/gate-evaluator.service";
 import { agentBaseEnv } from "../shared/agent-env";
 import type { ChatStreamEvent } from "./chat-stream-parser";
 
-/** The gate plugin an opencode chat turn loads (A25/A33): fail-fast, never waits for a decision. */
+/** The gate plugin an opencode chat turn loads (A25/A33): holds a gated call for the operator's inline approval. */
 export const OPENCODE_CHAT_GATE_PLUGIN = path.resolve(__dirname, "opencode-chat-gate");
 
 /** The opencode agent id the chat's system prompt is defined under. */
@@ -28,12 +26,15 @@ const RESERVED_IDS = new Set(["opencode", "browser"]);
 export const OPENCODE_CHAT_NOTE =
   "Běžíš na enginu opencode. Máš shell, čtení souborů (read/grep/glob), MCP servery zibby " +
   "a zibby-kb, operátorovy vlastní MCP servery a — když je operátor přihlášený — Atlassian " +
-  "(Jira, Confluence) a Figmu. Slack tu nemáš. Gate chatu pustí čtení, neškodné příkazy " +
-  "a akce, které má operátor v pravidlech brány povolené (např. zápis přes gh api, ne " +
-  "souborové operace); odpovědi do review vláken PR navrhuj přes propose_pr_replies; cokoli " +
-  "dalšího rizikového (push, mazání, přepis souborů, zápis přes MCP, publikace) " +
-  "odmítne — pak to nezkoušej obejít a předej práci přes create_task, nebo operátorovi " +
-  "řekni, co bys spustil. Server, který hlásí, že potřebuje přihlášení, prostě vynech.";
+  "(Jira, Confluence) a Figmu. Slack tu nemáš. Neškodné příkazy a čtení gate chatu pustí " +
+  "rovnou. Rizikový krok (push, mazání, přepis souboru, zápis přes MCP, publikace) se " +
+  "zastaví a operátor ho schválí nebo zamítne kartou přímo v chatu; schválení platí jen pro " +
+  "ten jeden příkaz a čeká se na něj nejvýše pár minut, takže prostě zavolej nástroj a " +
+  "počkej. Zamítnutí nebo vypršení je konečné: příkaz nezkoušej znovu ani obcházet jinou " +
+  "cestou, zeptej se operátora, co dál. Zakázané akce (merge, deploy, platby) kartu nedostanou " +
+  "a jsou odmítnuty. create_task používej jen pro asynchronní nebo dlouhou práci; odpovědi " +
+  "do review vláken PR navrhuj přes propose_pr_replies. Server, který hlásí, že potřebuje " +
+  "přihlášení, prostě vynech.";
 
 /**
  * A33 — remote MCP servers every opencode chat turn mounts (OAuth, public endpoints with
@@ -182,30 +183,6 @@ export function opencodeChatArgs(
 export const CHAT_NEVER_ACTIONS = new Set(["overwrite", "move", "delete", "mcp.read", "mcp.write"]);
 
 /**
- * The gated actions a chat turn may run without asking: those that every rule matching
- * them by action (or by their parent class, as the evaluator does) sets to `allow`, so a
- * branch-qualified `ask` on the same action keeps it out. A non-`allow` catch-all (`tool`
- * or `context` rule with no action) empties the list. The chat can't wait for an
- * approval, so `notify` / `ask` / `deny` stay refused.
- */
-export function chatAllowedActions(rules: readonly GateRule[]): string[] {
-  const actions = new Set<string>();
-  for (const rule of rules) {
-    const keyed = rule.match.some((c) => c.type === "action");
-    const catchAll = rule.match.some((c) => c.type === "tool" || c.type === "context");
-    if (rule.decision !== "allow" && !keyed && catchAll) return [];
-    for (const c of rule.match) if (c.type === "action") actions.add(c.action);
-  }
-  return [...actions].filter(
-    (action) =>
-      !CHAT_NEVER_ACTIONS.has(action) &&
-      rules
-        .filter((r) => r.match.some((c) => c.type === "action" && actionInClass(action, c.action)))
-        .every((r) => r.decision === "allow"),
-  );
-}
-
-/**
  * The env of an opencode chat turn: no inherited `OPENCODE_*` (only ours), project config
  * off, `PWD` pinned to the spawn dir (opencode takes its project dir from `$PWD`), and the
  * mounted server ids + the per-turn denied tools for the gate plugin (which denies them
@@ -216,7 +193,7 @@ export function opencodeChatEnv(
   cwd: string,
   serverIds: readonly string[],
   denyTools: readonly string[] = [],
-  allowActions: readonly string[] = [],
+  gate?: { url: string; token: string; deadlineS: number },
 ): NodeJS.ProcessEnv {
   const env = agentBaseEnv();
   for (const key of Object.keys(env)) if (key.startsWith("OPENCODE_")) delete env[key];
@@ -228,7 +205,13 @@ export function opencodeChatEnv(
     PWD: cwd,
     ZIBBY_CHAT_MCP_SERVERS: serverIds.join(","),
     ZIBBY_CHAT_DENY_TOOLS: denyTools.join(","),
-    ZIBBY_CHAT_ALLOW_ACTIONS: allowActions.join(","),
+    ...(gate
+      ? {
+          ZIBBY_CHAT_GATE_URL: gate.url,
+          ZIBBY_CHAT_GATE_TOKEN: gate.token,
+          ZIBBY_CHAT_GATE_DEADLINE_S: String(gate.deadlineS),
+        }
+      : {}),
     ...(claudePath ? { OPENCODE_CLAUDE_PATH: claudePath } : {}),
   };
 }

@@ -2,12 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FAKE_BLUECODE_KEY, withBlueCodeDir } from "../ai-providers/bluecode-fixture";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OPENCODE_CHAT_BUILTIN_TOOLS,
   OPENCODE_CHAT_GATE_PLUGIN,
   buildOpencodeChatConfig,
-  chatAllowedActions,
   opencodeChatArgs,
   opencodeChatEnv,
   parseOpencodeChatLine,
@@ -16,6 +15,8 @@ import {
 } from "./chat-opencode";
 import plugin, {
   CHAT_BUILTIN_TOOLS,
+  chatGateCall,
+  chatGateHash,
   chatGateReason,
   isMountedMcpTool,
   // @ts-expect-error — plain .mjs plugin, no types
@@ -124,6 +125,17 @@ describe("opencodeChatArgs / opencodeChatEnv", () => {
     ]);
   });
 
+  it("passes the inline-approval gate env only when given, and no ALLOW_ACTIONS", () => {
+    const gate = { url: "http://h/api/chat/gate?conversationId=c", token: "t", deadlineS: 330 };
+    const env = opencodeChatEnv("/tmp/c.json", "/repo", ["zibby"], [], gate);
+    expect(env).toMatchObject({
+      ZIBBY_CHAT_GATE_URL: gate.url,
+      ZIBBY_CHAT_GATE_TOKEN: "t",
+      ZIBBY_CHAT_GATE_DEADLINE_S: "330",
+    });
+    expect(opencodeChatEnv("/tmp/c.json", "/repo", []).ZIBBY_CHAT_GATE_URL).toBeUndefined();
+  });
+
   it("drops inherited OPENCODE_* and pins PWD", () => {
     process.env.OPENCODE_PERMISSION = "allow";
     try {
@@ -204,14 +216,15 @@ describe("opencode chat gate plugin", () => {
     process.env.ZIBBY_CHAT_MCP_SERVERS = "zibby";
     try {
       await plugin.setup({ permission: { hook: reg("evaluate") }, tool: { hook: reg("before") } });
-      expect(() => hooks.before?.({ tool: "shell", input: { command: "rm -rf /" } })).toThrow(
-        /Blocked by the ZibbyOS gate: .*create_task/,
-      );
-      expect(() => hooks.before?.({ tool: "write", input: { filePath: "a" } })).toThrow(
+      // a gated call with no gate env is held back and refused (fail closed)
+      await expect(
+        hooks.before?.({ tool: "shell", input: { command: "rm -rf /" } }),
+      ).rejects.toThrow(/Blocked by the ZibbyOS gate: .*not configured/);
+      await expect(hooks.before?.({ tool: "write", input: { filePath: "a" } })).rejects.toThrow(
         /Blocked by the ZibbyOS gate/,
       );
-      expect(hooks.before?.({ tool: "shell", input: { command: "git status" } })).toBeUndefined();
-      expect(hooks.before?.({ tool: "zibby_recall_memory", input: {} })).toBeUndefined();
+      await hooks.before?.({ tool: "shell", input: { command: "git status" } });
+      await hooks.before?.({ tool: "zibby_recall_memory", input: {} });
       const ask = { action: "write", effect: "ask" };
       hooks.evaluate?.(ask);
       expect(ask.effect).toBe("deny");
@@ -239,10 +252,10 @@ describe("opencode chat gate plugin", () => {
     process.env.ZIBBY_CHAT_DENY_TOOLS = "zibby_create_task";
     try {
       await plugin.setup({ permission: { hook: reg("evaluate") }, tool: { hook: reg("before") } });
-      expect(() => hooks.before?.({ tool: "zibby_create_task", input: {} })).toThrow(
+      await expect(hooks.before?.({ tool: "zibby_create_task", input: {} })).rejects.toThrow(
         /Blocked by the ZibbyOS gate/,
       );
-      expect(hooks.before?.({ tool: "zibby_recall_memory", input: {} })).toBeUndefined();
+      await hooks.before?.({ tool: "zibby_recall_memory", input: {} });
       const ask = { action: "zibby_create_task", effect: "ask" };
       hooks.evaluate?.(ask);
       expect(ask.effect).toBe("deny");
@@ -252,101 +265,205 @@ describe("opencode chat gate plugin", () => {
     }
   });
 
-  describe("chatGateReason (A33 fail-fast)", () => {
+  describe("chatGateReason", () => {
     const env = {
       ZIBBY_CHAT_MCP_SERVERS: "zibby,zibby-kb,plugin_context7_context7,atlassian",
       PWD: "/repo",
     };
-    const reason = (tool: string, input: unknown) => chatGateReason(tool, input, env);
+    const verdict = (tool: string, input: unknown) => chatGateReason(tool, input, env);
 
     it("runs unclassified shell commands and file reads", () => {
-      expect(reason("shell", { command: "git status" })).toBeNull();
-      expect(reason("shell", { command: "ls -la && git log --oneline -5" })).toBeNull();
-      expect(reason("read", { filePath: "/repo/README.md" })).toBeNull();
-      expect(reason("grep", { pattern: "foo", path: "/repo" })).toBeNull();
+      expect(verdict("shell", { command: "git status" })).toBeNull();
+      expect(verdict("shell", { command: "ls -la && git log --oneline -5" })).toBeNull();
+      expect(verdict("read", { filePath: "/repo/README.md" })).toBeNull();
+      expect(verdict("grep", { pattern: "foo", path: "/repo" })).toBeNull();
     });
 
-    it("refuses classified shell commands with the delegate message", () => {
-      for (const command of ["git push origin main", "rm -rf build", "npm publish"]) {
-        expect(reason("shell", { command })).toMatch(/create_task/);
+    it("returns the classified intent of a gated shell command (no refusal)", () => {
+      for (const [command, action] of [
+        ["git push origin main", "git.push"],
+        ["rm -rf build", "delete"],
+        ["npm publish", "deploy"],
+      ] as const) {
+        expect(verdict("shell", { command })).toMatchObject({ intent: { action } });
       }
-      expect(reason("shell", { command: "claude -p hi" })).toMatch(/nested/);
+      expect(verdict("shell", { command: "claude -p hi" })).toMatchObject({
+        reason: expect.stringMatching(/nested/),
+      });
     });
 
     it("refuses the operator-only surface", () => {
-      expect(reason("read", { filePath: "~/.config/zibby/operator-token" })).toMatch(/operator/);
-      expect(reason("shell", { command: "cat ~/.config/zibby/operator-token" })).toMatch(
-        /operator/,
-      );
+      expect(verdict("read", { filePath: "~/.config/zibby/operator-token" })).toMatchObject({
+        reason: expect.stringMatching(/operator/),
+      });
+      expect(verdict("shell", { command: "cat ~/.config/zibby/operator-token" })).toMatchObject({
+        reason: expect.stringMatching(/operator/),
+      });
     });
 
-    it("operator MCP: reads run, writes are refused; own servers always run", () => {
-      expect(reason("plugin_context7_context7_query-docs", { q: "x" })).toBeNull();
-      expect(reason("atlassian_getJiraIssue", { issueIdOrKey: "A-1" })).toBeNull();
-      expect(reason("atlassian_createJiraIssue", {})).toMatch(/create_task/);
-      expect(reason("zibby_create_task", {})).toBeNull();
-      expect(reason("zibby-kb_kb_write", {})).toBeNull();
+    it("operator MCP: reads run, writes return an intent; own servers always run", () => {
+      expect(verdict("plugin_context7_context7_query-docs", { q: "x" })).toBeNull();
+      expect(verdict("atlassian_getJiraIssue", { issueIdOrKey: "A-1" })).toBeNull();
+      expect(verdict("atlassian_createJiraIssue", {})).toHaveProperty("intent");
+      expect(verdict("zibby_create_task", {})).toBeNull();
+      expect(verdict("zibby-kb_kb_write", {})).toBeNull();
     });
 
-    it("runs a classified action the operator's rules allow, refuses the rest", () => {
-      const allowEnv = { ...env, ZIBBY_CHAT_ALLOW_ACTIONS: "gh.api_write" };
-      const mutation = `gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"x"}){thread{id}} }'`;
-      expect(chatGateReason("shell", { command: mutation }, allowEnv)).toBeNull();
-      expect(reason("shell", { command: mutation })).toMatch(/create_task/);
+    it("always refuses a PR comment reply (propose_pr_replies) and a nested agent", () => {
       const reply = "gh api repos/o/r/pulls/1/comments/2/replies -f body=hi";
-      expect(chatGateReason("shell", { command: reply }, allowEnv)).toMatch(/propose_pr_replies/);
-      expect(chatGateReason("shell", { command: "claude -p hi" }, allowEnv)).toMatch(/nested/);
+      expect(verdict("shell", { command: reply })).toMatchObject({
+        reason: expect.stringMatching(/propose_pr_replies/),
+      });
     });
 
     it("refuses write/edit/execute/web and unmounted tools", () => {
       for (const tool of ["write", "edit", "patch", "execute", "webfetch", "skill", "task"]) {
-        expect(reason(tool, {})).toMatch(/only the shell/);
+        expect(verdict(tool, {})).toMatchObject({
+          reason: expect.stringMatching(/only the shell/),
+        });
       }
-      expect(reason("serena_find_symbol", {})).toMatch(/only the shell/);
+      expect(verdict("serena_find_symbol", {})).toMatchObject({
+        reason: expect.stringMatching(/only the shell/),
+      });
     });
   });
-});
 
-describe("chatAllowedActions", () => {
-  const rule = (decision: "allow" | "ask" | "deny" | "notify", match: object[]) =>
-    ({ id: "r", source: "system", locked: true, decision, match }) as never;
+  describe("chatGateCall (inline approvals, fail closed)", () => {
+    const gateEnv = {
+      ZIBBY_CHAT_GATE_URL: "http://127.0.0.1:3333/api/chat/gate?conversationId=c1",
+      ZIBBY_CHAT_GATE_TOKEN: "tok",
+      ZIBBY_CHAT_GATE_DEADLINE_S: "330",
+    };
+    const input = { command: "git push origin main" };
+    const intent = { action: "git.push" } as never;
+    const json = (body: unknown, ok = true) =>
+      ({ ok, status: ok ? 200 : 500, json: async () => body }) as Response;
+    const run = (fetchImpl: typeof fetch, env: Record<string, string> = gateEnv) =>
+      chatGateCall("shell", input, intent, env, fetchImpl);
 
-  it("keeps only actions every action-keyed rule allows", () => {
-    expect(
-      chatAllowedActions([
-        rule("allow", [{ type: "action", action: "gh.api_write" }]),
-        rule("ask", [{ type: "action", action: "gh.pr_comment" }]),
-        rule("allow", [{ type: "action", action: "git.push" }]),
-        rule("ask", [{ type: "action", action: "git.push", branch: "main" }]),
-        rule("notify", [{ type: "scope", scope: "feature/*" }]),
-        rule("allow", [{ type: "action", action: "overwrite" }]),
-        rule("allow", [{ type: "action", action: "mcp.write" }]),
-      ]),
-    ).toEqual(["gh.api_write"]);
-  });
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
 
-  it("a child action follows its parent class's stricter rule", () => {
-    expect(
-      chatAllowedActions([
-        rule("ask", [{ type: "action", action: "gh.api_write" }]),
-        rule("allow", [{ type: "action", action: "gh.pr_comment" }]),
-      ]),
-    ).toEqual([]);
-  });
+    it("posts the hash with the chat bearer and runs on allow", async () => {
+      const f = vi.fn(async () => json({ decision: "allow" }));
+      await run(f as never);
+      const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe(gateEnv.ZIBBY_CHAT_GATE_URL);
+      expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+      expect(JSON.parse(init.body as string)).toMatchObject({
+        tool: "shell",
+        hash: chatGateHash("shell", input),
+        intent,
+      });
+    });
 
-  it("a non-allow catch-all empties the list", () => {
-    expect(
-      chatAllowedActions([
-        rule("allow", [{ type: "action", action: "gh.api_write" }]),
-        rule("ask", [{ type: "context", context: "*" }]),
-      ]),
-    ).toEqual([]);
-    expect(
-      chatAllowedActions([
-        rule("allow", [{ type: "action", action: "gh.api_write" }]),
-        rule("deny", [{ type: "tool", tool: "Bash" }]),
-      ]),
-    ).toEqual([]);
+    it("refuses on deny", async () => {
+      const f = vi.fn(async () => json({ decision: "deny", reason: "merge is never allowed" }));
+      await expect(run(f as never)).rejects.toThrow(/merge is never allowed.*Do not retry/);
+    });
+
+    it("pending then approved releases the call", async () => {
+      const f = vi
+        .fn()
+        .mockResolvedValueOnce(json({ decision: "pending", approvalId: "a/b" }))
+        .mockResolvedValueOnce(json({ status: "pending" }))
+        .mockResolvedValueOnce(json({ status: "approved" }));
+      const p = run(f as never);
+      await vi.advanceTimersByTimeAsync(3000);
+      await expect(p).resolves.toBeUndefined();
+      expect(f.mock.calls[1]?.[0]).toBe(
+        "http://127.0.0.1:3333/api/chat/gate/a%2Fb?conversationId=c1",
+      );
+    });
+
+    it("pending then rejected refuses with a do-not-retry text", async () => {
+      const f = vi
+        .fn()
+        .mockResolvedValueOnce(json({ decision: "pending", approvalId: "x" }))
+        .mockResolvedValueOnce(json({ status: "rejected" }));
+      const p = run(f as never);
+      const caught = p.catch((e: Error) => e);
+      await vi.advanceTimersByTimeAsync(1500);
+      const err = (await caught) as Error;
+      expect(err.message).toMatch(/rejected "git.push".*Do not retry it or work around it/);
+    });
+
+    it("stops at the plugin deadline while still pending", async () => {
+      const f = vi
+        .fn()
+        .mockResolvedValueOnce(json({ decision: "pending", approvalId: "x" }))
+        .mockResolvedValue(json({ status: "pending" }));
+      const p = run(f as never, { ...gateEnv, ZIBBY_CHAT_GATE_DEADLINE_S: "3" });
+      const caught = p.catch((e: Error) => e);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(((await caught) as Error).message).toMatch(/no decision in time/);
+    });
+
+    it("refuses when the input changed after the approval", async () => {
+      const mutable = { command: "git push origin main" };
+      const f = vi
+        .fn()
+        .mockResolvedValueOnce(json({ decision: "pending", approvalId: "x" }))
+        .mockImplementationOnce(async () => {
+          mutable.command = "git push --force";
+          return json({ status: "approved" });
+        });
+      const p = chatGateCall("shell", mutable, intent, gateEnv, f as never);
+      const caught = p.catch((e: Error) => e);
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(((await caught) as Error).message).toMatch(/changed after it was approved/);
+    });
+
+    it("fails closed on a network error, a non-2xx, a bad body and a missing env", async () => {
+      await expect(
+        run(vi.fn().mockRejectedValue(new Error("ECONNREFUSED")) as never),
+      ).rejects.toThrow(/could not be reached/);
+      await expect(run(vi.fn(async () => json({}, false)) as never)).rejects.toThrow(/HTTP 500/);
+      await expect(run(vi.fn(async () => json({ nope: 1 })) as never)).rejects.toThrow(
+        /unreadable/,
+      );
+      await expect(run(vi.fn() as never, {})).rejects.toThrow(/not configured/);
+    });
+
+    it("serialises two concurrent execute.before calls", async () => {
+      const hooks: Record<string, (e: Record<string, unknown>) => unknown> = {};
+      await plugin.setup({
+        permission: { hook: async () => undefined },
+        tool: {
+          hook: async (n: string, fn: (e: Record<string, unknown>) => unknown) => {
+            hooks[n] = fn;
+          },
+        },
+      });
+      const order: string[] = [];
+      const real = globalThis.fetch;
+      let release: () => void = () => {};
+      const gate = new Promise<void>((r) => (release = r));
+      globalThis.fetch = (async (_u: string, init: RequestInit) => {
+        order.push(JSON.parse(init.body as string).tool);
+        await gate;
+        return json({ decision: "allow" });
+      }) as never;
+      Object.assign(process.env, gateEnv);
+      try {
+        const a = hooks["execute.before"]?.({
+          tool: "shell",
+          input: { command: "git push origin a" },
+        });
+        const b = hooks["execute.before"]?.({
+          tool: "shell",
+          input: { command: "git push origin b" },
+        });
+        await vi.advanceTimersByTimeAsync(10);
+        expect(order).toHaveLength(1); // the second waits for the first
+        release();
+        await Promise.all([a, b]);
+        expect(order).toHaveLength(2);
+      } finally {
+        globalThis.fetch = real;
+        for (const k of Object.keys(gateEnv)) delete process.env[k];
+      }
+    });
   });
 });
 

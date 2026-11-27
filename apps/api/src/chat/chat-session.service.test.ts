@@ -30,6 +30,7 @@ import {
   killTurnProcess,
   mergeToolEvent,
 } from "./chat-session.service";
+import type { ChatGateService } from "./chat-gate.service";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
 import type { OpencodeEventServer } from "./opencode-event-stream";
 import { ChatTranscriptStore } from "./chat-transcript.store";
@@ -112,6 +113,7 @@ class TestSession extends ChatSessionService {
     },
     // A24: engine settings (`aiEngine`, `opencodeTierModels`, …).
     config: Partial<SystemConfig> = {},
+    chatGate?: Pick<ChatGateService, "settleTurn">,
   ) {
     super(
       store,
@@ -127,6 +129,9 @@ class TestSession extends ChatSessionService {
       companies as CompaniesStorageService,
       teams as TeamsStorageService,
       agents as AgentsStorageService,
+      undefined,
+      undefined,
+      chatGate as ChatGateService | undefined,
     );
   }
   lastSpawn: ChatSpawnOptions | undefined;
@@ -1252,13 +1257,18 @@ describe("ChatSessionService", () => {
       clearOpencodeCache();
     });
 
-    const opencodeSession = (lines: string[], config: Partial<SystemConfig> = OPENCODE) =>
+    const opencodeSession = (
+      lines: string[],
+      config: Partial<SystemConfig> = OPENCODE,
+      toolResults?: ChatToolResultRegistry,
+      chatGate?: Pick<ChatGateService, "settleTurn">,
+    ) =>
       new TestSession(
         store,
         events,
         lines,
         "jarvis",
-        undefined,
+        toolResults,
         undefined,
         dir,
         undefined,
@@ -1269,7 +1279,70 @@ describe("ChatSessionService", () => {
         undefined,
         undefined,
         config,
+        chatGate,
       );
+
+    describe("inline approvals", () => {
+      const hangTurn = async (widget: boolean) => {
+        const toolResults = new ChatToolResultRegistry();
+        const settleTurn = vi.fn(async () => {});
+        const svc = opencodeSession([], OPENCODE, toolResults, { settleTurn });
+        svc.hang = true;
+        const r = await svc.sendMessage({ conversationId: "c-ap", text: "ahoj" }, NOW);
+        const done = settled(r.turnId);
+        await vi.waitFor(() => expect(svc.lastSpawn).toBeDefined(), { interval: 5 });
+        await vi.advanceTimersByTimeAsync(10);
+        if (widget) toolResults.pushWidget("c-ap", { kind: "approval", approvalId: "a1" });
+        return { done, settleTurn, svc };
+      };
+
+      it("passes the gate env to the plugin", async () => {
+        const svc = opencodeSession(ocLines("ses_g", "Hotovo."));
+        const r = await svc.sendMessage({ conversationId: "c-g", text: "ahoj" }, NOW);
+        await settled(r.turnId);
+        const env = svc.lastSpawn?.env as NodeJS.ProcessEnv;
+        expect(env.ZIBBY_CHAT_GATE_URL).toMatch(/\/api\/chat\/gate\?conversationId=c-g$/);
+        expect(env.ZIBBY_CHAT_GATE_TOKEN).toBeTruthy();
+        expect(env.ZIBBY_CHAT_GATE_DEADLINE_S).toBe("330");
+      });
+
+      it("a turn with an approval card is not killed at 120 s; one without is", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          const without = await hangTurn(false);
+          await vi.advanceTimersByTimeAsync(120_000);
+          await without.done;
+          expect(without.settleTurn).toHaveBeenCalledWith("c-ap");
+
+          const withCard = await hangTurn(true);
+          let ended = false;
+          void withCard.done.then(() => (ended = true));
+          await vi.advanceTimersByTimeAsync(130_000);
+          expect(ended).toBe(false);
+          await vi.advanceTimersByTimeAsync(300_000);
+          await withCard.done;
+          expect(withCard.settleTurn).toHaveBeenCalledWith("c-ap");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("settles the turn's approvals on a normal close and on a spawn error", async () => {
+        const settleTurn = vi.fn(async () => {});
+        const ok = opencodeSession(ocLines("ses_s", "Hotovo."), OPENCODE, undefined, {
+          settleTurn,
+        });
+        const r = await ok.sendMessage({ conversationId: "c-s1", text: "ahoj" }, NOW);
+        await settled(r.turnId);
+        expect(settleTurn).toHaveBeenCalledWith("c-s1");
+
+        const bad = opencodeSession([], OPENCODE, undefined, { settleTurn });
+        bad.spawnError = new Error("boom");
+        const r2 = await bad.sendMessage({ conversationId: "c-s2", text: "ahoj" }, NOW);
+        await settled(r2.turnId);
+        expect(settleTurn).toHaveBeenCalledWith("c-s2");
+      });
+    });
 
     it("runs the turn on opencode with the tier's model, maps events, records the engine", async () => {
       const svc = opencodeSession(ocLines("ses_1", "Ahoj z opencode."));
