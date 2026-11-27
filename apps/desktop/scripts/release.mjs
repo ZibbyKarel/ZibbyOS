@@ -9,11 +9,13 @@
 //   pnpm release:major    # 0.1.0 → 1.0.0
 //   node apps/desktop/scripts/release.mjs 1.0.0   # explicit version
 //
-// Flags: --skip-preflight (no local build before tagging), --no-watch (don't wait for CI).
+// Flags: --skip-preflight (no local build before tagging), --no-watch (don't wait for CI),
+// --dry-run (only the preflight build of HEAD, nothing is tagged).
 // Before anything is committed it builds the app locally (pnpm desktop:dist), so a broken
 // build never leaves an orphan tag; after the push it watches CI (watch-release.mjs).
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { toolchainProblems } from "./release-lib.mjs";
@@ -67,23 +69,34 @@ function preflight() {
     ZIBBY_BUILD_SOURCE_ROOT: "~/Workspace/ZibbyOS",
     CSC_IDENTITY_AUTO_DISCOVERY: "false",
   };
+  // Build a clean checkout of HEAD, like CI does — uncommitted local files can't make it pass.
+  const dir = mkdtempSync(path.join(tmpdir(), "zibby-release-"));
+  git(["worktree", "add", "--detach", dir, "HEAD"], { stdio: "inherit" });
   try {
-    execFileSync("pnpm", ["install", "--frozen-lockfile"], {
-      cwd: repoRoot,
-      stdio: "inherit",
-      env,
-    });
-    execFileSync("pnpm", ["desktop:dist"], { cwd: repoRoot, stdio: "inherit", env });
-  } catch {
-    fail("preflight build failed — nothing was tagged");
+    try {
+      execFileSync("pnpm", ["install", "--frozen-lockfile"], { cwd: dir, stdio: "inherit", env });
+      execFileSync("pnpm", ["desktop:dist"], { cwd: dir, stdio: "inherit", env });
+    } catch {
+      fail(`preflight build failed — nothing was tagged (checkout kept at ${dir})`);
+    }
+    const app = path.join(dir, "apps/desktop/release/mac-arm64/ZibbyOS.app");
+    if (!existsSync(app)) fail(`preflight build produced no ${app} — nothing was tagged`);
+    const res = path.join(app, "Contents/Resources");
+    const envFiles = readdirSync(res).filter((f) => f.startsWith(".env") && f !== ".env.example");
+    if (envFiles.length)
+      fail(`bundle contains env files (${envFiles.join(", ")}) — nothing was tagged`);
+    git(["worktree", "remove", "--force", dir]);
+  } catch (e) {
+    // fail() exits; anything else is unexpected — keep the checkout for inspection.
+    fail(`preflight error: ${e instanceof Error ? e.message : e} (checkout at ${dir})`);
   }
-  const app = path.join(repoRoot, "apps/desktop/release/mac-arm64/ZibbyOS.app");
-  if (!existsSync(app)) fail(`preflight build produced no ${app} — nothing was tagged`);
-  const res = path.join(app, "Contents/Resources");
-  const envFiles = readdirSync(res).filter((f) => f.startsWith(".env") && f !== ".env.example");
-  if (envFiles.length)
-    fail(`bundle contains env files (${envFiles.join(", ")}) — nothing was tagged`);
   console.log("release: preflight build OK");
+}
+
+// --dry-run: only the preflight build of HEAD (any branch), no bump/commit/tag/push.
+if (args.includes("--dry-run")) {
+  preflight();
+  process.exit(0);
 }
 
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);

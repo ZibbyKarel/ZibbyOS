@@ -32,7 +32,7 @@ The script bumps `apps/desktop/package.json`, commits only that file, tags `desk
 
 `pnpm release:*` is guarded so a failed build never leaves an orphan tag:
 
-1. **Preflight** (before anything is committed): checks that the local pnpm and Node majors match `packageManager` and `.nvmrc`, runs `pnpm install --frozen-lockfile` and `pnpm desktop:dist` (same env as CI), and asserts `ZibbyOS.app` exists with no `.env*` in its resources. Any failure aborts with nothing tagged. `--skip-preflight` skips it (with a warning).
+1. **Preflight** (before anything is committed): checks that the local pnpm and Node majors match `packageManager` and `.nvmrc`, then builds a clean temporary worktree of HEAD (`pnpm install --frozen-lockfile` + `pnpm desktop:dist`, same env as CI — uncommitted local files can't make it pass), and asserts `ZibbyOS.app` exists with no `.env*` in its resources. Any failure aborts with nothing tagged. `--skip-preflight` skips it (with a warning); `--dry-run` runs only the preflight, on any branch.
 2. **Push**, then **watch CI** via `node apps/desktop/scripts/watch-release.mjs desktop-v<x.y.z>`. If GitHub never acquired a macOS runner (job cancelled, no steps run), it reruns the same tag, up to 3 attempts, instead of burning a version. A real step failure prints the run URL and the failed log tail. On success it checks the release is published with the zip, `.sha256` and DMG. `--no-watch` skips the watch; run `watch-release.mjs` on its own later for an already pushed tag.
 3. The workflow publishes as a **draft**, verifies the three assets, and only then flips it to published, so the updater never sees a half-uploaded release. Rerunning a tag is idempotent (existing release assets are overwritten).
 
