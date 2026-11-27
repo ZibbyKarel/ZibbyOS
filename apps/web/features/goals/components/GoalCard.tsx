@@ -2,80 +2,110 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import type { GoalWithRollup } from "@zibby/contracts";
-import { Button, Card, Container, Stack, Toggle, Typography } from "@zibby/design-system";
-import { type GoalLabel, type GoalNames, goalScheduleLabel, goalScopeLabel } from "../goalView";
-import { GoalStatusBadge } from "./GoalStatusBadge";
+import { Button, GoalLoopCard } from "@zibby/design-system";
+import { type GoalLabel, type GoalNames, goalCardModel } from "../goalView";
+import { useUpdateGoalMutation, useWakeGoalMutation } from "../mutations";
+import { useGoalTimelineQuery } from "../queries";
 
 export enum GoalCardTestId {
-  Root = "goal-card",
-  Toggle = "goal-card-toggle",
-  Open = "goal-card-open",
-  Counts = "goal-card-counts",
+  Decide = "goal-card-decide",
+  Wake = "goal-card-wake",
+  Pause = "goal-card-pause",
+  Enable = "goal-card-enable",
 }
 
 export interface GoalCardProps {
   goal: GoalWithRollup;
   names: GoalNames;
-  onToggle: () => void;
+  /** The whole-card open target, and "Rozhodnout" on a needs-you goal. */
   onOpen: () => void;
+  /** A failed wake / pause / enable. */
+  onError?: (error: unknown) => void;
+  selected?: boolean;
+  /** `compact` for a narrow widget: no parties, no actions. */
+  size?: "full" | "compact";
 }
 
-/** One goal in the list: name, scope, schedule, roll-up pill with counts, enable switch. */
-export function GoalCard({ goal, names, onToggle, onOpen }: GoalCardProps) {
+/**
+ * One goal as the design's Cíle card: ring of done projects, roll-up pill, schedule, scope /
+ * ceiling / loop, the newest timeline event and the actions for its status.
+ */
+export function GoalCard({ goal, names, onOpen, onError, selected, size = "full" }: GoalCardProps) {
   const t = useTranslations("goals");
   const locale = useLocale();
-  const label = (l: GoalLabel) => t(l.key, l.values);
-  const { counts, needsYou } = goal.rollup;
+  const label = (l: GoalLabel | string) => (typeof l === "string" ? l : t(l.key, l.values));
+  // ponytail: one timeline query per card; add rollup.latest to the list API if a long list gets slow
+  const timeline = useGoalTimelineQuery(goal.id);
+  const wake = useWakeGoalMutation();
+  const update = useUpdateGoalMutation();
+  const m = goalCardModel(goal, timeline.isSuccess ? timeline.data : undefined, names, locale);
+  const setEnabled = (enabled: boolean) =>
+    update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError });
+
+  const actions =
+    m.actions === "decide" ? (
+      <Button data-testid={GoalCardTestId.Decide} onClick={onOpen} size="sm">
+        {t("card.decide")}
+      </Button>
+    ) : m.actions === "enable" ? (
+      <Button
+        data-testid={GoalCardTestId.Enable}
+        icon="play"
+        intent="secondary"
+        loading={update.isPending}
+        onClick={() => setEnabled(true)}
+        size="sm"
+      >
+        {t("card.enable")}
+      </Button>
+    ) : (
+      <>
+        <Button
+          data-testid={GoalCardTestId.Wake}
+          intent="secondary"
+          loading={wake.isPending}
+          onClick={() => wake.mutate({ params: { id: goal.id }, body: {} }, { onError })}
+          size="sm"
+        >
+          {t("detail.wake")}
+        </Button>
+        <Button
+          data-testid={GoalCardTestId.Pause}
+          intent="ghost"
+          loading={update.isPending}
+          onClick={() => setEnabled(false)}
+          size="sm"
+        >
+          {t("card.pause")}
+        </Button>
+      </>
+    );
 
   return (
-    <Card background="surface" data-testid={GoalCardTestId.Root}>
-      <Container padding="200">
-        <Stack gap="150">
-          <Stack align="center" direction="row" gap="200" justify="between">
-            <Container minW0>
-              <Typography truncate size="base" type="note" weight="semibold">
-                {goal.name}
-              </Typography>
-            </Container>
-            <Toggle
-              checked={goal.enabled}
-              data-testid={GoalCardTestId.Toggle}
-              label={t("toggleLabel", { name: goal.name })}
-              onChange={onToggle}
-              size="md"
-            />
-          </Stack>
-          <Typography leading="snug" size="caption" type="note" variant="secondary">
-            {label(goalScopeLabel(goal.scope, names))} · {label(goalScheduleLabel(goal, locale))}
-          </Typography>
-          <Stack wrap align="center" direction="row" gap="150" justify="between">
-            <Stack align="center" direction="row" gap="100">
-              <GoalStatusBadge status={goal.rollup.status} />
-              <Typography
-                data-testid={GoalCardTestId.Counts}
-                size="caption"
-                type="note"
-                variant="tertiary"
-              >
-                {counts.total === 0
-                  ? t("counts.none")
-                  : needsYou > 0
-                    ? t("counts.withNeedsYou", { done: counts.done, total: counts.total, needsYou })
-                    : t("counts.progress", { done: counts.done, total: counts.total })}
-              </Typography>
-            </Stack>
-            <Button
-              data-testid={GoalCardTestId.Open}
-              icon="arrow"
-              intent="ghost"
-              onClick={onOpen}
-              size="sm"
-            >
-              {t("open")}
-            </Button>
-          </Stack>
-        </Stack>
-      </Container>
-    </Card>
+    <GoalLoopCard
+      actions={actions}
+      max={m.max}
+      onOpen={onOpen}
+      openLabel={t("card.openAria", { name: goal.name })}
+      parties={m.parties.map((p) => ({ role: label(p.role), name: label(p.name), avatar: false }))}
+      ringAriaLabel={label(m.ringAria)}
+      ringCaption={label(m.ringCaption)}
+      ringValue={m.ringValue}
+      selected={selected}
+      size={size}
+      state={m.state}
+      stateLabel={t(`status.${goal.rollup.status}`)}
+      title={goal.name}
+      topMeta={label(m.topMeta)}
+      used={m.used}
+      verdict={
+        m.verdict && {
+          head: label(m.verdict.head),
+          status: m.verdict.status && label(m.verdict.status),
+          text: label(m.verdict.text),
+        }
+      }
+      verdictTone={m.verdictTone}
+    />
   );
 }

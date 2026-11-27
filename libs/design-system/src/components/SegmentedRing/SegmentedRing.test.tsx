@@ -17,4 +17,10 @@ describe("SegmentedRing", () => {
     const segs = screen.getAllByTestId(SegmentedRingTestId.Segment);
     expect(segs.every((s) => s.getAttribute("data-filled") === "true")).toBe(true);
   });
+
+  it("shows a value override instead of the used count, and no caption when omitted", () => {
+    render(<SegmentedRing ariaLabel="not run yet" max={1} tone="idle" used={0} value="–" />);
+    expect(screen.getByTestId(SegmentedRingTestId.Used)).toHaveTextContent("–");
+    expect(screen.getByTestId(SegmentedRingTestId.Caption)).toHaveTextContent(/^–$/);
+  });
 });

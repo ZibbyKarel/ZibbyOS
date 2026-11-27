@@ -5382,7 +5382,6 @@
   "goals": {
     "title": "Cíle",
     "toggleLabel": "Zapnout cíl {name}",
-    "open": "Detail",
     "emptyTitle": "Zatím žádné cíle",
     "emptyBody": "Cíl je zadání pro ZIBBY: co má platit, kde, dokdy a s jakým rozpočtem. Vytvoř vlastní, nebo začni z připravených cílů níže.",
     "list": {
@@ -5398,7 +5397,9 @@
         "active": "Aktivní",
         "paused": "Pozastavené",
         "done": "Hotové"
-      }
+      },
+      "working": "{count} pracuje",
+      "done": "{count, plural, one {# hotový} few {# hotové} other {# hotových}}"
     },
     "counts": {
       "none": "Zatím bez plánu",
@@ -5578,6 +5579,30 @@
       "revoke": "Odebrat",
       "locked": "Nepodařilo se: merge grant potřebuje platný operátorský token.",
       "failed": "Akce se nezdařila."
+    },
+    "card": {
+      "ringOf": "z {count, plural, one {# projektu} few {# projektů} other {# projektů}}",
+      "ringOfOne": "z 1",
+      "ringAria": "{done} z {total} projektů hotovo",
+      "notRun": "zatím neběžel",
+      "role": {
+        "scope": "Rozsah",
+        "ceiling": "Strop",
+        "loop": "Smyčka"
+      },
+      "lastStep": "Poslední krok · {date}",
+      "needsYou": "čeká na tebe",
+      "noEvents": "Zatím bez záznamu",
+      "noEventsText": "Cíl ještě neběžel.",
+      "decide": "Rozhodnout",
+      "pause": "Pozastavit",
+      "enable": "Zapnout",
+      "openAria": "Otevřít: {name}"
+    },
+    "ceiling": {
+      "tier1": "Tier 1 · jen tiše připravovat",
+      "tier2": "Tier 2 · jednat a hlásit",
+      "tier3": "Tier 3 · vše ke schválení"
     }
   }
 }

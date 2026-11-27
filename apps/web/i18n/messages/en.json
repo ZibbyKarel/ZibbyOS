@@ -5382,7 +5382,6 @@
   "goals": {
     "title": "Goals",
     "toggleLabel": "Enable goal {name}",
-    "open": "Open",
     "emptyTitle": "No goals yet",
     "emptyBody": "A goal is a mandate for ZIBBY: what must be true, where, by when and on what budget. Create your own or start from the ready-made goals below.",
     "list": {
@@ -5398,7 +5397,9 @@
         "active": "Active",
         "paused": "Paused",
         "done": "Done"
-      }
+      },
+      "working": "{count} working",
+      "done": "{count} done"
     },
     "counts": {
       "none": "No plan yet",
@@ -5578,6 +5579,30 @@
       "revoke": "Revoke",
       "locked": "Failed: a merge grant needs a valid operator token.",
       "failed": "The action failed."
+    },
+    "card": {
+      "ringOf": "of {count, plural, one {# project} other {# projects}}",
+      "ringOfOne": "of 1",
+      "ringAria": "{done} of {total} projects done",
+      "notRun": "not run yet",
+      "role": {
+        "scope": "Scope",
+        "ceiling": "Ceiling",
+        "loop": "Loop"
+      },
+      "lastStep": "Last step · {date}",
+      "needsYou": "needs you",
+      "noEvents": "Nothing recorded yet",
+      "noEventsText": "The goal has not run yet.",
+      "decide": "Decide",
+      "pause": "Pause",
+      "enable": "Turn on",
+      "openAria": "Open: {name}"
+    },
+    "ceiling": {
+      "tier1": "Tier 1 · prepare quietly",
+      "tier2": "Tier 2 · act and report",
+      "tier3": "Tier 3 · everything for approval"
     }
   }
 }

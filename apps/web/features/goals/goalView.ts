@@ -1,11 +1,13 @@
 import type {
   Goal,
   GoalCadence,
+  GoalCeiling,
   GoalInstanceStatus,
   GoalPreset,
   GoalRollupStatus,
   GoalScope,
   GoalTimelineEvent,
+  GoalWithRollup,
 } from "@zibby/contracts";
 
 /** A catalog key plus ICU values — the component translates it, so this file stays free of next-intl. */
@@ -17,7 +19,19 @@ export interface GoalLabel {
     | "scope.projects"
     | `schedule.${GoalCadence["every"]}`
     | "schedule.deadline"
-    | "schedule.open";
+    | "schedule.open"
+    | `ceiling.${GoalCeiling}`
+    | "card.ringOf"
+    | "card.ringOfOne"
+    | "card.ringAria"
+    | "card.notRun"
+    | "card.role.scope"
+    | "card.role.ceiling"
+    | "card.role.loop"
+    | "card.lastStep"
+    | "card.needsYou"
+    | "card.noEvents"
+    | "card.noEventsText";
   values?: Record<string, string | number>;
 }
 
@@ -159,4 +173,86 @@ export function groupTimelineByCycle(
   return [...byCycle.entries()]
     .sort(([a], [b]) => b - a)
     .map(([cycle, list]) => ({ cycle, events: list.reverse() }));
+}
+
+/** The DS `StateTone` subset the goal card uses (kept local: this file stays free of the DS). */
+export type GoalCardState = "working" | "blocked" | "done" | "idle";
+
+export interface GoalCardModel {
+  state: GoalCardState;
+  used: number;
+  max: number;
+  /** `"–"` before the goal has any instance; absent = the ring shows `used`. */
+  ringValue?: string;
+  ringCaption: GoalLabel;
+  ringAria: GoalLabel;
+  topMeta: GoalLabel;
+  /** A party name is a label, or a raw id (the loop). */
+  parties: Array<{ role: GoalLabel; name: GoalLabel | string }>;
+  /** Absent while the timeline is not loaded (or failed): no box rather than a faked one. */
+  verdict?: { head: GoalLabel; status?: GoalLabel; text: GoalLabel | string };
+  verdictTone: "idle" | "blocked" | "done";
+  /** `decide` opens the detail page, `wake-pause` wakes or pauses, `enable` switches it on. */
+  actions: "decide" | "wake-pause" | "enable";
+}
+
+const CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
+  "needs-you": "blocked",
+  acting: "working",
+  planning: "working",
+  // Waiting is not live work: neutral, so its ring does not pulse.
+  waiting: "idle",
+  done: "done",
+  paused: "idle",
+};
+
+/**
+ * The list/widget goal card from a mandate: ring = done of total projects, pill tone by roll-up,
+ * schedule top-right, scope/ceiling/loop as parties, the newest timeline event as the verdict.
+ * `timeline` is the events newest-last, or `undefined` while loading or failed.
+ */
+export function goalCardModel(
+  goal: GoalWithRollup,
+  timeline: readonly GoalTimelineEvent[] | undefined,
+  names: GoalNames,
+  locale: string,
+): GoalCardModel {
+  const { status, counts } = goal.rollup;
+  const ran = counts.total > 0;
+  const parties: GoalCardModel["parties"] = [
+    { role: { key: "card.role.scope" }, name: goalScopeLabel(goal.scope, names) },
+    { role: { key: "card.role.ceiling" }, name: { key: `ceiling.${goal.ceiling}` } },
+  ];
+  if (goal.loop) parties.push({ role: { key: "card.role.loop" }, name: goal.loop.loopId });
+
+  const latest = timeline?.at(-1);
+  const verdict: GoalCardModel["verdict"] = !timeline
+    ? undefined
+    : latest
+      ? {
+          head: { key: "card.lastStep", values: { date: formatGoalDateTime(latest.at, locale) } },
+          ...(status === "needs-you" ? { status: { key: "card.needsYou" as const } } : {}),
+          text: latest.text,
+        }
+      : { head: { key: "card.noEvents" }, text: { key: "card.noEventsText" } };
+
+  return {
+    state: CARD_STATE[status],
+    used: counts.done,
+    max: Math.max(counts.total, 1),
+    ringValue: ran ? undefined : "–",
+    ringCaption: !ran
+      ? { key: "card.notRun" }
+      : goal.scope.kind === "none"
+        ? { key: "card.ringOfOne" }
+        : { key: "card.ringOf", values: { count: counts.total } },
+    ringAria: ran
+      ? { key: "card.ringAria", values: { done: counts.done, total: counts.total } }
+      : { key: "card.notRun" },
+    topMeta: goalScheduleLabel(goal, locale),
+    parties,
+    verdict,
+    verdictTone: status === "needs-you" ? "blocked" : status === "done" ? "done" : "idle",
+    actions: status === "needs-you" ? "decide" : goal.enabled ? "wake-pause" : "enable",
+  };
 }

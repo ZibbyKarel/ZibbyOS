@@ -16,8 +16,10 @@ export interface SegmentedRingProps {
   max: number;
   /** Colour of the filled segments. */
   tone: StateTone;
-  /** Small caption under the big number, e.g. `"z 12 iterací"`. */
-  caption: string;
+  /** Small caption under the big number, e.g. `"z 12 iterací"`. Omitted: numeral only. */
+  caption?: string;
+  /** Big numeral text; defaults to `used` (e.g. `"–"` before anything ran). */
+  value?: string;
   ariaLabel: string;
   /** Fixed pixel size. Omitted: responsive, 86px on phones and 132px from `sm` up. */
   size?: number;
@@ -42,6 +44,7 @@ export function SegmentedRing({
   max,
   tone,
   caption,
+  value,
   ariaLabel,
   size,
   ref,
@@ -87,12 +90,18 @@ export function SegmentedRing({
         data-testid={SegmentedRingTestId.Caption}
       >
         <b
-          className="text-[22px] leading-none font-light tracking-[-0.04em] text-ink tabular-nums sm:text-[34px]"
+          className={
+            size
+              ? "leading-none font-light tracking-[-0.04em] text-ink tabular-nums"
+              : "text-[22px] leading-none font-light tracking-[-0.04em] text-ink tabular-nums sm:text-[34px]"
+          }
           data-testid={SegmentedRingTestId.Used}
+          // A fixed-size ring scales the numeral with it (34px at the design's 132px).
+          style={size ? { fontSize: Math.round((size * 34) / 132) } : undefined}
         >
-          {used}
+          {value ?? used}
         </b>
-        <small className="mt-1 text-[9px] text-ink-3 sm:text-[11px]">{caption}</small>
+        {caption && <small className="mt-1 text-[9px] text-ink-3 sm:text-[11px]">{caption}</small>}
       </div>
     </div>
   );

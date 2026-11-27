@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import type { CreateGoalInput, GoalPreset } from "@zibby/contracts";
+import type { CreateGoalInput, GoalPreset, GoalWithRollup } from "@zibby/contracts";
 import {
   Alert,
   Button,
@@ -26,7 +26,7 @@ import { GoalCard } from "./components/GoalCard";
 import { GoalFormDialog } from "./components/GoalFormDialog";
 import { GoalPresets } from "./components/GoalPresets";
 import { GOAL_FILTERS, type GoalFilter, goalMatchesFilter, presetToCreateBody } from "./goalView";
-import { useCreateGoalMutation, useUpdateGoalMutation } from "./mutations";
+import { useCreateGoalMutation } from "./mutations";
 import { getGoalsQueryKey, useGoalsQuery } from "./queries";
 
 export enum GoalsScreenTestId {
@@ -51,7 +51,6 @@ export function GoalsScreen() {
   const projects = useProjectsQuery().data ?? [];
   const companies = useCompaniesQuery().data ?? [];
   const create = useCreateGoalMutation();
-  const update = useUpdateGoalMutation();
   const [filter, setFilter] = useState<GoalFilter>("all");
   const [creating, setCreating] = useState(false);
   const [presetPending, setPresetPending] = useState<string | null>(null);
@@ -64,7 +63,11 @@ export function GoalsScreen() {
   };
   const existingIds = useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
   const visible = goals.filter((g) => goalMatchesFilter(g.rollup.status, filter));
-  const needsYou = goals.reduce((sum, g) => sum + g.rollup.needsYou, 0);
+  const countBy = (match: (s: GoalWithRollup["rollup"]["status"]) => boolean) =>
+    goals.filter((g) => match(g.rollup.status)).length;
+  const working = countBy((s) => s === "acting" || s === "planning");
+  const needsYou = countBy((s) => s === "needs-you");
+  const done = countBy((s) => s === "done");
 
   const open = (id: string) => router.push(`/work/goals/${encodeURIComponent(id)}`);
 
@@ -91,7 +94,9 @@ export function GoalsScreen() {
   const count: ListHeaderTone[] = [];
   if (goalsQuery.data) {
     count.push({ text: t("list.total", { count: goals.length }), tone: "plain" });
+    if (working > 0) count.push({ text: t("list.working", { count: working }), tone: "run" });
     if (needsYou > 0) count.push({ text: t("list.needsYou", { count: needsYou }), tone: "warn" });
+    if (done > 0) count.push({ text: t("list.done", { count: done }), tone: "plain" });
   }
 
   const addButton = (
@@ -109,9 +114,9 @@ export function GoalsScreen() {
   );
 
   const body = goalsQuery.isPending ? (
-    <Grid cols={1} data-testid={GoalsScreenTestId.Skeletons} gap="150" lg={2}>
+    <Grid cols={1} data-testid={GoalsScreenTestId.Skeletons} gap="200" lg={2}>
       {[0, 1, 2, 3].map((i) => (
-        <CardSkeleton key={i} shape="card" />
+        <CardSkeleton key={i} shape="ring" />
       ))}
     </Grid>
   ) : goalsQuery.isError ? (
@@ -132,19 +137,14 @@ export function GoalsScreen() {
       title={t("list.noMatchTitle")}
     />
   ) : (
-    <Grid cols={1} data-testid={GoalsScreenTestId.List} gap="150" lg={2}>
+    <Grid cols={1} data-testid={GoalsScreenTestId.List} gap="200" lg={2}>
       {visible.map((goal) => (
         <GoalCard
           goal={goal}
           key={goal.id}
           names={names}
+          onError={fail}
           onOpen={() => open(goal.id)}
-          onToggle={() =>
-            update.mutate(
-              { params: { id: goal.id }, body: { enabled: !goal.enabled } },
-              { onError: fail },
-            )
-          }
         />
       ))}
     </Grid>
