@@ -4398,7 +4398,11 @@
           "goal": "Goal"
         },
         "approveGoal": "Create goal",
-        "approveGoalLabel": "Approve and create a paused goal: {text}"
+        "approveGoalLabel": "Approve and create a paused goal: {text}",
+        "disabled": "Proposals are switched off: {names}",
+        "noModel": "runs without a model (no cost)",
+        "enable": "Enable",
+        "enableLabel": "Enable: {name}"
       },
       "pins": {
         "kind": {

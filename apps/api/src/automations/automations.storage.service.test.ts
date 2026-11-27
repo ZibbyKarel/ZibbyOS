@@ -143,21 +143,13 @@ describe("AutomationsStorageService", () => {
     expect(seeded.trigger).toEqual({ type: "cron", expr: "0 22 * * *" });
   });
 
-  it("seeds the proposal producers enabled, and re-enables disabled ones exactly once", async () => {
+  it("seeds gap-detect enabled for a new install, but never rewrites a stored enabled", async () => {
     expect((await service.get("gap-detect")).enabled).toBe(true);
-    // Simulate the operator's pre-fix state: both off, marker absent.
-    for (const id of ["gap-detect", "nightly-patterns"])
-      await service.update(id, { enabled: false });
-    await fs.rm(path.join(dir, ".proposal-producers-enabled.done"));
+    await service.update("gap-detect", { enabled: false });
     const reboot = new AutomationsStorageService(dir);
     await reboot.onModuleInit();
-    expect((await reboot.get("gap-detect")).enabled).toBe(true);
-    expect((await reboot.get("nightly-patterns")).enabled).toBe(true);
-    // Operator turns it off again: the marker keeps later boots from re-enabling.
-    await reboot.update("gap-detect", { enabled: false });
-    const again = new AutomationsStorageService(dir);
-    await again.onModuleInit();
-    expect((await again.get("gap-detect")).enabled).toBe(false);
+    expect((await reboot.get("gap-detect")).enabled).toBe(false);
+    expect(await fs.readdir(dir)).not.toContain(".proposal-producers-enabled.done");
   });
 
   it("refuses to delete a system automation", async () => {

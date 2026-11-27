@@ -41,8 +41,12 @@ vi.mock("../../proposals/mutations", () => ({
 const a = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock("../../automations/mutations", () => ({
   useCreateAutomationMutation: () => ({ mutate: a.create, isError: false }),
+  useUpdateAutomationMutation: () => ({ mutate: au.update, isPending: false }),
 }));
-const g = vi.hoisted(() => ({ create: vi.fn() }));
+const g = vi.hoisted(() => ({ create: vi.fn(), goals: [] as unknown[] }));
+const au = vi.hoisted(() => ({ update: vi.fn(), list: [] as unknown[] }));
+vi.mock("../../goals/queries", () => ({ useGoalsQuery: () => ({ data: g.goals }) }));
+vi.mock("../../automations/queries", () => ({ useAutomationsQuery: () => ({ data: au.list }) }));
 vi.mock("../../goals/mutations", () => ({
   useCreateGoalMutation: () => ({ mutate: g.create, isError: false, isPending: false }),
 }));
@@ -109,6 +113,9 @@ beforeEach(() => {
   d.mutate.mockReset();
   a.create.mockReset();
   g.create.mockReset();
+  g.goals = [];
+  au.update.mockReset();
+  au.list = [];
   d.reset.mockReset();
   tq.data = sampleTask;
   tq.isPending = false;
@@ -354,5 +361,45 @@ describe("ProposalsWidget approve", () => {
     expect(a.create).not.toHaveBeenCalled();
     opts.onSuccess();
     expect(d.mutate).toHaveBeenCalledWith({ params: { id: "gl" }, body: { action: "approve" } });
+  });
+
+  it("derives a free goal id when the preset's id is already taken", () => {
+    g.goals = [{ id: "ci-stays-green" }];
+    d.proposals = [
+      proposal("gl", {
+        source: "gap-detect",
+        kind: "goal",
+        goal: { presetId: "ci-stays-green", name: "CI", outcome: "CI je zelené." },
+      }),
+    ];
+    renderWithProviders(<ProposalsWidget {...setup()} />);
+    fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Approve));
+    const [call] = g.create.mock.calls[0] as [{ body: { id: string; enabled: boolean } }];
+    expect(call.body).toMatchObject({ id: "ci-stays-green-2", enabled: false });
+  });
+});
+
+describe("ProposalsWidget empty state", () => {
+  it("lists disabled producers and Zapnout enables via the update mutation", () => {
+    au.list = [
+      { id: "gap-detect", name: "Návrhy na automatizaci", enabled: false },
+      { id: "nightly-patterns", name: "Extrakce vzorů", enabled: true },
+      { id: "other", name: "Other", enabled: false },
+    ];
+    renderWithProviders(<ProposalsWidget {...setup()} />);
+    const hint = screen.getByTestId(ProposalsWidgetTestId.DisabledHint);
+    expect(hint.textContent).toContain("Návrhy jsou vypnuté: Návrhy na automatizaci");
+    expect(hint.textContent).not.toContain("Extrakce");
+    fireEvent.click(screen.getByTestId(ProposalsWidgetTestId.Enable));
+    expect(au.update).toHaveBeenCalledWith({
+      params: { id: "gap-detect" },
+      body: { enabled: true },
+    });
+  });
+
+  it("shows no hint when every producer is enabled", () => {
+    au.list = [{ id: "gap-detect", name: "X", enabled: true }];
+    renderWithProviders(<ProposalsWidget {...setup()} />);
+    expect(screen.queryByTestId(ProposalsWidgetTestId.DisabledHint)).toBeNull();
   });
 });

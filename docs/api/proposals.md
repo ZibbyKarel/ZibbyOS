@@ -125,6 +125,10 @@ proposal marked `approved`. An automation proposal still opens the prefilled cre
 ## Why the widget was empty (#27)
 
 The producers were switched off: `gap-detect` was seeded `enabled: false` and `nightly-patterns`
-had been disabled, so nothing wrote proposals (the stored ones had expired 2026-11-12). The seed now
-enables `gap-detect`, and a one-time marker (`.proposal-producers-enabled.done` in the automations
-dir) re-enables both on the next boot; afterwards the operator's toggle is respected.
+had been disabled, so nothing wrote proposals (the stored ones had expired 2026-11-12). Both producers
+are deterministic (no model call, no token cost). `gap-detect` is now seeded `enabled: true` for new
+installs only; a stored `enabled` is never rewritten. When the widget has no proposals and a producer is
+off, its empty state says "Návrhy jsou vypnuté: <names>" with a per-producer "Zapnout" button (the
+automation update call) — the operator decides.
+
+Accepting a goal proposal whose preset id is already taken derives a free id (`<id>-2`, `-3`, …).

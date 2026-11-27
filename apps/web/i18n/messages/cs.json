@@ -4398,7 +4398,11 @@
           "goal": "Cíl"
         },
         "approveGoal": "Vytvořit cíl",
-        "approveGoalLabel": "Schválit a vytvořit pozastavený cíl: {text}"
+        "approveGoalLabel": "Schválit a vytvořit pozastavený cíl: {text}",
+        "disabled": "Návrhy jsou vypnuté: {names}",
+        "noModel": "běží bez modelu (bez nákladů)",
+        "enable": "Zapnout",
+        "enableLabel": "Zapnout: {name}"
       },
       "pins": {
         "kind": {

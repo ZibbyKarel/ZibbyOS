@@ -29,8 +29,13 @@ import {
   AutomationFormDialog,
   type AutomationFormDialogProps,
 } from "../../automations/components/AutomationFormDialog";
-import { useCreateAutomationMutation } from "../../automations/mutations";
+import {
+  useCreateAutomationMutation,
+  useUpdateAutomationMutation,
+} from "../../automations/mutations";
+import { useAutomationsQuery } from "../../automations/queries";
 import { useCreateGoalMutation } from "../../goals/mutations";
+import { useGoalsQuery } from "../../goals/queries";
 import { useDecideProposalMutation } from "../../proposals/mutations";
 import { useProposalsQuery } from "../../proposals/queries";
 import { toClientTarget } from "../../tasks/task";
@@ -54,6 +59,8 @@ export enum ProposalsWidgetTestId {
   Cancel = "proposals-widget-cancel",
   RowError = "proposals-widget-row-error",
   Empty = "proposals-widget-empty",
+  DisabledHint = "proposals-widget-disabled-hint",
+  Enable = "proposals-widget-enable",
 }
 
 const DAY_MS = 86_400_000;
@@ -75,7 +82,10 @@ export const proposalExpiryDays = (expiresAt: string, now: number): number =>
  * The PAUSED goal an accepted `goal` proposal creates: the preset's scope/cadence/ceiling when it
  * names one, otherwise a weekday-morning standing goal. Never enabled — the operator reviews first.
  */
-export function proposalGoalBody(goal: NonNullable<Proposal["goal"]>): CreateGoalInput {
+export function proposalGoalBody(
+  goal: NonNullable<Proposal["goal"]>,
+  takenIds: ReadonlySet<string> = new Set(),
+): CreateGoalInput {
   const preset = GOAL_PRESETS.find((p) => p.id === goal.presetId);
   // `group` is UI-only and the create body is strict, so it is dropped here.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -94,8 +104,12 @@ export function proposalGoalBody(goal: NonNullable<Proposal["goal"]>): CreateGoa
     outcome: goal.outcome,
     enabled: false,
   };
+  // Id collision (the goal already exists): derive a free id instead of failing.
+  let id = base.id;
+  for (let n = 2; takenIds.has(id); n++) id = `${base.id}-${n}`;
   return {
     ...base,
+    id,
     name: goal.name,
     outcome: goal.outcome,
     predicate: goal.predicate,
@@ -158,11 +172,14 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
   if (failed) return <QueryError onRetry={() => void query.refetch()} />;
   if (!loading && proposals.length === 0) {
     return (
-      <BoardRow shape="list" tone="neutral">
-        <span data-testid={ProposalsWidgetTestId.Empty}>
-          <BoardText kind="rowMeta">{t("empty")}</BoardText>
-        </span>
-      </BoardRow>
+      <>
+        <BoardRow shape="list" tone="neutral">
+          <span data-testid={ProposalsWidgetTestId.Empty}>
+            <BoardText kind="rowMeta">{t("empty")}</BoardText>
+          </span>
+        </BoardRow>
+        <DisabledProducers />
+      </>
     );
   }
   return (
@@ -171,6 +188,46 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
         <ProposalRow key={p.id} now={now} proposal={p} />
       ))}
     </>
+  );
+}
+
+/** System automations that write proposals; both are deterministic (no model call, no token cost). */
+const PRODUCER_IDS = ["gap-detect", "nightly-patterns"];
+
+/**
+ * Empty-state hint: which proposal producers are switched off, each with a "Zapnout" action —
+ * the operator decides, nothing is enabled behind their back.
+ */
+function DisabledProducers() {
+  const t = useTranslations("bridge.widgets.proposals");
+  const update = useUpdateAutomationMutation();
+  const off = (useAutomationsQuery().data ?? []).filter(
+    (a) => PRODUCER_IDS.includes(a.id) && !a.enabled,
+  );
+  if (off.length === 0) return null;
+  return (
+    <div data-testid={ProposalsWidgetTestId.DisabledHint}>
+      <BoardText kind="rowMeta">
+        {t("disabled", { names: off.map((a) => a.name ?? a.id).join(", ") })}
+      </BoardText>
+      {off.map((a) => (
+        <BoardLine wrap gap="6" key={a.id}>
+          <BoardText kind="rowMeta">
+            {a.name ?? a.id} · {t("noModel")}
+          </BoardText>
+          <Button
+            aria-label={t("enableLabel", { name: a.name ?? a.id })}
+            data-testid={ProposalsWidgetTestId.Enable}
+            disabled={update.isPending}
+            intent="secondary"
+            onClick={() => update.mutate({ params: { id: a.id }, body: { enabled: true } })}
+            size="sm"
+          >
+            {t("enable")}
+          </Button>
+        </BoardLine>
+      ))}
+    </div>
   );
 }
 
@@ -186,6 +243,7 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
   // `onSuccess` never fires once its component has unmounted.
   const createAutomation = useCreateAutomationMutation();
   const createGoal = useCreateGoalMutation();
+  const takenGoalIds = new Set((useGoalsQuery().data ?? []).map((g) => g.id));
   const isGoal = proposal.kind === "goal" && proposal.goal !== undefined;
   const shown = proposal.editedText ?? proposal.text;
   const [editing, setEditing] = useState(false);
@@ -224,7 +282,7 @@ function ProposalRow({ proposal, now }: ProposalRowProps) {
             if (!isGoal || !proposal.goal) return setApproving(true);
             // Paused goal first, then mark the proposal approved.
             createGoal.mutate(
-              { body: proposalGoalBody(proposal.goal) },
+              { body: proposalGoalBody(proposal.goal, takenGoalIds) },
               {
                 onSuccess: () =>
                   decide.mutate({ params: { id: proposal.id }, body: { action: "approve" } }),

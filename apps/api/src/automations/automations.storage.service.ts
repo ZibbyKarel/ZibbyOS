@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import * as path from "node:path";
 
 import { Inject, Injectable } from "@nestjs/common";
 import {
@@ -10,9 +9,6 @@ import {
   type UpdateAutomationInput,
 } from "@zibby/contracts";
 import { EntityFileStore, searchByText } from "../shared/file-storage";
-
-/** System automations that write proposal records (see docs/api/proposals.md). */
-const PROPOSAL_PRODUCER_IDS = ["gap-detect", "nightly-patterns"] as const;
 
 export const AUTOMATIONS_DIR = "AUTOMATIONS_DIR";
 
@@ -286,22 +282,6 @@ export class AutomationsStorageService extends EntityFileStore<Automation> {
     await super.onModuleInit();
     await this.retireSystem();
     await this.seedSystem();
-    await this.enableProposalProducers();
-  }
-
-  /**
-   * One-time: the proposal producers (`gap-detect` was seeded off, `nightly-patterns` got
-   * switched off) never ran, so the Bridge "Návrhy" widget stayed empty. Turn them on once;
-   * after the marker is written the operator's toggle is respected again.
-   */
-  private async enableProposalProducers(): Promise<void> {
-    const marker = path.join(this.dir, ".proposal-producers-enabled.done");
-    if (await this.fileExists(marker)) return;
-    for (const id of PROPOSAL_PRODUCER_IDS) {
-      const existing = await this.get(id).catch(() => null);
-      if (existing && !existing.enabled) await this.writeEntity({ ...existing, enabled: true });
-    }
-    await fs.writeFile(marker, new Date().toISOString());
   }
 
   /** Remove the seeded files of retired system automations (idempotent). */
