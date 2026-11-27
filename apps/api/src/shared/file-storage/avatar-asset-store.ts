@@ -127,6 +127,20 @@ export class AvatarAssetStore {
     }
   }
 
+  /**
+   * For a raw manifest entry whose `logo` is an `assets/<id>.<ext>` ref, return
+   * the entry with the full data URI inlined (or `logo` dropped if the file is
+   * gone) so schema validation sees the wire shape; other entries pass through.
+   */
+  inlineEntryLogo(entry: unknown): unknown {
+    if (typeof entry !== "object" || entry === null) return entry;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.logo !== "string" || !this.isAssetRef(record.logo)) return entry;
+    const { logo, ...rest } = record;
+    const inlined = this.inlineSync(String(logo));
+    return inlined === null ? rest : { ...rest, logo: inlined };
+  }
+
   /** Unlink any `assets/<id>.*` file (tolerant of it not existing). */
   async remove(id: string): Promise<void> {
     await Promise.all(

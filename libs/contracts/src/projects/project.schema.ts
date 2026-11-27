@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AvatarSchema } from "../common.schema";
+import { AvatarSchema, LogoInputSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { IntegrationRoutingRuleSchema } from "../integrations/integration-routing";
 
@@ -368,7 +368,9 @@ export const ProjectSchema = z.object({
 export type Project = z.infer<typeof ProjectSchema>;
 
 /** Body accepted by `createProject` — the full entity (`id` + `name` required; `path` optional). */
-export const CreateProjectSchema = ProjectSchema.omit({ hasSecrets: true });
+export const CreateProjectSchema = ProjectSchema.omit({ hasSecrets: true }).extend({
+  logo: LogoInputSchema.optional(),
+});
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 
 /**
@@ -387,7 +389,7 @@ export const UpdateProjectSchema = ProjectSchema.omit({ id: true, hasSecrets: tr
   .extend({
     companyId: z.string().optional().nullable(),
     teamId: z.string().optional().nullable(),
-    logo: AvatarSchema.optional().nullable(),
+    logo: LogoInputSchema.optional().nullable(),
     healthCheck: ProjectHealthCheckSchema.optional().nullable(),
   });
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;

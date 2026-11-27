@@ -117,4 +117,29 @@ describe("CompaniesStorageService", () => {
       expect(company?.people?.[0]?.id).toBe("custom-id");
     });
   });
+
+  describe("logo (todo #21)", () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const logo = `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
+
+    it("externalizes the logo next to the manifest and reads it back inline", async () => {
+      await service.create({ ...base, logo });
+      const manifest = JSON.parse(await fs.readFile(path.join(dir, "_companies.json"), "utf8"));
+      expect(manifest[0].logo).toBe("assets/acme.png");
+      expect(await fs.readFile(path.join(dir, "assets", "acme.png"))).toEqual(Buffer.from(png));
+      expect((await service.get("acme")).logo).toBe(logo);
+    });
+
+    it("clears the logo with null and removes the asset file", async () => {
+      await service.create({ ...base, logo });
+      const updated = await service.update("acme", { logo: null });
+      expect(updated.logo).toBeUndefined();
+      await expect(fs.stat(path.join(dir, "assets", "acme.png"))).rejects.toThrow();
+    });
+
+    it("keeps the logo when an update omits it", async () => {
+      await service.create({ ...base, logo });
+      expect((await service.update("acme", { desc: "x" })).logo).toBe(logo);
+    });
+  });
 });

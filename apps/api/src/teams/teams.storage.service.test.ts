@@ -57,6 +57,18 @@ describe("TeamsStorageService", () => {
     expect("board" in (await service.get("devrel"))).toBe(false);
   });
 
+  it("externalizes, inlines and clears (null) a logo (todo #21)", async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+    const logo = `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
+    await service.create({ ...base, logo });
+    const manifest = JSON.parse(await fs.readFile(path.join(dir, "_teams.json"), "utf8"));
+    expect(manifest[0].logo).toBe("assets/devrel.png");
+    expect((await service.get("devrel")).logo).toBe(logo);
+    await service.update("devrel", { logo: null });
+    expect((await service.get("devrel")).logo).toBeUndefined();
+    await expect(fs.stat(path.join(dir, "assets", "devrel.png"))).rejects.toThrow();
+  });
+
   it("rejects a duplicate id (conflict)", async () => {
     await service.create(base);
     await expect(service.create(base)).rejects.toBeInstanceOf(TeamConflictError);

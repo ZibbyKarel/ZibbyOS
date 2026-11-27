@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AvatarSchema, LogoInputSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { isValidGitRemote } from "../projects/project.schema";
 import { TEAM_SLUG_RE } from "./team-slug";
@@ -81,6 +82,8 @@ export const TeamSchema = z.object({
   name: z.string().min(1),
   companyId: z.string().optional(),
   desc: z.string().optional(),
+  /** Optional logo (data URI or bundled `/`-path); on disk externalized to `assets/<id>.<ext>`. */
+  logo: AvatarSchema.optional(),
   /** Team code owner id (GitHub `org/team` or GitLab `group/subgroup`) — filters the PRs widget to PRs requesting this team's review or authored by its members. */
   slug: TeamSlugSchema.optional(),
   /**
@@ -97,7 +100,7 @@ export const TeamSchema = z.object({
 });
 export type Team = z.infer<typeof TeamSchema>;
 
-export const CreateTeamSchema = TeamSchema;
+export const CreateTeamSchema = TeamSchema.extend({ logo: LogoInputSchema.optional() });
 export type CreateTeamInput = z.infer<typeof CreateTeamSchema>;
 
 /**
@@ -114,6 +117,7 @@ export const UpdateTeamSchema = TeamSchema.omit({ id: true }).partial().extend({
   slug: TeamSlugSchema.optional().nullable(),
   board: TeamSchema.shape.board.nullable(),
   knowledgeBase: KnowledgeBaseSourceSchema.optional().nullable(),
+  logo: LogoInputSchema.optional().nullable(), // `null` clears the logo
 });
 export type UpdateTeamInput = z.infer<typeof UpdateTeamSchema>;
 

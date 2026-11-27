@@ -8,7 +8,13 @@ import {
   type UpdateCompanyInput,
 } from "@zibby/contracts";
 import { backfillPersonIds } from "../shared/backfill-person-ids";
-import { ensureDir, safeJson, searchByText, writeFileAtomic } from "../shared/file-storage";
+import {
+  AvatarAssetStore,
+  ensureDir,
+  safeJson,
+  searchByText,
+  writeFileAtomic,
+} from "../shared/file-storage";
 import { CompanyConflictError, CompanyNotFoundError } from "./companies.errors";
 
 /** DI token carrying the absolute path of the directory that holds the registry. */
@@ -30,10 +36,13 @@ const MANIFEST_FILE = "_companies.json";
 export class CompaniesStorageService {
   private readonly dir: string;
   private readonly file: string;
+  /** Externalizes uploaded `data:image/*` logos to `<dir>/assets/` (todo #21). */
+  private readonly logoAssets: AvatarAssetStore;
 
   constructor(@Inject(COMPANIES_DIR) dir: string) {
     this.dir = path.resolve(dir);
     this.file = path.join(this.dir, MANIFEST_FILE);
+    this.logoAssets = new AvatarAssetStore(this.dir);
   }
 
   async list(): Promise<Company[]> {
@@ -45,7 +54,7 @@ export class CompaniesStorageService {
     // listing (mirrors how the entity/category listings skip corrupt records).
     return parsed
       .flatMap((entry) => {
-        const result = CompanySchema.safeParse(entry);
+        const result = CompanySchema.safeParse(this.logoAssets.inlineEntryLogo(entry));
         return result.success ? [result.data] : [];
       })
       .map(backfillCompanyPersonIds)
@@ -77,7 +86,14 @@ export class CompaniesStorageService {
     const companies = await this.list();
     const existing = companies.find((c) => c.id === id);
     if (!existing) throw new CompanyNotFoundError(id);
-    const merged = CompanySchema.parse({ ...existing, ...patch, id: existing.id });
+    // `logo: null` clears the logo; an absent key leaves it alone.
+    const { logo, ...rest } = patch;
+    const merged = CompanySchema.parse({
+      ...existing,
+      ...rest,
+      ...("logo" in patch ? { logo: logo === null ? undefined : logo } : {}),
+      id: existing.id,
+    });
     await this.writeAtomic(companies.map((c) => (c.id === id ? merged : c)));
     return merged;
   }
@@ -88,12 +104,24 @@ export class CompaniesStorageService {
       throw new CompanyNotFoundError(id);
     }
     await this.writeAtomic(companies.filter((c) => c.id !== id));
+    await this.logoAssets.remove(id);
   }
 
   /** Write via a temp file + atomic rename so a crash can't leave a torn manifest. */
   private async writeAtomic(companies: Company[]): Promise<void> {
     await ensureDir(this.dir);
-    await writeFileAtomic(this.file, `${JSON.stringify(companies, null, 2)}\n`);
+    const persisted = await Promise.all(
+      companies.map(async (company) => {
+        const ref =
+          typeof company.logo === "string"
+            ? await this.logoAssets.externalize(company.id, company.logo)
+            : null;
+        if (ref !== null) return { ...company, logo: ref };
+        await this.logoAssets.remove(company.id); // cleared, or a bundled `/`-path
+        return company;
+      }),
+    );
+    await writeFileAtomic(this.file, `${JSON.stringify(persisted, null, 2)}\n`);
   }
 }
 

@@ -81,6 +81,55 @@ export const AvatarSchema = z
     message: "avatar must be a data:image/ URI or a root-relative path",
   });
 
+/** Max decoded size of an uploaded entity logo (company / team / project). */
+export const LOGO_MAX_BYTES = 512 * 1024;
+
+const LOGO_DATA_URI_RE = /^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([A-Za-z0-9+/]+={0,2})$/;
+/** SVG constructs that can run script or pull in external content. */
+const UNSAFE_SVG_RE = /<script|<foreignObject|<!ENTITY|\son[a-z]+\s*=|javascript:/i;
+
+/** Mime of `bytes` judged by magic numbers (never by the declared type), or null if not an allowed image. */
+function sniffLogoMime(bytes: Uint8Array): string | null {
+  const at = (i: number, sig: number[]) => sig.every((b, k) => bytes[i + k] === b);
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (at(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50])) return "image/webp";
+  const head = new TextDecoder().decode(bytes.subarray(0, 512)).replace(/^\uFEFF/, "");
+  return /^\s*(<\?xml[\s\S]*?\?>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg[\s>]/i.test(
+    head,
+  )
+    ? "image/svg+xml"
+    : null;
+}
+
+/**
+ * Write-side validation of an uploaded entity logo: a bundled `/`-path (as
+ * `AvatarSchema`) or a base64 `data:` URI whose bytes are a png/jpeg/webp/svg
+ * (sniffed from content, matching the declared type), at most 512 KB, and for
+ * SVG free of script / event handlers / `javascript:` / foreign content. The
+ * read schema stays the lenient `AvatarSchema` so older stored logos never
+ * make a record vanish from a listing. Logos travel as data URIs rendered via
+ * `<img>`, so SVG scripts never execute and no separate serving route exists.
+ */
+export const LogoInputSchema = AvatarSchema.superRefine((value, ctx) => {
+  if (value.startsWith("/")) return;
+  const match = LOGO_DATA_URI_RE.exec(value);
+  const fail = (message: string) => ctx.addIssue({ code: "custom", message });
+  if (!match) return fail("logo must be a png, jpeg, webp or svg base64 data URI");
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(match[2] ?? ""), (ch) => ch.charCodeAt(0));
+  } catch {
+    return fail("logo is not valid base64");
+  }
+  if (bytes.length > LOGO_MAX_BYTES) return fail("logo is larger than 512 KB");
+  const sniffed = sniffLogoMime(bytes);
+  if (sniffed === null || sniffed !== match[1]) return fail("logo content does not match its type");
+  if (sniffed === "image/svg+xml" && UNSAFE_SVG_RE.test(new TextDecoder().decode(bytes))) {
+    fail("svg logo must not contain scripts or event handlers");
+  }
+});
+
 /**
  * The shared shape of a DELETE response: the deleted entity's `id`, echoed back
  * so the caller can confirm what was removed (and web mutation hooks read `.id`

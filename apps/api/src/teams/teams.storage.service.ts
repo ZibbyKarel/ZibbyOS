@@ -13,7 +13,13 @@ import {
   type UpdateTeamInput,
 } from "@zibby/contracts";
 import { KbRegistryService } from "../memory/kb-registry.service";
-import { ensureDir, safeJson, searchByText, writeFileAtomic } from "../shared/file-storage";
+import {
+  AvatarAssetStore,
+  ensureDir,
+  safeJson,
+  searchByText,
+  writeFileAtomic,
+} from "../shared/file-storage";
 import { TeamConflictError, TeamNotFoundError } from "./teams.errors";
 
 /** DI token carrying the absolute path of the directory that holds the registry. */
@@ -38,6 +44,8 @@ export class TeamsStorageService implements OnModuleInit {
   private readonly dir: string;
   private readonly file: string;
   private readonly logger = new Logger(TeamsStorageService.name);
+  /** Externalizes uploaded `data:image/*` logos to `<dir>/assets/` (todo #21). */
+  private readonly logoAssets: AvatarAssetStore;
 
   constructor(
     @Inject(TEAMS_DIR) dir: string,
@@ -45,6 +53,7 @@ export class TeamsStorageService implements OnModuleInit {
   ) {
     this.dir = path.resolve(dir);
     this.file = path.join(this.dir, MANIFEST_FILE);
+    this.logoAssets = new AvatarAssetStore(this.dir);
   }
 
   /** Boot migration (M5): never fatal — the manifest keeps its `knowledgeBase` until the move succeeds. */
@@ -90,7 +99,7 @@ export class TeamsStorageService implements OnModuleInit {
     // listing (mirrors how the entity/category listings skip corrupt records).
     return parsed
       .flatMap((entry) => {
-        const result = TeamSchema.safeParse(entry);
+        const result = TeamSchema.safeParse(this.logoAssets.inlineEntryLogo(entry));
         if (!result.success) return [];
         // `knowledgeBase` is derived from the registry; a legacy manifest value is ignored.
         const team = withoutKb(result.data);
@@ -170,7 +179,8 @@ export class TeamsStorageService implements OnModuleInit {
     const hasKnowledgeBase = "knowledgeBase" in patch;
     const hasSlug = "slug" in patch; // `slug: null` clears, same as above
     const hasBoard = "board" in patch; // `board: null` clears
-    const { companyId, knowledgeBase, slug, board, ...rest } = patch;
+    const hasLogo = "logo" in patch; // `logo: null` clears
+    const { companyId, knowledgeBase, slug, board, logo, ...rest } = patch;
     const merged = TeamSchema.parse({
       ...existing,
       ...rest,
@@ -180,6 +190,7 @@ export class TeamsStorageService implements OnModuleInit {
         : {}),
       ...(hasSlug ? { slug: slug === null ? undefined : slug } : {}),
       ...(hasBoard ? { board: board === null ? undefined : board } : {}),
+      ...(hasLogo ? { logo: logo === null ? undefined : logo } : {}),
       id: existing.id,
     });
     if (hasKnowledgeBase) {
@@ -197,14 +208,25 @@ export class TeamsStorageService implements OnModuleInit {
     }
     await this.kbRegistry.removeForTeam(id);
     await this.writeAtomic(teams.filter((t) => t.id !== id));
+    await this.logoAssets.remove(id);
   }
 
   /** Write via a temp file + atomic rename so a crash can't leave a torn manifest. */
   private async writeAtomic(teams: Team[]): Promise<void> {
     await ensureDir(this.dir);
     // `knowledgeBase` lives in the mozek registry, never in the manifest.
-    const stripped = teams.map(withoutKb);
-    await writeFileAtomic(this.file, `${JSON.stringify(stripped, null, 2)}\n`);
+    const persisted = await Promise.all(
+      teams.map(withoutKb).map(async (team) => {
+        const ref =
+          typeof team.logo === "string"
+            ? await this.logoAssets.externalize(team.id, team.logo)
+            : null;
+        if (ref !== null) return { ...team, logo: ref };
+        await this.logoAssets.remove(team.id); // cleared, or a bundled `/`-path
+        return team;
+      }),
+    );
+    await writeFileAtomic(this.file, `${JSON.stringify(persisted, null, 2)}\n`);
   }
 }
 

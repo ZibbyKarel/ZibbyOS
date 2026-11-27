@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AvatarSchema, LogoInputSchema } from "../common.schema";
 import { AgentIdSchema } from "../agents/agent.schema";
 import { RoadmapDefaultsSchema } from "../roadmap/roadmap-item.schema";
 import { ProjectBudgetSchema, ProjectPersonSchema } from "../projects/project.schema";
@@ -23,6 +24,8 @@ export const CompanySchema = z.object({
   id: CompanyIdSchema,
   name: z.string().min(1),
   desc: z.string().optional(),
+  /** Optional logo (data URI or bundled `/`-path); on disk externalized to `assets/<id>.<ext>`. */
+  logo: AvatarSchema.optional(),
   /** Canonical roster: team, clients, stakeholders shared by every linked project. */
   people: z.array(ProjectPersonSchema).optional(),
   /** Default per-engagement budget; a linked project overrides it field-by-field. */
@@ -34,9 +37,11 @@ export const CompanySchema = z.object({
 export type Company = z.infer<typeof CompanySchema>;
 
 /** Body accepted by `createCompany` — the full entity (`id` + `name` required). */
-export const CreateCompanySchema = CompanySchema;
+export const CreateCompanySchema = CompanySchema.extend({ logo: LogoInputSchema.optional() });
 export type CreateCompanyInput = z.infer<typeof CreateCompanySchema>;
 
 /** Body accepted by `updateCompany` — every field optional (partial update), id excluded. */
-export const UpdateCompanySchema = CompanySchema.omit({ id: true }).partial();
+export const UpdateCompanySchema = CompanySchema.omit({ id: true })
+  .partial()
+  .extend({ logo: LogoInputSchema.optional().nullable() }); // `null` clears the logo
 export type UpdateCompanyInput = z.infer<typeof UpdateCompanySchema>;
