@@ -408,7 +408,10 @@ describe("ProposalsWidget empty state", () => {
       { id: "nightly-patterns", name: "Extrakce vzorů", enabled: true },
       { id: "other", name: "Other", enabled: false },
     ];
-    renderWithProviders(<ProposalsWidget {...setup()} />);
+    const props = setup();
+    renderWithProviders(<ProposalsWidget {...props} />);
+    // The frame must not collapse, or the hint is unreachable.
+    expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
     const hint = screen.getByTestId(ProposalsWidgetTestId.DisabledHint);
     expect(hint.textContent).toContain("Návrhy jsou vypnuté: Návrhy na automatizaci");
     expect(hint.textContent).not.toContain("Extrakce");

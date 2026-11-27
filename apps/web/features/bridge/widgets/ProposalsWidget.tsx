@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type Automation,
   type CreateGoalInput,
   GOAL_PRESETS,
   PROPOSAL_TEXT_MAX,
@@ -157,6 +158,9 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
   const proposals = useMemo(() => query.data ?? [], [query.data]);
   const loading = query.isPending;
   const failed = query.isError;
+  const offProducers = (useAutomationsQuery().data ?? []).filter(
+    (a) => PRODUCER_IDS.includes(a.id) && !a.enabled,
+  );
 
   useWidgetReport(
     {
@@ -166,6 +170,8 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
       // Every listed proposal is still open — waiting on the operator's decision.
       urgency: PRIORITY_WEIGHT.proposal * proposals.length,
       failed,
+      // Stay open while a producer is off, so its "Zapnout" hint is reachable.
+      keepOpen: offProducers.length > 0,
     },
     { onEmptyChange, onCountChange },
   );
@@ -179,7 +185,7 @@ export function ProposalsWidget({ onEmptyChange, onCountChange }: BridgeWidgetPr
             <BoardText kind="rowMeta">{t("empty")}</BoardText>
           </span>
         </BoardRow>
-        <DisabledProducers />
+        <DisabledProducers off={offProducers} />
       </>
     );
   }
@@ -199,12 +205,9 @@ const PRODUCER_IDS = ["gap-detect", "nightly-patterns"];
  * Empty-state hint: which proposal producers are switched off, each with a "Zapnout" action —
  * the operator decides, nothing is enabled behind their back.
  */
-function DisabledProducers() {
+function DisabledProducers({ off }: { off: readonly Automation[] }) {
   const t = useTranslations("bridge.widgets.proposals");
   const update = useUpdateAutomationMutation();
-  const off = (useAutomationsQuery().data ?? []).filter(
-    (a) => PRODUCER_IDS.includes(a.id) && !a.enabled,
-  );
   if (off.length === 0) return null;
   return (
     <Container data-testid={ProposalsWidgetTestId.DisabledHint}>
