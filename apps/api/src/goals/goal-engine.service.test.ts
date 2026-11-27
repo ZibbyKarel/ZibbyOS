@@ -8,6 +8,7 @@ import {
   type CreateGoalInput,
   NO_AUTOMATION,
   type ScheduledTask,
+  emptyGoalState,
   resolveAutopilotLevels,
 } from "@zibby/contracts";
 import { Subject } from "rxjs";
@@ -537,9 +538,24 @@ describe("GoalEngineService", () => {
       expect(s.instances._?.taskIds).toEqual([]);
       expect(recorded("goal-parked")).toHaveLength(0);
       expect(recorded("goal-acted")).toHaveLength(0);
+      expect(recorded("goal-started")).toHaveLength(0);
+      expect((await timeline()).filter((l) => /started/i.test(l))).toEqual([]);
       expect((await timeline()).filter((l) => l.startsWith("held:"))).toEqual([
         "held: Held: Starting and deciding goals is Manual here, so ZIBBY starts nothing for this goal on its own. Raise the level or wake the goal for one pass that waits for your approval.",
       ]);
+    });
+
+    it("manual: a new cycle writes no started activity or timeline line", async () => {
+      startLevel = async () => "manual";
+      await create({ cadence: { every: "day", hour: 9 } });
+      await store.write({
+        ...emptyGoalState("g", "2026-11-26T07:00:00.000Z"),
+        instances: { _: { status: "planning", taskIds: [], held: "autonomy-manual" } },
+      });
+      await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+      expect((await state()).cycle.index).toBe(1);
+      expect(recorded("goal-started")).toHaveLength(0);
+      expect((await timeline()).filter((l) => /started/i.test(l))).toEqual([]);
     });
 
     it("manual: an idle held tick writes nothing", async () => {

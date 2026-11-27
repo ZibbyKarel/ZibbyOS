@@ -10,7 +10,6 @@ import { GoalsWidget, GoalsWidgetSettings, GoalsWidgetTestId } from "./GoalsWidg
 const d = vi.hoisted(() => ({
   goals: [] as unknown[],
   timeline: "ok" as "ok" | "empty" | "pending" | "error",
-  held: [] as string[],
 }));
 vi.mock("../../goals/mutations", () => ({
   useUpdateGoalMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -19,13 +18,6 @@ vi.mock("../../goals/mutations", () => ({
 
 vi.mock("../../goals/queries", () => ({
   useGoalsQuery: () => ({ data: d.goals, isPending: false, isError: false }),
-  useGoalStateQuery: (id: string) => ({
-    data: d.held.includes(id)
-      ? {
-          state: { instances: { _: { status: "planning", taskIds: [], held: "autonomy-manual" } } },
-        }
-      : undefined,
-  }),
   useGoalTimelineQuery: (id: string) => ({
     data:
       d.timeline === "ok"
@@ -126,17 +118,17 @@ describe("GoalsWidget", () => {
     d.timeline = "ok";
   });
 
-  it("a held goal reads 'held by Manual' with the reason, not working", () => {
-    d.held = ["acting"];
+  it("a held goal reads 'held by Manual' with the reason, not working, and sorts with waiting", () => {
+    d.goals = [goal("acting", "acting"), goal("b-held", "held"), goal("c-wait", "waiting")];
     renderWithProviders(<GoalsWidget {...setup()} />);
+    expect(names()).toEqual(["acting", "b-held", "c-wait"]);
     const card = screen
       .getAllByTestId(GoalLoopCardTestId.Root)
-      .find((r) => r.textContent?.includes("acting"))!;
+      .find((r) => r.textContent?.includes("b-held"))!;
     expect(within(card).getByTestId(GoalLoopCardTestId.State)).toHaveTextContent("Drží manuál");
     expect(within(card).getByTestId(GoalLoopCardTestId.Verdict)).toHaveTextContent(
       "Spouštění a rozhodování cílů je tady na Manuálu",
     );
-    d.held = [];
   });
 
   it("shows only the picked goals (paused included), ignores gone ids, and opens the goal selection", async () => {

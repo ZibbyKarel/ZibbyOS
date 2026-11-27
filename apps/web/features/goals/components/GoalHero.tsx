@@ -17,7 +17,6 @@ import {
   type GoalNames,
   decisionsThisMonth,
   formatGoalDateTime,
-  goalDisplayStatus,
   goalMeterTone,
   goalScheduleLabel,
   goalScopeLabel,
@@ -57,7 +56,7 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
   const label = (l: GoalLabel) => t(l.key, l.values);
   const when = (iso: string) => formatGoalDateTime(iso, locale);
   const counts = rollup?.counts;
-  const display = rollup && goalDisplayStatus(goal, rollup.status, state);
+  const display = rollup?.status;
   const grantActive = goal.mergeGrant && Date.parse(goal.mergeGrant.until) > now;
 
   // Nothing to count (no instance yet) or a single project-less run: no "0 of 0" ring.

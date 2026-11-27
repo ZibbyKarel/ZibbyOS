@@ -36,7 +36,7 @@ export function GoalWaitingCard({
       headerEnd={project}
       headerRule={false}
       padding="200"
-      role="alert"
+      role="status"
       tone="warn"
     >
       <Stack gap="150">

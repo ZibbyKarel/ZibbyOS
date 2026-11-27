@@ -68,6 +68,7 @@ export function GoalsScreen() {
   const working = countBy((s) => s === "acting" || s === "planning");
   const needsYou = countBy((s) => s === "needs-you");
   const done = countBy((s) => s === "done");
+  const held = countBy((s) => s === "held");
 
   const open = (id: string) => router.push(`/work/goals/${encodeURIComponent(id)}`);
 
@@ -96,6 +97,7 @@ export function GoalsScreen() {
     count.push({ text: t("list.total", { count: goals.length }), tone: "plain" });
     if (working > 0) count.push({ text: t("list.working", { count: working }), tone: "run" });
     if (needsYou > 0) count.push({ text: t("list.needsYou", { count: needsYou }), tone: "warn" });
+    if (held > 0) count.push({ text: t("list.held", { count: held }), tone: "plain" });
     if (done > 0) count.push({ text: t("list.done", { count: done }), tone: "plain" });
   }
 

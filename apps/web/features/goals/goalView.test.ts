@@ -4,7 +4,6 @@ import {
   decisionsThisMonth,
   goalCardModel,
   goalCycles,
-  goalDisplayStatus,
   goalEventMark,
   goalMatchesFilter,
   goalScheduleLabel,
@@ -304,6 +303,7 @@ describe("goalCycles", () => {
   it("the live cycle takes the roll-up", () => {
     expect(goalCycles(events, 2, "needs-you")[0]!.tone).toBe("paused");
     expect(goalCycles(events, 2, "paused")[0]!.tone).toBe("idle");
+    expect(goalCycles(events, 2, "held")[0]!.tone).toBe("idle");
     expect(goalCycles(events, undefined, undefined)[0]!.tone).toBe("idle");
   });
 });
@@ -333,18 +333,15 @@ describe("held by a Manual autonomy level", () => {
     createdAt: "2026-11-26T10:00:00.000Z",
     updatedAt: "2026-11-26T10:00:00.000Z",
     rollup: {
-      status: "planning",
+      status: "held",
       counts: { total: 2, done: 0, parked: 0, active: 2 },
       needsYou: 0,
     },
   };
-  const inst = (status: "planning" | "acting" | "parked" | "done", held?: "autonomy-manual") => ({
-    status,
-    taskIds: [],
-    ...(held ? { held } : {}),
+  const withStatus = (status: GoalWithRollup["rollup"]["status"]): GoalWithRollup => ({
+    ...goal,
+    rollup: { ...goal.rollup, status },
   });
-  const model = (g: GoalWithRollup, instances: Record<string, ReturnType<typeof inst>>) =>
-    goalCardModel(g, undefined, names, "cs", { instances });
   const heldEvent: GoalTimelineEvent = {
     at: "2026-11-26T11:30:00.000Z",
     cycle: 0,
@@ -353,60 +350,43 @@ describe("held by a Manual autonomy level", () => {
     text: "Held: Starting and deciding goals is Manual here",
   };
 
-  it("all active instances held: a calm 'held' card, not working", () => {
-    const m = model(goal, {
-      a: inst("planning", "autonomy-manual"),
-      b: inst("planning", "autonomy-manual"),
+  it("a held roll-up is a calm 'held' card, not working", () => {
+    expect(goalCardModel(goal, undefined, names, "cs")).toMatchObject({
+      held: true,
+      state: "idle",
     });
-    expect(m).toMatchObject({ held: true, state: "idle" });
+    expect(goalStatusTone("held")).toBe("off");
   });
 
-  it("ignores done and parked instances when checking, but needs at least one active", () => {
-    expect(model(goal, { a: inst("planning", "autonomy-manual"), b: inst("done") }).held).toBe(
-      true,
-    );
-    expect(model(goal, { b: inst("done") }).held).toBe(false);
-    expect(goalCardModel(goal, undefined, names, "cs").held).toBe(false);
+  it("any other roll-up is not held", () => {
+    expect(goalCardModel(withStatus("acting"), undefined, names, "cs")).toMatchObject({
+      held: false,
+      state: "working",
+    });
+    expect(goalCardModel(withStatus("needs-you"), undefined, names, "cs")).toMatchObject({
+      held: false,
+      state: "blocked",
+      actions: "decide",
+    });
   });
 
-  it("one held and one acting: still acting", () => {
-    const acting = { ...goal, rollup: { ...goal.rollup, status: "acting" as const } };
-    const m = model(acting, { a: inst("planning", "autonomy-manual"), b: inst("acting") });
-    expect(m).toMatchObject({ held: false, state: "working" });
-  });
-
-  it("held plus parked: needs-you wins", () => {
-    const needs = {
-      ...goal,
-      rollup: { ...goal.rollup, status: "needs-you" as const, needsYou: 1 },
-    };
-    const m = model(needs, { a: inst("planning", "autonomy-manual"), b: inst("parked") });
-    expect(m).toMatchObject({ held: false, state: "blocked", actions: "decide" });
-  });
-
-  it("disabled plus held: paused wins", () => {
-    const off = { ...goal, enabled: false, rollup: { ...goal.rollup, status: "paused" as const } };
-    const m = model(off, { a: inst("planning", "autonomy-manual") });
-    expect(m).toMatchObject({ held: false, state: "idle", actions: "enable" });
-    expect(
-      goalDisplayStatus(off, "paused", { instances: { a: inst("planning", "autonomy-manual") } }),
-    ).toBe("paused");
+  it("held is no active goal: the paused chip counts it, the active one does not", () => {
+    expect(goalMatchesFilter("held", "active")).toBe(false);
+    expect(goalMatchesFilter("held", "paused")).toBe(true);
+    expect(goalMatchesFilter("held", "all")).toBe(true);
   });
 
   it("shows the reason where the last step goes, and keeps Wake available", () => {
-    const m = goalCardModel(goal, [heldEvent], names, "cs", {
-      instances: { a: inst("planning", "autonomy-manual") },
-    });
+    const m = goalCardModel(goal, [heldEvent], names, "cs");
     expect(m.verdict?.text).toEqual({ key: "card.heldReason" });
     expect(m.verdict?.head.key).toBe("card.lastStep");
     expect(m.actions).toBe("wake-pause");
   });
 
-  it("a last event of kind held reads the same even once the goal is no longer held", () => {
-    expect(goalCardModel(goal, [heldEvent], names, "cs").verdict?.text).toEqual({
-      key: "card.heldReason",
-    });
+  it("a released hold: the last held event reads its stored text, not the present-tense reason", () => {
+    expect(goalCardModel(withStatus("planning"), [heldEvent], names, "cs").verdict?.text).toBe(
+      heldEvent.text,
+    );
     expect(goalEventMark("held")).toEqual({ icon: "pause", tone: "neutral" });
-    expect(goalEventMark("whatever").icon).toBe("doc");
   });
 });

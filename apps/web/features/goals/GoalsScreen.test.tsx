@@ -33,7 +33,6 @@ vi.mock("./queries", () => ({
     isError: query.isError,
     refetch,
   }),
-  useGoalStateQuery: () => ({ data: undefined }),
   useGoalTimelineQuery: () => ({ data: timeline.data, isError: timeline.isError }),
 }));
 vi.mock("./mutations", () => ({
@@ -128,6 +127,17 @@ describe("GoalsScreen", () => {
     expect(screen.getByTestId(ListHeaderTestId.Count)).toHaveTextContent(
       "3 cíle · 1 pracuje · 1 čeká na tebe · 1 hotový",
     );
+  });
+
+  it("counts a held goal on its own, never as working or active", () => {
+    query.goals = [withStatus("held", { id: "h" }), withStatus("acting", { id: "a" })];
+    render(<GoalsScreen />);
+    expect(screen.getByTestId(ListHeaderTestId.Count)).toHaveTextContent(
+      "2 cíle · 1 pracuje · 1 drží manuál",
+    );
+    const chips = screen.getAllByTestId(ListToolbarTestId.Chip);
+    expect(chips[2]).toHaveTextContent(/^Aktivní\s*1$/);
+    expect(chips[3]).toHaveTextContent(/^Pozastavené\s*1$/);
   });
 
   it("inflects the working count", () => {

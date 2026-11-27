@@ -205,9 +205,10 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
   it("the level lowered from auto before the merge → report (re-read fresh)", () =>
     refused(/není na Automatu/, async () => {
       await create();
-      // The engine resolves `auto` for p1's pass (before and after the plan); the merge's own
-      // check then sees `semi`.
+      // The engine resolves `auto` for p1 and p2 before the tick, then for p1 after the plan;
+      // the merge's own check then sees `semi`.
       startLevel
+        .mockResolvedValueOnce("auto")
         .mockResolvedValueOnce("auto")
         .mockResolvedValueOnce("auto")
         .mockResolvedValue("semi");

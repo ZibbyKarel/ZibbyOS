@@ -205,6 +205,10 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     listProjects: () => Promise<{ id: string; companyId?: string }[]>,
   ): Promise<void> {
     const keys = await this.instanceKeys(goal, listProjects);
+    // Resolved before bookkeeping: a held key's seeding writes no "started" lines.
+    const levels = new Map<string, AutomationLevel>();
+    for (const key of keys) levels.set(key, await this.startLevel(key));
+    const heldKeys = new Set(keys.filter((k) => levels.get(k) === "manual"));
     const effects: GoalEffect[] = [];
     let stale: { approvalId: string; instance: string }[] = [];
     let staleDecisions: string[] = [];
@@ -217,7 +221,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       const openDecisions = (s.decisions ?? []).flatMap((d) =>
         d.status === "pending" && d.approvalId ? [d.approvalId] : [],
       );
-      bookkeep(goal, s, keys, now, effects);
+      bookkeep(goal, s, keys, now, effects, heldKeys);
       // A new cycle dropped the drafts and proposals: their approvals go too.
       if (!s.messages) stale = pending;
       if (!s.decisions) staleDecisions = openDecisions;
@@ -227,7 +231,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (staleDecisions.length) await this.decisions?.rejectStale(staleDecisions);
     for (const key of Object.keys(state.instances).sort()) {
       try {
-        await this.tickInstance(goal, state, key, now, dirty);
+        await this.tickInstance(goal, state, key, now, dirty, levels.get(key));
         const instance = state.instances[key];
         for (const ref of instance ? instanceRefs(instance) : []) consumed.add(ref);
       } catch (error) {
@@ -251,11 +255,12 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     key: string,
     now: Date,
     dirty: Set<string>,
+    resolved?: AutomationLevel,
   ): Promise<void> {
     const before = state.instances[key];
     // Parked stays parked until the operator resumes it or a new cycle starts.
     if (!before || before.status === "parked" || before.status === "done") return;
-    const stored = await this.startLevel(key);
+    const stored = resolved ?? (await this.startLevel(key));
     // Manual: nothing starts on its own — no facts, plan, park, failure count or spend.
     if (stored === "manual" && !before.operatorWake) return this.hold(goal, state, key, before);
     // A wake on a held instance runs this one pass as semi (it stays held).
@@ -542,7 +547,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
  * a cadence boundary starts ONE new cycle anchored at the latest boundary (missed
  * boundaries are not replayed); a one-off goal keeps cycle 0 with the goal's deadline.
  * New in-scope projects get an instance; an instance whose project left the scope is
- * marked `done` with a note (nothing is dropped).
+ * marked `done` with a note (nothing is dropped). `held` keys (manual start level) are seeded
+ * silently: no `goal-started` activity and no "started" timeline line (their `held` line says it).
  */
 export function bookkeep(
   goal: Goal,
@@ -550,6 +556,7 @@ export function bookkeep(
   keys: string[],
   now: Date,
   effects: GoalEffect[],
+  held: ReadonlySet<string> = new Set(),
 ): void {
   const timeline = (instance: string, kind: string, text: string) =>
     effects.push({ type: "timeline", instance, kind, text });
@@ -590,8 +597,10 @@ export function bookkeep(
           ...(inst.planNoteId ? { planNoteId: inst.planNoteId } : {}),
         };
       }
-      timeline("*", "cycle-started", `Cycle ${s.cycle.index} started.`);
-      activity(`${goal.name}: cycle ${s.cycle.index} started`);
+      if (keys.length === 0 || keys.some((k) => !held.has(k))) {
+        timeline("*", "cycle-started", `Cycle ${s.cycle.index} started.`);
+        activity(`${goal.name}: cycle ${s.cycle.index} started`);
+      }
     }
   } else if (goal.deadline) {
     s.cycle.deadlineAt = goal.deadline;
@@ -602,6 +611,7 @@ export function bookkeep(
   for (const key of keys) {
     if (Object.hasOwn(s.instances, key)) continue;
     s.instances[key] = { status: "planning", taskIds: [] };
+    if (held.has(key)) continue;
     timeline(key, "instance-started", "Instance started.");
     activity(key === NO_PROJECT ? `${goal.name}: started` : `${goal.name} — ${key}: started`, key);
   }

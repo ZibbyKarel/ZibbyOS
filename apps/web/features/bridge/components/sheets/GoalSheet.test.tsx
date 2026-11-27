@@ -218,7 +218,7 @@ describe("GoalSheet", () => {
         instances: { alpha: { status: "planning", taskIds: [], held: "autonomy-manual" } },
       },
       rollup: {
-        status: "planning",
+        status: "held",
         counts: { total: 1, done: 0, parked: 0, active: 1 },
         needsYou: 0,
       },

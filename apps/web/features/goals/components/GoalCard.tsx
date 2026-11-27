@@ -5,7 +5,7 @@ import type { GoalWithRollup } from "@zibby/contracts";
 import { Button, GoalLoopCard } from "@zibby/design-system";
 import { type GoalLabel, type GoalNames, goalCardModel } from "../goalView";
 import { useUpdateGoalMutation, useWakeGoalMutation } from "../mutations";
-import { useGoalStateQuery, useGoalTimelineQuery } from "../queries";
+import { useGoalTimelineQuery } from "../queries";
 
 export enum GoalCardTestId {
   Decide = "goal-card-decide",
@@ -44,14 +44,12 @@ export function GoalCard({
   const t = useTranslations("goals");
   const locale = useLocale();
   const label = (l: GoalLabel | string) => (typeof l === "string" ? l : t(l.key, l.values));
-  // ponytail: one timeline and one state query per card (N+N queries per list); add rollup.latest and a held flag to the list API if a long list gets slow
+  // ponytail: one timeline query per card (N queries per list); add rollup.latest to the list API if a long list gets slow
   const timeline = useGoalTimelineQuery(goal.id);
-  // The held state (Manual autonomy) lives in the goal state, not the roll-up.
-  const state = useGoalStateQuery(goal.id);
   const wake = useWakeGoalMutation();
   const update = useUpdateGoalMutation();
   // Any data counts (a failed background refetch keeps the last good events); none = no box.
-  const m = goalCardModel(goal, timeline.data, names, locale, state.data?.state);
+  const m = goalCardModel(goal, timeline.data, names, locale);
   const name = { name: goal.name };
   const setEnabled = (enabled: boolean) =>
     update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError });
@@ -117,7 +115,7 @@ export function GoalCard({
       selected={selected}
       size={size}
       state={m.state}
-      stateLabel={t(`status.${m.display}`)}
+      stateLabel={t(`status.${goal.rollup.status}`)}
       title={goal.name}
       topMeta={label(m.topMeta)}
       used={m.used}

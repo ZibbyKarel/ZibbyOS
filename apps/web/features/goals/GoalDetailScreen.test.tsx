@@ -13,6 +13,7 @@ import { GoalDetailScreen, GoalDetailScreenTestId } from "./GoalDetailScreen";
 import { GoalCriteriaTestId } from "./components/GoalCriteriaCard";
 import { GoalCycleTimelineTestId } from "./components/GoalCycleTimeline";
 import { GoalDetailActionsTestId } from "./components/GoalDetailActions";
+import { GoalDirectionalTestId } from "./components/GoalDirectionalPanel";
 import { GoalFormTestId } from "./components/GoalForm";
 import { GoalHeroTestId } from "./components/GoalHero";
 import { GoalInstanceStatusTestId } from "./components/GoalInstanceStatus";
@@ -202,15 +203,23 @@ describe("GoalDetailScreen", () => {
   });
 
   it("a held goal shows the held pill, the reason and the held event in the catalog's words", () => {
+    hooks.goal = { ...hooks.goal, data: { ...goal, directional: true } };
     hooks.state = {
       ...hooks.state,
       data: {
         state: {
           ...stateView.state,
-          instances: { alpha: { status: "planning", taskIds: [], held: "autonomy-manual" } },
+          instances: {
+            alpha: {
+              status: "planning",
+              taskIds: [],
+              held: "autonomy-manual",
+              autoDecide: { level: "auto", reason: "level" },
+            },
+          },
         },
         rollup: {
-          status: "planning",
+          status: "held",
           counts: { total: 1, done: 0, parked: 0, active: 1 },
           needsYou: 0,
         },
@@ -231,6 +240,12 @@ describe("GoalDetailScreen", () => {
       "Spouštění a rozhodování cílů je tady na Manuálu",
     );
     expect(screen.getByTestId(`${GoalInstanceStatusTestId.Held}-alpha`)).toBeInTheDocument();
+    expect(screen.getByTestId(`${GoalInstanceStatusTestId.Badge}-alpha`)).toHaveTextContent(
+      "Drží manuál",
+    );
+    expect(screen.getByTestId(`${GoalDirectionalTestId.Autonomy}-alpha`)).toHaveTextContent(
+      "Spouštění a rozhodování cílů je tady na Manuálu",
+    );
     const rows = screen.getAllByTestId(IterationTimelineTestId.Row);
     expect(rows[0]).toHaveTextContent("Spouštění a rozhodování cílů je tady na Manuálu");
     expect(rows[0]).not.toHaveTextContent("raw english");
@@ -251,7 +266,7 @@ describe("GoalDetailScreen", () => {
 
   it("a parked instance gets a waiting card whose resume calls the mutation", async () => {
     render(<GoalDetailScreen goalId="ci-green" />);
-    expect(screen.getByTestId(`${GoalWaitingCardTestId.Root}-beta`)).toHaveRole("alert");
+    expect(screen.getByTestId(`${GoalWaitingCardTestId.Root}-beta`)).toHaveRole("status");
     expect(screen.queryByTestId(`${GoalWaitingCardTestId.Root}-alpha`)).not.toBeInTheDocument();
     await userEvent.click(screen.getByTestId(`${GoalWaitingCardTestId.Resume}-beta`));
     expect(resume).toHaveBeenCalledTimes(1);

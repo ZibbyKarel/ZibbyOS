@@ -20,6 +20,7 @@ export interface GoalDirectionalPanelProps {
  */
 export function GoalDirectionalPanel({ instances, names }: GoalDirectionalPanelProps) {
   const t = useTranslations("goals.directional");
+  const tc = useTranslations("goals.card");
   const entries = Object.entries(instances);
   return (
     <Stack gap="25">
@@ -33,8 +34,10 @@ export function GoalDirectionalPanel({ instances, names }: GoalDirectionalPanelP
       )}
       {entries.map(([key, instance]) => {
         const a = instance.autoDecide;
-        const line =
-          a?.level === "auto"
+        // A held instance does not plan: its last plan's level is history, the hold is now.
+        const line = instance.held
+          ? tc("heldReason")
+          : a?.level === "auto"
             ? t("line.auto")
             : t("line.proposes", {
                 why: t(`why.${a ? (a.reason === "level" ? a.level : a.reason) : "unknown"}`),

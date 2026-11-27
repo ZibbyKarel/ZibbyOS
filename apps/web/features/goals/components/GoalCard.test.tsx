@@ -5,7 +5,6 @@ import { renderWithProviders as render, screen } from "../../../test/render";
 import { GoalCard } from "./GoalCard";
 
 vi.mock("../queries", () => ({
-  useGoalStateQuery: () => ({ data: undefined }),
   useGoalTimelineQuery: () => ({
     data: [{ at: "2026-11-26T10:00:00.000Z", cycle: 0, instance: "_", kind: "n", text: "PR #4" }],
     isError: false,

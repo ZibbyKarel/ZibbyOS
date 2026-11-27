@@ -21,7 +21,7 @@ import { GoalInstanceStatus } from "../../../goals/components/GoalInstanceStatus
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
 import { GoalCycleTimeline } from "../../../goals/components/GoalCycleTimeline";
 import { GoalUpcoming } from "../../../goals/components/GoalUpcoming";
-import { GOAL_CARD_STATE, goalDisplayStatus, isGoalNotFound } from "../../../goals/goalView";
+import { GOAL_CARD_STATE, isGoalNotFound } from "../../../goals/goalView";
 import {
   useResumeGoalInstanceMutation,
   useUpdateGoalMutation,
@@ -108,7 +108,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
     projectName: (pid: string) => projects.find((p) => p.id === pid)?.name ?? pid,
     companyName: (cid: string) => cid,
   };
-  const display = rollup && goalDisplayStatus(goal, rollup.status, state);
+  const display = rollup?.status;
   const label = (key: string) => (key === "_" ? ts("instances.noProject") : names.projectName(key));
   const plans = instances.flatMap(([key, i]) =>
     i.planNoteId ? [{ noteId: i.planNoteId, label: label(key) }] : [],

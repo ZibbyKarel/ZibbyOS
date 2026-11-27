@@ -164,6 +164,7 @@ export const GoalRollupStatusSchema = z.enum([
   "waiting",
   "needs-you",
   "done",
+  "held",
 ]);
 export type GoalRollupStatus = z.infer<typeof GoalRollupStatusSchema>;
 
@@ -193,7 +194,8 @@ export function emptyGoalState(goalId: string, startedAt: string): GoalState {
 /**
  * Derive a goal's roll-up. `paused` when disabled; `planning` with no instances;
  * `needs-you` when any instance is parked (every parkedReason); `done` when all are
- * done; otherwise the busiest: acting > planning > waiting.
+ * done; `held` when every active (non-done, non-parked) instance is held by its autonomy level;
+ * otherwise the busiest: acting > planning > waiting.
  */
 export function rollupGoal(goal: Pick<Goal, "enabled">, state: GoalState): GoalRollup {
   const instances = Object.values(state.instances);
@@ -211,6 +213,7 @@ export function rollupGoal(goal: Pick<Goal, "enabled">, state: GoalState): GoalR
   else if (instances.length === 0) status = "planning";
   else if (parked > 0) status = "needs-you";
   else if (done === instances.length) status = "done";
+  else if (instances.every((i) => i.status === "done" || i.held)) status = "held";
   else if (count("acting") > 0) status = "acting";
   else if (count("planning") > 0) status = "planning";
   else status = "waiting";

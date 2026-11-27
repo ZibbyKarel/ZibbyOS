@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { Goal, GoalRollup, GoalState } from "@zibby/contracts";
 import { Icon, LoopDiagram, type LoopDiagramActive, LoopDiagramNode } from "@zibby/design-system";
-import { formatGoalDateTime, goalDisplayStatus } from "../goalView";
+import { formatGoalDateTime } from "../goalView";
 
 export interface GoalLoopProps {
   goal: Pick<Goal, "cadence" | "loop" | "enabled">;
@@ -21,9 +21,9 @@ export function GoalLoop({ goal, state, rollup }: GoalLoopProps) {
   const g = useTranslations("bridge.widgets.goals");
   const locale = useLocale();
   const { counts } = rollup;
-  // A held goal (Manual autonomy) is idle: nothing plans or runs, so no arrow.
-  const status =
-    goalDisplayStatus(goal, rollup.status, state) === "held" ? "waiting" : rollup.status;
+  const status = rollup.status;
+  // A held goal (Manual autonomy) is idle: nothing plans, runs or wakes it, so no arrow.
+  const held = status === "held";
   const instances = Object.values(state.instances);
   const single = instances.length === 1 ? instances[0] : undefined;
   const needsYou = status === "needs-you";
@@ -34,18 +34,22 @@ export function GoalLoop({ goal, state, rollup }: GoalLoopProps) {
   // What execution waits on: the first instance that waits on something, else one with a wake time.
   const waiting = instances.find((i) => i.waitingOn?.length)?.waitingOn?.[0];
   const wakeAt = instances.find((i) => i.wakeAt)?.wakeAt;
-  const execLine = waiting
-    ? g("waitingOn", { kind: g(`waiting.${waiting.kind}`), ref: waiting.ref })
-    : wakeAt
-      ? g("wakesAt", { when: formatGoalDateTime(wakeAt, locale) })
-      : status === "acting"
-        ? t("acting")
-        : t("idle");
+  const execLine = held
+    ? t("idle")
+    : waiting
+      ? g("waitingOn", { kind: g(`waiting.${waiting.kind}`), ref: waiting.ref })
+      : wakeAt
+        ? g("wakesAt", { when: formatGoalDateTime(wakeAt, locale) })
+        : status === "acting"
+          ? t("acting")
+          : t("idle");
   const planLine = needsYou
     ? t("needsYou")
-    : status === "planning"
-      ? t("planning")
-      : (single?.feasibility ?? t("planIdle"));
+    : held
+      ? t("held")
+      : status === "planning"
+        ? t("planning")
+        : (single?.feasibility ?? t("planIdle"));
 
   return (
     <LoopDiagram
@@ -62,7 +66,7 @@ export function GoalLoop({ goal, state, rollup }: GoalLoopProps) {
           leading={<Icon name="compass" size="md" />}
           line={planLine}
           state={needsYou ? "wait" : active === "back" ? "active" : "rest"}
-          subtitle={t("planSub")}
+          subtitle={held ? t("heldSub") : t("planSub")}
           title={t("planTitle")}
         />
       }

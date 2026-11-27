@@ -23,14 +23,14 @@ export interface GoalInstanceStatusProps {
  */
 export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatusProps) {
   const t = useTranslations("goals.instances");
-  const tc = useTranslations("goals.card");
+  const tg = useTranslations("goals");
   return (
     <Stack align="start" gap="25">
       <StatusBadge
         data-testid={`${GoalInstanceStatusTestId.Badge}-${instanceKey}`}
-        tone={instanceStatusTone(instance.status)}
+        tone={instance.held ? "off" : instanceStatusTone(instance.status)}
       >
-        {t(`state.${instance.status}`)}
+        {instance.held ? tg("status.held") : t(`state.${instance.status}`)}
       </StatusBadge>
       {instance.parkedReason && (
         <Typography
@@ -49,7 +49,7 @@ export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatus
           type="note"
           variant="secondary"
         >
-          {tc("heldReason")}
+          {tg("card.heldReason")}
         </Typography>
       )}
     </Stack>

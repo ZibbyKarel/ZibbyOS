@@ -46,7 +46,7 @@ export function pragueMonth(at: Date): string {
  * The directional goal's actions (spec "Directional goals", "Rulings → autoDecideGoals").
  *
  * `propose` handling by the pass's level (the engine's `autoDecideGoals` at the instance's place,
- * project > team > company > global, `_` = global, under the master switch; a held `manual`
+ * project > company > global, `_` = global, under the master switch; a held `manual`
  * instance never plans, so `manual` here means a `tier1` ceiling; Autopilot paused forces at
  * most `semi`): `manual` writes the ranked report; `semi` raises a `goal-decision` approval
  * (approve = the top candidate, an `answer` naming a candidate id = that one); `auto` starts the

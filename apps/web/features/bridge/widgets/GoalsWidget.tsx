@@ -25,12 +25,13 @@ export enum GoalsWidgetTestId {
   Select = "goals-widget-select",
 }
 
-/** needs-you first, then the busy ones, waiting, done, paused. */
+/** needs-you first, then the busy ones, waiting and held (Manual), done, paused. */
 const STATUS_ORDER: Record<GoalRollupStatus, number> = {
   "needs-you": 0,
   acting: 1,
   planning: 1,
   waiting: 2,
+  held: 2,
   done: 3,
   paused: 4,
 };

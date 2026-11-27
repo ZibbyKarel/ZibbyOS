@@ -45,6 +45,7 @@ export type GoalStatusTone = "ok" | "wait" | "off" | "err" | "info";
 export function goalStatusTone(status: GoalRollupStatus): GoalStatusTone {
   switch (status) {
     case "paused":
+    case "held":
       return "off";
     case "needs-you":
       return "wait";
@@ -139,6 +140,9 @@ export function goalMatchesFilter(status: GoalRollupStatus, filter: GoalFilter):
       return true;
     case "active":
       return status === "planning" || status === "acting" || status === "waiting";
+    // Held is calm like paused: nothing starts on its own.
+    case "paused":
+      return status === "paused" || status === "held";
     default:
       return status === filter;
   }
@@ -196,46 +200,14 @@ export interface GoalCardModel {
   /** Absent while the timeline is not loaded (or failed): no box rather than a faked one. */
   verdict?: { head: GoalLabel; status?: GoalLabel; text: GoalLabel | string };
   verdictTone: "idle" | "blocked" | "done";
-  /** The status the pill shows (`held` instead of planning / acting / waiting while held). */
-  display: GoalDisplayStatus;
   /** Every active instance is held by a Manual autonomy level: the pill reads "held", not "working". */
   held: boolean;
   /** `decide` opens the detail page, `wake-pause` wakes or pauses, `enable` switches it on. */
   actions: "decide" | "wake-pause" | "enable";
 }
 
-/** What the pill shows: the roll-up, or `held` (ZIBBY starts nothing: Manual autonomy). */
-export type GoalDisplayStatus = GoalRollupStatus | "held";
-
-/**
- * Whether the goal is held by a Manual autonomy level: it is enabled, has active (not done,
- * not parked) instances and every one of them is held. `state` absent = unknown = not held.
- */
-export function isGoalHeld(
-  goal: Pick<Goal, "enabled">,
-  state: Pick<GoalState, "instances"> | undefined,
-): boolean {
-  if (!goal.enabled || !state) return false;
-  const active = Object.values(state.instances).filter(
-    (i) => i.status !== "done" && i.status !== "parked",
-  );
-  return active.length > 0 && active.every((i) => i.held !== undefined);
-}
-
-/**
- * The status the UI shows: the roll-up, except a held goal reads `held` instead of planning /
- * acting / waiting. Paused (disabled) and needs-you (parked) win over held.
- */
-export function goalDisplayStatus(
-  goal: Pick<Goal, "enabled">,
-  status: GoalRollupStatus,
-  state: Pick<GoalState, "instances"> | undefined,
-): GoalDisplayStatus {
-  return status !== "paused" && status !== "needs-you" && isGoalHeld(goal, state) ? "held" : status;
-}
-
 /** Roll-up → DS state tone; the goal card, the detail hero pill and the widget read this. */
-export const GOAL_CARD_STATE: Record<GoalDisplayStatus, GoalCardState> = {
+export const GOAL_CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
   // Calm: nothing runs, so no pulse.
   held: "idle",
   "needs-you": "blocked",
@@ -257,10 +229,8 @@ export function goalCardModel(
   timeline: readonly GoalTimelineEvent[] | undefined,
   names: GoalNames,
   locale: string,
-  state?: Pick<GoalState, "instances">,
 ): GoalCardModel {
   const { counts } = goal.rollup;
-  const display = goalDisplayStatus(goal, goal.rollup.status, state);
   const status = goal.rollup.status;
   const ran = counts.total > 0;
   const parties: GoalCardModel["parties"] = [
@@ -276,16 +246,15 @@ export function goalCardModel(
       ? {
           head: { key: "card.lastStep", values: { date: formatGoalDateTime(latest.at, locale) } },
           ...(status === "needs-you" ? { status: { key: "card.needsYou" as const } } : {}),
-          // The held event reads in the catalog's words, in every language.
-          text:
-            display === "held" || latest.kind === "held" ? { key: "card.heldReason" } : latest.text,
+          // The present-tense held reason only while the goal is held (a released hold's `held`
+          // event is history: its stored text stands).
+          text: status === "held" ? { key: "card.heldReason" } : latest.text,
         }
       : { head: { key: "card.noEvents" }, text: { key: "card.noEventsText" } };
 
   return {
-    state: GOAL_CARD_STATE[display],
-    display,
-    held: display === "held",
+    state: GOAL_CARD_STATE[status],
+    held: status === "held",
     used: counts.done,
     max: Math.max(counts.total, 1),
     ringValue: ran ? undefined : "–",
@@ -357,7 +326,7 @@ export interface GoalCycle {
 
 /**
  * The timeline (fed oldest-first) as cycles, newest first. The live cycle (`liveIndex`) takes
- * the roll-up: needs-you is `paused`, done is `ok`, a paused goal `idle`, otherwise `run`. A past
+ * the roll-up: needs-you is `paused`, done is `ok`, a paused or held goal `idle`, otherwise `run`. A past
  * cycle's tone is its last outcome event (`done` → ok, `parked` → bad), or `idle` when it has none.
  */
 export function goalCycles(
@@ -373,7 +342,7 @@ export function goalCycles(
           ? "paused"
           : status === "done"
             ? "ok"
-            : status === "paused"
+            : status === "paused" || status === "held"
               ? "idle"
               : "run";
     } else {

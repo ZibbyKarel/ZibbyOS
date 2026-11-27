@@ -179,4 +179,31 @@ describe("rollupGoal", () => {
     expect(s("done", "waiting", "planning")).toBe("planning");
     expect(s("done", "waiting")).toBe("waiting");
   });
+
+  describe("held", () => {
+    const held = (status: GoalInstance["status"]): GoalInstance => ({
+      ...inst(status),
+      held: "autonomy-manual",
+    });
+    const r = (enabled: boolean, instances: Record<string, GoalInstance>) =>
+      rollupGoal({ enabled }, stateOf(instances)).status;
+
+    it("is held when every active instance is held", () => {
+      expect(r(true, { a: held("planning"), b: held("waiting"), c: inst("done") })).toBe("held");
+    });
+    it("one held + one acting → acting", () => {
+      expect(r(true, { a: held("planning"), b: inst("acting") })).toBe("acting");
+    });
+    it("held + parked → needs-you", () => {
+      expect(r(true, { a: held("planning"), b: inst("parked", "needs-operator") })).toBe(
+        "needs-you",
+      );
+    });
+    it("disabled + held → paused", () => {
+      expect(r(false, { a: held("planning") })).toBe("paused");
+    });
+    it("all done → done", () => {
+      expect(r(true, { a: inst("done"), b: inst("done") })).toBe("done");
+    });
+  });
 });
