@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -114,7 +114,12 @@ function GoalDetail({ goal }: { goal: Goal }) {
   const remove = useDeleteGoalMutation();
   const wake = useWakeGoalMutation();
   const resume = useResumeGoalInstanceMutation();
-  const [now] = useState(() => Date.now());
+  // A coarse clock: the deadline meter, merge-grant tag and next cycle advance on an open page.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resuming, setResuming] = useState<string | null>(null);
@@ -224,7 +229,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
               {state && rollup ? (
                 <GoalLoop goal={goal} rollup={rollup} state={state} />
               ) : (
-                (stateError ?? (stateQuery.isPending && <QueryLoading />))
+                stateError || (stateQuery.isPending && <QueryLoading />)
               )}
               {state && <GoalUpcoming goal={goal} names={names} now={now} state={state} />}
               <GoalCycleTimeline
@@ -273,9 +278,12 @@ function GoalDetail({ goal }: { goal: Goal }) {
           >
             <GoalSettingsPanel goal={goal} names={names} />
           </Panel>
-          <Panel header={t("detail.instancesTitle")} headerRule={false} padding="200">
-            {stateError || <GoalInstancesPanel instances={instances} names={names} />}
-          </Panel>
+          {/* Without a loaded state there is nothing to list; the retry sits once, in the left column. */}
+          {state && (
+            <Panel header={t("detail.instancesTitle")} headerRule={false} padding="200">
+              <GoalInstancesPanel instances={instances} names={names} />
+            </Panel>
+          )}
           <Panel header={t("detail.planTitle")} headerRule={false} padding="200">
             <GoalPlanPanel plans={plans} />
           </Panel>

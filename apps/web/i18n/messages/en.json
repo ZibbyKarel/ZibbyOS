@@ -5561,6 +5561,7 @@
       "newestFirst": "Newest first",
       "oldestFirst": "Oldest first",
       "progress": "Progress",
+      "progressN": "Progress {n}",
       "cycleMeta": "{count, plural, one {# event} other {# events}} · {range}",
       "showAll": "Show all events: {title}",
       "showLess": "Show only the last 5: {title}",

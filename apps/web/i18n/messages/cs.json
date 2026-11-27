@@ -5561,6 +5561,7 @@
       "newestFirst": "Nejnovější první",
       "oldestFirst": "Nejstarší první",
       "progress": "Průběh",
+      "progressN": "Průběh {n}",
       "cycleMeta": "{count, plural, one {# událost} few {# události} other {# událostí}} · {range}",
       "showAll": "Zobrazit všechny události: {title}",
       "showLess": "Zobrazit jen posledních 5: {title}",

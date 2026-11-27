@@ -232,7 +232,7 @@ export function goalDisplayStatus(
   return status !== "paused" && status !== "needs-you" && isGoalHeld(goal, state) ? "held" : status;
 }
 
-/** Roll-up → DS state tone; the goal card, the detail hero and its loop diagram all read this. */
+/** Roll-up → DS state tone; the goal card, the detail hero pill and the widget read this. */
 export const GOAL_CARD_STATE: Record<GoalDisplayStatus, GoalCardState> = {
   // Calm: nothing runs, so no pulse.
   held: "idle",

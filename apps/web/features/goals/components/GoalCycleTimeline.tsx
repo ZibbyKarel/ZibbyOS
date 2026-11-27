@@ -33,7 +33,7 @@ export interface GoalCycleTimelineProps {
   /** Instance keys, for the filter chips. */
   instances: string[];
   names: GoalNames;
-  /** Standing goals title each cycle "Cyklus N"; a one-off goal has one "Průběh". */
+  /** Standing goals title each cycle "Cyklus N"; a one-off goal has "Průběh" ("Průběh N" if replanned into several cycles). */
   standing: boolean;
   /** The live cycle index and roll-up (absent while the state loads): the live cycle's tone. */
   liveIndex?: number;
@@ -127,9 +127,10 @@ export function GoalCycleTimeline({
       ) : (
         <IterationTimeline ariaLabel={g("whatHappened")}>
           {ordered.map((cycle) => {
-            const title =
-              standing || cycles.length > 1
-                ? t("timeline.cycle", { n: cycle.index + 1 })
+            const title = standing
+              ? t("timeline.cycle", { n: cycle.index + 1 })
+              : cycles.length > 1
+                ? t("detail.progressN", { n: cycle.index + 1 })
                 : t("detail.progress");
             const expanded = open.has(cycle.index);
             const collapsible = cycle.events.length > COLLAPSED_ROWS;

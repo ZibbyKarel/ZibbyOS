@@ -59,7 +59,9 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
   const display = rollup && goalDisplayStatus(goal, rollup.status, state);
   const grantActive = goal.mergeGrant && Date.parse(goal.mergeGrant.until) > now;
 
-  const showGauge = counts !== undefined && !(goal.scope.kind === "none" && counts.total <= 1);
+  // Nothing to count (no instance yet) or a single project-less run: no "0 of 0" ring.
+  const showGauge =
+    counts !== undefined && counts.total > 0 && !(goal.scope.kind === "none" && counts.total <= 1);
   const gaugeCaption = !counts
     ? undefined
     : counts.total === 0
