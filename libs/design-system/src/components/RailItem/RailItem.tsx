@@ -39,6 +39,8 @@ export interface RailItemProps extends Omit<
    * `future` = dashed marker and connector.
    */
   tense?: RailItemTense;
+  /** A sub-phase of the row above: indented under it with a guide line, so it reads as nested. */
+  nested?: boolean;
   /** The present marker's state colour. Default `working`. */
   markerTone?: StateTone;
   ref?: Ref<HTMLButtonElement>;
@@ -87,6 +89,7 @@ export function RailItem({
   selected,
   running,
   tense,
+  nested,
   markerTone = "working",
   ref,
   ...rest
@@ -96,6 +99,8 @@ export function RailItem({
       aria-current={selected || undefined}
       className={cn(
         "grid w-full cursor-pointer grid-cols-[30px_minmax(0,1fr)] gap-[10px] border-l-2 py-[9px] pr-4 pl-[14px] text-left hover:bg-elevated",
+        nested &&
+          "relative pl-[34px] before:absolute before:top-0 before:bottom-0 before:left-[21px] before:border-l before:border-line-2",
         tense ? "items-stretch" : "items-center",
         running
           ? "border-l-4 border-run bg-[color-mix(in_srgb,var(--color-run)_12%,transparent)]"
@@ -106,6 +111,7 @@ export function RailItem({
               : "border-transparent",
         focusRingInset,
       )}
+      data-nested={nested || undefined}
       data-running={running || undefined}
       data-tense={tense}
       data-testid={RailItemTestId.Root}
@@ -133,6 +139,7 @@ export function RailItem({
               tense === "past" ? "text-foreground-dim" : "text-foreground",
             )}
             data-testid={RailItemTestId.Title}
+            title={typeof title === "string" ? title : undefined}
           >
             {title}
           </span>

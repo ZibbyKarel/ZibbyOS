@@ -40,6 +40,15 @@ describe("RailItem", () => {
     expect(screen.queryByTestId(RailItemTestId.Meta)).toBeNull();
   });
 
+  it("nested row is marked, and a string title is exposed as a tooltip", () => {
+    render(<RailItem nested title="01 · a-very-long-sub-phase-name" />);
+    expect(screen.getByTestId(RailItemTestId.Root)).toHaveAttribute("data-nested", "true");
+    expect(screen.getByTestId(RailItemTestId.Title)).toHaveAttribute(
+      "title",
+      "01 · a-very-long-sub-phase-name",
+    );
+  });
+
   it("fires onClick and forwards ref", () => {
     const onClick = vi.fn();
     const ref = createRef<HTMLButtonElement>();

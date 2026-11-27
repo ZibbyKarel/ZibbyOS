@@ -88,10 +88,19 @@ export function RunStageRail({
   const symbolOf = useAgentSymbol();
   // A stage row is named by its phase id; the symbol belongs to the phase's agent.
   const { data: workflows } = useWorkflowsQuery();
-  const phases = run.kind === "workflow" ? workflows?.find((w) => w.id === run.owner)?.phases : [];
-  const phaseOf = (phaseId: string) => phases?.find((p) => p.id === phaseId);
-  const agentOf = (phaseId: string) =>
-    run.kind === "workflow" ? (phaseOf(phaseId)?.agent ?? phaseId) : run.owner;
+  // A sub-run's rows resolve against the child workflow's definition, under their raw phase id.
+  const rowByKey = new Map(rows.map((r) => [r.phaseId, r] as const));
+  const phaseOf = (key: string) => {
+    const sub = rowByKey.get(key)?.sub;
+    const owner = sub?.owner ?? run.owner;
+    return run.kind === "workflow"
+      ? workflows?.find((w) => w.id === owner)?.phases.find((p) => p.id === (sub?.phaseId ?? key))
+      : undefined;
+  };
+  const agentOf = (key: string) =>
+    run.kind === "workflow"
+      ? (phaseOf(key)?.agent ?? rowByKey.get(key)?.sub?.phaseId ?? key)
+      : run.owner;
   const { data: agents } = useAgentsQuery();
   const tierLabel = useTierLabel();
   /** Concrete engine model when the phase/agent pins one, else the tier as a level label. */
@@ -158,11 +167,12 @@ export function RunStageRail({
             </span>
           </>
         }
+        nested={!!row.sub}
         onClick={() => onSelect(row.phaseId)}
         running={row.state === "working"}
         selected={row.phaseId === selected}
         tense={tense}
-        title={`${row.n} · ${row.name}`}
+        title={`${row.n} · ${row.sub?.phaseId ?? row.name}`}
       >
         {(i === 0 && route) || rowCheckpoints.length > 0 || showLoop ? (
           <>

@@ -236,6 +236,8 @@ export const TaskRunSchema = z.object({
   department: DepartmentIdSchema.optional(),
   /** Workflow runs: a pause was requested and lands at the next stage boundary. */
   pauseRequested: z.boolean().optional(),
+  /** Workflow runs: the sub-run a `workflow` phase is waiting on right now (not in `stageRuns` yet). */
+  pendingChild: z.object({ phaseId: z.string().min(1), childRunId: z.string().min(1) }).optional(),
   /** Workflow runs: start of the stage currently running. */
   currentStageStartedAt: z.string().optional(),
   /** Workflow runs: operator messages queued/delivered. */

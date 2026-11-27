@@ -11,7 +11,9 @@ import {
   buildLiveFeed,
   buildRunMetrics,
   buildStageRail,
+  buildStageRailWithChildren,
   deriveRunMode,
+  pickSelectedRow,
 } from "./runDetailModel";
 
 const NOW = Date.parse("2026-10-20T10:10:00Z");
@@ -329,5 +331,58 @@ describe("buildLiveFeed", () => {
         transcript: "  \n",
       }).some((i) => i.kind === "agent"),
     ).toBe(false);
+  });
+});
+
+describe("sub-run phases in the rail", () => {
+  const stage = (phaseId: string, status: "done" | "running", childRunId?: string) => ({
+    phaseId,
+    runId: `${phaseId}_1`,
+    attempt: 1,
+    status,
+    ...(childRunId && { childRunId }),
+  });
+  const child = run({
+    runId: "child_1",
+    owner: "coloring-book",
+    status: "running",
+    currentStage: "plan",
+    stageRuns: [stage("concept", "done")],
+  });
+  const parent = run({
+    status: "running",
+    currentStage: "generate",
+    stageRuns: [stage("research", "done")],
+    pendingChild: { phaseId: "generate", childRunId: "child_1" },
+  });
+  const childOf = (id: string) => (id === "child_1" ? { run: child } : undefined);
+
+  it("nests the pending child's phases under the parent phase that spawned it", () => {
+    const rail = buildStageRailWithChildren(parent, "running", undefined, NOW, childOf);
+    expect(rail.map((r) => r.phaseId)).toEqual([
+      "research",
+      "generate",
+      "child_1/concept",
+      "child_1/plan",
+    ]);
+    expect(rail[2]?.sub).toEqual({
+      runId: "child_1",
+      owner: "coloring-book",
+      phaseId: "concept",
+      parentPhaseId: "generate",
+    });
+    expect(rail.filter((r) => r.current).map((r) => r.phaseId)).toEqual(["generate"]);
+  });
+
+  it("falls back to the plain rail while the child is not loaded", () => {
+    const rail = buildStageRailWithChildren(parent, "running", undefined, NOW, () => undefined);
+    expect(rail.map((r) => r.phaseId)).toEqual(["research", "generate"]);
+  });
+
+  it("the parent phase's log follows the child's running phase", () => {
+    const rail = buildStageRailWithChildren(parent, "running", undefined, NOW, childOf);
+    expect(pickSelectedRow(rail, null)?.phaseId).toBe("child_1/plan");
+    expect(pickSelectedRow(rail, "research")?.phaseId).toBe("research");
+    expect(pickSelectedRow(rail, "child_1/concept")?.sub?.phaseId).toBe("concept");
   });
 });

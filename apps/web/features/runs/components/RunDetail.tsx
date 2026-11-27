@@ -28,8 +28,11 @@ import {
   buildLiveFeed,
   buildRunMetrics,
   buildStageRail,
+  buildStageRailWithChildren,
   deriveRunMode,
+  pickSelectedRow,
 } from "../runDetailModel";
+import { useChildRuns } from "../useChildRuns";
 import { useRunLogStream, useStageRunLogStream } from "../useRunLogStream";
 import { useRunActions } from "../useRunActions";
 import { useRunArtifacts } from "../useRunArtifacts";
@@ -190,24 +193,27 @@ export function RunDetail({
     return () => clearInterval(id);
   }, [ticking]);
 
-  const rail = buildStageRail(run, mode, definedPhaseIds, now);
+  const childOf = useChildRuns(run);
+  const rail = buildStageRailWithChildren(run, mode, definedPhaseIds, now, childOf);
+  // Metrics and the composer's crew speak of the run's own phases, not its sub-runs'.
+  const ownRail = rail.filter((r) => !r.sub);
   const current = rail.find((r) => r.current);
-  const selected = rail.find((r) => r.phaseId === selectedPhaseId) ?? current;
+  const selected = pickSelectedRow(rail, selectedPhaseId);
   const maxRetries = workflowDef?.phases.find((p) => p.id === current?.phaseId)?.loop?.maxRetries;
-  const allMetrics = buildRunMetrics(run, rail, maxRetries, now);
+  const allMetrics = buildRunMetrics(run, ownRail, maxRetries, now);
   // Spec §5: a metric shows only when the run has the data for it.
   const metrics = allMetrics.filter((m) => m.value !== "—");
   const progressPct = Number.parseInt(allMetrics[0]?.value ?? "0", 10) || 0;
 
   const workflow = run.kind === "workflow";
   const selectedLive = workflow && selected?.stateKey === "running";
-  const stageStream = useStageRunLogStream(
-    run.runId,
-    selectedLive ? (selected?.phaseId ?? null) : null,
-  );
+  // A sub-run's phase is read from the sub-run itself — the parent has no log for it.
+  const logRunId = selected?.sub?.runId ?? run.runId;
+  const logPhaseId = selected?.sub?.phaseId ?? selected?.phaseId;
+  const stageStream = useStageRunLogStream(logRunId, selectedLive ? (logPhaseId ?? null) : null);
   const { data: stageLog } = useStageRunLogQuery(
-    run.runId,
-    workflow && !selectedLive ? selected?.phaseId : undefined,
+    logRunId,
+    workflow && !selectedLive ? logPhaseId : undefined,
     // fetch the finished last round by id, so a stale "latest" cache never shows an earlier round
     selected?.rounds.at(-1)?.stageRunId || undefined,
   );
@@ -218,8 +224,12 @@ export function RunDetail({
       : (stageLog?.content ?? "")
     : agentStream.text;
 
+  const phaseDefOf = (r: (typeof rail)[number]) =>
+    (r.sub ? workflows?.find((w) => w.id === r.sub?.owner) : workflowDef)?.phases.find(
+      (p) => p.id === (r.sub?.phaseId ?? r.phaseId),
+    );
   const toolPhaseIds = new Set(
-    workflowDef?.phases.filter((p) => p.type === "tool").flatMap((p) => (p.id ? [p.id] : [])),
+    rail.filter((r) => phaseDefOf(r)?.type === "tool").map((r) => r.phaseId),
   );
   const items = buildLiveFeed({
     toolPhaseIds,
@@ -314,7 +324,7 @@ export function RunDetail({
           <RunComposer
             approval={approval}
             crew={
-              workflow ? rail.map((r) => ({ key: r.phaseId, name: r.name, state: r.state })) : []
+              workflow ? ownRail.map((r) => ({ key: r.phaseId, name: r.name, state: r.state })) : []
             }
             currentStageName={workflow ? current?.name : undefined}
             mode={mode}

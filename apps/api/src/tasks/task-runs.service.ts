@@ -1067,6 +1067,9 @@ function workflowRunToView(
     stageRuns: r.stageRuns,
     ...engineOfStages(r.stageRuns),
     currentStage: r.currentStage,
+    ...(r.pendingChild
+      ? { pendingChild: { phaseId: r.pendingChild.phaseId, childRunId: r.pendingChild.childRunId } }
+      : {}),
     currentStageStartedAt: r.currentStageStartedAt,
     ...(r.pauseRequested ? { pauseRequested: true } : {}),
     ...(r.operatorMessages?.length ? { messages: r.operatorMessages } : {}),

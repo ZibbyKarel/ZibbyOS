@@ -106,6 +106,11 @@ export interface StageRailRow {
   /** Every execution of this phase in order; empty for an unreached phase or an agent run. */
   rounds: StageRound[];
   current: boolean;
+  /**
+   * Set on a row that belongs to a sub-run (a child workflow a parent phase spawned): `phaseId` is
+   * then `<childRunId>/<phase>` (unique across the rail), `sub` carries the raw ids for log reads.
+   */
+  sub?: { runId: string; owner: string; phaseId: string; parentPhaseId: string };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -244,6 +249,68 @@ export function buildStageRail(
       current,
     };
   });
+}
+
+/**
+ * The parent rail with each sub-run's phases nested right under the parent phase that spawned
+ * them. `childOf` resolves a child run id to its view + workflow definition (undefined while it
+ * loads). Sub rows are never `current`: the parent's own current phase keeps that role.
+ */
+export function buildStageRailWithChildren(
+  run: RunView,
+  mode: RunMode,
+  definedPhaseIds: string[] | undefined,
+  now: number,
+  childOf: (childRunId: string) => { run: RunView; definedPhaseIds?: string[] } | undefined,
+): StageRailRow[] {
+  const rows = buildStageRail(run, mode, definedPhaseIds, now);
+  if (run.kind !== "workflow") return rows;
+  const childByPhase = new Map<string, string>();
+  for (const s of run.stageRuns ?? []) if (s.childRunId) childByPhase.set(s.phaseId, s.childRunId);
+  // The running sub-run is not in `stageRuns` yet (terminal-only append) — `pendingChild` names it.
+  if (run.pendingChild) childByPhase.set(run.pendingChild.phaseId, run.pendingChild.childRunId);
+  return rows.flatMap((row) => {
+    const child = childOf(childByPhase.get(row.phaseId) ?? "");
+    if (!child) return [row];
+    const sub = buildStageRail(
+      child.run,
+      deriveRunMode(child.run, undefined),
+      child.definedPhaseIds,
+      now,
+    ).map(
+      (r): StageRailRow => ({
+        ...r,
+        phaseId: `${child.run.runId}/${r.phaseId}`,
+        current: false,
+        sub: {
+          runId: child.run.runId,
+          owner: child.run.owner,
+          phaseId: r.phaseId,
+          parentPhaseId: row.phaseId,
+        },
+      }),
+    );
+    return [row, ...sub];
+  });
+}
+
+/**
+ * The row whose log the live view shows: the explicit selection, else the current phase. A parent
+ * phase that spawned a sub-run has no log of its own, so it resolves to that sub-run's running (else
+ * last reached) phase — the parent's live view follows the child.
+ */
+export function pickSelectedRow(
+  rail: StageRailRow[],
+  selectedPhaseId: string | null,
+): StageRailRow | undefined {
+  const row = rail.find((r) => r.phaseId === selectedPhaseId) ?? rail.find((r) => r.current);
+  if (!row || row.sub) return row;
+  const subs = rail.filter((r) => r.sub?.parentPhaseId === row.phaseId);
+  return (
+    subs.find((r) => r.stateKey === "running") ??
+    subs.filter((r) => r.stateKey !== "queued").at(-1) ??
+    row
+  );
 }
 
 export interface RunMetric {
