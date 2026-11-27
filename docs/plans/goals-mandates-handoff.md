@@ -43,9 +43,10 @@ By area, with commit ranges (exclusive start, inclusive end).
   dashboard sheet). The engine ticks every `goalEngineTickMs` (default 60 s, `0` disables) on the
   primary instance. A paused goal rolls up as `paused` even with parked instances.
 - **Directional goals and `autoDecideGoals`.** The sixth autonomy capability
-  ("automatické rozhodování cílů", key `autoDecideGoals`) lives in the autonomy matrix
+  ("Spouštění a rozhodování cílů" since 2026-11-27, key `autoDecideGoals`) lives in the autonomy matrix
   (`/governance/autonomy`), per place: project > team > company > global (a goal with scope `none`
-  resolves at global). `manual` = a ranked report only, `semi` = a `goal-decision` approval,
+  resolves at global). Since 2026-11-27 `manual` holds the goal (see the dated section below); a
+  wake or the `tier1` ceiling gives a ranked report only, `semi` = a `goal-decision` approval,
   `auto` = ZIBBY starts the top small candidate itself within the goal's `maxDecisionsPerMonth`
   (over the cap or a large candidate falls back to `semi`). `auto` never applies on a `tier1`
   goal or while Autopilot is paused. Raising a cell, a project cell included, needs the operator
@@ -409,7 +410,7 @@ Deferred minors and notes from the ledger, grouped by area.
   logins — the inbox snapshot has none, and `InboxPrThreadsService.reviewers()` is an uncached
   host call per PR. Options: one host call per PR per tick, a fetch cached on the PR's
   `updatedAt`, or author-only (current).
-- Final wave: with `autoDecideGoals` outside the master switch, a goal-only setup has `isOn()`
+- Final wave (the master-switch part is reversed 2026-11-27; the `isOn()` behaviour stays): with `autoDecideGoals` outside the master switch, a goal-only setup has `isOn()`
   false, so `goal-parked` / `goal-update` are not pushed to the operator channel (only
   `goal-merged` always is); they still show in the briefing and on the goal pages.
 
