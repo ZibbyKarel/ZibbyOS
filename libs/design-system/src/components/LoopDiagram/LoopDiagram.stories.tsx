@@ -21,31 +21,81 @@ export default meta;
 
 type Story = StoryObj<typeof LoopDiagram>;
 
-export const Rest: Story = {};
-export const MakerWorking: Story = { args: { active: "forward" } };
-export const VerifierJudging: Story = { args: { active: "back" } };
-export const Paused: Story = { args: { paused: true, backLabel: "paused · needs you" } };
+const maker = (
+  <LoopDiagramNode
+    kicker="Maker"
+    line="Changing auth/session.ts…"
+    onClick={() => undefined}
+    state="active"
+    subtitle="agent · sonnet · medium"
+    title="Writer Dev"
+  />
+);
+const verifier = (
+  <LoopDiagramNode
+    kicker="Verifier"
+    line="Judges against the pass criteria"
+    subtitle="fresh · opus · high"
+    title="Fresh verifier"
+  />
+);
 
-export const WithNodes: Story = {
-  args: {
-    active: "forward",
-    maker: (
-      <LoopDiagramNode
-        kicker="Maker"
-        line="Changing auth/session.ts…"
-        onClick={() => undefined}
-        state="active"
-        subtitle="agent · sonnet · medium"
-        title="Writer Dev"
+export const Overview: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      <LoopDiagram
+        backLabel="verdict + feedback → retry"
+        count="4 / 8"
+        countLabel="iteration"
+        forwardLabel="result → judge"
+        maker={node("Maker · rest")}
+        verifier={node("Verifier · rest")}
       />
-    ),
-    verifier: (
-      <LoopDiagramNode
-        kicker="Verifier"
-        line="Judges against the pass criteria"
-        subtitle="fresh · opus · high"
-        title="Fresh verifier"
+      <LoopDiagram
+        board
+        active="forward"
+        backLabel="verdict + feedback → retry"
+        count="4 / 8"
+        countLabel="iteration"
+        forwardLabel="result → judge"
+        maker={maker}
+        verifier={verifier}
       />
-    ),
+      <LoopDiagram
+        active="back"
+        backLabel="verdict + feedback → retry"
+        count="5 / 8"
+        countLabel="iteration"
+        forwardLabel="result → judge"
+        maker={node("Maker")}
+        verifier={node("Verifier · judging")}
+      />
+      <LoopDiagram
+        paused
+        backLabel="paused · needs you"
+        count="6 / 8"
+        countLabel="iteration"
+        forwardLabel="result → judge"
+        maker={node("Maker")}
+        verifier={
+          <LoopDiagramNode kicker="Verifier" line="Can't decide" state="wait" title="Verifier" />
+        }
+      />
+      <LoopDiagram
+        mini
+        backLabel=""
+        count="2 / 8"
+        countLabel="iteration"
+        forwardLabel=""
+        maker={<LoopDiagramNode mini kicker="Maker" title="Writer Dev" />}
+        verifier={<LoopDiagramNode mini kicker="Verifier" title="Fresh" />}
+      />
+    </div>
+  ),
+};
+
+export const Playground: Story = {
+  argTypes: {
+    active: { control: "select", options: [null, "forward", "back"] },
   },
 };

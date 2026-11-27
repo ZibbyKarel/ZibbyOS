@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { IterationTimeline, IterationTimelineItem } from "./IterationTimeline";
 
@@ -10,9 +11,9 @@ export default meta;
 
 type Story = StoryObj<typeof IterationTimeline>;
 
-export const Default: Story = {
-  render: (args) => (
-    <IterationTimeline {...args}>
+export const Overview: Story = {
+  render: () => (
+    <IterationTimeline ariaLabel="Iterations">
       <IterationTimelineItem
         marker={2}
         meta={
@@ -49,4 +50,29 @@ export const Default: Story = {
       </IterationTimelineItem>
     </IterationTimeline>
   ),
+};
+
+export const Playground: Story = {
+  render: (args) => {
+    const [open, setOpen] = useState(false);
+    return (
+      <IterationTimeline {...args}>
+        <IterationTimelineItem
+          expanded={open}
+          marker={1}
+          meta={<span>3m 12s</span>}
+          onToggle={() => setOpen((o) => !o)}
+          rows={[
+            { label: "Maker", icon: "check", tone: "ok", text: "Added rememberMe checkbox" },
+            { label: "Verifier", icon: "dots", text: "Judging…" },
+          ]}
+          title="Iteration 1"
+          toggleLabel="Show log of iteration 1"
+          tone="run"
+        >
+          <pre className="font-mono text-meta">13:41:22 VERDICT: pending</pre>
+        </IterationTimelineItem>
+      </IterationTimeline>
+    );
+  },
 };

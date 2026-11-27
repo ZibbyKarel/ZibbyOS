@@ -15,7 +15,7 @@ const meta: Meta<typeof Grid> = {
     lg: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
     sidebar: {
       control: "select",
-      options: [undefined, "left", "left-wide", "left-narrow", "right"],
+      options: [undefined, "left", "left-wide", "left-narrow", "right", "right-wide"],
     },
     align: { control: "select", options: [undefined, "start", "center", "end", "stretch"] },
     gap: { control: "select", options: ["0", "50", "100", "150", "200", "300"] },
@@ -47,6 +47,14 @@ export const Overview: Story = {
           </Card>
           <Card>
             <Container padding="200">Aside</Container>
+          </Card>
+        </Grid>
+        <Grid align="start" gap="150" sidebar="right-wide">
+          <Card>
+            <Container padding="200">Main</Container>
+          </Card>
+          <Card>
+            <Container padding="200">Aside · 400px</Container>
           </Card>
         </Grid>
       </div>

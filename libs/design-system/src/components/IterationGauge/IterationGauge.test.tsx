@@ -40,4 +40,19 @@ describe("IterationGauge", () => {
       expect.stringMatching(/^0 /),
     );
   });
+
+  it("lets the caller decide the amber arc", () => {
+    const { rerender } = render(
+      <IterationGauge ariaLabel="a" hot={false} label="x" max={3} ofLabel="of 3" used={3} />,
+    );
+    expect(screen.getByTestId(IterationGaugeTestId.Fill)).toHaveAttribute(
+      "stroke",
+      "var(--color-ink)",
+    );
+    rerender(<IterationGauge hot ariaLabel="a" label="x" max={3} ofLabel="of 3" used={1} />);
+    expect(screen.getByTestId(IterationGaugeTestId.Fill)).toHaveAttribute(
+      "stroke",
+      "var(--color-warn)",
+    );
+  });
 });

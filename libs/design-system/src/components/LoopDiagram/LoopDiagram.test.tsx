@@ -16,6 +16,7 @@ describe("LoopDiagram", () => {
   it("lays out both nodes, the counter and the arrow captions", () => {
     render(<LoopDiagram {...base} />);
     expect(screen.getByTestId(LoopDiagramTestId.Root)).toHaveRole("group");
+    expect(screen.getByTestId(LoopDiagramTestId.Root)).toHaveAccessibleName("Loop");
     expect(screen.getByTestId(LoopDiagramTestId.Maker)).toHaveTextContent("maker");
     expect(screen.getByTestId(LoopDiagramTestId.Verifier)).toHaveTextContent("verifier");
     expect(screen.getByTestId(LoopDiagramTestId.Count)).toHaveTextContent("4 / 8");
@@ -65,5 +66,10 @@ describe("LoopDiagramNode", () => {
     expect(node).toHaveAccessibleName("Change maker");
     await userEvent.click(node);
     expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("takes its accessible name from the caller", () => {
+    render(<LoopDiagram {...base} ariaLabel="Smyčka cíle" />);
+    expect(screen.getByTestId(LoopDiagramTestId.Root)).toHaveAccessibleName("Smyčka cíle");
   });
 });

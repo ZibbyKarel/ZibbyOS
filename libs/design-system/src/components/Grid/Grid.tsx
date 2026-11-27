@@ -52,13 +52,14 @@ export interface GridProps extends Omit<HTMLAttributes<HTMLElement>, "className"
   lg?: GridCols;
   /**
    * Responsive dashboard split (overrides cols): "right" = content + 360px rail,
+   * "right-wide" = content + 400px rail (a detail page's side cards),
    * "left" = 320px list + content, "left-wide" = the same split proportionally
    * (~33% list + content) for a rail whose rows carry real prose — a fixed 320px
    * truncates them regardless of how much room the viewport actually has.
    * "left-narrow" = 25% list + 75% detail (master–detail screens).
    * Single column below the lg breakpoint.
    */
-  sidebar?: "left" | "left-wide" | "left-narrow" | "right";
+  sidebar?: "left" | "left-wide" | "left-narrow" | "right" | "right-wide";
   /**
    * Fixes the grid's height from the lg breakpoint up (any CSS length, e.g.
    * `calc(100vh - 14rem)`), with one `minmax(0,1fr)` row so the columns fill it and
@@ -124,6 +125,7 @@ export function Grid({
       {...rest}
       className={cn(
         sidebar === "right" && "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]",
+        sidebar === "right-wide" && "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]",
         sidebar === "left" && "grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]",
         sidebar === "left-wide" && "grid-cols-1 lg:grid-cols-[minmax(0,33%)_minmax(0,1fr)]",
         sidebar === "left-narrow" && "grid-cols-1 lg:grid-cols-[minmax(0,25%)_minmax(0,1fr)]",

@@ -130,11 +130,12 @@ export function IterationTimelineItem({
             </button>
           ) : null}
         </div>
-        {rows.map((row) => (
+        {rows.map((row, i) => (
           <div
             className="grid grid-cols-[76px_20px_minmax(0,1fr)] items-start gap-[8px] border-t border-line px-[12px] py-[8px] text-body text-ink-2"
             data-testid={IterationTimelineTestId.Row}
-            key={row.label}
+            // Labels may repeat (two events in the same minute).
+            key={`${i}-${row.label}`}
           >
             <span className="pt-px text-[11.5px] text-ink-3">{row.label}</span>
             <span

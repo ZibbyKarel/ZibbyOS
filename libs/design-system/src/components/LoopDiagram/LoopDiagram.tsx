@@ -37,6 +37,8 @@ export interface LoopDiagramProps {
    * instead of a pulsing solid line. Off by default.
    */
   board?: boolean;
+  /** Accessible name of the diagram group. */
+  ariaLabel?: string;
   /** A small preview: narrow middle, arrows always drawn, no arrow captions. Pair with `mini` nodes. */
   mini?: boolean;
   ref?: Ref<HTMLDivElement>;
@@ -96,12 +98,13 @@ export function LoopDiagram({
   backLabel,
   board = false,
   mini = false,
+  ariaLabel = "Loop",
   ref,
 }: LoopDiagramProps) {
   const show = mini ? "block" : "hidden md:block";
   return (
     <div
-      aria-label="Loop"
+      aria-label={ariaLabel}
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-[6px] rounded-lg border border-line bg-bg px-[10px] py-[14px] md:min-h-[250px] md:grid-cols-[minmax(0,270px)_minmax(0,1fr)_minmax(0,270px)] md:gap-0 md:px-[40px]",
         mini &&

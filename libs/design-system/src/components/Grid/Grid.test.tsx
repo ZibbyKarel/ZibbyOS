@@ -19,6 +19,13 @@ describe("Grid", () => {
     );
   });
 
+  it("switches to the wide right-sidebar template", () => {
+    render(<Grid sidebar="right-wide" />);
+    expect(screen.getByTestId(GridTestId.Root).className).toContain(
+      "lg:grid-cols-[minmax(0,1fr)_400px]",
+    );
+  });
+
   it("switches to the left-sidebar template", () => {
     render(<Grid sidebar="left" />);
     expect(screen.getByTestId(GridTestId.Root).className).toContain(

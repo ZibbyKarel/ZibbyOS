@@ -19,6 +19,11 @@ export interface IterationGaugeProps {
   label: ReactNode;
   /** Sentence under the label ("4 left before it parks"). */
   caption?: ReactNode;
+  /**
+   * Amber arc. Omitted = automatic from 75 % (a fuse running out); pass it when "full" is
+   * good news (projects done) and only something else should warn.
+   */
+  hot?: boolean;
   /** Accessible name of the ring ("4 of 8 iterations used"). */
   ariaLabel: string;
   ref?: Ref<HTMLDivElement>;
@@ -39,10 +44,11 @@ export function IterationGauge({
   label,
   caption,
   ariaLabel,
+  hot: hotProp,
   ref,
 }: IterationGaugeProps) {
   const p = max > 0 ? Math.max(0, Math.min(1, used / max)) : 0;
-  const hot = p >= 0.75;
+  const hot = hotProp ?? p >= 0.75;
   return (
     <div className="flex items-center gap-[22px]" data-testid={IterationGaugeTestId.Root} ref={ref}>
       <svg
