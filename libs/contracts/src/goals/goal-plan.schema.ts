@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IsoDateTimeSchema } from "../common.schema";
 import type { GoalCeiling } from "./goal.schema";
-import { GoalInstanceSchema, GoalParkedReasonSchema } from "./goal-state.schema";
+import { GoalInstanceSchema, GoalParkedReasonSchema, GoalStepSchema } from "./goal-state.schema";
 
 const WaitingOnSchema = GoalInstanceSchema.shape.waitingOn.unwrap();
 
@@ -52,12 +52,15 @@ export const GoalActionSchema = z.discriminatedUnion("type", [
     title: z.string().max(200).optional(),
     /** An agent or workflow id; absent = the classifier routes `text`. */
     targetId: z.string().optional(),
+    /** The step this task works on (the engine marks it running with the task's id). */
+    stepId: z.string().min(1).max(64).optional(),
   }),
   /** Start the goal's stored loop through the task path. */
   z.object({
     type: z.literal("run-loop"),
     actionId: GoalActionIdSchema,
     text: z.string().min(1).max(8000),
+    stepId: z.string().min(1).max(64).optional(),
   }),
   /** A PR-inbox action with `auto: true`, only where the place's Autopilot level runs it. */
   z.object({
@@ -140,6 +143,11 @@ export const GoalPlanSchema = z.object({
   feasibility: z.string().optional(),
   /** The planner judges the deadline/outcome unlikely: the operator is notified (first plan). */
   atRisk: z.boolean().optional(),
+  /**
+   * The full step list of this instance (planner-maintained, the engine keeps the first GOAL_STEPS_MAX; replaces the stored list when
+   * present, absent = keep it). Ids stay stable across plans.
+   */
+  steps: z.array(GoalStepSchema).optional(),
   actions: z.array(GoalActionSchema),
 });
 export type GoalPlan = z.infer<typeof GoalPlanSchema>;

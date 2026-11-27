@@ -478,9 +478,10 @@ export class TaskSchedulerService
     // `@department` target legs here, everything else is the operator.
     resolvedInput.source =
       input.source ?? (rawTarget?.kind === "department" ? "department" : "operator");
-    // todo-11 — automation-fired (and goal-started) runs never count toward the run-slot cap (global or
-    // per-project): they run as `immediate`. Budget, limits and gates still apply.
-    if (resolvedInput.source === "automation" || resolvedInput.source === "goal") {
+    // todo-11 — automation-fired runs never count toward the run-slot cap (global or
+    // per-project): they run as `immediate`. Budget, limits and gates still apply. Goal-started
+    // tasks are NOT immediate: they take a slot like operator tasks and queue when the cap is full.
+    if (resolvedInput.source === "automation") {
       resolvedInput.immediate = true;
     }
     // Only the interactive dialog/composer path (`background`) is the operator's own

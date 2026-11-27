@@ -6,6 +6,7 @@ import {
   type GoalInstance,
   GoalSchema,
   type GoalState,
+  type GoalStep,
   SetMergeGrantSchema,
   UpdateGoalSchema,
   emptyGoalState,
@@ -201,6 +202,27 @@ describe("rollupGoal", () => {
     expect(s("done", "waiting", "planning", "acting")).toBe("acting");
     expect(s("done", "waiting", "planning")).toBe("planning");
     expect(s("done", "waiting")).toBe("waiting");
+  });
+
+  describe("steps", () => {
+    const withSteps = (statuses: GoalStep["status"][]): GoalInstance => ({
+      ...inst("acting"),
+      steps: statuses.map((status, i) => ({ id: `s${i}`, title: `Step ${i}`, status })),
+    });
+    it("omits steps when no instance has any", () => {
+      expect(rollupGoal({ enabled: true }, stateOf({ a: inst("acting") })).steps).toBeUndefined();
+    });
+    it("sums done of total over instances with steps; skipped is not counted", () => {
+      const r = rollupGoal(
+        { enabled: true },
+        stateOf({
+          a: withSteps(["done", "done", "running", "pending", "skipped"]),
+          b: withSteps(["done", "failed"]),
+          c: inst("acting"),
+        }),
+      );
+      expect(r.steps).toEqual({ done: 3, total: 6 });
+    });
   });
 
   describe("held", () => {

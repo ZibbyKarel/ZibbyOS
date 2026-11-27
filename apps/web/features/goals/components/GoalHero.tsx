@@ -20,6 +20,7 @@ import {
   decisionsThisMonth,
   formatGoalDateTime,
   goalMeterTone,
+  goalProgress,
   goalScheduleLabel,
   goalScopeLabel,
   percentOf,
@@ -63,21 +64,26 @@ export function GoalHero({ goal, state, rollup, names, now, identity }: GoalHero
   const label = (l: GoalLabel) => t(l.key, l.values);
   const when = (iso: string) => formatGoalDateTime(iso, locale);
   const counts = rollup?.counts;
+  const progress = rollup ? goalProgress(rollup) : undefined;
+  const bySteps = progress?.kind === "steps";
   const display = rollup?.status;
   const grantActive = goal.mergeGrant && Date.parse(goal.mergeGrant.until) > now;
 
   // Nothing to count (no instance yet) or a single project-less run: no "0 of 0" ring.
   const showGauge =
-    counts !== undefined && counts.total > 0 && !(goal.scope.kind === "none" && counts.total <= 1);
+    counts !== undefined &&
+    progress !== undefined &&
+    progress.total > 0 &&
+    (bySteps || !(goal.scope.kind === "none" && counts.total <= 1));
   const gaugeCaption = !counts
     ? undefined
     : counts.total === 0
       ? t("card.notRun")
       : counts.parked > 0
         ? t("list.needsYou", { count: counts.parked })
-        : counts.done === counts.total
+        : progress && progress.done === progress.total
           ? t("detail.gaugeAllDone")
-          : t("detail.gaugeLeft", { count: counts.total - counts.done });
+          : t("detail.gaugeLeft", { count: (progress?.total ?? 0) - (progress?.done ?? 0) });
 
   const deadline = state?.cycle.deadlineAt;
   const deadlinePct =
@@ -197,16 +203,21 @@ export function GoalHero({ goal, state, rollup, names, now, identity }: GoalHero
       </Stack>
       {(showGauge || meters.length > 0) && (
         <Stack wrap align="center" direction="row" gap="300">
-          {showGauge && counts && rollup && (
+          {showGauge && progress && rollup && (
             <div data-testid={GoalHeroTestId.Gauge}>
               <IterationGauge
-                ariaLabel={t("card.ringAria", { done: counts.done, total: counts.total })}
+                ariaLabel={t(bySteps ? "card.ringAriaSteps" : "card.ringAria", {
+                  done: progress.done,
+                  total: progress.total,
+                })}
                 caption={gaugeCaption}
                 hot={rollup.status === "needs-you"}
                 label={t("detail.gaugeLabel")}
-                max={counts.total}
-                ofLabel={t("detail.gaugeOf", { count: counts.total })}
-                used={counts.done}
+                max={progress.total}
+                ofLabel={t(bySteps ? "card.ringOfSteps" : "detail.gaugeOf", {
+                  count: progress.total,
+                })}
+                used={progress.done}
               />
             </div>
           )}

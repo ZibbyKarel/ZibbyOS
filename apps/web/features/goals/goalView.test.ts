@@ -151,6 +151,29 @@ describe("goalCardModel", () => {
     expect(m.ringAria).toEqual({ key: "card.ringAria", values: { done: 1, total: 3 } });
   });
 
+  it("fills the ring with done of total steps when the roll-up has them (Czech plural keys)", () => {
+    const withSteps = {
+      ...goal,
+      rollup: { ...goal.rollup, steps: { done: 4, total: 16 } },
+    };
+    const m = goalCardModel(withSteps, undefined, names, "cs");
+    expect(m).toMatchObject({ used: 4, max: 16, ringValue: undefined });
+    expect(m.ringCaption).toEqual({ key: "card.ringOfSteps", values: { count: 16 } });
+    expect(m.ringAria).toEqual({ key: "card.ringAriaSteps", values: { done: 4, total: 16 } });
+  });
+
+  it("falls back to projects when the steps total is 0 and never shows done above total", () => {
+    const zero = { ...goal, rollup: { ...goal.rollup, steps: { done: 0, total: 0 } } };
+    expect(goalCardModel(zero, undefined, names, "cs")).toMatchObject({ used: 1, max: 3 });
+    const over = {
+      ...goal,
+      rollup: { ...goal.rollup, counts: { total: 1, done: 2, parked: 0, active: 0 } },
+    };
+    expect(goalCardModel(over, undefined, names, "cs")).toMatchObject({ used: 1, max: 1 });
+    const overSteps = { ...goal, rollup: { ...goal.rollup, steps: { done: 5, total: 3 } } };
+    expect(goalCardModel(overSteps, undefined, names, "cs")).toMatchObject({ used: 3, max: 3 });
+  });
+
   it("reads a scope-none goal as a plain 'of N' (no 'projects'), and no instances as not run yet", () => {
     const none = { ...goal, scope: { kind: "none" as const } };
     expect(goalCardModel(none, undefined, names, "cs").ringCaption).toEqual({

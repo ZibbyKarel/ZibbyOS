@@ -27,7 +27,7 @@ import { useIsPhone } from "../../../hooks/useIsPhone";
 import { useAgentSymbol } from "../../agents";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { prListHref } from "../../inbox/inbox";
-import { GOAL_CARD_STATE } from "../../goals/goalView";
+import { GOAL_CARD_STATE, goalProgress } from "../../goals/goalView";
 import { useGoalsQuery } from "../../goals/queries";
 import { useProjectsQuery } from "../../projects";
 import { useAssignRunProjectMutation } from "../mutations";
@@ -155,8 +155,8 @@ function GoalAbout({ goalId }: { goalId: string }) {
   const router = useRouter();
   const goal = useGoalsQuery().data?.find((g) => g.id === goalId);
   const name = goal?.name ?? goalId;
-  const counts = goal?.rollup.counts;
-  const ran = !!counts && counts.total > 0;
+  const progress = goal ? goalProgress(goal.rollup) : undefined;
+  const ran = !!progress && progress.total > 0;
   return (
     <AboutCard
       aria-label={t("detail.goalLink", { name })}
@@ -164,17 +164,20 @@ function GoalAbout({ goalId }: { goalId: string }) {
       icon="flow"
       label={t("detail.about.goal")}
       leading={
-        goal && counts ? (
+        goal && progress ? (
           <SegmentedRing
             ariaLabel={
               ran
-                ? tGoals("card.ringAria", { done: counts.done, total: counts.total })
+                ? tGoals(progress.kind === "steps" ? "card.ringAriaSteps" : "card.ringAria", {
+                    done: progress.done,
+                    total: progress.total,
+                  })
                 : tGoals("card.notRun")
             }
-            max={Math.max(counts.total, 1)}
+            max={Math.max(progress.total, 1)}
             size={40}
             tone={GOAL_CARD_STATE[goal.rollup.status]}
-            used={counts.done}
+            used={progress.done}
             value={ran ? undefined : "–"}
           />
         ) : undefined

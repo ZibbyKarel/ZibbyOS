@@ -4,9 +4,11 @@ import type {
   GoalCeiling,
   GoalInstanceStatus,
   GoalPreset,
+  GoalRollup,
   GoalRollupStatus,
   GoalScope,
   GoalState,
+  GoalStep,
   GoalTimelineEvent,
   GoalWithRollup,
 } from "@zibby/contracts";
@@ -28,6 +30,8 @@ export interface GoalLabel {
     | "card.ringOfCount"
     | "card.ringAria"
     | "card.ringAriaCount"
+    | "card.ringOfSteps"
+    | "card.ringAriaSteps"
     | "card.notRun"
     | "card.role.scope"
     | "card.role.ceiling"
@@ -208,6 +212,44 @@ export const GOAL_CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
   paused: "idle",
 };
 
+/** What a goal's ring counts: the planner's steps when it has any, otherwise the projects. */
+export interface GoalProgress {
+  kind: "steps" | "projects";
+  done: number;
+  total: number;
+}
+
+/**
+ * The one place a goal's progress is derived (card, detail hero, run header). Steps win when the
+ * roll-up carries a non-empty step total; otherwise projects (instances). `done` is clamped to
+ * `total` so a ring never reads "5 of 3".
+ */
+export function goalProgress(rollup: Pick<GoalRollup, "counts" | "steps">): GoalProgress {
+  const { steps, counts } = rollup;
+  const [kind, done, total] =
+    steps && steps.total > 0
+      ? (["steps", steps.done, steps.total] as const)
+      : (["projects", counts.done, counts.total] as const);
+  return { kind, done: Math.max(0, Math.min(done, total)), total };
+}
+
+/** Step status → pill tone: failed is the one that asks for attention, blocked waits. */
+export function stepStatusTone(status: GoalStep["status"]): GoalStatusTone {
+  switch (status) {
+    case "done":
+      return "ok";
+    case "running":
+      return "info";
+    case "failed":
+      return "err";
+    case "blocked":
+      return "wait";
+    case "pending":
+    case "skipped":
+      return "off";
+  }
+}
+
 /**
  * The list/widget goal card from a mandate: ring = done of total projects, pill tone by roll-up,
  * schedule top-right, scope/ceiling/loop as parties, the newest timeline event as the verdict.
@@ -219,9 +261,10 @@ export function goalCardModel(
   names: GoalNames,
   locale: string,
 ): GoalCardModel {
-  const { counts } = goal.rollup;
+  const progress = goalProgress(goal.rollup);
   const status = goal.rollup.status;
-  const ran = counts.total > 0;
+  const ran = progress.total > 0;
+  const bySteps = progress.kind === "steps";
   const parties: GoalCardModel["parties"] = [
     { role: { key: "card.role.scope" }, name: goalScopeLabel(goal.scope, names) },
     { role: { key: "card.role.ceiling" }, name: { key: `ceiling.${goal.ceiling}` } },
@@ -243,19 +286,23 @@ export function goalCardModel(
 
   return {
     state: GOAL_CARD_STATE[status],
-    used: counts.done,
-    max: Math.max(counts.total, 1),
+    used: progress.done,
+    max: Math.max(progress.total, 1),
     ringValue: ran ? undefined : "–",
     ringCaption: !ran
       ? { key: "card.notRun" }
-      : goal.scope.kind === "none"
-        ? { key: "card.ringOfCount", values: { count: counts.total } }
-        : { key: "card.ringOf", values: { count: counts.total } },
+      : bySteps
+        ? { key: "card.ringOfSteps", values: { count: progress.total } }
+        : goal.scope.kind === "none"
+          ? { key: "card.ringOfCount", values: { count: progress.total } }
+          : { key: "card.ringOf", values: { count: progress.total } },
     ringAria: !ran
       ? { key: "card.notRun" }
-      : goal.scope.kind === "none"
-        ? { key: "card.ringAriaCount", values: { done: counts.done, total: counts.total } }
-        : { key: "card.ringAria", values: { done: counts.done, total: counts.total } },
+      : bySteps
+        ? { key: "card.ringAriaSteps", values: { done: progress.done, total: progress.total } }
+        : goal.scope.kind === "none"
+          ? { key: "card.ringAriaCount", values: { done: progress.done, total: progress.total } }
+          : { key: "card.ringAria", values: { done: progress.done, total: progress.total } },
     topMeta: goalScheduleLabel(goal, locale),
     parties,
     verdict,

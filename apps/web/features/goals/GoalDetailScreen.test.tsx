@@ -18,6 +18,7 @@ import { GoalDetailActionsTestId } from "./components/GoalDetailActions";
 import { GoalDirectionalTestId } from "./components/GoalDirectionalPanel";
 import { GoalFormTestId } from "./components/GoalForm";
 import { GoalHeroTestId } from "./components/GoalHero";
+import { GoalStepsTestId } from "./components/GoalStepsPanel";
 import { GoalInstanceStatusTestId } from "./components/GoalInstanceStatus";
 import { GoalInstancesTestId } from "./components/GoalInstancesPanel";
 import { GoalPlanTestId } from "./components/GoalPlanPanel";
@@ -180,6 +181,40 @@ describe("GoalDetailScreen", () => {
     );
     expect(screen.getByTestId(GoalHeroTestId.Tags)).toHaveTextContent("Alpha, Beta");
     expect(screen.getByTestId(GoalHeroTestId.Gauge)).toBeInTheDocument();
+  });
+
+  it("lists the instance steps in the detail and rings steps in the hero", () => {
+    hooks.state = {
+      data: {
+        ...stateView,
+        state: {
+          ...stateView.state,
+          instances: {
+            alpha: {
+              status: "acting",
+              taskIds: [],
+              steps: [
+                { id: "s1", title: "Kniha 1", status: "done" },
+                { id: "s2", title: "Kniha 2", status: "pending" },
+              ],
+            },
+          },
+        },
+        rollup: {
+          status: "acting",
+          counts: { total: 1, done: 0, parked: 0, active: 1 },
+          steps: { done: 1, total: 2 },
+          needsYou: 0,
+        },
+      },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByTestId(`${GoalStepsTestId.Title}-alpha-s1`)).toHaveTextContent("Kniha 1");
+    expect(screen.getByTestId(`${GoalStepsTestId.Status}-alpha-s2`)).toHaveTextContent("Čeká");
+    expect(screen.getByTestId(GoalHeroTestId.Gauge)).toHaveTextContent("z 2 kroků");
   });
 
   it("hides the gauge for a single goal without a project", () => {

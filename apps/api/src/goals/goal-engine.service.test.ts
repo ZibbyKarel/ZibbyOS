@@ -874,6 +874,195 @@ describe("GoalEngineService", () => {
     ]);
   });
 
+  describe("steps and one-at-a-time", () => {
+    const startAction = (n: number, stepId?: string) => ({
+      type: "start-task" as const,
+      actionId: `a${n}`,
+      text: `work ${n}`,
+      ...(stepId ? { stepId } : {}),
+    });
+    const steps3 = [
+      { id: "s1", title: "Jedna", status: "pending" },
+      { id: "s2", title: "Dva", status: "pending" },
+      { id: "s3", title: "Tři", status: "pending" },
+    ];
+    let n: number;
+    beforeEach(() => {
+      n = 0;
+      executor.register("start-task", async (a, ctx) => {
+        const id = `t${++n}`;
+        tasks.set(id, { id, status: "dispatched" });
+        await ctx.recordTask(id, a.actionId);
+      });
+    });
+    const inst = async () => (await state()).instances._;
+    const timelineText = async () => (await store.timeline("g")).map((l) => l.text);
+
+    it("starts only the first of several start-task actions and reports the rest as deferred", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [startAction(1), startAction(2), startAction(3)],
+      });
+      await engine.tick(NOW);
+      const i = await inst();
+      expect(i?.taskIds).toEqual(["t1"]);
+      // Deferred actions are not applied, so the planner can restate them later.
+      expect(i?.appliedActionIds).toEqual(["a1"]);
+      expect((await timelineText()).filter((t) => t.startsWith("Not started"))).toHaveLength(2);
+    });
+
+    it.each(["dispatched", "queued"] as const)(
+      "does not start a task while one is in flight (%s); starts the next once it is done",
+      async (status) => {
+        await create();
+        planner.plan.mockResolvedValueOnce({
+          plan: "",
+          feasibility: "ok",
+          actions: [startAction(1)],
+        });
+        await engine.tick(NOW);
+        tasks.set("t1", { id: "t1", status });
+        await setInstance({ fingerprint: "stale" });
+        planner.plan.mockResolvedValueOnce({
+          plan: "",
+          feasibility: "ok",
+          actions: [startAction(2)],
+        });
+        await engine.tick(later(1));
+        expect((await inst())?.taskIds).toEqual(["t1"]);
+        expect((await timelineText()).some((t) => t.startsWith("Not started"))).toBe(true);
+        tasks.set("t1", {
+          id: "t1",
+          status: "dispatched",
+          outcome: { status: "done", summary: "ok", finishedAt: later(3).toISOString() },
+        });
+        planner.plan.mockResolvedValueOnce({
+          plan: "",
+          feasibility: "ok",
+          actions: [startAction(2)],
+        });
+        await engine.tick(later(4));
+        expect((await inst())?.taskIds).toEqual(["t1", "t2"]);
+      },
+    );
+
+    it("does not block a report or a note while a task runs", async () => {
+      await create();
+      tasks.set("t1", { id: "t1", status: "queued" });
+      await engine.tick(NOW);
+      await setInstance({ taskIds: ["t1"] });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "report", text: "stav" }],
+      });
+      await engine.tick(later(1));
+      expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
+        expect.stringContaining("stav"),
+      ]);
+    });
+
+    it("stores the plan's steps, marks the started step running and done when its task is done", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      let i = await inst();
+      expect(i?.steps?.map((s) => [s.id, s.status, s.taskId])).toEqual([
+        ["s1", "running", "t1"],
+        ["s2", "pending", undefined],
+        ["s3", "pending", undefined],
+      ]);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: { status: "done", summary: "ok", finishedAt: later(1).toISOString() },
+      });
+      await engine.tick(later(2));
+      // The planner saw the step already done, and it stays done though it restated nothing.
+      const ctx = planner.plan.mock.calls.at(-1)?.[0] as GoalPlannerContext;
+      expect(ctx.instance.steps?.[0]).toMatchObject({ id: "s1", status: "done", taskId: "t1" });
+      i = await inst();
+      expect(i?.steps?.[0]?.status).toBe("done");
+    });
+
+    it("marks the step failed with the task's error", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: {
+          status: "error",
+          summary: "OpenAI key missing",
+          finishedAt: later(1).toISOString(),
+        },
+      });
+      await engine.tick(later(2));
+      expect((await inst())?.steps?.[0]).toMatchObject({
+        status: "failed",
+        note: "OpenAI key missing",
+      });
+    });
+
+    it("lets the planner's statuses win and keeps a step's taskId it did not restate", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: { status: "error", summary: "no credits", finishedAt: later(1).toISOString() },
+      });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: [
+          { id: "s1", title: "Jedna", status: "blocked", note: "došly kredity" },
+          { id: "s2", title: "Dva", status: "pending" },
+          { id: "s3", title: "Tři", status: "pending" },
+        ],
+        actions: [],
+      });
+      await engine.tick(later(2));
+      expect((await inst())?.steps?.[0]).toMatchObject({
+        status: "blocked",
+        note: "došly kredity",
+        taskId: "t1",
+      });
+    });
+
+    it("a new cycle clears the steps", async () => {
+      await create({ cadence: { every: "day", hour: 9 } });
+      await store.write({
+        goalId: "g",
+        cycle: { index: 0, startedAt: "2026-11-26T07:00:00.000Z" },
+        instances: { _: { status: "waiting", taskIds: ["t1"], steps: steps3 as never } },
+        decisionsThisMonth: { month: "2026-11", count: 0 },
+        nudges: {},
+      });
+      await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+      expect((await state()).instances._?.steps).toBeUndefined();
+    });
+  });
+
   it("puts a failed instance's dirty refs back for the next tick", async () => {
     await create();
     await engine.tick(NOW);

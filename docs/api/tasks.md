@@ -78,7 +78,8 @@ Body: {
                                # defaults to "operator", or "department" when the target
                                # is an explicit @department mention.
   immediate?: boolean          # Operator-set (quick action "Run immediately"), and forced on
-                               # for every `source: "automation"` / `"goal"` task: the run
+                               # for every `source: "automation"` task (NOT `"goal"` — goal
+                               # tasks take a slot and queue when the cap is full): the run
                                # takes no run slot, so it bypasses the global and per-project
                                # concurrency caps. Budget hold, usage limits and gates still apply.
   engine?: "claude" | "opencode"  # The firing automation's engine override (+ engineModel); wins over
@@ -568,6 +569,10 @@ and system automations (briefing, distill, …) take none. Everything that creat
 instance through the scheduler counts, including tasks started from chat and `agent` /
 `workflow` automations (see [automations.md](./automations.md)).
 
+Goal-started tasks (`source: "goal"`) take a slot exactly like operator tasks: with the
+global cap or the project's `budget.maxConcurrent` full they wait **queued** and drain when
+a slot frees. Only automation-fired tasks are forced `immediate`.
+
 A task with `immediate: true` takes **no slot**: `takeRunSlot` returns an uncounted no-op
 slot, so it dispatches past both caps and `RunSlots.inUse()` does not count it. A rerun of
 such a run does not carry the flag.
@@ -670,13 +675,13 @@ chat message references is never deleted.
 
 A `ScheduledTask` carries four additive, server-derived fields, plus the operator-set `immediate` (`parentTaskId` and `chain` are legacy: they still parse read-only but nothing writes them any more) —
 
-| Field          | Set by                                                                                                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parentTaskId` | Legacy (chains removed): the chain step's parent task id. Parses read-only; no longer written.                                                                                                                                  |
-| `chain`        | Legacy (chains removed): `{ id, step }`. Parses read-only; no longer written.                                                                                                                                                   |
-| `source`       | O-18: who created the task — `operator` \| `department` \| `channel` \| `automation` \| `goal` (legacy values `chain` / `handoff` still parse). Stamped once, at creation (never re-derived).                                   |
-| `department`   | O-06: the department that owns the DISPATCHED unit. Stamped at dispatch time (not creation — a scheduled/held/queued task has no resolved unit yet), from the classifier's stage-1 verdict or an explicit `@department` target. |
-| `immediate`    | Quick-action "Run immediately": persisted only when `true` (absent otherwise). Operator-set via `CreateTaskInput.immediate`; no server-side creator sets it. The run takes no run slot (see "Run slots").                       |
+| Field          | Set by                                                                                                                                                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parentTaskId` | Legacy (chains removed): the chain step's parent task id. Parses read-only; no longer written.                                                                                                                                                                          |
+| `chain`        | Legacy (chains removed): `{ id, step }`. Parses read-only; no longer written.                                                                                                                                                                                           |
+| `source`       | O-18: who created the task — `operator` \| `department` \| `channel` \| `automation` \| `goal` (legacy values `chain` / `handoff` still parse). Stamped once, at creation (never re-derived).                                                                           |
+| `department`   | O-06: the department that owns the DISPATCHED unit. Stamped at dispatch time (not creation — a scheduled/held/queued task has no resolved unit yet), from the classifier's stage-1 verdict or an explicit `@department` target.                                         |
+| `immediate`    | Quick-action "Run immediately": persisted only when `true` (absent otherwise). Operator-set via `CreateTaskInput.immediate`; the only server-side setter is the automation leg (`source: "automation"`), never goal tasks. The run takes no run slot (see "Run slots"). |
 
 **Source stamping per creation leg** — `source` is server-derived, never client-asserted for
 the automatic legs (Law 4):

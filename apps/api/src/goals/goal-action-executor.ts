@@ -10,7 +10,7 @@ import {
   ceilingAllows,
 } from "@zibby/contracts";
 import { AutopilotService } from "../autopilot/autopilot.service";
-import type { GoalFacts } from "./goal-facts";
+import { type GoalFacts, isTaskInFlight, taskFactsOf } from "./goal-facts";
 
 type ParkedReason = NonNullable<GoalInstance["parkedReason"]>;
 
@@ -33,6 +33,12 @@ export const STARTING_ACTIONS: ReadonlySet<GoalActionType> = new Set([
   "merge",
 ]);
 
+/**
+ * Actions that start a unit of work for a step: at most one may be in flight per instance
+ * (the engine enforces the sequence, the planner's prompt only asks for it).
+ */
+export const SEQUENTIAL_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
+
 const LEVEL_LABEL: Readonly<Record<AutomationLevel, string>> = {
   manual: "Manual",
   semi: "Semi-auto",
@@ -52,6 +58,13 @@ function startingWhat(action: GoalAction): string {
             ? `${action.repo}#${action.number}`
             : "";
   return what ? ` (${what.slice(0, 120)})` : "";
+}
+
+/** ` [step Title]` for a deferred action that names a known step. */
+function stepLabel(action: GoalAction, ctx: GoalActionContext): string {
+  const stepId = "stepId" in action ? action.stepId : undefined;
+  const step = stepId ? ctx.instance.steps?.find((s) => s.id === stepId) : undefined;
+  return step ? ` [step ${step.title}]` : "";
 }
 
 export interface GoalBudgetLeft {
@@ -113,6 +126,26 @@ export class GoalActionContext {
       (this.instance.appliedActionIds ??= []).push(actionId);
     }
     await this.persistTask(taskId, actionId);
+  }
+
+  /** A `start-task` / `run-loop` of this pass already started a task. */
+  workStarted = false;
+
+  /**
+   * A task of the instance is still running or queued: from the facts this pass planned on,
+   * or one this pass started itself (not yet in the facts).
+   */
+  get workInFlight(): boolean {
+    return this.workStarted || taskFactsOf(this.facts).some(isTaskInFlight);
+  }
+
+  /** The step the engine marks `running` for a task it started (an unknown id changes nothing). */
+  markStepRunning(stepId: string, taskId: string): void {
+    const step = this.instance.steps?.find((s) => s.id === stepId);
+    if (!step) return;
+    step.status = "running";
+    step.taskId = taskId;
+    delete step.note;
   }
 
   /** Whether this cycle already applied the action with this id. */
@@ -276,9 +309,24 @@ export class GoalActionExecutor {
         reportFromGoal(ctx, `Not done: ${action.type} — the cycle's budget is used up.`);
       } else if (!handler) {
         reportFromGoal(ctx, `Not done: ${action.type} — not available yet.`);
+      } else if (SEQUENTIAL_ACTIONS.has(action.type) && ctx.workInFlight) {
+        // One unit of work at a time. Not recorded as applied: the planner restates it later.
+        ctx.timeline(
+          "note",
+          `Not started: ${action.type}${startingWhat(action)}${stepLabel(action, ctx)} waits for the running step.`,
+        );
       } else {
         try {
+          const before = ctx.instance.taskIds.length;
           await handler(action, ctx);
+          if (SEQUENTIAL_ACTIONS.has(action.type)) {
+            const started = ctx.instance.taskIds[before];
+            if (started !== undefined) {
+              ctx.workStarted = true;
+              const stepId = "stepId" in action ? action.stepId : undefined;
+              if (stepId) ctx.markStepRunning(stepId, started);
+            }
+          }
         } catch (error) {
           // A failing service (refused, out of scope, host down) is reported, never re-planned
           // off a thrown tick.

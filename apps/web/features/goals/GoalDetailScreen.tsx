@@ -34,6 +34,7 @@ import { GoalInstancesPanel } from "./components/GoalInstancesPanel";
 import { GoalLoop } from "./components/GoalLoop";
 import { GoalMergeGrantPanel } from "./components/GoalMergeGrantPanel";
 import { GoalPlanPanel } from "./components/GoalPlanPanel";
+import { GoalStepsPanel } from "./components/GoalStepsPanel";
 import { GoalSettingsPanel } from "./components/GoalSettingsPanel";
 import { GoalUpcoming } from "./components/GoalUpcoming";
 import { GoalWaitingCard } from "./components/GoalWaitingCard";
@@ -249,6 +250,11 @@ function GoalDetail({ goal }: { goal: Goal }) {
           {state && <GoalInstancesPanel instances={instances} names={names} />}
         </Stack>
       </Panel>
+      {Object.values(instances).some((i) => (i.steps?.length ?? 0) > 0) && (
+        <Panel header={t("detail.stepsTitle")} headerRule={false} padding="200">
+          <GoalStepsPanel instances={instances} names={names} />
+        </Panel>
+      )}
       <Panel header={t("detail.planTitle")} headerRule={false} padding="200">
         <GoalPlanPanel plans={plans} />
       </Panel>

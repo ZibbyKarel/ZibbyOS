@@ -115,3 +115,30 @@ describe("directional actions", () => {
     expect(ceilingAllows("tier1", "start-task")).toBe(false);
   });
 });
+
+describe("GoalPlanSchema steps", () => {
+  it("accepts a steps list and a stepId on start-task / run-loop", () => {
+    const plan = GoalPlanSchema.parse({
+      plan: "# Plan",
+      steps: [
+        { id: "book-1", title: "Omalovánky 1", status: "pending" },
+        { id: "model-1", title: "3D model 1", status: "blocked", note: "chybí klíč" },
+      ],
+      actions: [
+        { type: "start-task", actionId: "a", text: "x", stepId: "book-1" },
+        { type: "run-loop", actionId: "b", text: "y", stepId: "model-1" },
+      ],
+    });
+    expect(plan.steps).toHaveLength(2);
+    expect(plan.actions[0]).toMatchObject({ stepId: "book-1" });
+  });
+
+  it("rejects a bad step status or a step without a title / id", () => {
+    const bad = (step: unknown) =>
+      GoalPlanSchema.safeParse({ plan: "", steps: [step], actions: [] }).success;
+    expect(bad({ id: "a", title: "t", status: "nope" })).toBe(false);
+    expect(bad({ id: "a", title: "", status: "done" })).toBe(false);
+    expect(bad({ id: "", title: "t", status: "done" })).toBe(false);
+    expect(bad({ id: "a", title: "t", status: "skipped", taskId: "t-1" })).toBe(true);
+  });
+});

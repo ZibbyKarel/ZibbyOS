@@ -5597,6 +5597,17 @@
       "budget": "Budget",
       "noBudget": "No limit"
     },
+    "steps": {
+      "noProject": "No project",
+      "status": {
+        "pending": "Pending",
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed",
+        "blocked": "Blocked",
+        "skipped": "Skipped"
+      }
+    },
     "instances": {
       "noProject": "No project",
       "resume": "Resume",
@@ -5634,6 +5645,7 @@
       "wake": "Wake now",
       "settingsTitle": "Settings",
       "instancesTitle": "Projects",
+      "stepsTitle": "Steps",
       "planTitle": "Plan",
       "deleteTitle": "Delete goal?",
       "deleteBody": "Really delete the goal “{name}” and its state? This cannot be undone.",
@@ -5723,6 +5735,8 @@
       "ringOfCount": "of {count}",
       "ringAria": "{done} of {total, plural, one {# project} other {# projects}} done",
       "ringAriaCount": "{done} of {total} done",
+      "ringOfSteps": "of {count, plural, one {# step} other {# steps}}",
+      "ringAriaSteps": "{done} of {total, plural, one {# step} other {# steps}} done",
       "notRun": "not run yet",
       "role": {
         "scope": "Scope",

@@ -24,6 +24,15 @@ as an internal way to execute work (`run-loop`).
   (not done, not parked) instance `held` (Manual autonomy, see the Autonomy paragraph below) = `held`;
   otherwise the busiest of acting > planning > waiting. Every reader (list, widget, sheet, detail
   page) takes `held` from the roll-up; the web derives nothing itself.
+- **Steps.** `GoalInstance.steps?: GoalStep[]` (`{ id, title, status, taskId?, note? }`, status
+  `pending | running | done | failed | blocked | skipped`) is the planner's explicit list of
+  deliverables toward the outcome (e.g. one per book, one per model). The planner defines it on
+  the first plan of a cycle and maintains it: the plan block's optional top-level `steps` is
+  the full list and replaces the stored one (capped at `GOAL_STEPS_MAX` = 100; a step it does
+  not restate with a `taskId` keeps the engine's). The engine keeps `running` / `done` /
+  `failed` current itself (see Tick). A new cycle clears the steps. The roll-up carries
+  `steps?: { done, total }`: summed over the instances that have steps, `done` = status `done`,
+  `skipped` is not counted, absent when no instance has steps. `counts` stays instance counts.
 - `GOAL_PRESETS`: 11 prepared goals (`enabled: false`, Czech text, `group`). Data only, never
   written to disk.
 
@@ -129,7 +138,7 @@ Each tick, per enabled goal (one goal failing never blocks the others):
    company's projects; `all` -> every project.
 2. **Bookkeeping** under the state lock (`bookkeep`). A standing goal past a cadence boundary
    starts ONE new cycle anchored at the latest boundary (missed boundaries are not replayed):
-   every in-scope instance goes back to `planning` with no `taskIds`, nudges and the message
+   every in-scope instance goes back to `planning` with no `taskIds` and no `steps`, nudges and the message
    records are cleared, and a
    `cycle-started` timeline line plus a `goal-started` activity are written. `cycleHours` sets
    the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
@@ -195,8 +204,8 @@ Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot over
 | `wait`             | `waitingOn?`, `wakeAt?` (one required)                                                                    | tier1       | adds the waits; the earliest `wakeAt` wins, ≥ now + 5 min |
 | `done`             | `summary?`                                                                                                | tier1       | status `done`, `goal-done`                                |
 | `park`             | `reason`, `text?`                                                                                         | tier1       | status `parked`                                           |
-| `start-task`       | `actionId`, `text`, `title?`, `targetId?`                                                                 | tier2       | `createTask` in the instance's project                    |
-| `run-loop`         | `actionId`, `text`                                                                                        | tier2       | `createTask` with the goal's loop                         |
+| `start-task`       | `actionId`, `text`, `title?`, `targetId?`, `stepId?`                                                      | tier2       | `createTask` in the instance's project                    |
+| `run-loop`         | `actionId`, `text`, `stepId?`                                                                             | tier2       | `createTask` with the goal's loop                         |
 | `pr-action`        | `actionId`, `op` (review/address-comments/fix-ci), `projectId`, `repo`, `number`                          | tier2       | inbox service, `auto: true`                               |
 | `message`          | `actionId`, `to: { kind: slack-user \| pr, ref }`, `text`, `about?: { repo, number }` (required for `pr`) | tier2       | `GoalMessageService` (below)                              |
 | `propose`          | `candidates[]` (`id`, `title`, `why?`, `size` small\|large, `task`), ranked best first                    | tier1       | `GoalDecisionService` (below)                             |
@@ -211,6 +220,20 @@ throws (a refused or out-of-scope service, a host error) becomes a report "Not d
 <error>" too: never a thrown tick and never a paid re-plan. After `done` or `park` no further
 action runs. A later phase adds a handler with `GoalActionExecutor.register(type, handler)`, a
 facts source by appending to the `GOAL_FACTS_SOURCES` factory.
+
+**One step at a time.** At most one work-starting action (`start-task`, `run-loop`;
+`SEQUENTIAL_ACTIONS`) is in flight per instance, enforced by `GoalActionExecutor`, not only
+by the prompt. It runs after the ceiling, autonomy, pause and budget checks: while a task of
+the instance is in flight (any status that is not ended and has no outcome, `queued`
+included, from the facts the pass planned on) or this pass already started one, the action is
+not executed. It becomes a timeline note "Not started: <type> (<what>) [step <title>] waits
+for the running step." and is never recorded as applied, so the planner can restate it later.
+So of several `start-task` actions in one plan only the first runs. `pr-action`, `message` and
+the rest are never blocked by this. When a started task carries a `stepId` of a known step, the
+step becomes `running` with that `taskId`. Before every planner run the engine settles
+running steps whose task finished (`reconcileSteps`): outcome `done` -> `done`; outcome
+`error` (or a cancelled / failed / dead-lettered task) -> `failed` with the error as `note`
+(300 chars). The planner sees the settled state and its own statuses win afterwards.
 
 **Idempotency.** `start-task`, `run-loop`, `pr-action` and `message` carry a planner-supplied
 `actionId`
@@ -414,6 +437,15 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
   unexpired grant listing the instance's project. The mandate line says whether this instance has
   a merge grant and until when. The rules explain `actionId` (stable per piece of work) and
   list the cycle's `appliedActionIds`, and say a `pr-action` runs only where Autopilot starts it.
+  Steps: the current steps sit in their own `<untrusted-data name="steps">` section and the
+  output block may carry `steps`. The rules ask for one step per deliverable on the first plan
+  with stable ids and Czech titles, exactly ONE step started at a time (only when no step runs,
+  the next after the previous is done, `stepId` on `start-task`), and **re-planning around a
+  blocker**: when a failed task's `error` (in the facts) says an API key is missing or credits /
+  quota are exhausted, the planner marks that step `failed`/`blocked` with the reason, leaves
+  the other steps of that kind pending, starts a step of a different kind instead (a 3D model
+  rather than a book), reports once in Czech what is blocked and why, and parks
+  (`needs-operator`) only when no other kind is left.
   For `message`: closed recipients, no other mentions, max 2 per person, working hours, and wait
   on a sent message's `replyRef` instead of chasing it.
 - **Untrusted data.** Facts and the stored plan note sit in `<untrusted-data>` sections; every

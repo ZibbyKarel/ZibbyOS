@@ -3120,13 +3120,22 @@ describe("run slots (global + per-project cap)", () => {
     expect(stored.automationId).toBe("nightly");
   });
 
-  it("a goal-started task is immediate like an automation and keeps its goalId stamp", async () => {
+  it("a goal-started task takes a run slot: it queues past a full cap and drains when one frees", async () => {
     makeService(1);
-    await dispatched("do A"); // the global cap of 1 is now full
+    const firstRef = await dispatched("do A"); // the global cap of 1 is now full
     const r = await service.createTask({ text: "fix", title: "fix", source: "goal", goalId: "g" });
-    expect(r.outcome).toBe("dispatched");
+    expect(r.outcome).toBe("scheduled");
+    expect(agentRunner.start).toHaveBeenCalledTimes(1);
     const stored = await storage.get(r.task.id);
-    expect(stored).toMatchObject({ source: "goal", goalId: "g", immediate: true });
+    expect(stored).toMatchObject({ status: "queued", source: "goal", goalId: "g" });
+    expect(stored.immediate).toBeUndefined();
+
+    agentListener?.(agentRun({ runId: firstRef, status: "done" }));
+    await vi.waitFor(async () => {
+      expect((await storage.get(r.task.id)).status).toBe("dispatched");
+    });
+    expect(agentRunner.start).toHaveBeenCalledTimes(2);
+    expect(slots.inUse()).toBe(1);
   });
 
   it("a null trustedProjectId skips the text project match (a project-less goal task)", async () => {

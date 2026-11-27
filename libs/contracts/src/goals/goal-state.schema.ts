@@ -13,6 +13,25 @@ export const GoalParkedReasonSchema = z.enum([
   "infeasible",
 ]);
 
+/**
+ * One step toward the outcome: a deliverable the planner defines and maintains (one coloring
+ * book, one model). The engine runs them one at a time and keeps `running` / `done` / `failed`
+ * current from the step's task; the planner owns the rest (`blocked`, `skipped`, titles).
+ */
+export const GoalStepSchema = z.object({
+  id: z.string().min(1).max(64),
+  title: z.string().min(1),
+  status: z.enum(["pending", "running", "done", "failed", "blocked", "skipped"]),
+  /** The task working on this step (set by the engine when it starts one with `stepId`). */
+  taskId: z.string().optional(),
+  /** Why it failed / is blocked, or a remark. */
+  note: z.string().optional(),
+});
+export type GoalStep = z.infer<typeof GoalStepSchema>;
+
+/** The most steps an instance keeps. */
+export const GOAL_STEPS_MAX = 100;
+
 export const GoalInstanceSchema = z.object({
   status: GoalInstanceStatusSchema,
   parkedReason: GoalParkedReasonSchema.optional(),
@@ -44,6 +63,8 @@ export const GoalInstanceSchema = z.object({
   resumedRuns: z.number().int().min(0).optional(),
   /** This cycle's feasibility line (from its first plan); absent = the next plan is the first. */
   feasibility: z.string().optional(),
+  /** The planner's explicit step list toward the outcome (absent = the goal has no steps). */
+  steps: z.array(GoalStepSchema).optional(),
   /** `actionId`s of the work this cycle already started (start-task, run-loop, pr-action). */
   appliedActionIds: z.array(z.string()).optional(),
   /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */
@@ -179,6 +200,8 @@ export const GoalRollupSchema = z.object({
     active: z.number().int(),
   }),
   needsYou: z.number().int(),
+  /** Steps done of total, summed over instances that have steps (skipped steps not counted). */
+  steps: z.object({ done: z.number().int(), total: z.number().int() }).optional(),
 });
 export type GoalRollup = z.infer<typeof GoalRollupSchema>;
 
@@ -219,5 +242,14 @@ export function rollupGoal(goal: Pick<Goal, "enabled">, state: GoalState): GoalR
   else if (count("acting") > 0) status = "acting";
   else if (count("planning") > 0) status = "planning";
   else status = "waiting";
-  return { status, counts, needsYou: parked };
+  const steps = instances.flatMap((i) => i.steps ?? []).filter((st) => st.status !== "skipped");
+  const withSteps = instances.some((i) => i.steps?.length);
+  return {
+    status,
+    counts,
+    needsYou: parked,
+    ...(withSteps
+      ? { steps: { done: steps.filter((st) => st.status === "done").length, total: steps.length } }
+      : {}),
+  };
 }

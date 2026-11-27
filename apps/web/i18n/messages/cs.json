@@ -5597,6 +5597,17 @@
       "budget": "Rozpočet",
       "noBudget": "Bez limitu"
     },
+    "steps": {
+      "noProject": "Bez projektu",
+      "status": {
+        "pending": "Čeká",
+        "running": "Běží",
+        "done": "Hotovo",
+        "failed": "Selhalo",
+        "blocked": "Blokováno",
+        "skipped": "Přeskočeno"
+      }
+    },
     "instances": {
       "noProject": "Bez projektu",
       "resume": "Pokračovat",
@@ -5634,6 +5645,7 @@
       "wake": "Probudit",
       "settingsTitle": "Nastavení",
       "instancesTitle": "Projekty",
+      "stepsTitle": "Kroky",
       "planTitle": "Plán",
       "deleteTitle": "Smazat cíl?",
       "deleteBody": "Opravdu smazat cíl „{name}“ i jeho stav? Tuto akci nelze vrátit.",
@@ -5723,6 +5735,8 @@
       "ringOfCount": "z {count}",
       "ringAria": "{done} z {total, plural, one {# projektu} other {# projektů}} hotovo",
       "ringAriaCount": "{done} z {total} hotovo",
+      "ringOfSteps": "z {count, plural, one {# kroku} few {# kroků} other {# kroků}}",
+      "ringAriaSteps": "{done} z {total, plural, one {# kroku} few {# kroků} other {# kroků}} hotovo",
       "notRun": "zatím neběžel",
       "role": {
         "scope": "Rozsah",

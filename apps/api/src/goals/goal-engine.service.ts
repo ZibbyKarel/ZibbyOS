@@ -8,10 +8,12 @@ import {
 import {
   AUTOMATION_LEVEL_RANK,
   type AutomationLevel,
+  GOAL_STEPS_MAX,
   type Goal,
   type GoalInstance,
   GoalPlanSchema,
   type GoalState,
+  type GoalStep,
 } from "@zibby/contracts";
 import type { Subscription } from "rxjs";
 import { ActivityEventsService } from "../activity/activity-events.service";
@@ -37,6 +39,7 @@ import { latestCycleStart } from "./goal-cadence";
 import {
   type GoalFacts,
   GoalFactsService,
+  type GoalTaskFact,
   goalFingerprint,
   isTaskInFlight,
   taskFactsOf,
@@ -270,6 +273,8 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     delete work.operatorWake;
     if (released) delete work.held;
     const facts = await this.facts.collect({ goal, instanceKey: key, instance: before, now });
+    // The planner must see accurate step state: a finished task settles its step first.
+    reconcileSteps(work, facts);
     const remainingBudget = await this.remainingBudget(goal, state, before, now);
     const ctx = new GoalActionContext(
       goal,
@@ -324,7 +329,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
           goal,
           instanceKey: key,
           ...(ctx.projectId ? { projectId: ctx.projectId } : {}),
-          instance: before,
+          instance: work.steps ? { ...before, steps: work.steps } : before,
           cycle: state.cycle,
           facts,
           ceiling: goal.ceiling,
@@ -386,6 +391,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     // The planner re-states what it waits on; a consumed wakeAt never re-fires.
     delete work.waitingOn;
     delete work.wakeAt;
+    if (plan.steps) work.steps = mergeSteps(work.steps, plan.steps);
     if (plan.plan.trim()) work.planNoteId = goalPlanNoteId(goal.id, key);
     if (firstPlan && plan.feasibility) {
       work.feasibility = plan.feasibility;
@@ -635,6 +641,50 @@ export function bookkeep(
     delete inst.wakeAt;
     timeline(key, "note", "The project left the goal's scope; instance closed.");
   }
+}
+
+/** Errors kept on a failed step's `note`. */
+const STEP_NOTE_MAX = 300;
+
+/**
+ * Settle the running steps whose task finished (before the planner runs, so it sees accurate
+ * state and the done/total counts are right even if it never restates them): outcome `done` →
+ * `done`; outcome `error` or a cancelled/failed/dead-lettered task → `failed` with the error.
+ */
+export function reconcileSteps(instance: GoalInstance, facts: GoalFacts): void {
+  if (!instance.steps?.length) return;
+  const byId = new Map<string, GoalTaskFact>(taskFactsOf(facts).map((t) => [t.id, t]));
+  for (const step of instance.steps) {
+    if (step.status !== "running" || !step.taskId) continue;
+    const task = byId.get(step.taskId);
+    if (!task) continue;
+    if (task.outcome === "done") {
+      step.status = "done";
+      delete step.note;
+    } else if (task.outcome === "error") {
+      step.status = "failed";
+      step.note = (task.error ?? "The task failed.").slice(0, STEP_NOTE_MAX);
+    } else if (
+      task.status === "cancelled" ||
+      task.status === "failed" ||
+      task.status === "dead-letter"
+    ) {
+      step.status = "failed";
+      step.note = `The task ended: ${task.status}.`;
+    }
+  }
+}
+
+/**
+ * The planner's full step list replaces the stored one (capped); a step it does not restate
+ * with a `taskId` keeps the one the engine recorded. The planner's statuses win.
+ */
+function mergeSteps(stored: GoalStep[] | undefined, planned: GoalStep[]): GoalStep[] {
+  const old = new Map((stored ?? []).map((s) => [s.id, s]));
+  return planned.slice(0, GOAL_STEPS_MAX).map((step) => {
+    const taskId = step.taskId ?? old.get(step.id)?.taskId;
+    return { ...step, ...(taskId ? { taskId } : {}) };
+  });
 }
 
 /** The refs whose settling wakes the instance: its tasks and what it waits on. */
