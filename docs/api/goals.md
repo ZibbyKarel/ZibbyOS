@@ -16,10 +16,12 @@ as an internal way to execute work (`run-loop`).
   defaults to `tier2`.
 - `mergeGrant` exists on `Goal` only. Create and update reject it (422); only the token-protected
   merge-grant route sets or clears it (see [Merge grant](#merge-grant)).
-- Roll-up status: `paused | planning | acting | waiting | needs-you | done`, counts
+- Roll-up status: `paused | planning | acting | waiting | needs-you | done | held`, counts
   `{ total, done, parked, active }` and `needsYou`. Disabled = `paused`; no instances = `planning`;
-  any parked instance (every `parkedReason`) = `needs-you`; all done = `done`; otherwise the
-  busiest of acting > planning > waiting.
+  any parked instance (every `parkedReason`) = `needs-you`; all done = `done`; every active
+  (not done, not parked) instance `held` (Manual autonomy, see the Autonomy paragraph below) = `held`;
+  otherwise the busiest of acting > planning > waiting. Every reader (list, widget, sheet, detail
+  page) takes `held` from the roll-up; the web derives nothing itself.
 - `GOAL_PRESETS`: 11 prepared goals (`enabled: false`, Czech text, `group`). Data only, never
   written to disk.
 
@@ -87,10 +89,15 @@ over all of it.
 
 - `manual`: the instance is **held**. The engine starts nothing for it on its own: no facts read,
   no planner run, no task, loop, PR action, message or proposal, no deadline/budget park, no
-  failure count, no spend (as quiet as the pause). The instance gets `held: "autonomy-manual"`
+  failure count, no spend, and no "started" record: a new held instance is seeded without the
+  `goal-started` activity or the "Instance started." timeline line, and a new cycle in which every
+  instance is held writes no "Cycle N started." line or activity (the hold carries over the
+  cycle reset). The start level is resolved for every key before that bookkeeping and again by
+  each instance's pass. The instance gets `held: "autonomy-manual"`
   and ONE timeline event when it becomes held (kind `held`, text "Held: Starting and deciding
   goals is Manual here, so ZIBBY starts nothing for this goal on its own. Raise the level or
-  wake the goal for one pass that waits for your approval."); further held ticks write nothing.
+  wake the goal for one pass that waits for your approval."); further held ticks, and later
+  cycles while it stays held, write nothing. The roll-up reads `held` (above).
   Raising the level clears `held` and forces a re-plan. Resuming a parked instance does not
   bypass the hold.
 - `semi`: the engine plans and reports, but nothing that starts work or reaches outward runs on
@@ -491,22 +498,34 @@ action is always a `report` "ready to merge".
 
 ## Web
 
-- **Goals page** `/work/goals` (nav entry "Cíle"): the goals with their roll-up status, a
-  "Připravené cíle" section with the `GOAL_PRESETS` (one click creates the goal, **paused**), and
+- **Goals page** `/work/goals` (nav entry "Cíle"): the goals as design cards (`GoalCard` over
+  the DS `GoalLoopCard`): a ring of done of total projects, the roll-up pill, the schedule, scope /
+  ceiling / loop, the newest timeline event as "Poslední krok" and the actions for the status
+  (Rozhodnout on needs-you, Probudit + Pozastavit, or Zapnout). The header counts total, working,
+  needs-you, held ("N drží manuál") and done; filter chips Vše / Čeká na tebe / Aktivní /
+  Pozastavené / Hotové (held counts under Pozastavené, never under Aktivní). A "Připravené cíle" section with the `GOAL_PRESETS` (one click creates the goal, **paused**), and
   a create dialog (`@zibby/forms`; creates the goal paused, then navigates to the detail page).
   There is no other goals screen: the old maker + verifier screens are gone (the loop has no UI of
   its own, see `docs/api/loops.md`).
-- **Goal detail** `/work/goals/<id>`: outcome, settings (edit top-right), plan (the rendered plan
-  note), timeline (filter per project, grouped by cycle), per-project roll-up with the effective
-  `autoDecideGoals` and its reason, the directional checklist editor and decision counter, the
-  merge-grant panel, and the actions enable/pause, "Probudit" (wake) and resume on parked
-  instances. A goal that no longer exists (404) says so instead of the retry error; the timeline
-  shows loading and error-with-retry states; the roll-up rows show what each instance waits on
-  and when it wakes.
+- **Goal detail** `/work/goals/<id>`: a hero (roll-up pill, name, outcome, scope / ceiling / loop /
+  merge-grant tags, the done-of-projects gauge and only the meters the mandate carries: cycle
+  deadline, decisions this month, runs this cycle), the loop (`GoalLoop`: Plán ⇄ Vykonání, the
+  arrow lit by acting / planning, dashed while it needs you), "Co bude", the cycle timeline
+  ("Průběh" for one-off goals; the live cycle's tone follows the roll-up), the waiting cards,
+  "Splněno, když", settings (edit top-right), per-project status, plan note, merge-grant panel and
+  the directional panel; actions enable/pause, "Probudit" (wake) and resume on parked instances.
+  A goal that no longer exists (404) says so instead of the retry error.
+- **Held** (roll-up `held`): the pill reads "Drží manuál" / "Held by Manual" in the idle tone (no
+  pulse), the card's last step and the hero show the reason ("Spouštění a rozhodování cílů je
+  tady na Manuálu — ZIBBY sám nic nespustí.") only while the goal is held, the loop shows a calm
+  held line and no waiting-on / wake lines, the live cycle is not "run", each held instance's pill
+  reads "Drží manuál" (parked or done wins), and the directional panel shows the hold instead of
+  the last plan's level. Wake stays available.
 - **Dashboard widget "Cíle"** (Bridge widget type `goals`, `GoalsWidget`): the goals picked in the
-  widget settings (`scope.goalIds`; empty or absent = every enabled goal), one row each with the
-  status pill, counts ("7/9 hotovo, 1 čeká na tebe"), schedule label and the latest timeline
-  line (left out while the timeline loads or failed); needs-you goals sort first. A click opens the `goal` `AnchoredSheet` (`GoalSheet`) whose
+  widget settings (`scope.goalIds`; empty or absent = every enabled goal) as the same goal cards,
+  compact (no parties, no actions), in a grid that auto-fills columns of at least 260px (DS `Grid`
+  `minColWidth`); needs-you first, then acting / planning, waiting and held, done, paused. The
+  last step is left out while the timeline loads or failed. A click opens the `goal` `AnchoredSheet` (`GoalSheet`) whose
   title links to the goal page. The sheet has "Co se dělo" (every stored event, newest first; the store keeps the latest 500 per goal) and
   "Co bude" (per instance what it waits on and when it wakes, the next cycle or the deadline, the
   plan note), plus enable/pause, wake and resume. Live through the `goals` SSE scope.
