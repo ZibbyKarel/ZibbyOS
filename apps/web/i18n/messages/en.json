@@ -4137,6 +4137,7 @@
       "removeConfirm": "Confirm remove",
       "filters": "Default filters",
       "sort": "Sort",
+      "showStacks": "Group stacked PRs",
       "sortBy": {
         "updated-desc": "Last change, newest first",
         "updated-asc": "Last change, oldest first",

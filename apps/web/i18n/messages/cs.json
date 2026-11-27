@@ -4137,6 +4137,7 @@
       "removeConfirm": "Opravdu odebrat",
       "filters": "Výchozí filtry",
       "sort": "Řazení",
+      "showStacks": "Seskupovat stacky PR",
       "sortBy": {
         "updated-desc": "Poslední změna, nejnovější nahoře",
         "updated-asc": "Poslední změna, nejstarší nahoře",

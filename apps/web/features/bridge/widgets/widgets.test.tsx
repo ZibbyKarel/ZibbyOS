@@ -15,12 +15,17 @@ import {
 } from "@zibby/design-system";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, screen, within } from "../../../test/render";
+import { fireEvent, renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
 import { BridgePresetContext, BriefingWidget } from "./BriefingWidget";
 import { IndicatorsWidget } from "./IndicatorsWidget";
 import { IssuesWidget, IssuesWidgetTestId } from "./IssuesWidget";
-import { PrsWidget, PrsWidgetTestId } from "./PrsWidget";
+import {
+  PrsWidget,
+  PrsWidgetSettings,
+  PrsWidgetSettingsTestId,
+  PrsWidgetTestId,
+} from "./PrsWidget";
 import type { BridgeWidgetProps } from "./registry";
 import { RunsWidget } from "./RunsWidget";
 import { WidgetSortControlTestId } from "./widgetFilters";
@@ -334,6 +339,29 @@ describe("header sync button", () => {
 });
 
 describe("PrsWidget", () => {
+  it("showStacks=false renders a flat list: no stack rail or marker, every PR a root row", () => {
+    d.prs = [
+      pr(1, { headRef: "a", baseRef: "main" }),
+      pr(2, { headRef: "b", baseRef: "a" }),
+      pr(3, { bucket: "to-review", author: "jana" }),
+    ];
+    const props = setup({ widget: { ...widget("w-prs", "prs"), showStacks: false } });
+    renderWithProviders(<PrsWidget {...props} />);
+    expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(3);
+    expect(screen.queryByTestId(IndentRailTestId.Root)).toBeNull();
+    expect(screen.queryByTestId(PrsWidgetTestId.Stack)).toBeNull();
+  });
+
+  it("the settings checkbox writes showStacks (default on)", () => {
+    const onChange = vi.fn();
+    const draft = widget("w-prs", "prs");
+    renderWithProviders(<PrsWidgetSettings draft={draft} onChange={onChange} />);
+    const box = screen.getByTestId(PrsWidgetSettingsTestId.ShowStacks);
+    expect(box).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(box);
+    expect(onChange).toHaveBeenCalledWith({ ...draft, showStacks: false });
+  });
+
   it("renders one flat list, stacks nested behind the connector, glyphs and pills named by their meaning; opens by url", async () => {
     d.prs = [
       pr(1, { headRef: "a", baseRef: "main" }),
@@ -441,8 +469,8 @@ describe("PrsWidget", () => {
     expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(2);
     expect(screen.getByText("PR 1").closest("button")).toHaveClass("opacity-50");
     expect(screen.getByText("PR 2").closest("button")).not.toHaveClass("opacity-50");
-    // the header still counts the whole set, so the widget never collapses under a pick
-    expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 3 }));
+    // the header counts only the PRs matching the pick (#2), the muted ancestor (#1) isn't one
+    expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ count: 1 }));
 
     await userEvent.click(screen.getByTestId(`${ButtonGroupTestId.Option}-failing`));
     expect(screen.getAllByTestId(BoardRowTestId.Root)).toHaveLength(2); // OR within the group

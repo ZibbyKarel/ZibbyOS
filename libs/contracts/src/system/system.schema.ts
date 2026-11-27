@@ -108,6 +108,8 @@ export const BridgeWidgetSchema = z.preprocess(
     filters: WidgetFiltersSchema.optional(),
     /** List order of a sortable widget, edited in its settings; absent = `updated-desc`. */
     sort: WidgetSortSchema.optional(),
+    /** `prs` widget: `false` = a flat list of the matching PRs, no stacks; absent = stacks shown. */
+    showStacks: z.boolean().optional(),
   }),
 );
 export type BridgeWidget = z.infer<typeof BridgeWidgetSchema>;

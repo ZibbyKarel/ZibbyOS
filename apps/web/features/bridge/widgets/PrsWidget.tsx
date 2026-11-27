@@ -8,11 +8,14 @@ import {
   type BoardPillTone,
   BoardRow,
   BoardText,
+  Checkbox,
   Icon,
   IconBadge,
   IndentRail,
+  Stack,
   StateGlyph,
   type StateGlyphTone,
+  Typography,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode, useCallback, useMemo } from "react";
@@ -24,11 +27,12 @@ import type { PrCiState } from "../state/prStatus";
 import { type PrNodeVm, type PrRowVm, prTree } from "../state/rows";
 import { useBridgeInboxFilters } from "../state/useBridgeInboxFilters";
 import { CI_ICON, PrFilterControls } from "./PrFilterControls";
-import type { BridgeWidgetProps } from "./registry";
+import type { BridgeWidgetProps, WidgetSettingsProps } from "./registry";
 import { useWidgetReport } from "./useWidgetReport";
 import {
   WidgetFilterBar,
   WidgetSortControl,
+  WidgetSortSettings,
   useWidgetFilterPick,
   useWidgetSortPick,
 } from "./widgetFilters";
@@ -72,8 +76,37 @@ function reviewTone(r: PrRowVm): BoardPillTone {
   return "neutral";
 }
 
+/** The PRs matching the pick as one flat list (tree order; greyed ancestor context dropped). */
+const flat = (nodes: PrNodeVm[]): PrRowVm[] =>
+  nodes.flatMap((n) => [...(n.row.muted ? [] : [n.row]), ...flat(n.kids)]);
+
 /** The PRs stacked on top of this one, at any depth. */
 const stackSize = (n: PrNodeVm): number => n.kids.reduce((sum, k) => sum + 1 + stackSize(k), 0);
+
+export enum PrsWidgetSettingsTestId {
+  ShowStacks = "prs-widget-settings-show-stacks",
+}
+
+/** PR widget settings: the list order plus whether stacked PRs are grouped (`widget.showStacks`). */
+export function PrsWidgetSettings({ draft, onChange }: WidgetSettingsProps) {
+  const t = useTranslations("bridge.settings");
+  return (
+    <>
+      <WidgetSortSettings draft={draft} onChange={onChange} />
+      <Stack align="center" direction="row" gap="100">
+        <Checkbox
+          checked={draft.showStacks !== false}
+          data-testid={PrsWidgetSettingsTestId.ShowStacks}
+          label={t("showStacks")}
+          onChange={(showStacks) => onChange({ ...draft, showStacks })}
+        />
+        <Typography as="span" size="sm" type="note">
+          {t("showStacks")}
+        </Typography>
+      </Stack>
+    </>
+  );
+}
 
 /**
  * Pull requests: the set the `/dashboard/inbox/pull-requests` screen lists (stored filters) as
@@ -250,7 +283,9 @@ export function PrsWidget({
         <WidgetSortControl onChange={setSort} value={sort} />
         <PrFilterControls counts={counts} onChange={setPick} pick={pick} />
       </WidgetFilterBar>
-      {nodes.map((n) => tree(n, 0))}
+      {widget.showStacks === false
+        ? flat(nodes).map((r) => <Fragment key={r.key}>{card(r, 0)}</Fragment>)
+        : nodes.map((n) => tree(n, 0))}
     </>
   );
 }

@@ -13,7 +13,7 @@ import { MentionsWidget } from "./MentionsWidget";
 import { NotesWidget } from "./NotesWidget";
 import { PinsWidget } from "./PinsWidget";
 import { PrFilterControls } from "./PrFilterControls";
-import { PrsWidget } from "./PrsWidget";
+import { PrsWidget, PrsWidgetSettings } from "./PrsWidget";
 import { ProjectStatusWidget, ProjectStatusWidgetSettings } from "./ProjectStatusWidget";
 import { ProposalsWidget } from "./ProposalsWidget";
 import { QuickActionsWidget } from "./QuickActionsWidget";
@@ -161,7 +161,7 @@ export const WIDGETS: Record<WidgetType, WidgetDefinition> = {
     species: "stackList",
     Component: PrsWidget,
     Filters: PrFilterControls,
-    Settings: WidgetSortSettings,
+    Settings: PrsWidgetSettings,
   },
   runs: {
     labelKey: "bridge.widget.runs.label",
