@@ -2913,6 +2913,19 @@
     "deleteBody": "Opravdu smazat příkaz /{id}? Smaže se i jeho definiční soubor. Tuto akci nelze vrátit."
   },
   "zibbyWidgets": {
+    "approval": {
+      "title": "Schválení akce",
+      "empty": "Schválení nenalezeno",
+      "pending": "Čeká na schválení",
+      "approve": "Schválit",
+      "reject": "Zamítnout",
+      "approveAria": "Schválit: {title}",
+      "rejectAria": "Zamítnout: {title}",
+      "approved": "Schváleno",
+      "rejected": "Zamítnuto",
+      "expired": "Vypršelo",
+      "deciding": "Odesílám…"
+    },
     "openAll": "Otevřít vše",
     "openAllAria": "Otevřít vše: {title}",
     "more": "+{count} dalších",

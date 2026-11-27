@@ -195,6 +195,8 @@ export function RunEventsProvider({ children }: { children: ReactNode }) {
         // todo-17: a decision whose runner effect has finished (gate stamp discarded, push
         // done). Its `approval-*` activity fired BEFORE the runner acted, so refetch now.
         void qc.invalidateQueries({ queryKey: getApprovalsQueryKey() });
+        // Inline chat approval cards read one approval by id (detail family).
+        void qc.invalidateQueries({ queryKey: ["approvals", "detail"] });
         void qc.invalidateQueries({ queryKey: taskRunsRootKey });
         void qc.invalidateQueries({ queryKey: getScheduledTasksQueryKey() });
         void qc.invalidateQueries({ queryKey: getTaskDetailRootKey() });

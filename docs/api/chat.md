@@ -21,6 +21,8 @@ of the conversation.
 | `POST`       | `/api/chat/conversations/:conversationId/restore` | Bring back the trashed snapshot (after a delete or a clear; the UI's 5 s Undo) -> `ChatConversationSummary`; nothing in the trash -> 404.                                                                                                                                                                                                                                                                        |
 | `POST`       | `/api/chat/handoff`                               | "Create task" from chat. Body `{ conversationId, upToMessageId? }` → `{ text, compacted, transcriptPath }`: a task description carrying the conversation up to that reply — see [Hand-off](#hand-off-create-task-from-chat). No messages → 404.                                                                                                                                                                  |
 | `GET`        | `/api/chat/stream?conversationId=`                | **SSE** (raw `@Sse()`, outside ts-rest) — live tokens. Each `data` is a JSON `ChatTurnEvent`.                                                                                                                                                                                                                                                                                                                    |
+| `POST`       | `/api/chat/gate`                                  | Chat plugin only (chat bearer, loopback). Body `{ tool, input, hash, intents[] }` -> `{ decision: "allow" }` \| `{ decision: "deny", reason }` \| `{ decision: "pending", approvalId }`; see [Inline approval gate](#chat-on-opencode-a24--a33--the-default-path). Not in the web client.                                                                                                                        |
+| `GET`        | `/api/chat/gate/:approvalId?conversationId=`      | Chat plugin only. Poll a held call -> `{ status }` (the approval status: `pending` \| `approved` \| `rejected`; an expired wait reads as `rejected`); 404 unknown.                                                                                                                                                                                                                                               |
 | `POST`/`GET` | `/api/chat/mcp`                                   | In-process **MCP server** (Streamable HTTP) exposing ZIBBY's tools. Called by the spawned `claude` process, not the frontend — gated by `ChatMcpAuthGuard` (see below); `GET` is an unguarded 405 (no server-initiated streaming needed).                                                                                                                                                                        |
 
 ### Send body
@@ -191,7 +193,7 @@ opencode run --standalone --format json -m <provider/model> --agent zibby [--ses
   env: OPENCODE_CONFIG=<0600 file, deleted after the turn>, OPENCODE_DISABLE_PROJECT_CONFIG=1,
        PWD=<turn cwd>, ZIBBY_CHAT_MCP_SERVERS=atlassian,figma,<operator ids…>,zibby,zibby-kb,
        ZIBBY_CHAT_DENY_TOOLS=<zibby_create_task in an @agent turn, else empty>,
-       ZIBBY_CHAT_ALLOW_ACTIONS=<actions the operator's gate rules allow, see below>  (no inherited OPENCODE_*)
+       ZIBBY_CHAT_GATE_URL / ZIBBY_CHAT_GATE_TOKEN / ZIBBY_CHAT_GATE_DEADLINE_S=<inline approval gate, see below>  (no inherited OPENCODE_*)
 ```
 
 **Live deltas.** `opencode run --format json` only prints finished `text` parts, so each
@@ -236,25 +238,34 @@ of every pid file whose API is gone and whose command line still reads `opencode
   `@agent` is mentioned); plugin `chat/opencode-chat-gate/index.mjs`. No `--auto`.
   Write, edit, patch, Code Mode `execute`, question, skill, subagent, web and
   `opencode_*` tools stay denied by the config and again by the plugin.
-- **Fail-fast gate (A33).** Chat has no approval card, no intent-request watcher and a
-  120 s turn, so the plugin never waits for a decision. It runs the run gate's own
-  classifier in-process (`classifyEvent` from `runner/claude-approval-hook.mjs`, events
-  mapped by the run plugin's `toClaudeEvents`):
-  - shell: an unclassified command runs; a classified one (push, rm/mv/overwrite,
-    publish, `gh pr create`, …) or a nested `opencode` / `claude` is refused at once —
-    unless the operator's gate rules `allow` that action: `chatAllowedActions` lists the
-    actions every global rule matching them by action (or parent class) sets to `allow`, never file effects (`overwrite`/`move`/`delete`) or `mcp.*` (none while ZIBBY is paused or
-    in an `@agent` turn), so e.g. `gh.api_write` moved to `allow` on the gates page runs in
-    the chat too. `notify` / `ask` / `deny` stay refused (the chat can't wait);
-  - read/grep/glob/list run, except on the operator token dir / approvals API
-    (refused, as in runs);
-  - `zibby` / `zibby-kb` tools run; an operator-server call runs only when A28's
-    `classifyMcp` reads it as `mcp.read` — any write (by tool name) is refused.
-    A refusal reaches the model as `Blocked by the ZibbyOS gate: "<action>" — this needs
-the operator's approval, which the chat cannot ask for. … hand the work off with the
-zibby create_task tool …`, so the risky step goes through the real run gate.
-    Ceiling: as in runs, MCP classification is by tool name only — e.g. context7's
-    `resolve-library-id` and every Playwright tool read as writes and are refused.
+- **Inline approval gate.** The plugin runs the run gate's classifier in-process
+  (`classifyAll` / `classifyEvent` from `runner/claude-approval-hook.mjs`) and, for every
+  classified call, `POST`s `/api/chat/gate` (chat bearer, loopback only) with
+  `{ tool, input, hash, intents[] }` (a chained command sends every action). Local refusals
+  stay: nested agents, `gh.pr_comment`, the operator-only surface, disallowed tools.
+  `ChatGateService.check` answers:
+  - **deny** (no card): no turn in flight, hash mismatch, autopilot paused, an unclassified
+    or gate-denied action anywhere in the chain (merge, deploy, ...), a raw command that
+    names the ZibbyOS data dir, or a command over 20,000 characters;
+  - **allow** (silent): every action is allowed by an explicit rule (`ruleId`), none is a
+    file effect or `mcp.*`, and it is not an `@agent` turn;
+  - **pending**: everything else (ask, notify, default allow). It creates a `kind:"chat"`
+    approval (runId `<conversationId>/<hash16>`, `action` = `delete` if present, else the
+    first intent; summary "Actions: a, b"; `detail` keeps the FULL raw command) and pushes
+    the `{kind:"approval", approvalId}` widget into the chat. Autopilot never auto-approves it.
+    While pending the plugin polls `GET /api/chat/gate/:approvalId` every 1 s and holds the
+    tool call. Only `approved` releases it, after re-hashing the input; the approval releases
+    exactly that one call and nothing is cached, so an identical later call asks again.
+    Reject, expiry (300 s, applied in `status()`), turn end (`settleTurn` rejects the turn's
+    pending approvals) or an API restart all deny, and so does any plugin-side error (fail
+    closed). The turn's kill timer is extended by the wait when the card appears. A reject
+    reaches the model as `Blocked by the ZibbyOS gate: the operator rejected "<action>". Do
+not retry it or work around it ...`. The card is also decidable in the approvals queue.
+    Read/grep/glob/list run, except on the operator token dir / approvals API (refused);
+    `zibby` / `zibby-kb` tools run; an operator-server call runs only when A28's `classifyMcp`
+    reads it as `mcp.read`, any other write goes through the card.
+    Ceiling: as in runs, MCP classification is by tool name only; the data-dir check is a
+    substring match.
 - **On `claude-agent/*`** the Claude Agent SDK runs with `settingSources: []`,
   `strictMcpConfig: true` and `allowedTools: ["mcp__opencode__*"]` (hard-coded by
   opencode): Claude sees only what opencode mounts, bridged as `mcp__opencode__<tool>`,

@@ -2,6 +2,7 @@
 
 import type { ChatWidget } from "@zibby/contracts";
 import { ApprovalsWidgetCard } from "./ApprovalsWidgetCard";
+import { ChatApprovalWidgetCard } from "./ChatApprovalWidgetCard";
 import { BriefingWidgetCard } from "./BriefingWidgetCard";
 import { CanvasWidgetCard } from "./CanvasWidgetCard";
 import { CiWidgetCard } from "./CiWidgetCard";
@@ -50,9 +51,8 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <CanvasWidgetCard widget={widget} />;
     case "web":
       return <WebWidgetCard widget={widget} />;
-    // T6 replaces this placeholder with the inline approval card.
     case "approval":
-      return null;
+      return <ChatApprovalWidgetCard widget={widget} />;
     default: {
       const unreachable: never = widget;
       return unreachable;

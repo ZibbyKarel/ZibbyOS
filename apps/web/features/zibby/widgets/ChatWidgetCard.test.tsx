@@ -12,6 +12,9 @@ vi.mock("./IssuesWidgetCard", () => ({ IssuesWidgetCard: () => <div data-testid=
 vi.mock("./ApprovalsWidgetCard", () => ({
   ApprovalsWidgetCard: () => <div data-testid="approvals" />,
 }));
+vi.mock("./ChatApprovalWidgetCard", () => ({
+  ChatApprovalWidgetCard: () => <div data-testid="approval" />,
+}));
 vi.mock("./BriefingWidgetCard", () => ({
   BriefingWidgetCard: () => <div data-testid="briefing" />,
 }));
@@ -44,6 +47,12 @@ describe("ChatWidgetCard", () => {
   it.each(CHAT_WIDGET_KINDS)("dispatches kind %s", (kind) => {
     render(<ChatWidgetCard widget={widgetFor(kind)} />);
     expect(screen.getByTestId(kind)).toBeInTheDocument();
+  });
+
+  // `approval` is server-pushed only, so it is not in CHAT_WIDGET_KINDS (the model cannot ask for it).
+  it("dispatches the server-pushed approval kind", () => {
+    render(<ChatWidgetCard widget={{ kind: "approval", approvalId: "ap1" }} />);
+    expect(screen.getByTestId("approval")).toBeInTheDocument();
   });
 
   it("forwards onPrompt to the ci card", async () => {

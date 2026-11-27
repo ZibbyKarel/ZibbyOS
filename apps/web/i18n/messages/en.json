@@ -2913,6 +2913,19 @@
     "deleteBody": "Really delete command /{id}? Its definition file is deleted too. This cannot be undone."
   },
   "zibbyWidgets": {
+    "approval": {
+      "title": "Approve action",
+      "empty": "Approval not found",
+      "pending": "Waiting for approval",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveAria": "Approve: {title}",
+      "rejectAria": "Reject: {title}",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "deciding": "Sending…"
+    },
     "openAll": "Open all",
     "openAllAria": "Open all: {title}",
     "more": "+{count} more",
