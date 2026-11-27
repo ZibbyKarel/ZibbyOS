@@ -1,3 +1,4 @@
+import { ApprovalsModule } from "../approvals/approvals.module";
 import { GatesModule } from "../gates/gates.module";
 import { AgentsModule } from "../agents/agents.module";
 import { Module } from "@nestjs/common";
@@ -16,6 +17,8 @@ import { TeamsModule } from "../teams/teams.module";
 import { dataDir } from "../shared/data-dir";
 import { ChatHandoffService } from "./chat-handoff.service";
 import { ChatController } from "./chat.controller";
+import { ChatGateController } from "./chat-gate.controller";
+import { ChatGateService } from "./chat-gate.service";
 import { ChatEventsService } from "./chat-events.service";
 import { ChatMcpAuthGuard } from "./chat-mcp-auth.guard";
 import { ChatMcpAuthService } from "./chat-mcp-auth.service";
@@ -73,13 +76,16 @@ export function resolveChatDir(): string {
     CanvasModule,
     // The operator's gate rules decide which gated actions an opencode chat turn may run.
     GatesModule,
+    // Inline chat approvals: `kind:"chat"` approvals for held tool calls (no runner registered).
+    ApprovalsModule,
   ],
-  controllers: [ChatController, ChatMcpController],
+  controllers: [ChatController, ChatMcpController, ChatGateController],
   providers: [
     { provide: CHAT_DIR, useFactory: resolveChatDir },
     ChatTranscriptStore,
     ChatEventsService,
     ChatSessionService,
+    ChatGateService,
     ChatHandoffService,
     ChatToolsService,
     KbReaderService, // stateless; KbModule does not export it

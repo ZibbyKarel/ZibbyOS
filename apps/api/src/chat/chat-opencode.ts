@@ -174,11 +174,12 @@ export function opencodeChatArgs(
 }
 
 /**
- * Actions the chat never runs whatever the rules say: file effects (the chat is read-only on
- * disk, and an `overwrite` would let it rewrite its own gate rules) and MCP calls (their
- * rules can be scoped per server, which this action-level list can't see).
+ * Actions the chat never runs SILENTLY whatever the rules say: file effects (an `overwrite`
+ * would let it rewrite its own gate rules) and MCP calls (their rules can be scoped per
+ * server, which this action-level list can't see). The chat gate asks for an inline approval
+ * for these instead of refusing.
  */
-const CHAT_NEVER_ACTIONS = new Set(["overwrite", "move", "delete", "mcp.read", "mcp.write"]);
+export const CHAT_NEVER_ACTIONS = new Set(["overwrite", "move", "delete", "mcp.read", "mcp.write"]);
 
 /**
  * The gated actions a chat turn may run without asking: those that every rule matching
