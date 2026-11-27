@@ -46,7 +46,7 @@ describe("Connected services API (e2e)", () => {
       delete process.env[k];
   });
 
-  it("lists services without leaking authCookies", async () => {
+  it("lists services including their authCookies (the edit form needs them)", async () => {
     const res = await request(app.getHttpServer()).get("/api/connected-services").expect(200);
     expect(res.body).toEqual([
       {
@@ -55,6 +55,7 @@ describe("Connected services API (e2e)", () => {
         landingUrl: "https://s.example",
         loginUrl: "https://s.example/login",
         profile: "s",
+        authCookies: [{ host: ".s.example", names: ["sid"] }],
         status: "disconnected",
       },
     ]);
