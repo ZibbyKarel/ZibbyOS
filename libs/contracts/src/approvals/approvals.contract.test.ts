@@ -97,6 +97,12 @@ describe("approval schema", () => {
     ).toBe(true);
   });
 
+  it("accepts the chat kind (inline chat approvals)", () => {
+    expect(
+      ApprovalSchema.safeParse({ ...base, kind: "chat", runId: "conv_1/0123456789abcdef" }).success,
+    ).toBe(true);
+  });
+
   describe("department (NS2 F3c)", () => {
     it("accepts a department-tagged approval", () => {
       const parsed = ApprovalSchema.safeParse({ ...base, department: "dev" });

@@ -8,6 +8,8 @@ import {
   TaskTargetSchema,
   WorkflowTaskTargetSchema,
 } from "../tasks/task.schema";
+import { ApprovalStatusSchema } from "../approvals/approval.schema";
+import { IntendedActionSchema } from "../gates/gate.schema";
 import { CanvasIdSchema } from "../canvas/canvas.schema";
 import { CompanyIdSchema } from "../companies/company.schema";
 import { ProjectIdSchema } from "../projects/project.schema";
@@ -176,8 +178,33 @@ export const ChatWidgetSchema = z.discriminatedUnion("kind", [
    * http/https only — the desktop app shows it in its own browser view, anything else gets a link.
    */
   z.object({ kind: z.literal("web"), url: HttpUrlSchema, ...widgetBase }),
+  /**
+   * One held chat tool call awaiting Approve / Reject (a `kind:"chat"` approval). A reference like
+   * the others: the card loads the approval live. Emitted only by the chat gate, never `show_widget`.
+   */
+  z.object({ kind: z.literal("approval"), approvalId: z.string().min(1).max(256), ...widgetBase }),
 ]);
 export type ChatWidget = z.infer<typeof ChatWidgetSchema>;
+
+/** The chat gate check: the opencode chat plugin asks whether a classified tool call may run. */
+export const ChatGateCheckBodySchema = z.object({
+  tool: z.string().min(1).max(256),
+  input: z.unknown(),
+  /** sha256 hex of `tool + "\0" + JSON.stringify(input)`; the server recomputes and refuses a mismatch. */
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+  intent: IntendedActionSchema,
+});
+export type ChatGateCheckBody = z.infer<typeof ChatGateCheckBodySchema>;
+
+export const ChatGateDecisionSchema = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("allow") }),
+  z.object({ decision: z.literal("deny"), reason: z.string() }),
+  z.object({ decision: z.literal("pending"), approvalId: z.string().min(1) }),
+]);
+export type ChatGateDecision = z.infer<typeof ChatGateDecisionSchema>;
+
+export const ChatGateStatusSchema = z.object({ status: ApprovalStatusSchema });
+export type ChatGateStatus = z.infer<typeof ChatGateStatusSchema>;
 
 /**
  * A tool ZIBBY invoked mid-turn (e.g. `create_task`). Surfaced inline in the

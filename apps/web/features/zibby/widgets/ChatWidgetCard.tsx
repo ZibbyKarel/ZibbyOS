@@ -50,6 +50,9 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <CanvasWidgetCard widget={widget} />;
     case "web":
       return <WebWidgetCard widget={widget} />;
+    // T6 replaces this placeholder with the inline approval card.
+    case "approval":
+      return null;
     default: {
       const unreachable: never = widget;
       return unreachable;

@@ -308,6 +308,8 @@ export function approvalOrigin(
         href: `/work/goals/${encodeURIComponent(a.runId.split("/")[0] ?? "")}`,
         ...url,
       };
+    case "chat":
+      return { origin: "chat", ...url };
     case "proposed-task":
     case "handoff-proposal":
       return { origin: "system", ...url };

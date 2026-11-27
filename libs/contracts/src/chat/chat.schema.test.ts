@@ -5,6 +5,8 @@ import {
   CHAT_MODELS,
   ChatAboutRefSchema,
   ChatConversationSummarySchema,
+  ChatGateCheckBodySchema,
+  ChatGateDecisionSchema,
   ChatMentionTargetSchema,
   ChatMessageSchema,
   ChatToolEventSchema,
@@ -290,6 +292,13 @@ describe("ChatModel (todo-30)", () => {
 });
 
 describe("ChatWidgetSchema", () => {
+  it("accepts an approval widget and rejects an empty id", () => {
+    expect(ChatWidgetSchema.safeParse({ kind: "approval", approvalId: "appr_1" }).success).toBe(
+      true,
+    );
+    expect(ChatWidgetSchema.safeParse({ kind: "approval", approvalId: "" }).success).toBe(false);
+  });
+
   it("accepts a pr-replies proposal and rejects an empty draft", () => {
     const base = {
       kind: "pr-replies",
@@ -363,5 +372,27 @@ describe("conversation management schemas", () => {
     const base = { conversationId: "c", title: "t", messageCount: 1, updatedAt: "x" };
     expect(ChatConversationSummarySchema.parse(base)).toEqual(base);
     expect(ChatConversationSummarySchema.parse({ ...base, snippet: "s" }).snippet).toBe("s");
+  });
+});
+
+describe("chat gate schemas", () => {
+  const ok = {
+    tool: "shell",
+    input: { command: "ls" },
+    hash: "a".repeat(64),
+    intent: { action: "overwrite" },
+  };
+  it("accepts a check body and rejects a bad hash", () => {
+    expect(ChatGateCheckBodySchema.safeParse(ok).success).toBe(true);
+    expect(ChatGateCheckBodySchema.safeParse({ ...ok, hash: "xyz" }).success).toBe(false);
+    expect(ChatGateCheckBodySchema.safeParse({ ...ok, hash: "A".repeat(64) }).success).toBe(false);
+  });
+  it("parses the three decisions", () => {
+    expect(ChatGateDecisionSchema.safeParse({ decision: "allow" }).success).toBe(true);
+    expect(ChatGateDecisionSchema.safeParse({ decision: "deny", reason: "x" }).success).toBe(true);
+    expect(ChatGateDecisionSchema.safeParse({ decision: "pending", approvalId: "a" }).success).toBe(
+      true,
+    );
+    expect(ChatGateDecisionSchema.safeParse({ decision: "pending" }).success).toBe(false);
   });
 });

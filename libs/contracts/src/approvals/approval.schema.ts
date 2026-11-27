@@ -120,6 +120,11 @@ export const ApprovalRunKindSchema = z.enum([
   // listing the candidates). Approving starts the top candidate; an `answer` naming a candidate id
   // starts that one (the operator's input only); rejecting records it. Never auto-approved.
   "goal-decision",
+  // A risky tool call an opencode chat turn is HOLDING (runId = `<conversationId>/<hash16>`; `detail`
+  // = the enrichment JSON with the full raw command). Approving releases that one held call once,
+  // rejecting or the wait deadline refuses it. No runner: the chat plugin polls the record. Never
+  // auto-approved.
+  "chat",
 ]);
 export type ApprovalRunKind = z.infer<typeof ApprovalRunKindSchema>;
 

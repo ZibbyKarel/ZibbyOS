@@ -4,6 +4,9 @@ import { ErrorSchema } from "../common.schema";
 import {
   ChatConversationRefSchema,
   ChatConversationSummarySchema,
+  ChatGateCheckBodySchema,
+  ChatGateDecisionSchema,
+  ChatGateStatusSchema,
   ChatHandoffBodySchema,
   ChatHandoffSchema,
   ChatTranscriptSchema,
@@ -92,3 +95,34 @@ export const chatContract = c.router(
   { pathPrefix: "/api", strictStatusCodes: true },
 );
 export type ChatContract = typeof chatContract;
+
+const gateQuery = z.object({ conversationId: z.string().min(1) });
+
+/**
+ * The inline chat approval gate, called by the opencode chat plugin (not the web app) with the
+ * per-boot chat bearer from loopback only. `POST /chat/gate` decides a classified tool call
+ * (allow / deny / pending + a card in the chat); `GET /chat/gate/:approvalId` is the plugin's poll
+ * for the operator's decision. Separate from `chatContract`: not part of the web client surface.
+ */
+export const chatGateContract = c.router(
+  {
+    check: {
+      method: "POST",
+      path: "/chat/gate",
+      query: gateQuery,
+      body: ChatGateCheckBodySchema,
+      responses: { 200: ChatGateDecisionSchema, 401: ErrorSchema },
+      summary: "Decide a classified chat tool call (allow, deny, or hold for an inline approval)",
+    },
+    status: {
+      method: "GET",
+      path: "/chat/gate/:approvalId",
+      pathParams: z.object({ approvalId: z.string() }),
+      query: gateQuery,
+      responses: { 200: ChatGateStatusSchema, 401: ErrorSchema, 404: ErrorSchema },
+      summary: "Poll the decision of a held chat tool call",
+    },
+  },
+  { pathPrefix: "/api", strictStatusCodes: true },
+);
+export type ChatGateContract = typeof chatGateContract;
