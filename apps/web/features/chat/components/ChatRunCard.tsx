@@ -17,6 +17,7 @@ import { WorkflowStageTimeline } from "../../runs/components/WorkflowStageTimeli
 import { RunStateBadge } from "../../runs/components/RunStateBadge";
 import type { RunView } from "../../runs/run";
 import { TargetIdentity } from "./TargetIdentity";
+import { chatSelection, useOpenDetail } from "../chatDetail";
 
 export interface ChatRunCardProps {
   /** The dispatched run's id (`ChatToolEvent.runRef`) — the same id the archive
@@ -94,13 +95,17 @@ export function ChatRunCard({ runRef, target }: ChatRunCardProps) {
   const tRuns = useTranslations("runs");
   const [expanded, setExpanded] = useState(false);
   const { data: run } = useWorkflowRunQuery(runRef);
+  const openDetail = useOpenDetail(chatSelection("run", runRef));
 
   const openRunLink = (
     <Link
       aria-label={t("openRunAria")}
       data-testid={ChatRunCardTestId.Link}
       href={`/activity/runs/${runRef}` as Route}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        openDetail?.(e);
+      }}
     >
       <Icon name="arrow" size="sm" tone="accent" />
     </Link>

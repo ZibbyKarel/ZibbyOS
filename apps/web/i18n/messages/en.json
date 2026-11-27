@@ -1339,6 +1339,10 @@
         }
       }
     },
+    "detail": {
+      "full": "Full screen",
+      "backToChat": "Back to chat"
+    },
     "web": {
       "card": {
         "open": "Open",

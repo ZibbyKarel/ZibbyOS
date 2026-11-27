@@ -1339,6 +1339,10 @@
         }
       }
     },
+    "detail": {
+      "full": "Na celou obrazovku",
+      "backToChat": "Zpět do chatu"
+    },
     "web": {
       "card": {
         "open": "Otevřít",

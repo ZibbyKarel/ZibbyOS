@@ -4,6 +4,8 @@ import { Children, type ReactNode } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import type { BridgeSelection } from "../../bridge/widgets/registry";
+import { useOpenDetail } from "../../chat/chatDetail";
 import {
   Button,
   Card,
@@ -263,6 +265,8 @@ export interface ChatWidgetRowProps {
   meta?: string;
   /** In-app route the title links to; omitted = plain text. */
   href?: string;
+  /** Opens the Bridge sheet in the overlay's side slot on a plain click; `href` stays the fallback. */
+  detail?: BridgeSelection;
   /** Accessible name of the title link (otherwise the title itself). */
   linkLabel?: string;
   /** Trailing action / meta (buttons, a count …). */
@@ -286,12 +290,14 @@ export function ChatWidgetRow({
   title,
   meta,
   href,
+  detail,
   linkLabel,
   trailing,
   dim = false,
   itemKey,
 }: ChatWidgetRowProps) {
   const suffix = itemKey ? `-${itemKey}` : "";
+  const openDetail = useOpenDetail(detail);
   const titleText = (
     <Typography
       truncate
@@ -321,6 +327,7 @@ export function ChatWidgetRow({
                 data-testid={`${ChatWidgetFrameTestId.RowLink}${suffix}`}
                 href={href as Route}
                 linkComponent={NEXT_LINK}
+                onClick={openDetail}
               >
                 {titleText}
               </TextLink>

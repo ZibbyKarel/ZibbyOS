@@ -13,18 +13,8 @@ import { SHEET_WIDTH, type SheetAnchor, anchorChanged, measureSheet } from "../s
 import { selectionLabel, useSheetHistory } from "../state/sheetHistory";
 import { findRow, rowPosition, stepRow, useRowKeyNav } from "../state/useRowKeyNav";
 import type { BridgeSelection } from "../widgets/registry";
-import { ApprovalSheet } from "../../approvals/components/ApprovalSheet";
-import { AutomationSheet } from "./sheets/AutomationSheet";
-import { GoalSheet } from "./sheets/GoalSheet";
-import { IssueSheet } from "./sheets/IssueSheet";
-import { NoteSheet } from "./sheets/NoteSheet";
-import { PrSheet } from "./sheets/PrSheet";
-import { ProjectSheet } from "./sheets/ProjectSheet";
-import { VaultNoteSheet } from "./sheets/VaultNoteSheet";
-import { QuickActionSheet } from "./sheets/QuickActionSheet";
-import { RunSheet } from "./sheets/RunSheet";
+import { SheetForSelection } from "./sheets/SheetForSelection";
 import type { SheetFrame } from "./sheets/sheetTypes";
-import { TaskSheet } from "./sheets/TaskSheet";
 
 export enum DetailSheetTestId {
   Host = "bridge-detail-sheet-host",
@@ -215,37 +205,16 @@ export function DetailSheet({ selection, onClose, onSideChange, onOpen }: Detail
     expanded,
     onExpandedChange: (on) => setExpandedId(on ? itemId : null),
   };
-  // Keyed per item: stepping swaps the content without carrying one item's local state to the next.
-  const k = `${selection.kind}:${selection.id}`;
-  const common = {
-    id: selection.id,
-    anchor: placed,
-    onClose,
-    frame,
-    ...(onOpen && { onOpen: history.open }),
-  };
   return (
     <SheetPresentationContext value={phone ? "page" : "anchored"}>
       {hostMarker}
-      {kind === "issue" ? <IssueSheet key={k} {...common} /> : null}
-      {kind === "task" ? <TaskSheet key={k} {...common} /> : null}
-      {kind === "pr" ? <PrSheet key={k} {...common} /> : null}
-      {kind === "run" ? <RunSheet key={k} {...common} /> : null}
-      {kind === "quickAction" ? <QuickActionSheet key={k} {...common} /> : null}
-      {kind === "note" ? <NoteSheet key={k} {...common} /> : null}
-      {kind === "automation" ? <AutomationSheet key={k} {...common} /> : null}
-      {kind === "project" ? <ProjectSheet key={k} {...common} /> : null}
-      {kind === "goal" ? <GoalSheet key={k} {...common} /> : null}
-      {kind === "approval" ? (
-        <ApprovalSheet
-          anchor={placed}
-          approvalId={selection.id}
-          frame={frame}
-          key={k}
-          onClose={onClose}
-        />
-      ) : null}
-      {kind === "vaultNote" ? <VaultNoteSheet key={k} {...common} /> : null}
+      <SheetForSelection
+        anchor={placed}
+        frame={frame}
+        onClose={onClose}
+        selection={selection}
+        {...(onOpen && { onOpen: history.open })}
+      />
     </SheetPresentationContext>
   );
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import { focusRing } from "../../utils/focus";
 import type { SubNavLinkComponent } from "../SubNav/SubNav";
@@ -20,6 +20,8 @@ export interface TextLinkProps {
   target?: string;
   /** Anchor `rel` — pair `target="_blank"` with `"noreferrer"`. */
   rel?: string;
+  /** Click handler — `preventDefault()` keeps the link from navigating (e.g. to open a panel instead). */
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
   /** Accessible name when the visible text carries decorative glyphs. */
   "aria-label"?: string;
   "data-testid"?: string;
@@ -39,6 +41,7 @@ export function TextLink({
   truncate,
   target,
   rel,
+  onClick,
   "aria-label": ariaLabel,
   "data-testid": testId = TextLinkTestId.Root,
 }: TextLinkProps) {
@@ -53,6 +56,7 @@ export function TextLink({
       // defaults a custom `linkComponent` (e.g. an external-anchor adapter) spreads.
       {...(rel !== undefined && { rel })}
       {...(target !== undefined && { target })}
+      {...(onClick && { onClick })}
     >
       {children}
     </Link>

@@ -17,6 +17,7 @@ import {
   takeRows,
   widgetStatus,
 } from "./ChatWidgetFrame";
+import { chatSelection, useOpenDetail } from "../../chat/chatDetail";
 import { RunWidgetCard } from "./RunWidgetCard";
 
 export enum TodoWidgetCardTestId {
@@ -32,6 +33,29 @@ export interface TodoWidgetCardProps {
 
 /** What a played item became: a live run, or a task whose run is still spawning. */
 type Started = { key: number; runRef: string | undefined; taskId: string };
+
+/** The "started" link of a task without a run yet: opens the task sheet in the overlay. */
+function StartedTaskLink({
+  taskId,
+  label,
+  testKey,
+}: {
+  taskId: string;
+  label: string;
+  testKey: string;
+}) {
+  const openDetail = useOpenDetail(chatSelection("task", taskId));
+  return (
+    <TextLink
+      data-testid={`${TodoWidgetCardTestId.Started}-${testKey}`}
+      href={`/work/tasks/${taskId}` as Route}
+      linkComponent={NEXT_LINK}
+      onClick={openDetail}
+    >
+      {label}
+    </TextLink>
+  );
+}
 
 /**
  * `todo` — the open items of a PROJECT's vault TODO.md (`useProjectTodoQuery`) in the thread.
@@ -138,14 +162,12 @@ export function TodoWidgetCard({ widget }: TodoWidgetCardProps) {
         s.runRef ? (
           <RunWidgetCard key={s.key} widget={{ kind: "run", runRef: s.runRef }} />
         ) : (
-          <TextLink
-            data-testid={`${TodoWidgetCardTestId.Started}-${s.key}`}
-            href={`/work/tasks/${s.taskId}` as Route}
+          <StartedTaskLink
             key={s.key}
-            linkComponent={NEXT_LINK}
-          >
-            {t("todo.started")}
-          </TextLink>
+            label={t("todo.started")}
+            taskId={s.taskId}
+            testKey={String(s.key)}
+          />
         ),
       )}
     </Stack>

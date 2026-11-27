@@ -11,6 +11,7 @@ import { useInboxPrsQuery } from "../../inbox/queries";
 import { type PrRowVm, prRow } from "../../bridge/state/rows";
 import { useBridgeInboxFilters } from "../../bridge/state/useBridgeInboxFilters";
 import { useProjectsQuery } from "../../projects/queries";
+import { chatSelection } from "../../chat/chatDetail";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum PrsWidgetCardTestId {
@@ -87,6 +88,7 @@ export function PrsWidgetCard({ widget }: PrsWidgetCardProps) {
     >
       {shown.map((r) => (
         <ChatWidgetRow
+          detail={chatSelection("pr", r.id)}
           dim={r.muted}
           href={prListHref(r.id)}
           itemKey={`${r.project}${r.number}`}

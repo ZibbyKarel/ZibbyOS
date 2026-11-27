@@ -14,6 +14,7 @@ import { useRecentArchivedRunsQuery } from "../../runs/queries/useRecentArchived
 import { useRunsQuery } from "../../runs/queries/useRunsQuery";
 import type { RunView } from "../../runs/run";
 import { runRows } from "../../bridge/state/rows";
+import { chatSelection } from "../../chat/chatDetail";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum RunsWidgetCardTestId {
@@ -78,6 +79,7 @@ export function RunsWidgetCard({ widget }: RunsWidgetCardProps) {
         const startedAt = run?.taskOutcomeFinishedAt ?? r.startedAt;
         return (
           <ChatWidgetRow
+            detail={chatSelection("run", r.runId)}
             dim={r.tone === "done" || r.tone === "idle"}
             href={`/activity/runs/${r.runId}`}
             itemKey={r.runId}

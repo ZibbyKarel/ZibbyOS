@@ -144,7 +144,7 @@ export interface AnchoredSheetProps {
   children?: ReactNode;
   ref?: Ref<HTMLDivElement>;
   /**
-   * `page`: a full-screen page (phone) — geometry props are ignored, no dimming overlay, a back
+   * `panel`: fills its positioned parent (docked side slot), no dimming, resize, stepping or expand. `page`: a full-screen page (phone) — geometry props are ignored, no dimming overlay, a back
    * button replaces ✕, `actions` move to a pinned bottom bar (`moreActions` stay in the header), stepping and expand are dropped, body
    * scroll is locked and focus is trapped. Defaults to the nearest `SheetPresentationContext`.
    */
@@ -286,7 +286,11 @@ export function AnchoredSheet({
   presentation,
 }: AnchoredSheetProps) {
   const ctx = useSheetPresentation();
-  const page = (presentation ?? ctx) === "page";
+  const mode = presentation ?? ctx;
+  const page = mode === "page";
+  // `panel` fills its positioned parent; it keeps the anchored header but has no row to anchor to.
+  const panel = mode === "panel";
+  const free = !page && !panel;
   const root = useRef<HTMLDivElement | null>(null);
   const setRoot = (el: HTMLDivElement | null) => {
     root.current = el;
@@ -334,14 +338,14 @@ export function AnchoredSheet({
   const pos = stepPosition;
   return (
     <>
-      {page ? null : (
+      {free ? (
         <div
           aria-hidden="true"
           className="absolute inset-0 z-30 bg-[color-mix(in_srgb,var(--color-bg)_68%,transparent)]"
           data-testid={AnchoredSheetTestId.Overlay}
           onClick={onClose}
         />
-      )}
+      ) : null}
       <div
         aria-label={title}
         aria-modal={page ? "true" : "false"}
@@ -349,18 +353,20 @@ export function AnchoredSheet({
           "box-border flex flex-col overflow-hidden bg-sheet leading-[normal] text-ink",
           page
             ? "fixed inset-0 z-[60] outline-none"
-            : "absolute z-[32] rounded-[12px] border border-line-2 shadow-[var(--shadow-pop)]",
+            : panel
+              ? "absolute inset-0 z-[32]"
+              : "absolute z-[32] rounded-[12px] border border-line-2 shadow-[var(--shadow-pop)]",
         )}
         data-expanded={expanded || undefined}
-        data-presentation={page ? "page" : "anchored"}
+        data-presentation={mode}
         data-testid={AnchoredSheetTestId.Root}
         onKeyDown={trapTab}
         ref={setRoot}
         role="dialog"
-        style={page ? undefined : { left, top, width, height }}
+        style={free ? { left, top, width, height } : undefined}
         tabIndex={page ? -1 : undefined}
       >
-        {!page && onResize ? (
+        {free && onResize ? (
           <div
             aria-label={resizeLabel}
             aria-orientation="vertical"
@@ -399,7 +405,7 @@ export function AnchoredSheet({
             <span className="absolute inset-y-0 left-[4px] w-[2px] rounded-full bg-accent opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-70" />
           </div>
         ) : null}
-        {!page && eraserHeight > 0 ? (
+        {free && eraserHeight > 0 ? (
           <div
             className="absolute w-[3px] bg-sheet"
             data-testid={AnchoredSheetTestId.Eraser}
@@ -470,7 +476,7 @@ export function AnchoredSheet({
                 <span className="truncate">{backLabel}</span>
               </button>
             ) : null}
-            {onStep && !page ? (
+            {onStep && free ? (
               <span className="inline-flex items-center gap-[2px] font-mono text-[11.5px] text-ink-3">
                 <button
                   aria-label={stepPrevLabel}
@@ -506,7 +512,7 @@ export function AnchoredSheet({
                 </button>
               </span>
             ) : null}
-            {expandable && !page ? (
+            {expandable && free ? (
               <button
                 aria-label={expanded ? shrinkLabel : expandLabel}
                 aria-pressed={expanded}

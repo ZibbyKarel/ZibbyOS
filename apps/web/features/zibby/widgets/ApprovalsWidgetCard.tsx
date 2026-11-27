@@ -9,6 +9,7 @@ import { compactAgo } from "../../../utils/time";
 import { useApprovalsQuery, useApproveMutation, useRejectMutation } from "../../approvals";
 import { type DashboardApproval, HIGH_RISK_TYPES } from "../../approvals/approval";
 import { useRunsQuery } from "../../runs/queries/useRunsQuery";
+import { chatSelection } from "../../chat/chatDetail";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum ApprovalsWidgetCardTestId {
@@ -168,6 +169,7 @@ export function ApprovalsWidgetCard({ widget }: ApprovalsWidgetCardProps) {
 
         return (
           <ChatWidgetRow
+            detail={chatSelection("approval", a.id)}
             dim={outcome !== undefined}
             href={`/activity/approvals?approval=${encodeURIComponent(a.id)}`}
             itemKey={a.id}

@@ -23,6 +23,7 @@ import { useChatDock } from "../chat/hooks/useChatDock";
 import type { CommandLineHandle } from "../tasks/components/CommandLine/CommandLine";
 import type { TaskAttachmentSet } from "../tasks/components/TaskAttachments";
 import { ZibbyCanvasPanel } from "./ZibbyCanvasPanel";
+import { ZibbyDetailPanel } from "./ZibbyDetailPanel";
 import { ZibbyWebPanel } from "./ZibbyWebPanel";
 import { getDesktopWeb } from "../web/desktopWeb";
 import { ZibbyContextChips } from "./composer/ZibbyContextChips";
@@ -147,6 +148,9 @@ export function ZibbyHost() {
     closeCanvas,
     web,
     closeWeb,
+    detail,
+    openDetail,
+    closeDetail,
     setCanvasMode,
   } = useChat();
 
@@ -329,8 +333,14 @@ export function ZibbyHost() {
 
   /** Esc: full → split, else close the canvas (the overlay's own Esc order, for the iframe). */
   const dismissCanvas = useCallback(
-    (mode: "split" | "full") => (mode === "full" ? setCanvasMode("split") : closeCanvas()),
-    [setCanvasMode, closeCanvas],
+    (mode: "split" | "full") => {
+      if (mode === "full") return setCanvasMode("split");
+      // One thing occupies the side slot at a time — close whichever it is.
+      closeCanvas();
+      closeWeb();
+      closeDetail();
+    },
+    [setCanvasMode, closeCanvas, closeWeb, closeDetail],
   );
   /** `z:key` from the canvas page. ⌥Space is the summon chip's toggle — the overlay is open, so it closes. */
   const onCanvasKey = useCallback(
@@ -500,6 +510,14 @@ export function ZibbyHost() {
             onKey={onCanvasKey}
             onPrefill={onCanvasPrefill}
             onSend={onCanvasSend}
+          />
+        ) : detail && !compact ? (
+          <ZibbyDetailPanel
+            full={canvasMode === "full"}
+            onClose={closeDetail}
+            onOpen={openDetail}
+            onToggleFull={() => setCanvasMode(canvasMode === "full" ? "split" : "full")}
+            selection={detail}
           />
         ) : web && !compact && desktopWeb ? (
           <ZibbyWebPanel

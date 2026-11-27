@@ -480,3 +480,30 @@ describe("SheetAction", () => {
     });
   });
 });
+
+describe("AnchoredSheet panel presentation", () => {
+  it("fills its parent: no overlay, no geometry, no stepping or expand, close stays", () => {
+    render(
+      <AnchoredSheet
+        expandable
+        closeLabel="Close"
+        kind="PR"
+        onClose={() => {}}
+        onStep={() => {}}
+        presentation="panel"
+        title="Fix it"
+        {...geo}
+      >
+        body
+      </AnchoredSheet>,
+    );
+    const root = screen.getByTestId(AnchoredSheetTestId.Root);
+    expect(root).toHaveAttribute("data-presentation", "panel");
+    expect(root).toHaveAttribute("aria-modal", "false");
+    expect(root.style.width).toBe("");
+    expect(screen.queryByTestId(AnchoredSheetTestId.Overlay)).toBeNull();
+    expect(screen.queryByTestId(AnchoredSheetTestId.Expand)).toBeNull();
+    expect(screen.queryByTestId(AnchoredSheetTestId.StepNext)).toBeNull();
+    expect(screen.getByTestId(AnchoredSheetTestId.Close)).toBeInTheDocument();
+  });
+});

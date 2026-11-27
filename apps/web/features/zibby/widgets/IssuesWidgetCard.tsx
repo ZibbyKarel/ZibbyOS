@@ -9,6 +9,7 @@ import { visibleItems } from "../../inbox/inbox";
 import { useInboxItemsQuery } from "../../inbox/queries";
 import { type IssueRowVm, issueRow } from "../../bridge/state/rows";
 import { useBridgeInboxFilters } from "../../bridge/state/useBridgeInboxFilters";
+import { chatSelection } from "../../chat/chatDetail";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum IssuesWidgetCardTestId {
@@ -64,6 +65,7 @@ export function IssuesWidgetCard({ widget }: IssuesWidgetCardProps) {
     >
       {shown.map((r) => (
         <ChatWidgetRow
+          detail={chatSelection("issue", r.id)}
           href={`/dashboard/inbox/issues/${r.id}`}
           itemKey={r.id.replace("/", "-")}
           key={r.id}

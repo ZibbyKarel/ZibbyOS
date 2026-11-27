@@ -7,6 +7,7 @@ import type { DotTone } from "@zibby/design-system";
 import { formatWhen } from "../../project-health/formatWhen";
 import { useProjectHealthQuery } from "../../project-health/queries";
 import { useCiStatusQuery, useProjectsQuery } from "../../projects/queries";
+import { chatSelection } from "../../chat/chatDetail";
 import { ChatWidgetFrame, ChatWidgetRow, takeRows, widgetStatus } from "./ChatWidgetFrame";
 
 export enum ProjectStatusWidgetCardTestId {
@@ -98,6 +99,7 @@ export function ProjectStatusWidgetCard({ widget }: ProjectStatusWidgetCardProps
         const tone: DotTone = r.attention ? "error" : r.ci || r.health ? "done" : "idle";
         return (
           <ChatWidgetRow
+            detail={chatSelection("project", r.project.id)}
             href={`/projects/${r.project.id}`}
             itemKey={r.project.id}
             key={r.project.id}

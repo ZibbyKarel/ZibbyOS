@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { BridgeSelection } from "../bridge/widgets/registry";
 
 /** localStorage key the conversation id survives a full page reload under. */
 const CHAT_CONVERSATION_KEY = "zibby.chat.conversationId";
@@ -109,6 +110,10 @@ interface ChatStore {
   web: OpenWeb | null;
   openWeb: (web: OpenWeb) => void;
   closeWeb: () => void;
+  /** A Bridge sheet (run / approval / PR / …) open beside the chat; shares the side slot too. */
+  detail: BridgeSelection | null;
+  openDetail: (selection: BridgeSelection) => void;
+  closeDetail: () => void;
   setCanvasMode: (mode: CanvasMode) => void;
 }
 
@@ -153,10 +158,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     conversationId: string | null;
   } | null>(null);
   const web = openedWeb?.conversationId === conversationId ? openedWeb.web : null;
-  // Canvas and web page share the one side slot: opening either replaces the other.
+  const [openedDetail, setOpenedDetail] = useState<{
+    selection: BridgeSelection;
+    conversationId: string | null;
+  } | null>(null);
+  const detail = openedDetail?.conversationId === conversationId ? openedDetail.selection : null;
+  // Canvas, web page and detail share the one side slot: opening one replaces the others.
   const openCanvas = useCallback(
     (next: OpenCanvas) => {
       setOpenedWeb(null);
+      setOpenedDetail(null);
       setOpenedCanvas({ canvas: next, conversationId });
       setCanvasMode("split");
     },
@@ -166,12 +177,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const openWeb = useCallback(
     (next: OpenWeb) => {
       setOpenedCanvas(null);
+      setOpenedDetail(null);
       setOpenedWeb({ web: next, conversationId });
       setCanvasMode("split");
     },
     [conversationId],
   );
   const closeWeb = useCallback(() => setOpenedWeb(null), []);
+  const openDetail = useCallback(
+    (selection: BridgeSelection) => {
+      setOpenedCanvas(null);
+      setOpenedWeb(null);
+      // An in-sheet jump keeps the panel's full / split mode; a fresh open starts split.
+      if (!detail) setCanvasMode("split");
+      setOpenedDetail({ selection, conversationId });
+    },
+    [conversationId, detail],
+  );
+  const closeDetail = useCallback(() => setOpenedDetail(null), []);
   const [about, setAboutState] = useState<ChatAbout | null>(null);
   // Mirror of `about` that is current synchronously, so `openAbout` can stay
   // identity-stable and never read a stale closure between two calls.
@@ -270,6 +293,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       web,
       openWeb,
       closeWeb,
+      detail,
+      openDetail,
+      closeDetail,
       setCanvasMode,
     }),
     [
@@ -292,6 +318,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       web,
       openWeb,
       closeWeb,
+      detail,
+      openDetail,
+      closeDetail,
     ],
   );
 
