@@ -8,7 +8,6 @@ import {
   goalMatchesFilter,
   goalScheduleLabel,
   goalScopeLabel,
-  goalStatusTone,
   goalUpcoming,
   groupPresets,
   groupTimelineByCycle,
@@ -58,9 +57,6 @@ describe("goalScheduleLabel", () => {
 
 describe("status tones", () => {
   it("makes needs-you and parked the amber ones, paused the grey one", () => {
-    expect(goalStatusTone("needs-you")).toBe("wait");
-    expect(goalStatusTone("paused")).toBe("off");
-    expect(goalStatusTone("done")).toBe("ok");
     expect(instanceStatusTone("parked")).toBe("wait");
     expect(instanceStatusTone("planning")).toBe("info");
   });
@@ -351,20 +347,12 @@ describe("held by a Manual autonomy level", () => {
   };
 
   it("a held roll-up is a calm 'held' card, not working", () => {
-    expect(goalCardModel(goal, undefined, names, "cs")).toMatchObject({
-      held: true,
-      state: "idle",
-    });
-    expect(goalStatusTone("held")).toBe("off");
+    expect(goalCardModel(goal, undefined, names, "cs").state).toBe("idle");
   });
 
   it("any other roll-up is not held", () => {
-    expect(goalCardModel(withStatus("acting"), undefined, names, "cs")).toMatchObject({
-      held: false,
-      state: "working",
-    });
+    expect(goalCardModel(withStatus("acting"), undefined, names, "cs").state).toBe("working");
     expect(goalCardModel(withStatus("needs-you"), undefined, names, "cs")).toMatchObject({
-      held: false,
       state: "blocked",
       actions: "decide",
     });

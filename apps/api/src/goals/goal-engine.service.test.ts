@@ -553,9 +553,12 @@ describe("GoalEngineService", () => {
         instances: { _: { status: "planning", taskIds: [], held: "autonomy-manual" } },
       });
       await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
-      expect((await state()).cycle.index).toBe(1);
+      const s = await state();
+      expect(s.cycle.index).toBe(1);
+      expect(s.instances._?.held).toBe("autonomy-manual");
       expect(recorded("goal-started")).toHaveLength(0);
-      expect((await timeline()).filter((l) => /started/i.test(l))).toEqual([]);
+      // Neither a started line nor a second held line: the hold carried over.
+      expect((await timeline()).filter((l) => /started|^held:/i.test(l))).toEqual([]);
     });
 
     it("manual: an idle held tick writes nothing", async () => {
@@ -648,7 +651,8 @@ describe("GoalEngineService", () => {
     });
 
     it("lowered to manual while the planner ran: the pass starts nothing, the next tick holds", async () => {
-      const levels: AutomationLevel[] = ["auto", "manual"];
+      // Bookkeeping, the pass and the post-plan re-read each resolve the level.
+      const levels: AutomationLevel[] = ["auto", "auto", "manual"];
       startLevel = async () => levels.shift() ?? "manual";
       const handler = vi.fn();
       executor.register("start-task", handler);
@@ -664,7 +668,7 @@ describe("GoalEngineService", () => {
     });
 
     it("lowered to semi while the planner ran: start-task becomes a report", async () => {
-      const levels: AutomationLevel[] = ["auto", "semi"];
+      const levels: AutomationLevel[] = ["auto", "auto", "semi"];
       startLevel = async () => levels.shift() ?? "semi";
       const handler = vi.fn();
       executor.register("start-task", handler);

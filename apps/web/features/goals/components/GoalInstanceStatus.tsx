@@ -24,13 +24,16 @@ export interface GoalInstanceStatusProps {
 export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatusProps) {
   const t = useTranslations("goals.instances");
   const tg = useTranslations("goals");
+  // Parked or done wins over a hold (a woken held pass can park), as in the roll-up.
+  const held =
+    instance.held !== undefined && instance.status !== "parked" && instance.status !== "done";
   return (
     <Stack align="start" gap="25">
       <StatusBadge
         data-testid={`${GoalInstanceStatusTestId.Badge}-${instanceKey}`}
-        tone={instance.held ? "off" : instanceStatusTone(instance.status)}
+        tone={held ? "off" : instanceStatusTone(instance.status)}
       >
-        {instance.held ? tg("status.held") : t(`state.${instance.status}`)}
+        {held ? tg("status.held") : t(`state.${instance.status}`)}
       </StatusBadge>
       {instance.parkedReason && (
         <Typography
@@ -42,7 +45,7 @@ export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatus
           {t(`parked.${instance.parkedReason}`)}
         </Typography>
       )}
-      {instance.held && (
+      {held && (
         <Typography
           data-testid={`${GoalInstanceStatusTestId.Held}-${instanceKey}`}
           size="caption"

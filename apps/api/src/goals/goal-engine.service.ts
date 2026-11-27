@@ -231,7 +231,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (staleDecisions.length) await this.decisions?.rejectStale(staleDecisions);
     for (const key of Object.keys(state.instances).sort()) {
       try {
-        await this.tickInstance(goal, state, key, now, dirty, levels.get(key));
+        await this.tickInstance(goal, state, key, now, dirty);
         const instance = state.instances[key];
         for (const ref of instance ? instanceRefs(instance) : []) consumed.add(ref);
       } catch (error) {
@@ -255,12 +255,12 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     key: string,
     now: Date,
     dirty: Set<string>,
-    resolved?: AutomationLevel,
   ): Promise<void> {
     const before = state.instances[key];
     // Parked stays parked until the operator resumes it or a new cycle starts.
     if (!before || before.status === "parked" || before.status === "done") return;
-    const stored = resolved ?? (await this.startLevel(key));
+    // Re-read here, not reused from bookkeeping: a sibling's plan can take minutes.
+    const stored = await this.startLevel(key);
     // Manual: nothing starts on its own — no facts, plan, park, failure count or spend.
     if (stored === "manual" && !before.operatorWake) return this.hold(goal, state, key, before);
     // A wake on a held instance runs this one pass as semi (it stays held).
@@ -595,6 +595,8 @@ export function bookkeep(
           status: "planning",
           taskIds: [],
           ...(inst.planNoteId ? { planNoteId: inst.planNoteId } : {}),
+          // Still held: the hold carries over, so the new cycle writes no second `held` line.
+          ...(held.has(key) && inst.held ? { held: inst.held } : {}),
         };
       }
       if (keys.length === 0 || keys.some((k) => !held.has(k))) {

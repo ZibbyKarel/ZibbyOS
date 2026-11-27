@@ -35,7 +35,9 @@ export function GoalDirectionalPanel({ instances, names }: GoalDirectionalPanelP
       {entries.map(([key, instance]) => {
         const a = instance.autoDecide;
         // A held instance does not plan: its last plan's level is history, the hold is now.
-        const line = instance.held
+        const held =
+          instance.held !== undefined && instance.status !== "parked" && instance.status !== "done";
+        const line = held
           ? tc("heldReason")
           : a?.level === "auto"
             ? t("line.auto")

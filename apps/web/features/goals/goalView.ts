@@ -41,24 +41,7 @@ export interface GoalLabel {
 
 export type GoalStatusTone = "ok" | "wait" | "off" | "err" | "info";
 
-/** Pill tone per roll-up status: needs-you is the one that asks for the operator. */
-export function goalStatusTone(status: GoalRollupStatus): GoalStatusTone {
-  switch (status) {
-    case "paused":
-    case "held":
-      return "off";
-    case "needs-you":
-      return "wait";
-    case "done":
-    case "acting":
-      return "ok";
-    case "planning":
-    case "waiting":
-      return "info";
-  }
-}
-
-/** Instance status uses the same pill tones as the roll-up. */
+/** Instance status pill tone: parked is the one that asks for the operator. */
 export function instanceStatusTone(status: GoalInstanceStatus): GoalStatusTone {
   switch (status) {
     case "parked":
@@ -200,8 +183,6 @@ export interface GoalCardModel {
   /** Absent while the timeline is not loaded (or failed): no box rather than a faked one. */
   verdict?: { head: GoalLabel; status?: GoalLabel; text: GoalLabel | string };
   verdictTone: "idle" | "blocked" | "done";
-  /** Every active instance is held by a Manual autonomy level: the pill reads "held", not "working". */
-  held: boolean;
   /** `decide` opens the detail page, `wake-pause` wakes or pauses, `enable` switches it on. */
   actions: "decide" | "wake-pause" | "enable";
 }
@@ -254,7 +235,6 @@ export function goalCardModel(
 
   return {
     state: GOAL_CARD_STATE[status],
-    held: status === "held",
     used: counts.done,
     max: Math.max(counts.total, 1),
     ringValue: ran ? undefined : "–",
