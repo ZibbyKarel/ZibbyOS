@@ -30,28 +30,39 @@ const tree: AutopilotAutomation = {
 describe("autoDecideGoals and the master switch", () => {
   const manual = { ...NO_AUTOMATION };
 
-  it("is not part of isGlobalManual", () => {
-    expect(isGlobalManual({ global: { ...manual, autoDecideGoals: "auto" } })).toBe(true);
+  it("counts for isGlobalManual like every other capability", () => {
+    expect(isGlobalManual({ global: manual })).toBe(true);
+    expect(isGlobalManual({ global: { ...manual, autoDecideGoals: "auto" } })).toBe(false);
     expect(isGlobalManual({ global: { ...manual, autoFixCi: "semi" } })).toBe(false);
   });
 
-  it("resolves most-specific-wins even under an all-manual global row; the others stay off", () => {
+  it("an all-manual global row switches goal exceptions off too", () => {
     const automation = {
-      global: { ...manual, autoDecideGoals: "semi" as const },
-      companies: { co: { autoReview: "auto" as const } },
-      teams: { devrel: { autoFixCi: "auto" as const, autoDecideGoals: "manual" as const } },
+      global: manual,
+      companies: { co: { autoDecideGoals: "semi" as const } },
+      teams: { devrel: { autoDecideGoals: "auto" as const } },
       projects: { p: { autoDecideGoals: "auto" as const } },
     };
-    expect(resolveAutopilotLevels({ automation }, { companyId: "co" })).toEqual({
-      ...manual,
-      autoDecideGoals: "semi",
-    });
-    expect(resolveAutopilotLevels({ automation }, { companyId: "co", teamId: "devrel" })).toEqual(
-      manual,
-    );
+    expect(resolveAutopilotLevels({ automation }, { companyId: "co" })).toEqual(manual);
     expect(
       resolveAutopilotLevels({ automation }, { companyId: "co", teamId: "devrel", projectId: "p" }),
-    ).toEqual({ ...manual, autoDecideGoals: "auto" });
+    ).toEqual(manual);
+  });
+
+  it("resolves most-specific-wins once the global row is not all-manual", () => {
+    const automation = {
+      global: { ...manual, autoDecideGoals: "semi" as const },
+      companies: {},
+      teams: { devrel: { autoDecideGoals: "manual" as const } },
+      projects: { p: { autoDecideGoals: "auto" as const } },
+    };
+    expect(resolveAutopilotLevels({ automation }, {}).autoDecideGoals).toBe("semi");
+    expect(resolveAutopilotLevels({ automation }, { teamId: "devrel" }).autoDecideGoals).toBe(
+      "manual",
+    );
+    expect(
+      resolveAutopilotLevels({ automation }, { teamId: "devrel", projectId: "p" }).autoDecideGoals,
+    ).toBe("auto");
   });
 });
 

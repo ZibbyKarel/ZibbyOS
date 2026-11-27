@@ -85,21 +85,22 @@ describe("GoalDecisionService (directional goals, autoDecideGoals)", () => {
       started.push({ text: a.text, actionId: a.actionId, projectId: ctx.projectId });
       await ctx.recordTask(`task-${started.length}`, a.actionId);
     });
+    // The engine resolves the level at the instance's place (`GoalMessageService.goalStartLevel`).
+    const messages = {
+      goalStartLevel: async (k: string) => {
+        const at = k === "_" ? {} : { companyId: "c1", projectId: k };
+        places.push(at);
+        return level(at);
+      },
+      communicationLevel: async () => "manual",
+      rejectStale: async () => undefined,
+    };
     decisions = new GoalDecisionService(
       executor,
       approvals as never,
       store,
       goals,
-      {
-        isPaused: () => paused,
-        levelsAt: (at: { projectId?: string; companyId?: string }) => {
-          places.push(at);
-          return { autoDecideGoals: level(at) };
-        },
-      } as never,
-      {
-        placeOf: async (k: string) => (k === "_" ? {} : { companyId: "c1", projectId: k }),
-      } as never,
+      { isPaused: () => paused } as never,
       new BudgetLedgerStore(path.join(dir, "ledger")),
       activity as never,
     );
@@ -122,7 +123,7 @@ describe("GoalDecisionService (directional goals, autoDecideGoals)", () => {
       fakeSystemConfigStore(),
       { register: vi.fn() } as never,
       fakeLogger as never,
-      undefined,
+      messages as never,
       decisions,
     );
   });
@@ -153,14 +154,30 @@ describe("GoalDecisionService (directional goals, autoDecideGoals)", () => {
   const timeline = async () => (await store.timeline("g")).map((e) => `${e.kind}: ${e.text}`);
   const pendingApproval = () => approvals.requestApproval.mock.calls[0]?.[0] as Approval;
 
-  it("manual: writes the ranked report, no approval, no task", async () => {
+  it("manual: the instance is held — no plan, no proposal, no approval, no task", async () => {
     level = () => "manual";
     await create();
     planOnce(propose(cand("x"), cand("y")));
     await engine.tick(NOW);
+    expect(planner.plan).not.toHaveBeenCalled();
     expect(approvals.requestApproval).not.toHaveBeenCalled();
     expect(started).toEqual([]);
-    expect((await timeline()).join("\n")).toContain("1. [x] Feature x (small)");
+    expect((await state()).instances.p1?.held).toBe("autonomy-manual");
+  });
+
+  it("manual + operator wake: one pass as semi — the proposal waits for approval", async () => {
+    level = () => "manual";
+    await create();
+    await engine.tick(NOW);
+    await store.wake("g", NOW.toISOString());
+    planOnce(propose(cand("x"), cand("y")));
+    await engine.tick(NOW);
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    expect(started).toEqual([]);
+    expect(pendingApproval().kind).toBe("goal-decision");
+    // Approving it is the operator's act: the candidate starts although the place is manual.
+    await decisions.resume(pendingApproval().runId, undefined);
+    expect(started).toMatchObject([{ text: "Build feature x" }]);
   });
 
   it("semi: approval lists the candidates; approve starts the top one", async () => {

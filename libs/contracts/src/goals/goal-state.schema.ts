@@ -46,6 +46,14 @@ export const GoalInstanceSchema = z.object({
   appliedActionIds: z.array(z.string()).optional(),
   /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */
   lookupRetries: z.record(z.string(), z.number().int().min(0)).optional(),
+  /**
+   * Why the engine starts nothing for this instance on its own (absent = not held).
+   * `autonomy-manual`: "starting and deciding goals" (`autoDecideGoals`) resolves to `manual` at
+   * the instance's place. Cleared once the level is raised.
+   */
+  held: z.enum(["autonomy-manual"]).optional(),
+  /** An operator wake landed while the instance was held: its next pass runs as `semi`, once. */
+  operatorWake: z.literal(true).optional(),
   /** Directional goal: the effective `autoDecideGoals` the last plan ran with (and why). */
   autoDecide: z
     .object({

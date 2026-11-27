@@ -76,7 +76,41 @@ count); the queued dirty refs stay and the next tick after resume picks them up.
 finishes after the pause starts no spending action (`start-task`, `run-loop`, `pr-action`: a
 report "Not done: <type> — Autopilot is paused."). Paused goals can miss a deadline silently: nothing
 is written while paused, a one-off goal parks on the first tick after resume, and a standing goal
-whose cycle ended is rolled to the current cycle without a deadline park. Each tick, per enabled goal (one goal failing never blocks the others):
+whose cycle ended is rolled to the current cycle without a deadline park.
+
+**Autonomy ("starting and deciding goals", `autoDecideGoals`).** Every instance runs under the
+effective `autoDecideGoals` at its place (project > company > global, under the Autopilot
+master switch; a `_` instance resolves at global), read by
+`GoalMessageService.goalStartLevel` with the same place helper as `autoCommunicate`. It fails
+closed: an unreadable project, a missing service or an unknown level is `manual`. Pause wins
+over all of it.
+
+- `manual`: the instance is **held**. The engine starts nothing for it on its own: no facts read,
+  no planner run, no task, loop, PR action, message or proposal, no deadline/budget park, no
+  failure count, no spend (as quiet as the pause). The instance gets `held: "autonomy-manual"`
+  and ONE timeline event when it becomes held (kind `held`, text "Held: Starting and deciding
+  goals is Manual here, so ZIBBY starts nothing for this goal on its own. Raise the level or
+  wake the goal for one pass that waits for your approval."); further held ticks write nothing.
+  Raising the level clears `held` and forces a re-plan. Resuming a parked instance does not
+  bypass the hold.
+- `semi`: the engine plans and reports, but nothing that starts work or reaches outward runs on
+  its own: `start-task`, `run-loop`, `pr-action` and `merge` become a report "Not started
+  (Semi-auto): <type> (<title / text / repo#n>) — start it yourself or raise Starting and
+  deciding goals to Auto." (never recorded as applied, nothing to approve); `message` always
+  becomes a `goal-message` approval, even to a known recipient with `autoCommunicate` `auto`;
+  `propose` raises a `goal-decision` approval.
+- `auto`: unchanged (ceiling, budget, merge grant, Never rules).
+- **Re-check after the plan:** the planner can run for minutes, so the level is read again once
+  the plan returns and the actions run at the stricter of the two. A level lowered to `manual`
+  meanwhile runs the pass as `semi` (starting actions become reports, nothing starts); the next
+  tick holds the instance.
+- A resume clears `operatorWake`, so a wake that landed before a park buys no extra pass.
+- **Wake** (`POST /goals/:id/wake`) on a held instance sets `operatorWake: true` on it (only held
+  ones): the next tick runs exactly one pass as `semi`, the instance stays held and no second
+  `held` event is written.
+
+The pass's level is `GoalActionContext.autonomy` and the planner gets it as `ctx.autonomy`.
+Each tick, per enabled goal (one goal failing never blocks the others):
 
 1. **Instances** from the scope: none -> `_`; `projects` -> those ids; `company` -> that
    company's projects; `all` -> every project.
@@ -88,6 +122,7 @@ whose cycle ended is rolled to the current cycle without a deadline park. Each t
    the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
    project gets an instance; one that left the scope becomes `done` ("Left the goal's scope.").
 3. **Per instance** (sorted, each in its own try/catch), skipping `parked` and `done`:
+   - **Autonomy** first: a `manual` instance without `operatorWake` is held and skipped (above).
    - Past `cycle.deadlineAt` -> park `deadline`. The cycle budget used up and no task in
      flight -> park `budget`; used up with a task still in flight -> nothing (no paid
      re-plan; it parks once the work ends). All happen before the wake check, with no planner
@@ -155,7 +190,8 @@ Remaining budget (live: each `recordTask` lowers `runs`, so one plan cannot over
 | `update-checklist` | `id`, `done`                                                                                              | tier1       | `GoalDecisionService`: ticks a checklist item             |
 | `merge`            | `actionId`, `projectId`, `repo`, `number`, `approvedSha` (40-hex)                                         | tier3       | `GoalMergeService`: only under a merge grant (below)      |
 
-An action above the goal's `ceiling` (`ceilingAllows`), or one with no handler, becomes a
+An action above the goal's `ceiling` (`ceilingAllows`), a starting action (`start-task`,
+`run-loop`, `pr-action`, `merge`) in a pass below `auto`, or one with no handler, becomes a
 `report` naming what was not done, and so does a spending action (`start-task`, `run-loop`,
 `pr-action`: each starts a paid run) once `ctx.remainingBudget` is used up. A handler that
 throws (a refused or out-of-scope service, a host error) becomes a report "Not done: <type> —
@@ -303,16 +339,14 @@ without PR, approval or reply waits keep their fingerprint):
 
 A goal with `directional` (`checklist`, `maxDecisionsPerMonth`, optional `matrixNoteId`) lets the
 planner `propose` ranked candidates. A non-directional goal's `propose` is a report. The
-effective `autoDecideGoals` is resolved at the instance's place with the same place helper as
-`autoCommunicate` (project > team > company > global; a `_` instance resolves at global),
-independently of the other capabilities: it is not part of the Autopilot master switch (see
-`docs/api/autopilot.md`), so it can be `auto` on one project while everything else is manual, and
-is stored on the instance as `autoDecide: { level, reason }` (shown on the detail page and
-given to the planner): Autopilot paused caps `auto` at `semi` (`paused`); a `tier1` ceiling means
-`manual` (`ceiling`). The planner never decides: the handler enforces the level. `propose` runs
+level is the pass's (the engine's `autoDecideGoals` at the instance's place, see "Autonomy"
+above; an operator wake on a held instance: `semi`) and is stored on the instance as
+`autoDecide: { level, reason }` (shown on the detail page and given to the planner): Autopilot
+paused caps `auto` at `semi` (`paused`); a `tier1` ceiling means `manual` (`ceiling`). The planner never decides: the handler enforces the level. `propose` runs
 at `tier1` so that a tier1 goal still gets the ranked report.
 
-- `manual`: ranked report on the timeline (+ activity), nothing else.
+- `manual` (only via a `tier1` ceiling: a held instance never plans): ranked report on the
+  timeline (+ activity), nothing else.
 - `semi`: one `goal-decision` approval (runId `<goalId>/<instance>/<cycle>/<n>`, `n` unique per
   proposal) listing the
   candidates; the instance waits on it; one open proposal per instance (a second `propose`
@@ -431,7 +465,8 @@ action is always a `report` "ready to merge".
      the project, with `grantedAt` not in the future and both `until - grantedAt` and
      `until - now` at most 24 h (the file is hand-editable, so the cap is re-checked here from
      both ends; a missing or unparseable date fails); a revoke during the tick wins;
-  3. Autopilot is not paused;
+  3. Autopilot is not paused, and "starting and deciding goals" is `auto` both for this pass and
+     freshly at the instance's place (a `semi` pass or a wake on a held instance never merges);
   4. read live from GitHub (`ProjectPrService.mergeState`, never from the facts snapshot or the
      plan): the PR belongs to the project's repo, is open, not a draft, not yet merged; no
      reviewer's latest review requests changes; head SHA === `approvedSha` (no commits after the
@@ -475,6 +510,6 @@ action is always a `report` "ready to merge".
   title links to the goal page. The sheet has "Co se dělo" (every stored event, newest first; the store keeps the latest 500 per goal) and
   "Co bude" (per instance what it waits on and when it wakes, the next cycle or the deadline, the
   plan note), plus enable/pause, wake and resume. Live through the `goals` SSE scope.
-- **Autonomy matrix** (`/governance/autonomy`): `autoDecideGoals` ("automatické rozhodování cílů")
-  is the sixth capability column and project rows nest under their company, see
+- **Autonomy matrix** (`/governance/autonomy`): `autoDecideGoals` (cs "Spouštění a rozhodování
+  cílů", en "Starting and deciding goals") is the sixth capability column and project rows nest under their company, see
   `docs/api/autopilot.md`.

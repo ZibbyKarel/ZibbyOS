@@ -141,12 +141,21 @@ export class GoalStateStore {
     return events.slice(-TIMELINE_CAP);
   }
 
-  /** Clear every instance's fingerprint so the engine re-plans. */
+  /**
+   * Clear every instance's fingerprint so the engine re-plans. A held instance (autonomy
+   * `manual`) gets `operatorWake`: one pass as `semi`. Only held ones, so the mark never lingers
+   * on a running or parked instance to grant a pass later.
+   */
   wake(goalId: string, startedAt: string): Promise<GoalState> {
     const dir = this.dirOf(goalId);
     return withPathLock(dir, async () => {
       const state = await this.readForWrite(goalId, startedAt);
-      for (const instance of Object.values(state.instances)) delete instance.fingerprint;
+      for (const instance of Object.values(state.instances)) {
+        delete instance.fingerprint;
+        if (instance.held && instance.status !== "parked" && instance.status !== "done") {
+          instance.operatorWake = true;
+        }
+      }
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {
         at: new Date().toISOString(),
@@ -176,6 +185,8 @@ export class GoalStateStore {
       // Budget grace ends once one more run is recorded past this point.
       target.resumedRuns = target.taskIds.length;
       delete target.planFailures;
+      // A wake that landed before the park must not buy the resumed instance an extra semi pass.
+      delete target.operatorWake;
       await this.writeUnlocked(dir, state);
       await this.appendUnlocked(dir, {
         at: new Date().toISOString(),

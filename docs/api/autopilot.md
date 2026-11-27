@@ -54,14 +54,14 @@ the new shape on the next change.
 
 ## The six capabilities
 
-| Key                   | `semi` or `auto` starts                                                                                  | `auto` lifts (gate class)                                                                |
-| --------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `autoReview`          | PR-inbox code reviews (`PrAutomationService`)                                                            | `reviews`: `pr-review` and the pr-review `workflow-gate` sign-off                        |
-| `autoAddressComments` | addressing review comments (`PrAutomationService`)                                                       | `comments`: `pr-address-comments` (fix push, thread replies), and a hook `gh.pr_comment` |
-| `autoImplement`       | roadmap pickup (roadmap tick)                                                                            | none (opening a PR is Tier 2 anyway)                                                     |
-| `autoCommunicate`     | none (channel items arrive on their own)                                                                 | `communication`: `channel` replies (GitHub, GitLab, Jira, Slack, …)                      |
-| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`)                                     | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
-| `autoDecideGoals`     | none by itself; the goal engine reads it: `semi` = a proposal behind an approval, `auto` = ZIBBY decides | none (no gate class)                                                                     |
+| Key                   | `semi` or `auto` starts                                                                                                                                               | `auto` lifts (gate class)                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `autoReview`          | PR-inbox code reviews (`PrAutomationService`)                                                                                                                         | `reviews`: `pr-review` and the pr-review `workflow-gate` sign-off                        |
+| `autoAddressComments` | addressing review comments (`PrAutomationService`)                                                                                                                    | `comments`: `pr-address-comments` (fix push, thread replies), and a hook `gh.pr_comment` |
+| `autoImplement`       | roadmap pickup (roadmap tick)                                                                                                                                         | none (opening a PR is Tier 2 anyway)                                                     |
+| `autoCommunicate`     | none (channel items arrive on their own)                                                                                                                              | `communication`: `channel` replies (GitHub, GitLab, Jira, Slack, …)                      |
+| `autoFixCi`           | PR CI triage + fix on the operator's own PRs (`PrAutomationService`)                                                                                                  | `ci`: the `pr-fix-ci` push, and a flaky-CI rerun instead of a `pr-ci-rerun` approval     |
+| `autoDecideGoals`     | "starting and deciding goals": the goal engine reads it per instance — `manual` = held, `semi` = plans, starting/outward actions wait for the operator, `auto` = acts | none (no gate class)                                                                     |
 
 The goal engine's use of `autoDecideGoals` and `autoCommunicate`, and the one sanctioned autonomous
 merge (the operator-token merge grant on a goal), are in [goals.md](./goals.md).
@@ -73,18 +73,18 @@ project in that order; `resolveAutopilotAutomation` /
 row that is all `manual` (the pill's `Ručně`) is a master off: every company/team exception
 resolves to `manual` too (`isGlobalManual`), project ones included, so nothing is picked up or auto-approved and
 `isOn()` is false; the exceptions stay stored and apply again once the global row is raised.
-`autoDecideGoals` is outside the master switch (`MASTER_SWITCH_KEYS` = every key but it): it
-does not count when deciding whether the global row is all manual, it resolves on its own
-(project > team > company > global) even under an all-manual global row, and a goal-only `auto`
-cell does not turn `isOn()` true. So goal decisions can run on one project while every other cell
-is manual, and raising them never wakes a dormant exception of another capability. Raising it is
-still a raise (operator token). The pause stops goals too (see [goals.md](./goals.md)).
+`autoDecideGoals` ("starting and deciding goals") is under the master switch like every other
+capability: an all-manual global row holds every goal, project cells included. It is the one
+key that never turns `isOn()` true (it has no gate class, so a goals-only `auto` cell does not
+wake the `zibby/*` push overlay), and because it counts for `isGlobalManual`, a global goals cell
+that is not `manual` lifts the master switch for the other capabilities' exceptions, as any
+global cell does. The pause stops goals too (see [goals.md](./goals.md)).
 Configured automations don't go through this tree and keep running. The pill is greyed (muted
 tone, sleeping orb) in `Ručně` as while paused. The gate
 class follows the same tree (`AUTOPILOT_SCOPE_TOGGLE`, `AutopilotService.scope(at)`;
 `levelsAt(at)` returns the stored levels at a place without the pause, e.g. the goal engine's
 `message` reads `autoCommunicate` there and checks `isPaused()` itself; its `goal-message`
-approvals sit under the `communication` scope and are never auto-approved; `autoDecideGoals` is read the same way by `GoalDecisionService`, whose `goal-decision` approvals no Autopilot level approves): a
+approvals sit under the `communication` scope and are never auto-approved; `autoDecideGoals` is read the same way by the goal engine (`GoalMessageService.goalStartLevel`, fail closed), and no Autopilot level approves its `goal-decision` approvals): a
 `channel` reply resolves at the item's project (with its company), or the integration's company.
 A personal account's item that is only text-matched to a project it does not serve stays at
 global: inbound text borrows neither the company's nor the project's cells.

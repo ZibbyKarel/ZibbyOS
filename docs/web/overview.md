@@ -458,7 +458,7 @@ service sign-in in system Chrome and the list re-polls. See `docs/api/connected-
   the entity is now a `loop` (`/api/loops`) and only exists as an internal way to execute a goal's
   work.
 - **Project autonomy layer.** `/governance/autonomy` gets a project row under each company (after
-  its teams) and a sixth capability column `autoDecideGoals` ("automatické rozhodování cílů");
+  its teams) and a sixth capability column `autoDecideGoals` ("Spouštění a rozhodování cílů");
   the header menu's exception list includes projects. Raising any cell still needs the operator
   token. See `docs/api/autopilot.md`.
 - **Dashboard widget "Cíle"** (`features/bridge/widgets/GoalsWidget.tsx`): picked goals

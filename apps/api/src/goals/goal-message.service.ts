@@ -1,6 +1,8 @@
 import { Injectable, type OnModuleInit, Optional } from "@nestjs/common";
 import {
   type Approval,
+  type AutomationLevel,
+  AutomationLevelSchema,
   type AutopilotLocation,
   type Goal,
   type GoalAction,
@@ -73,7 +75,8 @@ const PERMANENT_SLACK =
  *   with `wakeAt` and NOT recorded as applied (re-planned then); at most
  *   {@link MESSAGES_PER_PERSON} per person per cycle, pending drafts included, else a report.
  * - **Tier:** sent at once (act, then report) only when `autoCommunicate` is `auto` at the
- *   instance's place, Autopilot is not paused, and the recipient is known to the goal (a PR
+ *   instance's place, the goal pass runs at `auto` ("starting and deciding goals"), Autopilot is
+ *   not paused, and the recipient is known to the goal (a PR
  *   author/reviewer, or a Slack id named in the goal definition or in this instance's own
  *   facts); otherwise a `goal-message` approval. The goal's ceiling (tier2, checked by the
  *   executor) is necessary, never sufficient.
@@ -114,6 +117,21 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
   async communicationLevel(goal: Goal, instanceKey: string): Promise<CommunicationLevel> {
     if (this.autopilot.isPaused()) return "paused";
     return this.autopilot.levelsAt(await this.placeOf(instanceKey)).autoCommunicate;
+  }
+
+  /**
+   * The effective `autoDecideGoals` ("starting and deciding goals") at the instance's place.
+   * Fails closed: an unreadable project, place or level is `manual`. Pause is not applied.
+   */
+  async goalStartLevel(instanceKey: string): Promise<AutomationLevel> {
+    try {
+      // `placeOf` falls back to the global row for an unreadable project: no borrowed autonomy.
+      if (instanceKey !== "_") await this.projects.get(instanceKey);
+      const at = await this.placeOf(instanceKey);
+      return AutomationLevelSchema.parse(this.autopilot.levelsAt(at).autoDecideGoals);
+    } catch {
+      return "manual";
+    }
   }
 
   /** The Autopilot place of an instance (`_` → global): shared by every per-place level. */
@@ -187,7 +205,8 @@ export class GoalMessageService implements OnModuleInit, ResumableRunner, GoalFa
       createdAt: ctx.now.toISOString(),
     };
     const level = await this.communicationLevel(ctx.goal, ctx.instanceKey);
-    if (level !== "auto" || !knownRecipient(ctx, target, state)) {
+    // Sent at once only when both levels are `auto`: a `semi` goal pass always asks first.
+    if (level !== "auto" || ctx.autonomy !== "auto" || !knownRecipient(ctx, target, state)) {
       const approval = await this.approvals.requestApproval({
         runId: `${ctx.goal.id}/${message.id}`,
         kind: "goal-message",

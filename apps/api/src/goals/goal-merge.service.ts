@@ -4,6 +4,7 @@ import { ActivityLogService } from "../activity/activity-log.service";
 import { AutopilotService } from "../autopilot/autopilot.service";
 import { ProjectPrService } from "../projects/project-pr.service";
 import { type GoalActionContext, GoalActionExecutor, reportFromGoal } from "./goal-action-executor";
+import { GoalMessageService } from "./goal-message.service";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 
@@ -17,7 +18,8 @@ type MergeAction = Extract<GoalAction, { type: "merge" }>;
  *
  * 1. the instance is a project instance and the action names that project;
  * 2. the goal, re-read from storage, still has ceiling tier3 and an unexpired grant listing it;
- * 3. Autopilot is not paused;
+ * 3. Autopilot is not paused, and "starting and deciding goals" is `auto` both for this pass and
+ *    freshly at the instance's place (a `semi` pass or a wake on a held instance never merges);
  * 4. live from the git host ({@link ProjectPrService.mergeState}): same repo, open, not draft,
  *    not merged yet, no current change request, head SHA === `approvedSha` and an approving
  *    review given on that SHA, CI green and settled, `mergeable === true`, `mergeable_state`
@@ -38,6 +40,7 @@ export class GoalMergeService implements OnModuleInit {
     private readonly autopilot: AutopilotService,
     private readonly prs: ProjectPrService,
     private readonly activity: ActivityLogService,
+    private readonly messages: GoalMessageService,
   ) {}
 
   onModuleInit(): void {
@@ -145,6 +148,12 @@ export class GoalMergeService implements OnModuleInit {
     }
     if (!grant.projectIds.includes(a.projectId)) return "merge grant nepokrývá tento projekt";
     if (this.autopilot.isPaused()) return "Autopilot je pozastavený";
+    if (
+      ctx.autonomy !== "auto" ||
+      (await this.messages.goalStartLevel(ctx.instanceKey)) !== "auto"
+    ) {
+      return "Spouštění a rozhodování cílů tu není na Automatu";
+    }
     return null;
   }
 }

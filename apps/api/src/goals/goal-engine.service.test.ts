@@ -1,7 +1,15 @@
 import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { ActivityRefs, CreateGoalInput, ScheduledTask } from "@zibby/contracts";
+import {
+  type ActivityRefs,
+  type AutomationLevel,
+  type AutopilotAutomation,
+  type CreateGoalInput,
+  NO_AUTOMATION,
+  type ScheduledTask,
+  resolveAutopilotLevels,
+} from "@zibby/contracts";
 import { Subject } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityEventsService } from "../activity/activity-events.service";
@@ -37,10 +45,18 @@ describe("GoalEngineService", () => {
   let systemConfig: ReturnType<typeof fakeSystemConfigStore>;
   let executor: GoalActionExecutor;
   let paused: boolean;
+  /** The effective `autoDecideGoals` per instance key (what `goalStartLevel` resolves). */
+  let startLevel: (key: string) => Promise<AutomationLevel>;
 
   beforeEach(async () => {
     paused = false;
+    startLevel = async () => "auto";
     const autopilot = { isPaused: () => paused };
+    const messages = {
+      goalStartLevel: (key: string) => startLevel(key),
+      communicationLevel: async () => "manual",
+      rejectStale: async () => undefined,
+    };
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "goal-engine-"));
     goals = new GoalsStorageService(dir);
     store = new GoalStateStore(dir);
@@ -71,7 +87,7 @@ describe("GoalEngineService", () => {
       systemConfig,
       { register: vi.fn() } as never,
       fakeLogger as never,
-      undefined,
+      messages as never,
       undefined,
       autopilot as never,
     );
@@ -494,6 +510,238 @@ describe("GoalEngineService", () => {
     expect(recorded("goal-acted").map((e) => e.summary)).toEqual([
       expect.stringContaining("Not done: start-task — Autopilot is paused."),
     ]);
+  });
+
+  describe("autonomy: starting and deciding goals (autoDecideGoals)", () => {
+    const timeline = async () => (await store.timeline("g")).map((e) => `${e.kind}: ${e.text}`);
+    const startTaskPlan = () =>
+      planner.plan.mockResolvedValue({
+        plan: "",
+        feasibility: "ok",
+        actions: [{ type: "start-task", actionId: "a1", text: "Fix the build", title: "Fix" }],
+      });
+
+    it("manual: holds the instance quietly — no plan, no task, no park, one timeline event", async () => {
+      startLevel = async () => "manual";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create({ deadline: later(60).toISOString() });
+      for (let m = 0; m <= 4; m++) await engine.tick(later(m * 30)); // past the deadline too
+      expect(planner.plan).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+      const s = await state();
+      expect(s.instances._?.held).toBe("autonomy-manual");
+      expect(s.instances._?.status).toBe("planning");
+      expect(s.instances._?.planFailures).toBeUndefined();
+      expect(s.instances._?.taskIds).toEqual([]);
+      expect(recorded("goal-parked")).toHaveLength(0);
+      expect(recorded("goal-acted")).toHaveLength(0);
+      expect((await timeline()).filter((l) => l.startsWith("held:"))).toEqual([
+        "held: Held: Starting and deciding goals is Manual here, so ZIBBY starts nothing for this goal on its own. Raise the level or wake the goal for one pass that waits for your approval.",
+      ]);
+    });
+
+    it("manual: an idle held tick writes nothing", async () => {
+      startLevel = async () => "manual";
+      await create();
+      await engine.tick(NOW);
+      const changes = vi.fn();
+      store.onChange(changes);
+      await engine.tick(later(1));
+      await engine.tick(later(2));
+      expect(changes).not.toHaveBeenCalled();
+    });
+
+    it("raising the level releases the hold: held clears and the instance plans", async () => {
+      startLevel = async () => "manual";
+      await create();
+      await engine.tick(NOW);
+      startLevel = async () => "auto";
+      await engine.tick(later(1));
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect((await state()).instances._?.held).toBeUndefined();
+    });
+
+    it("an unresolvable level fails closed (manual)", async () => {
+      startLevel = async () => {
+        throw new Error("project unreadable");
+      };
+      await create();
+      await engine.tick(NOW);
+      expect(planner.plan).not.toHaveBeenCalled();
+      expect((await state()).instances._?.held).toBe("autonomy-manual");
+    });
+
+    it("semi: plans and reports, but start-task / run-loop / pr-action / merge never execute", async () => {
+      startLevel = async () => "semi";
+      const handlers = {
+        "start-task": vi.fn(),
+        "run-loop": vi.fn(),
+        "pr-action": vi.fn(),
+        merge: vi.fn(),
+      };
+      for (const [type, h] of Object.entries(handlers)) executor.register(type as "merge", h);
+      planner.plan.mockResolvedValue({
+        plan: "",
+        feasibility: "ok",
+        actions: [
+          { type: "start-task", actionId: "a1", text: "Fix the build", title: "Fix" },
+          { type: "run-loop", actionId: "a2", text: "Run it" },
+          {
+            type: "pr-action",
+            actionId: "a3",
+            op: "review",
+            projectId: "p",
+            repo: "o/r",
+            number: 1,
+          },
+          {
+            type: "merge",
+            actionId: "a4",
+            projectId: "p",
+            repo: "o/r",
+            number: 1,
+            approvedSha: "a".repeat(40),
+          },
+        ],
+      });
+      await create({ ceiling: "tier3" });
+      await engine.tick(NOW);
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).autonomy).toBe("semi");
+      for (const h of Object.values(handlers)) expect(h).not.toHaveBeenCalled();
+      const acted = recorded("goal-acted").map((e) => e.summary);
+      expect(acted).toHaveLength(4);
+      expect(acted[0]).toContain(
+        "Not started (Semi-auto): start-task (Fix) — start it yourself or raise Starting and deciding goals to Auto.",
+      );
+      const s = await state();
+      expect(s.instances._?.held).toBeUndefined();
+      expect(s.instances._?.appliedActionIds).toBeUndefined();
+    });
+
+    it("auto: start-task executes", async () => {
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).autonomy).toBe("auto");
+    });
+
+    it("lowered to manual while the planner ran: the pass starts nothing, the next tick holds", async () => {
+      const levels: AutomationLevel[] = ["auto", "manual"];
+      startLevel = async () => levels.shift() ?? "manual";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect(handler).not.toHaveBeenCalled();
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
+      expect((await state()).instances._?.appliedActionIds).toBeUndefined();
+      await engine.tick(later(1));
+      expect((await state()).instances._?.held).toBe("autonomy-manual");
+    });
+
+    it("lowered to semi while the planner ran: start-task becomes a report", async () => {
+      const levels: AutomationLevel[] = ["auto", "semi"];
+      startLevel = async () => levels.shift() ?? "semi";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(handler).not.toHaveBeenCalled();
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
+    });
+
+    it("resume clears a stale operatorWake, so it buys no extra semi pass", async () => {
+      await create();
+      await engine.tick(NOW);
+      await store.update("g", NOW.toISOString(), (s) => {
+        const i = s.instances._;
+        if (i) Object.assign(i, { status: "parked", parkedReason: "failed", operatorWake: true });
+      });
+      const resumed = await store.resume("g", "_", NOW.toISOString());
+      expect(resumed.instances._?.operatorWake).toBeUndefined();
+    });
+
+    it("wake on a manual-held instance runs exactly one pass as semi, then it is held again", async () => {
+      startLevel = async () => "manual";
+      const handler = vi.fn();
+      executor.register("start-task", handler);
+      startTaskPlan();
+      await create();
+      await engine.tick(NOW);
+      expect(planner.plan).not.toHaveBeenCalled();
+      expect((await store.wake("g", NOW.toISOString())).instances._?.operatorWake).toBe(true);
+      await engine.tick(later(1));
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect((planner.plan.mock.calls[0]?.[0] as GoalPlannerContext).autonomy).toBe("semi");
+      expect(handler).not.toHaveBeenCalled();
+      expect(recorded("goal-acted")[0]?.summary).toContain("Not started (Semi-auto): start-task");
+      let s = await state();
+      expect(s.instances._?.operatorWake).toBeUndefined();
+      expect(s.instances._?.held).toBe("autonomy-manual");
+      await engine.tick(later(2));
+      await engine.tick(later(3));
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      s = await state();
+      expect(s.instances._?.held).toBe("autonomy-manual");
+      // Still one held event: the wake pass did not release the hold.
+      expect((await timeline()).filter((l) => l.startsWith("held:"))).toHaveLength(1);
+    });
+
+    it("wake marks only held instances; it grants nothing to a running one", async () => {
+      await create();
+      await engine.tick(NOW);
+      expect((await store.wake("g", NOW.toISOString())).instances._?.operatorWake).toBeUndefined();
+    });
+
+    it("resume of a parked instance does not bypass the hold", async () => {
+      await create({ deadline: later(60).toISOString() });
+      await engine.tick(NOW);
+      await engine.tick(later(61));
+      expect((await state()).instances._?.status).toBe("parked");
+      startLevel = async () => "manual";
+      await store.resume("g", "_", NOW.toISOString());
+      await engine.tick(later(62));
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect((await state()).instances._?.held).toBe("autonomy-manual");
+    });
+
+    it("pause wins over the level: nothing is held, planned or written", async () => {
+      startLevel = async () => "manual";
+      paused = true;
+      await create();
+      await engine.tick(NOW);
+      expect((await state()).instances).toEqual({});
+    });
+
+    it("global manual (the master switch) holds a goal even where its project cell is auto", async () => {
+      const automation: AutopilotAutomation = {
+        global: { ...NO_AUTOMATION },
+        companies: {},
+        teams: {},
+        projects: { web: { autoDecideGoals: "auto" } },
+      };
+      startLevel = async (key) =>
+        resolveAutopilotLevels({ automation }, key === "_" ? {} : { projectId: key })
+          .autoDecideGoals;
+      projectList = [{ id: "web" }];
+      await create({ scope: { kind: "projects", projectIds: ["web"] } });
+      await engine.tick(NOW);
+      expect(planner.plan).not.toHaveBeenCalled();
+      expect((await state()).instances.web?.held).toBe("autonomy-manual");
+      // Lifting the global row lets the project cell apply.
+      automation.global = { ...NO_AUTOMATION, autoReview: "semi" };
+      await engine.tick(later(1));
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("a corrupt state file fails that goal's tick only and is not overwritten", async () => {
