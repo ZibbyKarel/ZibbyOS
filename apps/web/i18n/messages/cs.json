@@ -4869,7 +4869,7 @@
     "autoImplement": "Implementace",
     "autoCommunicate": "Komunikace",
     "autoFixCi": "Oprava CI",
-    "autoDecideGoals": "Rozhodování cílů",
+    "autoDecideGoals": "Spouštění a rozhodování cílů",
     "globalLabel": "Výchozí",
     "globalSub": "Pro vše bez výjimky",
     "companyKind": "Firma",
@@ -5486,7 +5486,7 @@
       "checklist": "Checklist",
       "checklistHint": "Jedna položka na řádek.",
       "maxDecisions": "Samostatných rozhodnutí za měsíc",
-      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (Rozhodování cílů → Automat).",
+      "maxDecisionsHint": "Počítá jen to, co ZIBBY spustí sám (Spouštění a rozhodování cílů → Automat).",
       "matrixNote": "Poznámka s maticí funkcí",
       "matrixNoteHint": "Nepovinné id poznámky v mozku."
     },

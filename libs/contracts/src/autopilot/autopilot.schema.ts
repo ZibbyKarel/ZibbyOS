@@ -45,7 +45,10 @@ export type AutopilotScopeKey = keyof AutopilotScope;
  * The autonomy table, one Global -> Company -> Team -> Project override tree. Precedence
  * project > team > company > global. `semi` and `auto` start the work (`autoReview` /
  * `autoAddressComments` / `autoImplement` / `autoFixCi`); only `auto` also lets the gate overlay
- * act on its outcome. `autoCommunicate` and `autoDecideGoals` start nothing (channel items arrive on their own; the goal engine reads the latter).
+ * act on its outcome. `autoCommunicate` starts nothing (channel items arrive on their own).
+ * `autoDecideGoals` ("starting and deciding goals") is read by the goal engine: `manual` = an
+ * enabled goal starts nothing on its own, `semi` = it plans and every work-starting or outward
+ * action waits for the operator, `auto` = it acts within its ceiling and budget.
  */
 export const AutomationLevelsSchema = z
   .object({
@@ -174,17 +177,11 @@ export const AutopilotLocationSchema = z
 export type AutopilotLocation = z.infer<typeof AutopilotLocationSchema>;
 
 /**
- * The capabilities under the master switch: every one but `autoDecideGoals`, which resolves on
- * its own (most specific cell wins) and never turns the rest of Autopilot on.
- */
-export const MASTER_SWITCH_KEYS = AUTOMATION_KEYS.filter((k) => k !== "autoDecideGoals");
-
-/**
- * Every global capability under the master switch is `manual` (the TopBar "Ručně"): a master
- * off over all their exceptions. `autoDecideGoals` neither counts nor is switched off by it.
+ * Every global capability is `manual` (the TopBar "Ručně"): a master off over all their
+ * exceptions, goals included.
  */
 export function isGlobalManual(automation: Pick<AutopilotAutomation, "global">): boolean {
-  return MASTER_SWITCH_KEYS.every((k) => automation.global[k] === "manual");
+  return AUTOMATION_KEYS.every((k) => automation.global[k] === "manual");
 }
 
 /** The resolved level of every capability at a place: global <- company <- team <- project. */
@@ -208,10 +205,7 @@ export function resolveAutopilotLevels(
   }
   // Global all-manual (the TopBar "Ručně") is a master switch: no company/team exception
   // starts work. The exceptions stay stored and apply again once the global row is raised.
-  // `autoDecideGoals` is outside it: project > team > company > global, whatever the rest says.
-  if (isGlobalManual(state.automation)) {
-    return { ...NO_AUTOMATION, autoDecideGoals: out.autoDecideGoals };
-  }
+  if (isGlobalManual(state.automation)) return { ...NO_AUTOMATION };
   return out;
 }
 

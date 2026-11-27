@@ -67,8 +67,8 @@ describe("goal and loop wording", () => {
     String(path.split(".").reduce<unknown>((o, k) => (o as Catalog | undefined)?.[k], catalog));
 
   it.each([
-    ["cs", /smyč/i, /Rozhodování cílů → Automat/],
-    ["en", /loops/i, /Goal decisions → Auto/],
+    ["cs", /smyč/i, /Spouštění a rozhodování cílů → Automat/],
+    ["en", /loops/i, /Starting and deciding goals → Auto/],
   ])(
     "%s: auto-resume texts talk about loops, the decision hint names the UI label",
     (l, loop, label) => {

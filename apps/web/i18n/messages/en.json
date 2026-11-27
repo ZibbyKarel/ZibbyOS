@@ -4869,7 +4869,7 @@
     "autoImplement": "Implementation",
     "autoCommunicate": "Communication",
     "autoFixCi": "CI fix",
-    "autoDecideGoals": "Goal decisions",
+    "autoDecideGoals": "Starting and deciding goals",
     "globalLabel": "Default",
     "globalSub": "For everything without an exception",
     "companyKind": "Company",
@@ -5486,7 +5486,7 @@
       "checklist": "Checklist",
       "checklistHint": "One item per line.",
       "maxDecisions": "Self-made decisions per month",
-      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (Goal decisions → Auto).",
+      "maxDecisionsHint": "Only counts what ZIBBY starts on its own (Starting and deciding goals → Auto).",
       "matrixNote": "Feature matrix note",
       "matrixNoteHint": "Optional mozek note id."
     },

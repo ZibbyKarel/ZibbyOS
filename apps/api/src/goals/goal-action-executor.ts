@@ -2,6 +2,7 @@ import { Injectable, Optional } from "@nestjs/common";
 import {
   type ActivityKind,
   type ActivityRefs,
+  type AutomationLevel,
   type Goal,
   type GoalAction,
   type GoalActionType,
@@ -22,6 +23,36 @@ export const SPENDING_ACTIONS: ReadonlySet<GoalActionType> = new Set([
   "run-loop",
   "pr-action",
 ]);
+
+/**
+ * Actions that start work or merge: executed on the engine's own only when the pass runs at
+ * `auto` ("starting and deciding goals"); below it they become a report for the operator.
+ */
+export const STARTING_ACTIONS: ReadonlySet<GoalActionType> = new Set([
+  ...SPENDING_ACTIONS,
+  "merge",
+]);
+
+const LEVEL_LABEL: Readonly<Record<AutomationLevel, string>> = {
+  manual: "Manual",
+  semi: "Semi-auto",
+  auto: "Auto",
+};
+
+/** What a starting action would do, for the operator's report (` (title)`). */
+function startingWhat(action: GoalAction): string {
+  const what =
+    action.type === "start-task"
+      ? (action.title ?? action.text)
+      : action.type === "run-loop"
+        ? action.text
+        : action.type === "pr-action"
+          ? `${action.op} ${action.repo}#${action.number}`
+          : action.type === "merge"
+            ? `${action.repo}#${action.number}`
+            : "";
+  return what ? ` (${what.slice(0, 120)})` : "";
+}
 
 export interface GoalBudgetLeft {
   runs?: number;
@@ -46,6 +77,13 @@ export type GoalEffect =
  */
 export class GoalActionContext {
   readonly effects: GoalEffect[] = [];
+  /**
+   * How far this pass may act on its own: the effective `autoDecideGoals` at the instance's
+   * place (an operator wake on a held instance: `semi`). Below `auto`, starting actions become
+   * a report and messages always wait for approval. Fails closed: whoever builds a context sets
+   * it; an operator-approved start (a decided `goal-decision`) sets `auto` for that one action.
+   */
+  autonomy: AutomationLevel = "manual";
 
   constructor(
     readonly goal: Goal,
@@ -154,9 +192,10 @@ export function reportFromGoal(ctx: GoalActionContext, text: string): void {
 }
 
 /**
- * Applies a plan's actions, filtered by the goal's ceiling. An action the ceiling
- * forbids, or one with no registered handler yet, becomes a `report` naming what was
- * not done. A later task adds an action with one {@link register} call.
+ * Applies a plan's actions, filtered by the goal's ceiling and the pass's autonomy. An action
+ * the ceiling forbids, a starting action below `auto` ({@link STARTING_ACTIONS}), or one with
+ * no registered handler yet, becomes a `report` naming what was not done (never recorded as
+ * applied). A later task adds an action with one {@link register} call.
  */
 @Injectable()
 export class GoalActionExecutor {
@@ -223,6 +262,12 @@ export class GoalActionExecutor {
         reportFromGoal(
           ctx,
           `Not done: ${action.type} — the goal's ceiling ${ctx.goal.ceiling} does not allow it.`,
+        );
+      } else if (STARTING_ACTIONS.has(action.type) && ctx.autonomy !== "auto") {
+        // Never executed silently below `auto`: the operator gets what it would have done.
+        reportFromGoal(
+          ctx,
+          `Ready, waits for you: ${action.type}${startingWhat(action)} — Starting and deciding goals is ${LEVEL_LABEL[ctx.autonomy]} here.`,
         );
       } else if (SPENDING_ACTIONS.has(action.type) && this.autopilot?.isPaused()) {
         // A plan that was running when Autopilot was paused starts no paid work.

@@ -47,8 +47,16 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
   let pr: PrMergeState;
   let prs: { mergeState: ReturnType<typeof vi.fn>; merge: ReturnType<typeof vi.fn> };
   let engine: GoalEngineService;
+  /** `autoDecideGoals` per call of `goalStartLevel` (the engine asks first, the merge after). */
+  let startLevel: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    startLevel = vi.fn(async () => "auto");
+    const messages = {
+      goalStartLevel: startLevel,
+      communicationLevel: async () => "manual",
+      rejectStale: async () => undefined,
+    };
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "goal-merge-"));
     goals = new GoalsStorageService(dir);
     store = new GoalStateStore(dir);
@@ -82,6 +90,7 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
       { isPaused: () => paused } as never,
       prs as never,
       activity as never,
+      messages as never,
     ).onModuleInit();
     engine = new GoalEngineService(
       goals,
@@ -97,6 +106,7 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
       fakeSystemConfigStore(),
       { register: vi.fn() } as never,
       fakeLogger as never,
+      messages as never,
     );
   });
   afterEach(async () => {
@@ -181,6 +191,23 @@ describe("GoalMergeService (the `merge` action under a merge grant)", () => {
   };
 
   it("no grant → report", () => refused(/nemá merge grant/, () => create({}, null)));
+
+  it("semi: the executor never reaches the merge; the operator gets a ready report", async () => {
+    startLevel.mockResolvedValue("semi");
+    await create();
+    planP1(merge());
+    await tick();
+    expect(prs.merge).not.toHaveBeenCalled();
+    expect(prs.mergeState).not.toHaveBeenCalled();
+    expect((await reports()).at(-1)).toContain("Ready, waits for you: merge (acme/app#7)");
+  });
+
+  it("the level lowered from auto before the merge → report (re-read fresh)", () =>
+    refused(/není na Automatu/, async () => {
+      await create();
+      // The engine resolves `auto` for p1's pass; the merge's own check then sees `semi`.
+      startLevel.mockResolvedValueOnce("auto").mockResolvedValue("semi");
+    }));
 
   it("expired grant → report (treated as absent)", () =>
     refused(/vypršel/, () =>

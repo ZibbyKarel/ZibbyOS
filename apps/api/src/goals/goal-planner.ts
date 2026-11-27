@@ -1,4 +1,4 @@
-import type { Goal, GoalCeiling, GoalInstance, GoalState } from "@zibby/contracts";
+import type { AutomationLevel, Goal, GoalCeiling, GoalInstance, GoalState } from "@zibby/contracts";
 import type { GoalFacts } from "./goal-facts";
 
 /** Everything one planner run receives for one instance (spec "Engine" step 4). */
@@ -20,6 +20,12 @@ export interface GoalPlannerContext {
    * `semi`/`manual` drafts them for approval, `paused` = Autopilot paused (approval).
    */
   autoCommunicate?: "manual" | "semi" | "auto" | "paused";
+  /**
+   * How far this pass may act on its own ("starting and deciding goals", `autoDecideGoals`):
+   * `auto` executes work-starting actions, `semi` turns them into a report for the operator and
+   * every message waits for approval. A `manual` instance is held and never planned.
+   */
+  autonomy?: AutomationLevel;
   /**
    * The effective `autoDecideGoals` (directional goals): `auto` starts a small top candidate
    * itself, `semi` raises an approval, `manual` only reports; `reason` says why it is not the

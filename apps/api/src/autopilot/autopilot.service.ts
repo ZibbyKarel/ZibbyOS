@@ -18,7 +18,6 @@ import {
   type AutopilotStatus,
   type DepartmentId,
   type IntendedAction,
-  MASTER_SWITCH_KEYS,
   type Workflow,
   isGlobalManual,
   resolveAutopilotAutomation,
@@ -27,6 +26,13 @@ import {
 import { ActivityLogService } from "../activity/activity-log.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { ensureDir, safeJson, writeFileAtomic } from "../shared/file-storage";
+
+/**
+ * The capabilities whose `auto` cell turns the gate overlay on. `autoDecideGoals` has no gate
+ * class, so a goals-only `auto` cell never wakes the push overlay (the master switch still
+ * covers it: see `isGlobalManual`).
+ */
+const OVERLAY_KEYS = AUTOMATION_KEYS.filter((k) => k !== "autoDecideGoals");
 
 /** DI token for the directory holding `autopilot.json`. */
 export const AUTOPILOT_DIR = "AUTOPILOT_DIR";
@@ -303,10 +309,7 @@ export class AutopilotService implements OnModuleInit {
       ...Object.values(a.companies),
       ...Object.values(a.teams),
       ...Object.values(a.projects ?? {}),
-    ].some((node) =>
-      // A goal-decision cell alone never turns the overlay on (it resolves on its own).
-      MASTER_SWITCH_KEYS.some((k) => node[k] === "auto"),
-    );
+    ].some((node) => OVERLAY_KEYS.some((k) => node[k] === "auto"));
   }
 
   /** {@link scope} at any node of the tree — for an action that has no location of its own. */
