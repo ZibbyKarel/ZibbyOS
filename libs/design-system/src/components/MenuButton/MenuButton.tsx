@@ -26,6 +26,8 @@ export enum MenuButtonTestId {
   Menu = "menu-button-menu",
   Item = "menu-button-item",
   Divider = "menu-button-divider",
+  /** Suffixed with the heading id. */
+  Heading = "menu-button-heading",
   /** Suffixed with the item id. */
   Description = "menu-button-item-description",
 }
@@ -39,6 +41,8 @@ export interface MenuButtonItem {
   disabled?: boolean;
   /** Paints the row's icon + label with the `bad` token (a destructive action). */
   danger?: boolean;
+  /** Indents the row (an option listed under a {@link MenuButtonHeading}). */
+  indent?: boolean;
   /** Trailing mark rendered at the row's right edge (e.g. `"+"`, `"⚙"`, `"●"`). */
   trailing?: string;
   /** Renders the row as a real link (new-tab/middle-click friendly) instead of
@@ -56,10 +60,20 @@ export interface MenuButtonDivider {
   divider: true;
 }
 
-export type MenuButtonEntry = MenuButtonItem | MenuButtonDivider;
+/** A non-selectable category label above a group of (indented) rows. */
+export interface MenuButtonHeading {
+  id: string;
+  heading: string;
+}
+
+export type MenuButtonEntry = MenuButtonItem | MenuButtonDivider | MenuButtonHeading;
 
 function isDivider(entry: MenuButtonEntry): entry is MenuButtonDivider {
   return "divider" in entry && entry.divider === true;
+}
+
+function isHeading(entry: MenuButtonEntry): entry is MenuButtonHeading {
+  return "heading" in entry;
 }
 
 /** What a custom trigger (`renderTrigger`) must spread on its button. */
@@ -143,7 +157,7 @@ export function MenuButton({
 
   // Arrow-key navigation walks real rows only — dividers aren't selectable.
   const navigableIndices = items.reduce<number[]>((acc, entry, i) => {
-    if (!isDivider(entry)) acc.push(i);
+    if (!isDivider(entry) && !isHeading(entry)) acc.push(i);
     return acc;
   }, []);
   const navCount = navigableIndices.length;
@@ -196,7 +210,7 @@ export function MenuButton({
   const activate = useCallback(
     (i: number) => {
       const entry = items[i];
-      if (!entry || isDivider(entry) || entry.disabled) return;
+      if (!entry || isDivider(entry) || isHeading(entry) || entry.disabled) return;
       document.getElementById(`${baseId}-item-${i}`)?.click();
     },
     [items, baseId],
@@ -230,7 +244,7 @@ export function MenuButton({
   };
 
   // Two-line (described) rows need room for the description to wrap sensibly.
-  const described = items.some((e) => !isDivider(e) && e.description);
+  const described = items.some((e) => !isDivider(e) && !isHeading(e) && e.description);
   const panelMinWidth = described ? 280 : bordered ? 220 : 200;
 
   // Position the fixed surface from the trigger rect, right-aligned under the
@@ -339,13 +353,27 @@ export function MenuButton({
                   );
                 }
 
+                if (isHeading(entry)) {
+                  return (
+                    <div
+                      className="px-[10px] pt-[6px] pb-[2px] font-sans text-meta text-ink-3"
+                      data-testid={`${MenuButtonTestId.Heading}-${entry.id}`}
+                      key={entry.id}
+                      role="presentation"
+                    >
+                      {entry.heading}
+                    </div>
+                  );
+                }
+
                 const item = entry;
                 const active = i === activeRow;
                 const danger = item.danger && !item.disabled;
                 const toneClass = danger ? "text-bad" : "text-ink";
                 const rowClass = cn(
                   "w-full flex items-center gap-2.5 rounded-sm cursor-pointer border-none text-left",
-                  "px-[10px] py-[7px] font-sans text-body",
+                  "py-[7px] pr-[10px] font-sans text-body",
+                  item.indent ? "pl-[22px]" : "pl-[10px]",
                   focusRingInset,
                   "transition-colors duration-100 motion-reduce:transition-none",
                   item.disabled

@@ -1,9 +1,4 @@
-import {
-  DensityMenuTestId,
-  MenuButtonTestId,
-  PageTitleTestId,
-  SegmentedControlTestId,
-} from "@zibby/design-system";
+import { MenuButtonTestId, PageTitleTestId, SegmentedControlTestId } from "@zibby/design-system";
 import { UiSettingsSchema } from "@zibby/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
@@ -25,10 +20,11 @@ const item = (v: string) => `${SegmentedControlTestId.Item}-${v}`;
 const two = { shown: ["A"], hidden: ["B"] };
 
 describe("BridgeHeader", () => {
-  it("density select calls setDensity", async () => {
+  it("one view-options dropdown: density options under a heading call setDensity", async () => {
     renderWithProviders(<BridgeHeader {...props} />);
-    await userEvent.click(screen.getByTestId(DensityMenuTestId.Trigger));
-    await userEvent.click(screen.getByTestId(`${DensityMenuTestId.Option}-compact`));
+    await userEvent.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    expect(screen.getByTestId(`${MenuButtonTestId.Heading}-density`)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-density-compact`));
     expect(setDensity).toHaveBeenCalledWith("compact");
   });
 
@@ -62,27 +58,23 @@ describe("BridgeHeader", () => {
     expect(onPreset).not.toHaveBeenCalled();
   });
 
-  it("has no add-widget control (widgets are added from the board's empty cells)", () => {
-    renderWithProviders(<BridgeHeader {...props} />);
-    expect(screen.queryByTestId(MenuButtonTestId.Trigger)).toBeNull();
-  });
-
-  it("always shows manage, never save/cancel; manage calls onManage", async () => {
+  it("layout settings sits below density in the dropdown and calls onManage", async () => {
     const onManage = vi.fn();
     renderWithProviders(<BridgeHeader {...props} onManage={onManage} />);
-    await userEvent.click(
-      within(screen.getByTestId(BridgeHeaderTestId.Manage)).getByRole("button"),
-    );
+    const trigger = screen.getByTestId(MenuButtonTestId.Trigger);
+    expect(trigger).toHaveAccessibleName("Zobrazení");
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-layouts`));
     expect(onManage).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: /save|cancel|uložit|zrušit/i })).toBeNull();
   });
 
-  it("manage is an icon-only button named by its label, with no title or caption", () => {
-    renderWithProviders(<BridgeHeader {...props} />);
+  it("compact toolbar keeps only the manage-layouts button", async () => {
+    const onManage = vi.fn();
+    renderWithProviders(<BridgeHeader {...props} compact onManage={onManage} />);
     const manage = within(screen.getByTestId(BridgeHeaderTestId.Manage)).getByRole("button");
     expect(manage).toHaveAccessibleName("Upravit rozložení");
-    expect(manage).not.toHaveTextContent("Upravit rozložení");
-    expect(screen.queryByText("Rozložení")).toBeNull();
+    await userEvent.click(manage);
+    expect(onManage).toHaveBeenCalled();
   });
 
   it("renders no page title row (the sub-nav names the page)", () => {

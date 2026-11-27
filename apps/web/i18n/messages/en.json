@@ -4125,6 +4125,8 @@
       "comfort": "Normal",
       "airy": "Airy"
     },
+    "viewOptions": "View options",
+    "layoutSettings": "Layout settings",
     "addWidget": "Add widget",
     "add": "Add",
     "settings": {

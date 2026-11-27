@@ -380,6 +380,7 @@ export { MenuButton, MenuButtonTestId } from "./components/MenuButton/MenuButton
 export type {
   MenuButtonDivider,
   MenuButtonEntry,
+  MenuButtonHeading,
   MenuButtonItem,
   MenuButtonProps,
   MenuButtonTriggerProps,

@@ -279,4 +279,23 @@ describe("MenuButton outside dismiss (todo-12)", () => {
     await userEvent.click(screen.getByTestId(`${MenuButtonTestId.Item}-go`));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  it("renders a non-selectable heading, indents rows, and arrows skip it", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <MenuButton
+        items={[
+          { id: "g", heading: "Density" },
+          { id: "a", label: "Compact", indent: true, onSelect },
+        ]}
+      />,
+    );
+    await user.click(screen.getByTestId(MenuButtonTestId.Trigger));
+    expect(screen.getByTestId(`${MenuButtonTestId.Heading}-g`)).toHaveTextContent("Density");
+    expect(screen.getAllByRole("menuitem")).toHaveLength(1);
+    expect(screen.getByTestId(`${MenuButtonTestId.Item}-a`)).toHaveClass("pl-[22px]");
+    await user.keyboard("{Enter}");
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
 });

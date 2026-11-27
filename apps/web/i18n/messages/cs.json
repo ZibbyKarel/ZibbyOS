@@ -4125,6 +4125,8 @@
       "comfort": "Normální",
       "airy": "Vzdušná"
     },
+    "viewOptions": "Zobrazení",
+    "layoutSettings": "Nastavení rozložení",
     "addWidget": "Přidat widget",
     "add": "Přidat",
     "settings": {

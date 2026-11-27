@@ -5,7 +5,7 @@ import {
   CommandBarGroup,
   Container,
   DENSITIES,
-  DensityMenu,
+  MenuButton,
   SegmentedControl,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
@@ -81,24 +81,22 @@ export function BridgeHeader({
           value={preset}
         />
       </CommandBarGroup>
-      <DensityMenu
-        label={t("density.label")}
-        labels={Object.fromEntries(DENSITIES.map((d) => [d, t(`density.${d}`)])) as never}
-        onChange={setDensity}
-        value={ui.density}
+      <MenuButton
+        ariaLabel={t("viewOptions")}
+        icon="layout"
+        items={[
+          { id: "density", heading: t("density.label") },
+          ...DENSITIES.map((d) => ({
+            id: `density-${d}`,
+            label: t(`density.${d}`),
+            indent: true,
+            trailing: d === ui.density ? "✓" : undefined,
+            onSelect: () => setDensity(d),
+          })),
+          { id: "sep", divider: true as const },
+          { id: "layouts", label: t("layoutSettings"), icon: "layout", onSelect: onManage },
+        ]}
       />
-      <CommandBarGroup>
-        <Container data-testid={BridgeHeaderTestId.Manage}>
-          <Button
-            aria-label={t("editLayout")}
-            icon="layout"
-            intent="ghost"
-            onClick={onManage}
-            size="sm"
-            title={t("editLayout")}
-          />
-        </Container>
-      </CommandBarGroup>
     </PageActions>
   );
 }
