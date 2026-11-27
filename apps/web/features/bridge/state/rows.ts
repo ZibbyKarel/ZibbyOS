@@ -337,7 +337,9 @@ export function prTree(
   nodes: PrNodeVm[];
   /** The whole listed set, before `pick`. */
   total: number;
-  /** Others' PRs waiting on my review. */
+  /** The PRs matching `pick` (rendered un-muted; excludes ancestors kept as greyed context). */
+  matched: number;
+  /** Others' PRs matching `pick` that wait on my review. */
   you: number;
   counts: { review: Record<PrReviewFilter, number>; ci: Record<PrCiFilter, number> };
 } {
@@ -392,7 +394,8 @@ export function prTree(
   return {
     nodes: build(roots),
     total: visible.length,
-    you: visible.filter((p) => p.bucket !== "mine" && prReviewState(p) === "review").length,
+    matched: hit.length,
+    you: hit.filter((p) => p.bucket !== "mine" && prReviewState(p) === "review").length,
     counts: {
       review: countBy(PR_REVIEW_FILTERS, visible, (p) => prReviewFilter(prReviewState(p))),
       ci: countBy(PR_CI_FILTERS, visible, (p) => prCiState(p) as PrCiFilter),

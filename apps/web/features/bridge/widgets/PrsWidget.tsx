@@ -103,7 +103,7 @@ export function PrsWidget({
   // The order is part of the filter bar: a live pick from the saved `widget.sort`.
   const [sort, setSort, sortChanged] = useWidgetSortPick(widget.sort);
 
-  const { nodes, counts, total, you } = useMemo(
+  const { nodes, counts, total, matched, you } = useMemo(
     () =>
       prTree(
         widget.id,
@@ -115,16 +115,17 @@ export function PrsWidget({
       ),
     [widget.id, prsQuery.data, filters, pick, now, sort],
   );
-  // The header counts the whole set, not the picked slice: an empty pick must not collapse the
-  // widget (and its filter with it).
+  // The header counts only the PRs matching the picked filters; a pick that matches nothing must
+  // still not collapse the widget (and its filter bar with it) — hence `failed` while total > 0.
 
   useWidgetReport(
     {
       onRefresh,
       refreshing: refresh.isPending,
       loading: prsQuery.isPending,
-      count: prsQuery.isPending ? undefined : total,
+      count: prsQuery.isPending ? undefined : matched,
       you,
+      failed: total > 0,
       filtersActive: filtersChanged || sortChanged,
     },
     { onEmptyChange, onCountChange },

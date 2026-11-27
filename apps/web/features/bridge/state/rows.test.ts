@@ -268,7 +268,13 @@ describe("pull requests", () => {
       pr({ number: 3, headRef: "c", baseRef: "b", mergeable: false }),
       pr({ number: 4, headRef: "d", baseRef: "main" }),
     ];
-    const { nodes, total, you, counts } = prTree("p", all, none, { ci: ["conflict"] }, ago);
+    const { nodes, total, matched, you, counts } = prTree(
+      "p",
+      all,
+      none,
+      { ci: ["conflict"] },
+      ago,
+    );
     expect(flat(nodes)).toEqual([
       ["#1", 0],
       ["#2", 1],
@@ -279,8 +285,10 @@ describe("pull requests", () => {
     expect(muted(nodes[0]?.kids[0])).toBe(true);
     expect(muted(nodes[0]?.kids[0]?.kids[0])).toBe(false);
     expect(prTree("p", all, none, { review: ["approved"] }, ago).nodes).toEqual([]);
-    // counts and totals describe the whole listed set, whatever is picked
-    expect({ total, you }).toEqual({ total: 4, you: 1 });
+    // the header numbers (matched / you) cover only the picked PRs — muted ancestors (#2 waits on
+    // me but doesn't match) don't count; total and the per-option counts stay the whole set
+    expect({ total, matched, you }).toEqual({ total: 4, matched: 1, you: 0 });
+    expect(prTree("p", all, none, {}, ago)).toMatchObject({ matched: 4, you: 1 });
     // "waiting" merges the review and waiting states
     expect(counts.review).toEqual({ waiting: 4, changes: 0, approved: 0 });
     expect(counts.ci).toEqual({ conflict: 1, failing: 0, passing: 3 });
