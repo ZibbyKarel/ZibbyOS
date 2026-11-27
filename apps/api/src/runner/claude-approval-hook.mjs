@@ -754,13 +754,27 @@ function classifyRedirectOverwrite(segment) {
   return false;
 }
 
+/** One-line, bounded form of a command — the key fact when nothing narrower (a branch, a file) names the target. */
+function commandFact(command) {
+  const line = String(command ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return line.length > 80 ? `${line.slice(0, 79)}…` : line;
+}
+
+/** "a.txt" / "a.txt a 2 dalších": the first target and how many more there are. */
+function targetsFact(targets) {
+  const [first, ...more] = targets;
+  return more.length ? `${first} a ${more.length} dalších` : first;
+}
+
 /** Build the full classification (action + display enrichment) for one action. */
-function enrich(action, { branch, command, meta: metaKey, remote } = {}) {
+function enrich(action, { branch, branches, command, meta: metaKey, remote } = {}) {
   if (action === "delete" && remote) {
     return {
       action,
       riskType: "mazani",
-      summary: "Smazat nebo ukončit vzdálené prostředky (cluster / cloud)",
+      summary: `Smazat nebo ukončit vzdálené prostředky: ${commandFact(command)}`,
       consequence: "Prostředky v clusteru nebo cloudu budou nevratně odstraněny.",
       preview: { kind: "command", shell: "bash", cmd: command, targets: [] },
     };
@@ -771,8 +785,8 @@ function enrich(action, { branch, command, meta: metaKey, remote } = {}) {
       action: "delete",
       riskType: "mazani",
       summary: targets.length
-        ? `Smazat ${targets.length} ${targets.length === 1 ? "položku" : "položek"}`
-        : "Smazat soubory odpovídající příkazu",
+        ? `Smazat ${targetsFact(targets)}`
+        : `Smazat soubory odpovídající příkazu: ${commandFact(command)}`,
       consequence: "Vypsané soubory budou nevratně odstraněny.",
       preview: {
         kind: "command",
@@ -791,7 +805,7 @@ function enrich(action, { branch, command, meta: metaKey, remote } = {}) {
     return {
       action,
       riskType: "mazani",
-      summary: action === "move" ? "Přesunout nebo přejmenovat soubor" : "Přepsat soubor",
+      summary: `${action === "move" ? "Přesunout nebo přejmenovat soubor" : "Přepsat soubor"}: ${commandFact(command)}`,
       consequence:
         action === "move"
           ? "Soubor bude přesunut nebo přejmenován — může skončit mimo sledovaný adresář."
@@ -804,7 +818,8 @@ function enrich(action, { branch, command, meta: metaKey, remote } = {}) {
     action,
     ...(branch ? { branch } : {}),
     riskType: meta.riskType ?? "push",
-    summary: branch ? `${meta.summary} (${branch})` : meta.summary,
+    // The key fact: the branch, else every destination branch, else the command itself.
+    summary: `${meta.summary} (${branch ?? (branches?.length ? branches.join(", ") : commandFact(command))})`,
     consequence: meta.consequence,
     preview: { kind: "command", shell: "bash", cmd: command, targets: [] },
   };
@@ -821,7 +836,11 @@ function classifySegment(segment, fullCommand) {
   const tokens = tokenize(normalized);
   const git = classifyGit(tokens);
   if (git) {
-    const c = enrich(git.action, { branch: git.branch, command: fullCommand });
+    const c = enrich(git.action, {
+      branch: git.branch,
+      branches: git.branches,
+      command: fullCommand,
+    });
     return git.branches ? { ...c, branches: git.branches } : c;
   }
   const gh = classifyGh(tokens);
@@ -1442,7 +1461,7 @@ function outsideWriteRequest(tool, landing) {
     action: "overwrite",
     context: JSON.stringify({
       riskType: "mazani",
-      summary: "Zapsat soubor mimo projekt",
+      summary: `Zapsat soubor mimo projekt: ${landing}`,
       consequence: "Agent zapisuje mimo repozitář projektu a dočasné složky.",
       preview: { kind: "command", shell: "bash", cmd: `${tool} ${landing}`, targets: [landing] },
     }),

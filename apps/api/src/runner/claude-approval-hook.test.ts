@@ -303,7 +303,7 @@ describe("claude approval hook — destructive-command gate", () => {
     await runHook(cwd, bashEvent('rm a.txt && rm "b c.txt" && rmdir d', cwd));
     const ctx = JSON.parse((await readRequest()).context);
     expect(ctx.preview.targets).toEqual(["a.txt", "b c.txt", "d"]);
-    expect(ctx.summary).toBe("Smazat 3 položek");
+    expect(ctx.summary).toBe("Smazat a.txt a 2 dalších");
   });
 
   it("gates a path-qualified rm invocation that bypassed the old boundary regex (/bin/rm)", async () => {
@@ -478,7 +478,7 @@ describe("claude approval hook — destructive-command gate", () => {
     const ctx = JSON.parse((await readRequest()).context);
     // No enumerable positional targets — the command string is the source of truth.
     expect(ctx.preview.targets).toEqual([]);
-    expect(ctx.summary).toBe("Smazat soubory odpovídající příkazu");
+    expect(ctx.summary).toBe("Smazat soubory odpovídající příkazu: find . -name .DS_Store -delete");
   });
 
   it("gates `git clean -fdx` but not a commit whose message merely says 'clean'", async () => {
@@ -1523,11 +1523,29 @@ describe("classify — publish / remote-destroy / jira CLIs", () => {
     expect(classify(command)).toBeNull();
   });
 
+  it.each([
+    ["git push --force origin feat/x", "git.force_push", "(feat/x)"],
+    ["git push --force origin a b", "git.force_push", "(a, b)"],
+    ["git push --force", "git.force_push", "(git push --force)"],
+    ["git push origin main", "git.push", "(main)"],
+    ["rm -rf build/old.txt", "delete", "Smazat build/old.txt"],
+    ["mv a.txt b.txt", "move", "a.txt b.txt"],
+    ["gh pr create --title x", "pr.open", "gh pr create --title x"],
+    ["gh pr merge 12", "pr.merge", "gh pr merge 12"],
+    ["gh pr comment 12 --body hi", "gh.pr_comment", "gh pr comment 12 --body hi"],
+    ["gh api -X PATCH repos/a/b", "gh.api_write", "gh api -X PATCH repos/a/b"],
+    ["npm publish", "deploy", "npm publish"],
+  ])("every approval summary names its key fact: %s", (command, action, fact) => {
+    const c = classify(command);
+    expect(c?.action).toBe(action);
+    expect(c?.summary).toContain(fact);
+  });
+
   it("a publish is `deploy` with the registry card text and no branch", () => {
     const c = classify("npm publish");
     expect(c?.action).toBe("deploy");
     expect(c?.branch).toBeUndefined();
-    expect(c?.summary).toBe("Publikovat balíček nebo image do registru");
+    expect(c?.summary).toBe("Publikovat balíček nebo image do registru (npm publish)");
     // outranks a push in a chain
     expect(classify("git push origin main && npm publish")?.action).toBe("deploy");
   });
