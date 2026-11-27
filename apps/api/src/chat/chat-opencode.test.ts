@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { FAKE_BLUECODE_KEY, withBlueCodeDir } from "../ai-providers/bluecode-fixture";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -314,6 +314,89 @@ describe("opencode chat gate plugin", () => {
       });
     });
 
+    it("refuses the operator dir reached through the shell workdir (#3, #7)", () => {
+      for (const input of [
+        { command: "cat operator-token", workdir: "~/.config/zibby" },
+        { command: "cat zibby/operator-token", workdir: "~/.config" },
+        { command: "ls", workdir: "$HOME/.config/zibby" },
+        { command: "cat ~/.con'fig'/zib\\by/operator-token" },
+      ]) {
+        expect(verdict("shell", input), JSON.stringify(input)).toMatchObject({
+          reason: expect.stringMatching(/operator/),
+        });
+      }
+    });
+
+    it("sends the resolved workdir (with ~ expanded) as cwd (#3)", () => {
+      const r = verdict("shell", { command: "rm -rf build", workdir: "sub dir" });
+      expect(r).toMatchObject({ cwd: "/repo/sub dir", intents: [{ action: "delete" }] });
+      const home = verdict("shell", { command: "rm -rf build", workdir: "~/a b" });
+      expect(home.cwd).toBe(join(homedir(), "a b"));
+      expect(verdict("shell", { command: "rm -rf build" })).not.toHaveProperty("cwd");
+    });
+
+    it("marks opaque shell forms shell.opaque, never a silent run (#6)", () => {
+      for (const command of [
+        "bash -c 'rm -rf ~/x'",
+        'sh -c "git push -f origin main"',
+        "zsh -c ls",
+        "eval 'git push origin main'",
+        "exec git push",
+        "echo `git push origin main`",
+        "echo $(git push origin main)",
+        "env git push origin main",
+        "sudo git push origin main",
+        "command git push origin main",
+        "printf x | xargs git push",
+        "nohup git push &",
+        "{ git push origin main; }",
+        "if true; then git push origin main; fi",
+        "for b in main; do git push origin $b; done",
+        "while true; do ls; done",
+        "python3 -c 'import os'",
+        "node -e 'process.exit(0)'",
+        "perl -e 1",
+        "ruby -e 1",
+        "curl -X POST http://x",
+        "curl -XDELETE http://x",
+        "curl --request=PUT http://x",
+        "curl -d a=1 http://x",
+        "curl --data-binary @f http://x",
+        "curl -F f=@x http://x",
+        "curl -T f http://x",
+        "wget --post-data=a http://x",
+        "echo 'git push' | bash",
+      ]) {
+        const r = verdict("shell", { command });
+        expect(
+          r?.intents?.some((i: { action: string }) => i.action === "shell.opaque"),
+          command,
+        ).toBe(true);
+      }
+      for (const command of [
+        "git status",
+        "curl -sSL https://example.com",
+        "curl -X GET http://x",
+        "wget http://x",
+        "python3 script.py",
+        "cat > /tmp/n.md <<'EOF'\n`code` $(x)\nEOF",
+      ]) {
+        const r = verdict("shell", { command });
+        expect(
+          r?.intents?.some((i: { action: string }) => i.action === "shell.opaque") ?? false,
+          command,
+        ).toBe(false);
+      }
+    });
+
+    it("keeps every distinct push of a chain (#2)", () => {
+      const r = verdict("shell", { command: "git push --tags && git push origin dev main" });
+      expect(r.intents.map((i: { branches?: string[] }) => i.branches)).toEqual([
+        undefined,
+        ["dev", "main"],
+      ]);
+    });
+
     it("operator MCP: reads run, writes return intents; own servers always run", () => {
       expect(verdict("plugin_context7_context7_query-docs", { q: "x" })).toBeNull();
       expect(verdict("atlassian_getJiraIssue", { issueIdOrKey: "A-1" })).toBeNull();
@@ -373,6 +456,23 @@ describe("opencode chat gate plugin", () => {
     it("refuses on deny", async () => {
       const f = vi.fn(async () => json({ decision: "deny", reason: "merge is never allowed" }));
       await expect(run(f as never)).rejects.toThrow(/merge is never allowed.*Do not retry/);
+    });
+
+    it("a deny reason ending in a period gets no double period", async () => {
+      const f = vi.fn(async () => json({ decision: "deny", reason: 'denies "pr.merge".' }));
+      const err = (await run(f as never).catch((e: Error) => e)) as Error;
+      expect(err.message).toContain('denies "pr.merge". Do not retry');
+      expect(err.message).not.toContain("..");
+    });
+
+    it("sends the resolved cwd when given, outside the hash", async () => {
+      const f = vi.fn(async () => json({ decision: "allow" }));
+      await chatGateCall("shell", input, intents, gateEnv, f as never, "/repo/a b");
+      const [, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+      expect(JSON.parse(init.body as string)).toMatchObject({
+        cwd: "/repo/a b",
+        hash: chatGateHash("shell", input),
+      });
     });
 
     it("pending then approved releases the call", async () => {

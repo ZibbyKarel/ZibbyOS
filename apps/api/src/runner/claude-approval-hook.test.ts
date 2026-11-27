@@ -14,6 +14,8 @@ import { classifyEvent } from "./claude-approval-hook.mjs";
 import { BUILTIN_MCP_SERVERS, isReadOnlyMcpTool } from "./claude-approval-hook.mjs";
 // @ts-expect-error — same untyped seam (A28 amendment: registry servers).
 import { registryServers } from "./claude-approval-hook.mjs";
+// @ts-expect-error — same untyped seam (chat gate: every action, opaque forms).
+import { classifyAll, opaqueShell } from "./claude-approval-hook.mjs";
 import { AUTOPILOT_COVERED_RULES, autopilotCoversApproval } from "../autopilot/autopilot.service";
 import {
   ENTITY_MCP_SERVER_ID,
@@ -1874,5 +1876,56 @@ describe("claude approval hook — classify (glab, mapped onto the gh actions)",
     ]) {
       expect(act(cmd), cmd).toBeNull();
     }
+  });
+});
+
+describe("classifyAll (chat gate)", () => {
+  const shape = (command: string) =>
+    classifyAll(command).map((c: { action: string; branch?: string; branches?: string[] }) => [
+      c.action,
+      c.branch,
+      c.branches,
+    ]);
+
+  it("keeps two pushes that differ only in branches (no dedup on action + branch)", () => {
+    expect(shape("git push --tags && git push origin dev main")).toEqual([
+      ["git.push", undefined, undefined],
+      ["git.push", undefined, ["dev", "main"]],
+    ]);
+    expect(shape("git push origin a b && git push origin c main")).toEqual([
+      ["git.push", undefined, ["a", "b"]],
+      ["git.push", undefined, ["c", "main"]],
+    ]);
+  });
+
+  it("is a superset of classify for the run gate (classify itself is unchanged)", () => {
+    const cmd = "rm -rf build && git push --force origin main";
+    expect(classify(cmd)?.action).toBe("git.force_push");
+    expect(shape(cmd).map(([a]: unknown[]) => a)).toEqual(["delete", "git.force_push"]);
+  });
+});
+
+describe("opaqueShell (chat gate)", () => {
+  it("names why a form is opaque", () => {
+    expect(opaqueShell("bash -c 'ls'")).toMatch(/nested shell/);
+    expect(opaqueShell("X=1 sudo ls")).toMatch(/wrapper \(sudo\)/);
+    expect(opaqueShell("echo $(id)")).toMatch(/substitution/);
+    expect(opaqueShell("diff <(ls a) <(ls b)")).toMatch(/substitution/);
+    expect(opaqueShell("find . -name x -exec git push \\;")).toMatch(/find -exec/);
+    expect(opaqueShell("/usr/bin/git push origin main")).toMatch(/path-qualified git/);
+    expect(opaqueShell("wget --method=PUT http://x")).toMatch(/HTTP/);
+  });
+
+  it("leaves plain commands and quoted cat heredoc bodies alone", () => {
+    for (const c of [
+      "git status",
+      "ls -la | grep x",
+      "wget --method=GET http://x",
+      "node app.js",
+    ]) {
+      expect(opaqueShell(c), c).toBeNull();
+    }
+    expect(opaqueShell("cat > a.md <<'EOF'\n`x` $(y)\nEOF")).toBeNull();
+    expect(opaqueShell("bash <<'EOF'\nls\nEOF")).toMatch(/nested shell/);
   });
 });

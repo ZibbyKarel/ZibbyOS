@@ -194,6 +194,12 @@ export const ChatGateCheckBodySchema = z.object({
   hash: z.string().regex(/^[0-9a-f]{64}$/),
   /** Every classified action of the call (a chained command yields several); the server judges them all. */
   intents: z.array(IntendedActionSchema).min(1),
+  /**
+   * The shell call's resolved working directory (its `workdir` with `~` expanded, resolved
+   * against the turn's cwd), sent only when the call sets one. Not part of the hash; the server
+   * shows it on the card (`cd <cwd> && …`) and matches it against the protected dirs.
+   */
+  cwd: z.string().min(1).max(4096).optional(),
 });
 export type ChatGateCheckBody = z.infer<typeof ChatGateCheckBodySchema>;
 

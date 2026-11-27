@@ -228,6 +228,14 @@ export const SYSTEM_RULES: GlobalGateRule[] = [
     "Zápis přes MCP",
     "Zápis, odeslání nebo jiná akce přes MCP server či konektor čeká na tvůj souhlas.",
   ),
+  // Inline chat approvals: a shell command the gate can't see into (nested shell, eval, `$(…)`,
+  // a wrapper prefix, inline interpreter code, a mutating curl). Only the chat emits it, and the
+  // chat cards it even under `allow`; `deny` here refuses it outright.
+  ask(
+    "shell.opaque",
+    "Neprůhledný příkaz v chatu",
+    "Příkaz, do kterého gate nevidí (vnořený shell, eval, $(…), curl -X POST…), čeká na tvé schválení.",
+  ),
 ];
 
 const SYSTEM_RULE_IDS = new Set(SYSTEM_RULES.map((r) => r.id));

@@ -127,7 +127,7 @@ const RM_FAMILY_NAMES = new Set(["rm", "rmdir", "unlink", "shred", "trash", "tra
  * git-publish actions below it), which outranks opening a PR, which outranks a
  * plain push, which outranks a delete.
  */
-const ACTION_RANK = {
+export const ACTION_RANK = {
   delete: 0,
   overwrite: 0,
   move: 0,
@@ -876,9 +876,11 @@ export function classify(command) {
 }
 
 /**
- * Every gated action a Bash command performs (one entry per gated segment, deduplicated by
- * action), not just the most severe one — for callers that judge each action against the
- * operator's rules (the chat gate). Empty when nothing is gated.
+ * Every gated action a Bash command performs (one entry per gated segment), not just the
+ * most severe one — for callers that judge each action against the operator's rules (the
+ * chat gate). Not deduplicated here: two pushes share an action and an empty `branch` but
+ * differ in `branches`, and dropping one hides its destination (the caller dedups on the
+ * full intent). Empty when nothing is gated.
  */
 export function classifyAll(command) {
   if (typeof command !== "string" || !command.trim()) return [];
@@ -886,12 +888,135 @@ export function classifyAll(command) {
   const all = [];
   for (const segment of text.split(/&&|\|\||;|\||\n|&/)) {
     const c = classifySegment(segment.trim(), command);
-    if (c && !all.some((a) => a.action === c.action && a.branch === c.branch)) all.push(c);
+    if (c) all.push(c);
   }
   if (classifyRedirectOverwrite(text) && !all.some((a) => a.action === "overwrite")) {
     all.push(enrich("overwrite", { command }));
   }
   return all;
+}
+
+/** Command-position words that run another command the classifier never sees. */
+const OPAQUE_PREFIXES = new Set([
+  "env",
+  "sudo",
+  "doas",
+  "command",
+  "builtin",
+  "exec",
+  "eval",
+  "xargs",
+  "nohup",
+  "nice",
+  "timeout",
+  "time",
+  "stdbuf",
+  "caffeinate",
+  "watch",
+  "parallel",
+  "source",
+  ".",
+]);
+/** Shells: whatever they run (`-c`, a script, stdin from a pipe) is opaque. */
+const OPAQUE_SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh", "fish", "csh", "tcsh"]);
+/** Interpreters whose `-c` / `-e` runs inline code. */
+const INLINE_INTERPRETER = /^(python[\d.]*|node|nodejs|deno|bun|perl|ruby|php|osascript)$/;
+const INLINE_FLAG = /^(-[a-zA-Z]*[ceE][a-zA-Z]*|--eval(=.*)?|--print|-p|--command(=.*)?)$/;
+/** Shell keywords that open a compound command (its body is not classified). */
+const COMPOUND_KEYWORDS = new Set([
+  "{",
+  "}",
+  "if",
+  "then",
+  "elif",
+  "else",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "select",
+  "function",
+  "coproc",
+]);
+/** Path-qualified gated CLIs (`/usr/bin/git push`) — the classifier keys on the bare name. */
+const GATED_CLIS = new Set([
+  "git",
+  "gh",
+  "glab",
+  "npm",
+  "pnpm",
+  "yarn",
+  "rm",
+  "mv",
+  "cp",
+  "curl",
+  "wget",
+]);
+
+/** A curl/wget call that sends a body or a non-GET method. */
+function isMutatingHttp(cmd, args) {
+  for (let k = 0; k < args.length; k++) {
+    const t = args[k];
+    if (cmd === "curl") {
+      if (/^(-d|--data(-\w+)?|-F|--form(-string)?|-T|--upload-file|--json)(=.*)?$/.test(t))
+        return true;
+      if (/^-[a-zA-Z]*[dFT]/.test(t) && !t.startsWith("--")) return true;
+      const method = /^(?:-X|--request)(?:=)?(.*)$/.exec(t);
+      if (method) {
+        const m = (method[1] || args[k + 1] || "").toUpperCase();
+        if (m !== "GET" && m !== "HEAD") return true;
+      }
+    } else {
+      const w = /^--(post-data|post-file|body-data|body-file|method)(?:=(.*))?$/.exec(t);
+      if (w) {
+        if (w[1] !== "method") return true;
+        const m = (w[2] ?? args[k + 1] ?? "").toUpperCase();
+        if (m !== "GET" && m !== "HEAD") return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Why a shell command is OPAQUE to the classifier, or null. Opaque = it runs code the
+ * classifier never sees: a nested shell or `eval`, a command substitution, a wrapper prefix,
+ * a compound block, an interpreter's inline code, or a mutating raw HTTP call. Used by the
+ * chat gate only (an opaque call always gets a card there); the run gate's {@link classify}
+ * is unchanged. Judged per segment at command position (after `VAR=` assignments), on the
+ * heredoc-stripped text so a quoted `cat <<'EOF'` body (markdown with backticks) is data.
+ */
+export function opaqueShell(command) {
+  if (typeof command !== "string" || !command.trim()) return null;
+  const text = stripCatHeredocs(command);
+  if (/\$\(|`|[<>]\(/.test(text)) return "command substitution";
+  for (const raw of text.split(/&&|\|\||;|\||\n|&/)) {
+    const tokens = tokenize(raw.trim().replace(/^[\s(]+/, ""));
+    let i = 0;
+    while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+    const first = tokens[i];
+    if (!first) continue;
+    const name = path.basename(first);
+    const args = tokens.slice(i + 1);
+    if (COMPOUND_KEYWORDS.has(first)) return `compound command (${first})`;
+    if (OPAQUE_PREFIXES.has(name)) return `wrapper (${name})`;
+    if (OPAQUE_SHELLS.has(name)) return `nested shell (${name})`;
+    if (INLINE_INTERPRETER.test(name) && args.some((a) => INLINE_FLAG.test(a))) {
+      return `inline code (${name})`;
+    }
+    if ((name === "curl" || name === "wget") && isMutatingHttp(name, args)) {
+      return `mutating HTTP call (${name})`;
+    }
+    if (name === "find" && args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) {
+      return "find -exec";
+    }
+    if (first.includes("/") && GATED_CLIS.has(name)) return `path-qualified ${name}`;
+  }
+  return null;
 }
 
 /**

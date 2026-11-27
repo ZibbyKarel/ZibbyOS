@@ -180,7 +180,15 @@ export function opencodeChatArgs(
  * server, which this action-level list can't see). The chat gate asks for an inline approval
  * for these instead of refusing.
  */
-export const CHAT_NEVER_ACTIONS = new Set(["overwrite", "move", "delete", "mcp.read", "mcp.write"]);
+export const CHAT_NEVER_ACTIONS = new Set([
+  "overwrite",
+  "move",
+  "delete",
+  "mcp.read",
+  "mcp.write",
+  // A shell form the classifier can't see into (chat gate plugin): always a card.
+  "shell.opaque",
+]);
 
 /**
  * The env of an opencode chat turn: no inherited `OPENCODE_*` (only ours), project config

@@ -101,6 +101,8 @@ export interface ChatTurnTags {
 
 /** Hard ceiling on one turn; a stuck `claude` is killed and the turn ends in error. */
 const TURN_TIMEOUT_MS = 120_000;
+/** Hard ceiling of one turn however many approval cards re-arm its timer (review #8). */
+export const TURN_MAX_MS = 20 * 60_000;
 
 /** Grace after SIGTERM before a killed turn's process group gets SIGKILL. */
 const KILL_GRACE_MS = 3_000;
@@ -1019,11 +1021,13 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
       };
       let timer = setTimeout(onTimeout, TURN_TIMEOUT_MS);
       timer.unref?.();
-      // An approval card is waiting on the operator: give the turn the wait plus a fresh budget.
+      // An approval card is waiting on the operator: give the turn the wait plus a fresh budget,
+      // but never past TURN_MAX_MS from the turn's start (a card flood can't keep it alive).
+      const hardDeadline = Date.now() + TURN_MAX_MS;
       rearm = (ms) => {
         if (settled) return;
         clearTimeout(timer);
-        timer = setTimeout(onTimeout, ms);
+        timer = setTimeout(onTimeout, Math.max(0, Math.min(ms, hardDeadline - Date.now())));
         timer.unref?.();
       };
 

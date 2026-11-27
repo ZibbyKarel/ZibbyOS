@@ -82,6 +82,10 @@ optional `name`/`desc`, an optional `department` and the derived `system` flag.
   `git config … push.pushOption …` that writes (set/add/unset, any scope, also
   `git config set`) → `gh.api_write`; reads (`--get*`, `get`, `--list`/`-l`, `list`) stay
   ungated. A push option hand-written into `.git/config` is not seen.
+- Opaque shell in the chat: `floor-shell.opaque` (**ask**) covers `shell.opaque`, which only the
+  opencode chat gate emits (a nested shell, `eval`, `$(…)`, a wrapper prefix, inline interpreter
+  code, a mutating `curl`/`wget`). The chat always cards it, even under `allow`; `deny` refuses it.
+  Runs never raise it. See `docs/api/chat.md`.
 - MCP / connector calls in runs (A28): `floor-mcp.read` (**notify**) covers the hook's
   `mcp.read` (a read-only tool name) and `floor-mcp.write` (**ask**) its `mcp.write` (every
   other MCP tool outside ZibbyOS's own servers and the run's registry servers, and any MCP

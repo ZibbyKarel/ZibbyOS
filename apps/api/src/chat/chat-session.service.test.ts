@@ -27,6 +27,7 @@ import {
   ChatSessionService,
   type ChatSpawnOptions,
   type ClaudeProcess,
+  TURN_MAX_MS,
   killTurnProcess,
   mergeToolEvent,
 } from "./chat-session.service";
@@ -1293,7 +1294,7 @@ describe("ChatSessionService", () => {
         await vi.waitFor(() => expect(svc.lastSpawn).toBeDefined(), { interval: 5 });
         await vi.advanceTimersByTimeAsync(10);
         if (widget) toolResults.pushWidget("c-ap", { kind: "approval", approvalId: "a1" });
-        return { done, settleTurn, svc };
+        return { done, settleTurn, svc, toolResults };
       };
 
       it("passes the gate env to the plugin", async () => {
@@ -1322,6 +1323,26 @@ describe("ChatSessionService", () => {
           await vi.advanceTimersByTimeAsync(300_000);
           await withCard.done;
           expect(withCard.settleTurn).toHaveBeenCalledWith("c-ap");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("cards cannot keep a turn alive past the 20 min ceiling", async () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+        try {
+          const t = await hangTurn(true);
+          let ended = false;
+          void t.done.then(() => (ended = true));
+          // A fresh card every 6 min would re-arm the 420 s timer forever without the cap.
+          for (let k = 0; k < 3; k++) {
+            await vi.advanceTimersByTimeAsync(360_000);
+            expect(ended).toBe(false);
+            t.toolResults.pushWidget("c-ap", { kind: "approval", approvalId: `a${k + 2}` });
+          }
+          await vi.advanceTimersByTimeAsync(TURN_MAX_MS - 3 * 360_000 + 1000);
+          await t.done;
+          expect(ended).toBe(true);
         } finally {
           vi.useRealTimers();
         }

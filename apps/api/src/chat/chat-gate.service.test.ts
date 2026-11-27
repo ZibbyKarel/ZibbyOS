@@ -14,7 +14,12 @@ import { ApprovalsStorageService } from "../approvals/approvals.storage.service"
 import type { AutopilotService } from "../autopilot/autopilot.service";
 import type { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { dataDir } from "../shared/data-dir";
-import { CHAT_APPROVAL_WAIT_MS, ChatGateService, chatGateHash } from "./chat-gate.service";
+import {
+  CHAT_APPROVAL_SWEEP_MS,
+  CHAT_APPROVAL_WAIT_MS,
+  ChatGateService,
+  chatGateHash,
+} from "./chat-gate.service";
 import type { ChatToolResultRegistry } from "./chat-tool-result.registry";
 
 const CONV = "conv_1";
@@ -67,12 +72,14 @@ describe("ChatGateService", () => {
         return turnInFlight;
       }),
       getMentions: vi.fn(() => mentions),
+      hasTurn: vi.fn(() => turnInFlight),
     } as unknown as ChatToolResultRegistry;
     const autopilot = { isPaused: () => paused } as unknown as AutopilotService;
     service = new ChatGateService(approvals, gates, registry, autopilot);
   });
 
   afterEach(async () => {
+    service.onModuleDestroy();
     vi.useRealTimers();
     await fs.rm(dir, { recursive: true, force: true });
   });
@@ -213,7 +220,7 @@ describe("ChatGateService", () => {
     expect(a?.runId).toBe(
       `${CONV}/${chatGateHash("shell", { command: "echo hi > /tmp/x" }).slice(0, 16)}`,
     );
-    expect(a?.risk).toBe("medium");
+    expect(a?.risk).toBe("high"); // overwrite is a high-risk action: hold to approve
   });
 
   it("keeps riskType and the full untruncated command in detail", async () => {
@@ -252,13 +259,103 @@ describe("ChatGateService", () => {
     expect(detail.preview.cmd).toBe('srv · write {\n  "a": 1\n}');
   });
 
-  it("rejects the approval and denies when no turn is in flight", async () => {
+  it("denies with no approval and no card when no turn is in flight", async () => {
     turnInFlight = false;
+    const requested = vi.spyOn(approvals, "requestApproval");
     const r = await service.check(CONV, body());
     expect(r.decision).toBe("deny");
-    const all = await approvals.list();
-    expect(all).toHaveLength(1);
-    expect(all[0]?.status).toBe("rejected");
+    expect(requested).not.toHaveBeenCalled();
+    expect(await approvals.list()).toHaveLength(0);
+    expect(widgets).toHaveLength(0);
+  });
+
+  it("labels the card by the most severe action and makes it high risk on any high one", async () => {
+    await service.check(
+      CONV,
+      body({ intents: [{ action: "overwrite" }, { action: "git.force_push" }] }),
+    );
+    const [a] = await pending();
+    expect(a).toMatchObject({ action: "git.force_push", risk: "high" });
+  });
+
+  it("a plain push chain is medium risk, labelled by the higher rank", async () => {
+    await service.check(CONV, body({ intents: [{ action: "git.push" }, { action: "pr.open" }] }));
+    expect((await pending())[0]).toMatchObject({ action: "pr.open", risk: "medium" });
+  });
+
+  it("shell.opaque is never silent and is high risk", async () => {
+    evaluation = { decision: "allow", ruleId: "r" };
+    const r = await service.check(CONV, body({ intent: { action: "shell.opaque" } }));
+    expect(r.decision).toBe("pending");
+    expect((await pending())[0]).toMatchObject({ action: "shell.opaque", risk: "high" });
+  });
+
+  describe("workdir and protected-dir normalisation", () => {
+    let space: string;
+    let prevDataDir: string | undefined;
+    beforeEach(async () => {
+      space = path.join(dir, "Library", "Application Support", "ZibbyOS", "data");
+      await fs.mkdir(space, { recursive: true });
+      prevDataDir = process.env.ZIBBY_DATA_DIR;
+      process.env.ZIBBY_DATA_DIR = space;
+    });
+    afterEach(() => {
+      if (prevDataDir === undefined) delete process.env.ZIBBY_DATA_DIR;
+      else process.env.ZIBBY_DATA_DIR = prevDataDir;
+    });
+    const denied = async (input: unknown, cwd?: string) => {
+      const b = body({ input });
+      return (await service.check(CONV, cwd ? { ...b, cwd } : b)).decision;
+    };
+
+    it("uses a data dir with a space", () => {
+      expect(dataDir()).toBe(space);
+    });
+
+    it("denies the escaped, quoted, $HOME and lower-cased spellings", async () => {
+      const escaped = space.replace(/ /g, "\\ ");
+      expect(await denied({ command: `echo '[]' > ${escaped}/gate-rules.json` })).toBe("deny");
+      expect(await denied({ command: `echo '[]' > "${space}/gate-rules.json"` })).toBe("deny");
+      expect(await denied({ command: `echo x > ${space.toLowerCase()}/gate-rules.json` })).toBe(
+        "deny",
+      );
+      const home = vi.spyOn(os, "homedir").mockReturnValue(dir);
+      try {
+        const rel = path.relative(dir, space);
+        expect(await denied({ command: `echo x > "$HOME/${rel}/gate-rules.json"` })).toBe("deny");
+        expect(await denied({ command: `echo x > "\${HOME}/${rel}/x"` })).toBe("deny");
+        expect(await denied({ command: `echo x > ~/${rel.replace(/ /g, "\\ ")}/x` })).toBe("deny");
+      } finally {
+        home.mockRestore();
+      }
+      expect(await approvals.list()).toHaveLength(0);
+    });
+
+    it("denies a relative write whose workdir (raw or resolved cwd) is the data dir", async () => {
+      expect(await denied({ command: "echo '[]' > gate-rules.json", workdir: space })).toBe("deny");
+      expect(await denied({ command: "echo '[]' > gate-rules.json", workdir: "sub" }, space)).toBe(
+        "deny",
+      );
+      expect(await approvals.list()).toHaveLength(0);
+    });
+
+    it("shows the workdir on the card as cd <workdir> && <cmd>", async () => {
+      const wd = path.join(dir, "my project");
+      await service.check(CONV, body({ input: { command: "rm -rf build", workdir: wd } }));
+      const detail = JSON.parse((await pending())[0]?.detail ?? "{}") as {
+        preview: { cmd: string };
+      };
+      expect(detail.preview.cmd).toBe(`cd '${wd}' && rm -rf build`);
+    });
+
+    it("prefers the plugin's resolved cwd on the card", async () => {
+      const b = body({ input: { command: "rm -rf build", workdir: "~/x" } });
+      await service.check(CONV, { ...b, cwd: "/home/u/x" });
+      const detail = JSON.parse((await pending())[0]?.detail ?? "{}") as {
+        preview: { cmd: string };
+      };
+      expect(detail.preview.cmd).toBe("cd /home/u/x && rm -rf build");
+    });
   });
 
   describe("status", () => {
@@ -285,6 +382,23 @@ describe("ChatGateService", () => {
       expect(await service.status(CONV, id)).toEqual({ status: "approved" });
     });
 
+    it("a late approve with nobody polling is refused and recorded as expired", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const r = await service.check(CONV, body());
+      const id = r.decision === "pending" ? r.approvalId : "";
+      vi.setSystemTime(Date.now() + CHAT_APPROVAL_WAIT_MS + 1000);
+      await expect(approvals.approve(id)).rejects.toBeInstanceOf(ApprovalAlreadyDecidedError);
+      const after = await approvals.get(id);
+      expect(after.status).toBe("rejected");
+      expect(after.reason).toMatch(/^Expired/);
+    });
+
+    it("a fresh chat approval still approves normally", async () => {
+      const r = await service.check(CONV, body());
+      const id = r.decision === "pending" ? r.approvalId : "";
+      expect((await approvals.approve(id)).status).toBe("approved");
+    });
+
     it("expires a pending approval past the deadline; a late approve gets 409", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       const r = await service.check(CONV, body());
@@ -307,6 +421,22 @@ describe("ChatGateService", () => {
     expect((await approvals.get(ids.a)).status).toBe("rejected");
     expect((await approvals.get(ids.a)).reason).toMatch(/^Chat turn ended/);
     expect((await approvals.get(ids.b)).status).toBe("pending");
+  });
+
+  it("sweeps expired chat approvals periodically on the primary; destroy stops it", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    const sweep = vi.spyOn(service, "sweep");
+    await service.onModuleInit();
+    expect(sweep).toHaveBeenCalledTimes(1);
+    const r = await service.check(CONV, body());
+    const id = r.decision === "pending" ? r.approvalId : "";
+    vi.setSystemTime(Date.now() + CHAT_APPROVAL_WAIT_MS + 1000);
+    await vi.advanceTimersByTimeAsync(CHAT_APPROVAL_SWEEP_MS);
+    expect(sweep).toHaveBeenCalledTimes(2);
+    await vi.waitFor(async () => expect((await approvals.get(id)).status).toBe("rejected"));
+    service.onModuleDestroy();
+    await vi.advanceTimersByTimeAsync(CHAT_APPROVAL_SWEEP_MS * 3);
+    expect(sweep).toHaveBeenCalledTimes(2);
   });
 
   it("onModuleInit sweeps only stale pending chat approvals", async () => {

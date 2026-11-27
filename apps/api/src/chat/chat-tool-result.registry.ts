@@ -74,6 +74,11 @@ export class ChatToolResultRegistry {
    * in flight for the conversation (nothing to attach the card to) — the tool
    * handler reports that back to the model instead of dropping it silently.
    */
+  /** Whether a turn is in flight for the conversation (it subscribed for widgets). */
+  hasTurn(conversationId: string): boolean {
+    return this.widgetSubscribers.has(conversationId);
+  }
+
   pushWidget(conversationId: string, widget: ChatWidget): boolean {
     const subscriber = this.widgetSubscribers.get(conversationId);
     if (!subscriber) return false;

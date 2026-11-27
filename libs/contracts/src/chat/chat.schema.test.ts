@@ -390,6 +390,10 @@ describe("chat gate schemas", () => {
   it("requires at least one intent", () => {
     expect(ChatGateCheckBodySchema.safeParse({ ...ok, intents: [] }).success).toBe(false);
   });
+  it("takes an optional non-empty cwd", () => {
+    expect(ChatGateCheckBodySchema.safeParse({ ...ok, cwd: "/repo/sub" }).success).toBe(true);
+    expect(ChatGateCheckBodySchema.safeParse({ ...ok, cwd: "" }).success).toBe(false);
+  });
   it("parses the three decisions", () => {
     expect(ChatGateDecisionSchema.safeParse({ decision: "allow" }).success).toBe(true);
     expect(ChatGateDecisionSchema.safeParse({ decision: "deny", reason: "x" }).success).toBe(true);

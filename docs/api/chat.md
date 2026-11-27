@@ -239,33 +239,72 @@ of every pid file whose API is gone and whose command line still reads `opencode
   Write, edit, patch, Code Mode `execute`, question, skill, subagent, web and
   `opencode_*` tools stay denied by the config and again by the plugin.
 - **Inline approval gate.** The plugin runs the run gate's classifier in-process
-  (`classifyAll` / `classifyEvent` from `runner/claude-approval-hook.mjs`) and, for every
-  classified call, `POST`s `/api/chat/gate` (chat bearer, loopback only) with
-  `{ tool, input, hash, intents[] }` (a chained command sends every action). Local refusals
-  stay: nested agents, `gh.pr_comment`, the operator-only surface, disallowed tools.
-  `ChatGateService.check` answers:
-  - **deny** (no card): no turn in flight, hash mismatch, autopilot paused, an unclassified
-    or gate-denied action anywhere in the chain (merge, deploy, ...), a raw command that
-    names the ZibbyOS data dir, or a command over 20,000 characters;
+  (`classifyAll` / `classifyEvent` / `opaqueShell` from `runner/claude-approval-hook.mjs`)
+  and, for every classified call, `POST`s `/api/chat/gate` (chat bearer, loopback only) with
+  `{ tool, input, hash, intents[], cwd? }`. A chained command sends every action, one per
+  gated segment (two pushes that differ only in their destination branches are both sent).
+  `cwd` is the shell call's own `workdir` / `directory` with `~` / `$HOME` expanded and
+  resolved against the turn's cwd; it is sent only when the call sets one and is not hashed.
+  Local refusals stay: nested agents, `gh.pr_comment`, disallowed tools, and the
+  operator-only surface. That surface is matched on the raw and on the unquoted command
+  text (quotes and backslashes dropped), on the shell `workdir`, and, when a `workdir` is
+  set, on every word of the command resolved against it.
+  - **Opaque shell forms** (chat only; the run gate's `classify()` is unchanged): a command
+    the classifier cannot see into adds a `shell.opaque` intent, so it is always a card and
+    never a silent run. That covers a nested shell at command position (`bash`/`sh`/`zsh`/...,
+    with `-c`, a script or a pipe), `eval` / `exec` / `source`, `$(…)`, backticks and `<(…)`,
+    wrapper prefixes (`env`, `sudo`, `command`, `xargs`, `nohup`, `nice`, `timeout`, `time`,
+    ...), compound blocks (`{ …; }`, `if`/`for`/`while`/`case`), `python*`/`node`/`perl`/`ruby`
+    with `-c`/`-e`, `find -exec`, a path-qualified gated CLI (`/usr/bin/git`), and
+    `curl`/`wget` with a non-GET method or a body (`-X`, `--request`, `-d`/`--data*`,
+    `--json`, `-F`/`--form`, `-T`, `--post-data`, `--method`). A quoted `cat <<'EOF'` body is
+    data and is not judged. The system rule `floor-shell.opaque` (`ask`) shows it on the gates
+    page; moving it to `deny` refuses opaque forms outright, and `allow` still cards them.
+    `ChatGateService.check` answers:
+  - **deny** (no card, no approval record, no Slack ping): no turn in flight for the
+    `conversationId` (checked first, so a forged check creates nothing), hash mismatch,
+    autopilot paused, an unclassified or gate-denied action anywhere in the chain (merge,
+    deploy, ...), a command over 20,000 characters, or a call that names the ZibbyOS data dir
+    (gate rules, policy, approvals). The data-dir match runs on the card text
+    (`cd <workdir> && <cmd>`), the JSON input and `cwd`, all normalised first: quotes and
+    backslashes dropped (`Application\ Support`), `~` / `$HOME` / `${HOME}` expanded, and
+    lower-cased (APFS is case-insensitive);
   - **allow** (silent): every action is allowed by an explicit rule (`ruleId`), none is a
-    file effect or `mcp.*`, and it is not an `@agent` turn;
+    file effect, `mcp.*` or `shell.opaque`, it is not an `@agent` turn, AND every global rule
+    that can match the action class is `allow` (branch- or scope-qualified ones included,
+    and no non-`allow` tool/context catch-all exists). So with `floor-git.push` on `allow`
+    and `gr-push-main` on `ask`, a branchless `git push` (or any push) still gets a card;
   - **pending**: everything else (ask, notify, default allow). It creates a `kind:"chat"`
-    approval (runId `<conversationId>/<hash16>`, `action` = `delete` if present, else the
-    first intent; summary "Actions: a, b"; `detail` keeps the FULL raw command) and pushes
-    the `{kind:"approval", approvalId}` widget into the chat. Autopilot never auto-approves it.
+    approval (runId `<conversationId>/<hash16>`; `action` = the most severe action of the
+    chain, high-risk ones first; `risk` = `high` when any action is delete / overwrite /
+    move / force push / deploy / merge / `shell.opaque`, else `medium`; summary
+    "Actions: a, b"; `detail` keeps the FULL raw command, prefixed `cd <workdir> &&` when the
+    call sets a workdir) and pushes the `{kind:"approval", approvalId}` widget into the chat.
+    Autopilot never auto-approves it. A high-risk card approves with a hold, and says so
+    next to the button ("Hold to approve"); a failed decision (e.g. a 409 because it already
+    expired) shows an error and the card refetches either way.
     While pending the plugin polls `GET /api/chat/gate/:approvalId` every 1 s and holds the
     tool call. Only `approved` releases it, after re-hashing the input; the approval releases
     exactly that one call and nothing is cached, so an identical later call asks again.
-    Reject, expiry (300 s, applied in `status()`), turn end (`settleTurn` rejects the turn's
-    pending approvals) or an API restart all deny, and so does any plugin-side error (fail
-    closed). The turn's kill timer is extended by the wait when the card appears. A reject
-    reaches the model as `Blocked by the ZibbyOS gate: the operator rejected "<action>". Do
-not retry it or work around it ...`. The card is also decidable in the approvals queue.
+    Reject, expiry, turn end (`settleTurn` rejects the turn's pending approvals) or an API
+    restart all deny, and so does any plugin-side error (fail closed). Expiry (300 s) does
+    not depend on polling: `status()` rejects an expired card, the primary instance sweeps
+    expired chat approvals at boot and every 60 s, and `ApprovalsService.approve` refuses an
+    expired `kind:"chat"` approval (it is recorded `rejected`, "Expired: no decision in
+    time.", and the click gets a 409), so a late click never records "approved" for a call
+    that is no longer held. The turn's kill timer is extended by the wait when a card
+    appears, but never past 20 min from the turn's start. A reject reaches the model as
+    `Blocked by the ZibbyOS gate: the operator rejected "<action>". Do not retry it or work
+around it ...`. The card is also decidable in the approvals queue.
     Read/grep/glob/list run, except on the operator token dir / approvals API (refused);
     `zibby` / `zibby-kb` tools run; an operator-server call runs only when A28's `classifyMcp`
     reads it as `mcp.read`, any other write goes through the card.
-    Ceiling: as in runs, MCP classification is by tool name only; the data-dir check is a
-    substring match.
+    Ceiling: as in runs, MCP classification is by tool name only. The data-dir and
+    operator-dir checks are text matches: a `cd` inside the command followed by a relative
+    path, or a path assembled at runtime, is not seen (the opaque forms above still card).
+    Any live conversation counts as in flight, so a forged check (the chat bearer is in the
+    model's env) can still put a card into another live conversation; it never releases a
+    call.
 - **On `claude-agent/*`** the Claude Agent SDK runs with `settingSources: []`,
   `strictMcpConfig: true` and `allowedTools: ["mcp__opencode__*"]` (hard-coded by
   opencode): Claude sees only what opencode mounts, bridged as `mcp__opencode__<tool>`,

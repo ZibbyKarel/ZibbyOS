@@ -20,6 +20,20 @@ import {
 import { ApprovalsStorageService } from "./approvals.storage.service";
 import { isPrimaryInstance } from "../shared/instance-role";
 
+/** How long a held chat call waits for the operator before its approval expires (chat gate Q8). */
+export const CHAT_APPROVAL_WAIT_MS = 300_000;
+/** The reason an expired chat approval is rejected with (the chat card keys on `Expired`). */
+export const CHAT_APPROVAL_EXPIRED_REASON = "Expired: no decision in time.";
+
+/** A pending `kind:"chat"` approval past its wait: nothing is holding its call any more. */
+export function chatApprovalExpired(a: Approval, now = Date.now()): boolean {
+  return (
+    a.kind === "chat" &&
+    a.status === "pending" &&
+    now - Date.parse(a.requestedAt) > CHAT_APPROVAL_WAIT_MS
+  );
+}
+
 /**
  * The capability the approvals service needs from a runner to act on a decision,
  * without a compile-time dependency on the concrete runner (which would be a
@@ -210,6 +224,14 @@ export class ApprovalsService {
     } = {},
   ): Promise<Approval> {
     this.assertDecidableHere(id);
+    // An expired chat approval releases nothing (its held call already gave up), so a late
+    // approve must not record "approved": it is rejected as expired and the click gets a 409.
+    if (chatApprovalExpired(await this.storage.get(id))) {
+      await this.reject(id, CHAT_APPROVAL_EXPIRED_REASON).catch((error: unknown) => {
+        if (!(error instanceof ApprovalAlreadyDecidedError)) throw error;
+      });
+      throw new ApprovalAlreadyDecidedError(id);
+    }
     const approval = await this.decide(
       id,
       "approved",

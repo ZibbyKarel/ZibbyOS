@@ -1,19 +1,26 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { Injectable, type OnModuleInit, Optional } from "@nestjs/common";
-import type { Approval, ChatGateCheckBody, ChatGateDecision } from "@zibby/contracts";
+import os from "node:os";
+import { Injectable, type OnModuleDestroy, type OnModuleInit, Optional } from "@nestjs/common";
+import type { Approval, ChatGateCheckBody, ChatGateDecision, GateRule } from "@zibby/contracts";
 import { ApprovalAlreadyDecidedError, ApprovalNotFoundError } from "../approvals/approvals.errors";
-import { ApprovalsService } from "../approvals/approvals.service";
+import {
+  ApprovalsService,
+  CHAT_APPROVAL_EXPIRED_REASON,
+  CHAT_APPROVAL_WAIT_MS,
+  chatApprovalExpired,
+} from "../approvals/approvals.service";
 import { AutopilotService } from "../autopilot/autopilot.service";
-import { GateEvaluatorService } from "../gates/gate-evaluator.service";
+import { GateEvaluatorService, actionInClass } from "../gates/gate-evaluator.service";
 import { intentApprovalDetail } from "../gates/intent-approval-detail";
 import { dataDir } from "../shared/data-dir";
 import { isPrimaryInstance } from "../shared/instance-role";
 import { CHAT_NEVER_ACTIONS } from "./chat-opencode";
 import { ChatToolResultRegistry } from "./chat-tool-result.registry";
 
-/** How long a held chat call waits for the operator before the server refuses it (Q8). */
-export const CHAT_APPROVAL_WAIT_MS = 300_000;
+export { CHAT_APPROVAL_WAIT_MS };
+/** How often the primary instance rejects expired chat approvals nobody polls any more. */
+export const CHAT_APPROVAL_SWEEP_MS = 60_000;
 /** A raw command longer than this is denied as too large to review in a card (R10). */
 export const CHAT_GATE_MAX_COMMAND_CHARS = 20_000;
 
@@ -26,11 +33,98 @@ export function chatGateHash(tool: string, input: unknown): string {
     .digest("hex");
 }
 
-/** The full text the call will run: the shell command, else the JSON input. */
-function rawCommand(tool: string, input: unknown): string {
+/**
+ * Mirror of the run hook's `ACTION_RANK` (`claude-approval-hook.mjs`, parity-tested): which of a
+ * chain's actions labels the card. An action missing here ranks above every listed one.
+ */
+export const CHAT_ACTION_RANK: Readonly<Record<string, number>> = {
+  delete: 0,
+  overwrite: 0,
+  move: 0,
+  "git.push": 1,
+  "jira.create_issue": 1,
+  "pr.open": 2,
+  "gh.pr_comment": 3,
+  "gh.api_write": 4,
+  "git.force_push": 5,
+  deploy: 6,
+  "pr.merge": 7,
+};
+/** Actions that make the card high risk (hold to approve), whatever else the chain does. */
+const HIGH_RISK_ACTIONS = new Set([
+  "delete",
+  "overwrite",
+  "move",
+  "git.force_push",
+  "deploy",
+  "pr.merge",
+  "shell.opaque",
+]);
+const severity = (action: string): number =>
+  (HIGH_RISK_ACTIONS.has(action) ? 100 : 0) + (CHAT_ACTION_RANK[action] ?? 50);
+
+const isShell = (tool: string) => tool === "shell" || tool === "bash";
+
+/** The shell call's own `workdir` / `directory`, or undefined. */
+function workdirOf(tool: string, input: unknown): string | undefined {
+  if (!isShell(tool) || !input || typeof input !== "object") return undefined;
+  const i = input as { workdir?: unknown; directory?: unknown };
+  return [i.workdir, i.directory].find((d): d is string => typeof d === "string" && d !== "");
+}
+
+const shellQuote = (s: string) =>
+  /^[\w@%+=:,./~-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+
+/**
+ * The full text the call will run: the shell command — prefixed with `cd <workdir> &&` when the
+ * call sets one (the plugin's resolved `cwd`, else the raw `workdir`) — else the JSON input.
+ */
+function rawCommand(body: ChatGateCheckBody): string {
+  const { tool, input } = body;
   const command = (input as { command?: unknown } | null | undefined)?.command;
-  if ((tool === "shell" || tool === "bash") && typeof command === "string") return command;
-  return JSON.stringify(input) ?? "";
+  if (!isShell(tool) || typeof command !== "string") return JSON.stringify(input) ?? "";
+  const workdir = workdirOf(tool, input);
+  if (!workdir) return command;
+  return `cd ${shellQuote(body.cwd ?? expandHome(workdir))} && ${command}`;
+}
+
+/** `~` / `$HOME` / `${HOME}` at the start of a path, expanded. */
+function expandHome(p: string): string {
+  const home = os.homedir();
+  return p.replace(/^~(?=\/|$)/, home).replace(/^\$\{HOME\}|^\$HOME(?![A-Za-z0-9_])/, home);
+}
+
+/**
+ * Text normalised for the protected-dir match: escapes and quotes dropped (so
+ * `Application\ Support` and `"…/Application Support/…"` read the same), `~` / `$HOME` /
+ * `${HOME}` expanded, lower-cased (APFS is case-insensitive). Dropping every backslash also
+ * reads a JSON-escaped string as written. A match only ever denies, so over-matching is safe.
+ */
+export function normalizePathText(text: string): string {
+  const home = os.homedir();
+  return text
+    .replace(/[\\"']/g, "")
+    .replace(/\$\{HOME\}|\$HOME(?![A-Za-z0-9_])/g, home)
+    .replace(/(^|[\s=:([,{;&|<>])~(?=\/|$|[\s,}\];&|])/g, `$1${home}`)
+    .toLowerCase();
+}
+
+/**
+ * The old chat guarantee (pre-inline-approvals `chatAllowedActions`), kept as an extra condition
+ * of a SILENT allow: every global rule that can match `action` by its action class — branch- or
+ * scope-qualified ones included — is `allow`, and no non-`allow` catch-all (a `tool` / `context`
+ * rule with no action) exists. So a branchless `git push` never runs silently while any push
+ * rule (e.g. `gr-push-main`) asks; it gets a card instead.
+ */
+export function everyMatchingRuleAllows(floor: readonly GateRule[], action: string): boolean {
+  for (const rule of floor) {
+    const keyed = rule.match.some((c) => c.type === "action");
+    const catchAll = rule.match.some((c) => c.type === "tool" || c.type === "context");
+    if (rule.decision !== "allow" && !keyed && catchAll) return false;
+  }
+  return floor
+    .filter((r) => r.match.some((c) => c.type === "action" && actionInClass(action, c.action)))
+    .every((r) => r.decision === "allow");
 }
 
 /** The ZibbyOS data dir and the dirs holding the gate rules / policy / approvals. */
@@ -50,7 +144,7 @@ function protectedDirs(): string[] {
       // not on disk (yet): the literal path is all there is to match
     }
   }
-  return [...dirs];
+  return [...dirs].map(normalizePathText);
 }
 
 /**
@@ -61,7 +155,9 @@ function protectedDirs(): string[] {
  * the one held call that requested it.
  */
 @Injectable()
-export class ChatGateService implements OnModuleInit {
+export class ChatGateService implements OnModuleInit, OnModuleDestroy {
+  private sweepTimer?: ReturnType<typeof setInterval>;
+
   constructor(
     private readonly approvals: ApprovalsService,
     private readonly gates: GateEvaluatorService,
@@ -69,32 +165,55 @@ export class ChatGateService implements OnModuleInit {
     @Optional() private readonly autopilot?: AutopilotService,
   ) {}
 
-  /** Rejects stale pending chat approvals a previous process left behind (primary only, R9). */
+  /**
+   * Rejects expired pending chat approvals (primary only, R9): once at boot (a previous process
+   * left them behind) and then every {@link CHAT_APPROVAL_SWEEP_MS}, so a card nothing polls any
+   * more (the plugin gave up, the API restarted) expires on its own. A late approve is refused
+   * by `ApprovalsService.approve` as well.
+   */
   async onModuleInit(): Promise<void> {
     if (!isPrimaryInstance()) return;
+    await this.sweep();
+    this.sweepTimer = setInterval(() => void this.sweep(), CHAT_APPROVAL_SWEEP_MS);
+    this.sweepTimer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
+    this.sweepTimer = undefined;
+  }
+
+  /** Reject every expired pending chat approval (best effort, never throws). */
+  async sweep(): Promise<void> {
     try {
       const pending = await this.pendingChat();
       await Promise.all(
         pending
-          .filter((a) => this.expired(a))
-          .map((a) => this.rejectQuietly(a.id, "Expired: no decision in time.")),
+          .filter((a) => chatApprovalExpired(a))
+          .map((a) => this.rejectQuietly(a.id, CHAT_APPROVAL_EXPIRED_REASON)),
       );
     } catch {
-      // best-effort sweep; status() expiry covers whatever it misses
+      // best-effort; status() and approve() refuse an expired card regardless
     }
   }
 
   async check(conversationId: string, body: ChatGateCheckBody): Promise<ChatGateDecision> {
     const { tool, input, intents } = body;
+    // Only a conversation with a turn in flight can hold a call: a forged or stale check gets
+    // no approval record, no card and no Slack ping.
+    if (!this.toolResults.hasTurn(conversationId)) {
+      return deny("No chat turn is in flight to ask the operator in.");
+    }
     if (chatGateHash(tool, input) !== body.hash) return deny("The call does not match its hash.");
-    const cmd = rawCommand(tool, input);
+    const cmd = rawCommand(body);
     if (intents.some((i) => i.action === "unclassified"))
       return deny("The ZIBBY gate could not classify this call.");
     if (cmd.length > CHAT_GATE_MAX_COMMAND_CHARS) {
       return deny("Too large to review in the chat; split it into smaller steps.");
     }
     if (this.autopilot?.isPaused()) return deny("ZIBBY is paused.");
-    if (protectedDirs().some((d) => cmd.includes(d))) {
+    const haystack = normalizePathText(`${cmd}\n${JSON.stringify(input) ?? ""}\n${body.cwd ?? ""}`);
+    if (protectedDirs().some((d) => haystack.includes(d))) {
       return deny(
         "Touches the ZIBBY data directory (gate rules and approvals), which the chat may not change.",
       );
@@ -109,14 +228,22 @@ export class ChatGateService implements OnModuleInit {
     if (
       !agentTurn &&
       evals.every(
-        (e) => e.ev.decision === "allow" && e.ev.ruleId && !CHAT_NEVER_ACTIONS.has(e.intent.action),
+        (e) =>
+          e.ev.decision === "allow" &&
+          e.ev.ruleId &&
+          !CHAT_NEVER_ACTIONS.has(e.intent.action) &&
+          everyMatchingRuleAllows(floor, e.intent.action),
       )
     ) {
       return { decision: "allow" };
     }
 
-    // The card is labelled by the highest-risk action (delete first); the summary lists all of them.
-    const primary = intents.find((i) => i.action === "delete") ?? intents[0];
+    // The card is labelled by the most severe action; the summary lists all of them, and any
+    // high-risk action in the chain makes the whole card high risk (hold to approve).
+    const primary = intents.reduce<(typeof intents)[number] | undefined>(
+      (best, i) => (!best || severity(i.action) > severity(best.action) ? i : best),
+      undefined,
+    );
     if (!primary) return deny("The ZIBBY gate could not classify this call.");
     const actions = [...new Set(intents.map((i) => i.action))];
     const approval = await this.approvals.requestApproval({
@@ -125,7 +252,7 @@ export class ChatGateService implements OnModuleInit {
       skill: "ZIBBY chat",
       action: primary.action,
       detail: this.detail(body, primary, actions, cmd),
-      risk: primary.action === "delete" ? "high" : "medium",
+      risk: intents.some((i) => HIGH_RISK_ACTIONS.has(i.action)) ? "high" : "medium",
     });
     if (
       !this.toolResults.pushWidget(conversationId, { kind: "approval", approvalId: approval.id })
@@ -145,9 +272,8 @@ export class ChatGateService implements OnModuleInit {
     if (approval.kind !== "chat" || !approval.runId.startsWith(`${conversationId}/`)) {
       throw new ApprovalNotFoundError(approvalId);
     }
-    if (approval.status === "pending" && this.expired(approval)) {
-      approval =
-        (await this.rejectQuietly(approvalId, "Expired: no decision in time.")) ?? approval;
+    if (chatApprovalExpired(approval)) {
+      approval = (await this.rejectQuietly(approvalId, CHAT_APPROVAL_EXPIRED_REASON)) ?? approval;
     }
     return { status: approval.status };
   }
@@ -162,10 +288,6 @@ export class ChatGateService implements OnModuleInit {
 
   private async pendingChat(): Promise<Approval[]> {
     return (await this.approvals.list("pending")).filter((a) => a.kind === "chat");
-  }
-
-  private expired(a: Approval): boolean {
-    return Date.now() - Date.parse(a.requestedAt) > CHAT_APPROVAL_WAIT_MS;
   }
 
   /** Reject, tolerating a concurrent decision (returns the record, or undefined if it raced). */

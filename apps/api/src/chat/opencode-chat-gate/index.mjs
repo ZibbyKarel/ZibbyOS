@@ -11,6 +11,8 @@
 //  - FAIL CLOSED: reject, timeout (the server owns the 300 s deadline, this plugin stops at
 //    `ZIBBY_CHAT_GATE_DEADLINE_S`), a missing env, a network or parse error, a non-2xx → refused.
 //  - Gated calls are serialised through a queue, so the operator sees one card at a time.
+//  - An opaque shell form (`opaqueShell`: nested shell, eval, `$(…)`, wrapper prefix, inline
+//    interpreter code, mutating curl …) adds a `shell.opaque` intent: always a card, never silent.
 //  - `read` / `grep` / `glob` / `list`: run, unless the path is the operator token dir.
 //  - MCP tools of the mounted servers (`ZIBBY_CHAT_MCP_SERVERS`): ZibbyOS's own `zibby` /
 //    `zibby-kb` run; an operator server's call is judged like any other (`mcp.read` runs).
@@ -22,11 +24,14 @@
 // risky calls are not judged — but write/edit/execute stay denied by the config.
 
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   classifyAll,
   classifyEvent,
   intentOf,
+  opaqueShell,
   pathTouchesOperatorOnly,
   touchesOperatorOnly,
 } from "../../runner/claude-approval-hook.mjs";
@@ -79,10 +84,42 @@ export function isAllowedChatTool(tool, env = process.env) {
   return CHAT_BUILTIN_TOOLS.includes(name) || isMountedMcpTool(name, env);
 }
 
-/** A call reaching the operator-only surface (approval API, operator token dir). */
-function touchesOperator(e) {
+/** Shell text with escapes and quotes dropped, so `~/.con"fig"/zib\by` reads as written. */
+const unquote = (text) => String(text ?? "").replace(/[\\"']/g, "");
+
+/** The shell call's own `workdir` / `directory` (opencode's cwd override), or undefined. */
+const workdirOf = (input) =>
+  [input?.workdir, input?.directory].find((d) => typeof d === "string" && d);
+
+/** `dir` with `~` / `$HOME` expanded, resolved against `cwd` and through symlinks. */
+export function resolveWorkdir(dir, cwd) {
+  const home = os.homedir();
+  const p = unquote(dir)
+    .replace(/^~(?=\/|$)/, home)
+    .replace(/^\$\{HOME\}|^\$HOME(?![A-Za-z0-9_])/, home);
+  const abs = path.resolve(cwd, p);
+  try {
+    return realpathSync(abs);
+  } catch {
+    return abs;
+  }
+}
+
+/**
+ * A call reaching the operator-only surface (approval API, operator token dir). A shell
+ * call is matched on its raw and its unquoted text, on its `workdir`, and — when it has a
+ * `workdir` — on every word resolved against it (`workdir: ~/.config` + `cat zibby/…`).
+ */
+function touchesOperator(e, workdir) {
   const i = e.tool_input ?? {};
-  if (e.tool_name === "Bash") return touchesOperatorOnly(i.command);
+  if (e.tool_name === "Bash") {
+    if (touchesOperatorOnly(i.command) || touchesOperatorOnly(unquote(i.command))) return true;
+    if (!workdir) return false;
+    if (pathTouchesOperatorOnly(workdir, e.cwd)) return true;
+    return unquote(i.command)
+      .split(/[\s;&|<>()=]+/)
+      .some((w) => w && !w.startsWith("-") && pathTouchesOperatorOnly(w, workdir));
+  }
   return (
     pathTouchesOperatorOnly(i.file_path, e.cwd) ||
     pathTouchesOperatorOnly(i.path, e.cwd) ||
@@ -106,9 +143,12 @@ export function chatGateReason(tool, input, env = process.env) {
   } catch (e) {
     return { reason: e?.message ?? CHAT_DENY_REASON };
   }
+  const shell = name === "shell" || name === "bash";
+  const rawWorkdir = shell ? workdirOf(input) : undefined;
+  const workdir = rawWorkdir ? resolveWorkdir(rawWorkdir, cwd) : undefined;
   const intents = [];
   for (const e of events) {
-    if (touchesOperator(e)) {
+    if (touchesOperator(e, workdir)) {
       return {
         reason:
           "approvals are decided by the operator only — the chat cannot call the approvals API or read the operator token.",
@@ -122,11 +162,17 @@ export function chatGateReason(tool, input, env = process.env) {
     let requests;
     try {
       // A shell command yields EVERY gated action in it (the server judges them all); other
-      // events yield their single classification.
-      requests =
-        e.tool_name === "Bash"
-          ? classifyAll(e.tool_input?.command).map(intentOf)
-          : [classifyEvent(e)];
+      // events yield their single classification. An opaque shell form (nested shell, eval,
+      // `$(…)`, a wrapper prefix, inline interpreter code, a mutating curl …) adds
+      // `shell.opaque`, which the server always turns into a card.
+      if (e.tool_name === "Bash") {
+        const command = String(e.tool_input?.command ?? "");
+        requests = classifyAll(command).map(intentOf);
+        const why = opaqueShell(command);
+        if (why) requests.push(opaqueIntent(command, why));
+      } else {
+        requests = [classifyEvent(e)];
+      }
     } catch {
       // Fail closed: a call the classifier chokes on goes to the API as `unclassified`, which denies it.
       requests = [{ action: "unclassified" }];
@@ -146,7 +192,20 @@ export function chatGateReason(tool, input, env = process.env) {
       }
     }
   }
-  return intents.length ? { intents } : null;
+  if (!intents.length) return null;
+  return workdir ? { intents, cwd: workdir } : { intents };
+}
+
+/** The intent of a shell command the classifier cannot see into. */
+function opaqueIntent(command, why) {
+  return {
+    action: "shell.opaque",
+    context: JSON.stringify({
+      summary: `Neprůhledný příkaz (${why})`,
+      consequence: "Gate nevidí, co příkaz skutečně spustí — zkontroluj celý text.",
+      preview: { kind: "command", shell: "bash", cmd: command, targets: [] },
+    }),
+  };
 }
 
 /** sha256 hex of `tool + "\0" + JSON.stringify(input)` — must match the API's `chatGateHash`. */
@@ -165,7 +224,14 @@ const blocked = (reason) => new Error(`Blocked by the ZibbyOS gate: ${reason}`);
  * decides. Resolves only for an allowed / approved call; every other outcome throws
  * (fail closed). `input` is re-hashed after an approval to catch a mutation of the held call.
  */
-export async function chatGateCall(tool, input, intents, env = process.env, fetchImpl = fetch) {
+export async function chatGateCall(
+  tool,
+  input,
+  intents,
+  env = process.env,
+  fetchImpl = fetch,
+  cwd = undefined,
+) {
   const url = env.ZIBBY_CHAT_GATE_URL;
   const token = env.ZIBBY_CHAT_GATE_TOKEN;
   if (!url || !token) throw blocked("the chat approval gate is not configured — refusing.");
@@ -183,14 +249,15 @@ export async function chatGateCall(tool, input, intents, env = process.env, fetc
   try {
     decision = await call(url, {
       method: "POST",
-      body: JSON.stringify({ tool, input, hash, intents }),
+      body: JSON.stringify({ tool, input, hash, intents, ...(cwd ? { cwd } : {}) }),
     });
   } catch (e) {
     throw blocked(`the approval gate could not be reached (${e?.message ?? e}) — refusing.`);
   }
   if (decision?.decision === "allow") return;
   if (decision?.decision === "deny") {
-    throw blocked(`${decision.reason ?? "denied"}. Do not retry or work around it.`);
+    const reason = String(decision.reason ?? "denied").replace(/\.+$/, "");
+    throw blocked(`${reason}. Do not retry or work around it.`);
   }
   const approvalId = decision?.decision === "pending" ? decision.approvalId : undefined;
   if (typeof approvalId !== "string" || !approvalId)
@@ -237,7 +304,16 @@ const plugin = {
       const run = queue.then(async () => {
         const verdict = chatGateReason(event.tool, event.input);
         if (verdict?.reason) throw blocked(verdict.reason);
-        if (verdict?.intents) await chatGateCall(String(event.tool), event.input, verdict.intents);
+        if (verdict?.intents) {
+          await chatGateCall(
+            String(event.tool),
+            event.input,
+            verdict.intents,
+            process.env,
+            fetch,
+            verdict.cwd,
+          );
+        }
       });
       queue = run.catch(() => undefined);
       return run;
