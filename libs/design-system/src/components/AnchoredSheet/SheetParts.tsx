@@ -15,10 +15,14 @@ export enum SheetPartsTestId {
 }
 
 /** Body section: padding 18/20, 22px between blocks. */
-export function SheetSection({ children }: { children: ReactNode }) {
+export function SheetSection({ children, fill = false }: { children: ReactNode; fill?: boolean }) {
   return (
     <div
-      className="flex flex-col gap-[22px] px-[20px] py-[18px]"
+      className={cn(
+        "flex flex-col gap-[22px] px-[20px] py-[18px]",
+        // Takes the whole body (see `AnchoredSheet fillBody`) so a child editor can fill it.
+        fill && "min-h-0 flex-1",
+      )}
       data-testid={SheetPartsTestId.Section}
     >
       {children}

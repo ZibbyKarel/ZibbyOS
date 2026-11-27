@@ -137,6 +137,9 @@ export interface AnchoredSheetProps {
   footerNote?: string;
   /** Free-form footer (an inline form, e.g. a reject reason) — rendered full-width instead of the note. */
   footer?: ReactNode;
+  /** The body doesn't scroll: it's a flex column whose `SheetSection fill` child takes all of
+   *  the height (a full-height editor). Default `false` — the body scrolls. */
+  fillBody?: boolean;
   /** Scrolling body — compose with `SheetSection` / `SheetBlock` / the other detail primitives. */
   children?: ReactNode;
   ref?: Ref<HTMLDivElement>;
@@ -277,6 +280,7 @@ export function AnchoredSheet({
   composer,
   footerNote,
   footer,
+  fillBody = false,
   children,
   ref,
   presentation,
@@ -616,7 +620,13 @@ export function AnchoredSheet({
             {banner}
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid={AnchoredSheetTestId.Body}>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            fillBody ? "flex flex-col overflow-hidden" : "overflow-y-auto",
+          )}
+          data-testid={AnchoredSheetTestId.Body}
+        >
           {children}
         </div>
         {composer ? (

@@ -309,6 +309,13 @@ describe("AnchoredSheet page presentation", () => {
     expect(header).not.toHaveTextContent("GO");
   });
 
+  it("fillBody turns the body into a non-scrolling flex column", () => {
+    page({ fillBody: true });
+    const body = screen.getByTestId(AnchoredSheetTestId.Body);
+    expect(body).toHaveClass("flex", "flex-col", "overflow-hidden");
+    expect(body).not.toHaveClass("overflow-y-auto");
+  });
+
   it("has one close button (back to the board) and closes", async () => {
     const onClose = vi.fn();
     page({ onClose });

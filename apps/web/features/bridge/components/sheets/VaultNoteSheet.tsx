@@ -142,6 +142,8 @@ export function VaultNoteSheet({ id, anchor, onClose, frame }: SheetProps) {
       }
       closeLabel={t("bridge.sheet.close")}
       copyId={id}
+      // Editing: the editor takes the sheet's whole height instead of a fixed 420px box.
+      fillBody={draft !== null && label === null}
       footerNote={
         label !== null
           ? setPins.isError
@@ -161,7 +163,7 @@ export function VaultNoteSheet({ id, anchor, onClose, frame }: SheetProps) {
       onClose={onClose}
       title={title}
     >
-      <SheetSection>
+      <SheetSection fill={draft !== null && label === null}>
         {label !== null ? (
           <TextInputField
             autoFocus
@@ -181,7 +183,7 @@ export function VaultNoteSheet({ id, anchor, onClose, frame }: SheetProps) {
             <Markdown escapeHtml source={withoutFrontmatter(note.body)} />
           </SheetBlock>
         ) : (
-          <MarkdownEditor ariaLabel={n("editorLabel")} onChange={setDraft} value={draft} />
+          <MarkdownEditor fill ariaLabel={n("editorLabel")} onChange={setDraft} value={draft} />
         )}
       </SheetSection>
     </AnchoredSheet>

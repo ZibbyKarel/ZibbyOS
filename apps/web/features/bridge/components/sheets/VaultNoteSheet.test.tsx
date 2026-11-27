@@ -1,3 +1,4 @@
+import { AnchoredSheetTestId } from "@zibby/design-system";
 import { cleanup, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen } from "../../../../test/render";
@@ -54,6 +55,15 @@ describe("VaultNoteSheet", () => {
     expect(screen.getByTestId(VaultNoteSheetTestId.Save)).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByTestId(VaultNoteSheetTestId.Cancel));
     expect(screen.getByTestId(VaultNoteSheetTestId.Edit)).toBeInTheDocument();
+  });
+
+  it("editing makes the editor fill the sheet's full height; reading keeps the scrolling body", () => {
+    renderWithProviders(<VaultNoteSheet anchor={anchor} id="a/x.md" onClose={vi.fn()} />);
+    const body = screen.getByTestId(AnchoredSheetTestId.Body);
+    expect(body).toHaveClass("overflow-y-auto");
+    fireEvent.click(screen.getByTestId(VaultNoteSheetTestId.Edit));
+    expect(body).toHaveClass("flex-col", "overflow-hidden");
+    expect(body).not.toHaveClass("overflow-y-auto");
   });
 
   describe("rename link", () => {
