@@ -174,6 +174,38 @@ export function effectiveByNode(
   return out;
 }
 
+/** A row of the levels table; `path` = its non-global ancestors, `viaDiff` = shown only because it differs. */
+export interface VisibleScope {
+  scope: AutonomyScope;
+  path: AutonomyScope[];
+  viaDiff: boolean;
+}
+
+/**
+ * The rows to render. Global and top-level rows always show; a nested row shows when every ancestor
+ * is open, or (even under collapsed ancestors) when its effective levels differ from its parent's:
+ * "show what differs, hide what's the same". Works for any depth.
+ */
+export function visibleScopes(
+  scopes: AutonomyScope[],
+  eff: Record<string, AutomationLevels>,
+  open: Record<string, boolean>,
+): VisibleScope[] {
+  const byNode = new Map(scopes.map((s) => [s.node, s]));
+  return scopes.flatMap((scope): VisibleScope[] => {
+    const path: AutonomyScope[] = [];
+    for (let p = scope.parent ? byNode.get(scope.parent) : undefined; p; ) {
+      if (p.kind !== "global") path.unshift(p);
+      p = p.parent ? byNode.get(p.parent) : undefined;
+    }
+    if (path.every((a) => open[a.node])) return [{ scope, path, viaDiff: false }];
+    const mine = eff[scope.node];
+    const parent = scope.parent ? eff[scope.parent] : undefined;
+    const differs = !!mine && !!parent && AUTOMATION_KEYS.some((k) => mine[k] !== parent[k]);
+    return differs ? [{ scope, path, viaDiff: true }] : [];
+  });
+}
+
 const bucket = (scope: AutonomyScope) =>
   scope.kind === "company" ? "companies" : scope.kind === "project" ? "projects" : "teams";
 

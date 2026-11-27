@@ -30,6 +30,7 @@ import {
   overrideOf,
   setLevel,
   toggledLevel,
+  visibleScopes,
 } from "../autonomy";
 
 export enum AutonomyMatrixTestId {
@@ -37,6 +38,8 @@ export enum AutonomyMatrixTestId {
   /** Suffixed with `-<scope node>-<capability>-<column>`. */
   Chip = "autonomy-matrix-chip",
   Expand = "autonomy-matrix-expand",
+  /** Suffixed with the scope node: "Pod: Firma › Tým" on a row shown through collapsed ancestors. */
+  Path = "autonomy-matrix-path",
   InheritAll = "autonomy-matrix-inherit-all",
   /** Suffixed with the scope node: the "Ručně: …" line. */
   Manual = "autonomy-matrix-manual",
@@ -47,6 +50,8 @@ interface MatrixRow {
   nested: boolean;
   childCount: number;
   open: boolean;
+  /** Ancestor names, set only when the row shows through collapsed ancestors (it differs). */
+  via: string | null;
 }
 
 export interface AutonomyMatrixProps {
@@ -66,19 +71,20 @@ export interface AutonomyMatrixProps {
  */
 export function AutonomyMatrix({ scopes, automation, paused, onChange }: AutonomyMatrixProps) {
   const t = useTranslations("autopilot");
-  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  // Everything starts collapsed; a nested row that differs from its parent shows anyway.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   const eff = effectiveByNode(automation, scopes);
   const byNode = new Map(scopes.map((s) => [s.node, s]));
   const parentOf = (scope: AutonomyScope) => (scope.parent ? byNode.get(scope.parent) : undefined);
   const name = (scope: AutonomyScope) => (scope.kind === "global" ? t("globalLabel") : scope.label);
 
-  const rows: MatrixRow[] = scopes.flatMap((scope) => {
-    const parent = parentOf(scope);
-    if (parent?.kind === "company" && closed[parent.node]) return [];
-    const childCount =
-      scope.kind === "company" ? scopes.filter((s) => s.parent === scope.node).length : 0;
-    return [{ scope, nested: parent?.kind === "company", childCount, open: !closed[scope.node] }];
-  });
+  const rows: MatrixRow[] = visibleScopes(scopes, eff, open).map(({ scope, path, viaDiff }) => ({
+    scope,
+    nested: path.length > 0,
+    childCount: scope.kind === "company" ? scopes.filter((s) => s.parent === scope.node).length : 0,
+    open: !!open[scope.node],
+    via: viaDiff ? path.map(name).join(" › ") : null,
+  }));
 
   const toggle = (scope: AutonomyScope, key: AutomationKey, column: Column) => {
     const parent = parentOf(scope);
@@ -144,7 +150,7 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
     );
   };
 
-  const rowHeader = ({ scope, childCount, open }: MatrixRow) => {
+  const rowHeader = ({ scope, childCount, open, via }: MatrixRow) => {
     const parent = parentOf(scope);
     const own = hasOverride(overrideOf(automation, scope));
     const manual = manualKeys(eff[scope.node] ?? automation.global);
@@ -178,6 +184,16 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
                 ? t("rowOwn", { kind })
                 : t("rowInherits", { kind, parent: parent ? name(parent) : "" })}
           </Typography>
+          {via ? (
+            <Typography
+              data-testid={`${AutonomyMatrixTestId.Path}-${scope.node}`}
+              size="xs"
+              type="note"
+              variant="secondary"
+            >
+              {t("underPath", { path: via })}
+            </Typography>
+          ) : null}
           {manual.length > 0 ? (
             <Typography
               data-testid={`${AutonomyMatrixTestId.Manual}-${scope.node}`}
@@ -199,7 +215,7 @@ export function AutonomyMatrix({ scopes, automation, paused, onChange }: Autonom
                   data-testid={`${AutonomyMatrixTestId.Expand}-${scope.node}`}
                   icon="chevron"
                   intent="ghost"
-                  onClick={() => setClosed((c) => ({ ...c, [scope.node]: open }))}
+                  onClick={() => setOpen((o) => ({ ...o, [scope.node]: !open }))}
                   size="sm"
                 >
                   {t("placesCount", { count: childCount })}

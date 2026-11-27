@@ -4920,6 +4920,7 @@
     "manualList": "Manual: {list}",
     "teamsCount": "{count, plural, one {# team} other {# teams}}",
     "placesCount": "{count, plural, one {# place} other {# places}}",
+    "underPath": "Under: {path}",
     "expand": "Expand",
     "collapse": "Collapse",
     "inheritAll": "Inherit all",

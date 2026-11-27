@@ -55,12 +55,16 @@ beforeEach(() => {
   };
 });
 
+const expandAcme = () =>
+  userEvent.click(screen.getByTestId(`${AutonomyMatrixTestId.Expand}-company:acme`));
+
 const chip = (node: string, key: string, column: "semi" | "auto") =>
   screen.getByTestId(`${AutonomyMatrixTestId.Chip}-${node}-${key}-${column}`);
 
 describe("AutonomyScreen", () => {
-  it("shows two additive columns with the effective levels, exceptions and manual lists", () => {
+  it("shows two additive columns with the effective levels, exceptions and manual lists", async () => {
     renderAutonomy(<AutonomyScreen />);
+    await expandAcme();
     expect(screen.getByTestId(`${LaneMatrixTestId.Head}-semi`)).toHaveTextContent("Poloautomat");
     expect(screen.getByTestId(`${LaneMatrixTestId.Head}-auto`)).toHaveTextContent("Automat");
     // global: review semi -> only Poloautomat; acme overrides to auto -> both, with a dot
@@ -137,6 +141,7 @@ describe("AutonomyScreen", () => {
       },
     };
     renderAutonomy(<AutonomyScreen />);
+    await expandAcme();
     await userEvent.click(chip("team:web", "autoReview", "auto")); // auto -> semi = company's level
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0]?.[0].teams).toEqual({});
@@ -145,6 +150,7 @@ describe("AutonomyScreen", () => {
 
   it("toggling a project chip saves projects.<id>, inheriting from its company", async () => {
     renderAutonomy(<AutonomyScreen />);
+    await expandAcme();
     // acme sets review to auto, the project inherits it (not from the team)
     expect(chip("project:shop", "autoReview", "auto")).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(chip("project:shop", "autoFixCi", "semi"));
@@ -160,11 +166,31 @@ describe("AutonomyScreen", () => {
     expect(save.mock.calls[0]?.[0].companies).toEqual({});
   });
 
-  it("collapses a company's teams", async () => {
+  it("starts collapsed, expands on click and collapses again", async () => {
+    renderAutonomy(<AutonomyScreen />);
+    expect(screen.queryByTestId(`${LaneMatrixTestId.Row}-team:web`)).toBeNull();
+    await expandAcme();
+    expect(screen.getByTestId(`${LaneMatrixTestId.Row}-team:web`)).toBeInTheDocument();
+    await expandAcme();
+    expect(screen.queryByTestId(`${LaneMatrixTestId.Row}-team:web`)).toBeNull();
+  });
+
+  it("a team that differs from its company stays visible while collapsed, with its path", () => {
+    status = {
+      ...status,
+      automation: {
+        global: { ...NO_AUTOMATION, autoReview: "semi" },
+        companies: { acme: { autoReview: "auto" } },
+        teams: { web: { autoReview: "manual" } },
+        projects: {},
+      },
+    };
     renderAutonomy(<AutonomyScreen />);
     expect(screen.getByTestId(`${LaneMatrixTestId.Row}-team:web`)).toBeInTheDocument();
-    await userEvent.click(screen.getByTestId(`${AutonomyMatrixTestId.Expand}-company:acme`));
-    expect(screen.queryByTestId(`${LaneMatrixTestId.Row}-team:web`)).toBeNull();
+    expect(screen.queryByTestId(`${LaneMatrixTestId.Row}-project:shop`)).toBeNull();
+    expect(screen.getByTestId(`${AutonomyMatrixTestId.Path}-team:web`)).toHaveTextContent(
+      "Pod: Acme",
+    );
   });
 
   it("shows a failure toast when the save is locked (raising needs the token)", async () => {

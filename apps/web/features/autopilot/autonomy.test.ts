@@ -1,6 +1,7 @@
 import { type Company, NO_AUTOMATION, type Project, type Team } from "@zibby/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  type AutonomyScope,
   EMPTY_AUTOMATION,
   PILL_ORB,
   buildScopes,
@@ -12,6 +13,7 @@ import {
   pillTone,
   setLevel,
   toggledLevel,
+  visibleScopes,
 } from "./autonomy";
 
 const companies = [{ id: "acme", name: "Acme" }] as Company[];
@@ -121,5 +123,70 @@ describe("PILL_ORB", () => {
     expect(PILL_ORB.manual).toBe("sleep");
     expect(pillTone("manual")).toBe("paused");
     expect(pillTone("semi")).toBe("run");
+  });
+});
+
+describe("visibleScopes", () => {
+  const sc = (node: string, parent: string | null): AutonomyScope => ({
+    node,
+    kind: node === "global" ? "global" : node.startsWith("company") ? "company" : "team",
+    id: node,
+    label: node,
+    parent,
+  });
+  // global > company:a > team:b > team:c > team:d
+  const chain = [
+    sc("global", null),
+    sc("company:a", "global"),
+    sc("team:b", "company:a"),
+    sc("team:c", "team:b"),
+    sc("team:d", "team:c"),
+  ];
+  const lv = (autoReview: "manual" | "semi" | "auto") => ({ ...NO_AUTOMATION, autoReview });
+  const nodes = (rows: ReturnType<typeof visibleScopes>) => rows.map((r) => r.scope.node);
+
+  it("collapsed: only global and companies; rows equal to their parent are hidden", () => {
+    const eff = Object.fromEntries(chain.map((s) => [s.node, lv("semi")]));
+    expect(nodes(visibleScopes(chain, eff, {}))).toEqual(["global", "company:a"]);
+  });
+
+  it("a differing row stays visible under collapsed ancestors, with its path", () => {
+    const eff = {
+      global: lv("semi"),
+      "company:a": lv("semi"),
+      "team:b": lv("semi"),
+      "team:c": lv("semi"),
+      "team:d": lv("auto"),
+    };
+    const rows = visibleScopes(chain, eff, {});
+    expect(nodes(rows)).toEqual(["global", "company:a", "team:d"]);
+    const d = rows[2];
+    expect(d?.viaDiff).toBe(true);
+    expect(d?.path.map((p) => p.node)).toEqual(["company:a", "team:b", "team:c"]);
+  });
+
+  it("a row that equals its parent but has a differing child hides itself, shows the child", () => {
+    const eff = {
+      global: lv("semi"),
+      "company:a": lv("semi"),
+      "team:b": lv("semi"),
+      "team:c": lv("auto"),
+      "team:d": lv("auto"), // equals c, hidden
+    };
+    expect(nodes(visibleScopes(chain, eff, {}))).toEqual(["global", "company:a", "team:c"]);
+  });
+
+  it("expanding shows everything; a differing row under open ancestors is not viaDiff", () => {
+    const eff = {
+      global: lv("semi"),
+      "company:a": lv("semi"),
+      "team:b": lv("semi"),
+      "team:c": lv("auto"),
+      "team:d": lv("auto"),
+    };
+    const open = { "company:a": true, "team:b": true, "team:c": true };
+    const rows = visibleScopes(chain, eff, open);
+    expect(nodes(rows)).toEqual(chain.map((s) => s.node));
+    expect(rows.every((r) => !r.viaDiff)).toBe(true);
   });
 });

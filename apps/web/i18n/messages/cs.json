@@ -4920,6 +4920,7 @@
     "manualList": "Ručně: {list}",
     "teamsCount": "{count, plural, one {# tým} few {# týmy} other {# týmů}}",
     "placesCount": "{count, plural, one {# místo} few {# místa} other {# míst}}",
+    "underPath": "Pod: {path}",
     "expand": "Rozbalit",
     "collapse": "Sbalit",
     "inheritAll": "Dědit vše",
