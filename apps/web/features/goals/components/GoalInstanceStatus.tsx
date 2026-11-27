@@ -23,6 +23,7 @@ export interface GoalInstanceStatusProps {
  */
 export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatusProps) {
   const t = useTranslations("goals.instances");
+  const tc = useTranslations("goals.card");
   return (
     <Stack align="start" gap="25">
       <StatusBadge
@@ -48,7 +49,7 @@ export function GoalInstanceStatus({ instance, instanceKey }: GoalInstanceStatus
           type="note"
           variant="secondary"
         >
-          {t(`held.${instance.held}`)}
+          {tc("heldReason")}
         </Typography>
       )}
     </Stack>

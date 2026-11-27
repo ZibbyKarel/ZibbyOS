@@ -34,6 +34,7 @@ export enum GoalHeroTestId {
   MeterDeadline = "goal-hero-meter-deadline",
   MeterDecisions = "goal-hero-meter-decisions",
   MeterRuns = "goal-hero-meter-runs",
+  HeldReason = "goal-hero-held-reason",
 }
 
 export interface GoalHeroProps {
@@ -158,6 +159,16 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
                 </Typography>
               ))}
           </Stack>
+          {display === "held" && (
+            <Typography
+              data-testid={GoalHeroTestId.HeldReason}
+              size="sm"
+              type="note"
+              variant="secondary"
+            >
+              {t("card.heldReason")}
+            </Typography>
+          )}
           <Stack wrap data-testid={GoalHeroTestId.Tags} direction="row" gap="100">
             <Tag icon="stack" tone="neutral">
               {label(goalScopeLabel(goal.scope, names))}

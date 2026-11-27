@@ -196,6 +196,8 @@ export interface GoalCardModel {
   /** Absent while the timeline is not loaded (or failed): no box rather than a faked one. */
   verdict?: { head: GoalLabel; status?: GoalLabel; text: GoalLabel | string };
   verdictTone: "idle" | "blocked" | "done";
+  /** The status the pill shows (`held` instead of planning / acting / waiting while held). */
+  display: GoalDisplayStatus;
   /** Every active instance is held by a Manual autonomy level: the pill reads "held", not "working". */
   held: boolean;
   /** `decide` opens the detail page, `wake-pause` wakes or pauses, `enable` switches it on. */
@@ -282,6 +284,7 @@ export function goalCardModel(
 
   return {
     state: GOAL_CARD_STATE[display],
+    display,
     held: display === "held",
     used: counts.done,
     max: Math.max(counts.total, 1),
@@ -383,7 +386,7 @@ export function goalCycles(
 
 /** Row icon + tone of one timeline event by its (open-ended) kind; unknown kinds stay neutral. */
 export function goalEventMark(kind: string): {
-  icon: "check" | "warn" | "chat" | "run" | "branch" | "doc";
+  icon: "check" | "warn" | "chat" | "run" | "branch" | "doc" | "pause";
   tone: "ok" | "bad" | "neutral";
 } {
   switch (kind) {
@@ -399,7 +402,7 @@ export function goalEventMark(kind: string): {
     case "merged":
       return { icon: "branch", tone: "ok" };
     case "held":
-      return { icon: "doc", tone: "neutral" };
+      return { icon: "pause", tone: "neutral" };
     default:
       return { icon: "doc", tone: "neutral" };
   }

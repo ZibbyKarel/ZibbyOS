@@ -44,7 +44,7 @@ export function GoalCard({
   const t = useTranslations("goals");
   const locale = useLocale();
   const label = (l: GoalLabel | string) => (typeof l === "string" ? l : t(l.key, l.values));
-  // ponytail: one timeline query per card; add rollup.latest to the list API if a long list gets slow
+  // ponytail: one timeline and one state query per card (N+N queries per list); add rollup.latest and a held flag to the list API if a long list gets slow
   const timeline = useGoalTimelineQuery(goal.id);
   // The held state (Manual autonomy) lives in the goal state, not the roll-up.
   const state = useGoalStateQuery(goal.id);
@@ -117,7 +117,7 @@ export function GoalCard({
       selected={selected}
       size={size}
       state={m.state}
-      stateLabel={t(`status.${m.held ? "held" : goal.rollup.status}`)}
+      stateLabel={t(`status.${m.display}`)}
       title={goal.name}
       topMeta={label(m.topMeta)}
       used={m.used}

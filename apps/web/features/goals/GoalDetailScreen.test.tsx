@@ -7,6 +7,7 @@ import {
   ListToolbarTestId,
   MenuButtonTestId,
   SegmentedControlTestId,
+  StatePillTestId,
 } from "@zibby/design-system";
 import { GoalDetailScreen, GoalDetailScreenTestId } from "./GoalDetailScreen";
 import { GoalCriteriaTestId } from "./components/GoalCriteriaCard";
@@ -198,6 +199,41 @@ describe("GoalDetailScreen", () => {
     expect(screen.getByTestId(GoalHeroTestId.MeterRuns)).toHaveTextContent("3 / 4");
     expect(screen.getByTestId(GoalHeroTestId.MeterDeadline)).toBeInTheDocument();
     expect(screen.queryByTestId(GoalHeroTestId.MeterDecisions)).not.toBeInTheDocument();
+  });
+
+  it("a held goal shows the held pill, the reason and the held event in the catalog's words", () => {
+    hooks.state = {
+      ...hooks.state,
+      data: {
+        state: {
+          ...stateView.state,
+          instances: { alpha: { status: "planning", taskIds: [], held: "autonomy-manual" } },
+        },
+        rollup: {
+          status: "planning",
+          counts: { total: 1, done: 0, parked: 0, active: 1 },
+          needsYou: 0,
+        },
+      },
+    };
+    hooks.timeline = [
+      {
+        at: "2026-11-26T10:00:00Z",
+        cycle: 0,
+        instance: "alpha",
+        kind: "held",
+        text: "Held: raw english",
+      },
+    ];
+    render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByTestId(StatePillTestId.Label)).toHaveTextContent("Drží manuál");
+    expect(screen.getByTestId(GoalHeroTestId.HeldReason)).toHaveTextContent(
+      "Spouštění a rozhodování cílů je tady na Manuálu",
+    );
+    expect(screen.getByTestId(`${GoalInstanceStatusTestId.Held}-alpha`)).toBeInTheDocument();
+    const rows = screen.getAllByTestId(IterationTimelineTestId.Row);
+    expect(rows[0]).toHaveTextContent("Spouštění a rozhodování cílů je tady na Manuálu");
+    expect(rows[0]).not.toHaveTextContent("raw english");
   });
 
   it("lists the instances with project names, status and parked reason", () => {

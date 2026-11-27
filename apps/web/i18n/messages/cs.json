@@ -4440,7 +4440,6 @@
         "empty": "Zatím žádné cíle.",
         "noMatch": "Žádný z vybraných cílů už neexistuje.",
         "openGoals": "Otevřít cíle",
-        "noEvents": "Zatím se nic nestalo.",
         "whatHappened": "Co se dělo",
         "whatNext": "Co bude",
         "pause": "Pozastavit",
@@ -5517,9 +5516,6 @@
         "failed": "Selhalo",
         "needs-operator": "Potřebuje tebe",
         "infeasible": "Nesplnitelné"
-      },
-      "held": {
-        "autonomy-manual": "Spouštění a rozhodování cílů je tady na Manuálu — ZIBBY sám nic nespustí."
       }
     },
     "plan": {

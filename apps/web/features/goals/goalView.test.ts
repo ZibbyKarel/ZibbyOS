@@ -406,6 +406,7 @@ describe("held by a Manual autonomy level", () => {
     expect(goalCardModel(goal, [heldEvent], names, "cs").verdict?.text).toEqual({
       key: "card.heldReason",
     });
-    expect(goalEventMark("held")).toEqual({ icon: "doc", tone: "neutral" });
+    expect(goalEventMark("held")).toEqual({ icon: "pause", tone: "neutral" });
+    expect(goalEventMark("whatever").icon).toBe("doc");
   });
 });

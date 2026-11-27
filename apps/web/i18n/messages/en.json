@@ -4440,7 +4440,6 @@
         "empty": "No goals yet.",
         "noMatch": "None of the picked goals exist any more.",
         "openGoals": "Open goals",
-        "noEvents": "Nothing has happened yet.",
         "whatHappened": "What happened",
         "whatNext": "What comes next",
         "pause": "Pause",
@@ -5517,9 +5516,6 @@
         "failed": "Failed",
         "needs-operator": "Needs you",
         "infeasible": "Not feasible"
-      },
-      "held": {
-        "autonomy-manual": "Starting and deciding goals is Manual here — ZIBBY starts nothing on its own."
       }
     },
     "plan": {
