@@ -2027,6 +2027,7 @@
       "backToRuns": "← Běhy",
       "assignProject": "+ Přiřadit projekt",
       "sourcePr": "Zdrojový PR {ref}",
+      "goalLink": "Cíl {name}",
       "sourceIssue": "Zdrojové issue {ref}",
       "workflow": "Workflow · {name}",
       "action": {
@@ -2201,6 +2202,7 @@
         }
       },
       "about": {
+        "goal": "Cíl",
         "source": "Zdroj",
         "result": "Výsledek"
       },

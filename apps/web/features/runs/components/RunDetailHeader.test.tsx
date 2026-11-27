@@ -5,6 +5,7 @@ import {
   CopyableTextTestId,
   IconTestId,
   MetricStripTestId,
+  SegmentedRingTestId,
   StatePillTestId,
 } from "@zibby/design-system";
 import type { RunView } from "../run";
@@ -18,6 +19,17 @@ const { projectsRef, assignMutate } = vi.hoisted(() => ({
   assignMutate: vi.fn(),
 }));
 vi.mock("../../projects", () => ({ useProjectsQuery: () => ({ data: projectsRef.current }) }));
+vi.mock("../../goals/queries", () => ({
+  useGoalsQuery: () => ({
+    data: [
+      {
+        id: "ci-green",
+        name: "CI stays green",
+        rollup: { status: "acting", counts: { done: 2, total: 5 } },
+      },
+    ],
+  }),
+}));
 vi.mock("../mutations", () => ({
   useAssignRunProjectMutation: () => ({ mutate: assignMutate, isPending: false }),
 }));
@@ -68,6 +80,22 @@ describe("RunDetailHeader", () => {
     expect(screen.getByTestId(RunDetailHeaderTestId.Engine)).toHaveTextContent(
       "opencode · opencode/big-pickle",
     );
+  });
+
+  it("shows the goal a run works for: name link to the goal page plus its progress ring", async () => {
+    renderHeader({ goalId: "ci-green" });
+    const link = screen.getByTestId(RunDetailHeaderTestId.GoalLink);
+    expect(link).toHaveTextContent("CI stays green");
+    expect(within(link).getByTestId(SegmentedRingTestId.Graphic)).toHaveAccessibleName(
+      "2 z 5 projektů hotovo",
+    );
+    await userEvent.click(link);
+    expect(push).toHaveBeenCalledWith("/work/goals/ci-green");
+  });
+
+  it("shows no goal card for a run without a goal", () => {
+    renderHeader();
+    expect(screen.queryByTestId(RunDetailHeaderTestId.GoalLink)).not.toBeInTheDocument();
   });
 
   it("renders no engine for a run without the field", () => {

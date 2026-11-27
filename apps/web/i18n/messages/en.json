@@ -2027,6 +2027,7 @@
       "backToRuns": "← Runs",
       "assignProject": "+ Assign project",
       "sourcePr": "Source PR {ref}",
+      "goalLink": "Goal {name}",
       "sourceIssue": "Source issue {ref}",
       "workflow": "Workflow · {name}",
       "action": {
@@ -2201,6 +2202,7 @@
         }
       },
       "about": {
+        "goal": "Goal",
         "source": "Source",
         "result": "Result"
       },

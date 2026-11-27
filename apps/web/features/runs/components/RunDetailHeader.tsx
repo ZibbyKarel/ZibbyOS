@@ -13,6 +13,7 @@ import {
   type MetricStripColumns,
   Pressable,
   Progress,
+  SegmentedRing,
   Stack,
   StatePill,
   type StateTone,
@@ -26,6 +27,8 @@ import { useIsPhone } from "../../../hooks/useIsPhone";
 import { useAgentSymbol } from "../../agents";
 import { useDepartmentLookup } from "../../departments/useDepartmentLookup";
 import { prListHref } from "../../inbox/inbox";
+import { GOAL_CARD_STATE } from "../../goals/goalView";
+import { useGoalsQuery } from "../../goals/queries";
 import { useProjectsQuery } from "../../projects";
 import { useAssignRunProjectMutation } from "../mutations";
 import { formatEngine } from "../../../utils/engine";
@@ -41,6 +44,7 @@ export enum RunDetailHeaderTestId {
   State = "run-detail-state",
   AgentLink = "run-detail-agent-link",
   ProjectLink = "run-detail-project-link",
+  GoalLink = "run-detail-goal-link",
   SourcePrLink = "run-detail-source-pr-link",
   SourceIssueLink = "run-detail-source-issue-link",
   OutputPrLink = "run-detail-output-pr-link",
@@ -107,10 +111,13 @@ function AboutCard({
   icon,
   text,
   aside,
+  leading,
   ...rest
 }: {
   label: string;
   icon: IconName;
+  /** Replaces the icon (the goal's progress ring). */
+  leading?: ReactNode;
   text: string;
   aside?: string;
   "aria-label": string;
@@ -121,7 +128,7 @@ function AboutCard({
     <Card interactive as="button" {...rest}>
       <Container as="span" padding={["100", "150"]}>
         <Stack align="center" as="span" direction="row" gap="100">
-          <Icon name={icon} size="sm" />
+          {leading ?? <Icon name={icon} size="sm" />}
           <Stack grow as="span" gap="25">
             <Typography as="span" type="labelSm">
               {label}
@@ -138,6 +145,43 @@ function AboutCard({
         </Stack>
       </Container>
     </Card>
+  );
+}
+
+/** The goal this run works for: its name (opens the goal) beside the goal's progress ring (done of total projects). */
+function GoalAbout({ goalId }: { goalId: string }) {
+  const t = useTranslations("runs");
+  const tGoals = useTranslations("goals");
+  const router = useRouter();
+  const goal = useGoalsQuery().data?.find((g) => g.id === goalId);
+  const name = goal?.name ?? goalId;
+  const counts = goal?.rollup.counts;
+  const ran = !!counts && counts.total > 0;
+  return (
+    <AboutCard
+      aria-label={t("detail.goalLink", { name })}
+      data-testid={RunDetailHeaderTestId.GoalLink}
+      icon="flow"
+      label={t("detail.about.goal")}
+      leading={
+        goal && counts ? (
+          <SegmentedRing
+            ariaLabel={
+              ran
+                ? tGoals("card.ringAria", { done: counts.done, total: counts.total })
+                : tGoals("card.notRun")
+            }
+            max={Math.max(counts.total, 1)}
+            size={40}
+            tone={GOAL_CARD_STATE[goal.rollup.status]}
+            used={counts.done}
+            value={ran ? undefined : "–"}
+          />
+        ) : undefined
+      }
+      onClick={() => router.push(`/work/goals/${encodeURIComponent(goalId)}`)}
+      text={name}
+    />
   );
 }
 
@@ -202,6 +246,7 @@ export function RunDetailHeader({
   // A finished run's outcome is the one sentence of what it did; while it works there is none (G: summary).
   const summary = mode === "done" ? run.taskOutcomeSummary : undefined;
   const about = [
+    run.goalId ? <GoalAbout goalId={run.goalId} key="goal" /> : null,
     projectId && run.roadmapItemId ? (
       <AboutCard
         aria-label={t("detail.sourceIssue", { ref: issueLabel })}
