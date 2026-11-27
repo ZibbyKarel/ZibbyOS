@@ -9,6 +9,7 @@ const meta: Meta<typeof Grid> = {
   parameters: { backgrounds: { default: "velin" } },
   argTypes: {
     lgHeight: { control: "text" },
+    minColWidth: { control: "text" },
     cols: { control: "select", options: [1, 2, 3, 4, 5] },
     sm: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
     md: { control: "select", options: [undefined, 1, 2, 3, 4, 5] },
@@ -114,4 +115,9 @@ export const Playground: Story = {
       ))}
     </Grid>
   ),
+};
+
+export const AutoFill: Story = {
+  args: { minColWidth: "260px", gap: "100" },
+  render: Playground.render,
 };

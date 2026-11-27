@@ -105,12 +105,8 @@ export function GoalsWidget({
   }
   return (
     <Container padding="100">
-      {/* 1 column while the widget is narrow, more as it widens (no DS prop for auto-fill). */}
-      <Grid
-        data-testid={GoalsWidgetTestId.List}
-        gap="100"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))" }}
-      >
+      {/* 1 column while the widget is narrow, more as it widens. */}
+      <Grid data-testid={GoalsWidgetTestId.List} gap="100" minColWidth="260px">
         {rows.map((g) => {
           const key = `${widget.id}:${g.id}`;
           return (

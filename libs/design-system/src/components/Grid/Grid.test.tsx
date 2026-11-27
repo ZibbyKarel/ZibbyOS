@@ -63,6 +63,13 @@ describe("Grid", () => {
     expect(el.style.height).toBe("");
   });
 
+  it("auto-fills columns of at least minColWidth, capped at the grid width", () => {
+    render(<Grid lg={3} minColWidth="260px" />);
+    const el = screen.getByTestId(GridTestId.Root);
+    expect(el.style.gridTemplateColumns).toBe("repeat(auto-fill, minmax(min(100%, 260px), 1fr))");
+    expect(el.className).not.toContain("grid-cols-");
+  });
+
   it("adds no height classes without lgHeight", () => {
     render(<Grid sidebar="left-narrow" />);
     expect(screen.getByTestId(GridTestId.Root).className).not.toContain("lg:h-");

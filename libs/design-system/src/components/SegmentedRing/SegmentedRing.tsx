@@ -92,6 +92,8 @@ export function SegmentedRing({
                   ? stateToneVar[tone]
                   : "color-mix(in srgb, var(--color-ink) 11%, transparent)"
               }
+              // Lighter than a done one, so without the pulse (reduced motion) it never reads done.
+              strokeOpacity={i === current ? 0.45 : undefined}
               strokeWidth={9}
             />
           );

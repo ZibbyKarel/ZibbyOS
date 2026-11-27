@@ -37,6 +37,14 @@ describe("SegmentedRing", () => {
     expect(current()).toEqual(["false", "false", "false"]);
   });
 
+  it("draws the current segment lighter than a done one", () => {
+    render(<SegmentedRing ariaLabel="1 of 3" max={3} tone="working" used={1} />);
+    const segs = screen.getAllByTestId(SegmentedRingTestId.Segment);
+    expect(segs[0]).not.toHaveAttribute("stroke-opacity");
+    expect(segs[1]).toHaveAttribute("stroke-opacity", "0.45");
+    expect(segs[2]).not.toHaveAttribute("stroke-opacity");
+  });
+
   it("has no current segment for a resting tone", () => {
     render(<SegmentedRing ariaLabel="0 of 2" max={2} tone="thinking" used={0} />);
     const segs = screen.getAllByTestId(SegmentedRingTestId.Segment);
