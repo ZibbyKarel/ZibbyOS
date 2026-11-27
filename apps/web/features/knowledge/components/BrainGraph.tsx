@@ -13,7 +13,7 @@ import {
 import { useTranslations } from "next-intl";
 import { type BrainGraphData, type BrainNode, isStructural } from "../brainModel";
 import { layoutBrain } from "../brainLayout";
-import { cursorPush, easeCam, selectionCam } from "../brainMotion";
+import { easeCam, selectionCam } from "../brainMotion";
 import { BrainMinimap } from "./BrainMinimap";
 import { SourceShape } from "./SourceShape";
 
@@ -30,7 +30,6 @@ export enum BrainGraphTestId {
   Toolbar = "brain-graph-toolbar",
   Minimap = "brain-graph-minimap",
   MinimapToggle = "brain-graph-minimap-toggle",
-  PhysicsToggle = "brain-graph-physics-toggle",
   /** Suffixed with the zone kind (vault / kb / bridge). */
   ZoneLabel = "brain-graph-zone",
 }
@@ -80,20 +79,17 @@ interface Anim {
   tip: number;
   hid: string | null;
   lastHover: HoverInfo | null;
-  off: ReadonlyMap<string, { x: number; y: number }>;
 }
 interface Motion {
-  off: Map<string, { x: number; y: number }>;
   hl: number;
   hs: number;
   tip: number;
   hoverAt: number;
   hid: string | null;
   lastHover: HoverInfo | null;
-  cursor: { x: number; y: number } | null;
   camT: Cam | null;
 }
-const IDLE: Anim = { hl: 0, hs: 0, tip: 0, hid: null, lastHover: null, off: new Map() };
+const IDLE: Anim = { hl: 0, hs: 0, tip: 0, hid: null, lastHover: null };
 
 const clampK = (k: number) => Math.min(MAX_K, Math.max(MIN_K, k));
 /** Stable 0.35–1 depth per id: fades some leaf nodes so the cloud reads as layered. */
@@ -131,19 +127,15 @@ export function BrainGraph({
   const [override, setOverride] = useState<Cam | null>(null);
   const [labels, setLabels] = useState<LabelMode>("auto");
   const [minimap, setMinimap] = useState(true);
-  const [drift, setDrift] = useState(true);
-  const [tick, setTick] = useState(0);
-  /** Eased motion state, republished by the rAF loop: hover highlight/tooltip fades, node offsets. */
+  /** Eased motion state, republished by the rAF loop while a fade runs: hover highlight/tooltip. */
   const [anim, setAnim] = useState<Anim>(IDLE);
   const motion = useRef<Motion>({
-    off: new Map(),
     hl: 0,
     hs: 0,
     tip: 0,
     hoverAt: 0,
     hid: null,
     lastHover: null,
-    cursor: null,
     camT: null,
   });
   const [hover, setHover] = useState<{
@@ -229,12 +221,11 @@ export function BrainGraph({
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Idle drift: a slow shared current moves every node a few pixels (off for reduced motion).
+  // Reduced motion: no eased camera / hover fades, just the end state.
   const still =
     typeof window === "undefined" ||
     typeof window.matchMedia !== "function" ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const motionOn = drift && !still && notes.length <= 600;
   const posRef = useRef(layout.pos);
   useEffect(() => {
     posRef.current = layout.pos;
@@ -258,7 +249,8 @@ export function BrainGraph({
     else motion.current.camT = target;
   }, [selectedId, still]);
 
-  // One rAF loop: camera pan, cursor repulsion, hover highlight / tooltip fades, idle drift tick.
+  // One rAF loop: camera ease and the hover highlight / tooltip fades. It republishes (re-renders
+  // the whole SVG) only while one of them is still moving — an idle graph costs no renders.
   useEffect(() => {
     if (still) return;
     let raf = 0;
@@ -298,50 +290,15 @@ export function BrainGraph({
       m.hs = hs;
       m.tip = tip;
 
-      let off = m.off;
-      if (motionOn) {
-        // Cursor repulsion (or parting around a hovered node): eased offsets, rest positions in.
-        const c = m.cursor;
-        const cam = camRef.current;
-        const sz = sizeRef.current;
-        const centre = h
-          ? posRef.current.get(h.node.id)
-          : c
-            ? { x: (c.x - sz.w / 2) / cam.k + cam.x, y: (c.y - sz.h / 2) / cam.k + cam.y }
-            : undefined;
-        const next = new Map<string, { x: number; y: number }>();
-        const a = Math.min(1, dt * 0.0075);
-        for (const [id, p] of posRef.current) {
-          const cur = off.get(id) ?? { x: 0, y: 0 };
-          let tx = 0;
-          let ty = 0;
-          if (centre && id !== h?.node.id) {
-            const push = cursorPush((p.x - centre.x) * cam.k, (p.y - centre.y) * cam.k);
-            tx = push.x / cam.k;
-            ty = push.y / cam.k;
-          }
-          const nx = cur.x + (tx - cur.x) * a;
-          const ny = cur.y + (ty - cur.y) * a;
-          if (Math.abs(nx) > 0.01 || Math.abs(ny) > 0.01) next.set(id, { x: nx, y: ny });
-        }
-        off = next;
-        m.off = next;
-      } else if (m.off.size) {
-        off = new Map();
-        m.off = off;
-        busy = true;
-      }
-
-      if ((motionOn || busy) && now - lastPub > 33) {
+      if (busy && now - lastPub > 33) {
         lastPub = now;
-        setTick(now);
-        setAnim({ hl, hs, tip, hid: m.hid, lastHover: m.lastHover, off });
+        setAnim({ hl, hs, tip, hid: m.hid, lastHover: m.lastHover });
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [still, motionOn]);
+  }, [still]);
 
   // Hover emphasis fades in/out; while it fades out the last hovered node stays the subject.
   const fading = !hover && anim.hl > 0.02 && anim.hid !== null;
@@ -367,22 +324,8 @@ export function BrainGraph({
   ].map((id) => sourceName(id).toUpperCase());
   const hasVault = notes.some((n) => n.sourceId === "vault");
 
-  // world → rest position, plus the idle drift offset (a shared current + a lazy wobble per node)
-  const at = (id: string) => {
-    const p = layout.pos.get(id);
-    if (!p) return null;
-    const o = anim.off.get(id);
-    if (!drift || still || (isStructural(id) && id === "index") || tick === 0)
-      return { x: p.x + (o?.x ?? 0), y: p.y + (o?.y ?? 0) };
-    const d = 0.45 + 0.55 * depthOf(id);
-    const cx =
-      Math.sin(p.y * 0.013 + tick * 0.00034) +
-      0.65 * Math.sin((p.x + p.y) * 0.0075 - tick * 0.00021);
-    const cy =
-      Math.cos(p.x * 0.012 - tick * 0.00029) +
-      0.65 * Math.cos((p.x - p.y) * 0.0082 + tick * 0.00025);
-    return { x: p.x + cx * 5.2 * d + (o?.x ?? 0), y: p.y + cy * 5.2 * d + (o?.y ?? 0) };
-  };
+  // world position of a node
+  const at = (id: string) => layout.pos.get(id) ?? null;
   const toScr = (p: { x: number; y: number }) => ({
     x: (p.x - cam.x) * cam.k + size.w / 2,
     y: (p.y - cam.y) * cam.k + size.h / 2,
@@ -513,15 +456,11 @@ export function BrainGraph({
           pan.current = { x: e.clientX, y: e.clientY, cam };
           e.currentTarget.setPointerCapture?.(e.pointerId);
         }}
-        onPointerLeave={() => (motion.current.cursor = null)}
         onPointerMove={(e) => {
-          const box = e.currentTarget.getBoundingClientRect();
-          motion.current.cursor = { x: e.clientX - box.left, y: e.clientY - box.top };
           const p = pan.current;
           if (!p) return;
           if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) dragged.current = true;
           motion.current.camT = null;
-          motion.current.cursor = null;
           setOverride({
             k: p.cam.k,
             x: p.cam.x - (e.clientX - p.x) / p.cam.k,
@@ -901,15 +840,6 @@ export function BrainGraph({
                   icon="layout"
                   intent={minimap ? "secondary" : "ghost"}
                   onClick={() => setMinimap((v) => !v)}
-                  size="sm"
-                />
-                <Button
-                  aria-label={t("physicsToggle")}
-                  aria-pressed={drift}
-                  data-testid={BrainGraphTestId.PhysicsToggle}
-                  icon="pulse"
-                  intent={drift ? "secondary" : "ghost"}
-                  onClick={() => setDrift((v) => !v)}
                   size="sm"
                 />
               </Stack>

@@ -231,7 +231,6 @@
         "labelsAll": "All",
         "labelsOff": "Off",
         "minimapToggle": "Minimap",
-        "physicsToggle": "Node drift",
         "linksInOut": "{in} link here · {out} link out"
       },
       "tree": {

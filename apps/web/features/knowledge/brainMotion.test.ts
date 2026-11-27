@@ -1,31 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  HIT_RADIUS,
-  MAX_PUSH,
-  MIN_READABLE_K,
-  REPEL_RADIUS,
-  cursorPush,
-  easeCam,
-  selectionCam,
-} from "./brainMotion";
-
-describe("cursorPush", () => {
-  it("never moves a node under the pointer", () => {
-    expect(cursorPush(HIT_RADIUS - 1, 0)).toEqual({ x: 0, y: 0 });
-    expect(cursorPush(0, 0)).toEqual({ x: 0, y: 0 });
-  });
-  it("ignores nodes beyond the repel radius", () => {
-    expect(cursorPush(REPEL_RADIUS + 1, 0)).toEqual({ x: 0, y: 0 });
-  });
-  it("pushes away from the pointer and never beyond the cap", () => {
-    for (let d = 1; d < 120; d += 1) {
-      const p = cursorPush(d, d / 2);
-      expect(Math.hypot(p.x, p.y)).toBeLessThanOrEqual(MAX_PUSH + 1e-9);
-      expect(p.x).toBeGreaterThanOrEqual(0);
-    }
-    expect(cursorPush(-30, 0).x).toBeLessThan(0);
-  });
-});
+import { MIN_READABLE_K, easeCam, selectionCam } from "./brainMotion";
 
 describe("selectionCam", () => {
   it("keeps a readable zoom and centres the note", () => {
