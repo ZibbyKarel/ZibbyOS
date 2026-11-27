@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Alert, Button, Grid, SelectField, Stack, Toggle } from "@zibby/design-system";
 import {
@@ -43,6 +44,17 @@ export interface GoalFormProps {
   error?: string;
   onSubmit: (values: GoalFormValues) => void;
   onCancel: () => void;
+  /**
+   * Places the three parts of the form (name/outcome/predicate, everything else, error +
+   * buttons) anywhere inside the one `<form>`. Default: a single stack in that order.
+   */
+  layout?: (parts: GoalFormParts) => ReactNode;
+}
+
+export interface GoalFormParts {
+  identity: ReactNode;
+  settings: ReactNode;
+  actions: ReactNode;
 }
 
 /**
@@ -57,6 +69,7 @@ export function GoalForm({
   error,
   onSubmit,
   onCancel,
+  layout,
 }: GoalFormProps) {
   const t = useTranslations("goals.form");
   const tk = useTranslations();
@@ -73,7 +86,7 @@ export function GoalForm({
   const values = useWatch({ control: form.control }) as GoalFormValues;
   const canSubmit = isGoalFormValid({ ...initial, ...values }) && !pending;
 
-  return renderForm(
+  const identity = (
     <Stack gap="200">
       <FormTextInput<GoalFormValues>
         autoFocus
@@ -95,7 +108,10 @@ export function GoalForm({
         label={t("predicate")}
         name="predicate"
       />
-
+    </Stack>
+  );
+  const settings = (
+    <Stack gap="200">
       <FormSegmentPicker<GoalFormValues>
         label={t("scope")}
         name="scopeKind"
@@ -269,7 +285,10 @@ export function GoalForm({
           </Grid>
         </Stack>
       )}
-
+    </Stack>
+  );
+  const actions = (
+    <Stack gap="200">
       {error && (
         <Alert data-testid={GoalFormTestId.Error} severity="error">
           {error}
@@ -290,6 +309,18 @@ export function GoalForm({
           {submitLabel}
         </Button>
       </Stack>
-    </Stack>,
+    </Stack>
+  );
+
+  return renderForm(
+    layout ? (
+      layout({ identity, settings, actions })
+    ) : (
+      <Stack gap="200">
+        {identity}
+        {settings}
+        {actions}
+      </Stack>
+    ),
   );
 }

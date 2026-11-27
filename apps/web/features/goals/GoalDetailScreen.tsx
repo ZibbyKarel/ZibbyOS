@@ -12,6 +12,7 @@ import {
   Divider,
   Grid,
   Panel,
+  SelectField,
   Stack,
   type SubNavLinkComponent,
   Typography,
@@ -24,7 +25,6 @@ import { QueryLoading } from "../../components/LoadingState/QueryLoading";
 import { PageContainer } from "../../components/PageContainer/PageContainer";
 import { useCompaniesQuery } from "../companies/queries";
 import { useProjectsQuery } from "../projects/queries";
-import { GoalCriteriaCard } from "./components/GoalCriteriaCard";
 import { GoalCycleTimeline } from "./components/GoalCycleTimeline";
 import { GoalDetailActions } from "./components/GoalDetailActions";
 import { GoalDirectionalPanel } from "./components/GoalDirectionalPanel";
@@ -52,6 +52,7 @@ export enum GoalDetailScreenTestId {
   Error = "goal-detail-error",
   StateError = "goal-detail-state-error",
   SettingsEdit = "goal-detail-settings-edit",
+  Projects = "goal-detail-projects",
 }
 
 export interface GoalDetailScreenProps {
@@ -168,6 +169,100 @@ function GoalDetail({ goal }: { goal: Goal }) {
     );
   };
 
+  const readColumn = (
+    <>
+      {state && rollup ? (
+        <GoalLoop goal={goal} rollup={rollup} state={state} />
+      ) : (
+        stateError || (stateQuery.isPending && <QueryLoading />)
+      )}
+      {state && <GoalUpcoming goal={goal} names={names} now={now} state={state} />}
+      <GoalCycleTimeline
+        goalId={goal.id}
+        instances={instanceKeys}
+        liveIndex={state?.cycle.index}
+        names={names}
+        standing={goal.cadence !== undefined}
+        status={rollup?.status}
+      />
+    </>
+  );
+
+  const sideColumn = (
+    <Stack gap="150">
+      {parked.map(([key, instance]) => (
+        <GoalWaitingCard
+          instance={instance}
+          instanceKey={key}
+          key={key}
+          onResume={() => resumeInstance(key)}
+          project={key === "_" ? undefined : names.projectName(key)}
+          resuming={resuming === key}
+        />
+      ))}
+      <Panel
+        header={t("detail.settingsTitle")}
+        headerEnd={
+          editing ? undefined : (
+            <Button
+              data-testid={GoalDetailScreenTestId.SettingsEdit}
+              icon="edit"
+              intent="ghost"
+              onClick={startEdit}
+              size="sm"
+            >
+              {tk("common.edit")}
+            </Button>
+          )
+        }
+        headerRule={false}
+        padding="200"
+      >
+        <GoalSettingsPanel goal={goal} names={names} />
+      </Panel>
+      <Panel header={t("detail.instancesTitle")} headerRule={false} padding="200">
+        <Stack gap="200">
+          {/* Editing turns a company / all scope into an explicit list; emptying it unties the goal. */}
+          <div data-testid={GoalDetailScreenTestId.Projects}>
+            <SelectField
+              multi
+              label={t("form.scopeProjectsPick")}
+              onValueChange={(ids) =>
+                update.mutate(
+                  {
+                    params: { id: goal.id },
+                    body: {
+                      scope:
+                        ids.length > 0 ? { kind: "projects", projectIds: ids } : { kind: "none" },
+                    },
+                  },
+                  { onError: fail },
+                )
+              }
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder={t("form.scopeProjectsPlaceholder")}
+              removeLabel={tk("common.delete")}
+              value={scopeProjectIds}
+            />
+          </div>
+          {/* Without a loaded state there is nothing to list; the retry sits once, in the left column. */}
+          {state && <GoalInstancesPanel instances={instances} names={names} />}
+        </Stack>
+      </Panel>
+      <Panel header={t("detail.planTitle")} headerRule={false} padding="200">
+        <GoalPlanPanel plans={plans} />
+      </Panel>
+      <Panel header={t("mergeGrant.title")} headerRule={false} padding="200">
+        <GoalMergeGrantPanel goal={goal} names={names} projectIds={scopeProjectIds} />
+      </Panel>
+      {goal.directional && (
+        <Panel header={t("directional.title")} headerRule={false} padding="200">
+          <GoalDirectionalPanel instances={instances} names={names} />
+        </Panel>
+      )}
+    </Stack>
+  );
+
   return (
     <Frame title={goal.name}>
       <GoalDetailActions
@@ -198,105 +293,52 @@ function GoalDetail({ goal }: { goal: Goal }) {
         </Alert>
       )}
 
-      <GoalHero goal={goal} names={names} now={now} rollup={rollup} state={state} />
-      <Divider />
-
-      <Grid align="start" gap="250" sidebar="right-wide">
-        <Stack gap="300">
-          {editing ? (
-            <Panel header={t("detail.settingsTitle")} padding="200">
-              <GoalForm
-                error={
-                  update.isError ? (apiErrorMessage(update.error) ?? t("actionFailed")) : undefined
-                }
-                initial={goalToFormValues(goal)}
-                onCancel={() => setEditing(false)}
-                onSubmit={(values) =>
-                  update.mutate(
-                    {
-                      params: { id: goal.id },
-                      body: buildUpdateGoalInput(values, goal.directional),
-                    },
-                    { onSuccess: () => setEditing(false) },
-                  )
-                }
-                pending={update.isPending}
-                submitLabel={tk("common.save")}
-              />
-            </Panel>
-          ) : (
-            <>
-              {state && rollup ? (
-                <GoalLoop goal={goal} rollup={rollup} state={state} />
-              ) : (
-                stateError || (stateQuery.isPending && <QueryLoading />)
-              )}
-              {state && <GoalUpcoming goal={goal} names={names} now={now} state={state} />}
-              <GoalCycleTimeline
-                goalId={goal.id}
-                instances={instanceKeys}
-                liveIndex={state?.cycle.index}
+      {editing ? (
+        <GoalForm
+          error={update.isError ? (apiErrorMessage(update.error) ?? t("actionFailed")) : undefined}
+          initial={goalToFormValues(goal)}
+          layout={({ identity, settings, actions }) => (
+            <Stack gap="250">
+              <GoalHero
+                goal={goal}
+                identity={identity}
                 names={names}
-                standing={goal.cadence !== undefined}
-                status={rollup?.status}
+                now={now}
+                rollup={rollup}
+                state={state}
               />
-            </>
+              <Divider />
+              <Grid align="start" cols={1} gap="250" lg={2}>
+                <Panel header={t("detail.settingsTitle")} padding="200">
+                  <Stack gap="200">
+                    {settings}
+                    {actions}
+                  </Stack>
+                </Panel>
+                {sideColumn}
+              </Grid>
+            </Stack>
           )}
-        </Stack>
-
-        <Stack gap="150">
-          {parked.map(([key, instance]) => (
-            <GoalWaitingCard
-              instance={instance}
-              instanceKey={key}
-              key={key}
-              onResume={() => resumeInstance(key)}
-              project={key === "_" ? undefined : names.projectName(key)}
-              resuming={resuming === key}
-            />
-          ))}
-          <Panel header={t("detail.criteriaTitle")} headerRule={false} padding="200">
-            <GoalCriteriaCard goal={goal} />
-          </Panel>
-          <Panel
-            header={t("detail.settingsTitle")}
-            headerEnd={
-              editing ? undefined : (
-                <Button
-                  data-testid={GoalDetailScreenTestId.SettingsEdit}
-                  icon="edit"
-                  intent="ghost"
-                  onClick={startEdit}
-                  size="sm"
-                >
-                  {tk("common.edit")}
-                </Button>
-              )
-            }
-            headerRule={false}
-            padding="200"
-          >
-            <GoalSettingsPanel goal={goal} names={names} />
-          </Panel>
-          {/* Without a loaded state there is nothing to list; the retry sits once, in the left column. */}
-          {state && (
-            <Panel header={t("detail.instancesTitle")} headerRule={false} padding="200">
-              <GoalInstancesPanel instances={instances} names={names} />
-            </Panel>
-          )}
-          <Panel header={t("detail.planTitle")} headerRule={false} padding="200">
-            <GoalPlanPanel plans={plans} />
-          </Panel>
-          <Panel header={t("mergeGrant.title")} headerRule={false} padding="200">
-            <GoalMergeGrantPanel goal={goal} names={names} projectIds={scopeProjectIds} />
-          </Panel>
-          {goal.directional && (
-            <Panel header={t("directional.title")} headerRule={false} padding="200">
-              <GoalDirectionalPanel instances={instances} names={names} />
-            </Panel>
-          )}
-        </Stack>
-      </Grid>
+          onCancel={() => setEditing(false)}
+          onSubmit={(values) =>
+            update.mutate(
+              { params: { id: goal.id }, body: buildUpdateGoalInput(values, goal.directional) },
+              { onSuccess: () => setEditing(false) },
+            )
+          }
+          pending={update.isPending}
+          submitLabel={tk("common.save")}
+        />
+      ) : (
+        <>
+          <GoalHero goal={goal} names={names} now={now} rollup={rollup} state={state} />
+          <Divider />
+          <Grid align="start" cols={1} gap="250" lg={2}>
+            <Stack gap="300">{readColumn}</Stack>
+            {sideColumn}
+          </Grid>
+        </>
+      )}
 
       {confirmDelete && (
         <ConfirmDeleteDialog

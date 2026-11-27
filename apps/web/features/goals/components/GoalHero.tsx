@@ -1,10 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { Goal, GoalRollup, GoalState } from "@zibby/contracts";
 import {
   Container,
   IterationGauge,
+  Markdown,
   Meter,
   Stack,
   StatePill,
@@ -22,6 +24,7 @@ import {
   goalScopeLabel,
   percentOf,
 } from "../goalView";
+import { GoalCriteriaCard } from "./GoalCriteriaCard";
 
 export enum GoalHeroTestId {
   Name = "goal-hero-name",
@@ -34,6 +37,8 @@ export enum GoalHeroTestId {
   MeterDecisions = "goal-hero-meter-decisions",
   MeterRuns = "goal-hero-meter-runs",
   HeldReason = "goal-hero-held-reason",
+  Criteria = "goal-hero-criteria",
+  Identity = "goal-hero-identity",
 }
 
 export interface GoalHeroProps {
@@ -43,14 +48,16 @@ export interface GoalHeroProps {
   rollup?: GoalRollup;
   names: GoalNames;
   now: number;
+  /** Edit mode: the in-place name / outcome / predicate inputs, shown instead of the read-only text. */
+  identity?: ReactNode;
 }
 
 /**
  * Hero of the goal page: roll-up pill · "Cíl" · schedule, the name (h1), the outcome as the
- * large objective, scope / ceiling / loop / merge-grant tags, the done-of-projects gauge and
+ * Markdown objective, the verification rule, scope / ceiling / loop / merge-grant tags, the done-of-projects gauge and
  * only the meters the mandate really carries (cycle deadline, decisions, runs this cycle).
  */
-export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
+export function GoalHero({ goal, state, rollup, names, now, identity }: GoalHeroProps) {
   const t = useTranslations("goals");
   const locale = useLocale();
   const label = (l: GoalLabel) => t(l.key, l.values);
@@ -127,67 +134,67 @@ export function GoalHero({ goal, state, rollup, names, now }: GoalHeroProps) {
   ].filter(Boolean);
 
   return (
-    <Stack wrap align="start" direction="row" gap="500" justify="between">
-      <Container grow minW0 maxWidth="760px">
-        <Stack gap="150">
-          <Stack wrap align="center" direction="row" gap="100">
-            {display && (
-              <StatePill label={t(`status.${display}`)} state={GOAL_CARD_STATE[display]} />
-            )}
-            <Typography size="xs" type="note" variant="tertiary">
-              {t("detail.goal")}
-            </Typography>
-            <Typography aria-hidden="true" size="xs" type="note" variant="tertiary">
-              ·
-            </Typography>
-            <Typography size="xs" type="note" variant="tertiary">
-              {label(goalScheduleLabel(goal, locale))}
-            </Typography>
-          </Stack>
-          <Typography as="h1" data-testid={GoalHeroTestId.Name} type="subtitle">
-            {goal.name}
+    <Stack gap="250">
+      <Stack gap="150">
+        <Stack wrap align="center" direction="row" gap="100">
+          {display && <StatePill label={t(`status.${display}`)} state={GOAL_CARD_STATE[display]} />}
+          <Typography size="xs" type="note" variant="tertiary">
+            {t("detail.goal")}
           </Typography>
-          {/* The outcome keeps its line breaks: one block per non-empty line. */}
-          <Stack data-testid={GoalHeroTestId.Outcome} gap="100">
-            {goal.outcome
-              .split("\n")
-              .filter((line) => line.trim() !== "")
-              .map((line, i) => (
-                <Typography key={i} leading="normal" size="xl" type="bodyLg">
-                  {line}
-                </Typography>
-              ))}
-          </Stack>
-          {display === "held" && (
-            <Typography
-              data-testid={GoalHeroTestId.HeldReason}
-              size="sm"
-              type="note"
-              variant="secondary"
-            >
-              {t("card.heldReason")}
-            </Typography>
-          )}
-          <Stack wrap data-testid={GoalHeroTestId.Tags} direction="row" gap="100">
-            <Tag icon="stack" tone="neutral">
-              {label(goalScopeLabel(goal.scope, names))}
-            </Tag>
-            <Tag icon="shield" tone="neutral">
-              {t(`ceiling.${goal.ceiling}`)}
-            </Tag>
-            {goal.loop && (
-              <Tag icon="flow" tone="neutral">
-                {goal.loop.loopId}
-              </Tag>
-            )}
-            {grantActive && goal.mergeGrant && (
-              <Tag data-testid={GoalHeroTestId.MergeGrant} icon="branch" tone="neutral">
-                {t("detail.mergeGrantUntil", { until: when(goal.mergeGrant.until) })}
-              </Tag>
-            )}
-          </Stack>
+          <Typography aria-hidden="true" size="xs" type="note" variant="tertiary">
+            ·
+          </Typography>
+          <Typography size="xs" type="note" variant="tertiary">
+            {label(goalScheduleLabel(goal, locale))}
+          </Typography>
         </Stack>
-      </Container>
+        {identity ? (
+          <div data-testid={GoalHeroTestId.Identity}>{identity}</div>
+        ) : (
+          <>
+            <Typography as="h1" data-testid={GoalHeroTestId.Name} type="subtitle">
+              {goal.name}
+            </Typography>
+            <div data-testid={GoalHeroTestId.Outcome}>
+              <Markdown source={goal.outcome} variant="prose" />
+            </div>
+            <Stack data-testid={GoalHeroTestId.Criteria} gap="50">
+              <Typography size="2xs" type="label" variant="tertiary">
+                {t("detail.criteriaTitle")}
+              </Typography>
+              <GoalCriteriaCard goal={goal} />
+            </Stack>
+          </>
+        )}
+        {display === "held" && (
+          <Typography
+            data-testid={GoalHeroTestId.HeldReason}
+            size="sm"
+            type="note"
+            variant="secondary"
+          >
+            {t("card.heldReason")}
+          </Typography>
+        )}
+        <Stack wrap data-testid={GoalHeroTestId.Tags} direction="row" gap="100">
+          <Tag icon="stack" tone="neutral">
+            {label(goalScopeLabel(goal.scope, names))}
+          </Tag>
+          <Tag icon="shield" tone="neutral">
+            {t(`ceiling.${goal.ceiling}`)}
+          </Tag>
+          {goal.loop && (
+            <Tag icon="flow" tone="neutral">
+              {goal.loop.loopId}
+            </Tag>
+          )}
+          {grantActive && goal.mergeGrant && (
+            <Tag data-testid={GoalHeroTestId.MergeGrant} icon="branch" tone="neutral">
+              {t("detail.mergeGrantUntil", { until: when(goal.mergeGrant.until) })}
+            </Tag>
+          )}
+        </Stack>
+      </Stack>
       {(showGauge || meters.length > 0) && (
         <Stack wrap align="center" direction="row" gap="300">
           {showGauge && counts && rollup && (

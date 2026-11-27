@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import type { Goal, GoalStateView } from "@zibby/contracts";
 import { act, renderWithProviders as render, screen, within } from "../../test/render";
 import {
+  ChipTestId,
+  DropdownTestId,
   IterationTimelineTestId,
   ListToolbarTestId,
   MenuButtonTestId,
@@ -143,6 +145,31 @@ describe("GoalDetailScreen", () => {
     hooks.timeline = [];
     hooks.timelineState = "ok";
     hooks.updateError = undefined;
+  });
+
+  it("removing a project chip patches the scope; removing the last unties the goal", async () => {
+    const user = userEvent.setup();
+    render(<GoalDetailScreen goalId="ci-green" />);
+    const picker = screen.getByTestId(GoalDetailScreenTestId.Projects);
+    const chip = within(picker).getByTestId(`${DropdownTestId.Chip}-beta`);
+    await user.click(within(chip).getByTestId(ChipTestId.Close));
+    expect(update).toHaveBeenLastCalledWith(
+      { params: { id: "ci-green" }, body: { scope: { kind: "projects", projectIds: ["alpha"] } } },
+      expect.anything(),
+    );
+
+    hooks.goal = {
+      ...hooks.goal,
+      data: { ...goal, scope: { kind: "projects", projectIds: ["alpha"] } },
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    const last = screen.getAllByTestId(GoalDetailScreenTestId.Projects).at(-1)!;
+    const alpha = within(last).getByTestId(`${DropdownTestId.Chip}-alpha`);
+    await user.click(within(alpha).getByTestId(ChipTestId.Close));
+    expect(update).toHaveBeenLastCalledWith(
+      { params: { id: "ci-green" }, body: { scope: { kind: "none" } } },
+      expect.anything(),
+    );
   });
 
   it("renders the hero: name, outcome, scope tag and the projects gauge", () => {
@@ -305,9 +332,42 @@ describe("GoalDetailScreen", () => {
     expect(screen.queryByTestId(GoalDetailActionsTestId.Cycle)).not.toBeInTheDocument();
   });
 
-  it("shows the success predicate in the criteria card", () => {
+  it("shows the success predicate in the top section", () => {
     render(<GoalDetailScreen goalId="ci-green" />);
+    expect(screen.getByTestId(GoalHeroTestId.Criteria)).toContainElement(
+      screen.getByTestId(GoalCriteriaTestId.Predicate),
+    );
     expect(screen.getByTestId(GoalCriteriaTestId.Predicate)).toHaveTextContent("CI je zelené.");
+  });
+
+  it("renders the outcome as Markdown", () => {
+    hooks.goal = {
+      ...hooks.goal,
+      data: { ...goal, outcome: "Úvod.\n\n1. První **tučně**\n2. Druhá `kód`" },
+    };
+    render(<GoalDetailScreen goalId="ci-green" />);
+    const outcome = screen.getByTestId(GoalHeroTestId.Outcome);
+    expect(within(outcome).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(outcome).getByText("tučně").tagName).toBe("STRONG");
+  });
+
+  it("edits name, outcome and predicate in place, once, in one form", async () => {
+    render(<GoalDetailScreen goalId="ci-green" />);
+    await userEvent.click(screen.getByTestId(GoalDetailActionsTestId.Edit));
+    expect(screen.getAllByTestId(GoalFormTestId.Name)).toHaveLength(1);
+    expect(screen.getAllByTestId(GoalFormTestId.Outcome)).toHaveLength(1);
+    expect(screen.getByTestId(GoalHeroTestId.Identity)).toContainElement(
+      screen.getByTestId(GoalFormTestId.Name),
+    );
+    expect(screen.queryByTestId(GoalHeroTestId.Name)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(GoalHeroTestId.Outcome)).not.toBeInTheDocument();
+    expect(screen.getByTestId(GoalHeroTestId.Tags)).toBeInTheDocument();
+    expect(document.querySelectorAll("form")).toHaveLength(1);
+
+    await userEvent.clear(screen.getByTestId(GoalFormTestId.Name));
+    await userEvent.type(screen.getByTestId(GoalFormTestId.Name), "Nový název");
+    await userEvent.click(screen.getByTestId(GoalFormTestId.Submit));
+    expect(update.mock.calls[0]![0].body).toMatchObject({ name: "Nový název" });
   });
 
   it("renders the plan note from the vault when an instance has one", () => {
