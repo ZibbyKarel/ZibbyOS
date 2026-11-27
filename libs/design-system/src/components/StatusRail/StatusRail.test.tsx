@@ -41,6 +41,25 @@ describe("StatusRail", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it("actions sit beside the row button, not inside it, so clicking them doesn't fire onClick", async () => {
+    const onClick = vi.fn();
+    const onStop = vi.fn();
+    render(
+      <StatusRailItem
+        actions={<button onClick={onStop}>Stop</button>}
+        onClick={onClick}
+        time="2h"
+        title="x"
+        tone="working"
+      />,
+    );
+    const actions = screen.getByTestId(StatusRailTestId.ItemActions);
+    expect(screen.getByTestId(StatusRailTestId.Item)).not.toContainElement(actions);
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(onStop).toHaveBeenCalledOnce();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it("is static without onClick", () => {
     render(<StatusRailItem title="x" tone="idle" />);
     expect(screen.getByTestId(StatusRailTestId.Item)).not.toHaveRole("button");

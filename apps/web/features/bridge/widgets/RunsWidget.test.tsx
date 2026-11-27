@@ -13,6 +13,15 @@ const d = vi.hoisted(() => ({
   archivedAt: 0,
   approvals: [] as unknown[],
   approve: vi.fn(),
+  actions: { pause: vi.fn(), resume: vi.fn(), stop: vi.fn() },
+}));
+vi.mock("../../runs/useRunActions", () => ({
+  useRunActions: () => ({
+    ...d.actions,
+    pausing: false,
+    resuming: false,
+    stopping: false,
+  }),
 }));
 
 vi.mock("../../runs/components/TasksDockPanel", () => ({
@@ -247,6 +256,37 @@ describe("RunsWidget", () => {
       renderWithProviders(<RunsWidget {...props} />);
       expect(rows()).toHaveLength(1);
       expect(dot("x")).toHaveAttribute("data-state", "done");
+    });
+  });
+
+  describe("hover controls on a running card (todo #25)", () => {
+    it("a workflow gets Pause and Stop; clicking them never opens the card", async () => {
+      const onOpen = vi.fn();
+      d.live = [{ ...run("w", "running"), kind: "workflow" }];
+      renderWithProviders(<RunsWidget {...props} onOpen={onOpen} />);
+      await userEvent.click(screen.getByTestId(`${RunsWidgetTestId.Pause}-${key("w")}`));
+      expect(d.actions.pause).toHaveBeenCalledWith(expect.objectContaining({ runId: "w" }));
+      // Stop confirms first, like the run detail.
+      await userEvent.click(screen.getByTestId(`${RunsWidgetTestId.Stop}-${key("w")}`));
+      expect(d.actions.stop).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "Zastavit běh" }));
+      expect(d.actions.stop).toHaveBeenCalledWith(expect.objectContaining({ runId: "w" }));
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("a pending pause offers Resume instead of Pause; an agent only Stop", async () => {
+      d.live = [
+        { ...run("p", "running"), kind: "workflow", pauseRequested: true },
+        { ...run("g", "running"), kind: "agent" },
+      ];
+      renderWithProviders(<RunsWidget {...props} />);
+      expect(screen.queryByTestId(`${RunsWidgetTestId.Pause}-${key("p")}`)).toBeNull();
+      await userEvent.click(screen.getByTestId(`${RunsWidgetTestId.Resume}-${key("p")}`));
+      expect(d.actions.resume).toHaveBeenCalledWith(expect.objectContaining({ runId: "p" }));
+      expect(screen.queryByTestId(`${RunsWidgetTestId.Pause}-${key("g")}`)).toBeNull();
+      expect(screen.getByTestId(`${RunsWidgetTestId.Stop}-${key("g")}`)).toHaveAccessibleName(
+        "Zastavit: g",
+      );
     });
   });
 });

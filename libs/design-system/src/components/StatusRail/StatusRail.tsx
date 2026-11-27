@@ -15,6 +15,8 @@ export enum StatusRailTestId {
   Park = "status-rail-park",
   ParkWhy = "status-rail-park-why",
   ParkActions = "status-rail-park-actions",
+  /** The hover / focus-within controls that take the place of an item's time. */
+  ItemActions = "status-rail-item-actions",
 }
 
 /** Fill per state (spec "Stav → tón"): violet working, sky thinking, amber blocked, rose, emerald, hollow idle. */
@@ -88,6 +90,9 @@ export interface StatusRailItemProps {
   rowKey?: string;
   selected?: boolean;
   onClick?: () => void;
+  /** Controls that replace `time` while the row is hovered or has keyboard focus. Rendered as a
+   *  sibling of the row button (never nested in it), so clicking them doesn't trigger `onClick`. */
+  actions?: ReactNode;
 }
 
 /** One rail entry: state dot on the axis, title + sub, mono time. A button when clickable. */
@@ -102,9 +107,10 @@ export function StatusRailItem({
   rowKey,
   selected = false,
   onClick,
+  actions,
 }: StatusRailItemProps) {
   const Tag = onClick ? "button" : "div";
-  return (
+  const row = (
     <Tag
       aria-pressed={onClick ? selected : undefined}
       className={cn(
@@ -141,12 +147,27 @@ export function StatusRailItem({
         {children}
       </span>
       <span
-        className="whitespace-nowrap pt-[2px] font-mono text-mono tabular-nums text-ink-3"
+        className={cn(
+          "whitespace-nowrap pt-[2px] font-mono text-mono tabular-nums text-ink-3",
+          actions && "group-focus-within/item:invisible group-hover/item:invisible",
+        )}
         data-testid={StatusRailTestId.Time}
       >
         {time}
       </span>
     </Tag>
+  );
+  if (!actions) return row;
+  return (
+    <div className="group/item relative">
+      {row}
+      <span
+        className="absolute right-[4px] top-[calc(var(--rowpad)-4px)] hidden items-center gap-[2px] group-focus-within/item:flex group-hover/item:flex"
+        data-testid={StatusRailTestId.ItemActions}
+      >
+        {actions}
+      </span>
+    </div>
   );
 }
 

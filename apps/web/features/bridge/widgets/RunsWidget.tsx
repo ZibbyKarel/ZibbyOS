@@ -27,8 +27,16 @@ import {
   useInvalidateOnTerminalRun,
   useLiveRunsSnapshot,
 } from "../../runs/components/TasksDockPanel";
+import { type RunActions, useRunActions } from "../../runs/useRunActions";
 import { useRecentArchivedRunsQuery } from "../../runs/queries/useRecentArchivedRunsQuery";
-import { type RunView, WAITING_STATES, approvalForRun } from "../../runs/run";
+import {
+  type RunView,
+  WAITING_STATES,
+  approvalForRun,
+  isCancellableRun,
+  isPausableRun,
+  isStoppableRun,
+} from "../../runs/run";
 import { useWorkflowsQuery } from "../../workflows";
 import { PRIORITY_WEIGHT } from "../grid/priority";
 import { runRows } from "../state/rows";
@@ -56,6 +64,10 @@ export enum RunsWidgetTestId {
   Detail = "runs-widget-detail",
   Approve = "runs-widget-approve",
   Reject = "runs-widget-reject",
+  /** Hover controls of a running card — suffixed `-<row key>`. */
+  Pause = "runs-widget-pause",
+  Resume = "runs-widget-resume",
+  Stop = "runs-widget-stop",
 }
 
 const FINISHED_LIMIT = 10;
@@ -115,6 +127,8 @@ export function RunsWidget({
     [liveSnapshot.runs, liveSnapshot.updatedAt, archivedQuery.data, archivedQuery.dataUpdatedAt],
   );
   const [closed, setClosed] = useState<Record<string, boolean>>({});
+  // Pause / resume / stop straight from a running card (no selection to move: callbacks no-op).
+  const runActions = useRunActions(noop, noop);
 
   const { data: workflows } = useWorkflowsQuery();
   const phasesByWorkflow = useMemo(
@@ -217,6 +231,14 @@ export function RunsWidget({
         <StatusRailNow>
           {active.map((r) => (
             <StatusRailItem
+              actions={
+                <RunHoverActions
+                  actions={runActions}
+                  rowKey={r.key}
+                  run={live.find((x) => x.runId === r.runId)}
+                  title={r.title}
+                />
+              }
               key={r.key}
               onClick={open(r)}
               rowKey={r.key}
@@ -331,6 +353,86 @@ export function RunsWidget({
             />
           ))}
         </StatusRail>
+      )}
+    </>
+  );
+}
+
+const noop = () => undefined;
+
+/**
+ * A running card's hover / focus controls (they replace the project on the right): Pause for a
+ * workflow, Resume while its pause is pending, Stop behind the same confirm as the run detail.
+ */
+function RunHoverActions({
+  actions,
+  run,
+  rowKey,
+  title,
+}: {
+  actions: RunActions;
+  run: RunView | undefined;
+  rowKey: string;
+  title: string;
+}) {
+  const t = useTranslations("runs.detail.action");
+  const tRuns = useTranslations("runs");
+  const tk = useTranslations();
+  const [confirmStop, setConfirmStop] = useState(false);
+  if (!run) return null;
+  const pending = run.status === "running" && run.pauseRequested === true;
+  const named = (label: string) => `${label}: ${title}`;
+  return (
+    <>
+      {isPausableRun(run) && (
+        <Button
+          aria-label={named(t("pause"))}
+          data-testid={`${RunsWidgetTestId.Pause}-${rowKey}`}
+          disabled={actions.pausing}
+          icon="pause"
+          intent="ghost"
+          onClick={() => actions.pause(run)}
+          size="sm"
+          title={t("pause")}
+        />
+      )}
+      {pending && (
+        <Button
+          aria-label={named(t("resume"))}
+          data-testid={`${RunsWidgetTestId.Resume}-${rowKey}`}
+          disabled={actions.resuming}
+          icon="play"
+          intent="ghost"
+          onClick={() => actions.resume(run)}
+          size="sm"
+          title={t("resume")}
+        />
+      )}
+      {(isStoppableRun(run) || isCancellableRun(run)) && (
+        <Button
+          aria-label={named(t("stop"))}
+          data-testid={`${RunsWidgetTestId.Stop}-${rowKey}`}
+          icon="stop"
+          intent="ghost"
+          onClick={() => setConfirmStop(true)}
+          size="sm"
+          title={t("stop")}
+        />
+      )}
+      {confirmStop && (
+        <ConfirmDeleteDialog
+          body={tRuns("stopBody")}
+          cancelLabel={tk("common.cancel")}
+          confirmLabel={tRuns("stop")}
+          icon="stop"
+          onCancel={() => setConfirmStop(false)}
+          onConfirm={() => {
+            setConfirmStop(false);
+            actions.stop(run);
+          }}
+          pending={actions.stopping}
+          title={tRuns("stopTitle")}
+        />
       )}
     </>
   );
