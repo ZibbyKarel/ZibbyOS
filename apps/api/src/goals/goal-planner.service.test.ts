@@ -337,3 +337,26 @@ describe("GoalPlannerService", () => {
     expect(started).toHaveLength(0);
   });
 });
+
+describe("buildGoalPlanPrompt after an operator resume", () => {
+  const input = { planNote: "", handles: () => true };
+  const resumed = (cycle: number): GoalInstance => ({
+    status: "planning",
+    taskIds: ["old-1", "old-2", "new-1"],
+    resumedCycle: cycle,
+    resumedRuns: 2,
+  });
+
+  it("names the tasks that predate the resume and asks for a retry under new ids", () => {
+    const prompt = buildGoalPlanPrompt(context({ instance: resumed(0) }), input);
+    expect(prompt).toContain("The operator resumed this instance");
+    expect(prompt).toContain('["old-1","old-2"]');
+    expect(prompt).toContain("new actionId");
+  });
+
+  it("says nothing without a resume in this cycle", () => {
+    for (const instance of [resumed(3), { status: "planning", taskIds: [] } as GoalInstance]) {
+      expect(buildGoalPlanPrompt(context({ instance }), input)).not.toContain("operator resumed");
+    }
+  });
+});

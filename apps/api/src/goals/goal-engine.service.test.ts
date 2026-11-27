@@ -166,6 +166,23 @@ describe("GoalEngineService", () => {
     });
   });
 
+  it("gives the planner the reason a task failed", async () => {
+    await create();
+    await engine.tick(NOW);
+    tasks.set("t1", {
+      id: "t1",
+      status: "dispatched",
+      outcome: { status: "error", summary: "no local clone", finishedAt: later(1).toISOString() },
+    });
+    await setInstance({ taskIds: ["t1"] });
+    await engine.tick(later(2));
+    const ctx = planner.plan.mock.calls[1]?.[0] as GoalPlannerContext;
+    expect(ctx.facts.tasks).toEqual({
+      tasks: [{ id: "t1", status: "dispatched", outcome: "error", error: "no local clone" }],
+      wakeAt: null,
+    });
+  });
+
   it("a dirty ref of the instance forces a plan; an unrelated one does not", async () => {
     await create();
     await engine.tick(NOW);

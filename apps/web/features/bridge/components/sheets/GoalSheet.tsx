@@ -3,7 +3,6 @@
 import type { GoalInstance } from "@zibby/contracts";
 import {
   AnchoredSheet,
-  Button,
   SheetAction,
   SheetBanner,
   SheetSection,
@@ -20,6 +19,7 @@ import { apiErrorMessage } from "../../../../state/apiErrorMessage";
 import { GoalInstanceStatus } from "../../../goals/components/GoalInstanceStatus";
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
 import { GoalCycleTimeline } from "../../../goals/components/GoalCycleTimeline";
+import { GoalWaitingCard } from "../../../goals/components/GoalWaitingCard";
 import { GoalUpcoming } from "../../../goals/components/GoalUpcoming";
 import { GOAL_CARD_STATE, isGoalNotFound } from "../../../goals/goalView";
 import {
@@ -39,14 +39,14 @@ export enum GoalSheetTestId {
   StateError = "goal-sheet-state-error",
   Next = "goal-sheet-next",
   Instance = "goal-sheet-instance",
-  Resume = "goal-sheet-resume",
   Error = "goal-sheet-error",
 }
 
 /**
  * Goal detail (Bridge "Goals" widget): the goal page's own parts — the cycle timeline ("Co se
  * dělo") and "Co bude" (what each instance waits on and when it wakes, the next cycle / the
- * deadline) — plus the instances' status with Resume and the plan note. Wake and enable/pause top-right; the title
+ * deadline) — plus the instances' status and the plan note. A parked
+ * instance shows the goal page's waiting card (with Resume) on top. Wake and enable/pause top-right; the title
  * opens the goal page.
  */
 export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
@@ -113,6 +113,16 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const plans = instances.flatMap(([key, i]) =>
     i.planNoteId ? [{ noteId: i.planNoteId, label: label(key) }] : [],
   );
+  const parked = instances.filter(([, i]) => i.status === "parked");
+  const resumeInstance = (instance: string) => {
+    setResuming(instance);
+    run((o) =>
+      resume.mutate(
+        { params: { id, instance }, body: {} },
+        { ...o, onSettled: () => setResuming(null) },
+      ),
+    );
+  };
   const renderInstance = (key: string, i: GoalInstance) => (
     <Stack data-testid={`${GoalSheetTestId.Instance}-${key}`} gap="50" key={key}>
       <Stack align="start" direction="row" gap="100">
@@ -122,28 +132,6 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
         <GoalInstanceStatus instance={i} instanceKey={key} />
       </Stack>
       {i.summary && <SheetText lines={[i.summary]} />}
-      {i.status === "parked" && (
-        <div>
-          <Button
-            data-testid={`${GoalSheetTestId.Resume}-${key}`}
-            icon="play"
-            intent="secondary"
-            loading={resuming === key}
-            onClick={() => {
-              setResuming(key);
-              run((o) =>
-                resume.mutate(
-                  { params: { id, instance: key }, body: {} },
-                  { ...o, onSettled: () => setResuming(null) },
-                ),
-              );
-            }}
-            size="sm"
-          >
-            {ts("instances.resume")}
-          </Button>
-        </div>
-      )}
     </Stack>
   );
 
@@ -188,6 +176,17 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
       tones={display ? [{ tone: GOAL_CARD_STATE[display], label: ts(`status.${display}`) }] : []}
     >
       <SheetSection>
+        {/* The goal page's own "needs you" card, first: it is what the operator opened this for. */}
+        {parked.map(([key, instance]) => (
+          <GoalWaitingCard
+            instance={instance}
+            instanceKey={key}
+            key={key}
+            onResume={() => resumeInstance(key)}
+            project={key === "_" ? undefined : names.projectName(key)}
+            resuming={resuming === key}
+          />
+        ))}
         <div data-testid={GoalSheetTestId.Log}>
           <GoalCycleTimeline
             goalId={id}
@@ -205,7 +204,9 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
         ) : state ? (
           <Stack data-testid={GoalSheetTestId.Next} gap="150">
             <GoalUpcoming goal={goal} names={names} now={now} state={state} />
-            {instances.map(([key, i]) => renderInstance(key, i))}
+            {instances
+              .filter(([, i]) => i.status !== "parked")
+              .map(([key, i]) => renderInstance(key, i))}
             <GoalPlanPanel plans={plans} />
           </Stack>
         ) : (

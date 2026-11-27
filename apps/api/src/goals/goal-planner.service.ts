@@ -138,6 +138,13 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     else offered.push(`- ${type}: ${actionShape(option)}`);
   }
 
+  // Without this a resumed instance re-reads the old errors and parks straight away again.
+  const { resumedCycle, resumedRuns, taskIds } = ctx.instance;
+  const beforeResume =
+    resumedCycle === cycle.index && resumedRuns !== undefined
+      ? taskIds.slice(0, resumedRuns)
+      : null;
+
   const instance = ctx.projectId ? `project ${ctx.projectId}` : "not tied to a project";
   const lines = [
     "You are planning one instance of a ZIBBY goal: a mandate the operator gave. Decide the",
@@ -154,6 +161,11 @@ export function buildGoalPlanPrompt(ctx: GoalPlannerContext, input: GoalPlanProm
     "## Cycle",
     `Cycle ${cycle.index} started ${cycle.startedAt}; deadline: ${cycle.deadlineAt ?? "none"}; now: ${ctx.now}`,
     `First plan of this cycle: ${ctx.firstPlan ? "yes" : "no"}`,
+    ...(beforeResume
+      ? [
+          `The operator resumed this instance in this cycle. Failures of these tasks, recorded before the resume, are history and the operator wants the work tried again: ${stripPlanTags(JSON.stringify(beforeResume))}. Start the unfinished work again, each piece under a new actionId (e.g. add -r2), and do not park for those old failures alone. A task started after the resume counts normally. Keep every duplicate check the goal asks for.`,
+        ]
+      : []),
     "",
     "## Mandate (enforced by the engine, not by you)",
     `Ceiling: ${ctx.ceiling}. The engine refuses any action above it; nothing below can raise it.`,

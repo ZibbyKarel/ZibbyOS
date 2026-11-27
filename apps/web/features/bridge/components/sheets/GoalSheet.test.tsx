@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../../test/render";
 import { GoalPlanTestId } from "../../../goals/components/GoalPlanPanel";
 import { GoalInstanceStatusTestId } from "../../../goals/components/GoalInstanceStatus";
+import { GoalWaitingCardTestId } from "../../../goals/components/GoalWaitingCard";
 import { GoalUpcomingTestId } from "../../../goals/components/GoalUpcoming";
 import { GoalSheet, GoalSheetTestId } from "./GoalSheet";
 
@@ -211,6 +212,17 @@ describe("GoalSheet", () => {
     expect(screen.getByTestId(`${GoalPlanTestId.Note}-plan-alpha`)).toHaveTextContent("Krok 1");
   });
 
+  it("a parked instance shows the goal page's waiting card above the log, and only once", () => {
+    open();
+    const card = screen.getByTestId(`${GoalWaitingCardTestId.Root}-beta`);
+    expect(card).toHaveTextContent("Spadlo CI");
+    expect(card.compareDocumentPosition(screen.getByTestId(GoalSheetTestId.Log))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.queryByTestId(`${GoalSheetTestId.Instance}-beta`)).toBeNull();
+    expect(screen.queryByTestId(`${GoalWaitingCardTestId.Root}-alpha`)).toBeNull();
+  });
+
   it("a held goal reads 'held by Manual' with the reason, in the pill and per instance", () => {
     d.stateBody = {
       state: {
@@ -251,11 +263,11 @@ describe("GoalSheet", () => {
       { params: { id: "ci-green" }, body: { enabled: false } },
       expect.anything(),
     );
-    await userEvent.click(screen.getByTestId(`${GoalSheetTestId.Resume}-beta`));
+    await userEvent.click(screen.getByTestId(`${GoalWaitingCardTestId.Resume}-beta`));
     expect(d.resume).toHaveBeenCalledWith(
       { params: { id: "ci-green", instance: "beta" }, body: {} },
       expect.anything(),
     );
-    expect(screen.queryByTestId(`${GoalSheetTestId.Resume}-alpha`)).toBeNull();
+    expect(screen.queryByTestId(`${GoalWaitingCardTestId.Resume}-alpha`)).toBeNull();
   });
 });

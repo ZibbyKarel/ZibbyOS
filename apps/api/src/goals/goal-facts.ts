@@ -39,7 +39,12 @@ export interface GoalTaskFact {
   id: string;
   status: ScheduledTaskStatus | "missing";
   outcome: "done" | "error" | null;
+  /** Why it failed (the outcome summary, cut short); only for an errored task. */
+  error?: string;
 }
+
+/** Enough to tell the causes apart without flooding the planner prompt. */
+const ERROR_MAX = 300;
 
 /** Task statuses that end a task without an outcome. */
 const ENDED = new Set<GoalTaskFact["status"]>(["cancelled", "failed", "dead-letter", "missing"]);
@@ -81,7 +86,9 @@ export class TaskFactsSource implements GoalFactsSource {
       ids.map(async (id): Promise<GoalTaskFact> => {
         const task = await this.tasks.get(id).catch(() => null);
         if (!task) return { id, status: "missing", outcome: null };
-        return { id, status: task.status, outcome: task.outcome?.status ?? null };
+        const outcome = task.outcome?.status ?? null;
+        const error = outcome === "error" ? task.outcome?.summary.slice(0, ERROR_MAX) : undefined;
+        return { id, status: task.status, outcome, ...(error ? { error } : {}) };
       }),
     );
     return { tasks, wakeAt: instance.wakeAt ?? null };
