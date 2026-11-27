@@ -59,7 +59,7 @@ export function RunArtifactInfo({
   ) {
     body = {
       label: t("file"),
-      text: run.outputArtifactName,
+      text: run.outputFilePath ?? run.outputArtifactName,
       copy: true,
       ...(onOpenFile && { action: [t("openFile"), onOpenFile] as [string, () => void] }),
     };

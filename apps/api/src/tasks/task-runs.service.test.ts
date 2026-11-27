@@ -284,6 +284,13 @@ describe("TaskRunsService", () => {
       ]);
       const run = await service.getTaskRun(pipeP.workflowRunId);
       expect(run.outputArtifactName).toBe("custom-report.md");
+      // the single-run read carries the exact paths `openFolder` resolves
+      expect(run.folderPath).toBe("/runs/p");
+      expect(run.outputFilePath).toBe("/runs/p/02_plan/plan.md");
+      expect(workflowRunner.artifactPath).toHaveBeenCalledWith(
+        pipeP.workflowRunId,
+        "custom-report.md",
+      );
     });
 
     it("is absent when outputsOverride has no file output", async () => {

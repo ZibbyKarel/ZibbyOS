@@ -238,8 +238,13 @@ export const TaskRunSchema = z.object({
   pauseRequested: z.boolean().optional(),
   /** Workflow runs: the sub-run a `workflow` phase is waiting on right now (not in `stageRuns` yet). */
   pendingChild: z.object({ phaseId: z.string().min(1), childRunId: z.string().min(1) }).optional(),
-  /** Workflow runs: the run's folder on disk (what "open folder" opens, bar a `book/` deliverable). */
+  /**
+   * Workflow runs, single-run read only: the folder `openTaskRunFolder` opens (the `book/`
+   * deliverable when present, else the run root). Absent in feed lists.
+   */
   folderPath: z.string().optional(),
+  /** Workflow runs, single-run read only: absolute path of the delivered `outputArtifactName` file. */
+  outputFilePath: z.string().optional(),
   /** Workflow runs: start of the stage currently running. */
   currentStageStartedAt: z.string().optional(),
   /** Workflow runs: operator messages queued/delivered. */

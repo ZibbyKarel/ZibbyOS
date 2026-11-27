@@ -14,7 +14,12 @@ export function useRunPrUrl(run: RunView, enabled: boolean): string | undefined 
   const direct = run.prOutput?.url ?? findPrUrl(run.taskOutcomeSummary);
   const stages =
     enabled && !direct && run.kind === "workflow"
-      ? [...(run.stageRuns ?? [])].reverse().filter((s) => s.runId && !s.childRunId)
+      ? // ponytail: only the last 3 phases are scanned (the PR is opened late); a phase-agent
+        // filter would need the workflow definition — add if a PR opened earlier goes missing.
+        [...(run.stageRuns ?? [])]
+          .reverse()
+          .filter((s) => s.runId && !s.childRunId)
+          .slice(0, 3)
       : [];
   const fromLogs = apiClient.taskRuns.getTaskRunStageLogs.useQueries({
     queries: stages.map((s) => ({

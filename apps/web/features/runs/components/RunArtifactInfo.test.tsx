@@ -48,8 +48,19 @@ describe("RunArtifactInfo", () => {
   });
 
   it("shows a delivered file's path", () => {
-    render(<RunArtifactInfo done run={{ ...run, outputArtifactName: "report.md" }} />);
-    expect(screen.getByTestId(RunArtifactInfoTestId.Path)).toHaveTextContent("report.md");
+    render(
+      <RunArtifactInfo
+        done
+        run={{
+          ...run,
+          outputArtifactName: "report.md",
+          outputFilePath: "/data/runs/delivery_42/02_x/report.md",
+        }}
+      />,
+    );
+    expect(screen.getByTestId(RunArtifactInfoTestId.Path)).toHaveTextContent(
+      "/data/runs/delivery_42/02_x/report.md",
+    );
   });
 
   it("stays silent until the run is done", () => {

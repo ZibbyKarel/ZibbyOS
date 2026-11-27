@@ -310,7 +310,19 @@ export class TaskRunsService {
         .filter((r) => r.taskId === runId)
         .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
     if (!found) throw new TaskRunNotFoundError(runId);
-    return found;
+    if (found.kind !== "workflow") return found;
+    // The paths the detail shows are the ones `openFolder` opens (resolved here, per run, not per feed row).
+    const [folderPath, outputFilePath] = await Promise.all([
+      this.workflowRunner.runFolder(found.runId),
+      found.outputArtifactName
+        ? this.workflowRunner.artifactPath(found.runId, found.outputArtifactName)
+        : null,
+    ]);
+    return {
+      ...found,
+      ...(folderPath ? { folderPath } : {}),
+      ...(outputFilePath ? { outputFilePath } : {}),
+    };
   }
 
   /** Read an agent (or loop-child agent) run's log from a byte offset. */
@@ -1070,7 +1082,6 @@ function workflowRunToView(
     ...(r.pendingChild
       ? { pendingChild: { phaseId: r.pendingChild.phaseId, childRunId: r.pendingChild.childRunId } }
       : {}),
-    folderPath: r.cwd,
     currentStageStartedAt: r.currentStageStartedAt,
     ...(r.pauseRequested ? { pauseRequested: true } : {}),
     ...(r.operatorMessages?.length ? { messages: r.operatorMessages } : {}),
