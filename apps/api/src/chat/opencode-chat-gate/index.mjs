@@ -43,6 +43,9 @@ const RESERVED_MCP_IDS = new Set(["opencode", "browser"]);
 /** ZibbyOS's own servers — their tools are the chat's own surface, never classified. */
 const OWN_MCP_IDS = new Set(["zibby", "zibby-kb"]);
 
+/** The intent of an ungated shell call: the API only runs its protected-dir checks. */
+export const CHAT_PATH_CHECK = "shell.path_check";
+
 /** Built-in tools a chat turn may use (judged per call below). */
 export const CHAT_BUILTIN_TOOLS = ["shell", "bash", "read", "grep", "glob", "list"];
 
@@ -105,15 +108,43 @@ export function resolveWorkdir(dir, cwd) {
   }
 }
 
+/** The `cd` / `pushd` targets of a shell command, in order, as written (quotes kept). */
+export const cdTargets = (command) =>
+  [
+    ...String(command ?? "").matchAll(
+      /(?:^|[;&|(\s])(?:cd|pushd)\s+("[^"]*"|'[^']*'|(?:\\.|[^\s;&|)])+)/g,
+    ),
+  ].map((m) => m[1]);
+
+/**
+ * Whether a `cd` / `pushd` in `command` lands in `~/.config` (the operator token's parent) or
+ * the operator-only surface. Targets resolve in sequence from `base`, so `cd ~ && cd .config`
+ * counts; the parent is refused whole because `cd ~/.config && cat zibby/…` reads the token
+ * through a relative path no word match sees.
+ */
+function cdIntoOperator(command, base) {
+  const config = path.join(os.homedir(), ".config").toLowerCase();
+  let dir = base || process.cwd();
+  for (const target of cdTargets(command)) {
+    dir = resolveWorkdir(target, dir);
+    const d = dir.toLowerCase();
+    if (d === config || d.startsWith(config + path.sep)) return true;
+    if (pathTouchesOperatorOnly(dir, dir)) return true;
+  }
+  return false;
+}
+
 /**
  * A call reaching the operator-only surface (approval API, operator token dir). A shell
- * call is matched on its raw and its unquoted text, on its `workdir`, and — when it has a
- * `workdir` — on every word resolved against it (`workdir: ~/.config` + `cat zibby/…`).
+ * call is matched on its raw and its unquoted text, on its `workdir`, on a `cd` / `pushd`
+ * into `~/.config`, and — when it has a `workdir` — on every word resolved against it
+ * (`workdir: ~/.config` + `cat zibby/…`).
  */
 function touchesOperator(e, workdir) {
   const i = e.tool_input ?? {};
   if (e.tool_name === "Bash") {
     if (touchesOperatorOnly(i.command) || touchesOperatorOnly(unquote(i.command))) return true;
+    if (cdIntoOperator(i.command, workdir ?? e.cwd)) return true;
     if (!workdir) return false;
     if (pathTouchesOperatorOnly(workdir, e.cwd)) return true;
     return unquote(i.command)
@@ -192,8 +223,11 @@ export function chatGateReason(tool, input, env = process.env) {
       }
     }
   }
+  // An ungated shell call still goes to the API as `shell.path_check`, so its protected-dir
+  // deny (the data dir via a `workdir` or a `cd`) always runs; it is allowed otherwise.
+  if (!intents.length && shell) intents.push({ action: CHAT_PATH_CHECK });
   if (!intents.length) return null;
-  return workdir ? { intents, cwd: workdir } : { intents };
+  return shell ? { intents, cwd: workdir ?? cwd } : { intents };
 }
 
 /** The intent of a shell command the classifier cannot see into. */

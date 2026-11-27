@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import { Injectable, type OnModuleDestroy, type OnModuleInit, Optional } from "@nestjs/common";
 import type { Approval, ChatGateCheckBody, ChatGateDecision, GateRule } from "@zibby/contracts";
 import { ApprovalAlreadyDecidedError, ApprovalNotFoundError } from "../approvals/approvals.errors";
@@ -127,6 +128,62 @@ export function everyMatchingRuleAllows(floor: readonly GateRule[], action: stri
     .every((r) => r.decision === "allow");
 }
 
+/** The intent of an ungated shell call (the plugin's `CHAT_PATH_CHECK`): protected-dir checks only. */
+export const CHAT_PATH_CHECK = "shell.path_check";
+
+/** The `cd` / `pushd` targets of a shell command, in order (the plugin's `cdTargets`). */
+function cdTargets(command: string): string[] {
+  return [
+    ...command.matchAll(/(?:^|[;&|(\s])(?:cd|pushd)\s+("[^"]*"|'[^']*'|(?:\\.|[^\s;&|)])+)/g),
+  ].map((m) => m[1] ?? "");
+}
+
+/**
+ * Whether a `cd` / `pushd` of the shell call lands in a protected dir, or in an ancestor of one
+ * while the command names the rest of the way (`cd ~/Library && touch "Application Support/…"`).
+ * Targets resolve in sequence from the plugin's `cwd`; a relative one with no base is skipped.
+ */
+function cdIntoProtected(body: ChatGateCheckBody, dirs: string[], haystack: string): boolean {
+  const command = (body.input as { command?: unknown } | null | undefined)?.command;
+  if (!isShell(body.tool) || typeof command !== "string") return false;
+  let base = body.cwd;
+  for (const target of cdTargets(command)) {
+    const t = expandHome(target.replace(/[\\"']/g, ""));
+    if (!path.isAbsolute(t) && !base) continue;
+    base = path.resolve(base ?? "/", t);
+    const at = normalizePathText(base);
+    const hit = (d: string) =>
+      at === d ||
+      at.startsWith(d + "/") ||
+      (d.startsWith(at + "/") && haystack.includes(d.slice(at.length + 1)));
+    if (dirs.some(hit)) return true;
+  }
+  return false;
+}
+
+/**
+ * A deny rule scoped to a concrete branch matches this action class while the intent names no
+ * concrete branch (a bare `git push`, `HEAD`): the gate cannot tell whether the rule applies.
+ */
+function denyNeedsBranch(
+  floor: readonly GateRule[],
+  intent: ChatGateCheckBody["intents"][number],
+): boolean {
+  const named = [intent.branch, ...(intent.branches ?? [])].filter((b) => b && b !== "HEAD");
+  if (named.length) return false;
+  return floor.some(
+    (r) =>
+      r.decision === "deny" &&
+      r.match.some(
+        (c) =>
+          c.type === "action" &&
+          c.branch !== undefined &&
+          c.branch !== "*" &&
+          actionInClass(intent.action, c.action),
+      ),
+  );
+}
+
 /** The ZibbyOS data dir and the dirs holding the gate rules / policy / approvals. */
 function protectedDirs(): string[] {
   const dirs = new Set<string>();
@@ -208,21 +265,28 @@ export class ChatGateService implements OnModuleInit, OnModuleDestroy {
     const cmd = rawCommand(body);
     if (intents.some((i) => i.action === "unclassified"))
       return deny("The ZIBBY gate could not classify this call.");
-    if (cmd.length > CHAT_GATE_MAX_COMMAND_CHARS) {
+    // `shell.path_check` marks an ungated shell call: only the protected-dir checks below apply.
+    const gated = intents.filter((i) => i.action !== CHAT_PATH_CHECK);
+    if (gated.length && cmd.length > CHAT_GATE_MAX_COMMAND_CHARS) {
       return deny("Too large to review in the chat; split it into smaller steps.");
     }
-    if (this.autopilot?.isPaused()) return deny("ZIBBY is paused.");
-    const haystack = normalizePathText(`${cmd}\n${JSON.stringify(input) ?? ""}\n${body.cwd ?? ""}`);
-    if (protectedDirs().some((d) => haystack.includes(d))) {
+    if (gated.length && this.autopilot?.isPaused()) return deny("ZIBBY is paused.");
+    const workdirText = workdirOf(tool, input) ? (body.cwd ?? "") : "";
+    const haystack = normalizePathText(`${cmd}\n${JSON.stringify(input) ?? ""}\n${workdirText}`);
+    const dirs = protectedDirs();
+    if (dirs.some((d) => haystack.includes(d)) || cdIntoProtected(body, dirs, haystack)) {
       return deny(
         "Touches the ZIBBY data directory (gate rules and approvals), which the chat may not change.",
       );
     }
+    if (!gated.length) return { decision: "allow" };
 
     const floor = await this.gates.floor();
-    const evals = intents.map((intent) => ({ intent, ev: this.gates.evaluate(floor, intent) }));
+    const evals = gated.map((intent) => ({ intent, ev: this.gates.evaluate(floor, intent) }));
     const denied = evals.find((e) => e.ev.decision === "deny");
     if (denied) return deny(`The ZIBBY gate denies "${denied.intent.action}".`);
+    const branchless = evals.find((e) => denyNeedsBranch(floor, e.intent));
+    if (branchless) return deny("Name the target branch explicitly (git push origin <branch>).");
     const mentions = this.toolResults.getMentions(conversationId);
     const agentTurn = mentions.length === 1 && mentions[0]?.kind === "agent";
     if (
@@ -240,19 +304,19 @@ export class ChatGateService implements OnModuleInit, OnModuleDestroy {
 
     // The card is labelled by the most severe action; the summary lists all of them, and any
     // high-risk action in the chain makes the whole card high risk (hold to approve).
-    const primary = intents.reduce<(typeof intents)[number] | undefined>(
+    const primary = gated.reduce<(typeof gated)[number] | undefined>(
       (best, i) => (!best || severity(i.action) > severity(best.action) ? i : best),
       undefined,
     );
     if (!primary) return deny("The ZIBBY gate could not classify this call.");
-    const actions = [...new Set(intents.map((i) => i.action))];
+    const actions = [...new Set(gated.map((i) => i.action))];
     const approval = await this.approvals.requestApproval({
       runId: `${conversationId}/${body.hash.slice(0, 16)}`,
       kind: "chat",
       skill: "ZIBBY chat",
       action: primary.action,
       detail: this.detail(body, primary, actions, cmd),
-      risk: intents.some((i) => HIGH_RISK_ACTIONS.has(i.action)) ? "high" : "medium",
+      risk: gated.some((i) => HIGH_RISK_ACTIONS.has(i.action)) ? "high" : "medium",
     });
     if (
       !this.toolResults.pushWidget(conversationId, { kind: "approval", approvalId: approval.id })

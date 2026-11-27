@@ -15,6 +15,7 @@ import {
 } from "./chat-opencode";
 import plugin, {
   CHAT_BUILTIN_TOOLS,
+  CHAT_PATH_CHECK,
   chatGateCall,
   chatGateHash,
   chatGateReason,
@@ -223,7 +224,10 @@ describe("opencode chat gate plugin", () => {
       await expect(hooks.before?.({ tool: "write", input: { filePath: "a" } })).rejects.toThrow(
         /Blocked by the ZibbyOS gate/,
       );
-      await hooks.before?.({ tool: "shell", input: { command: "git status" } });
+      // an ungated shell call still asks the API (path check): no gate env → refused too
+      await expect(
+        hooks.before?.({ tool: "shell", input: { command: "git status" } }),
+      ).rejects.toThrow(/not configured/);
       await hooks.before?.({ tool: "zibby_recall_memory", input: {} });
       const ask = { action: "write", effect: "ask" };
       hooks.evaluate?.(ask);
@@ -272,9 +276,13 @@ describe("opencode chat gate plugin", () => {
     };
     const verdict = (tool: string, input: unknown) => chatGateReason(tool, input, env);
 
-    it("runs unclassified shell commands and file reads", () => {
-      expect(verdict("shell", { command: "git status" })).toBeNull();
-      expect(verdict("shell", { command: "ls -la && git log --oneline -5" })).toBeNull();
+    it("runs file reads; an ungated shell call goes to the API as a path check only", () => {
+      for (const command of ["git status", "ls -la && git log --oneline -5"]) {
+        expect(verdict("shell", { command })).toEqual({
+          intents: [{ action: CHAT_PATH_CHECK }],
+          cwd: "/repo",
+        });
+      }
       expect(verdict("read", { filePath: "/repo/README.md" })).toBeNull();
       expect(verdict("grep", { pattern: "foo", path: "/repo" })).toBeNull();
     });
@@ -332,7 +340,44 @@ describe("opencode chat gate plugin", () => {
       expect(r).toMatchObject({ cwd: "/repo/sub dir", intents: [{ action: "delete" }] });
       const home = verdict("shell", { command: "rm -rf build", workdir: "~/a b" });
       expect(home.cwd).toBe(join(homedir(), "a b"));
-      expect(verdict("shell", { command: "rm -rf build" })).not.toHaveProperty("cwd");
+      expect(verdict("shell", { command: "rm -rf build" })).toMatchObject({ cwd: "/repo" });
+    });
+
+    it("refuses a cd / pushd into ~/.config, however it is reached (round 2)", () => {
+      for (const input of [
+        { command: "cd ~/.config && cat zibby/operator-token" },
+        { command: "cd ~ && cd .config && cat zibby/x" },
+        { command: "pushd $HOME/.Config; cat zibby/x" },
+        { command: 'cd "$HOME/.config/"; ls' },
+        { command: "cd .config && ls", workdir: "~" },
+      ]) {
+        expect(verdict("shell", input), JSON.stringify(input)).toMatchObject({
+          reason: expect.stringMatching(/operator/),
+        });
+      }
+      expect(verdict("shell", { command: "cd ~/.configs && ls" })).not.toHaveProperty("reason");
+    });
+
+    it("marks bundled curl writes and raw network clients opaque (round 2)", () => {
+      for (const command of [
+        'P=approve; curl -sX POST -H "authorization: Bearer $T" http://127.0.0.1:3333/api/approvals/$ID/$P',
+        "curl -sXPOST http://x/y",
+        "curl -sd a=1 http://x/y",
+        "curl -sF f=@x http://x/y",
+        "http POST :3333/api/x",
+        "xh post :3333/x",
+        "nc 127.0.0.1 3333",
+        "ssh host ls",
+      ]) {
+        expect(verdict("shell", { command }).intents, command).toEqual(
+          expect.arrayContaining([expect.objectContaining({ action: "shell.opaque" })]),
+        );
+      }
+      for (const command of ["curl -sX GET http://x", "curl -sL http://x"]) {
+        expect(verdict("shell", { command }).intents, command).toEqual([
+          { action: CHAT_PATH_CHECK },
+        ]);
+      }
     });
 
     it("marks opaque shell forms shell.opaque, never a silent run (#6)", () => {

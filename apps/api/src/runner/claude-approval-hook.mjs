@@ -945,6 +945,8 @@ const COMPOUND_KEYWORDS = new Set([
   "coproc",
 ]);
 /** Path-qualified gated CLIs (`/usr/bin/git push`) — the classifier keys on the bare name. */
+/** Raw network clients: any of them can POST to the local API, so the classifier can't vouch. */
+const NETWORK_CLIENTS = new Set(["http", "https", "xh", "nc", "ncat", "socat", "telnet", "ssh"]);
 const GATED_CLIS = new Set([
   "git",
   "gh",
@@ -966,12 +968,19 @@ function isMutatingHttp(cmd, args) {
     if (cmd === "curl") {
       if (/^(-d|--data(-\w+)?|-F|--form(-string)?|-T|--upload-file|--json)(=.*)?$/.test(t))
         return true;
-      if (/^-[a-zA-Z]*[dFT]/.test(t) && !t.startsWith("--")) return true;
-      const method = /^(?:-X|--request)(?:=)?(.*)$/.exec(t);
-      if (method) {
-        const m = (method[1] || args[k + 1] || "").toUpperCase();
-        if (m !== "GET" && m !== "HEAD") return true;
+      let m = null;
+      if (/^-[a-zA-Z]/.test(t)) {
+        // A short-flag bundle (`-sd`, `-sX POST`, `-sXPOST`): the letters before an `X`
+        // are flags, what follows it (or the next arg) is the method.
+        const xi = t.indexOf("X");
+        const flags = xi === -1 ? t.slice(1) : t.slice(1, xi);
+        if (/[dFT]/.test(flags)) return true;
+        if (xi !== -1) m = t.slice(xi + 1) || args[k + 1] || "";
+      } else {
+        const method = /^--request(?:=(.*))?$/.exec(t);
+        if (method) m = method[1] ?? args[k + 1] ?? "";
       }
+      if (m !== null && !["GET", "HEAD"].includes(m.toUpperCase())) return true;
     } else {
       const w = /^--(post-data|post-file|body-data|body-file|method)(?:=(.*))?$/.exec(t);
       if (w) {
@@ -1023,6 +1032,7 @@ export function opaqueShell(command) {
         return `code on stdin (${name})`;
       }
     }
+    if (NETWORK_CLIENTS.has(name)) return `network client (${name})`;
     if ((name === "curl" || name === "wget") && isMutatingHttp(name, args)) {
       return `mutating HTTP call (${name})`;
     }

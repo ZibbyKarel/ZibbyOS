@@ -195,9 +195,10 @@ export const ChatGateCheckBodySchema = z.object({
   /** Every classified action of the call (a chained command yields several); the server judges them all. */
   intents: z.array(IntendedActionSchema).min(1),
   /**
-   * The shell call's resolved working directory (its `workdir` with `~` expanded, resolved
-   * against the turn's cwd), sent only when the call sets one. Not part of the hash; the server
-   * shows it on the card (`cd <cwd> && …`) and matches it against the protected dirs.
+   * The shell call's resolved working directory: its `workdir` with `~` expanded, resolved
+   * against the turn's cwd, else the turn's cwd. Not part of the hash. The server resolves the
+   * command's `cd` targets from it; when the call sets a `workdir` it also shows it on the card
+   * (`cd <cwd> && …`) and matches it against the protected dirs.
    */
   cwd: z.string().min(1).max(4096).optional(),
 });

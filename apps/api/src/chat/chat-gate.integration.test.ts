@@ -62,21 +62,94 @@ describe("ChatGateService with the real gate evaluator and SYSTEM_RULES", () => 
   };
 
   /** Classify like the plugin, then decide like the server; `null` = the plugin runs it. */
-  const gate = async (command: string): Promise<ChatGateDecision | null> => {
-    const verdict = chatGateReason("shell", { command }, { PWD: dir }) as {
+  const gate = async (command: string, workdir?: string): Promise<ChatGateDecision | null> => {
+    const input = workdir ? { command, workdir } : { command };
+    const verdict = chatGateReason("shell", input, { PWD: dir }) as {
       intents?: ChatGateCheckBody["intents"];
       reason?: string;
+      cwd?: string;
     } | null;
     if (!verdict) return null;
     if (verdict.reason) return { decision: "deny", reason: verdict.reason };
-    const input = { command };
     return service.check(CONV, {
       tool: "shell",
       input,
       hash: chatGateHash("shell", input),
       intents: verdict.intents ?? [],
+      ...(verdict.cwd ? { cwd: verdict.cwd } : {}),
     });
   };
+
+  describe("the reviewer's self-approve loop (re-review Important 1)", () => {
+    it("a cd into ~/.config is refused before the token can be read relatively", async () => {
+      const r = await gate("cd ~/.config && cat zibby/operator-token");
+      expect(r).toMatchObject({ decision: "deny", reason: expect.stringMatching(/operator/) });
+    });
+
+    it("a bundled -sX POST with a composed path is a card, never a silent run", async () => {
+      await setDecision("floor-git.push", "allow");
+      const r = await gate(
+        'P=approve; curl -sX POST -H "authorization: Bearer $T" http://127.0.0.1:3333/api/approvals/$ID/$P',
+      );
+      expect(r?.decision).toBe("pending");
+      const [a] = await approvals.list("pending");
+      expect(a?.action).toBe("shell.opaque");
+    });
+  });
+
+  describe("an ungated call still gets the protected-dir deny (re-review Important 2)", () => {
+    let data: string;
+    const prev = process.env.ZIBBY_DATA_DIR;
+    beforeEach(async () => {
+      data = path.join(dir, "zdata");
+      await fs.mkdir(data, { recursive: true });
+      process.env.ZIBBY_DATA_DIR = data;
+    });
+    afterEach(() => {
+      if (prev === undefined) delete process.env.ZIBBY_DATA_DIR;
+      else process.env.ZIBBY_DATA_DIR = prev;
+    });
+
+    it("denies rsync / tar / touch run with workdir=<dataDir>", async () => {
+      for (const command of ["rsync /tmp/r gate-rules.json", "tar xf x.tar", "touch approvals/x"]) {
+        expect(await gate(command, data), command).toMatchObject({
+          decision: "deny",
+          reason: expect.stringMatching(/data directory/),
+        });
+      }
+      expect(await approvals.list()).toHaveLength(0);
+    });
+
+    it("denies a cd into the data dir or its parent plus the relative rest", async () => {
+      for (const command of [
+        `cd ${dir} && cd zdata && touch x`,
+        `cd ${dir} && touch zdata/approvals/x`,
+        "cd zdata && tar xf /tmp/x.tar",
+      ]) {
+        expect((await gate(command))?.decision, command).toBe("deny");
+      }
+    });
+
+    it("allows an ungated call elsewhere", async () => {
+      expect(await gate("ls -la && git status")).toEqual({ decision: "allow" });
+      expect(await gate(`cd ${dir} && ls`)).toEqual({ decision: "allow" });
+    });
+  });
+
+  describe("a branch deny and a branchless push (ruling change)", () => {
+    it("asks for an explicit branch instead of guessing", async () => {
+      await setDecision("floor-git.push", "allow");
+      await setDecision("gr-push-main", "deny");
+      for (const command of ["git push", "git push origin", "git push -u origin HEAD"]) {
+        expect(await gate(command), command).toEqual({
+          decision: "deny",
+          reason: "Name the target branch explicitly (git push origin <branch>).",
+        });
+      }
+      expect((await gate("git push origin feature/x"))?.decision).toBe("pending");
+      expect(await approvals.list("pending")).toHaveLength(1);
+    });
+  });
 
   describe("push allowed globally, gr-push-main still asks (finding 1)", () => {
     beforeEach(() => setDecision("floor-git.push", "allow"));

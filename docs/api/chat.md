@@ -240,15 +240,19 @@ of every pid file whose API is gone and whose command line still reads `opencode
   `opencode_*` tools stay denied by the config and again by the plugin.
 - **Inline approval gate.** The plugin runs the run gate's classifier in-process
   (`classifyAll` / `classifyEvent` / `opaqueShell` from `runner/claude-approval-hook.mjs`)
-  and, for every classified call, `POST`s `/api/chat/gate` (chat bearer, loopback only) with
-  `{ tool, input, hash, intents[], cwd? }`. A chained command sends every action, one per
-  gated segment (two pushes that differ only in their destination branches are both sent).
-  `cwd` is the shell call's own `workdir` / `directory` with `~` / `$HOME` expanded and
-  resolved against the turn's cwd; it is sent only when the call sets one and is not hashed.
+  and, for every classified call and every shell call, `POST`s `/api/chat/gate` (chat bearer,
+  loopback only) with `{ tool, input, hash, intents[], cwd? }`. A chained command sends every
+  action, one per gated segment (two pushes that differ only in their destination branches are
+  both sent). A shell call with no gated action sends the single intent `shell.path_check`: the
+  server runs only its data-dir checks on it and otherwise allows it (no size cap, no pause
+  deny, no card). `cwd` is sent for every shell call: its own `workdir` / `directory` with `~` /
+  `$HOME` expanded and resolved against the turn's cwd, else the turn's cwd. It is not hashed.
   Local refusals stay: nested agents, `gh.pr_comment`, disallowed tools, and the
   operator-only surface. That surface is matched on the raw and on the unquoted command
-  text (quotes and backslashes dropped), on the shell `workdir`, and, when a `workdir` is
-  set, on every word of the command resolved against it.
+  text (quotes and backslashes dropped), on the shell `workdir`, on any `cd` / `pushd` whose
+  target (resolved in sequence from the workdir, `~` expanded, case-insensitive) is
+  `~/.config` or inside it, and, when a `workdir` is set, on every word of the command
+  resolved against it.
   - **Opaque shell forms** (chat only; the run gate's `classify()` is unchanged): a command
     the classifier cannot see into adds a `shell.opaque` intent, so it is always a card and
     never a silent run. That covers a nested shell at command position (`bash`/`sh`/`zsh`/...,
@@ -258,7 +262,9 @@ of every pid file whose API is gone and whose command line still reads `opencode
     with `-c`/`-e` or code on stdin (`python3 - <<'PY'`, `| python3`, `< x.py`), a backslash-newline
     continuation, a quoted or `$`-expanded command word (`g''it`, `$GIT`), `find -exec`, a path-qualified gated CLI (`/usr/bin/git`), and
     `curl`/`wget` with a non-GET method or a body (`-X`, `--request`, `-d`/`--data*`,
-    `--json`, `-F`/`--form`, `-T`, `--post-data`, `--method`). A quoted `cat <<'EOF'` body is
+    `--json`, `-F`/`--form`, `-T`, `--post-data`, `--method`, also inside a short-flag bundle
+    such as `-sX POST`, `-sXPOST` or `-sd`), and the raw network clients `http`/`https`
+    (HTTPie), `xh`, `nc`, `ncat`, `socat`, `telnet` and `ssh`. A quoted `cat <<'EOF'` body is
     data and is not judged. The system rule `floor-shell.opaque` (`ask`) shows it on the gates
     page; moving it to `deny` refuses opaque forms outright, and `allow` still cards them.
     `ChatGateService.check` answers:
@@ -267,9 +273,16 @@ of every pid file whose API is gone and whose command line still reads `opencode
     autopilot paused, an unclassified or gate-denied action anywhere in the chain (merge,
     deploy, ...), a command over 20,000 characters, or a call that names the ZibbyOS data dir
     (gate rules, policy, approvals). The data-dir match runs on the card text
-    (`cd <workdir> && <cmd>`), the JSON input and `cwd`, all normalised first: quotes and
-    backslashes dropped (`Application\ Support`), `~` / `$HOME` / `${HOME}` expanded, and
-    lower-cased (APFS is case-insensitive);
+    (`cd <workdir> && <cmd>`), the JSON input and, when the call sets a workdir, `cwd`, all
+    normalised first: quotes and backslashes dropped (`Application\ Support`), `~` / `$HOME` /
+    `${HOME}` expanded, and lower-cased (APFS is case-insensitive). The command's `cd` /
+    `pushd` targets are also resolved in sequence from `cwd`: one that lands in a protected dir,
+    or in an ancestor of one while the command names the rest of the path
+    (`cd ~/Library && touch "Application Support/ZibbyOS/…"`), denies. Finally, a deny rule
+    scoped to a concrete branch (e.g. `gr-push-main` moved to `deny`) whose action class matches
+    an intent that names no concrete branch (a bare `git push`, `git push origin`, `HEAD`)
+    denies with "Name the target branch explicitly (git push origin <branch>).", since the
+    gate cannot tell whether the rule applies;
   - **allow** (silent): every action is allowed by an explicit rule (`ruleId`), none is a
     file effect, `mcp.*` or `shell.opaque`, it is not an `@agent` turn, AND every global rule
     that can match the action class is `allow` (branch- or scope-qualified ones included,
@@ -301,8 +314,9 @@ around it ...`. The card is also decidable in the approvals queue.
     `zibby` / `zibby-kb` tools run; an operator-server call runs only when A28's `classifyMcp`
     reads it as `mcp.read`, any other write goes through the card.
     Ceiling: as in runs, MCP classification is by tool name only. The data-dir and
-    operator-dir checks are text matches: a `cd` inside the command followed by a relative
-    path, or a path assembled at runtime, is not seen (the opaque forms above still card).
+    operator-dir checks are text matches plus `cd` resolution: a path assembled at runtime
+    (`D=~/Library; cd "$D"/…`, a glob), or a script that changes directory itself, is not seen
+    (the opaque forms above still card). The remaining denylist limits are listed in plan R11.
     Any live conversation counts as in flight, so a forged check (the chat bearer is in the
     model's env) can still put a card into another live conversation; it never releases a
     call.
