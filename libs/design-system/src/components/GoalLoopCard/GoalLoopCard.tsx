@@ -237,7 +237,7 @@ export function GoalLoopCard({
                   <b className={`font-medium ${verdictWord[verdictTone]}`}>{verdict.status}</b>
                 )}
               </span>
-              {verdict.text}
+              <span className="line-clamp-3">{verdict.text}</span>
             </div>
           ))}
         {!compact && actions && (

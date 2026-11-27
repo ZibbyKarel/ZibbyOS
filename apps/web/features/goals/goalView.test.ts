@@ -140,14 +140,15 @@ describe("goalCardModel", () => {
     expect(m.ringAria).toEqual({ key: "card.ringAria", values: { done: 1, total: 3 } });
   });
 
-  it("reads a scope-none goal as 'of 1' and a goal without instances as not run yet", () => {
+  it("reads a scope-none goal as a plain 'of N' (no 'projects'), and no instances as not run yet", () => {
     const none = { ...goal, scope: { kind: "none" as const } };
     expect(goalCardModel(none, undefined, names, "cs").ringCaption).toEqual({
-      key: "card.ringOfOne",
+      key: "card.ringOfCount",
+      values: { count: 3 },
     });
     expect(goalCardModel(none, undefined, names, "cs").ringAria).toEqual({
-      key: "card.ringAriaOne",
-      values: { done: 1 },
+      key: "card.ringAriaCount",
+      values: { done: 1, total: 3 },
     });
     const fresh = {
       ...goal,
@@ -167,7 +168,7 @@ describe("goalCardModel", () => {
     expect(pick("needs-you")).toEqual(["blocked", "blocked", "decide", "card.needsYou"]);
     expect(pick("acting")).toEqual(["working", "idle", "wake-pause", undefined]);
     expect(pick("planning")).toEqual(["working", "idle", "wake-pause", undefined]);
-    expect(pick("waiting")).toEqual(["idle", "idle", "wake-pause", undefined]);
+    expect(pick("waiting")).toEqual(["thinking", "idle", "wake-pause", undefined]);
     expect(pick("done")).toEqual(["done", "done", "wake-pause", undefined]);
     expect(pick("paused", false)).toEqual(["idle", "idle", "enable", undefined]);
   });
@@ -197,5 +198,34 @@ describe("goalCardModel", () => {
       text: { key: "card.noEventsText" },
     });
     expect(goalCardModel(goal, undefined, names, "cs").verdict).toBeUndefined();
+  });
+
+  it("fills the whole ring when every project is done", () => {
+    const all = {
+      ...withStatus("done"),
+      rollup: {
+        status: "done" as const,
+        counts: { total: 3, done: 3, parked: 0, active: 0 },
+        needsYou: 0,
+      },
+    };
+    const m = goalCardModel(all, [event], names, "cs");
+    expect(m).toMatchObject({ state: "done", used: 3, max: 3, verdictTone: "done" });
+    expect(m.ringAria).toEqual({ key: "card.ringAria", values: { done: 3, total: 3 } });
+  });
+
+  it("keeps a paused goal paused even when an instance is parked", () => {
+    const paused: GoalWithRollup = {
+      ...goal,
+      enabled: false,
+      rollup: {
+        status: "paused",
+        counts: { total: 2, done: 0, parked: 1, active: 1 },
+        needsYou: 1,
+      },
+    };
+    const m = goalCardModel(paused, [event], names, "cs");
+    expect(m).toMatchObject({ state: "idle", verdictTone: "idle", actions: "enable" });
+    expect(m.verdict?.status).toBeUndefined();
   });
 });

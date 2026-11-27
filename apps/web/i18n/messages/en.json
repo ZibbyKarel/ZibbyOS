@@ -5582,9 +5582,9 @@
     },
     "card": {
       "ringOf": "of {count, plural, one {# project} other {# projects}}",
-      "ringOfOne": "of 1",
+      "ringOfCount": "of {count}",
       "ringAria": "{done} of {total, plural, one {# project} other {# projects}} done",
-      "ringAriaOne": "{done} of 1 done",
+      "ringAriaCount": "{done} of {total} done",
       "notRun": "not run yet",
       "role": {
         "scope": "Scope",
@@ -5598,6 +5598,10 @@
       "decide": "Decide",
       "pause": "Pause",
       "enable": "Turn on",
+      "decideAria": "Decide on goal {name}",
+      "wakeAria": "Wake goal {name}",
+      "pauseAria": "Pause goal {name}",
+      "enableAria": "Turn on goal {name}",
       "openAria": "Open: {name}"
     },
     "ceiling": {

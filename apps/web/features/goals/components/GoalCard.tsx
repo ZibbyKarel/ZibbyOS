@@ -38,17 +38,25 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
   const timeline = useGoalTimelineQuery(goal.id);
   const wake = useWakeGoalMutation();
   const update = useUpdateGoalMutation();
-  const m = goalCardModel(goal, timeline.isSuccess ? timeline.data : undefined, names, locale);
+  // Any data counts (a failed background refetch keeps the last good events); none = no box.
+  const m = goalCardModel(goal, timeline.data, names, locale);
+  const name = { name: goal.name };
   const setEnabled = (enabled: boolean) =>
     update.mutate({ params: { id: goal.id }, body: { enabled } }, { onError });
 
   const actions =
     m.actions === "decide" ? (
-      <Button data-testid={GoalCardTestId.Decide} onClick={onOpen} size="sm">
+      <Button
+        aria-label={t("card.decideAria", name)}
+        data-testid={GoalCardTestId.Decide}
+        onClick={onOpen}
+        size="sm"
+      >
         {t("card.decide")}
       </Button>
     ) : m.actions === "enable" ? (
       <Button
+        aria-label={t("card.enableAria", name)}
         data-testid={GoalCardTestId.Enable}
         icon="play"
         intent="secondary"
@@ -61,6 +69,7 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
     ) : (
       <>
         <Button
+          aria-label={t("card.wakeAria", name)}
           data-testid={GoalCardTestId.Wake}
           intent="secondary"
           loading={wake.isPending}
@@ -70,6 +79,7 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
           {t("detail.wake")}
         </Button>
         <Button
+          aria-label={t("card.pauseAria", name)}
           data-testid={GoalCardTestId.Pause}
           intent="ghost"
           loading={update.isPending}
@@ -86,7 +96,7 @@ export function GoalCard({ goal, names, onOpen, onError, selected, size = "full"
       actions={actions}
       max={m.max}
       onOpen={onOpen}
-      openLabel={t("card.openAria", { name: goal.name })}
+      openLabel={t("card.openAria", name)}
       parties={m.parties.map((p) => ({ role: label(p.role), name: label(p.name), avatar: false }))}
       ringAriaLabel={label(m.ringAria)}
       ringCaption={label(m.ringCaption)}

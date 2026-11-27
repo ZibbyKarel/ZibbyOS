@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { GOAL_PRESETS, type GoalTimelineEvent, type GoalWithRollup } from "@zibby/contracts";
-import { GoalLoopCardTestId, ListHeaderTestId } from "@zibby/design-system";
-import { act, renderWithProviders as render, screen } from "../../test/render";
+import {
+  GoalLoopCardTestId,
+  ListHeaderTestId,
+  ListSectionTestId,
+  ListToolbarTestId,
+  SegmentedRingTestId,
+} from "@zibby/design-system";
+import { act, renderWithProviders as render, screen, within } from "../../test/render";
 import { GoalsScreen, GoalsScreenTestId } from "./GoalsScreen";
 import { GoalCardTestId } from "./components/GoalCard";
 import { GoalPresetsTestId } from "./components/GoalPresets";
@@ -15,7 +21,7 @@ const refetch = vi.fn();
 
 const { query, timeline } = vi.hoisted(() => ({
   query: { goals: [] as GoalWithRollup[], isPending: false, isError: false },
-  timeline: { data: [] as GoalTimelineEvent[], isSuccess: true },
+  timeline: { data: [] as GoalTimelineEvent[] | undefined, isError: false },
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -27,7 +33,7 @@ vi.mock("./queries", () => ({
     isError: query.isError,
     refetch,
   }),
-  useGoalTimelineQuery: () => ({ data: timeline.data, isSuccess: timeline.isSuccess }),
+  useGoalTimelineQuery: () => ({ data: timeline.data, isError: timeline.isError }),
 }));
 vi.mock("./mutations", () => ({
   useCreateGoalMutation: () => ({ mutate: create, isPending: false, isError: false }),
@@ -65,7 +71,7 @@ describe("GoalsScreen", () => {
     query.isPending = false;
     query.isError = false;
     timeline.data = [];
-    timeline.isSuccess = true;
+    timeline.isError = false;
     push.mockClear();
     create.mockClear();
     update.mockClear();
@@ -94,8 +100,10 @@ describe("GoalsScreen", () => {
       "StropTier 2 · jednat a hlásit",
     );
     expect(screen.queryByTestId(`${GoalLoopCardTestId.Party}-2`)).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "0 z 1 hotovo" })).toBeInTheDocument();
-    expect(screen.getByText("z 1")).toBeInTheDocument();
+    const ring = screen.getByTestId(SegmentedRingTestId.Graphic);
+    expect(ring).toHaveRole("img");
+    expect(ring).toHaveAccessibleName("0 z 1 hotovo");
+    expect(screen.getByTestId(SegmentedRingTestId.Caption)).toHaveTextContent("0z 1");
   });
 
   it("adds the loop as a third party", () => {
@@ -109,7 +117,8 @@ describe("GoalsScreen", () => {
       { ...goal, rollup: { ...goal.rollup, counts: { total: 0, done: 0, parked: 0, active: 0 } } },
     ];
     render(<GoalsScreen />);
-    expect(screen.getByRole("img", { name: "zatím neběžel" })).toBeInTheDocument();
+    expect(screen.getByTestId(SegmentedRingTestId.Graphic)).toHaveAccessibleName("zatím neběžel");
+    expect(screen.getByTestId(SegmentedRingTestId.Used)).toHaveTextContent("–");
   });
 
   it("counts working, needs-you and done goals in the header", () => {
@@ -145,9 +154,36 @@ describe("GoalsScreen", () => {
       "Zatím bez záznamuCíl ještě neběžel.",
     );
     unmount();
-    timeline.isSuccess = false;
+    timeline.data = undefined;
     render(<GoalsScreen />);
     expect(screen.queryByTestId(GoalLoopCardTestId.Verdict)).not.toBeInTheDocument();
+  });
+
+  it("keeps the last step when a background refetch of the timeline fails", () => {
+    timeline.data = [
+      { at: "2026-11-26T10:00:00.000Z", cycle: 0, instance: "_", kind: "note", text: "PR #4" },
+    ];
+    timeline.isError = true;
+    render(<GoalsScreen />);
+    expect(screen.getByTestId(GoalLoopCardTestId.Verdict)).toHaveTextContent("PR #4");
+  });
+
+  it("names the goal in every action button", () => {
+    query.goals = [withStatus("acting")];
+    const { unmount } = render(<GoalsScreen />);
+    expect(screen.getByTestId(GoalCardTestId.Wake)).toHaveAccessibleName(
+      "Probudit cíl Moje PR jsou hotové",
+    );
+    expect(screen.getByTestId(GoalCardTestId.Pause)).toHaveAccessibleName(
+      "Pozastavit cíl Moje PR jsou hotové",
+    );
+    unmount();
+    query.goals = [goal, withStatus("paused", { id: "p", name: "Úklid", enabled: false })];
+    render(<GoalsScreen />);
+    expect(screen.getByTestId(GoalCardTestId.Decide)).toHaveAccessibleName(
+      "Rozhodnout o cíli Moje PR jsou hotové",
+    );
+    expect(screen.getByTestId(GoalCardTestId.Enable)).toHaveAccessibleName("Zapnout cíl Úklid");
   });
 
   it("offers Rozhodnout on a needs-you goal, which opens the detail page", async () => {
@@ -199,11 +235,9 @@ describe("GoalsScreen", () => {
     query.goals = [];
     render(<GoalsScreen />);
     expect(screen.getByTestId(GoalsScreenTestId.Empty)).toBeInTheDocument();
-    expect(screen.getByText("Připravené cíle")).toBeInTheDocument();
-    expect(screen.getByText("PR a CI")).toBeInTheDocument();
-    expect(screen.getByText("Údržba projektů")).toBeInTheDocument();
-    expect(screen.getByText("Mozek a osobní")).toBeInTheDocument();
-    expect(screen.getByText("Směrové")).toBeInTheDocument();
+    expect(
+      screen.getAllByTestId(ListSectionTestId.Title).map((title) => title.textContent),
+    ).toEqual(["Připravené cíle", "PR a CI", "Údržba projektů", "Mozek a osobní", "Směrové"]);
   });
 
   it("adds a preset paused, without its group, then opens it", () => {
@@ -249,7 +283,9 @@ describe("GoalsScreen", () => {
 
   it("filters by roll-up status", async () => {
     render(<GoalsScreen />);
-    await userEvent.click(screen.getByRole("button", { name: /^Pozastavené/ }));
+    const paused = screen.getAllByTestId(ListToolbarTestId.Chip)[3]!;
+    expect(paused).toHaveTextContent(/^Pozastavené/);
+    await userEvent.click(within(paused).getByRole("button"));
     expect(screen.getByTestId(GoalsScreenTestId.NoMatch)).toBeInTheDocument();
   });
 });

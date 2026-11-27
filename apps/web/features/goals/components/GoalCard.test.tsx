@@ -7,7 +7,7 @@ import { GoalCard } from "./GoalCard";
 vi.mock("../queries", () => ({
   useGoalTimelineQuery: () => ({
     data: [{ at: "2026-11-26T10:00:00.000Z", cycle: 0, instance: "_", kind: "n", text: "PR #4" }],
-    isSuccess: true,
+    isError: false,
   }),
 }));
 vi.mock("../mutations", () => ({

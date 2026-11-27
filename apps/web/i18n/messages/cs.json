@@ -5582,9 +5582,9 @@
     },
     "card": {
       "ringOf": "z {count, plural, one {# projektu} few {# projektů} other {# projektů}}",
-      "ringOfOne": "z 1",
+      "ringOfCount": "z {count}",
       "ringAria": "{done} z {total, plural, one {# projektu} other {# projektů}} hotovo",
-      "ringAriaOne": "{done} z 1 hotovo",
+      "ringAriaCount": "{done} z {total} hotovo",
       "notRun": "zatím neběžel",
       "role": {
         "scope": "Rozsah",
@@ -5598,6 +5598,10 @@
       "decide": "Rozhodnout",
       "pause": "Pozastavit",
       "enable": "Zapnout",
+      "decideAria": "Rozhodnout o cíli {name}",
+      "wakeAria": "Probudit cíl {name}",
+      "pauseAria": "Pozastavit cíl {name}",
+      "enableAria": "Zapnout cíl {name}",
       "openAria": "Otevřít: {name}"
     },
     "ceiling": {

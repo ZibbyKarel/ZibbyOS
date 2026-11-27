@@ -99,4 +99,10 @@ describe("GoalLoopCard", () => {
     fireEvent.click(cover);
     expect(onOpen).toHaveBeenCalledOnce();
   });
+
+  it("shows the current segment of a working goal even before anything is done", () => {
+    render(<GoalLoopCard {...base} max={3} state="working" used={0} />);
+    const segs = screen.getAllByTestId(SegmentedRingTestId.Segment);
+    expect(segs.map((seg) => seg.getAttribute("data-current"))).toEqual(["true", "false", "false"]);
+  });
 });

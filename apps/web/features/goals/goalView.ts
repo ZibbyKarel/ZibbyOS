@@ -22,9 +22,9 @@ export interface GoalLabel {
     | "schedule.open"
     | `ceiling.${GoalCeiling}`
     | "card.ringOf"
-    | "card.ringOfOne"
+    | "card.ringOfCount"
     | "card.ringAria"
-    | "card.ringAriaOne"
+    | "card.ringAriaCount"
     | "card.notRun"
     | "card.role.scope"
     | "card.role.ceiling"
@@ -177,7 +177,7 @@ export function groupTimelineByCycle(
 }
 
 /** The DS `StateTone` subset the goal card uses (kept local: this file stays free of the DS). */
-export type GoalCardState = "working" | "blocked" | "done" | "idle";
+export type GoalCardState = "working" | "thinking" | "blocked" | "done" | "idle";
 
 export interface GoalCardModel {
   state: GoalCardState;
@@ -201,8 +201,8 @@ const CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
   "needs-you": "blocked",
   acting: "working",
   planning: "working",
-  // Waiting is not live work: neutral, so its ring does not pulse.
-  waiting: "idle",
+  // Waiting on something (it wakes itself): the info tone, apart from a switched-off goal.
+  waiting: "thinking",
   done: "done",
   paused: "idle",
 };
@@ -245,12 +245,12 @@ export function goalCardModel(
     ringCaption: !ran
       ? { key: "card.notRun" }
       : goal.scope.kind === "none"
-        ? { key: "card.ringOfOne" }
+        ? { key: "card.ringOfCount", values: { count: counts.total } }
         : { key: "card.ringOf", values: { count: counts.total } },
     ringAria: !ran
       ? { key: "card.notRun" }
       : goal.scope.kind === "none"
-        ? { key: "card.ringAriaOne", values: { done: counts.done } }
+        ? { key: "card.ringAriaCount", values: { done: counts.done, total: counts.total } }
         : { key: "card.ringAria", values: { done: counts.done, total: counts.total } },
     topMeta: goalScheduleLabel(goal, locale),
     parties,
