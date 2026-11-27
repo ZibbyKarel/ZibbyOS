@@ -2,6 +2,7 @@
 export * from "./queries";
 export * from "./mutations";
 export * from "./components/AiEngineModelPicker";
+export * from "./components/EngineFamilyMenu";
 export * from "./components/OperatorTokenNotice";
 export * from "./useTierLabel";
 export * from "./useEngineBadge";

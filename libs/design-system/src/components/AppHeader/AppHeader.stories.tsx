@@ -1,12 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { AppHeader } from "./AppHeader";
 import { Icon } from "../Icon/Icon";
-import {
-  HeaderIconButton,
-  HeaderModeButton,
-  HeaderModeGroup,
-  HeaderNewButton,
-} from "../HeaderChrome/HeaderChrome";
+import { HeaderIconButton, HeaderNewButton } from "../HeaderChrome/HeaderChrome";
 import { SectionTrack } from "../SectionTrack/SectionTrack";
 
 const nav = (
@@ -19,16 +14,7 @@ const nav = (
   />
 );
 
-const zoneC = (autopilot: boolean) => ({
-  mode: (
-    <HeaderModeGroup ariaLabel="Operating mode">
-      {autopilot ? (
-        <HeaderModeButton live pressed label="Autopilot" />
-      ) : (
-        <HeaderModeButton pressed icon="compass" label="Approve" />
-      )}
-    </HeaderModeGroup>
-  ),
+const zoneC = {
   notifications: (
     <HeaderIconButton aria-label="Notifications, 5 unread" badge={5}>
       <Icon name="bell" size="lg" />
@@ -39,7 +25,7 @@ const zoneC = (autopilot: boolean) => ({
       <Icon name="gear" size="lg" />
     </HeaderIconButton>
   ),
-});
+};
 
 const meta: Meta<typeof AppHeader> = {
   title: "DesignSystem/AppHeader",
@@ -59,19 +45,12 @@ export const Overview: Story = {
         homeHref="/overview"
         nav={nav}
         onSearchClick={() => {}}
-        {...zoneC(false)}
-      />
-      <AppHeader
-        create={<HeaderNewButton aria-haspopup="menu" label="New" />}
-        homeHref="/overview"
-        nav={nav}
-        onSearchClick={() => {}}
-        {...zoneC(true)}
+        {...zoneC}
       />
     </div>
   ),
 };
 
 export const Playground: Story = {
-  args: { homeHref: "/overview", nav, onSearchClick: () => {}, ...zoneC(false) },
+  args: { homeHref: "/overview", nav, onSearchClick: () => {}, ...zoneC },
 };

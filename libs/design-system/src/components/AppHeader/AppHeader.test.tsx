@@ -47,13 +47,19 @@ describe("AppHeader", () => {
     expect(screen.getByTestId(AppHeaderTestId.Nav)).toHaveTextContent("Section nav");
   });
 
+  it("renders no divider between zone B and zone C", () => {
+    render(<AppHeader />);
+    expect(screen.getByTestId(AppHeaderTestId.ZoneB).nextElementSibling).toBe(
+      screen.getByTestId(AppHeaderTestId.ZoneC),
+    );
+  });
+
   it("omits optional slots when not provided", () => {
     render(<AppHeader />);
     for (const id of [
       AppHeaderTestId.Search,
       AppHeaderTestId.Create,
       AppHeaderTestId.Zibby,
-      AppHeaderTestId.Mode,
       AppHeaderTestId.Notifications,
       AppHeaderTestId.Preferences,
       AppHeaderTestId.Nav,
@@ -62,13 +68,12 @@ describe("AppHeader", () => {
     }
   });
 
-  it("lays out zone A (brand + nav), the centred search, zone B, a divider and zone C in order", () => {
+  it("lays out zone A (brand + nav), the centred search, zone B and zone C in order", () => {
     render(<AppHeader nav={<nav>n</nav>} />);
     const order = [
       AppHeaderTestId.ZoneA,
       AppHeaderTestId.ZoneSearch,
       AppHeaderTestId.ZoneB,
-      AppHeaderTestId.Divider,
       AppHeaderTestId.ZoneC,
     ].map((id) => screen.getByTestId(id));
     for (let i = 1; i < order.length; i++) {
@@ -112,22 +117,14 @@ describe("AppHeader", () => {
     expect(screen.getByTestId(AppHeaderTestId.Search)).not.toHaveTextContent("Hledat");
   });
 
-  it("puts mode, notifications and preferences in zone C, in that order", () => {
-    render(
-      <AppHeader
-        mode={<span>Mode</span>}
-        notifications={<span>Bell</span>}
-        preferences={<span>Prefs</span>}
-      />,
-    );
+  it("puts notifications and preferences in zone C, in that order", () => {
+    render(<AppHeader notifications={<span>Bell</span>} preferences={<span>Prefs</span>} />);
     const zoneC = screen.getByTestId(AppHeaderTestId.ZoneC);
-    const ids = [
-      AppHeaderTestId.Mode,
-      AppHeaderTestId.Notifications,
-      AppHeaderTestId.Preferences,
-    ].map((id) => screen.getByTestId(id));
+    const ids = [AppHeaderTestId.Notifications, AppHeaderTestId.Preferences].map((id) =>
+      screen.getByTestId(id),
+    );
     ids.forEach((el) => expect(zoneC).toContainElement(el));
-    expect(ids[0]).toHaveTextContent("Mode");
+    expect(ids[0]).toHaveTextContent("Bell");
     for (let i = 1; i < ids.length; i++) {
       expect(
         ids[i - 1]!.compareDocumentPosition(ids[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,

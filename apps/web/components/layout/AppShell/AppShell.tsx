@@ -9,7 +9,6 @@ import {
   BrandMark,
   type BrandMarkState,
   Button,
-  HeaderModeGroup,
   MobileMenu,
   MobileToolbar,
   SectionTrack,
@@ -45,7 +44,6 @@ import {
   usePagePins,
 } from "../../../features/pins";
 import { SettingsCrumbBar } from "../../../features/settings/components/SettingsCrumbBar";
-import { AiEngineSwitcher } from "../AiEngineSwitcher/AiEngineSwitcher";
 import { PageActionsSlotProvider } from "../PageActions";
 import { PageBreadcrumbSlotProvider } from "../PageBreadcrumb";
 import { NewMenu, PreferencesMenu } from "./HeaderControls";
@@ -380,11 +378,6 @@ function AppShellChrome({ children }: { children: ReactNode }) {
                   hideWordmark={lv >= 1}
                   homeHref="/dashboard"
                   linkComponent={NavLink}
-                  mode={
-                    <HeaderModeGroup ariaLabel={tShell("modeGroupAria")}>
-                      <AiEngineSwitcher compact={lv >= 2} />
-                    </HeaderModeGroup>
-                  }
                   nav={
                     <SectionNav
                       active={active}

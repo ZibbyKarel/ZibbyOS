@@ -14,7 +14,6 @@ import {
   ZibbySectionTestId,
 } from "@zibby/design-system";
 import { renderWithProviders, screen, waitFor, within } from "../../../test/render";
-import { AiEngineSwitcherTestId } from "../AiEngineSwitcher/AiEngineSwitcher";
 import { ZibbyModeControlTestId } from "../../../features/autopilot";
 import { PinPageDialogTestId } from "../../../features/pins";
 import { SECTIONS } from "../../../state/config";
@@ -135,15 +134,14 @@ describe("AppShell", () => {
     expect(screen.getByTestId(`${MenuButtonTestId.Item}-about`)).toHaveTextContent("O systému");
   });
 
-  it("shows the mode group and bell in zone C, no engine switcher before config loads", () => {
+  it("shows the bell in zone C, with no mode group or divider", () => {
     renderWithProviders(
       <AppShell>
         <div>obsah stránky</div>
       </AppShell>,
     );
-    expect(screen.getByTestId(HeaderChromeTestId.ModeGroup)).toHaveAccessibleName("Provozní režim");
+    expect(screen.queryByTestId(HeaderChromeTestId.ModeGroup)).toBeNull();
     expect(screen.getByTestId(AppHeaderTestId.Notifications)).toBeInTheDocument();
-    expect(screen.queryByTestId(AiEngineSwitcherTestId.Root)).toBeNull();
   });
 
   it("shows the Zibby status button and a plain, never amber, header", () => {

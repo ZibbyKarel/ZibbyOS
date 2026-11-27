@@ -18,15 +18,13 @@ export enum AppHeaderTestId {
   ZoneSearch = "app-header-zone-search",
   /** Zone B - command: create, Zibby. */
   ZoneB = "app-header-zone-b",
-  /** Zone C - system: mode, notifications, preferences. */
+  /** Zone C - system: notifications, preferences. */
   ZoneC = "app-header-zone-c",
-  Divider = "app-header-divider",
   Nav = "app-header-nav",
   Search = "app-header-search",
   SearchShortcut = "app-header-search-shortcut",
   Create = "app-header-create",
   Zibby = "app-header-zibby",
-  Mode = "app-header-mode",
   Notifications = "app-header-notifications",
   Preferences = "app-header-preferences",
 }
@@ -51,8 +49,6 @@ export interface AppHeaderProps {
   create?: ReactNode;
   /** Zone B, last - summon button of the Zibby overlay (a `ZibbyChip`). */
   zibby?: ReactNode;
-  /** Zone C - operating mode (a `HeaderModeGroup`). */
-  mode?: ReactNode;
   /** Zone C - notification bell (a `HeaderIconButton`). */
   notifications?: ReactNode;
   /** Zone C, last - preferences & settings (a `HeaderIconButton`). */
@@ -75,8 +71,8 @@ export interface AppHeaderProps {
  * Top-chrome row 1 - a fixed `LAYOUT.headerHeight` (52px) band on `--panel` with a
  * bottom hairline, a `1fr auto 1fr` grid so the search trigger sits at the true centre
  * (`min(560px, 40vw)` wide, just icon + `⌘K` when `searchCompact`): **A** brand + section nav
- * on the left; on the right **B** command (create, Zibby), a 1x22px divider and **C** system
- * (mode, notifications, preferences). Every slot is an opaque `ReactNode`
+ * on the left; on the right **B** command (create, Zibby) and **C** system
+ * (notifications, preferences). Every slot is an opaque `ReactNode`
  * (domain-neutral, no `next/link` import here) except the search trigger, which
  * `AppHeader` renders itself so every screen gets the identical `⌘K` affordance.
  */
@@ -89,7 +85,6 @@ export function AppHeader({
   nav,
   create,
   zibby,
-  mode,
   notifications,
   preferences,
   hideWordmark = false,
@@ -175,14 +170,7 @@ export function AppHeader({
           {zibby && <span data-testid={AppHeaderTestId.Zibby}>{zibby}</span>}
         </div>
 
-        <span
-          aria-hidden="true"
-          className="mx-1 hidden h-[22px] w-px flex-none bg-line-2 md:block"
-          data-testid={AppHeaderTestId.Divider}
-        />
-
         <div className="flex flex-none items-center gap-1.5" data-testid={AppHeaderTestId.ZoneC}>
-          {mode && <span data-testid={AppHeaderTestId.Mode}>{mode}</span>}
           {notifications && (
             <span data-testid={AppHeaderTestId.Notifications}>{notifications}</span>
           )}

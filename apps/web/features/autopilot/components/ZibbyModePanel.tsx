@@ -16,6 +16,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { EngineFamilyMenu } from "../../ai-providers/components/EngineFamilyMenu";
 import type { PauseError } from "../hooks/usePauseSwitch";
 import type { SaveResult } from "../hooks/useSaveAutomation";
 import { saveOperatorToken } from "../hooks/useHasOperatorToken";
@@ -182,6 +183,7 @@ export function ZibbyModePanel({
           label={t("levelsLink")}
           onClick={() => go(AUTONOMY_HREF)}
         />
+        <EngineFamilyMenu onNavigate={onNavigate} />
       </Stack>
     </ZibbyStatusMenu>
   );
