@@ -44,6 +44,16 @@ describe("goalScheduleLabel", () => {
     });
   });
 
+  it("names the day for a weekly goal that is not on Monday", () => {
+    expect(goalScheduleLabel({ cadence: { every: "week", hour: 17, weekday: 0 } }, "cs")).toEqual({
+      key: "schedule.weekOn",
+      values: { day: 0, hour: "17" },
+    });
+    expect(goalScheduleLabel({ cadence: { every: "week", hour: 9, weekday: 1 } }, "cs").key).toBe(
+      "schedule.week",
+    );
+  });
+
   it("reads a one-off goal as its deadline in Prague time", () => {
     const label = goalScheduleLabel({ deadline: "2026-12-01T11:30:00.000Z" }, "en");
     expect(label.key).toBe("schedule.deadline");

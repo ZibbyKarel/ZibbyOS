@@ -25,6 +25,8 @@ export interface GoalFormValues {
   deadline: string;
   cadenceEvery: GoalCadence["every"];
   cadenceHour: string;
+  /** `0` (Sunday) … `6`; only used with a weekly cadence. */
+  cadenceWeekday: string;
   cycleHours: string;
   maxRuns: string;
   maxCost: string;
@@ -48,6 +50,7 @@ export const EMPTY_GOAL_FORM: GoalFormValues = {
   deadline: "",
   cadenceEvery: "weekday",
   cadenceHour: "9",
+  cadenceWeekday: "1",
   cycleHours: "",
   maxRuns: "",
   maxCost: "",
@@ -90,6 +93,7 @@ export function goalToFormValues(goal: Goal): GoalFormValues {
     deadline: goal.deadline ? isoToLocalInput(goal.deadline) : "",
     cadenceEvery: goal.cadence?.every ?? "weekday",
     cadenceHour: String(goal.cadence?.hour ?? 9),
+    cadenceWeekday: String(goal.cadence?.weekday ?? 1),
     cycleHours: goal.cycleHours !== undefined ? String(goal.cycleHours) : "",
     maxRuns: goal.budget?.maxRunsPerCycle !== undefined ? String(goal.budget.maxRunsPerCycle) : "",
     maxCost:
@@ -163,7 +167,14 @@ function timingOf(v: GoalFormValues): {
   const cycleHours = optionalNumber(v.cycleHours);
   return {
     // A blank hour is required-but-missing: NaN fails the schema instead of becoming midnight.
-    cadence: { every: v.cadenceEvery, hour: optionalNumber(v.cadenceHour) ?? Number.NaN },
+    cadence: {
+      every: v.cadenceEvery,
+      hour: optionalNumber(v.cadenceHour) ?? Number.NaN,
+      // Monday is the default, so it is never written: stored goals stay unchanged.
+      ...(v.cadenceEvery === "week" && v.cadenceWeekday !== "1"
+        ? { weekday: Number(v.cadenceWeekday) }
+        : {}),
+    },
     ...(cycleHours !== undefined ? { cycleHours } : {}),
   };
 }

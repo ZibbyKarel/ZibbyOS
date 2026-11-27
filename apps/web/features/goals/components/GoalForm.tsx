@@ -21,6 +21,7 @@ export enum GoalFormTestId {
   Predicate = "goal-form-predicate",
   Deadline = "goal-form-deadline",
   CadenceHour = "goal-form-cadence-hour",
+  CadenceWeekday = "goal-form-cadence-weekday",
   CycleHours = "goal-form-cycle-hours",
   MaxRuns = "goal-form-max-runs",
   MaxCost = "goal-form-max-cost",
@@ -161,6 +162,22 @@ export function GoalForm({
               { value: "month", label: t("everyMonth") },
             ]}
           />
+          {values.cadenceEvery === "week" && (
+            <FormSelect<string, GoalFormValues>
+              data-testid={GoalFormTestId.CadenceWeekday}
+              label={t("cadenceWeekday")}
+              name="cadenceWeekday"
+              options={[
+                { value: "1", label: t("weekday1") },
+                { value: "2", label: t("weekday2") },
+                { value: "3", label: t("weekday3") },
+                { value: "4", label: t("weekday4") },
+                { value: "5", label: t("weekday5") },
+                { value: "6", label: t("weekday6") },
+                { value: "0", label: t("weekday0") },
+              ]}
+            />
+          )}
           <FormTextInput<GoalFormValues>
             data-testid={GoalFormTestId.CadenceHour}
             hint={t("cadenceHourHint")}

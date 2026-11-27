@@ -15,6 +15,8 @@ export const GoalCadenceSchema = z.object({
   every: z.enum(["day", "weekday", "week", "month"]),
   /** Hour of the day, Europe/Prague. */
   hour: z.number().int().min(0).max(23),
+  /** Day of the week, Prague calendar: 0 = Sunday … 6 = Saturday. Only with `every: "week"`; absent = Monday. */
+  weekday: z.number().int().min(0).max(6).optional(),
 });
 export type GoalCadence = z.infer<typeof GoalCadenceSchema>;
 
@@ -90,15 +92,22 @@ const GoalInputObject = z.object({
   loop: z.object({ loopId: AgentIdSchema }).optional(),
 });
 
-type TimingFields = { deadline?: unknown; cadence?: unknown; cycleHours?: unknown };
+type TimingFields = {
+  deadline?: unknown;
+  cadence?: { every?: unknown; weekday?: unknown } | undefined;
+  cycleHours?: unknown;
+};
 
-/** `deadline` xor `cadence`; `cycleHours` only with `cadence`. */
+/** `deadline` xor `cadence`; `cycleHours` only with `cadence`; `cadence.weekday` only with `every: "week"`. */
 export function goalTimingIssue(g: TimingFields): string | null {
   if (g.deadline !== undefined && g.cadence !== undefined) {
     return "deadline and cadence are mutually exclusive";
   }
   if (g.cycleHours !== undefined && g.cadence === undefined) {
     return "cycleHours requires cadence";
+  }
+  if (g.cadence?.weekday !== undefined && g.cadence.every !== "week") {
+    return "cadence.weekday requires every: week";
   }
   return null;
 }

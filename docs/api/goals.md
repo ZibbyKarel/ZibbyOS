@@ -14,6 +14,8 @@ as an internal way to execute work (`run-loop`).
 
 - `deadline` and `cadence` are mutually exclusive; `cycleHours` needs `cadence`; `ceiling`
   defaults to `tier2`.
+- `cadence.weekday` (0 = Sunday … 6 = Saturday, Prague calendar) is allowed only with
+  `every: week`; absent means Monday. A goal file: `cadence: { every: week, hour: 17, weekday: 0 }`.
 - `mergeGrant` exists on `Goal` only. Create and update reject it (422); only the token-protected
   merge-grant route sets or clears it (see [Merge grant](#merge-grant)).
 - Roll-up status: `paused | planning | acting | waiting | needs-you | done | held`, counts

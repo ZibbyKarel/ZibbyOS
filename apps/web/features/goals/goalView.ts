@@ -20,6 +20,7 @@ export interface GoalLabel {
     | "scope.company"
     | "scope.projects"
     | `schedule.${GoalCadence["every"]}`
+    | "schedule.weekOn"
     | "schedule.deadline"
     | "schedule.open"
     | `ceiling.${GoalCeiling}`
@@ -99,6 +100,13 @@ export function goalScheduleLabel(
   locale: string,
 ): GoalLabel {
   if (goal.cadence) {
+    const { weekday } = goal.cadence;
+    if (goal.cadence.every === "week" && weekday !== undefined && weekday !== 1) {
+      return {
+        key: "schedule.weekOn",
+        values: { day: weekday, hour: String(goal.cadence.hour).padStart(2, "0") },
+      };
+    }
     return {
       key: `schedule.${goal.cadence.every}`,
       values: { hour: String(goal.cadence.hour).padStart(2, "0") },

@@ -21,6 +21,15 @@ describe("nextCycleStart (Europe/Prague)", () => {
     expect(next("month", 9, "2026-11-26T12:00:00.000Z")).toBe("2026-12-01T08:00:00.000Z");
   });
 
+  it("week with weekday: Sunday 17:00 Prague, also across DST changes", () => {
+    const sunday = (from: string) =>
+      nextCycleStart({ every: "week", hour: 17, weekday: 0 }, at(from)).toISOString();
+    expect(sunday("2026-11-25T12:00:00.000Z")).toBe("2026-11-29T16:00:00.000Z"); // CET
+    expect(sunday("2026-03-25T12:00:00.000Z")).toBe("2026-03-29T15:00:00.000Z"); // DST starts that day
+    expect(sunday("2026-10-21T12:00:00.000Z")).toBe("2026-10-25T16:00:00.000Z"); // DST ends that day
+    expect(sunday("2026-11-29T16:00:00.000Z")).toBe("2026-12-06T16:00:00.000Z"); // strictly after
+  });
+
   it("uses summer time in summer", () => {
     expect(next("day", 9, "2026-07-01T00:00:00.000Z")).toBe("2026-07-01T07:00:00.000Z");
   });

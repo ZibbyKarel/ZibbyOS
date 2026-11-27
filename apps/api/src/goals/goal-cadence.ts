@@ -43,7 +43,13 @@ export function pragueInstant(y: number, m: number, d: number, hour: number): Da
   return new Date(guess - offsetAt(first));
 }
 
-function qualifies(every: GoalCadence["every"], y: number, m: number, d: number): boolean {
+function qualifies(
+  every: GoalCadence["every"],
+  y: number,
+  m: number,
+  d: number,
+  cadenceWeekday = 1,
+): boolean {
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday
   switch (every) {
     case "day":
@@ -51,7 +57,7 @@ function qualifies(every: GoalCadence["every"], y: number, m: number, d: number)
     case "weekday":
       return weekday !== 0 && weekday !== 6;
     case "week":
-      return weekday === 1;
+      return weekday === cadenceWeekday;
     case "month":
       return d === 1;
   }
@@ -59,7 +65,7 @@ function qualifies(every: GoalCadence["every"], y: number, m: number, d: number)
 
 /**
  * The first cadence boundary strictly after `from`: `hour` Prague on every day, every
- * Mon–Fri, every Monday (`week`) or every 1st (`month`).
+ * Mon–Fri, every `weekday`-th day of the week (`week`, Monday when absent) or every 1st (`month`).
  */
 export function nextCycleStart(cadence: GoalCadence, from: Date): Date {
   const start = pragueParts(from);
@@ -68,7 +74,7 @@ export function nextCycleStart(cadence: GoalCadence, from: Date): Date {
   for (let i = 0; i <= 40; i++) {
     const day = new Date(base + i * DAY_MS);
     const [y, m, d] = [day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate()];
-    if (!qualifies(cadence.every, y, m, d)) continue;
+    if (!qualifies(cadence.every, y, m, d, cadence.weekday)) continue;
     const at = pragueInstant(y, m, d, cadence.hour);
     if (at.getTime() > from.getTime()) return at;
   }

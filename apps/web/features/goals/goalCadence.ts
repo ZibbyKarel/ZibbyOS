@@ -36,11 +36,17 @@ function pragueInstant(y: number, m: number, d: number, hour: number): Date {
   return new Date(guess - offsetAt(guess - offsetAt(guess)));
 }
 
-function qualifies(every: GoalCadence["every"], y: number, m: number, d: number): boolean {
+function qualifies(
+  every: GoalCadence["every"],
+  y: number,
+  m: number,
+  d: number,
+  cadenceWeekday = 1,
+): boolean {
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   if (every === "day") return true;
   if (every === "weekday") return weekday !== 0 && weekday !== 6;
-  return every === "week" ? weekday === 1 : d === 1;
+  return every === "week" ? weekday === cadenceWeekday : d === 1;
 }
 
 /** The first cadence boundary strictly after `from` (Prague wall clock), or null if none within 40 days. */
@@ -50,7 +56,7 @@ export function nextCycleStart(cadence: GoalCadence, from: Date): Date | null {
   for (let i = 0; i <= 40; i++) {
     const day = new Date(base + i * DAY_MS);
     const [y, m, d] = [day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate()];
-    if (!qualifies(cadence.every, y, m, d)) continue;
+    if (!qualifies(cadence.every, y, m, d, cadence.weekday)) continue;
     const at = pragueInstant(y, m, d, cadence.hour);
     if (at.getTime() > from.getTime()) return at;
   }

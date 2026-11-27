@@ -69,6 +69,29 @@ describe("CreateGoalSchema", () => {
     expect(r.success).toBe(false);
   });
 
+  it("accepts weekday only with every: week, in create, stored and patch bodies", () => {
+    const sunday = { every: "week" as const, hour: 17, weekday: 0 };
+    expect(CreateGoalSchema.safeParse({ ...base, cadence: sunday }).success).toBe(true);
+    expect(
+      CreateGoalSchema.safeParse({ ...base, cadence: { every: "week", hour: 17 } }).success,
+    ).toBe(true);
+    expect(
+      CreateGoalSchema.safeParse({ ...base, cadence: { ...sunday, every: "day" } }).success,
+    ).toBe(false);
+    expect(
+      CreateGoalSchema.safeParse({ ...base, cadence: { ...sunday, weekday: 7 } }).success,
+    ).toBe(false);
+    expect(UpdateGoalSchema.safeParse({ cadence: sunday }).success).toBe(true);
+    expect(
+      GoalSchema.safeParse({
+        ...base,
+        cadence: { every: "month", hour: 9, weekday: 2 },
+        createdAt: "2026-11-27T00:00:00.000Z",
+        updatedAt: "2026-11-27T00:00:00.000Z",
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects cycleHours without cadence, accepts it with cadence", () => {
     expect(CreateGoalSchema.safeParse({ ...base, cycleHours: 6 }).success).toBe(false);
     expect(

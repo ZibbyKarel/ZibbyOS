@@ -31,6 +31,19 @@ describe("buildCreateGoalInput", () => {
     expect(input.cycleHours).toBe(6);
     expect(input).not.toHaveProperty("deadline");
   });
+
+  it("emits weekday only for a weekly cadence that is not Monday", () => {
+    const weekly = { ...base, timing: "standing" as const, cadenceEvery: "week" as const };
+    expect(buildCreateGoalInput({ ...weekly, cadenceWeekday: "0" }).cadence).toEqual({
+      every: "week",
+      hour: 9,
+      weekday: 0,
+    });
+    expect(buildCreateGoalInput(weekly).cadence).toEqual({ every: "week", hour: 9 });
+    expect(
+      buildCreateGoalInput({ ...weekly, cadenceEvery: "day", cadenceWeekday: "0" }).cadence,
+    ).toEqual({ every: "day", hour: 9 });
+  });
 });
 
 describe("buildUpdateGoalInput", () => {
