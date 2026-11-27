@@ -27,14 +27,22 @@ export const connectedServicesContract = c.router(
       path: "/connected-services",
       body: CreateConnectedServiceSchema,
       responses: { 201: ConnectedServiceSchema, 409: ErrorSchema },
-      summary: "Add a connected service (writes its definition file)",
+      summary: "Add a connected service (writes its definition and its Playwright MCP server file)",
     },
     updateConnectedService: {
       method: "PATCH",
       path: "/connected-services/:id",
       body: UpdateConnectedServiceSchema,
       responses: { 200: ConnectedServiceSchema, 404: ErrorSchema },
-      summary: "Edit a service's name, URLs or icon (id, profile and auth cookies stay)",
+      summary: "Edit a service's name, URLs, icon or auth cookies (id and profile stay)",
+    },
+    deleteConnectedService: {
+      method: "DELETE",
+      path: "/connected-services/:id",
+      body: c.noBody(),
+      responses: { 204: c.noBody(), 404: ErrorSchema },
+      summary:
+        "Remove a service's definition and the MCP server file it generated (the browser profile stays)",
     },
     connectService: {
       method: "POST",

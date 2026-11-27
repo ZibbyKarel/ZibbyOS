@@ -82,7 +82,12 @@ describe("AccountsSection", () => {
     expect(idle.mutate).toHaveBeenCalledWith(
       {
         params: { id: "kdp" },
-        body: { name: "Kindle", loginUrl: "https://kdp.amazon.com/login", iconUrl: null },
+        body: {
+          name: "Kindle",
+          loginUrl: "https://kdp.amazon.com/login",
+          iconUrl: null,
+          authCookies: [],
+        },
       },
       expect.anything(),
     );

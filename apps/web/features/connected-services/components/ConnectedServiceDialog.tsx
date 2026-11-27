@@ -1,8 +1,8 @@
 "use client";
 
-import type { ConnectedService } from "@zibby/contracts";
+import type { AuthCookie, ConnectedService } from "@zibby/contracts";
 import { Button, Dialog, Stack } from "@zibby/design-system";
-import { FormTextInput, useFormControls, zodResolver } from "@zibby/forms";
+import { FormTextArea, FormTextInput, useFormControls, zodResolver } from "@zibby/forms";
 import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { useCreateConnectedServiceMutation, useUpdateConnectedServiceMutation } from "../mutations";
@@ -11,13 +11,35 @@ export enum ConnectedServiceDialogTestId {
   Name = "connected-service-dialog-name",
   LoginUrl = "connected-service-dialog-login-url",
   IconUrl = "connected-service-dialog-icon-url",
+  AuthCookies = "connected-service-dialog-auth-cookies",
   Submit = "connected-service-dialog-submit",
 }
+
+/** One cookie entry per line: `host: name1, name2`. Returns `null` when a line is malformed. */
+export function parseAuthCookies(text: string): AuthCookie[] | null {
+  const out: AuthCookie[] = [];
+  for (const line of text.split("\n").filter((l) => l.trim())) {
+    const i = line.indexOf(":");
+    const host = line.slice(0, i).trim();
+    const names = line
+      .slice(i + 1)
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (i < 0 || !host || !names.length) return null;
+    out.push({ host, names });
+  }
+  return out;
+}
+
+const formatAuthCookies = (cookies: AuthCookie[] = []) =>
+  cookies.map((c) => `${c.host}: ${c.names.join(", ")}`).join("\n");
 
 const FormSchema = z.object({
   name: z.string().trim().min(1),
   loginUrl: z.string().url(),
   iconUrl: z.union([z.literal(""), z.string().url()]),
+  authCookies: z.string().refine((v) => parseAuthCookies(v) !== null, "format"),
 });
 type FormValues = z.infer<typeof FormSchema>;
 
@@ -39,19 +61,24 @@ export function ConnectedServiceDialog({ service, onClose }: ConnectedServiceDia
       name: service?.name ?? "",
       loginUrl: service?.loginUrl ?? "",
       iconUrl: service?.iconUrl ?? "",
+      authCookies: formatAuthCookies(service?.authCookies),
     },
     resolver: zodResolver(FormSchema),
     mode: "onChange",
-    onSubmit: ({ name, loginUrl, iconUrl }) => {
+    onSubmit: ({ name, loginUrl, iconUrl, authCookies: cookieText }) => {
       if (pending) return;
+      const authCookies = parseAuthCookies(cookieText) ?? [];
       if (service) {
         update.mutate(
-          { params: { id: service.id }, body: { name, loginUrl, iconUrl: iconUrl || null } },
+          {
+            params: { id: service.id },
+            body: { name, loginUrl, iconUrl: iconUrl || null, authCookies },
+          },
           { onSuccess: onClose },
         );
       } else {
         create.mutate(
-          { body: { name, loginUrl, iconUrl: iconUrl || undefined } },
+          { body: { name, loginUrl, iconUrl: iconUrl || undefined, authCookies } },
           { onSuccess: onClose },
         );
       }
@@ -108,6 +135,13 @@ export function ConnectedServiceDialog({ service, onClose }: ConnectedServiceDia
           label={t("iconUrl")}
           name="iconUrl"
           placeholder={t("iconPlaceholder")}
+        />
+        <FormTextArea<FormValues>
+          data-testid={ConnectedServiceDialogTestId.AuthCookies}
+          hint={t("authCookiesHint")}
+          label={t("authCookies")}
+          name="authCookies"
+          placeholder=".example.com: session, token"
         />
       </Stack>
     </Dialog>,

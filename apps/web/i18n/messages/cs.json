@@ -1855,7 +1855,14 @@
         "add": "Přidat",
         "save": "Uložit",
         "exists": "Služba se stejným názvem už existuje.",
-        "failed": "Uložení se nezdařilo."
+        "failed": "Uložení se nezdařilo.",
+        "authCookies": "Auth cookies (nepovinné)",
+        "authCookiesHint": "Jedna na řádek: host: cookie1, cookie2. Prázdné = přihlášení pozná podle jakékoli trvalé cookie."
+      },
+      "deleteDialog": {
+        "title": "Smazat {name}?",
+        "body": "Odstraní službu a její vygenerovaný Playwright MCP server. Profil prohlížeče „{profile}“ a přihlášení zůstanou na disku.",
+        "failed": "Smazání se nezdařilo."
       }
     }
   },
@@ -4442,7 +4449,9 @@
         "connecting": "Otevírám přihlášení…",
         "signInHint": "Přihlaste se v okně Chrome a pak ho zavřete",
         "connectLabel": "Připojit službu {name}",
-        "editLabel": "Upravit službu {name}"
+        "editLabel": "Upravit službu {name}",
+        "deleteLabel": "Smazat službu {name}",
+        "add": "Přidat službu"
       },
       "goals": {
         "goals": "Cíle",

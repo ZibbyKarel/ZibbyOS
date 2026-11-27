@@ -24,6 +24,15 @@ export class ConnectedServicesController {
       createConnectedService: ({ body }) => errors.created(() => this.services.create(body)),
       updateConnectedService: ({ params: { id }, body }) =>
         errors.or404(id, () => this.services.update(id, body)),
+      deleteConnectedService: async ({ params: { id } }) => {
+        try {
+          await this.services.remove(id);
+          return { status: 204, body: undefined };
+        } catch (error) {
+          if (errors.isMissing(error)) return errors.notFound(id);
+          throw error;
+        }
+      },
       connectService: ({ params: { id } }) => errors.or404(id, () => this.services.connect(id)),
     });
   }

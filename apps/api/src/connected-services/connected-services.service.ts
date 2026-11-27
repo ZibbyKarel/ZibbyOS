@@ -14,6 +14,7 @@ const execFileP = promisify(execFile);
 
 export const CONNECTED_SERVICES_DIR = Symbol("CONNECTED_SERVICES_DIR");
 export const BROWSER_PROFILES_DIR = Symbol("BROWSER_PROFILES_DIR");
+export const MCP_SERVERS_DIR = Symbol("MCP_SERVERS_DIR");
 export const CHROME_LAUNCHER = Symbol("CHROME_LAUNCHER");
 
 /** Opens plain system Chrome (not Playwright) with the given args. */
@@ -34,6 +35,11 @@ const DefinitionSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/)
     .refine((p) => p !== "." && p !== "..", "profile must be a plain directory name"),
   authCookies: z.array(z.object({ host: z.string().min(1), names: z.array(z.string().min(1)) })),
+  /** Id of the MCP server file this service generated; only that one is removed on delete. */
+  mcpServer: z
+    .string()
+    .regex(/^playwright-[a-z0-9-]+$/)
+    .optional(),
 });
 export type ServiceDefinition = z.infer<typeof DefinitionSchema>;
 
@@ -107,6 +113,12 @@ export async function isConnected(
   }
 }
 
+/** `playwright-mcp` next to the running node (nvm layout, as in the hand-made recipes), else from PATH. */
+function playwrightMcpCommand(): string {
+  const sibling = path.join(path.dirname(process.execPath), "playwright-mcp");
+  return existsSync(sibling) ? sibling : "playwright-mcp";
+}
+
 /** The file each loaded definition came from, so an edit rewrites it in place. */
 const sourceFile = new WeakMap<ServiceDefinition, string>();
 
@@ -117,6 +129,7 @@ export class ConnectedServicesService {
   constructor(
     @Inject(CONNECTED_SERVICES_DIR) private readonly dir: string,
     @Inject(BROWSER_PROFILES_DIR) private readonly profilesDir: string,
+    @Inject(MCP_SERVERS_DIR) private readonly mcpDir: string,
     @Inject(CHROME_LAUNCHER) private readonly launch: ChromeLauncher,
   ) {}
 
@@ -143,7 +156,8 @@ export class ConnectedServicesService {
   }
 
   private async toService(def: ServiceDefinition): Promise<ConnectedService> {
-    const { authCookies, ...rest } = def;
+    const { authCookies, mcpServer, ...rest } = def;
+    void mcpServer; // internal bookkeeping, not part of the API shape
     const connected = await isConnected(
       path.join(this.profilesDir, def.profile),
       authCookies,
@@ -151,7 +165,7 @@ export class ConnectedServicesService {
       (error) => this.logger.warn(`Cookie check failed for ${def.id}: ${String(error)}`),
       [new URL(def.loginUrl).hostname, new URL(def.landingUrl).hostname],
     );
-    return { ...rest, status: connected ? "connected" : "disconnected" };
+    return { ...rest, authCookies, status: connected ? "connected" : "disconnected" };
   }
 
   async list(): Promise<ConnectedService[]> {
@@ -181,6 +195,11 @@ export class ConnectedServicesService {
     if (taken || (await this.loadDefinitions()).some((d) => d.id === id)) {
       throw new ConnectedServiceExistsError(id);
     }
+    const mcpServer = `playwright-${id}`;
+    const mcpFile = path.join(this.mcpDir, `${mcpServer}.json`);
+    // An existing MCP file (hand-written or another service's) is never overwritten: the
+    // definition is still created, just without ownership of that file.
+    const ownsMcp = await this.writeMcpServer(mcpFile, mcpServer, input.name, id);
     return this.write(
       {
         id,
@@ -189,13 +208,54 @@ export class ConnectedServicesService {
         loginUrl: input.loginUrl,
         ...(input.iconUrl ? { iconUrl: input.iconUrl } : {}),
         profile: id,
-        authCookies: [],
+        authCookies: input.authCookies ?? [],
+        ...(ownsMcp ? { mcpServer } : {}),
       },
       name,
     );
   }
 
-  /** Edits name/URLs/icon; id, profile and authCookies never change. `iconUrl: null` clears it. */
+  /** Writes the grantOnly Playwright MCP server for a service's profile; false when the file already exists. */
+  private async writeMcpServer(
+    file: string,
+    mcpServer: string,
+    name: string,
+    profile: string,
+  ): Promise<boolean> {
+    if (existsSync(file)) {
+      this.logger.warn(`MCP server file ${mcpServer}.json exists, left untouched`);
+      return false;
+    }
+    const server = {
+      id: mcpServer,
+      name: `Playwright (${name} profile)`,
+      desc: `Headed browser with a persistent profile that stays signed in to ${name}. The operator signs in once in this profile; agents never enter credentials.`,
+      type: "stdio",
+      command: playwrightMcpCommand(),
+      args: [
+        "--user-data-dir",
+        path.resolve(this.profilesDir, profile),
+        "--allow-unrestricted-file-access",
+      ],
+      enabled: true,
+      grantOnly: true,
+    };
+    await fs.mkdir(this.mcpDir, { recursive: true });
+    // `wx` = never clobber a file that appeared since the check above.
+    await fs.writeFile(file, `${JSON.stringify(server, null, 2)}\n`, { flag: "wx" });
+    return true;
+  }
+
+  /** Removes the definition and the MCP server file it generated; the browser profile stays. */
+  async remove(id: string): Promise<void> {
+    const def = (await this.loadDefinitions()).find((d) => d.id === id);
+    if (!def) throw new ConnectedServiceNotFoundError(id);
+    if (def.mcpServer)
+      await fs.rm(path.join(this.mcpDir, `${def.mcpServer}.json`), { force: true });
+    await fs.rm(path.join(this.dir, sourceFile.get(def) ?? `${def.id}.json`));
+  }
+
+  /** Edits name/URLs/icon/authCookies; id and profile never change. `iconUrl: null` clears it. */
   async update(id: string, patch: UpdateConnectedService): Promise<ConnectedService> {
     const def = (await this.loadDefinitions()).find((d) => d.id === id);
     if (!def) throw new ConnectedServiceNotFoundError(id);
@@ -204,7 +264,7 @@ export class ConnectedServicesService {
     if (iconUrl === null) delete next.iconUrl;
     else if (iconUrl) next.iconUrl = iconUrl;
     return this.write(
-      { ...next, id: def.id, profile: def.profile, authCookies: def.authCookies },
+      { ...next, id: def.id, profile: def.profile },
       sourceFile.get(def) ?? `${def.id}.json`,
     );
   }

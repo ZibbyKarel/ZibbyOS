@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button, SettingsPanel, Stack, Typography } from "@zibby/design-system";
 import type { ConnectedService } from "@zibby/contracts";
 import { ConnectedServiceDialog } from "../../connected-services/components/ConnectedServiceDialog";
+import { ConnectedServiceDeleteDialog } from "../../connected-services/components/ConnectedServiceDeleteDialog";
 import { ConnectedServicesList } from "../../connected-services/components/ConnectedServicesList";
 import { accountHref } from "../../integrations/accountHref";
 import { AccountCards } from "../../integrations/components/AccountCards";
@@ -29,6 +30,7 @@ export function AccountsSection() {
   const [connecting, setConnecting] = useState(false);
   // `null` = adding a new service; a service = editing it; undefined = closed.
   const [serviceForm, setServiceForm] = useState<ConnectedService | null>();
+  const [deleting, setDeleting] = useState<ConnectedService>();
 
   return (
     <SettingsPanel
@@ -65,7 +67,11 @@ export function AccountsSection() {
           <Typography size="xs" type="note" variant="tertiary">
             {t("servicesHint")}
           </Typography>
-          <ConnectedServicesList onEdit={setServiceForm} rowKeyPrefix="settings-accounts" />
+          <ConnectedServicesList
+            onDelete={setDeleting}
+            onEdit={setServiceForm}
+            rowKeyPrefix="settings-accounts"
+          />
         </Stack>
       </Stack>
 
@@ -74,6 +80,9 @@ export function AccountsSection() {
           onClose={() => setServiceForm(undefined)}
           service={serviceForm ?? undefined}
         />
+      )}
+      {deleting && (
+        <ConnectedServiceDeleteDialog onClose={() => setDeleting(undefined)} service={deleting} />
       )}
       {connecting && (
         <ConnectWizardSheet

@@ -12,6 +12,7 @@ export enum ConnectedServicesListTestId {
   Connect = "connected-services-connect",
   Status = "connected-services-status",
   Edit = "connected-services-edit",
+  Delete = "connected-services-delete",
   Icon = "connected-services-icon",
 }
 
@@ -23,6 +24,8 @@ export interface ConnectedServicesListProps {
   rowKeyPrefix: string;
   /** Shows a per-row edit button (Settings → Accounts); the bridge widget leaves it out. */
   onEdit?: (service: ConnectedService) => void;
+  /** Shows a per-row delete button (Settings → Accounts); the caller confirms. */
+  onDelete?: (service: ConnectedService) => void;
 }
 
 /**
@@ -51,7 +54,11 @@ function ServiceIcon({ service }: { service: ConnectedService }) {
  * in a new tab; a disconnected row's Connect launches its login in Chrome and the list is polled
  * (5s, up to 3 min) until it turns connected. Shared by the bridge widget and Settings → Accounts.
  */
-export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedServicesListProps) {
+export function ConnectedServicesList({
+  rowKeyPrefix,
+  onEdit,
+  onDelete,
+}: ConnectedServicesListProps) {
   const t = useTranslations("bridge.widgets.connectedServices");
   const clicked = useRef<Record<string, number>>({});
   const [signingIn, setSigningIn] = useState<ReadonlySet<string>>(new Set());
@@ -99,6 +106,16 @@ export function ConnectedServicesList({ rowKeyPrefix, onEdit }: ConnectedService
                     icon="edit"
                     intent="ghost"
                     onClick={() => onEdit(s)}
+                    size="sm"
+                  />
+                ) : null}
+                {onDelete ? (
+                  <Button
+                    aria-label={t("deleteLabel", { name: s.name })}
+                    data-testid={ConnectedServicesListTestId.Delete}
+                    icon="trash"
+                    intent="ghost"
+                    onClick={() => onDelete(s)}
                     size="sm"
                   />
                 ) : null}

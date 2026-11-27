@@ -82,6 +82,7 @@ describe("ConnectedServicesService", () => {
     profile: "kdp",
     authCookies: AUTH,
   };
+  const mcpDir = () => path.join(tmp, "mcp");
   function svc(launch = vi.fn().mockResolvedValue(undefined)) {
     const dir = path.join(tmp, "defs");
     mkdirSync(dir, { recursive: true });
@@ -94,7 +95,7 @@ describe("ConnectedServicesService", () => {
     );
     return {
       launch,
-      s: new ConnectedServicesService(dir, path.join(tmp, "profiles"), launch),
+      s: new ConnectedServicesService(dir, path.join(tmp, "profiles"), mcpDir(), launch),
     };
   }
 
@@ -108,13 +109,19 @@ describe("ConnectedServicesService", () => {
         landingUrl: def.landingUrl,
         loginUrl: def.loginUrl,
         profile: "kdp",
+        authCookies: AUTH,
         status: "disconnected",
       },
     ]);
   });
 
   it("returns an empty list when the dir is missing", async () => {
-    const s = new ConnectedServicesService(path.join(tmp, "none"), tmp, vi.fn());
+    const s = new ConnectedServicesService(
+      path.join(tmp, "none"),
+      tmp,
+      path.join(tmp, "mcp"),
+      vi.fn(),
+    );
     expect(await s.list()).toEqual([]);
   });
 
@@ -147,7 +154,22 @@ describe("ConnectedServicesService", () => {
       landingUrl: "https://shop.example",
       loginUrl: "https://shop.example/a/login",
       profile: "sumava-shop",
+      authCookies: [],
       status: "disconnected",
+    });
+    const mcp = JSON.parse(
+      readFileSync(path.join(mcpDir(), "playwright-sumava-shop.json"), "utf8"),
+    );
+    expect(mcp).toMatchObject({
+      id: "playwright-sumava-shop",
+      type: "stdio",
+      enabled: true,
+      grantOnly: true,
+      args: [
+        "--user-data-dir",
+        path.join(tmp, "profiles", "sumava-shop"),
+        "--allow-unrestricted-file-access",
+      ],
     });
     const file = JSON.parse(readFileSync(path.join(tmp, "defs", "sumava-shop.json"), "utf8"));
     expect(file.authCookies).toEqual([]);
@@ -182,5 +204,54 @@ describe("ConnectedServicesService", () => {
     await expect(s.update("nope", { name: "x" })).rejects.toBeInstanceOf(
       ConnectedServiceNotFoundError,
     );
+  });
+
+  it("create stores authCookies", async () => {
+    const { s } = svc();
+    const cookies = [{ host: ".etsy.com", names: ["uaid"] }];
+    const res = await s.create({
+      name: "Etsy",
+      loginUrl: "https://www.etsy.com/signin",
+      authCookies: cookies,
+    });
+    expect(res.authCookies).toEqual(cookies);
+  });
+
+  it("create never overwrites an existing MCP file and does not claim it", async () => {
+    const { s } = svc();
+    mkdirSync(mcpDir(), { recursive: true });
+    const file = path.join(mcpDir(), "playwright-etsy.json");
+    writeFileSync(file, "hand-made");
+    await s.create({ name: "Etsy", loginUrl: "https://www.etsy.com/signin" });
+    expect(readFileSync(file, "utf8")).toBe("hand-made");
+    await s.remove("etsy");
+    expect(readFileSync(file, "utf8")).toBe("hand-made");
+  });
+
+  it("remove deletes the definition and its generated MCP file but keeps the profile", async () => {
+    const { s } = svc();
+    await s.create({ name: "Etsy", loginUrl: "https://www.etsy.com/signin" });
+    const profile = path.join(tmp, "profiles", "etsy");
+    mkdirSync(profile, { recursive: true });
+    await s.remove("etsy");
+    expect(existsSync(path.join(tmp, "defs", "etsy.json"))).toBe(false);
+    expect(existsSync(path.join(mcpDir(), "playwright-etsy.json"))).toBe(false);
+    expect(existsSync(profile)).toBe(true);
+    expect((await s.list()).map((d) => d.id)).toEqual(["kdp"]);
+  });
+
+  it("remove leaves the MCP file of a hand-written definition and rejects unknown ids", async () => {
+    const { s } = svc();
+    mkdirSync(mcpDir(), { recursive: true });
+    writeFileSync(path.join(mcpDir(), "playwright-kdp.json"), "{}");
+    await s.remove("kdp");
+    expect(existsSync(path.join(mcpDir(), "playwright-kdp.json"))).toBe(true);
+    await expect(s.remove("kdp")).rejects.toBeInstanceOf(ConnectedServiceNotFoundError);
+  });
+
+  it("update replaces authCookies", async () => {
+    const { s } = svc();
+    const res = await s.update("kdp", { authCookies: [] });
+    expect(res.authCookies).toEqual([]);
   });
 });

@@ -1855,7 +1855,14 @@
         "add": "Add",
         "save": "Save",
         "exists": "A service with this name already exists.",
-        "failed": "Saving failed."
+        "failed": "Saving failed.",
+        "authCookies": "Auth cookies (optional)",
+        "authCookiesHint": "One per line: host: cookie1, cookie2. Empty = any long-lived cookie counts as signed in."
+      },
+      "deleteDialog": {
+        "title": "Delete {name}?",
+        "body": "Removes the service and its generated Playwright MCP server. The browser profile “{profile}” and its sign-in stay on disk.",
+        "failed": "Deleting failed."
       }
     }
   },
@@ -4442,7 +4449,9 @@
         "connecting": "Opening sign-in…",
         "signInHint": "Sign in in the Chrome window, then close it",
         "connectLabel": "Connect {name}",
-        "editLabel": "Edit {name}"
+        "editLabel": "Edit {name}",
+        "deleteLabel": "Delete service {name}",
+        "add": "Add service"
       },
       "goals": {
         "goals": "Goals",

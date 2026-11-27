@@ -4,10 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, within } from "../../../test/render";
 import type { BridgeWidget } from "../grid/layout";
 import { ConnectedServicesListTestId as ConnectedServicesWidgetTestId } from "../../connected-services/components/ConnectedServicesList";
-import { ConnectedServicesWidget } from "./ConnectedServicesWidget";
+import {
+  ConnectedServiceDeleteDialog,
+  ConnectedServiceDeleteDialogTestId,
+} from "../../connected-services/components/ConnectedServiceDeleteDialog";
+import { ConnectedServiceDialogTestId } from "../../connected-services/components/ConnectedServiceDialog";
+import {
+  ConnectedServicesWidget,
+  ConnectedServicesWidgetTestId as WidgetTestId,
+} from "./ConnectedServicesWidget";
 import type { BridgeWidgetProps } from "./registry";
 
 const connect = vi.hoisted(() => vi.fn());
+const del = vi.hoisted(() => vi.fn());
 vi.mock("../../connected-services/queries", () => ({
   useConnectedServicesQuery: () => ({
     isPending: false,
@@ -35,6 +44,9 @@ vi.mock("../../connected-services/queries", () => ({
 }));
 vi.mock("../../connected-services/mutations", () => ({
   useConnectServiceMutation: () => ({ mutate: connect, isPending: false }),
+  useCreateConnectedServiceMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateConnectedServiceMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteConnectedServiceMutation: () => ({ mutate: del, isPending: false }),
 }));
 
 const widget: BridgeWidget = { id: "w-c", type: "connectedServices", x: 0, y: 0, w: 4, h: 6 };
@@ -97,5 +109,34 @@ describe("ConnectedServicesWidget", () => {
     expect(screen.getAllByTestId(IconTestId.Root).some((i) => i.dataset.icon === "plug")).toBe(
       true,
     );
+  });
+
+  it("the add button opens the add-service dialog", () => {
+    renderWithProviders(<ConnectedServicesWidget {...props} />);
+    expect(screen.queryByTestId(ConnectedServiceDialogTestId.Name)).toBeNull();
+    fireEvent.click(screen.getByTestId(WidgetTestId.Add));
+    expect(screen.getByTestId(ConnectedServiceDialogTestId.Name)).toBeTruthy();
+    expect(screen.getByTestId(ConnectedServiceDialogTestId.AuthCookies)).toBeTruthy();
+  });
+
+  it("delete asks for confirmation and says the profile stays", () => {
+    renderWithProviders(
+      <ConnectedServiceDeleteDialog
+        onClose={vi.fn()}
+        service={{
+          id: "figma",
+          name: "Figma",
+          landingUrl: "https://figma.com",
+          loginUrl: "https://figma.com/login",
+          profile: "figma",
+          authCookies: [],
+          status: "disconnected",
+        }}
+      />,
+    );
+    expect(screen.getByRole("dialog").textContent).toContain("figma");
+    expect(del).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId(ConnectedServiceDeleteDialogTestId.Confirm));
+    expect(del.mock.calls[0]?.[0]).toEqual({ params: { id: "figma" } });
   });
 });
