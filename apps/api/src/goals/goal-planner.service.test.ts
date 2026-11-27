@@ -10,7 +10,7 @@ import { formatClaudeStreamLine } from "../runner/claude-stream-format";
 import { formatOpencodeStreamLine } from "../runner/opencode-stream-format";
 import type { LoggerService } from "../shared/logging/logger.service";
 import { GoalActionExecutor } from "./goal-action-executor";
-import type { GoalPlannerContext } from "./goal-planner";
+import { type GoalPlannerContext, PlannerLimitError } from "./goal-planner";
 import { GoalPlannerService, buildGoalPlanPrompt, parseGoalPlan } from "./goal-planner.service";
 
 const GOAL: Goal = {
@@ -234,6 +234,7 @@ describe("GoalPlannerService", () => {
   let vault: VaultService;
   let log: string;
   let status: string;
+  let resumeAt: number | undefined;
   const recordCost = vi.fn(async () => undefined);
   const stop = vi.fn();
   const started: { prompt: string; project: string; terms?: string[] }[] = [];
@@ -254,7 +255,7 @@ describe("GoalPlannerService", () => {
         started.push({ prompt, project, terms });
         return { runId: "goal-planner_1" };
       },
-      get: () => ({ status, costUsd: 0.12 }),
+      get: () => ({ status, costUsd: 0.12, resumeAt }),
       readLog: async () => ({ content: log, nextOffset: 0, done: true }),
       stop,
     } as unknown as AgentRunnerService;
@@ -266,6 +267,7 @@ describe("GoalPlannerService", () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "goal-planner-"));
     vault = new VaultService(dir);
     status = "done";
+    resumeAt = undefined;
     started.length = 0;
     recordCost.mockClear();
     stop.mockClear();
@@ -319,6 +321,17 @@ describe("GoalPlannerService", () => {
     status = "error";
     log = block({ plan: "p", feasibility: "ok", actions: [] });
     await expect(service().plan(context())).rejects.toThrow(/ended error/);
+  });
+
+  it("reports a usage-limit pause with the reset time and drops the run", async () => {
+    status = "paused-limit";
+    resumeAt = Date.parse("2026-11-27T17:10:00.000Z");
+    const error = await service()
+      .plan(context())
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PlannerLimitError);
+    expect((error as PlannerLimitError).resumeAt).toBe(resumeAt);
+    expect(stop).toHaveBeenCalledWith("goal-planner_1");
   });
 
   it("stops the run when the engine aborts", async () => {

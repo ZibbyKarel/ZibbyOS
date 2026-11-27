@@ -191,6 +191,7 @@ The config file contains:
     { "action": "<each tool the agent may not use>", "resource": "*", "effect": "deny" }
   ],
   "plugins": ["<api>/runner/opencode-gate-plugin"],
+  "websearch": { "provider": "exa" },
   "mcp": {
     "servers": {
       "<id>": {
@@ -208,6 +209,11 @@ A remote MCP server is written as `{ type: "remote", url, headers, oauth: false,
 codemode: false }`. The config never goes to `~/.config/opencode`, and never into the env
 (`OPENCODE_CONFIG_CONTENT` would be inherited by every shell command the agent runs, MCP
 secrets included).
+
+`websearch` is always set: with no provider chosen, opencode's first search asks which one
+to use, and a headless run fails cancelling that form ("Cancelled a request for input this
+run cannot answer: Web Search"). The operator chose Exa (keyless); it receives the search
+queries of every opencode run whose agent has `WebSearch`.
 
 `--standalone` is mandatory. Without it the run attaches to opencode's background service,
 which ignores per-run config.
@@ -447,10 +453,9 @@ Any other opencode model never waits on the window:
   (`pauseAtRollingPct` / `pauseAtWeeklyPct`, [budget.md](./budget.md)); per-project caps
   still apply.
 
-A `claude-agent/*` run behaves exactly like a claude run in all four places. Not
-verified live: the exact text Claude's limit error has inside opencode's JSONL (the
-line scan relies on `detectLimit`); the snapshot-based reclassification of an errored
-run does not depend on it.
+A `claude-agent/*` run behaves exactly like a claude run in all four places. Inside
+opencode's JSONL the limit error reads "You've hit your 5-hour limit · … Resets at
+<ISO>.", which `detectLimit` matches (the ISO time becomes `resumeAt`).
 
 ## Operator token
 

@@ -1163,6 +1163,8 @@ describe("buildOpencodeCommand", () => {
       { action: "skill", resource: "*", effect: "deny" },
     ]);
     expect(cfg.plugins).toHaveLength(1);
+    // Unset, opencode asks which provider to use and the headless run dies on that form.
+    expect(cfg.websearch).toEqual({ provider: "exa" });
     expect(cfg.plugins[0]).toMatch(/opencode-gate-plugin$/);
     expect(cfg.agents.zibby.mode).toBe("primary");
     expect(cfg.agents.zibby.system).toContain(OPERATING_CONTRACT);

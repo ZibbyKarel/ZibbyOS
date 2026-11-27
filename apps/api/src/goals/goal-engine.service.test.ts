@@ -19,7 +19,7 @@ import { fakeSystemConfigStore } from "../system/system-config.fixture";
 import { GoalActionExecutor } from "./goal-action-executor";
 import { GoalEngineService, PLAN_TIMEOUT_MS } from "./goal-engine.service";
 import { GoalFactsService, TaskFactsSource } from "./goal-facts";
-import type { GoalPlanner, GoalPlannerContext } from "./goal-planner";
+import { type GoalPlanner, type GoalPlannerContext, PlannerLimitError } from "./goal-planner";
 import { GoalWorkHandlers } from "./goal-work-handlers";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
@@ -181,6 +181,28 @@ describe("GoalEngineService", () => {
       tasks: [{ id: "t1", status: "dispatched", outcome: "error", error: "no local clone" }],
       wakeAt: null,
     });
+  });
+
+  it("waits out a usage limit instead of counting it as a planner failure", async () => {
+    await create();
+    planner.plan.mockRejectedValue(new PlannerLimitError("r1", later(10).getTime()));
+    await engine.tick(NOW);
+    const inst = (await state()).instances._;
+    expect(inst).toMatchObject({ status: "waiting", limitedUntil: later(10).toISOString() });
+    expect(inst?.planFailures).toBeUndefined();
+    // Neither a changed fact nor a dirty ref buys another run inside the window.
+    await setInstance({ taskIds: ["t1"] });
+    engine.markDirty("t1");
+    await engine.tick(later(1));
+    await engine.tick(later(2));
+    await engine.tick(later(3));
+    expect(planner.plan).toHaveBeenCalledTimes(1);
+    expect((await state()).instances._?.status).toBe("waiting");
+
+    planner.plan.mockResolvedValue({ plan: "", feasibility: "ok", actions: [] });
+    await engine.tick(later(11));
+    expect(planner.plan).toHaveBeenCalledTimes(2);
+    expect((await state()).instances._?.limitedUntil).toBeUndefined();
   });
 
   it("a dirty ref of the instance forces a plan; an unrelated one does not", async () => {

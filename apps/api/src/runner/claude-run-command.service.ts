@@ -745,6 +745,9 @@ export class ClaudeRunCommandService {
       // Global servers the run did not mount stay off: their tool schemas bloat every prompt.
       ...(Object.keys(allServers).length ? { mcp: { servers: allServers } } : {}),
       compaction: { auto: true, buffer: `${100 - pct}%` },
+      // Unset, opencode asks "allow web search?" and a headless run dies cancelling the form.
+      // The operator picked Exa (keyless): it sees the search queries.
+      websearch: { provider: "exa" },
       ...bluecodeConfigPart(),
     };
     const args = [

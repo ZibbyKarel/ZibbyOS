@@ -16,6 +16,8 @@ const NO_HIT: LimitDetection = { hit: false, resetsAt: null };
 const PATTERNS = [
   /** Claude Code's own message, with a trailing reset epoch (seconds). */
   /Claude(?:\s+AI)?\s+usage\s+limit\s+reached\s*\|\s*(\d+)/i,
+  /** The window message (also via opencode's `claude-agent/*`), with an ISO reset when named. */
+  /You(?:'|’)ve\s+hit\s+your\s+(?:[\w-]+\s+){0,2}limit\b(?:[^\n"]*?Resets\s+at\s+(\d{4}-\d\d-\d\dT[\d:.]+Z))?/i,
   /** Same message without a parseable reset. */
   /Claude(?:\s+AI)?\s+usage\s+limit\s+reached/i,
   /** Generic rate-limit phrasing. */
@@ -23,6 +25,13 @@ const PATTERNS = [
   /** A bare HTTP 429. */
   /\b(?:HTTP\s*)?429\b/,
 ] as const;
+
+/** A captured reset: epoch seconds or an ISO timestamp → epoch ms. */
+function parseReset(reset: string | undefined): number | null {
+  if (reset === undefined) return null;
+  const ms = /^\d+$/.test(reset) ? Number(reset) * 1000 : Date.parse(reset);
+  return Number.isFinite(ms) ? ms : null;
+}
 
 /**
  * Scan a chunk of `claude` run output for a usage-limit signal (Layer 2 of the
@@ -35,11 +44,7 @@ export function detectLimit(text: string): LimitDetection {
   for (const pattern of PATTERNS) {
     const match = pattern.exec(text);
     if (!match) continue;
-    const epochSeconds = match[1];
-    return {
-      hit: true,
-      resetsAt: epochSeconds === undefined ? null : Number(epochSeconds) * 1000,
-    };
+    return { hit: true, resetsAt: parseReset(match[1]) };
   }
   return NO_HIT;
 }

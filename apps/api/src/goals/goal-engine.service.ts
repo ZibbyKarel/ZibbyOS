@@ -41,7 +41,7 @@ import {
   isTaskInFlight,
   taskFactsOf,
 } from "./goal-facts";
-import { GOAL_PLANNER, type GoalPlanner, goalPlanNoteId } from "./goal-planner";
+import { GOAL_PLANNER, type GoalPlanner, PlannerLimitError, goalPlanNoteId } from "./goal-planner";
 import { GoalStateStore } from "./goal-state.store";
 import { GoalsStorageService } from "./goals.storage.service";
 import { GoalDecisionService } from "./goal-decision.service";
@@ -301,6 +301,10 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       return this.apply(goal, state, key, before, ctx);
     }
 
+    // Inside a usage-limit window every planner run would only hit the limit again.
+    if (before.limitedUntil && now.getTime() < Date.parse(before.limitedUntil)) return;
+    delete work.limitedUntil;
+
     const fingerprint = goalFingerprint(facts);
     const wakeDue = before.wakeAt !== undefined && now.getTime() >= Date.parse(before.wakeAt);
     const isDirty = instanceRefs(before).some((ref) => dirty.has(ref));
@@ -349,9 +353,15 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       plan = parsed.data;
     } catch (error) {
       // Fingerprint cleared, so the next tick retries even when it was only a dirty ref.
+      delete work.fingerprint;
+      if (error instanceof PlannerLimitError) {
+        work.status = "waiting";
+        work.limitedUntil = new Date(error.resumeAt).toISOString();
+        ctx.timeline("note", `Usage limit reached; planning again after ${work.limitedUntil}.`);
+        return this.apply(goal, state, key, before, ctx);
+      }
       const failures = (before.planFailures ?? 0) + 1;
       work.planFailures = failures;
-      delete work.fingerprint;
       ctx.timeline(
         "plan-failed",
         `Planner failed (${failures}/${MAX_PLAN_FAILURES}): ${errorText(error)}`,

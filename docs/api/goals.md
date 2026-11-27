@@ -82,6 +82,10 @@ report "Not done: <type> — Autopilot is paused."). Paused goals can miss a dea
 is written while paused, a one-off goal parks on the first tick after resume, and a standing goal
 whose cycle ended is rolled to the current cycle without a deadline park.
 
+**Usage limit.** A planner run that ends `paused-limit` is not a planner failure: it is
+stopped, the instance goes `waiting` with `limitedUntil` (the window's reset) and no planner
+run happens before then, whatever changes. An operator wake or resume clears it.
+
 **Autonomy ("starting and deciding goals", `autoDecideGoals`).** Every instance runs under the
 effective `autoDecideGoals` at its place (project > company > global, under the Autopilot
 master switch; a `_` instance resolves at global), read by

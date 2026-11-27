@@ -18,6 +18,17 @@ describe("detectLimit", () => {
     expect(out.resetsAt).toBeNull();
   });
 
+  it("matches the window message opencode's claude-agent provider prints", () => {
+    const out = detectLimit(
+      "You've hit your 5-hour limit · resets 6:10pm (Europe/Prague) Resets at 2026-11-27T17:10:00.000Z.",
+    );
+    expect(out).toEqual({ hit: true, resetsAt: Date.parse("2026-11-27T17:10:00.000Z") });
+    expect(detectLimit("You've hit your weekly limit · resets Mon")).toEqual({
+      hit: true,
+      resetsAt: null,
+    });
+  });
+
   it("matches generic rate-limit phrasing", () => {
     expect(detectLimit("Error: rate limited, slow down").hit).toBe(true);
     expect(detectLimit("429 Too Many Requests").hit).toBe(true);

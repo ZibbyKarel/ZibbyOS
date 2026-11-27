@@ -152,6 +152,7 @@ export class GoalStateStore {
       const state = await this.readForWrite(goalId, startedAt);
       for (const instance of Object.values(state.instances)) {
         delete instance.fingerprint;
+        delete instance.limitedUntil;
         if (instance.held && instance.status !== "parked" && instance.status !== "done") {
           instance.operatorWake = true;
         }
@@ -185,6 +186,7 @@ export class GoalStateStore {
       // Budget grace ends once one more run is recorded past this point.
       target.resumedRuns = target.taskIds.length;
       delete target.planFailures;
+      delete target.limitedUntil;
       // A wake that landed before the park must not buy the resumed instance an extra semi pass.
       delete target.operatorWake;
       await this.writeUnlocked(dir, state);

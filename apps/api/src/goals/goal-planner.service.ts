@@ -17,7 +17,12 @@ import { ProjectLocalUnresolvedError } from "../projects/projects.errors";
 import { tokenize } from "../tasks/keyword-scorer";
 import { LoggerService, type ScopedLogger } from "../shared/logging/logger.service";
 import { GoalActionExecutor, SPENDING_ACTIONS } from "./goal-action-executor";
-import { type GoalPlanner, type GoalPlannerContext, goalPlanNoteId } from "./goal-planner";
+import {
+  type GoalPlanner,
+  type GoalPlannerContext,
+  PlannerLimitError,
+  goalPlanNoteId,
+} from "./goal-planner";
 
 /** The vault MOC every plan note is linked from. */
 export const GOALS_MOC_ID = "goals";
@@ -282,6 +287,10 @@ export class GoalPlannerService implements GoalPlanner {
     try {
       await ctx.recordRun(run.runId);
       const status = await this.waitFor(run.runId, ctx.signal);
+      const { resumeAt } = this.runner.get(run.runId);
+      if (status === "paused-limit" && resumeAt != null) {
+        throw new PlannerLimitError(run.runId, resumeAt);
+      }
       if (status !== "done") throw new Error(`planner run ${run.runId} ended ${status}`);
       return (await this.runner.readLog(run.runId, 0)).content;
     } finally {
@@ -313,8 +322,9 @@ export class GoalPlannerService implements GoalPlanner {
   private async waitFor(runId: string, signal: AbortSignal): Promise<string> {
     try {
       for (;;) {
-        const { status } = this.runner.get(runId);
-        if (status !== "running") {
+        const { status, resumeAt } = this.runner.get(runId);
+        // A limit pause gets its reset time a moment after the status flips.
+        if (status !== "running" && !(status === "paused-limit" && resumeAt == null)) {
           if (status === "awaiting-approval" || status === "paused-limit") this.stop(runId);
           return status;
         }

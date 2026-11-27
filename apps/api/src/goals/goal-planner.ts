@@ -53,6 +53,17 @@ export interface GoalPlanner {
   plan(ctx: GoalPlannerContext): Promise<unknown>;
 }
 
+/** The planner's run hit the model's usage limit: wait until `resumeAt`, not a failure. */
+export class PlannerLimitError extends Error {
+  constructor(
+    runId: string,
+    readonly resumeAt: number,
+  ) {
+    super(`planner run ${runId} hit the usage limit`);
+    this.name = "PlannerLimitError";
+  }
+}
+
 /** DI token for the {@link GoalPlanner}. */
 export const GOAL_PLANNER = "GOAL_PLANNER";
 
