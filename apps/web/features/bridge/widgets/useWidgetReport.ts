@@ -19,6 +19,9 @@ interface Report {
   refreshing?: boolean;
   /** The fetch failed — an error state is shown, so the widget must not collapse as empty. */
   failed?: boolean;
+  /** Never report empty although `count` is 0 (e.g. a filter hides everything but the widget
+   *  still holds data and its filter bar must stay reachable). Not an error state. */
+  keepOpen?: boolean;
   /** Something is red — the frame gets a rose border. */
   alert?: boolean;
   /** A filter pick is applied — the header filters button shows its marker. */
@@ -36,12 +39,13 @@ export function useWidgetReport(
     onRefresh,
     refreshing,
     failed,
+    keepOpen,
     filtersActive,
     alert,
   }: Report,
   { onEmptyChange, onCountChange }: Pick<BridgeWidgetProps, "onEmptyChange" | "onCountChange">,
 ) {
-  const empty = !loading && !count && !failed;
+  const empty = !loading && !count && !failed && !keepOpen;
   useEffect(() => onEmptyChange(empty), [empty, onEmptyChange]);
   useEffect(
     () =>

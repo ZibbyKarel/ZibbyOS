@@ -8,14 +8,12 @@ import {
   type BoardPillTone,
   BoardRow,
   BoardText,
-  Checkbox,
   Icon,
   IconBadge,
   IndentRail,
-  Stack,
   StateGlyph,
   type StateGlyphTone,
-  Typography,
+  ToggleField,
 } from "@zibby/design-system";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode, useCallback, useMemo } from "react";
@@ -93,17 +91,13 @@ export function PrsWidgetSettings({ draft, onChange }: WidgetSettingsProps) {
   return (
     <>
       <WidgetSortSettings draft={draft} onChange={onChange} />
-      <Stack align="center" direction="row" gap="100">
-        <Checkbox
-          checked={draft.showStacks !== false}
-          data-testid={PrsWidgetSettingsTestId.ShowStacks}
-          label={t("showStacks")}
-          onChange={(showStacks) => onChange({ ...draft, showStacks })}
-        />
-        <Typography as="span" size="sm" type="note">
-          {t("showStacks")}
-        </Typography>
-      </Stack>
+      <ToggleField
+        checked={draft.showStacks !== false}
+        data-testid={PrsWidgetSettingsTestId.ShowStacks}
+        label={t("showStacks")}
+        labelCase="normal"
+        onChange={(showStacks) => onChange({ ...draft, showStacks })}
+      />
     </>
   );
 }
@@ -149,7 +143,7 @@ export function PrsWidget({
     [widget.id, prsQuery.data, filters, pick, now, sort],
   );
   // The header counts only the PRs matching the picked filters; a pick that matches nothing must
-  // still not collapse the widget (and its filter bar with it) — hence `failed` while total > 0.
+  // still not collapse the widget (and its filter bar with it) — hence `keepOpen` while total > 0.
 
   useWidgetReport(
     {
@@ -158,7 +152,7 @@ export function PrsWidget({
       loading: prsQuery.isPending,
       count: prsQuery.isPending ? undefined : matched,
       you,
-      failed: total > 0,
+      keepOpen: total > 0,
       filtersActive: filtersChanged || sortChanged,
     },
     { onEmptyChange, onCountChange },

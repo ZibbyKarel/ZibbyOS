@@ -109,6 +109,7 @@ export function RunsWidget({
 }: BridgeWidgetProps) {
   const t = useTranslations("bridge.widgets.runs");
   const tRuns = useTranslations("runs");
+  const tk = useTranslations();
   const locale = useLocale();
   const now = useNow(60_000);
   const liveSnapshot = useLiveRunsSnapshot();
@@ -129,6 +130,8 @@ export function RunsWidget({
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   // Pause / resume / stop straight from a running card (no selection to move: callbacks no-op).
   const runActions = useRunActions(noop, noop);
+  // The Stop confirm is rendered by the widget, not by the (hover-only) card controls.
+  const [stopTarget, setStopTarget] = useState<RunView | null>(null);
 
   const { data: workflows } = useWorkflowsQuery();
   const phasesByWorkflow = useMemo(
@@ -220,6 +223,21 @@ export function RunsWidget({
 
   return (
     <>
+      {stopTarget && (
+        <ConfirmDeleteDialog
+          body={tRuns("stopBody")}
+          cancelLabel={tk("common.cancel")}
+          confirmLabel={tRuns("stop")}
+          icon="stop"
+          onCancel={() => setStopTarget(null)}
+          onConfirm={() => {
+            runActions.stop(stopTarget);
+            setStopTarget(null);
+          }}
+          pending={runActions.stopping}
+          title={tRuns("stopTitle")}
+        />
+      )}
       {active.length === 0 ? (
         <StatusRailNow
           aside={
@@ -234,6 +252,7 @@ export function RunsWidget({
               actions={
                 <RunHoverActions
                   actions={runActions}
+                  onStop={setStopTarget}
                   rowKey={r.key}
                   run={live.find((x) => x.runId === r.runId)}
                   title={r.title}
@@ -369,16 +388,16 @@ function RunHoverActions({
   run,
   rowKey,
   title,
+  onStop,
 }: {
   actions: RunActions;
   run: RunView | undefined;
   rowKey: string;
   title: string;
+  /** Asks the widget to confirm stopping `run` (the dialog lives outside the hover slot). */
+  onStop: (run: RunView) => void;
 }) {
   const t = useTranslations("runs.detail.action");
-  const tRuns = useTranslations("runs");
-  const tk = useTranslations();
-  const [confirmStop, setConfirmStop] = useState(false);
   if (!run) return null;
   const pending = run.status === "running" && run.pauseRequested === true;
   const named = (label: string) => `${label}: ${title}`;
@@ -414,24 +433,9 @@ function RunHoverActions({
           data-testid={`${RunsWidgetTestId.Stop}-${rowKey}`}
           icon="stop"
           intent="ghost"
-          onClick={() => setConfirmStop(true)}
+          onClick={() => onStop(run)}
           size="sm"
           title={t("stop")}
-        />
-      )}
-      {confirmStop && (
-        <ConfirmDeleteDialog
-          body={tRuns("stopBody")}
-          cancelLabel={tk("common.cancel")}
-          confirmLabel={tRuns("stop")}
-          icon="stop"
-          onCancel={() => setConfirmStop(false)}
-          onConfirm={() => {
-            setConfirmStop(false);
-            actions.stop(run);
-          }}
-          pending={actions.stopping}
-          title={tRuns("stopTitle")}
         />
       )}
     </>

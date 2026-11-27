@@ -1,8 +1,13 @@
 import { apiClient } from "../../../state/api";
 import { selectApiResponseBody } from "../../../state/selectApiResponseBody";
 
+/** Prefix of every project's CI cache entry. */
+export function getProjectCiQueryKeyRoot() {
+  return ["project-ci"] as const;
+}
+
 export function getProjectCiQueryKey(projectId: string) {
-  return ["project-ci", projectId] as const;
+  return [...getProjectCiQueryKeyRoot(), projectId] as const;
 }
 
 /** Base-branch CI is polled STATE (cached ~60 s server-side), like `useCiStatusQuery`. */

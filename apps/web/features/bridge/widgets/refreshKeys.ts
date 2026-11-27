@@ -13,6 +13,7 @@ import { getNotePinsQueryKey } from "../../notes/queries/useNotePinsQuery";
 import { getNoteTreeQueryKey } from "../../notes/queries/useNoteTreeQuery";
 import { getPinsQueryKey } from "../../pins/queries/usePinsQuery";
 import { getBudgetQueryKey } from "../../projects/queries/keys";
+import { getProjectCiQueryKeyRoot } from "../../projects/queries/useProjectCiQuery";
 import { getProjectsQueryKey } from "../../projects/queries/useProjectsQuery";
 import { getProposalsQueryKey } from "../../proposals/queries/useProposalsQuery";
 import { taskRunsRootKey } from "../../runs/queries/keys";
@@ -43,7 +44,7 @@ export const WIDGET_REFRESH_KEYS: Partial<Record<WidgetType, readonly QueryKey[]
     getProjectsQueryKey(),
   ],
   mentions: [getChannelItemsQueryKey()],
-  projectStatus: [["project-ci"], getProjectsQueryKey()],
+  projectStatus: [getProjectCiQueryKeyRoot(), getProjectsQueryKey()],
   notes: [getNotePinsQueryKey(), getNoteTreeQueryKey()],
   connectedServices: [getConnectedServicesQueryKey()],
   goals: [getGoalsQueryKey()],
