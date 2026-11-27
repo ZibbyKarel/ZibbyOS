@@ -168,6 +168,7 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       "machine_rename",
       "open_folder",
       "open_maps",
+      "open_url",
       "propose_pr_replies",
       "publish_canvas",
       "read_knowledge_base_note",
@@ -350,6 +351,33 @@ describe("POST /api/chat/mcp — ChatMcpAuthGuard", () => {
       arguments: { prUrl: "https://example.com/x", replies: [{ threadId: "PRRT_a", body: "x" }] },
     });
     expect(bad.isError).toBe(true);
+    off();
+    await client.close();
+  });
+
+  it("open_url pushes a web widget and rejects non-http(s) URLs", async () => {
+    const shown: unknown[] = [];
+    const off = toolResults.onWidget("conv-web", (w) => shown.push(w));
+    const client = new Client({ name: "chat-mcp-test-client", version: "1.0.0" });
+    await client.connect(
+      new StreamableHTTPClientTransport(
+        new URL(`${baseUrl}/api/chat/mcp?conversationId=conv-web`),
+        {
+          requestInit: { headers: { Authorization: `Bearer ${auth.bearerToken}` } },
+        },
+      ),
+    );
+    const ok = await client.callTool({
+      name: "open_url",
+      arguments: { url: "https://example.com/a" },
+    });
+    expect(ok.isError).toBeFalsy();
+    expect(shown).toEqual([{ kind: "web", url: "https://example.com/a" }]);
+    for (const url of ["file:///etc/passwd", "javascript:alert(1)", "example.com"]) {
+      const bad = await client.callTool({ name: "open_url", arguments: { url } });
+      expect(bad.isError).toBe(true);
+    }
+    expect(shown).toHaveLength(1);
     off();
     await client.close();
   });

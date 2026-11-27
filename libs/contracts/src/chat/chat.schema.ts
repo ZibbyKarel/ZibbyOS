@@ -68,6 +68,7 @@ export const CHAT_WIDGET_KINDS = [
   "todo",
   "pr-replies",
   "canvas",
+  "web",
 ] as const;
 export const ChatWidgetKindSchema = z.enum(CHAT_WIDGET_KINDS);
 export type ChatWidgetKind = z.infer<typeof ChatWidgetKindSchema>;
@@ -88,6 +89,21 @@ export type ChatPrReplyDraft = z.infer<typeof ChatPrReplyDraftSchema>;
 
 /** Most rows a list widget shows in the thread. */
 export const MAX_CHAT_WIDGET_ROWS = 10;
+
+/** An absolute http(s) URL — the only kind a chat browser card may open. */
+export const HttpUrlSchema = z
+  .string()
+  .max(2048)
+  .refine(
+    (v) => {
+      try {
+        return ["http:", "https:"].includes(new URL(v).protocol);
+      } catch {
+        return false;
+      }
+    },
+    { message: "Only http(s) URLs" },
+  );
 
 const widgetBase = {
   /** Optional heading override; the card has a localized default per kind. */
@@ -155,6 +171,11 @@ export const ChatWidgetSchema = z.discriminatedUnion("kind", [
     version: z.number().int().min(1),
     title: z.string().min(1).max(120),
   }),
+  /**
+   * A web page to look at next to the chat. Emitted only by `open_url`, never `show_widget`.
+   * http/https only — the desktop app shows it in its own browser view, anything else gets a link.
+   */
+  z.object({ kind: z.literal("web"), url: HttpUrlSchema, ...widgetBase }),
 ]);
 export type ChatWidget = z.infer<typeof ChatWidgetSchema>;
 

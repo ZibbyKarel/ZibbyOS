@@ -23,6 +23,8 @@ import { useChatDock } from "../chat/hooks/useChatDock";
 import type { CommandLineHandle } from "../tasks/components/CommandLine/CommandLine";
 import type { TaskAttachmentSet } from "../tasks/components/TaskAttachments";
 import { ZibbyCanvasPanel } from "./ZibbyCanvasPanel";
+import { ZibbyWebPanel } from "./ZibbyWebPanel";
+import { getDesktopWeb } from "../web/desktopWeb";
 import { ZibbyContextChips } from "./composer/ZibbyContextChips";
 import { ZibbyComposer } from "./composer/ZibbyComposer";
 import { useZibbyConversations } from "./conversations";
@@ -143,6 +145,8 @@ export function ZibbyHost() {
     canvasMode,
     openCanvas,
     closeCanvas,
+    web,
+    closeWeb,
     setCanvasMode,
   } = useChat();
 
@@ -411,6 +415,7 @@ export function ZibbyHost() {
       ? tVoice(ZIBBY_VOICE_MESSAGE_KEYS[voice.error])
       : null;
 
+  const desktopWeb = getDesktopWeb();
   const threadEmpty = messages.length === 0;
   const showSuggestions = threadEmpty && !thinking && !stream.streaming;
   const prompt = (text: string) => sendMessage(text, undefined, undefined, "typed");
@@ -495,6 +500,14 @@ export function ZibbyHost() {
             onKey={onCanvasKey}
             onPrefill={onCanvasPrefill}
             onSend={onCanvasSend}
+          />
+        ) : web && !compact && desktopWeb ? (
+          <ZibbyWebPanel
+            desktop={desktopWeb}
+            full={canvasMode === "full"}
+            onClose={closeWeb}
+            onToggleFull={() => setCanvasMode(canvasMode === "full" ? "split" : "full")}
+            page={web}
           />
         ) : undefined
       }

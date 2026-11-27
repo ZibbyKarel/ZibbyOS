@@ -984,6 +984,7 @@ export class ChatSessionService implements OnModuleInit, OnModuleDestroy {
             name === "show_widget" ||
             name === "propose_pr_replies" ||
             name === "publish_canvas" ||
+            name === "open_url" ||
             name === "set_canvas_params"
           )
             break;

@@ -455,7 +455,7 @@ export class ChatMcpController {
         inputSchema: {
           kind: z
             .enum(CHAT_WIDGET_KINDS)
-            .exclude(["pr-replies", "canvas"])
+            .exclude(["pr-replies", "canvas", "web"])
             .describe("Which card to show."),
           runRef: z.string().optional().describe("Run id — required for kind `run`."),
           projectId: z
@@ -488,6 +488,32 @@ export class ChatMcpController {
         const shown = this.toolResults.pushWidget(conversationId, parsed.data);
         if (!shown) return errorText("No chat turn is in flight — the card could not be shown.");
         return text(`Card "${parsed.data.kind}" is now shown to the operator in the thread.`);
+      },
+    );
+
+    server.registerTool(
+      "open_url",
+      {
+        description:
+          "Open a web page next to the chat: a card in the thread that opens the site in the " +
+          "side panel of the desktop app (a link to the system browser elsewhere). Use it when " +
+          "the operator says 'show me <url>' / 'open <site>'. Only absolute http(s) URLs.",
+        inputSchema: {
+          url: z.string().describe("Absolute http:// or https:// URL."),
+          title: z.string().optional().describe("Optional card heading."),
+        },
+      },
+      async (input) => {
+        const parsed = ChatWidgetSchema.safeParse({
+          kind: "web",
+          url: input.url,
+          ...(input.title ? { title: input.title } : {}),
+        });
+        if (!parsed.success)
+          return errorText("Invalid URL: only absolute http(s) URLs can be opened.");
+        const shown = this.toolResults.pushWidget(conversationId, parsed.data);
+        if (!shown) return errorText("No chat turn is in flight — the page could not be shown.");
+        return text(`The page ${input.url} is now shown to the operator in the thread.`);
       },
     );
 

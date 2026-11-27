@@ -1338,6 +1338,22 @@
           "full": "Plná"
         }
       }
+    },
+    "web": {
+      "card": {
+        "open": "Otevřít",
+        "openInBrowser": "Otevřít v prohlížeči"
+      },
+      "panel": {
+        "back": "Zpět",
+        "reload": "Obnovit",
+        "address": "Adresa",
+        "invalidUrl": "Není to webová adresa",
+        "openExternal": "Otevřít v systémovém prohlížeči",
+        "full": "Na celou obrazovku",
+        "backToChat": "Zpět do chatu",
+        "close": "Zavřít"
+      }
     }
   },
   "zibbyConversations": {

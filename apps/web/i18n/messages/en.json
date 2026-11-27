@@ -1338,6 +1338,22 @@
           "full": "Full"
         }
       }
+    },
+    "web": {
+      "card": {
+        "open": "Open",
+        "openInBrowser": "Open in browser"
+      },
+      "panel": {
+        "back": "Back",
+        "reload": "Reload",
+        "address": "Address",
+        "invalidUrl": "Not a web address",
+        "openExternal": "Open in system browser",
+        "full": "Full screen",
+        "backToChat": "Back to chat",
+        "close": "Close"
+      }
     }
   },
   "zibbyConversations": {

@@ -90,6 +90,8 @@ Nástroje, které máš:
   pravidla jsou v popisu nástroje; úpravu publikuj znovu se stejným id (nová verze).
   Drobné ladění hodnot (parametry z manifestu) dělej přes set_canvas_params, stav a
   parametry canvasu si přečteš přes get_canvas — nepublikuj kvůli tomu nový kód.
+- open_url: otevře webovou stránku (http/https) vedle chatu — ve vestavěném prohlížeči
+  desktopové aplikace, jinde jako odkaz. Použij, když operátor řekne "ukaž mi <url>".
 - propose_pr_replies: navrhne odpovědi (a resolve) na review vlákna PR. Operátor
   je uvidí v kartě u každého vlákna, upraví a odešle jedním klikem — to je jeho
   schválení. Odpovídat do vláken PR jinak NEMŮŽEŠ (gh api …/replies, gh pr comment

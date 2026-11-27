@@ -105,6 +105,10 @@ interface ChatStore {
   canvasMode: CanvasMode;
   openCanvas: (canvas: OpenCanvas) => void;
   closeCanvas: () => void;
+  /** The web page open beside the chat (desktop only; shares the side slot with the canvas). */
+  web: OpenWeb | null;
+  openWeb: (web: OpenWeb) => void;
+  closeWeb: () => void;
   setCanvasMode: (mode: CanvasMode) => void;
 }
 
@@ -112,6 +116,10 @@ export interface OpenCanvas {
   id: string;
   version: number;
   title: string;
+}
+export interface OpenWeb {
+  url: string;
+  title?: string;
 }
 export type CanvasMode = "split" | "full";
 
@@ -140,14 +148,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
   const canvas = openedCanvas?.conversationId === conversationId ? openedCanvas.canvas : null;
+  const [openedWeb, setOpenedWeb] = useState<{
+    web: OpenWeb;
+    conversationId: string | null;
+  } | null>(null);
+  const web = openedWeb?.conversationId === conversationId ? openedWeb.web : null;
+  // Canvas and web page share the one side slot: opening either replaces the other.
   const openCanvas = useCallback(
     (next: OpenCanvas) => {
+      setOpenedWeb(null);
       setOpenedCanvas({ canvas: next, conversationId });
       setCanvasMode("split");
     },
     [conversationId],
   );
   const closeCanvas = useCallback(() => setOpenedCanvas(null), []);
+  const openWeb = useCallback(
+    (next: OpenWeb) => {
+      setOpenedCanvas(null);
+      setOpenedWeb({ web: next, conversationId });
+      setCanvasMode("split");
+    },
+    [conversationId],
+  );
+  const closeWeb = useCallback(() => setOpenedWeb(null), []);
   const [about, setAboutState] = useState<ChatAbout | null>(null);
   // Mirror of `about` that is current synchronously, so `openAbout` can stay
   // identity-stable and never read a stale closure between two calls.
@@ -243,6 +267,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       canvasMode,
       openCanvas,
       closeCanvas,
+      web,
+      openWeb,
+      closeWeb,
       setCanvasMode,
     }),
     [
@@ -262,6 +289,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       canvasMode,
       openCanvas,
       closeCanvas,
+      web,
+      openWeb,
+      closeWeb,
     ],
   );
 

@@ -25,6 +25,7 @@ import {
   waitForHealthy,
 } from "./processes";
 import { checkForUpdates, startUpdateChecks } from "./updater";
+import { attachWebView } from "./webView";
 
 // app.getPath('userData') otherwise derives from package.json's "name"
 // (@zibby/desktop) — set before any getPath() call so data lands under
@@ -215,6 +216,7 @@ function createWindow(): void {
   findInWindow = attachFindBar(mainWindow);
   routeExternalLinks(mainWindow, WEB_ORIGIN);
   guardCanvasFrames(mainWindow, CANVAS_PORT);
+  attachWebView(mainWindow);
   void mainWindow.loadURL(`${WEB_ORIGIN}/`);
 }
 

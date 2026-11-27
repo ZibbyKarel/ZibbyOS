@@ -25,6 +25,7 @@ vi.mock("./PrRepliesWidgetCard", () => ({
   PrRepliesWidgetCard: () => <div data-testid="pr-replies" />,
 }));
 vi.mock("./TodoWidgetCard", () => ({ TodoWidgetCard: () => <div data-testid="todo" /> }));
+vi.mock("./WebWidgetCard", () => ({ WebWidgetCard: () => <div data-testid="web" /> }));
 vi.mock("./CanvasWidgetCard", () => ({ CanvasWidgetCard: () => <div data-testid="canvas" /> }));
 vi.mock("./CiWidgetCard", () => ({
   CiWidgetCard: (p: { onPrompt?: (t: string) => void }) => (
@@ -33,7 +34,11 @@ vi.mock("./CiWidgetCard", () => ({
 }));
 
 const widgetFor = (kind: (typeof CHAT_WIDGET_KINDS)[number]): ChatWidget =>
-  kind === "run" ? { kind, runRef: "r1" } : ({ kind } as ChatWidget);
+  kind === "run"
+    ? { kind, runRef: "r1" }
+    : kind === "web"
+      ? { kind, url: "https://example.com" }
+      : ({ kind } as ChatWidget);
 
 describe("ChatWidgetCard", () => {
   it.each(CHAT_WIDGET_KINDS)("dispatches kind %s", (kind) => {

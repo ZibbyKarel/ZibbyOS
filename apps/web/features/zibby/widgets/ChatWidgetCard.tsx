@@ -13,6 +13,7 @@ import { PrsWidgetCard } from "./PrsWidgetCard";
 import { RunWidgetCard } from "./RunWidgetCard";
 import { RunsWidgetCard } from "./RunsWidgetCard";
 import { TodoWidgetCard } from "./TodoWidgetCard";
+import { WebWidgetCard } from "./WebWidgetCard";
 
 export interface ChatWidgetCardProps {
   widget: ChatWidget;
@@ -47,6 +48,8 @@ export function ChatWidgetCard({ widget, onPrompt }: ChatWidgetCardProps) {
       return <PrRepliesWidgetCard widget={widget} />;
     case "canvas":
       return <CanvasWidgetCard widget={widget} />;
+    case "web":
+      return <WebWidgetCard widget={widget} />;
     default: {
       const unreachable: never = widget;
       return unreachable;
