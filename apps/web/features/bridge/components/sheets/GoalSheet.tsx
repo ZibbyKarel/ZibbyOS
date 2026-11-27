@@ -11,7 +11,6 @@ import {
   SheetText,
   Stack,
   type StateTone,
-  StatusBadge,
   Typography,
 } from "@zibby/design-system";
 import type { Route } from "next";
@@ -20,10 +19,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { QueryError } from "../../../../components/LoadError/QueryError";
 import { apiErrorMessage } from "../../../../state/apiErrorMessage";
+import { GoalInstanceStatus } from "../../../goals/components/GoalInstanceStatus";
 import { GoalPlanPanel } from "../../../goals/components/GoalPlanPanel";
 import { GoalTimelinePanel } from "../../../goals/components/GoalTimelinePanel";
-import { nextCycleStart } from "../../../goals/goalCadence";
-import { formatGoalDateTime, instanceStatusTone, isGoalNotFound } from "../../../goals/goalView";
+import { formatGoalDateTime, goalUpcoming, isGoalNotFound } from "../../../goals/goalView";
 import {
   useResumeGoalInstanceMutation,
   useUpdateGoalMutation,
@@ -128,33 +127,21 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
   const plans = instances.flatMap(([key, i]) =>
     i.planNoteId ? [{ noteId: i.planNoteId, label: label(key) }] : [],
   );
-  // From now (or the cycle start if that is later), so a boundary the engine has not ticked yet
-  // never shows as a "next cycle" in the past.
-  const nextCycle =
-    goal.cadence && goal.enabled && !stateFailed && !stateQuery.isPending
-      ? nextCycleStart(
-          goal.cadence,
-          new Date(Math.max(now, state ? Date.parse(state.cycle.startedAt) : 0)),
-        )
-      : null;
-  const deadline = state?.cycle.deadlineAt ?? goal.deadline;
+  const { nextCycleAt: nextCycle, deadlineAt: deadline } = goalUpcoming(
+    goal,
+    stateFailed ? undefined : state,
+    now,
+  );
   const when = (iso: string) => formatGoalDateTime(iso, locale);
 
   const renderInstance = (key: string, i: GoalInstance) => (
     <Stack data-testid={`${GoalSheetTestId.Instance}-${key}`} gap="50" key={key}>
-      <Stack align="center" direction="row" gap="100">
+      <Stack align="start" direction="row" gap="100">
         <Typography size="caption" type="label" weight="semibold">
           {label(key)}
         </Typography>
-        <StatusBadge tone={instanceStatusTone(i.status)}>
-          {ts(`instances.state.${i.status}`)}
-        </StatusBadge>
+        <GoalInstanceStatus instance={i} instanceKey={key} />
       </Stack>
-      {i.parkedReason && (
-        <Typography size="caption" type="note" variant="secondary">
-          {ts(`instances.parked.${i.parkedReason}`)}
-        </Typography>
-      )}
       {i.summary && <SheetText lines={[i.summary]} />}
       {i.waitingOn?.map((w) => (
         <div data-testid={`${GoalSheetTestId.WaitingOn}-${key}`} key={`${w.kind}:${w.ref}`}>
@@ -253,7 +240,7 @@ export function GoalSheet({ id, anchor, onClose, frame }: SheetProps) {
             <Stack data-testid={GoalSheetTestId.Next} gap="150">
               {nextCycle && (
                 <div data-testid={GoalSheetTestId.NextCycle}>
-                  <SheetText lines={[g("nextCycle", { when: when(nextCycle.toISOString()) })]} />
+                  <SheetText lines={[g("nextCycle", { when: when(nextCycle) })]} />
                 </div>
               )}
               {deadline && (

@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { GOAL_PRESETS, type GoalTimelineEvent, type GoalWithRollup } from "@zibby/contracts";
 import {
+  decisionsThisMonth,
   goalCardModel,
+  goalCycles,
+  goalEventMark,
   goalMatchesFilter,
   goalScheduleLabel,
   goalScopeLabel,
   goalStatusTone,
+  goalUpcoming,
   groupPresets,
   groupTimelineByCycle,
   instanceStatusTone,
+  percentOf,
   presetToCreateBody,
 } from "./goalView";
 
@@ -227,5 +232,91 @@ describe("goalCardModel", () => {
     const m = goalCardModel(paused, [event], names, "cs");
     expect(m).toMatchObject({ state: "idle", verdictTone: "idle", actions: "enable" });
     expect(m.verdict?.status).toBeUndefined();
+  });
+});
+
+describe("goalUpcoming", () => {
+  const state = {
+    goalId: "g",
+    cycle: { index: 0, startedAt: "2026-11-26T08:00:00.000Z" },
+    instances: {},
+    decisionsThisMonth: { month: "2026-11", count: 0 },
+    nudges: {},
+  };
+  const now = Date.parse("2026-11-26T10:00:00.000Z");
+
+  it("claims the next cycle only for an enabled standing goal with a loaded state", () => {
+    const cadence = { every: "day" as const, hour: 9 };
+    expect(goalUpcoming({ cadence, enabled: true }, state, now).nextCycleAt).not.toBeNull();
+    expect(goalUpcoming({ cadence, enabled: false }, state, now).nextCycleAt).toBeNull();
+    expect(goalUpcoming({ cadence, enabled: true }, undefined, now).nextCycleAt).toBeNull();
+  });
+
+  it("prefers the cycle's deadline over the goal's", () => {
+    const deadline = "2026-12-01T10:00:00.000Z";
+    expect(goalUpcoming({ deadline, enabled: true }, state, now).deadlineAt).toBe(deadline);
+    const withCycle = {
+      ...state,
+      cycle: { ...state.cycle, deadlineAt: "2026-11-30T10:00:00.000Z" },
+    };
+    expect(goalUpcoming({ deadline, enabled: true }, withCycle, now).deadlineAt).toBe(
+      "2026-11-30T10:00:00.000Z",
+    );
+  });
+});
+
+describe("decisionsThisMonth", () => {
+  const now = Date.parse("2026-11-26T10:00:00.000Z");
+  it("counts only the current Prague month", () => {
+    expect(decisionsThisMonth({ month: "2026-11", count: 3 }, now)).toBe(3);
+    expect(decisionsThisMonth({ month: "2026-10", count: 3 }, now)).toBe(0);
+    expect(decisionsThisMonth(undefined, now)).toBe(0);
+  });
+});
+
+describe("goalCycles", () => {
+  const ev = (cycle: number, kind: string, at: string): GoalTimelineEvent => ({
+    at,
+    cycle,
+    instance: "a",
+    kind,
+    text: kind,
+  });
+  const events = [
+    ev(0, "note", "2026-11-24T08:00:00.000Z"),
+    ev(0, "parked", "2026-11-24T09:00:00.000Z"),
+    ev(1, "done", "2026-11-25T09:00:00.000Z"),
+    ev(2, "note", "2026-11-26T09:00:00.000Z"),
+  ];
+
+  it("orders cycles newest first and tones past ones by their outcome", () => {
+    const cycles = goalCycles(events, 2, "acting");
+    expect(cycles.map((c) => [c.index, c.tone])).toEqual([
+      [2, "run"],
+      [1, "ok"],
+      [0, "bad"],
+    ]);
+    expect(cycles[2]!.from).toBe("2026-11-24T08:00:00.000Z");
+    expect(cycles[2]!.to).toBe("2026-11-24T09:00:00.000Z");
+  });
+
+  it("the live cycle takes the roll-up", () => {
+    expect(goalCycles(events, 2, "needs-you")[0]!.tone).toBe("paused");
+    expect(goalCycles(events, 2, "paused")[0]!.tone).toBe("idle");
+    expect(goalCycles(events, undefined, undefined)[0]!.tone).toBe("idle");
+  });
+});
+
+describe("goalEventMark / percentOf", () => {
+  it("marks known kinds and keeps unknown ones neutral", () => {
+    expect(goalEventMark("done")).toEqual({ icon: "check", tone: "ok" });
+    expect(goalEventMark("parked")).toEqual({ icon: "warn", tone: "bad" });
+    expect(goalEventMark("whatever")).toEqual({ icon: "doc", tone: "neutral" });
+  });
+
+  it("clamps the percentage and reads 0 without a cap", () => {
+    expect(percentOf(3, 4)).toBe(75);
+    expect(percentOf(9, 4)).toBe(100);
+    expect(percentOf(3, 0)).toBe(0);
   });
 });

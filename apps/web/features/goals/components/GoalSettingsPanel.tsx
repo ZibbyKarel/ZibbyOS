@@ -2,16 +2,15 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import type { Goal } from "@zibby/contracts";
-import { Grid, Markdown, Stack, Typography } from "@zibby/design-system";
+import { DetailTable, Typography } from "@zibby/design-system";
 import { type GoalLabel, type GoalNames, goalScheduleLabel, goalScopeLabel } from "../goalView";
 
 export enum GoalSettingsTestId {
-  Outcome = "goal-settings-outcome",
-  Predicate = "goal-settings-predicate",
   Scope = "goal-settings-scope",
   Schedule = "goal-settings-schedule",
   Budget = "goal-settings-budget",
   Ceiling = "goal-settings-ceiling",
+  Loop = "goal-settings-loop",
 }
 
 export interface GoalSettingsPanelProps {
@@ -19,20 +18,10 @@ export interface GoalSettingsPanelProps {
   names: GoalNames;
 }
 
-function Fact({ label, children, testId }: { label: string; children: string; testId: string }) {
-  return (
-    <Stack gap="25">
-      <Typography size="2xs" type="label" variant="tertiary">
-        {label}
-      </Typography>
-      <Typography data-testid={testId} size="base" type="note">
-        {children}
-      </Typography>
-    </Stack>
-  );
-}
-
-/** The read-only settings view; the edit button on the detail page swaps it for the form. */
+/**
+ * The read-only settings as a key/value list (the side card "Nastavení"); its Edit swaps the
+ * left column for the form. The outcome is the hero, the predicate the "Splněno, když" card.
+ */
 export function GoalSettingsPanel({ goal, names }: GoalSettingsPanelProps) {
   const t = useTranslations("goals");
   const locale = useLocale();
@@ -49,32 +38,49 @@ export function GoalSettingsPanel({ goal, names }: GoalSettingsPanelProps) {
   ]
     .filter(Boolean)
     .join(" · ");
+  const value = (testId: string, text: string, mono = false) => (
+    <Typography data-testid={testId} mono={mono} size="base" type="note">
+      {text}
+    </Typography>
+  );
 
   return (
-    <Stack gap="200">
-      <Stack data-testid={GoalSettingsTestId.Outcome} gap="50">
-        <Typography size="2xs" type="label" variant="tertiary">
-          {t("form.outcome")}
-        </Typography>
-        <Markdown source={goal.outcome} variant="prose" />
-      </Stack>
-      <Grid cols={1} gap="200" md={2}>
-        <Fact label={t("form.predicate")} testId={GoalSettingsTestId.Predicate}>
-          {goal.predicate ?? t("settings.noPredicate")}
-        </Fact>
-        <Fact label={t("form.scope")} testId={GoalSettingsTestId.Scope}>
-          {label(goalScopeLabel(goal.scope, names))}
-        </Fact>
-        <Fact label={t("form.timing")} testId={GoalSettingsTestId.Schedule}>
-          {schedule}
-        </Fact>
-        <Fact label={t("settings.budget")} testId={GoalSettingsTestId.Budget}>
-          {budget.length > 0 ? budget.join(" · ") : t("settings.noBudget")}
-        </Fact>
-        <Fact label={t("form.ceiling")} testId={GoalSettingsTestId.Ceiling}>
-          {t(`form.ceilingOption.${goal.ceiling}`)}
-        </Fact>
-      </Grid>
-    </Stack>
+    <DetailTable
+      rows={[
+        {
+          cells: [
+            t("form.scope"),
+            value(GoalSettingsTestId.Scope, label(goalScopeLabel(goal.scope, names))),
+          ],
+        },
+        { cells: [t("form.timing"), value(GoalSettingsTestId.Schedule, schedule)] },
+        {
+          cells: [
+            t("settings.budget"),
+            value(
+              GoalSettingsTestId.Budget,
+              budget.length > 0 ? budget.join(" · ") : t("settings.noBudget"),
+              budget.length > 0,
+            ),
+          ],
+        },
+        {
+          cells: [
+            t("form.ceiling"),
+            value(GoalSettingsTestId.Ceiling, t(`ceiling.${goal.ceiling}`)),
+          ],
+        },
+        ...(goal.loop
+          ? [
+              {
+                cells: [
+                  t("card.role.loop"),
+                  value(GoalSettingsTestId.Loop, goal.loop.loopId, true),
+                ],
+              },
+            ]
+          : []),
+      ]}
+    />
   );
 }

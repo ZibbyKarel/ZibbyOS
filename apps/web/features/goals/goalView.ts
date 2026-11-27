@@ -6,9 +6,11 @@ import type {
   GoalPreset,
   GoalRollupStatus,
   GoalScope,
+  GoalState,
   GoalTimelineEvent,
   GoalWithRollup,
 } from "@zibby/contracts";
+import { nextCycleStart } from "./goalCadence";
 
 /** A catalog key plus ICU values — the component translates it, so this file stays free of next-intl. */
 export interface GoalLabel {
@@ -197,7 +199,8 @@ export interface GoalCardModel {
   actions: "decide" | "wake-pause" | "enable";
 }
 
-const CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
+/** Roll-up → DS state tone; the goal card, the detail hero and its loop diagram all read this. */
+export const GOAL_CARD_STATE: Record<GoalRollupStatus, GoalCardState> = {
   "needs-you": "blocked",
   acting: "working",
   planning: "working",
@@ -238,7 +241,7 @@ export function goalCardModel(
       : { head: { key: "card.noEvents" }, text: { key: "card.noEventsText" } };
 
   return {
-    state: CARD_STATE[status],
+    state: GOAL_CARD_STATE[status],
     used: counts.done,
     max: Math.max(counts.total, 1),
     ringValue: ran ? undefined : "–",
@@ -259,3 +262,127 @@ export function goalCardModel(
     actions: status === "needs-you" ? "decide" : goal.enabled ? "wake-pause" : "enable",
   };
 }
+
+/**
+ * What comes next at the goal level ("Co bude"): the next cadence boundary and the deadline.
+ * `state` is `undefined` while it is loading or failed — then no next cycle is claimed. The
+ * next cycle counts from now or the cycle start, whichever is later, so a boundary the engine
+ * has not ticked yet never reads as a "next cycle" in the past.
+ */
+export function goalUpcoming(
+  goal: Pick<Goal, "cadence" | "deadline" | "enabled">,
+  state: GoalState | undefined,
+  now: number,
+): { nextCycleAt: string | null; deadlineAt: string | undefined } {
+  const next =
+    goal.cadence && goal.enabled && state
+      ? nextCycleStart(goal.cadence, new Date(Math.max(now, Date.parse(state.cycle.startedAt))))
+      : null;
+  return {
+    nextCycleAt: next ? next.toISOString() : null,
+    deadlineAt: state?.cycle.deadlineAt ?? goal.deadline,
+  };
+}
+
+const PRAGUE_MONTH = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Prague",
+  year: "numeric",
+  month: "2-digit",
+});
+
+/** Decisions counted this (Prague) month; a counter left from an earlier month reads 0. */
+export function decisionsThisMonth(
+  decisions: GoalState["decisionsThisMonth"] | undefined,
+  now: number,
+): number {
+  return decisions?.month === PRAGUE_MONTH.format(new Date(now)) ? decisions.count : 0;
+}
+
+/** The DS `IterationTimelineTone` subset (kept local: this file stays free of the DS). */
+export type GoalCycleTone = "ok" | "bad" | "run" | "paused" | "idle";
+
+export interface GoalCycle {
+  /** Engine cycle index (0-based); the UI shows `index + 1`. */
+  index: number;
+  tone: GoalCycleTone;
+  /** Newest first. */
+  events: GoalTimelineEvent[];
+  from: string;
+  to: string;
+}
+
+/**
+ * The timeline (fed oldest-first) as cycles, newest first. The live cycle (`liveIndex`) takes
+ * the roll-up: needs-you is `paused`, done is `ok`, a paused goal `idle`, otherwise `run`. A past
+ * cycle's tone is its last outcome event (`done` → ok, `parked` → bad), or `idle` when it has none.
+ */
+export function goalCycles(
+  events: readonly GoalTimelineEvent[],
+  liveIndex: number | undefined,
+  status: GoalRollupStatus | undefined,
+): GoalCycle[] {
+  return groupTimelineByCycle(events).map(({ cycle, events: list }) => {
+    let tone: GoalCycleTone;
+    if (cycle === liveIndex && status) {
+      tone =
+        status === "needs-you"
+          ? "paused"
+          : status === "done"
+            ? "ok"
+            : status === "paused"
+              ? "idle"
+              : "run";
+    } else {
+      const outcome = list.find((e) => e.kind === "done" || e.kind === "parked");
+      tone = !outcome ? "idle" : outcome.kind === "done" ? "ok" : "bad";
+    }
+    return { index: cycle, tone, events: list, from: list.at(-1)!.at, to: list[0]!.at };
+  });
+}
+
+/** Row icon + tone of one timeline event by its (open-ended) kind; unknown kinds stay neutral. */
+export function goalEventMark(kind: string): {
+  icon: "check" | "warn" | "chat" | "run" | "branch" | "doc";
+  tone: "ok" | "bad" | "neutral";
+} {
+  switch (kind) {
+    case "done":
+      return { icon: "check", tone: "ok" };
+    case "parked":
+      return { icon: "warn", tone: "bad" };
+    case "message-drafted":
+    case "message-sent":
+      return { icon: "chat", tone: "neutral" };
+    case "task-started":
+      return { icon: "run", tone: "neutral" };
+    case "merged":
+      return { icon: "branch", tone: "ok" };
+    default:
+      return { icon: "doc", tone: "neutral" };
+  }
+}
+
+/** Time of day in Prague ("09:30"): the timeline row label (dates go in the cycle meta). */
+export function formatGoalTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { timeStyle: "short", timeZone: "Europe/Prague" }).format(
+    new Date(iso),
+  );
+}
+
+/** Short date in Prague ("27. 11."), for a cycle's date range. */
+export function formatGoalDate(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "numeric",
+    timeZone: "Europe/Prague",
+  }).format(new Date(iso));
+}
+
+export type GoalMeterTone = "ok" | "hot" | "bad";
+
+export const goalMeterTone = (pct: number): GoalMeterTone =>
+  pct >= 100 ? "bad" : pct >= 80 ? "hot" : "ok";
+
+/** Percent (0–100, clamped) of `used` against `max`; 0 when there is no cap. */
+export const percentOf = (used: number, max: number): number =>
+  max > 0 ? Math.min(100, Math.max(0, Math.round((used / max) * 100))) : 0;
