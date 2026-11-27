@@ -2177,6 +2177,15 @@
       "about": {
         "source": "Zdroj",
         "result": "Výsledek"
+      },
+      "artifact": {
+        "pr": "Pull request",
+        "openPr": "Otevřít PR",
+        "folder": "Výstupní složka",
+        "file": "Výstupní soubor",
+        "openFolder": "Otevřít složku",
+        "openFile": "Otevřít soubor",
+        "copyPath": "Kopírovat cestu"
       }
     },
     "artifacts": {

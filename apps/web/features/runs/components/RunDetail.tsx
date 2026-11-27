@@ -37,6 +37,7 @@ import { useRunLogStream, useStageRunLogStream } from "../useRunLogStream";
 import { useRunActions } from "../useRunActions";
 import { useRunArtifacts } from "../useRunArtifacts";
 import { HandoverRunDialog } from "./HandoverRunDialog";
+import { RunArtifactInfo } from "./RunArtifactInfo";
 import { RunComposer } from "./RunComposer";
 import { RunDetailActions } from "./RunDetailActions";
 import { RunDetailHeader } from "./RunDetailHeader";
@@ -174,6 +175,14 @@ export function RunDetail({
     run.kind === "workflow"
       ? () => openFolderMutation.mutate({ params: { runId: run.runId }, body: {} })
       : undefined;
+  const openFile =
+    run.kind === "workflow" && run.outputArtifactName
+      ? () =>
+          openFolderMutation.mutate({
+            params: { runId: run.runId },
+            body: { artifact: run.outputArtifactName },
+          })
+      : undefined;
   const { open: openNewTask } = useNewTask();
   const continueContext = useContinueTaskContext(run);
   const continueTask = () => openNewTask(undefined, undefined, continueContext);
@@ -309,6 +318,15 @@ export function RunDetail({
         // In a sheet the actions sit in the sheet header (`RunHeaderActions`), like every sheet.
         actions={embedded ? null : <RunHeaderActions run={run} />}
         agent={agent}
+        artifactInfo={
+          <RunArtifactInfo
+            done={mode === "done"}
+            onOpenFile={openFile}
+            onOpenFolder={openFolder}
+            onOpenPr={onOpenPr}
+            run={run}
+          />
+        }
         banner={banner}
         compact={embedded}
         metrics={metrics}

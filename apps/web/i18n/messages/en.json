@@ -2177,6 +2177,15 @@
       "about": {
         "source": "Source",
         "result": "Result"
+      },
+      "artifact": {
+        "pr": "Pull request",
+        "openPr": "Open PR",
+        "folder": "Output folder",
+        "file": "Output file",
+        "openFolder": "Open folder",
+        "openFile": "Open file",
+        "copyPath": "Copy path"
       }
     },
     "artifacts": {

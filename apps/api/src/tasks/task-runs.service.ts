@@ -1070,6 +1070,7 @@ function workflowRunToView(
     ...(r.pendingChild
       ? { pendingChild: { phaseId: r.pendingChild.phaseId, childRunId: r.pendingChild.childRunId } }
       : {}),
+    folderPath: r.cwd,
     currentStageStartedAt: r.currentStageStartedAt,
     ...(r.pauseRequested ? { pauseRequested: true } : {}),
     ...(r.operatorMessages?.length ? { messages: r.operatorMessages } : {}),

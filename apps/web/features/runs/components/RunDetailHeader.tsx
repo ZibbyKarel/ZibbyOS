@@ -53,6 +53,8 @@ export enum RunDetailHeaderTestId {
 
 export interface RunDetailHeaderProps {
   run: RunView;
+  /** The info message under the Summary (what the run left behind). */
+  artifactInfo?: ReactNode;
   mode: RunMode;
   metrics: RunMetric[];
   progressPct: number;
@@ -175,6 +177,7 @@ export function RunDetailHeader({
   banner,
   onOpenPr,
   onOpenIssue,
+  artifactInfo,
 }: RunDetailHeaderProps) {
   const t = useTranslations("runs");
   const tCommon = useTranslations("common");
@@ -381,6 +384,7 @@ export function RunDetailHeader({
           </Stack>
         </Container>
       )}
+      {artifactInfo && <Container padding={["0", "300", "150", "300"]}>{artifactInfo}</Container>}
       {/* In the sheet the PROGRESS metric already says it. */}
       {!compact && (
         <Progress
