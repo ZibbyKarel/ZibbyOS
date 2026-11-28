@@ -357,10 +357,23 @@ reachable from `stageRuns`).
 
 A stage takes **no slot of its own**. The whole workflow run holds exactly one run slot,
 taken by the task scheduler at dispatch and released when the run reaches a terminal status
-(`done` / `failed` / `interrupted`; `parked` and `paused-limit` keep it) — however many
-stages, loop iterations or sub-workflows it runs. See [tasks.md](./tasks.md) → _Run
-slots_. There is no per-stage employee lease, no `no-employee` park, and stage runs carry
-no `employeeId` / `employeeName`.
+(`done` / `failed` / `interrupted`) **or parks** (`parked`, any reason — it is not working;
+`paused-limit` still keeps it) — however many stages, loop iterations or sub-workflows it
+runs. A decided approval / operator resume re-takes a slot first (waiting in the scheduler
+queue when none is free); sub-runs take none of their own. See [tasks.md](./tasks.md) →
+_Run slots_. There is no per-stage employee lease, no `no-employee` park, and stage runs
+carry no `employeeId` / `employeeName`.
+
+**Exclusive MCP servers.** A stage whose agent's `tools` name an exclusive MCP server (a
+Playwright server on a persistent `--user-data-dir` profile allows ONE browser — a second
+stage crashes with "Browser is already in use") takes that server's lock
+(`McpExclusiveLocksService`) before it spawns and frees it in `finally` when the stage ends
+(done, error or interrupted — a crashed holder never leaks it). Other stages needing the
+same server wait **FIFO, queued not failed**. A waiting stage **keeps the run's slot**
+(simplest: the holder is a working stage that ends; releasing and re-taking a slot per
+stage would churn the queue). Locks are per stage, so a run parked _between_ stages holds
+none; a stage held at a mid-stage approval keeps its lock, because its live child still owns
+the browser. Locks are in-memory — an API restart clears them.
 
 ### Agent phase engine (claude / opencode)
 

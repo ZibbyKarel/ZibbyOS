@@ -7,6 +7,7 @@ import type { Agent, AgentRun, Project, Workspace } from "@zibby/contracts";
 import type { IntendedAction } from "@zibby/contracts";
 import { AgentsStorageService } from "./agents.storage.service";
 import { ApprovalsService } from "../approvals/approvals.service";
+import type { SlotGate } from "../run-slots/run-slots.service";
 import { type AgentPolicyInput, GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { LimitsService } from "../limits/limits.service";
 import { GroundingService } from "../memory/grounding.service";
@@ -129,11 +130,28 @@ export class AgentRunnerService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  /** The scheduler's run-slot gate for decided approvals (see {@link setSlotGate}). */
+  private slotGate: SlotGate | null = null;
+
+  /**
+   * The task scheduler registers the run-slot gate: an agent run waiting on an approval
+   * gave its slot back, so an approved decision resumes through the gate, which re-takes
+   * a slot (queueing for one) first. Unset → approvals resume directly.
+   */
+  setSlotGate(fn: SlotGate): void {
+    this.slotGate = fn;
+  }
+
   /** Rebuild the registry from disk and register for approval decisions on agent runs. */
   async onModuleInit(): Promise<void> {
     this.approvals.register("agent", {
       resume: async (runId) => {
-        await this.core.resume(runId);
+        // The run gave its run slot back while it waited; it continues once it has one.
+        const resume = async () => {
+          await this.core.resume(runId);
+        };
+        if (this.slotGate) await this.slotGate("agent", runId, resume);
+        else await resume();
       },
       cancel: (runId) => {
         this.core.cancel(runId);

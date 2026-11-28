@@ -515,9 +515,15 @@ export class TaskRunsService {
         return this.getTaskRun(runId);
       }
     }
-    // A parked/paused task-backed run that no longer holds its run slot (lost on a
-    // restart, or it started uncounted) waits in the queue for one before resuming.
-    if ((kind === "workflow" || kind === "loop") && !this.scheduler.holdsRunSlot(runId)) {
+    // A parked/paused task-backed run holds no run slot (it gave it back when it parked;
+    // or it was lost on a restart / started uncounted): it waits in the queue for one
+    // before resuming. A run parked on an approval is not resumed here at all — the
+    // approval is the way in — so it falls through to the runner's own 409.
+    if (
+      (kind === "workflow" || kind === "loop") &&
+      !this.scheduler.holdsRunSlot(runId) &&
+      !this.parkedOnApproval(kind, runId)
+    ) {
       const run = await this.getTaskRun(runId);
       if (run.taskId) {
         await this.scheduler.queueContinue(run.taskId, { kind, runRef: runId, note, parked: true });
@@ -529,6 +535,17 @@ export class TaskRunsService {
     else if (kind === "agent") return this.rerunAgent(runId, note);
     else throw new TaskRunNotResumableError(runId);
     return this.getTaskRun(runId);
+  }
+
+  /** True for a workflow run parked on an approval (the approval, not a resume, continues it). */
+  private parkedOnApproval(kind: "workflow" | "loop", runId: string): boolean {
+    if (kind !== "workflow") return false;
+    try {
+      const run = this.workflowRunner.get(runId);
+      return run.status === "parked" && run.parkedReason === "approval";
+    } catch {
+      return false;
+    }
   }
 
   /** `resume` with `mode: "fresh"` — see the routing table on {@link resume}. */

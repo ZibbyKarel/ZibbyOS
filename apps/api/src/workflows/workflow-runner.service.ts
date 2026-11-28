@@ -78,6 +78,8 @@ import { ProjectsStorageService } from "../projects/projects.storage.service";
 import { ResolvedProjectService } from "../projects/resolved-project.service";
 import { recordGeneratedArtifactNote } from "../memory/generated-artifacts-note";
 import { MachineConfigStore } from "../machine/machine-config.store";
+import { McpExclusiveLocksService } from "../mcp/mcp-exclusive-locks.service";
+import type { SlotGate } from "../run-slots/run-slots.service";
 import { resolveGeneratedDir, resolveUnderGeneratedRoot } from "../shared/data-dir";
 import { writeFileAtomic } from "../shared/file-storage/file-utils";
 import { ScheduledTasksStorageService } from "../tasks/scheduled-tasks.storage.service";
@@ -347,6 +349,8 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
 
   /** Single registrant that may present an `approval: "ask"` gate itself (see {@link setGatePresenter}). */
   private gatePresenter: GatePresenter | null = null;
+  /** The scheduler's run-slot gate for decided approvals (see {@link setSlotGate}). */
+  private slotGate: SlotGate | null = null;
   private readonly systemActions = new Map<string, SystemAction>();
   /** Failure text of system stages (they have no core log), by stage runId. */
   private readonly systemErrors = new Map<string, string>();
@@ -385,6 +389,9 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly resolvedProjects?: ResolvedProjectService,
     // THIS machine's config — `generatedRoot` is where run artifacts are delivered.
     @Optional() private readonly machineConfig?: MachineConfigStore,
+    // A stage whose agent uses an exclusive MCP server (a persistent browser profile)
+    // takes that server's lock for its lifetime.
+    @Optional() private readonly mcpLocks?: McpExclusiveLocksService,
   ) {
     this.dir = path.resolve(dir);
     this.log = logger.child(WorkflowRunnerService.name);
@@ -418,8 +425,11 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     this.approvals.register("workflow-stage", {
       resume: async (stageRunId) => {
         try {
-          await this.core.resume(stageRunId);
-          await this.setAggregateStatus(stageRunId, "running");
+          // The parked run gave its run slot back; the stage continues once it has one.
+          await this.gated(this.workflowRunIdOfStage(stageRunId), async () => {
+            await this.core.resume(stageRunId);
+            await this.setAggregateStatus(stageRunId, "running");
+          });
         } catch (error) {
           // The run may have been deleted while its approval sat in the queue.
           this.log.warn("workflow-stage resume skipped (run not found)", {
@@ -465,16 +475,19 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     // P1-02/P1-03: a run parked at a phase boundary (stage checkpoint or spend cap).
     this.approvals.register("workflow-gate", {
       resume: (workflowRunId, approval) =>
-        this.resumeGate(
-          workflowRunId,
-          "approved",
-          undefined,
-          approval?.reviewEvent,
-          approval?.reviewDocument,
-          approval?.ownReview,
+        this.gated(workflowRunId, () =>
+          this.resumeGate(
+            workflowRunId,
+            "approved",
+            undefined,
+            approval?.reviewEvent,
+            approval?.reviewDocument,
+            approval?.ownReview,
+          ),
         ),
       cancel: (workflowRunId) => void this.resumeGate(workflowRunId, "rejected"),
-      revise: (workflowRunId, note) => this.resumeGate(workflowRunId, "revised", note),
+      revise: (workflowRunId, note) =>
+        this.gated(workflowRunId, () => this.resumeGate(workflowRunId, "revised", note)),
     });
     await this.core.init();
     await this.reconstruct();
@@ -1062,6 +1075,39 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
    */
   setGatePresenter(fn: GatePresenter): void {
     this.gatePresenter = fn;
+  }
+
+  /**
+   * The task scheduler registers the run-slot gate: a run that parked or awaits an
+   * approval gave its slot back, so a decided approval resumes through the gate, which
+   * re-takes a slot (queueing for one) before `resume` runs. Unset (no scheduler) →
+   * approvals resume directly.
+   */
+  setSlotGate(fn: SlotGate): void {
+    this.slotGate = fn;
+  }
+
+  /** Run `resume` now, or once the scheduler hands this run a slot back. */
+  private async gated(
+    workflowRunId: string | undefined,
+    resume: () => Promise<unknown>,
+  ): Promise<void> {
+    if (!workflowRunId || !this.slotGate) {
+      await resume();
+      return;
+    }
+    await this.slotGate("workflow", workflowRunId, async () => {
+      await resume();
+    });
+  }
+
+  /** The aggregate run a stage record belongs to; undefined when the stage is unknown. */
+  private workflowRunIdOfStage(stageRunId: string): string | undefined {
+    try {
+      return this.core.get(stageRunId).workflowRunId;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Register an in-process action a `system` phase can name (`phase.action`). */
@@ -3057,8 +3103,65 @@ export class WorkflowRunnerService implements OnModuleInit, OnModuleDestroy {
     return Object.keys(merged).length > 0 ? merged : undefined;
   }
 
-  /** Spawn one stage child and wait for it to finish; return its StageRun. */
+  /**
+   * Spawn one stage child and wait for it to finish; return its StageRun. A stage whose
+   * agent uses an exclusive MCP server (a persistent browser profile allows ONE
+   * browser) first takes that server's lock — waiting FIFO behind another stage,
+   * queued not failed — and frees it in `finally` whatever the outcome. The waiting
+   * stage keeps its run slot (simplest; the holder is a working stage that ends).
+   */
   private async runStage(
+    run: WorkflowRun,
+    phase: WorkflowPhase,
+    stageCwd: string,
+    attempt: number,
+    project: Project | null,
+    resumeContext?: string,
+    delegates?: readonly string[],
+  ): Promise<StageRun> {
+    const locks = this.mcpLocks;
+    const ids = locks && phase.agent ? await this.exclusiveMcpFor(phase.agent) : [];
+    if (!locks || ids.length === 0) {
+      return this.runStageUnlocked(
+        run,
+        phase,
+        stageCwd,
+        attempt,
+        project,
+        resumeContext,
+        delegates,
+      );
+    }
+    if (!locks.isFree(ids)) {
+      this.log.info("stage waits for an exclusive MCP server", {
+        workflowRunId: run.workflowRunId,
+        phase: phase.id,
+        servers: ids,
+      });
+    }
+    const release = await locks.acquire(ids);
+    try {
+      return await this.runStageUnlocked(
+        run,
+        phase,
+        stageCwd,
+        attempt,
+        project,
+        resumeContext,
+        delegates,
+      );
+    } finally {
+      release();
+    }
+  }
+
+  /** The exclusive MCP servers a phase's agent has tools for; none when unknown. */
+  private async exclusiveMcpFor(agentId: string): Promise<string[]> {
+    const agent = await this.agents.get(agentId).catch(() => null);
+    return agent && this.mcpLocks ? this.mcpLocks.exclusiveServersFor(agent.tools ?? []) : [];
+  }
+
+  private async runStageUnlocked(
     run: WorkflowRun,
     phase: WorkflowPhase,
     stageCwd: string,

@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { KbAuthModule } from "../kb/kb-auth.module";
 import { dataDir, recipesDir } from "../shared/data-dir";
 import { MCP_CREDENTIALS_DIR, McpCredentialsStore } from "./mcp-credentials.store";
+import { McpExclusiveLocksService } from "./mcp-exclusive-locks.service";
 import { McpController } from "./mcp.controller";
 import { MCP_DIR, McpServersStorageService } from "./mcp.storage.service";
 
@@ -36,7 +37,8 @@ export function resolveMcpCredentialsDir(): string {
     { provide: MCP_CREDENTIALS_DIR, useFactory: resolveMcpCredentialsDir },
     McpServersStorageService,
     McpCredentialsStore,
+    McpExclusiveLocksService,
   ],
-  exports: [McpServersStorageService, McpCredentialsStore],
+  exports: [McpServersStorageService, McpCredentialsStore, McpExclusiveLocksService],
 })
 export class McpModule {}

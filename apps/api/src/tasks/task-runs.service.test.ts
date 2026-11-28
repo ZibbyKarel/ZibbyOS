@@ -1010,6 +1010,22 @@ describe("TaskRunsService", () => {
       expect(workflowRunner.resumeParked).not.toHaveBeenCalled();
     });
 
+    it("does not queue a run parked on an approval: the approval is the way in (runner's own 409)", async () => {
+      const { service, workflowRunner, scheduler } = build();
+      const parked: WorkflowRun = {
+        ...pipeP,
+        status: "parked",
+        parkedReason: "approval",
+        taskId: "task9",
+      };
+      workflowRunner.listAll.mockResolvedValue([parked]);
+      workflowRunner.get.mockReturnValue(parked);
+      scheduler.holdsRunSlot.mockReturnValue(false);
+      await service.resume("delivery_3", { note: "go" });
+      expect(scheduler.queueContinue).not.toHaveBeenCalled();
+      expect(workflowRunner.resumeParked).toHaveBeenCalledWith("delivery_3", "go");
+    });
+
     it("queues a continue of a failed task-backed workflow run instead of continuing directly", async () => {
       const { service, workflowRunner, scheduler } = build();
       const failed: WorkflowRun = { ...pipeP, status: "failed", taskId: "task9" };

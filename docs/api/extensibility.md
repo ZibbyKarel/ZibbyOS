@@ -39,6 +39,12 @@ wired in).
 - **Injection:** `buildMcpConfig()` merges enabled servers + secrets into
   `--mcp-config <json>`. A `grantOnly: true` server is injected only into runs whose
   `tools`/`toolGrants` reference it (heavy servers such as Playwright).
+- **Exclusive servers:** a stdio server whose `args` carry `--user-data-dir` (and not
+  `--isolated`) — a persistent browser profile allows ONE browser — is **exclusive**
+  (`isExclusiveMcpServer` in `@zibby/contracts`); an explicit optional `exclusive: boolean`
+  on the server overrides the detection either way. A stage or run whose agent `tools` name
+  an exclusive server holds its in-memory lock (`McpExclusiveLocksService`) for its
+  lifetime; the rest wait FIFO. See [workflows.md](./workflows.md) and [tasks.md](./tasks.md).
 - **allowedTools:** each enabled server adds `mcp__<id>__*` (otherwise `dontAsk`
   would deny the MCP tool call; the bare `mcp__<id>` does not match).
 - **Operator's own servers (A27):** a run whose `tools`/`toolGrants` name one of the

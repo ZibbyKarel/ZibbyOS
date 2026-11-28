@@ -561,10 +561,40 @@ or agents it spawns inside) or a loop run. Two caps apply, both must have room:
 `dispatch()` takes the slot (`tryTake`) **before** spawning and `startHolding()` records it
 by run ref (`runId` / `workflowRunId` / `loopRunId`). It is released on the run's terminal
 status (agent `done|error|interrupted`, workflow/loop `done|failed|interrupted`), or at
-once if the spawn throws or the run was already terminal when `start()` returned. A run
-**keeps its slot** while it waits on an approval (`awaiting-approval`), is `parked` or
-`paused-limit` — it is still in flight. Nested runs (a workflow's child workflow, a loop's
-maker/verifier iterations) ride on the parent's slot; chat conversation, channel triage
+once if the spawn throws or the run was already terminal when `start()` returned.
+
+**A slot is held only by a run that is working.** A run that **parks** (any `parkedReason`:
+stage gate, exhausted retries, budget, operator question, pause, a mid-stage approval) and a
+single-agent run **`awaiting-approval`** give the slot back at once (`releaseOnPark`, from
+the run-status listeners): the global and the project count drop and the queue drains, so
+one parked run can no longer pin a project's only slot for hours. The run is remembered in
+`parkedReleased` (run ref → task id). `paused-limit` is the one exception — it still holds
+its slot, because the usage-limit auto-resume (`LimitResumeService`) bypasses the queue — and
+so does an `immediate` (uncounted) run, which has nothing to give back.
+
+**Continuing re-takes a slot through the queue** (same mechanism as the operator continue
+below, same round-robin / FIFO fairness):
+
+- an operator resume of a parked run → `queueContinue(..., parked: true)` (always, a parked
+  run holds no slot; a run parked on an **approval** is not resumed this way — it answers
+  with the runner's 409, the approval is the way in);
+- an **approval decision** (`workflow-stage`, `workflow-gate` approve/revise, single-agent
+  `agent`) goes through the runners' `setSlotGate` hook: the scheduler resumes it at once
+  when the run still holds a slot, else stores the resume closure (`deferredResumes`),
+  queues a `parked` continue for the backing task, and the drain performs the approval's
+  resume under the freshly taken slot. A reject needs no slot. The closure is in-memory: it
+  is lost on a restart (the approval record stays decided; resume the run by hand).
+- a run that returns to `running` by a path that bypasses the queue (usage-limit
+  auto-resume, a sub-run mirror) best-effort re-takes a slot (`reclaimOnRunning`), over-
+  admitting rather than leaving it uncounted.
+
+**Chain workflows and slots.** Sub-runs of a `workflow` / `parallel` phase take **no slot of
+their own** — only the top-level run is dispatched through the scheduler, so a parent
+waiting on its children can never deadlock against them for a slot. While a child works the
+parent is `running` and keeps the one slot; when the child parks, the parent mirrors it
+(`parked`, reason `child`) and gives the slot back; resuming either (an operator resume
+delegates to the child) re-takes one for the top-level run. Nested runs (a loop's
+maker/verifier iterations) likewise ride on the parent's slot; chat conversation, channel triage
 and system automations (briefing, distill, …) take none. Everything that creates a run
 instance through the scheduler counts, including tasks started from chat and `agent` /
 `workflow` automations (see [automations.md](./automations.md)).
@@ -577,6 +607,15 @@ A task with `immediate: true` takes **no slot**: `takeRunSlot` returns an uncoun
 slot, so it dispatches past both caps and `RunSlots.inUse()` does not count it. A rerun or
 an operator continue of such a run does not carry the flag: `markQueuedContinue` drops it,
 so the continue waits for a slot like any other task.
+
+**Exclusive MCP servers (one browser per profile).** A single-agent task whose agent
+`tools` / confirmed `toolGrants` name an exclusive MCP server (see
+[extensibility.md](./extensibility.md)) takes that server's lock (`McpExclusiveLocksService`)
+together with its slot. While another run holds the lock the task is **queued without a
+slot** (`dispatch` checks the lock before taking one, so no slot is spent waiting) and the
+lock's release re-drains the queue. The lock is freed on the run's terminal status, or at
+once if the spawn throws. Workflow stages lock per stage inside the runner (see
+[workflows.md](./workflows.md)).
 
 Nothing waits inside `RunSlots`: when `tryTake` returns `null` the task moves to
 **queued** (no approval), persisting its resolved `target` / `classification` so a drain
@@ -593,8 +632,8 @@ left to continue at is dispatched fresh from the same task, with the note append
 run with no backing task (a self-dev loop) still continues at once, uncounted.
 
 Resuming a **parked/paused** workflow or loop run continues it in place at once only while
-it still holds its run slot (`holdsRunSlot`). When it does not (the slot was lost on an API
-restart, or the run started uncounted) the task is queued with
+it still holds its run slot (`holdsRunSlot`). A parked run has given its slot back (see
+above; also lost on an API restart, or the run started uncounted), so the task is queued with
 `continueRun: { kind, runRef, note?, parked: true }` and the drain calls `resumeParked`
 under a fresh slot.
 

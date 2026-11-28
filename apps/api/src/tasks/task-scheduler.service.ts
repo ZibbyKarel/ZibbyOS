@@ -36,6 +36,7 @@ import { type BudgetOverMetrics, BudgetService } from "../budget/budget.service"
 import { GateEvaluatorService } from "../gates/gate-evaluator.service";
 import { WatcherHealthRegistry } from "../health/watcher-health.registry";
 import { LimitsService } from "../limits/limits.service";
+import { McpExclusiveLocksService } from "../mcp/mcp-exclusive-locks.service";
 import { type RunSlot, RunSlots } from "../run-slots/run-slots.service";
 import { LoopRunnerService } from "../loops/loop-runner.service";
 import { WorkflowRunnerService } from "../workflows/workflow-runner.service";
@@ -155,9 +156,11 @@ const ATTACHMENT_TTL_MS = 24 * 60 * 60 * 1000;
 /** Agent run statuses that free a concurrency slot. */
 const TERMINAL_AGENT = new Set<AgentRun["status"]>(["done", "error", "interrupted"]);
 /**
- * Workflow / loop run statuses that free a run slot. `parked` and `paused-limit` keep
- * it (the run is still in flight, waiting on the operator or the usage window). An
- * operator "continue" re-queues the task and takes a new slot ({@link queueContinue}).
+ * Workflow / loop run statuses that free a run slot for good. A `parked` run (any
+ * reason, an approval included) and an agent run `awaiting-approval` give its slot
+ * back WITHOUT ending ({@link TaskSchedulerService.releaseOnPark}); continuing it
+ * re-takes one through the queue ({@link queueContinue} / the approval slot gate).
+ * `paused-limit` still holds it — the usage-limit auto-resume bypasses the queue.
  */
 const TERMINAL_WORKFLOW = new Set<WorkflowRun["status"]>(["done", "failed", "interrupted"]);
 const TERMINAL_LOOP = new Set<LoopRun["status"]>(["done", "failed", "interrupted"]);
@@ -206,6 +209,18 @@ export class TaskSchedulerService
    * parent's slot.
    */
   private readonly runSlots = new Map<string, RunSlot>();
+  /**
+   * Runs that gave their slot back when they parked / awaited an approval, keyed by run
+   * ref → the backing task id. Only these need a slot re-taken to continue; a run that
+   * never held a counted slot (immediate, a sub-run) is not listed and resumes freely.
+   */
+  private readonly parkedReleased = new Map<string, string>();
+  /** Resume closures of approvals decided while the run held no slot, run once one is taken. */
+  private readonly deferredResumes = new Map<string, () => Promise<void>>();
+  /** Runs mid-continue under a freshly taken slot (their `running` event must not re-take one). */
+  private readonly resuming = new Set<string>();
+  /** The exclusive-MCP-server locks a dispatched single-agent run holds, by run id. */
+  private readonly agentMcpLocks = new Map<string, () => void>();
   /** A drain is queued behind `scheduler:drain` but not started — see {@link requestDrain}. */
   private drainRequested = false;
 
@@ -248,6 +263,8 @@ export class TaskSchedulerService
     @Optional() private readonly todoStore?: TodoStore,
     /** Multi-company arming filter for boot recovery; absent = every company armed. */
     @Optional() private readonly machineConfig?: MachineConfigStore,
+    /** Exclusive MCP servers (a persistent browser profile): one run at a time. */
+    @Optional() private readonly mcpLocks?: McpExclusiveLocksService,
   ) {
     super();
     this.log = logger.child(TaskSchedulerService.name);
@@ -269,7 +286,13 @@ export class TaskSchedulerService
         if (TERMINAL_AGENT.has(run.status)) {
           // Release this run's slot; the release notifies `onFreed` → drain.
           this.releaseRunSlot(run.runId);
+          this.agentMcpLocks.get(run.runId)?.();
+          this.agentMcpLocks.delete(run.runId);
           this.requestDrain();
+        } else if (run.status === "awaiting-approval") {
+          this.releaseOnPark(run.runId, run.taskId);
+        } else if (run.status === "running") {
+          this.reclaimOnRunning(run.runId);
         }
       }),
       this.workflowRunner.onRunStatus((run) => {
@@ -277,6 +300,10 @@ export class TaskSchedulerService
         if (TERMINAL_WORKFLOW.has(run.status)) {
           this.releaseRunSlot(run.workflowRunId);
           this.requestDrain();
+        } else if (run.status === "parked") {
+          this.releaseOnPark(run.workflowRunId, run.taskId);
+        } else if (run.status === "running") {
+          this.reclaimOnRunning(run.workflowRunId);
         }
       }),
       this.loopRunner.onRunStatus((run) => {
@@ -284,10 +311,21 @@ export class TaskSchedulerService
         if (TERMINAL_LOOP.has(run.status)) {
           this.releaseRunSlot(run.loopRunId);
           this.requestDrain();
+        } else if (run.status === "parked") {
+          this.releaseOnPark(run.loopRunId, run.taskId);
+        } else if (run.status === "running") {
+          this.reclaimOnRunning(run.loopRunId);
         }
       }),
       this.slots.onFreed(() => this.requestDrain()),
     );
+    // A freed exclusive-MCP lock may unblock a queued single-agent task.
+    if (this.mcpLocks) this.unsubscribes.push(this.mcpLocks.onFreed(() => this.requestDrain()));
+    // Approvals decided on a run that gave its slot back wait for one (see slotGate).
+    const gate = (kind: "agent" | "workflow", ref: string, resume: () => Promise<void>) =>
+      this.slotGate(kind, ref, resume);
+    this.workflowRunner.setSlotGate?.(gate);
+    this.agentRunner.setSlotGate?.(gate);
 
     // The kind-"task" runner: a held task's `spend-past-cap` approval resumes it
     // (dispatch once, past the cap) or cancels it. Registered here so approving a
@@ -1499,8 +1537,22 @@ export class TaskSchedulerService
     }
     // One run slot per dispatched run, taken BEFORE any spawn and held until the
     // run's terminal status (including while it awaits an approval).
+    // A single-agent run whose tools name an exclusive MCP server (a persistent browser
+    // profile) waits in the queue, slot-less, while another run holds that server.
+    const mcpIds = target.kind === "agent" ? await this.exclusiveMcpFor(target.id, toolGrants) : [];
+    if (mcpIds.length && !this.mcpLocks?.isFree(mcpIds)) {
+      return { queued: true, target, classification };
+    }
     const slot = await this.takeRunSlot(projectId, immediate);
     if (!slot) return { queued: true, target, classification };
+    let releaseMcp: (() => void) | null = null;
+    if (mcpIds.length) {
+      releaseMcp = this.mcpLocks?.tryAcquire(mcpIds) ?? null;
+      if (!releaseMcp) {
+        slot(); // lost the lock to a concurrent dispatch while taking the slot
+        return { queued: true, target, classification };
+      }
+    }
     if (target.kind === "agent") {
       const agentId = target.id;
       const agentTail: [string?, EngineOverride?] = engineOverride
@@ -1510,23 +1562,36 @@ export class TaskSchedulerService
           : [];
       const run = await this.startHolding(
         slot,
-        () =>
-          this.agentRunner.start(
-            agentId,
-            text,
-            projectId ?? "",
-            paths,
-            title,
-            taskId,
-            matchedTerms,
-            undefined,
-            runAttachments,
-            toolGrants,
-            // Only when set, so every plain call keeps its exact arity.
-            ...agentTail,
-          ),
+        async () => {
+          try {
+            return await this.agentRunner.start(
+              agentId,
+              text,
+              projectId ?? "",
+              paths,
+              title,
+              taskId,
+              matchedTerms,
+              undefined,
+              runAttachments,
+              toolGrants,
+              // Only when set, so every plain call keeps its exact arity.
+              ...agentTail,
+            );
+          } catch (error) {
+            releaseMcp?.(); // a spawn that throws never leaks the browser lock
+            throw error;
+          }
+        },
         (r) => r.runId,
-        (r) => TERMINAL_AGENT.has(this.liveStatus(() => this.agentRunner.get(r.runId), r)),
+        (r) => {
+          const ended = TERMINAL_AGENT.has(this.liveStatus(() => this.agentRunner.get(r.runId), r));
+          if (releaseMcp) {
+            if (ended) releaseMcp();
+            else this.agentMcpLocks.set(r.runId, releaseMcp);
+          }
+          return ended;
+        },
       );
       return { runRef: run.runId, target, classification };
     }
@@ -1650,6 +1715,23 @@ export class TaskSchedulerService
     // An operator continue always counts toward the caps (never `task.immediate`).
     const slot = await this.takeRunSlot(task.projectId, false);
     if (!slot) return { queued: true, target, classification };
+    this.resuming.add(runRef);
+    try {
+      return await this.continueUnderSlot(task, slot, { kind, runRef, note, parked });
+    } finally {
+      this.resuming.delete(runRef);
+    }
+  }
+
+  /** The body of {@link dispatchContinue}, once a slot is in hand. */
+  private async continueUnderSlot(
+    task: ScheduledTask,
+    slot: RunSlot,
+    { kind, runRef, note, parked }: NonNullable<ScheduledTask["continueRun"]>,
+  ): Promise<Dispatched | QueuedDispatch | null> {
+    const target = task.target ?? ORCHESTRATOR_TARGET;
+    const classification = task.classification;
+    this.parkedReleased.delete(runRef);
     const hold = <R>(
       start: () => Promise<R | null>,
       refOf: (r: R) => string,
@@ -1662,7 +1744,38 @@ export class TaskSchedulerService
         (r) => !r || ended(r),
       );
     let ref: string | undefined;
-    if (parked && kind === "workflow") {
+    const deferred = this.deferredResumes.get(runRef);
+    this.deferredResumes.delete(runRef);
+    if (deferred && (kind === "workflow" || kind === "agent")) {
+      // An approval decided while the run held no slot: perform it now, under the new one.
+      const ended = (): boolean =>
+        kind === "workflow"
+          ? TERMINAL_WORKFLOW.has(
+              this.liveStatus(() => this.workflowRunner.get(runRef), { status: "running" }),
+            )
+          : TERMINAL_AGENT.has(
+              this.liveStatus(() => this.agentRunner.get(runRef), { status: "running" }),
+            );
+      try {
+        await hold(
+          async () => {
+            await deferred();
+            return runRef;
+          },
+          (r) => r,
+          ended,
+        );
+      } catch (error) {
+        // The slot went back (startHolding). The approval is decided but the resume
+        // failed: leave the run parked and remembered, and say so.
+        this.log.warn("deferred approval resume failed", {
+          runRef,
+          err: error instanceof Error ? error.message : String(error),
+        });
+        this.parkedReleased.set(runRef, task.id);
+      }
+      ref = runRef;
+    } else if (parked && kind === "workflow") {
       const run = await hold(
         () => this.workflowRunner.resumeParked(runRef, note),
         (r) => r.workflowRunId,
@@ -1708,6 +1821,17 @@ export class TaskSchedulerService
     return projectId ? this.budget.maxConcurrent(projectId) : undefined;
   }
 
+  /** Exclusive MCP servers an agent's tools (plus confirmed grants) reference; none when unknown. */
+  private async exclusiveMcpFor(
+    agentId: string,
+    toolGrants: readonly string[] | undefined,
+  ): Promise<string[]> {
+    if (!this.mcpLocks) return [];
+    const agent = await this.agentsStore.get(agentId).catch(() => null);
+    if (!agent) return [];
+    return this.mcpLocks.exclusiveServersFor([...(agent.tools ?? []), ...(toolGrants ?? [])]);
+  }
+
   /** A run slot under the global + project cap, or null when either is full. */
   private async takeRunSlot(
     projectId: string | undefined,
@@ -1720,8 +1844,63 @@ export class TaskSchedulerService
   }
 
   private releaseRunSlot(runRef: string): void {
+    this.parkedReleased.delete(runRef);
+    this.deferredResumes.delete(runRef);
     this.runSlots.get(runRef)?.();
     this.runSlots.delete(runRef);
+  }
+
+  /**
+   * A run that parks (any reason) or waits on an approval is not working: give its
+   * counted slot back so a queued task can start (a parked run once pinned a project's
+   * only slot for hours). Uncounted slots (immediate runs) stay. The run is remembered
+   * so continuing it re-takes a slot first. Sub-runs never held one — they ride on the
+   * parent's slot — so this is a no-op for them.
+   */
+  private releaseOnPark(runRef: string, taskId: string | undefined): void {
+    const slot = this.runSlots.get(runRef);
+    if (!slot || slot === UNCOUNTED_SLOT) return;
+    this.runSlots.delete(runRef);
+    if (taskId) this.parkedReleased.set(runRef, taskId);
+    slot(); // notifies `onFreed` → drain
+  }
+
+  /**
+   * A released run went back to `running` by a path that bypasses the queue (the
+   * usage-limit auto-resume, a sub-run's mirror): best-effort re-take a slot so it is
+   * counted again — over-admitting past the cap rather than leaving it uncounted.
+   */
+  private reclaimOnRunning(runRef: string): void {
+    if (!this.parkedReleased.has(runRef) || this.runSlots.has(runRef)) return;
+    if (this.resuming.has(runRef) || this.deferredResumes.has(runRef)) return;
+    this.parkedReleased.delete(runRef);
+    this.runSlots.set(runRef, this.slots.tryTake() ?? UNCOUNTED_SLOT);
+  }
+
+  /**
+   * The approval path of "continue re-takes a slot": the runner calls this instead of
+   * resuming a decided approval directly. A run that still holds its slot (or never had
+   * a counted one) resumes now; one that gave its slot back queues a continue through
+   * the scheduler queue — same fairness as any dispatch — and `resume` runs once a slot
+   * is taken. The approval call returns as soon as the continue is queued.
+   */
+  private async slotGate(
+    kind: "agent" | "workflow",
+    runRef: string,
+    resume: () => Promise<void>,
+  ): Promise<void> {
+    const taskId = this.parkedReleased.get(runRef);
+    if (!taskId || this.runSlots.has(runRef)) {
+      await resume();
+      return;
+    }
+    this.deferredResumes.set(runRef, resume);
+    try {
+      await this.queueContinue(taskId, { kind, runRef, parked: true });
+    } catch (error) {
+      this.deferredResumes.delete(runRef);
+      throw error;
+    }
   }
 
   /**

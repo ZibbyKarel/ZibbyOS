@@ -9,11 +9,14 @@ export type RunSlot = () => void;
  * slot per run instance the task system starts — a single-agent, orchestrator,
  * workflow or loop run, however many agents it spawns inside. At most
  * `systemConfig.maxConcurrentRuns` runs hold a slot at once, and at most the
- * project's `budget.maxConcurrent` (when set) inside one project. A run holds its
- * slot until its terminal status, including while it waits on an approval. Nothing
- * waits here: a dispatch that finds no room is queued by the scheduler, which
- * re-drains on {@link onFreed}. The global cap is read live, so a raised cap
- * admits queued work immediately.
+ * project's `budget.maxConcurrent` (when set) inside one project. A slot is held only
+ * by a run that is WORKING: a run that parks (any reason) or waits on an approval
+ * gives it back, and continuing it re-takes one through the scheduler queue (see
+ * `TaskSchedulerService.releaseOnPark`). Sub-runs of a chain workflow take no slot of
+ * their own — they ride on the top-level run's, so a parent waiting on its children
+ * can never deadlock against them. Nothing waits here: a dispatch that finds no room
+ * is queued by the scheduler, which re-drains on {@link onFreed}. The global cap is
+ * read live, so a raised cap admits queued work immediately.
  *
  * ponytail: in-memory count — a run that survives an API restart (a parked
  * workflow) is not counted until it ends, so the limit can briefly over-admit
@@ -79,3 +82,14 @@ export class RunSlots implements OnModuleDestroy {
     for (const listener of this.freedListeners) listener();
   }
 }
+
+/**
+ * Hook a runner calls instead of resuming a decided approval directly: the scheduler
+ * resumes it now when the run still holds a slot, else queues it for one first (a run
+ * that parked / awaited an approval gave its slot back). See `TaskSchedulerService`.
+ */
+export type SlotGate = (
+  kind: "agent" | "workflow",
+  runRef: string,
+  resume: () => Promise<void>,
+) => Promise<void>;

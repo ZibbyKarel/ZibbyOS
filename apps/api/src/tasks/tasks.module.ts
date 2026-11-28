@@ -6,6 +6,7 @@ import { RunSlotsModule } from "../run-slots/run-slots.module";
 import { GatesModule } from "../gates/gates.module";
 import { LoopsModule } from "../loops/loops.module";
 import { LimitsModule } from "../limits/limits.module";
+import { McpModule } from "../mcp/mcp.module";
 import { MemoryModule } from "../memory/memory.module";
 import { WorkflowsModule } from "../workflows/workflows.module";
 import { ProjectsModule } from "../projects/projects.module";
@@ -54,6 +55,7 @@ import { MachineConfigModule } from "../machine/machine-config.module";
     WorkspaceModule,
     TodoModule,
     MachineConfigModule,
+    McpModule,
     MemoryModule,
     ScheduledTasksStorageModule,
   ],

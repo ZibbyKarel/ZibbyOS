@@ -5,6 +5,7 @@ import type { AgentRun, ScheduledTask, TaskTarget, WorkflowRun } from "@zibby/co
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityInput } from "../activity/activity-log.service";
 import type { BudgetCheck } from "../budget/budget.service";
+import { McpExclusiveLocksService } from "../mcp/mcp-exclusive-locks.service";
 import { RunSlots } from "../run-slots/run-slots.service";
 import { fakeSystemConfigStore } from "../system/system-config.fixture";
 import { AttachmentStorageService } from "./attachment-storage.service";
@@ -2889,6 +2890,7 @@ describe("run slots (global + per-project cap)", () => {
     continueFailed: ReturnType<typeof vi.fn>;
     resumeParked: ReturnType<typeof vi.fn>;
     setGatePresenter: ReturnType<typeof vi.fn>;
+    setSlotGate: ReturnType<typeof vi.fn>;
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
   };
@@ -2913,6 +2915,7 @@ describe("run slots (global + per-project cap)", () => {
   function makeService(
     maxConcurrentRuns = 1000,
     caps: Record<string, number | undefined> = {},
+    extra: { locks?: McpExclusiveLocksService; agentTools?: string[] } = {},
   ): void {
     slots = new RunSlots(fakeSystemConfigStore({ maxConcurrentRuns }));
     let runSeq = 0;
@@ -2929,6 +2932,7 @@ describe("run slots (global + per-project cap)", () => {
     };
     workflowRunner = {
       setGatePresenter: vi.fn(),
+      setSlotGate: vi.fn(),
       start: vi.fn(async () => workflowRun({ workflowRunId: `release_${++runSeq}` })),
       continueFailed: vi.fn(async (runRef: string) => workflowRun({ workflowRunId: runRef })),
       resumeParked: vi.fn(async (runRef: string) => workflowRun({ workflowRunId: runRef })),
@@ -2984,7 +2988,10 @@ describe("run slots (global + per-project cap)", () => {
           },
         ],
       } as never,
-      { listActive: async () => [] } as never,
+      {
+        listActive: async () => [],
+        get: async () => ({ tools: extra.agentTools ?? [] }),
+      } as never,
       slots,
       loopRunner as never,
       fakeLogger as never,
@@ -3006,6 +3013,9 @@ describe("run slots (global + per-project cap)", () => {
       new AttachmentStorageService(),
       { register: () => {} } as never,
       undefined,
+      undefined,
+      undefined,
+      extra.locks,
     );
     service.onModuleInit();
   }
@@ -3173,12 +3183,11 @@ describe("run slots (global + per-project cap)", () => {
     });
   });
 
-  it("a run waiting on an approval (parked / paused-limit) keeps its slot; interrupted frees it", async () => {
+  it("a paused-limit run keeps its slot (the usage-limit auto-resume bypasses the queue); interrupted frees it", async () => {
     makeService(1);
     const ref = await dispatched("ship it", undefined, RELEASE);
     const queuedId = await queued("do B");
 
-    workflowListener?.(workflowRun({ workflowRunId: ref, status: "parked" }));
     workflowListener?.(workflowRun({ workflowRunId: ref, status: "paused-limit" }));
     await new Promise((r) => setTimeout(r, 30));
     expect(slots.inUse()).toBe(1);
@@ -3187,6 +3196,205 @@ describe("run slots (global + per-project cap)", () => {
     workflowListener?.(workflowRun({ workflowRunId: ref, status: "interrupted" }));
     await vi.waitFor(async () => {
       expect((await storage.get(queuedId)).status).toBe("dispatched");
+    });
+  });
+
+  describe("a slot is held only by a run that is working", () => {
+    /** The slot gate the scheduler registered on the runners. */
+    const gate = () =>
+      workflowRunner.setSlotGate.mock.calls[0]?.[0] as (
+        kind: "agent" | "workflow",
+        ref: string,
+        resume: () => Promise<void>,
+      ) => Promise<void>;
+
+    /** Emit a workflow status for `ref` the way the runner does: carrying its backing task id. */
+    async function emit(ref: string, status: WorkflowRun["status"]): Promise<void> {
+      const task = (await storage.list()).find((t) => t.runRef === ref);
+      workflowListener?.(workflowRun({ workflowRunId: ref, status, taskId: task?.id }));
+    }
+
+    it("a parked run (retries exhausted) frees its slot and the queued task starts", async () => {
+      makeService(10, { proj_A: 1 });
+      const ref = await dispatched("ship it", "proj_A", RELEASE);
+      const queuedId = await queued("do B", "proj_A"); // the project's only slot is held
+
+      workflowListener?.(
+        workflowRun({ workflowRunId: ref, status: "parked", parkedReason: "retries" }),
+      );
+      await vi.waitFor(async () => {
+        expect((await storage.get(queuedId)).status).toBe("dispatched");
+      });
+      expect(slots.inUse("proj_A")).toBe(1); // B's, not the parked run's
+      expect(service.holdsRunSlot(ref)).toBe(false);
+    });
+
+    it("an approval-parked workflow frees its slot too", async () => {
+      makeService(1);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      const queuedId = await queued("do B");
+      workflowListener?.(
+        workflowRun({ workflowRunId: ref, status: "parked", parkedReason: "approval" }),
+      );
+      await vi.waitFor(async () => {
+        expect((await storage.get(queuedId)).status).toBe("dispatched");
+      });
+    });
+
+    it("an agent run awaiting an approval frees its slot", async () => {
+      makeService(1);
+      const ref = await dispatched("do A");
+      const queuedId = await queued("do B");
+      agentListener?.(agentRun({ runId: ref, status: "awaiting-approval" }));
+      await vi.waitFor(async () => {
+        expect((await storage.get(queuedId)).status).toBe("dispatched");
+      });
+    });
+
+    it("an immediate (uncounted) run keeps nothing to give back", async () => {
+      makeService(1);
+      const r = await service.createTask(
+        { text: "now", title: "now", immediate: true },
+        undefined,
+        undefined,
+        RELEASE,
+      );
+      if (r.outcome !== "dispatched") throw new Error("expected dispatched");
+      workflowListener?.(workflowRun({ workflowRunId: r.runRef, status: "parked" }));
+      expect(service.holdsRunSlot(r.runRef)).toBe(true);
+      // ...and an approval on it resumes straight away, past the cap.
+      const resume = vi.fn(async () => {});
+      await gate()("workflow", r.runRef, resume);
+      expect(resume).toHaveBeenCalledTimes(1);
+    });
+
+    it("an approval on a run that still holds its slot resumes at once", async () => {
+      makeService(1);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      const resume = vi.fn(async () => {});
+      await gate()("workflow", ref, resume);
+      expect(resume).toHaveBeenCalledTimes(1);
+    });
+
+    it("an approval on a parked run waits for a slot, then resumes it under the new slot", async () => {
+      makeService(1);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      await emit(ref, "parked");
+      const holder = await dispatched("do B"); // takes the slot the parked run gave back
+
+      const resume = vi.fn(async () => {});
+      await gate()("workflow", ref, resume);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(resume).not.toHaveBeenCalled(); // queued, not started past the cap
+      const [task] = (await storage.list()).filter((t) => t.runRef === ref);
+      expect(task?.status).toBe("queued");
+
+      agentListener?.(agentRun({ runId: holder, status: "done" }));
+      await vi.waitFor(() => expect(resume).toHaveBeenCalledTimes(1));
+      await vi.waitFor(async () => expect((await storage.get(task!.id)).status).toBe("dispatched"));
+      expect(service.holdsRunSlot(ref)).toBe(true);
+      expect(slots.inUse()).toBe(1);
+      expect(workflowRunner.resumeParked).not.toHaveBeenCalled(); // the approval did the resume
+    });
+
+    it("an approval on a parked run resumes at once when a slot is free", async () => {
+      makeService(2);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      await emit(ref, "parked");
+      expect(slots.inUse()).toBe(0);
+      const resume = vi.fn(async () => {});
+      await gate()("workflow", ref, resume);
+      await vi.waitFor(() => expect(resume).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(service.holdsRunSlot(ref)).toBe(true));
+      expect(slots.inUse()).toBe(1);
+    });
+
+    it("a failed deferred resume gives the slot back and keeps the run waiting", async () => {
+      makeService(1);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      await emit(ref, "parked");
+      const resume = vi.fn(async () => {
+        throw new Error("run gone");
+      });
+      await gate()("workflow", ref, resume);
+      await vi.waitFor(() => expect(resume).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(slots.inUse()).toBe(0));
+      expect(service.holdsRunSlot(ref)).toBe(false);
+    });
+
+    it("a parked run resumed by a path that bypasses the queue is counted again", async () => {
+      makeService(2);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      await emit(ref, "parked");
+      expect(slots.inUse()).toBe(0);
+      workflowListener?.(workflowRun({ workflowRunId: ref, status: "running" }));
+      expect(slots.inUse()).toBe(1);
+      expect(service.holdsRunSlot(ref)).toBe(true);
+    });
+
+    it("sub-runs never take slots: only the top-level run is counted while its children work", async () => {
+      makeService(1);
+      const ref = await dispatched("ship it", undefined, RELEASE);
+      // A child's events carry its own id; they neither hold nor free the parent's slot.
+      workflowListener?.(workflowRun({ workflowRunId: `${ref}.child`, status: "running" }));
+      workflowListener?.(workflowRun({ workflowRunId: `${ref}.child`, status: "parked" }));
+      workflowListener?.(workflowRun({ workflowRunId: `${ref}.child`, status: "done" }));
+      expect(slots.inUse()).toBe(1);
+      expect(service.holdsRunSlot(ref)).toBe(true);
+    });
+  });
+
+  describe("exclusive MCP servers (one browser per profile)", () => {
+    function withLocks(): McpExclusiveLocksService {
+      const locks = new McpExclusiveLocksService({
+        list: async () => [
+          {
+            id: "playwright-mw",
+            type: "stdio",
+            args: ["-c", "exec playwright-mcp --user-data-dir /p"],
+            enabled: true,
+            hasCredentials: false,
+          },
+        ],
+      } as never);
+      return locks;
+    }
+
+    function makeLockedService(locks: McpExclusiveLocksService, agentTools: string[]): void {
+      makeService(10, {}, { locks, agentTools });
+    }
+
+    it("a second agent task needing the same browser queues (slot-less) until the first run ends", async () => {
+      const locks = withLocks();
+      makeLockedService(locks, ["mcp__playwright-mw__*"]);
+      const a = await service.createTask({ text: "one", title: "one" });
+      if (a.outcome !== "dispatched") throw new Error(`expected dispatched: ${a.outcome}`);
+      const b = await service.createTask({ text: "two", title: "two" });
+      expect(b.outcome).toBe("scheduled");
+      expect(slots.inUse()).toBe(1); // the waiting task holds no slot
+
+      agentListener?.(agentRun({ runId: a.runRef, status: "done" }));
+      await vi.waitFor(async () => {
+        if (b.outcome !== "scheduled") return;
+        expect((await storage.get(b.task.id)).status).toBe("dispatched");
+      });
+    });
+
+    it("a run that fails to spawn frees the browser lock", async () => {
+      const locks = withLocks();
+      makeLockedService(locks, ["mcp__playwright-mw__*"]);
+      agentRunner.start.mockRejectedValueOnce(new Error("preflight failed"));
+      await expect(service.createTask({ text: "one", title: "one" })).rejects.toThrow("preflight");
+      expect(locks.isFree(["playwright-mw"])).toBe(true);
+      expect(slots.inUse()).toBe(0);
+    });
+
+    it("agents without an exclusive server are not serialised", async () => {
+      const locks = withLocks();
+      makeLockedService(locks, ["Read"]);
+      const a = await service.createTask({ text: "one", title: "one" });
+      const b = await service.createTask({ text: "two", title: "two" });
+      expect([a.outcome, b.outcome]).toEqual(["dispatched", "dispatched"]);
     });
   });
 

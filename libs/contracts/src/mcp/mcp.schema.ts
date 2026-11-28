@@ -38,6 +38,12 @@ export const McpServerSchema = z.object({
   enabled: z.boolean().default(true),
   /** Inject only into runs whose agent `tools`/`toolGrants` reference this server (heavy servers like Playwright). */
   grantOnly: z.boolean().optional(),
+  /**
+   * One run at a time may use this server (a persistent browser profile allows ONE
+   * browser). Unset = auto: a stdio server whose args carry `--user-data-dir` (and not
+   * `--isolated`) is exclusive; `false` opts such a server out. See `isExclusiveMcpServer`.
+   */
+  exclusive: z.boolean().optional(),
   /** Computed at read time: whether a credentials file exists. Never persisted. */
   hasCredentials: z.boolean().default(false),
 });
@@ -62,6 +68,12 @@ export const CreateMcpServerSchema = z
     enabled: z.boolean().optional(),
     /** Inject only into runs whose agent `tools`/`toolGrants` reference this server (heavy servers like Playwright). */
     grantOnly: z.boolean().optional(),
+    /**
+     * One run at a time may use this server (a persistent browser profile allows ONE
+     * browser). Unset = auto: a stdio server whose args carry `--user-data-dir` (and not
+     * `--isolated`) is exclusive; `false` opts such a server out. See `isExclusiveMcpServer`.
+     */
+    exclusive: z.boolean().optional(),
   })
   .superRefine((val, ctx) => {
     if (val.type === "stdio" && !val.command) {
@@ -106,3 +118,18 @@ export const McpCredentialsInputSchema = z
   })
   .strict();
 export type McpCredentialsInput = z.infer<typeof McpCredentialsInputSchema>;
+
+/**
+ * Whether a server admits only one user at a time (a stage/run using it takes a lock
+ * first). An explicit `exclusive` wins; otherwise a stdio server whose args carry
+ * `--user-data-dir` (a persistent browser profile) and not `--isolated` is exclusive.
+ */
+export function isExclusiveMcpServer(
+  server: Pick<McpServer, "exclusive" | "type" | "args">,
+): boolean {
+  if (server.exclusive !== undefined) return server.exclusive;
+  if (server.type !== "stdio") return false;
+  const joined = (server.args ?? []).join(" ");
+  const has = (flag: string) => new RegExp(`(^|[\\s"'])${flag}(=|[\\s"']|$)`).test(joined);
+  return has("--user-data-dir") && !has("--isolated");
+}

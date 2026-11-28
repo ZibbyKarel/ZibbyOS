@@ -5,6 +5,7 @@ import { ApprovalsModule } from "../approvals/approvals.module";
 import { ArtifactsModule } from "../artifacts/artifacts.module";
 import { GatesModule } from "../gates/gates.module";
 import { LimitsModule } from "../limits/limits.module";
+import { McpModule } from "../mcp/mcp.module";
 import { MemoryModule } from "../memory/memory.module";
 import { ProjectsModule } from "../projects/projects.module";
 import { ResolvedProjectModule } from "../projects/resolved-project.module";
@@ -50,6 +51,8 @@ import { MachineConfigModule } from "../machine/machine-config.module";
     ApprovalsModule,
     LimitsModule,
     MachineConfigModule,
+    // Exclusive-MCP-server locks (a persistent browser profile): one stage at a time.
+    McpModule,
     MemoryModule,
     ProjectsModule,
     ResolvedProjectModule,
