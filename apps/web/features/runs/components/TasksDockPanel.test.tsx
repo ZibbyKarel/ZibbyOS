@@ -77,6 +77,25 @@ describe("TasksDockPanel", () => {
     expect(push).toHaveBeenCalledWith("/activity/runs/flow_2");
   });
 
+  it("shows a parked run with the parked badge, not as running", () => {
+    runs.push({
+      ...base,
+      runId: "p_6",
+      kind: "workflow",
+      status: "parked",
+      title: "Stuck",
+    } as RunView);
+    try {
+      render(<TasksDockPanel />);
+      const card = screen.getAllByTestId(TasksDockPanelTestId.Card).at(-1)!;
+      expect(card).toHaveTextContent("Stuck");
+      expect(card).toHaveTextContent("zaparkováno");
+      expect(card).not.toHaveTextContent("běží");
+    } finally {
+      runs.pop();
+    }
+  });
+
   it("lists finished runs (incl. errors) with a PR chip, links to the task and the archive", async () => {
     const user = userEvent.setup();
     archiveState = { data: archived, isPending: false, isError: false };

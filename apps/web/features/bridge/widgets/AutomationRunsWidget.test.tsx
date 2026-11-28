@@ -87,6 +87,23 @@ afterEach(() => vi.useRealTimers());
 const key = (id: string) => `${widget.id}:${id}`;
 
 describe("AutomationRunsWidget", () => {
+  it("does not list a parked automation run as running", () => {
+    d.live = [
+      {
+        runId: "rp",
+        status: "parked",
+        kind: "workflow",
+        owner: "wf",
+        project: "p",
+        title: "rp",
+        startedAt: "2026-11-11T10:05:00Z",
+        automationId: "nightly",
+      },
+    ];
+    renderWithProviders(<AutomationRunsWidget {...props} />);
+    expect(screen.queryByTestId(`${AutomationRunsWidgetTestId.Time}-${key("rp")}`)).toBeNull();
+  });
+
   it("lists running automation runs and the next fires within 24 h, soonest first", () => {
     renderWithProviders(<AutomationRunsWidget {...props} />);
     expect(screen.getByTestId(`${AutomationRunsWidgetTestId.Time}-${key("r1")}`)).toHaveTextContent(

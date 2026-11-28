@@ -151,7 +151,8 @@ export function AutomationRunsWidget({
   const byId = useMemo(() => new Map((automations ?? []).map((a) => [a.id, a])), [automations]);
 
   const running = useMemo(() => {
-    const runs = live.filter((r) => r.automationId);
+    // A parked run (exhausted retries) is waiting on the operator, not running.
+    const runs = live.filter((r) => r.automationId && r.status !== "parked");
     return runRows(widget.id, runs).map((row, i) => ({
       ...row,
       automationId: runs[i]?.automationId ?? "",
