@@ -4290,6 +4290,7 @@
         "nowIdle": "Nothing running now",
         "next": "next {in}",
         "detail": "Detail",
+        "parkedWhy": "Phase {phase} failed after {attempts} attempts. Add a note to resume.",
         "state": {
           "working": "Working",
           "thinking": "Thinking",

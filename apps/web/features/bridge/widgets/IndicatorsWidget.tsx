@@ -15,6 +15,7 @@ import { passesFilters } from "../../inbox/inbox";
 import { useInboxPrsQuery } from "../../inbox/queries";
 import { useBudgetQuery } from "../../projects/queries";
 import { useLiveRuns } from "../../runs/components/TasksDockPanel";
+import { parkedRunsWithoutApproval } from "../../runs/run";
 import { REVIEW_PRESET } from "../grid/presets";
 import { prCiState, prReviewState } from "../state/prStatus";
 import { formatUsd, spendMonthUsd } from "../state/rows";
@@ -40,7 +41,11 @@ export function IndicatorsWidget({ onEmptyChange }: BridgeWidgetProps) {
   const { data: prs } = useInboxPrsQuery();
   const { data: budget } = useBudgetQuery();
   // Only `running` — the bucket its `?state=running` link filters to, so the numbers match.
-  const running = useLiveRuns().filter((r) => r.status === "running").length;
+  const liveRuns = useLiveRuns();
+  const running = liveRuns.filter((r) => r.status === "running").length;
+  // Parked runs (exhausted retries) wait on me without any approval — count them too, but a
+  // parked run that has a pending approval is already one of the approvals.
+  const parkedRuns = parkedRunsWithoutApproval(liveRuns, approvals ?? []).length;
   const review = preset === REVIEW_PRESET && !phone;
 
   // Never empty (the counters always render).
@@ -68,14 +73,18 @@ export function IndicatorsWidget({ onEmptyChange }: BridgeWidgetProps) {
         pr("failing", ci("failing"), "error"),
         pr("conflict", ci("conflict")),
       ];
-    const needs = approvals?.length ?? 0;
+    const needs = (approvals?.length ?? 0) + parkedRuns;
     return [
       {
         id: "needs",
         label: t("needs"),
         value: pad2(needs),
         tone: needs > 0 ? "accent" : "dim",
-        href: "/activity/approvals",
+        // Only parked runs waiting → the approvals page would be empty; go to the parked runs.
+        href:
+          !approvals?.length && parkedRuns > 0
+            ? runsListHref({ state: "parked" })
+            : "/activity/approvals",
       },
       {
         id: "running",
@@ -93,7 +102,7 @@ export function IndicatorsWidget({ onEmptyChange }: BridgeWidgetProps) {
         href: "/governance/budgets",
       },
     ];
-  }, [t, review, approvals, running, prs, filters, budget]);
+  }, [t, review, approvals, parkedRuns, running, prs, filters, budget]);
 
   return (
     <BriefingHero

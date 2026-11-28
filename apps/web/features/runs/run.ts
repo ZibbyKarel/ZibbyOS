@@ -219,6 +219,13 @@ export function approvalForRun<A extends Pick<Approval, "id" | "runId">>(
     return run.approvalId ? queue.find((a) => a.id === run.approvalId) : undefined;
   }
   if (run.status !== "awaiting-approval") return undefined;
+  return matchRunApproval(queue, run);
+}
+
+function matchRunApproval<A extends Pick<Approval, "id" | "runId">>(
+  queue: readonly A[],
+  run: Pick<RunView, "runId" | "kind" | "approvalId" | "taskId">,
+): A | undefined {
   return queue.find(
     (a) =>
       // A parent parked on a sub-run points at the sub-run's gate by id.
@@ -228,6 +235,29 @@ export function approvalForRun<A extends Pick<Approval, "id" | "runId">>(
       (run.taskId !== undefined && a.runId === run.taskId) ||
       (run.kind === "workflow" && a.runId.startsWith(`${run.runId}.`)),
   );
+}
+
+/**
+ * The pending approval of a retries-`parked` run, if any. Parking after exhausted retries
+ * creates no approval, so this is usually undefined — but when one exists the run is already
+ * counted through the approvals queue and must not be counted again.
+ */
+export function approvalForParkedRun<A extends Pick<Approval, "id" | "runId">>(
+  queue: readonly A[],
+  run: Pick<RunView, "runId" | "kind" | "status" | "approvalId" | "taskId">,
+): A | undefined {
+  return run.status === "parked" ? matchRunApproval(queue, run) : undefined;
+}
+
+/**
+ * `parked` runs (retries / limit park) with no pending approval. The "needs you" counter is
+ * the approvals plus these — a parked run that has an approval is already one of the approvals.
+ */
+export function parkedRunsWithoutApproval<A extends Pick<Approval, "id" | "runId">>(
+  runs: readonly RunView[],
+  queue: readonly A[],
+): RunView[] {
+  return runs.filter((r) => r.status === "parked" && !approvalForParkedRun(queue, r));
 }
 
 export interface RunStateMeta {

@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Approval } from "@zibby/contracts";
 import {
   type RunView,
+  approvalForParkedRun,
   approvalForRun,
   findSelectedRun,
   isHandoverableRun,
   isPausableRun,
   isResumableRun,
   isStoppableRun,
+  parkedRunsWithoutApproval,
   runOutputHref,
   runTitle,
 } from "./run";
@@ -29,6 +31,27 @@ const run = (over: Partial<Parameters<typeof approvalForRun>[1]> = {}) => ({
   kind: "agent" as const,
   status: "awaiting-approval" as const,
   ...over,
+});
+
+describe("parked runs needing the operator", () => {
+  const parked = (runId: string) =>
+    ({ runId, kind: "workflow", status: "parked" }) as unknown as RunView;
+
+  it("a parked workflow run matches an approval on its stage run", () => {
+    const queue = [approval("wf_1.cast_2", "workflow-stage")];
+    expect(approvalForParkedRun(queue, parked("wf_1"))?.id).toBe("appr-wf_1.cast_2");
+    expect(approvalForParkedRun(queue, parked("wf_2"))).toBeUndefined();
+  });
+
+  it("lists only parked runs that have no approval, so none is counted twice", () => {
+    const queue = [approval("wf_1.cast_2", "workflow-stage")];
+    const runs = [
+      parked("wf_1"),
+      parked("wf_2"),
+      { runId: "wf_3", kind: "workflow", status: "running" } as unknown as RunView,
+    ];
+    expect(parkedRunsWithoutApproval(runs, queue).map((r) => r.runId)).toEqual(["wf_2"]);
+  });
 });
 
 describe("approvalForRun", () => {

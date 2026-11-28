@@ -4290,6 +4290,7 @@
         "nowIdle": "Teď nic neběží",
         "next": "další {in}",
         "detail": "Detail",
+        "parkedWhy": "Fáze {phase} selhala po {attempts} pokusech. Přidej poznámku a pokračuj.",
         "state": {
           "working": "Pracuje",
           "thinking": "Přemýšlí",

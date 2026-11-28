@@ -186,6 +186,27 @@ describe("RunsWidget", () => {
     expect(props.onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: "run", id: "b" }));
   });
 
+  it("a parked run without an approval shows in the parked block with its failed phase and opens the run", async () => {
+    d.live = [
+      { ...run("p", "parked"), parked: { phaseId: "cast", attempts: 2, failureFile: "/f.md" } },
+    ];
+    // The archive lists the parked run too, and is fresher — the live feed still wins.
+    d.archived = [run("p", "parked")];
+    d.archivedAt = 10;
+    renderWithProviders(<RunsWidget {...props} />);
+    const park = screen.getByTestId(StatusRailTestId.Park);
+    expect(screen.getByTestId(StatusRailTestId.ParkWhy)).toHaveTextContent(
+      "Fáze cast selhala po 2 pokusech",
+    );
+    expect(screen.getAllByTestId(StatusRailTestId.Item)).toHaveLength(1);
+    expect(props.onCountChange).toHaveBeenLastCalledWith(expect.objectContaining({ you: 1 }));
+    vi.mocked(props.onOpen).mockClear();
+    await userEvent.click(within(park).getByTestId(StatusRailTestId.Item));
+    expect(props.onOpen).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: "run", id: "p", href: "/activity/runs/p" }),
+    );
+  });
+
   it("the Detail action opens the run sheet", async () => {
     renderWithProviders(<RunsWidget {...props} />);
     expect(screen.queryByTestId(`${RunsWidgetTestId.Approve}-${key("b")}`)).toBeNull();

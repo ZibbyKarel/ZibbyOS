@@ -32,6 +32,7 @@ import { useRecentArchivedRunsQuery } from "../../runs/queries/useRecentArchived
 import {
   type RunView,
   WAITING_STATES,
+  approvalForParkedRun,
   approvalForRun,
   isCancellableRun,
   isPausableRun,
@@ -86,8 +87,14 @@ export function dedupeRuns(
 ): { live: RunView[]; archived: RunView[] } {
   const inArchive = new Set(archived.map((r) => r.runId));
   const inLive = new Set(live.map((r) => r.runId));
+  // A parked run sits in both feeds (the archive lists `parked` as history), but it still waits
+  // on the operator and holds a run slot — the live feed is authoritative, never the archive.
+  const livePark = (r: RunView) => r.status === "parked";
   return archivedAt >= liveAt
-    ? { live: live.filter((r) => !inArchive.has(r.runId)), archived }
+    ? {
+        live: live.filter((r) => livePark(r) || !inArchive.has(r.runId)),
+        archived: archived.filter((r) => !(livePark(r) && inLive.has(r.runId))),
+      }
     : { live, archived: archived.filter((r) => !inLive.has(r.runId)) };
 }
 
@@ -148,7 +155,10 @@ export function RunsWidget({
     const started = live.filter((r) => !WAITING_STATES.has(r.status));
     const rows = runRows(widget.id, started, phasesByWorkflow).map((r, i) => ({
       ...r,
-      approval: approvalForRun(approvals ?? [], started[i] as RunView),
+      approval:
+        approvalForRun(approvals ?? [], started[i] as RunView) ??
+        approvalForParkedRun(approvals ?? [], started[i] as RunView),
+      parkedDetail: started[i]?.status === "parked" ? started[i]?.parked : undefined,
     }));
     return {
       active: rows.filter((r) => r.tone !== "blocked"),
@@ -324,7 +334,12 @@ export function RunsWidget({
               r.approval
                 ? (r.approval.summary ?? r.approval.consequence ?? r.approval.text)
                 : r.status === "parked"
-                  ? tRuns("detail.banner.parkedHint")
+                  ? r.parkedDetail
+                    ? t("parkedWhy", {
+                        phase: r.parkedDetail.phaseId,
+                        attempts: r.parkedDetail.attempts,
+                      })
+                    : tRuns("detail.banner.parkedHint")
                   : undefined
             }
           />

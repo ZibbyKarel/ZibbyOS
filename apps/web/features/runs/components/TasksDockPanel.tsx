@@ -44,6 +44,8 @@ const LIVE_STATES = new Set([
   "pending",
   "running",
   "awaiting-approval",
+  // Parked after exhausted retries: no process, but it holds a run slot and waits on the operator.
+  "parked",
   "paused-limit",
   "queued",
   "scheduled",

@@ -833,6 +833,29 @@ describe("IndicatorsWidget", () => {
     expect(props.onEmptyChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("counts a parked run without an approval as needing you, and links to the parked runs", () => {
+    d.approvals = [];
+    d.runs = [run("p1", "parked")];
+    d.prs = [];
+    const props = setup({ widget: widget("w-ind", "indicators") });
+    renderWithProviders(<IndicatorsWidget {...props} />);
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-needs`)).toHaveTextContent("01");
+    expect(screen.getByTestId(`${BriefingHeroTestId.Link}-needs`)).toHaveAttribute(
+      "href",
+      "/activity/runs?state=parked",
+    );
+  });
+
+  it("counts a parked run that has a pending approval once", () => {
+    d.approvals = [{ id: "ap1", runId: "p1" }];
+    d.runs = [run("p1", "parked"), run("p2", "parked")];
+    d.prs = [];
+    const props = setup({ widget: widget("w-ind", "indicators") });
+    renderWithProviders(<IndicatorsWidget {...props} />);
+    // 1 approval (for p1) + p2 parked with none.
+    expect(screen.getByTestId(`${BriefingHeroTestId.Value}-needs`)).toHaveTextContent("02");
+  });
+
   it("todo-18: every number links to its detail page", () => {
     d.approvals = [];
     d.runs = [];
