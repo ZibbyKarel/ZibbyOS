@@ -703,13 +703,16 @@ export const ScheduledTaskSchema = z.object({
    * An operator "continue" of this task's failed/interrupted run, waiting in the
    * queue for a run slot like any dispatch (status `queued`). The drain continues
    * `runRef` in place (a workflow/loop) or re-runs it (an agent) instead of starting
-   * a fresh run; cleared once dispatched.
+   * a fresh run; cleared once dispatched. `parked`: the run is a parked/paused
+   * workflow or loop that no longer holds a run slot (after a restart, or it started
+   * uncounted); the drain resumes it in place under a fresh slot.
    */
   continueRun: z
     .object({
       kind: z.enum(["agent", "workflow", "loop"]),
       runRef: z.string().min(1),
       note: z.string().optional(),
+      parked: z.boolean().optional(),
     })
     .optional(),
   /**

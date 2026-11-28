@@ -574,8 +574,9 @@ global cap or the project's `budget.maxConcurrent` full they wait **queued** and
 a slot frees. Only automation-fired tasks are forced `immediate`.
 
 A task with `immediate: true` takes **no slot**: `takeRunSlot` returns an uncounted no-op
-slot, so it dispatches past both caps and `RunSlots.inUse()` does not count it. A rerun of
-such a run does not carry the flag.
+slot, so it dispatches past both caps and `RunSlots.inUse()` does not count it. A rerun or
+an operator continue of such a run does not carry the flag: `markQueuedContinue` drops it,
+so the continue waits for a slot like any other task.
 
 Nothing waits inside `RunSlots`: when `tryTake` returns `null` the task moves to
 **queued** (no approval), persisting its resolved `target` / `classification` so a drain
@@ -590,6 +591,12 @@ takes a slot and continues the workflow/loop in place or re-runs the agent. Unti
 the run itself reads `queued` in the feed (no separate task row). A run with nothing
 left to continue at is dispatched fresh from the same task, with the note appended. A
 run with no backing task (a self-dev loop) still continues at once, uncounted.
+
+Resuming a **parked/paused** workflow or loop run continues it in place at once only while
+it still holds its run slot (`holdsRunSlot`). When it does not (the slot was lost on an API
+restart, or the run started uncounted) the task is queued with
+`continueRun: { kind, runRef, note?, parked: true }` and the drain calls `resumeParked`
+under a fresh slot.
 
 On every terminal run, slot release or `maxConcurrentRuns` change the scheduler calls
 `drainQueues()`: queued tasks are tried by project round-robin, then oldest first; a task

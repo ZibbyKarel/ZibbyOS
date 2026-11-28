@@ -1615,6 +1615,11 @@ export class TaskSchedulerService
     return { runRef: run.runId, target, classification };
   }
 
+  /** Whether a dispatched run still holds its run slot (in memory: lost on restart). */
+  holdsRunSlot(runRef: string): boolean {
+    return this.runSlots.has(runRef);
+  }
+
   /**
    * Queue an operator "continue" of a task's failed/interrupted run. It waits for a
    * run slot like any dispatch; the drain then continues it via {@link dispatchContinue}.
@@ -1638,11 +1643,12 @@ export class TaskSchedulerService
    */
   private async dispatchContinue(
     task: ScheduledTask,
-    { kind, runRef, note }: NonNullable<ScheduledTask["continueRun"]>,
+    { kind, runRef, note, parked }: NonNullable<ScheduledTask["continueRun"]>,
   ): Promise<Dispatched | QueuedDispatch | null> {
     const target = task.target ?? ORCHESTRATOR_TARGET;
     const classification = task.classification;
-    const slot = await this.takeRunSlot(task.projectId, task.immediate);
+    // An operator continue always counts toward the caps (never `task.immediate`).
+    const slot = await this.takeRunSlot(task.projectId, false);
     if (!slot) return { queued: true, target, classification };
     const hold = <R>(
       start: () => Promise<R | null>,
@@ -1656,7 +1662,22 @@ export class TaskSchedulerService
         (r) => !r || ended(r),
       );
     let ref: string | undefined;
-    if (kind === "workflow") {
+    if (parked && kind === "workflow") {
+      const run = await hold(
+        () => this.workflowRunner.resumeParked(runRef, note),
+        (r) => r.workflowRunId,
+        (r) =>
+          TERMINAL_WORKFLOW.has(this.liveStatus(() => this.workflowRunner.get(r.workflowRunId), r)),
+      );
+      ref = run?.workflowRunId;
+    } else if (parked && kind === "loop") {
+      const run = await hold(
+        () => this.loopRunner.resumeParked(runRef, note),
+        (r) => r.loopRunId,
+        (r) => TERMINAL_LOOP.has(this.liveStatus(() => this.loopRunner.get(r.loopRunId), r)),
+      );
+      ref = run?.loopRunId;
+    } else if (kind === "workflow") {
       const run = await hold(
         () => this.workflowRunner.continueFailed(runRef, note),
         (r) => r.workflowRunId,

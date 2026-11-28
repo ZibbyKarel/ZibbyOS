@@ -178,6 +178,7 @@ function build() {
   const scheduler = {
     createTask: vi.fn(async () => ({ outcome: "pending", task: scheduledS })),
     queueContinue: vi.fn(async () => {}),
+    holdsRunSlot: vi.fn((): boolean => true),
   };
 
   const approvals = { list: vi.fn(async (): Promise<Approval[]> => []) };
@@ -992,6 +993,21 @@ describe("TaskRunsService", () => {
       await service.resume("ship-it_4", { note: "again" });
       expect(loopRunner.resumeParked).toHaveBeenCalledWith("ship-it_4", "again");
       await expect(service.resume("researcher_1")).rejects.toBeInstanceOf(TaskRunNotResumableError);
+    });
+
+    it("queues a parked task-backed run that lost its run slot instead of resuming it uncounted", async () => {
+      const { service, workflowRunner, scheduler } = build();
+      const parked: WorkflowRun = { ...pipeP, status: "parked", taskId: "task9" };
+      workflowRunner.listAll.mockResolvedValue([parked]);
+      scheduler.holdsRunSlot.mockReturnValue(false);
+      await service.resume("delivery_3", { note: "go" });
+      expect(scheduler.queueContinue).toHaveBeenCalledWith("task9", {
+        kind: "workflow",
+        runRef: "delivery_3",
+        note: "go",
+        parked: true,
+      });
+      expect(workflowRunner.resumeParked).not.toHaveBeenCalled();
     });
 
     it("queues a continue of a failed task-backed workflow run instead of continuing directly", async () => {

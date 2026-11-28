@@ -548,6 +548,9 @@ export class ScheduledTasksStorageService extends EntityFileStore<ScheduledTask>
   ): Promise<ScheduledTask> {
     return this.updateEntity(id, (existing) => {
       const merged: ScheduledTask = { ...existing, status: "queued", continueRun };
+      // An operator continue always takes a run slot, even for a task that first ran
+      // uncounted (automation-fired, or a goal task from before goals took slots).
+      delete merged.immediate;
       delete merged.outcome;
       delete merged.error;
       return merged;

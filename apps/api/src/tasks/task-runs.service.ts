@@ -515,6 +515,15 @@ export class TaskRunsService {
         return this.getTaskRun(runId);
       }
     }
+    // A parked/paused task-backed run that no longer holds its run slot (lost on a
+    // restart, or it started uncounted) waits in the queue for one before resuming.
+    if ((kind === "workflow" || kind === "loop") && !this.scheduler.holdsRunSlot(runId)) {
+      const run = await this.getTaskRun(runId);
+      if (run.taskId) {
+        await this.scheduler.queueContinue(run.taskId, { kind, runRef: runId, note, parked: true });
+        return this.getTaskRun(runId);
+      }
+    }
     if (kind === "workflow") await this.workflowRunner.resumeParked(runId, note);
     else if (kind === "loop") await this.loopRunner.resumeParked(runId, note);
     else if (kind === "agent") return this.rerunAgent(runId, note);

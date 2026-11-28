@@ -2887,6 +2887,7 @@ describe("run slots (global + per-project cap)", () => {
   let workflowRunner: {
     start: ReturnType<typeof vi.fn>;
     continueFailed: ReturnType<typeof vi.fn>;
+    resumeParked: ReturnType<typeof vi.fn>;
     setGatePresenter: ReturnType<typeof vi.fn>;
     onRunStatus: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
@@ -2930,6 +2931,7 @@ describe("run slots (global + per-project cap)", () => {
       setGatePresenter: vi.fn(),
       start: vi.fn(async () => workflowRun({ workflowRunId: `release_${++runSeq}` })),
       continueFailed: vi.fn(async (runRef: string) => workflowRun({ workflowRunId: runRef })),
+      resumeParked: vi.fn(async (runRef: string) => workflowRun({ workflowRunId: runRef })),
       onRunStatus: vi.fn((l: (run: WorkflowRun) => void) => {
         workflowListener = l;
         return () => {};
@@ -3257,7 +3259,7 @@ describe("run slots (global + per-project cap)", () => {
       expect(slots.inUse()).toBe(1);
     });
 
-    it("an immediate task continues past a full global cap and takes no slot", async () => {
+    it("an operator continue of an immediate task takes a slot: it queues past a full cap", async () => {
       makeService(1);
       const r = await service.createTask(
         { text: "do A", title: "do A", immediate: true },
@@ -3267,8 +3269,14 @@ describe("run slots (global + per-project cap)", () => {
       );
       if (r.outcome !== "dispatched") throw new Error(`expected dispatched: ${r.outcome}`);
       workflowListener?.(workflowRun({ workflowRunId: r.runRef, status: "failed" }));
-      await dispatched("do B"); // fills the cap of 1
+      const holder = await dispatched("do B"); // fills the cap of 1
       await service.queueContinue(r.task.id, { kind: "workflow", runRef: r.runRef });
+      await new Promise((res) => setTimeout(res, 30));
+      expect((await storage.get(r.task.id)).status).toBe("queued");
+      expect((await storage.get(r.task.id)).immediate).toBeUndefined();
+      expect(workflowRunner.continueFailed).not.toHaveBeenCalled();
+
+      agentListener?.(agentRun({ runId: holder, status: "done" }));
       await vi.waitFor(async () =>
         expect((await storage.get(r.task.id)).status).toBe("dispatched"),
       );
@@ -3276,24 +3284,20 @@ describe("run slots (global + per-project cap)", () => {
       expect(slots.inUse()).toBe(1);
     });
 
-    it("a full cap does not stop the drain reaching an immediate continue queued behind a normal task", async () => {
+    it("resumes a parked run in place under a fresh slot once one frees", async () => {
       makeService(1);
-      await dispatched("holder"); // fills the cap of 1
-      const normalId = await queued("normal"); // older createdAt: sorts AHEAD in the drain
-      await new Promise((r) => setTimeout(r, 5));
-      const r = await service.createTask(
-        { text: "do A", title: "do A", immediate: true },
-        undefined,
-        undefined,
-        RELEASE,
-      );
-      if (r.outcome !== "dispatched") throw new Error(`expected dispatched: ${r.outcome}`);
-      workflowListener?.(workflowRun({ workflowRunId: r.runRef, status: "failed" }));
-      await service.queueContinue(r.task.id, { kind: "workflow", runRef: r.runRef });
-      await vi.waitFor(async () =>
-        expect((await storage.get(r.task.id)).status).toBe("dispatched"),
-      );
-      expect((await storage.get(normalId)).status).toBe("queued");
+      const { taskId, runRef } = await failedRun(RELEASE);
+      const holder = await dispatched("do B");
+      await service.queueContinue(taskId, { kind: "workflow", runRef, note: "ok", parked: true });
+      await new Promise((res) => setTimeout(res, 30));
+      expect((await storage.get(taskId)).status).toBe("queued");
+      expect(workflowRunner.resumeParked).not.toHaveBeenCalled();
+
+      agentListener?.(agentRun({ runId: holder, status: "done" }));
+      await vi.waitFor(async () => expect((await storage.get(taskId)).status).toBe("dispatched"));
+      expect(workflowRunner.resumeParked).toHaveBeenCalledWith(runRef, "ok");
+      expect(workflowRunner.continueFailed).not.toHaveBeenCalled();
+      expect(service.holdsRunSlot(runRef)).toBe(true);
       expect(slots.inUse()).toBe(1);
     });
 
