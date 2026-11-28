@@ -161,7 +161,7 @@ describe("GoalEngineService", () => {
     expect(planner.plan).toHaveBeenCalledTimes(3);
     const ctx = planner.plan.mock.calls[2]?.[0] as GoalPlannerContext;
     expect(ctx.facts.tasks).toEqual({
-      tasks: [{ id: "t1", status: "dispatched", outcome: "done" }],
+      tasks: [{ id: "t1", status: "dispatched", state: "done", outcome: "done", summary: "ok" }],
       wakeAt: null,
     });
   });
@@ -178,7 +178,15 @@ describe("GoalEngineService", () => {
     await engine.tick(later(2));
     const ctx = planner.plan.mock.calls[1]?.[0] as GoalPlannerContext;
     expect(ctx.facts.tasks).toEqual({
-      tasks: [{ id: "t1", status: "dispatched", outcome: "error", error: "no local clone" }],
+      tasks: [
+        {
+          id: "t1",
+          status: "dispatched",
+          state: "failed",
+          outcome: "error",
+          error: "no local clone",
+        },
+      ],
       wakeAt: null,
     });
   });
@@ -898,29 +906,63 @@ describe("GoalEngineService", () => {
     const inst = async () => (await state()).instances._;
     const timelineText = async () => (await store.timeline("g")).map((l) => l.text);
 
-    it("starts only the first of several start-task actions and reports the rest as deferred", async () => {
+    it("starts every independent step of one plan at once (the scheduler's queue throttles)", async () => {
       await create();
       planner.plan.mockResolvedValueOnce({
         plan: "",
         feasibility: "ok",
-        actions: [startAction(1), startAction(2), startAction(3)],
+        steps: steps3,
+        actions: [startAction(1, "s1"), startAction(2, "s2"), startAction(3, "s3")],
       });
       await engine.tick(NOW);
       const i = await inst();
-      expect(i?.taskIds).toEqual(["t1"]);
-      // Deferred actions are not applied, so the planner can restate them later.
-      expect(i?.appliedActionIds).toEqual(["a1"]);
-      expect((await timelineText()).filter((t) => t.startsWith("Not started"))).toHaveLength(2);
+      expect(i?.taskIds).toEqual(["t1", "t2", "t3"]);
+      expect(i?.appliedActionIds).toEqual(["a1", "a2", "a3"]);
+      expect(i?.steps?.map((s) => [s.id, s.status, s.taskId])).toEqual([
+        ["s1", "running", "t1"],
+        ["s2", "running", "t2"],
+        ["s3", "running", "t3"],
+      ]);
+    });
+
+    it("starts 16 queued tasks and keeps planning while ten of them sit in the queue", async () => {
+      await create();
+      const many = Array.from({ length: 16 }, (_, k) => ({
+        id: `p${k}`,
+        title: `Položka ${k}`,
+        status: "pending" as const,
+      }));
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: many,
+        actions: many.map((s, k) => startAction(k + 1, s.id)),
+      });
+      await engine.tick(NOW);
+      expect((await inst())?.taskIds).toHaveLength(16);
+      // Ten wait for a slot: a re-plan must not be refused because of them.
+      for (let k = 1; k <= 10; k++) tasks.set(`t${k}`, { id: `t${k}`, status: "queued" });
+      await setInstance({ fingerprint: "stale" });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: [...many, { id: "extra", title: "Navíc", status: "pending" }],
+        actions: [startAction(17, "extra")],
+      });
+      await engine.tick(later(1));
+      expect((await inst())?.taskIds).toContain("t17");
+      expect((await timelineText()).some((t) => t.startsWith("Not started"))).toBe(false);
     });
 
     it.each(["dispatched", "queued"] as const)(
-      "does not start a task while one is in flight (%s); starts the next once it is done",
+      "refuses a second start for a step whose task is still live (%s); a failed step may start again",
       async (status) => {
         await create();
         planner.plan.mockResolvedValueOnce({
           plan: "",
           feasibility: "ok",
-          actions: [startAction(1)],
+          steps: steps3,
+          actions: [startAction(1, "s1")],
         });
         await engine.tick(NOW);
         tasks.set("t1", { id: "t1", status });
@@ -928,25 +970,173 @@ describe("GoalEngineService", () => {
         planner.plan.mockResolvedValueOnce({
           plan: "",
           feasibility: "ok",
-          actions: [startAction(2)],
+          actions: [startAction(2, "s1")],
         });
         await engine.tick(later(1));
         expect((await inst())?.taskIds).toEqual(["t1"]);
-        expect((await timelineText()).some((t) => t.startsWith("Not started"))).toBe(true);
+        expect(
+          (await timelineText()).some((t) => t.startsWith("Not started") && t.includes("s1")),
+        ).toBe(true);
         tasks.set("t1", {
           id: "t1",
           status: "dispatched",
-          outcome: { status: "done", summary: "ok", finishedAt: later(3).toISOString() },
+          outcome: { status: "error", summary: "boom", finishedAt: later(3).toISOString() },
         });
         planner.plan.mockResolvedValueOnce({
           plan: "",
           feasibility: "ok",
-          actions: [startAction(2)],
+          actions: [startAction(2, "s1")],
         });
         await engine.tick(later(4));
         expect((await inst())?.taskIds).toEqual(["t1", "t2"]);
       },
     );
+
+    it("refuses a start for a step whose task is parked on the operator", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      tasks.set("t1", { id: "t1", status: "awaiting-output" });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [startAction(2, "s1")],
+      });
+      await engine.tick(later(1));
+      expect((await inst())?.taskIds).toEqual(["t1"]);
+    });
+
+    it("refuses a start for a step that is already done", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: { status: "done", summary: "ok", finishedAt: later(1).toISOString() },
+      });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [startAction(2, "s1")],
+      });
+      await engine.tick(later(2));
+      expect((await inst())?.taskIds).toEqual(["t1"]);
+    });
+
+    it("holds a step back until the steps it dependsOn are done", async () => {
+      await create();
+      const dependent = [
+        { id: "s1", title: "Jedna", status: "pending" },
+        { id: "s2", title: "Dva", status: "pending", dependsOn: ["s1"] },
+      ];
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: dependent,
+        actions: [startAction(1, "s1"), startAction(2, "s2")],
+      });
+      await engine.tick(NOW);
+      expect((await inst())?.taskIds).toEqual(["t1"]);
+      expect((await inst())?.appliedActionIds).toEqual(["a1"]);
+      expect(
+        (await timelineText()).some((t) => t.startsWith("Not started") && t.includes("s1")),
+      ).toBe(true);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: { status: "done", summary: "ok", finishedAt: later(1).toISOString() },
+      });
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [startAction(2, "s2")],
+      });
+      await engine.tick(later(2));
+      expect((await inst())?.taskIds).toEqual(["t1", "t2"]);
+    });
+
+    it("starts a step with no stepId without the per-step check", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        actions: [startAction(1), startAction(2)],
+      });
+      await engine.tick(NOW);
+      expect((await inst())?.taskIds).toEqual(["t1", "t2"]);
+    });
+
+    it("reports a task waiting on the operator once, with its reason, not on every tick", async () => {
+      await create();
+      planner.plan.mockResolvedValueOnce({
+        plan: "",
+        feasibility: "ok",
+        steps: steps3,
+        actions: [startAction(1, "s1")],
+      });
+      await engine.tick(NOW);
+      tasks.set("t1", { id: "t1", status: "awaiting-output" });
+      const before = recorded("goal-acted").length;
+      await engine.tick(later(1));
+      await engine.tick(later(2));
+      await engine.tick(later(3));
+      const reports = (await store.timeline("g")).filter(
+        (l) => l.kind === "report" && l.text.includes("t1"),
+      );
+      expect(reports).toHaveLength(1);
+      expect(recorded("goal-acted").length - before).toBe(1);
+      // Waiting only on the operator: the instance waits, it is not "acting".
+      expect((await inst())?.status).toBe("waiting");
+      // It resumes and parks again later: a new report.
+      tasks.set("t1", { id: "t1", status: "dispatched" });
+      await engine.tick(later(4));
+      tasks.set("t1", { id: "t1", status: "awaiting-output" });
+      await engine.tick(later(5));
+      expect(
+        (await store.timeline("g")).filter((l) => l.kind === "report" && l.text.includes("t1")),
+      ).toHaveLength(2);
+    });
+
+    it("clears a stale planner-failed summary once a later plan succeeds", async () => {
+      await create();
+      await engine.tick(NOW);
+      await setInstance({
+        status: "acting",
+        summary: "Planner failed 3 times in a row.",
+        fingerprint: "stale",
+      });
+      await engine.tick(later(1));
+      expect((await inst())?.summary).toBeUndefined();
+    });
+
+    it("gives the planner a done task's reported outcome", async () => {
+      await create();
+      await engine.tick(NOW);
+      tasks.set("t1", {
+        id: "t1",
+        status: "dispatched",
+        outcome: {
+          status: "done",
+          summary: "Publikováno: https://shop.example/kniha-1",
+          finishedAt: later(1).toISOString(),
+        },
+      });
+      await setInstance({ taskIds: ["t1"] });
+      await engine.tick(later(2));
+      const ctx = planner.plan.mock.calls.at(-1)?.[0] as GoalPlannerContext;
+      expect(JSON.stringify(ctx.facts.tasks)).toContain("https://shop.example/kniha-1");
+    });
 
     it("does not block a report or a note while a task runs", async () => {
       await create();
@@ -1060,6 +1250,89 @@ describe("GoalEngineService", () => {
       });
       await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
       expect((await state()).instances._?.steps).toBeUndefined();
+    });
+
+    describe("cycle rollover with live tasks", () => {
+      const rollover = async () => {
+        await create({ cadence: { every: "day", hour: 9 } });
+        tasks.set("t1", { id: "t1", status: "queued" });
+        tasks.set("t2", { id: "t2", status: "dispatched" });
+        tasks.set("t3", {
+          id: "t3",
+          status: "dispatched",
+          outcome: { status: "done", summary: "ok", finishedAt: "2026-11-26T07:30:00.000Z" },
+        });
+        tasks.set("t4", { id: "t4", status: "failed" });
+        await store.write({
+          goalId: "g",
+          cycle: { index: 0, startedAt: "2026-11-26T07:00:00.000Z" },
+          instances: {
+            _: {
+              status: "waiting",
+              taskIds: ["t1", "t2", "t3", "t4", "goal-planner_x"],
+              steps: [
+                { id: "s1", title: "Jedna", status: "running", taskId: "t1" },
+                { id: "s2", title: "Dva", status: "running", taskId: "t2" },
+                { id: "s3", title: "Tři", status: "done", taskId: "t3" },
+                { id: "s4", title: "Čtyři", status: "failed", taskId: "t4" },
+              ] as never,
+            },
+          },
+          decisionsThisMonth: { month: "2026-11", count: 0 },
+          nudges: {},
+        });
+      };
+
+      it("carries the previous cycle's live tasks into the new cycle's facts, not the ended ones", async () => {
+        await rollover();
+        await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+        const ctx = planner.plan.mock.calls[0]?.[0] as GoalPlannerContext;
+        expect(ctx.facts.tasks).toMatchObject({
+          tasks: [
+            expect.objectContaining({ id: "t1", state: "queued", carried: true, stepId: "s1" }),
+            expect.objectContaining({ id: "t2", state: "running", carried: true, stepId: "s2" }),
+          ],
+        });
+        const inst = (await state()).instances._;
+        expect(inst?.taskIds).toEqual([]);
+        // The ended ones are not kept for later ticks either.
+        expect(inst?.carriedTasks?.map((c) => c.taskId)).toEqual(["t1", "t2"]);
+      });
+
+      it("does not start a duplicate of a carried task's step; a new step starts", async () => {
+        await rollover();
+        planner.plan.mockResolvedValueOnce({
+          plan: "",
+          feasibility: "ok",
+          actions: [startAction(1, "s1"), startAction(2, "s5")],
+        });
+        await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+        expect((await state()).instances._?.taskIds).toEqual(["t1"]);
+        expect((await store.timeline("g")).some((l) => l.text.startsWith("Not started"))).toBe(
+          true,
+        );
+      });
+
+      it("drops a carried task once it ended", async () => {
+        await rollover();
+        await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+        tasks.set("t1", {
+          id: "t1",
+          status: "dispatched",
+          outcome: { status: "done", summary: "ok", finishedAt: "2026-11-26T08:10:00.000Z" },
+        });
+        await engine.tick(new Date("2026-11-26T08:15:00.000Z"));
+        expect((await state()).instances._?.carriedTasks?.map((c) => c.taskId)).toEqual(["t2"]);
+      });
+
+      it("carries tasks across two rollovers while they stay live", async () => {
+        await rollover();
+        await engine.tick(new Date("2026-11-26T08:05:00.000Z"));
+        await engine.tick(new Date("2026-11-27T08:05:00.000Z"));
+        const s = await state();
+        expect(s.cycle.index).toBe(2);
+        expect(s.instances._?.carriedTasks?.map((c) => c.taskId)).toEqual(["t1", "t2"]);
+      });
     });
   });
 

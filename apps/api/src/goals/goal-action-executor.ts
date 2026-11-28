@@ -34,10 +34,11 @@ export const STARTING_ACTIONS: ReadonlySet<GoalActionType> = new Set([
 ]);
 
 /**
- * Actions that start a unit of work for a step: at most one may be in flight per instance
- * (the engine enforces the sequence, the planner's prompt only asks for it).
+ * Actions that start a unit of work for a step. Independent steps start in parallel (a started
+ * task takes a run slot and queues in the task scheduler, which does the throttling); the engine
+ * only keeps at most one live task per step and holds a step back until its `dependsOn` are done.
  */
-export const SEQUENTIAL_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
+export const STEP_ACTIONS: ReadonlySet<GoalActionType> = new Set(["start-task", "run-loop"]);
 
 const LEVEL_LABEL: Readonly<Record<AutomationLevel, string>> = {
   manual: "Manual",
@@ -128,15 +129,36 @@ export class GoalActionContext {
     await this.persistTask(taskId, actionId);
   }
 
-  /** A `start-task` / `run-loop` of this pass already started a task. */
-  workStarted = false;
+  /** Steps a `start-task` / `run-loop` of this pass already started a task for. */
+  readonly startedSteps = new Set<string>();
 
   /**
-   * A task of the instance is still running or queued: from the facts this pass planned on,
-   * or one this pass started itself (not yet in the facts).
+   * Why a step may not get a new task now, or `undefined` when it may: it is already done, a
+   * task for it is still live (queued, running or waiting on the operator; this cycle's or one
+   * carried over from the last), or a step it `dependsOn` is not done yet. A step whose task
+   * failed or was cancelled may be started again.
    */
-  get workInFlight(): boolean {
-    return this.workStarted || taskFactsOf(this.facts).some(isTaskInFlight);
+  stepBlocker(stepId: string): string | undefined {
+    if (this.startedSteps.has(stepId)) return "a task for it was just started";
+    const facts = taskFactsOf(this.facts);
+    const carried = facts.find((t) => t.carried && t.stepId === stepId && isTaskInFlight(t));
+    if (carried) return `a task carried over from the last cycle is still ${carried.state}`;
+    const steps = this.instance.steps ?? [];
+    const step = steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
+    if (step.status === "done") return "it is already done";
+    if (step.taskId) {
+      const fact = facts.find((t) => t.id === step.taskId);
+      if (fact ? isTaskInFlight(fact) : step.status === "running") {
+        return `its task ${step.taskId} is still ${fact?.state ?? "running"}`;
+      }
+    }
+    const open = (step.dependsOn ?? []).filter((id) => {
+      const dep = steps.find((s) => s.id === id);
+      return dep !== undefined && dep.status !== "done";
+    });
+    if (open.length) return `it waits for step ${open.join(", ")} to be done`;
+    return undefined;
   }
 
   /** The step the engine marks `running` for a task it started (an unknown id changes nothing). */
@@ -287,6 +309,9 @@ export class GoalActionExecutor {
   async execute(actions: GoalAction[], ctx: GoalActionContext): Promise<void> {
     for (const action of actions) {
       const handler = this.handlers.get(action.type);
+      const stepId =
+        STEP_ACTIONS.has(action.type) && "stepId" in action ? action.stepId : undefined;
+      const blocker = stepId ? ctx.stepBlocker(stepId) : undefined;
       const actionId = "actionId" in action ? action.actionId : undefined;
       if (actionId && ctx.applied(actionId)) {
         // Idempotency: a re-plan or a retried tick restating started work starts nothing.
@@ -309,22 +334,22 @@ export class GoalActionExecutor {
         reportFromGoal(ctx, `Not done: ${action.type} — the cycle's budget is used up.`);
       } else if (!handler) {
         reportFromGoal(ctx, `Not done: ${action.type} — not available yet.`);
-      } else if (SEQUENTIAL_ACTIONS.has(action.type) && ctx.workInFlight) {
-        // One unit of work at a time. Not recorded as applied: the planner restates it later.
+      } else if (blocker) {
+        // One live task per step, dependencies first. Not recorded as applied: the planner
+        // restates it later.
         ctx.timeline(
           "note",
-          `Not started: ${action.type}${startingWhat(action)}${stepLabel(action, ctx)} waits for the running step.`,
+          `Not started: ${action.type}${startingWhat(action)}${stepLabel(action, ctx)} — step ${stepId}: ${blocker}.`,
         );
       } else {
         try {
           const before = ctx.instance.taskIds.length;
           await handler(action, ctx);
-          if (SEQUENTIAL_ACTIONS.has(action.type)) {
+          if (STEP_ACTIONS.has(action.type)) {
             const started = ctx.instance.taskIds[before];
-            if (started !== undefined) {
-              ctx.workStarted = true;
-              const stepId = "stepId" in action ? action.stepId : undefined;
-              if (stepId) ctx.markStepRunning(stepId, started);
+            if (started !== undefined && stepId) {
+              ctx.startedSteps.add(stepId);
+              ctx.markStepRunning(stepId, started);
             }
           }
         } catch (error) {

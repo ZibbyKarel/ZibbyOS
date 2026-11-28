@@ -15,9 +15,14 @@ export const GoalParkedReasonSchema = z.enum([
 
 /**
  * One step toward the outcome: a deliverable the planner defines and maintains (one coloring
- * book, one model). The engine runs them one at a time and keeps `running` / `done` / `failed`
- * current from the step's task; the planner owns the rest (`blocked`, `skipped`, titles).
+ * book, one model). Independent steps run in parallel (the task scheduler's queue throttles);
+ * the engine keeps at most one live task per step, holds a step back until its `dependsOn`
+ * steps are `done`, and keeps `running` / `done` / `failed` current from the step's task; the
+ * planner owns the rest (`blocked`, `skipped`, titles).
  */
+/** The most `dependsOn` ids one step lists. */
+const GOAL_STEPS_MAX_DEPS = 20;
+
 export const GoalStepSchema = z.object({
   id: z.string().min(1).max(64),
   title: z.string().min(1),
@@ -26,6 +31,8 @@ export const GoalStepSchema = z.object({
   taskId: z.string().optional(),
   /** Why it failed / is blocked, or a remark. */
   note: z.string().optional(),
+  /** Ids of steps that must be `done` before the engine starts this one (absent = independent). */
+  dependsOn: z.array(z.string().min(1).max(64)).max(GOAL_STEPS_MAX_DEPS).optional(),
 });
 export type GoalStep = z.infer<typeof GoalStepSchema>;
 
@@ -65,6 +72,15 @@ export const GoalInstanceSchema = z.object({
   feasibility: z.string().optional(),
   /** The planner's explicit step list toward the outcome (absent = the goal has no steps). */
   steps: z.array(GoalStepSchema).optional(),
+  /**
+   * Tasks of the PREVIOUS cycle carried into this one (cadence rollover): the ids that were
+   * started before the boundary, with the step they worked on. The engine keeps only those
+   * still queued/running/waiting on the operator and shows them to the planner as `carried`,
+   * so it does not start a duplicate; an ended one is dropped on the next tick.
+   */
+  carriedTasks: z.array(z.object({ taskId: z.string(), stepId: z.string().optional() })).optional(),
+  /** Ids of tasks waiting on the operator that were already reported (one report each). */
+  reportedWaiting: z.array(z.string()).optional(),
   /** `actionId`s of the work this cycle already started (start-task, run-loop, pr-action). */
   appliedActionIds: z.array(z.string()).optional(),
   /** `message` actions deferred by a transient Slack lookup error this cycle, per `actionId`. */

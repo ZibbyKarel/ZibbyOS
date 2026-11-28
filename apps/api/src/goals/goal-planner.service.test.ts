@@ -185,7 +185,10 @@ describe("buildGoalPlanPrompt", () => {
     const prompt = buildGoalPlanPrompt(context({ instance }), { planNote: "", handles: offered });
     expect(prompt).toContain('<untrusted-data name="steps">');
     expect(prompt).toContain("Omalovánky 1");
-    expect(prompt).toContain("exactly ONE step at a time");
+    expect(prompt).toContain("run in PARALLEL");
+    expect(prompt).toContain("dependsOn");
+    expect(prompt).toContain("waiting-operator");
+    expect(prompt).toContain("carried: true");
     expect(prompt).toContain("stepId");
     expect(prompt).toContain("blocks that kind of work");
     expect(prompt).toContain('"steps"?');

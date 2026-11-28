@@ -275,6 +275,7 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     const facts = await this.facts.collect({ goal, instanceKey: key, instance: before, now });
     // The planner must see accurate step state: a finished task settles its step first.
     reconcileSteps(work, facts);
+    const carriedPruned = pruneCarried(work, facts);
     const remainingBudget = await this.remainingBudget(goal, state, before, now);
     const ctx = new GoalActionContext(
       goal,
@@ -286,6 +287,10 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
       (taskId, actionId) => this.persistTask(goal, state.cycle.index, key, taskId, actionId),
     );
     ctx.autonomy = level;
+    // A task parked on the operator is reported once, even when nothing else wakes the planner.
+    const announced = announceWaiting(ctx, facts) || carriedPruned;
+    const settle = () =>
+      announced ? this.apply(goal, state, key, before, ctx) : Promise.resolve();
     // An operator resume in this cycle overrides the deadline park for the cycle, and the
     // budget park only until one more run is recorded past the resume (else a one-off goal
     // would pay for a planner run on every wake for good).
@@ -301,20 +306,20 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (!budgetGrace && ctx.budgetExhausted) {
       // Work still in flight: wait for it without paying for another plan; once it ends,
       // the instance parks here.
-      if (this.inFlight(facts, before)) return;
+      if (this.inFlight(facts, before)) return settle();
       parkInstance(ctx, "budget", "The cycle's budget is used up.");
       return this.apply(goal, state, key, before, ctx);
     }
 
     // Inside a usage-limit window every planner run would only hit the limit again.
-    if (before.limitedUntil && now.getTime() < Date.parse(before.limitedUntil)) return;
+    if (before.limitedUntil && now.getTime() < Date.parse(before.limitedUntil)) return settle();
     delete work.limitedUntil;
 
     const fingerprint = goalFingerprint(facts);
     const wakeDue = before.wakeAt !== undefined && now.getTime() >= Date.parse(before.wakeAt);
     const isDirty = instanceRefs(before).some((ref) => dirty.has(ref));
     // A released hold re-plans: refs that settled meanwhile were consumed unseen.
-    if (fingerprint === before.fingerprint && !wakeDue && !isDirty && !released) return;
+    if (fingerprint === before.fingerprint && !wakeDue && !isDirty && !released) return settle();
 
     ctx.activity("goal-woke", `${ctx.label}: planning`);
     const firstPlan = before.feasibility === undefined;
@@ -417,8 +422,16 @@ export class GoalEngineService extends TickingWatcherBase implements OnModuleIni
     if (ctx.instance.status !== "done" && ctx.instance.status !== "parked") {
       if (ctx.instance.waitingOn?.length || ctx.instance.wakeAt) work.status = "waiting";
       // Fresh facts: an id recorded this tick (the planner's run) is known, not "in flight".
-      else if (this.inFlight(after ?? facts, work)) work.status = "acting";
-      else work.status = "planning";
+      else if (this.inFlight(after ?? facts, work)) {
+        // Only the operator can move what is left: waiting, not acting.
+        const live = taskFactsOf(after ?? facts).filter(isTaskInFlight);
+        work.status =
+          live.length > 0 && live.every((t) => t.state === "waiting-operator")
+            ? "waiting"
+            : "acting";
+      } else work.status = "planning";
+      // The park summary ("Planner failed 3 times in a row.") is history once a plan went through.
+      delete work.summary;
     }
     // The actions' own changes must not wake the planner again.
     if (after) work.fingerprint = goalFingerprint(after);
@@ -607,9 +620,22 @@ export function bookkeep(
       delete s.decisions;
       for (const [key, inst] of Object.entries(s.instances)) {
         if (!keys.includes(key)) continue;
+        // Tasks the old cycle still has in flight are carried over (the facts keep only the live
+        // ones, the engine drops an ended one on its next tick): the new plan counts them
+        // instead of starting duplicates. The planner's own runs are not work to carry.
+        const carried = [
+          ...(inst.carriedTasks ?? []),
+          ...inst.taskIds
+            .filter((id) => !isPlannerRun(id))
+            .map((id) => {
+              const stepId = inst.steps?.find((st) => st.taskId === id)?.id;
+              return { taskId: id, ...(stepId ? { stepId } : {}) };
+            }),
+        ].filter((c, i, all) => all.findIndex((x) => x.taskId === c.taskId) === i);
         s.instances[key] = {
           status: "planning",
           taskIds: [],
+          ...(carried.length ? { carriedTasks: carried } : {}),
           ...(inst.planNoteId ? { planNoteId: inst.planNoteId } : {}),
           // Still held: the hold carries over, so the new cycle writes no second `held` line.
           ...(held.has(key) && inst.held ? { held: inst.held } : {}),
@@ -641,6 +667,11 @@ export function bookkeep(
     delete inst.wakeAt;
     timeline(key, "note", "The project left the goal's scope; instance closed.");
   }
+}
+
+/** A planner run recorded on the instance (`goal-planner_…`), not a task the goal started. */
+function isPlannerRun(id: string): boolean {
+  return id.startsWith("goal-planner_");
 }
 
 /** Errors kept on a failed step's `note`. */
@@ -676,6 +707,50 @@ export function reconcileSteps(instance: GoalInstance, facts: GoalFacts): void {
 }
 
 /**
+ * Keep only the carried tasks still alive (the facts list exactly those): an ended one belongs
+ * to the closed cycle. Returns whether the stored list changed.
+ */
+export function pruneCarried(instance: GoalInstance, facts: GoalFacts): boolean {
+  const carried = instance.carriedTasks;
+  if (!carried?.length) return false;
+  const live = new Set(
+    taskFactsOf(facts)
+      .filter((t) => t.carried)
+      .map((t) => t.id),
+  );
+  const kept = carried.filter((c) => live.has(c.taskId));
+  if (kept.length === carried.length) return false;
+  if (kept.length) instance.carriedTasks = kept;
+  else delete instance.carriedTasks;
+  return true;
+}
+
+/**
+ * One `report` (timeline + operator activity) per task that starts waiting on the operator (a
+ * parked run, an approval, a held task) — not repeated every tick: the ids already reported are
+ * kept on the instance and forgotten once the task moves on. Returns whether anything changed.
+ */
+export function announceWaiting(ctx: GoalActionContext, facts: GoalFacts): boolean {
+  const waiting = taskFactsOf(facts).filter((t) => t.state === "waiting-operator");
+  const reported = ctx.instance.reportedWaiting ?? [];
+  const now = new Set(waiting.map((t) => t.id));
+  const fresh = waiting.filter((t) => !reported.includes(t.id));
+  const kept = reported.filter((id) => now.has(id));
+  for (const t of fresh) {
+    const step = ctx.instance.steps?.find((s) => s.taskId === t.id);
+    reportFromGoal(
+      ctx,
+      `Task ${t.id}${step ? ` [step ${step.title}]` : ""} waits on you${t.reason ? `: ${t.reason}` : "."}`,
+    );
+  }
+  const next = [...kept, ...fresh.map((t) => t.id)];
+  if (fresh.length === 0 && kept.length === reported.length) return false;
+  if (next.length) ctx.instance.reportedWaiting = next;
+  else delete ctx.instance.reportedWaiting;
+  return true;
+}
+
+/**
  * The planner's full step list replaces the stored one (capped); a step it does not restate
  * with a `taskId` keeps the one the engine recorded. The planner's statuses win.
  */
@@ -689,7 +764,11 @@ function mergeSteps(stored: GoalStep[] | undefined, planned: GoalStep[]): GoalSt
 
 /** The refs whose settling wakes the instance: its tasks and what it waits on. */
 function instanceRefs(instance: GoalInstance): string[] {
-  return [...instance.taskIds, ...(instance.waitingOn ?? []).map((w) => w.ref)];
+  return [
+    ...instance.taskIds,
+    ...(instance.carriedTasks ?? []).map((c) => c.taskId),
+    ...(instance.waitingOn ?? []).map((w) => w.ref),
+  ];
 }
 
 /** Rejects after `ms` and aborts `abort`, so the planner stops its model run. */

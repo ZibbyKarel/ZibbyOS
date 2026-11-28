@@ -30,7 +30,8 @@ as an internal way to execute work (`run-loop`).
   the first plan of a cycle and maintains it: the plan block's optional top-level `steps` is
   the full list and replaces the stored one (capped at `GOAL_STEPS_MAX` = 100; a step it does
   not restate with a `taskId` keeps the engine's). The engine keeps `running` / `done` /
-  `failed` current itself (see Tick). A new cycle clears the steps. The roll-up carries
+  `failed` current itself (see Tick). A step may list `dependsOn` (ids of steps that must be
+  `done` first). A new cycle clears the steps. The roll-up carries
   `steps?: { done, total }`: summed over the instances that have steps, `done` = status `done`,
   `skipped` is not counted, absent when no instance has steps. `counts` stays instance counts.
 - `GOAL_PRESETS`: 11 prepared goals (`enabled: false`, Czech text, `group`). Data only, never
@@ -138,7 +139,8 @@ Each tick, per enabled goal (one goal failing never blocks the others):
    company's projects; `all` -> every project.
 2. **Bookkeeping** under the state lock (`bookkeep`). A standing goal past a cadence boundary
    starts ONE new cycle anchored at the latest boundary (missed boundaries are not replayed):
-   every in-scope instance goes back to `planning` with no `taskIds` and no `steps`, nudges and the message
+   every in-scope instance goes back to `planning` with no `taskIds` and no `steps` (its still-live
+   tasks are carried over, see Cycle rollover), nudges and the message
    records are cleared, and a
    `cycle-started` timeline line plus a `goal-started` activity are written. `cycleHours` sets
    the cycle's `deadlineAt`; a one-off goal's `deadlineAt` is `goal.deadline`. A new in-scope
@@ -170,7 +172,7 @@ Each tick, per enabled goal (one goal failing never blocks the others):
      the same cycle do not write it again; a new cycle clears it. A plan with a non-empty
      `plan` sets `instance.planNoteId`.
    - The actions run through the executor. Then: `waitingOn`/`wakeAt` set -> `waiting`; a task
-     in flight -> `acting`; otherwise `planning`. The fingerprint is taken again over the
+     in flight -> `acting` (`waiting` when all of them wait on the operator); otherwise `planning`. The fingerprint is taken again over the
      post-action facts,
      so the actions' own changes do not wake the planner on the next tick. When that read throws,
      the actions are still applied: a timeline note, and the pre-plan facts stand in, so the
@@ -221,19 +223,52 @@ throws (a refused or out-of-scope service, a host error) becomes a report "Not d
 action runs. A later phase adds a handler with `GoalActionExecutor.register(type, handler)`, a
 facts source by appending to the `GOAL_FACTS_SOURCES` factory.
 
-**One step at a time.** At most one work-starting action (`start-task`, `run-loop`;
-`SEQUENTIAL_ACTIONS`) is in flight per instance, enforced by `GoalActionExecutor`, not only
-by the prompt. It runs after the ceiling, autonomy, pause and budget checks: while a task of
-the instance is in flight (any status that is not ended and has no outcome, `queued`
-included, from the facts the pass planned on) or this pass already started one, the action is
-not executed. It becomes a timeline note "Not started: <type> (<what>) [step <title>] waits
-for the running step." and is never recorded as applied, so the planner can restate it later.
-So of several `start-task` actions in one plan only the first runs. `pr-action`, `message` and
-the rest are never blocked by this. When a started task carries a `stepId` of a known step, the
+**Parallel steps, one live task per step.** Independent steps start together: the planner
+returns one `start-task` / `run-loop` per step (`stepId`) in one plan and every one runs. The
+engine does not throttle: a goal-started task takes a run slot and queues in the task
+scheduler when the cap is full, so ten queued tasks never block a re-plan. What
+`GoalActionExecutor` enforces (`STEP_ACTIONS`, after the ceiling, autonomy, pause and budget
+checks, not only by the prompt) is, per step, `ctx.stepBlocker`: a start is refused while the
+step's task is still live (queued, running or waiting on the operator, from the facts the pass
+planned on, or started earlier in the same plan), while a task carried over from the last cycle
+for the same `stepId` is live, when the step is already `done`, and while a step in its
+`dependsOn` (optional list of step ids on `GoalStep`) is not `done` (an unknown id is
+ignored). The refused action becomes a timeline note "Not started: <type> (<what>) [step
+
+<title>] — step <id>: <reason>." and is never recorded as applied, so the planner restates it
+later. A step whose task failed or was cancelled may be started again. A start without a
+`stepId` has no per-step check (only the `actionId` idempotency). The budget check
+(`maxRunsPerCycle`, live per started task) still caps the pass. `pr-action`, `message` and the
+rest are never blocked by this. When a started task carries a `stepId` of a known step, the
 step becomes `running` with that `taskId`. Before every planner run the engine settles
 running steps whose task finished (`reconcileSteps`): outcome `done` -> `done`; outcome
 `error` (or a cancelled / failed / dead-lettered task) -> `failed` with the error as `note`
 (300 chars). The planner sees the settled state and its own statuses win afterwards.
+
+**Task states.** Each `facts.tasks.tasks[]` entry carries `state`: `queued` (task `queued` /
+`scheduled`, or its run queued), `running`, `waiting-operator` (task `awaiting-output` /
+`held`, or its run `parked` / `awaiting-approval` / `held` / `paused`; `reason` = the task
+status or the run's park note, phase and attempts, read from the run feed via
+`TaskRunsService.listTaskRuns()` once per tick), `failed` (error outcome, cancelled, failed,
+dead-letter or missing; `error` = outcome summary, 300 chars) or `done` (`summary` = the
+outcome summary, 500 chars: publication links, status). The wake fingerprint treats `queued`
+and `running` as one state, so a slot hand-over costs no planner run; `waiting-operator`
+changes it. A task newly waiting on the operator produces ONE `report` (timeline + `goal-acted`
+activity, with the reason); its id is kept in `instance.reportedWaiting` and forgotten when
+the task moves on, so it is not repeated every tick (this also happens on a tick that does not
+plan). An instance whose only live tasks wait on the operator is `waiting`, not `acting`. A
+successful plan clears the instance's stale `summary` (e.g. "Planner failed 3 times in a row.")
+unless it ends `done` / `parked`.
+
+**Cycle rollover.** A new cycle drops `taskIds`, `steps` and `appliedActionIds`, but tasks of
+the old cycle still in flight are carried: `bookkeep` stores every old task id (and the ids
+already carried) as `instance.carriedTasks: { taskId, stepId? }` (`stepId` from the step whose
+`taskId` it was; planner runs are not carried). The facts list a carried task only while it is
+queued / running / waiting on the operator, marked `carried: true` with its `stepId`; the
+engine drops an ended one (done or failed) from `carriedTasks` on its next tick, and the
+planner prompt says to count a carried task toward the new cycle instead of starting a
+duplicate. A carried task also blocks a `start-task` for the same `stepId`. Carried tasks do
+not count toward the new cycle's `maxRunsPerCycle`.
 
 **Idempotency.** `start-task`, `run-loop`, `pr-action` and `message` carry a planner-supplied
 `actionId`
@@ -439,8 +474,9 @@ no gate plugin, no granted dirs, no directive. Its output only counts through
   list the cycle's `appliedActionIds`, and say a `pr-action` runs only where Autopilot starts it.
   Steps: the current steps sit in their own `<untrusted-data name="steps">` section and the
   output block may carry `steps`. The rules ask for one step per deliverable on the first plan
-  with stable ids and Czech titles, exactly ONE step started at a time (only when no step runs,
-  the next after the previous is done, `stepId` on `start-task`), and **re-planning around a
+  with stable ids and Czech titles, independent steps started in parallel (`stepId` on each
+  `start-task`, `dependsOn` for a step that needs another's result), the task states of the facts
+  and carried tasks explained, and **re-planning around a
   blocker**: when a failed task's `error` (in the facts) says an API key is missing or credits /
   quota are exhausted, the planner marks that step `failed`/`blocked` with the reason, leaves
   the other steps of that kind pending, starts a step of a different kind instead (a 3D model
